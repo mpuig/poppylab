@@ -1,0 +1,20 @@
+name = "lantern-noodle-bar"
+main = "src/worker.ts"
+compatibility_date = "2026-10-01"
+# global_fetch_strictly_public: fetch() only reaches the public internet.
+compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
+# Custom domain on the poppylab.dev zone (Wrangler creates the DNS record).
+routes = [{ pattern = "noodles.poppylab.dev", custom_domain = true }]
+workers_dev = false
+
+[vars]
+PUBLIC_ORIGIN = "https://noodles.poppylab.dev"
+PUBLIC_DOMAIN = "noodles.poppylab.dev"
+
+[[durable_objects.bindings]]
+name = "LANTERN"
+class_name = "LanternCompany"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["LanternCompany"]

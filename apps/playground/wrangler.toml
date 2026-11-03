@@ -1,0 +1,27 @@
+name = "poppy-lab"
+main = "worker.ts"
+compatibility_date = "2026-10-01"
+# global_fetch_strictly_public: fetch() only reaches the public internet.
+compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
+routes = [{ pattern = "poppylab.dev", custom_domain = true }]
+workers_dev = false
+
+[assets]
+directory = ".open-next/assets"
+binding = "ASSETS"
+
+[vars]
+AGENT_PUBLIC_ORIGIN = "https://poppylab.dev"
+POPPY_PUBLIC = "true"
+PAP_ACCOUNT_ORIGINS = "https://juniper.poppylab.dev https://noodles.poppylab.dev"
+# Secrets, set with `wrangler secret put` (never in this file):
+#   POPPY_IDENTITY   the agent key pair (JSON)
+#   POPPY_STATE_KEY  32 random bytes, base64url: seals per-visitor state at rest
+
+[[durable_objects.bindings]]
+name = "POPPY_VISITORS"
+class_name = "PoppyVisitor"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["PoppyVisitor"]

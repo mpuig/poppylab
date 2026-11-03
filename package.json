@@ -1,0 +1,29 @@
+{
+  "name": "poppy-lab",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.1.2",
+  "scripts": {
+    "dev": "pnpm --parallel --filter @poppy-lab/playground --filter @poppy-lab/example-company --filter @poppy-lab/lantern dev",
+    "dev:playground": "pnpm --filter @poppy-lab/playground dev",
+    "dev:company": "pnpm --filter @poppy-lab/example-company dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm --workspace-concurrency=1 -r test --maxWorkers=2",
+    "scenarios": "node scripts/scenarios.mjs",
+    "lint": "eslint apps packages scripts eslint.config.mjs",
+    "format": "prettier --write apps packages scripts *.json *.yaml eslint.config.mjs",
+    "format:check": "prettier --check apps packages scripts *.json *.yaml eslint.config.mjs",
+    "dev:lantern": "pnpm --filter @poppy-lab/lantern dev",
+    "spec:drift": "node scripts/spec-drift.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.10.0",
+    "eslint": "^10.13.0",
+    "prettier": "^3.9.10",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.71.2",
+    "vitest": "^4.0.18"
+  }
+}

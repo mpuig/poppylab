@@ -1,0 +1,31 @@
+{
+  "name": "@poppy-lab/example-company",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/site-script.mjs && tsx watch src/node.ts",
+    "build": "node scripts/site-script.mjs && tsc -p tsconfig.json --noEmit",
+    "start": "node scripts/site-script.mjs && tsx src/node.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node scripts/site-script.mjs && vitest run src",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "dev:worker": "node scripts/site-script.mjs && wrangler dev",
+    "deploy": "node scripts/site-script.mjs && wrangler deploy",
+    "site:script": "node scripts/site-script.mjs"
+  },
+  "dependencies": {
+    "@poppy-lab/pap-client": "workspace:*",
+    "@poppy-lab/pap-company": "workspace:*",
+    "hono": "^4.9.0",
+    "@hono/node-server": "^1.19.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18",
+    "@cloudflare/workers-types": "^4.20251001.0",
+    "wrangler": "^4.40.0"
+  }
+}

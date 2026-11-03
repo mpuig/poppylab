@@ -1,0 +1,36 @@
+{
+  "name": "@poppy-lab/playground",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "PAP_ALLOW_PRIVATE_NETWORK=true next dev -p 3000",
+    "build": "next build",
+    "start": "next start -p 3000",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.worker.json",
+    "test": "vitest run --passWithNoTests",
+    "lint": "tsc --noEmit",
+    "build:worker": "node scripts/build-worker.mjs",
+    "preview:worker": "wrangler dev --port 4400",
+    "deploy:worker": "wrangler deploy"
+  },
+  "dependencies": {
+    "@poppy-lab/llm-adapters": "workspace:*",
+    "@poppy-lab/pap-client": "workspace:*",
+    "@poppy-lab/pap-core": "workspace:*",
+    "jose": "^6.2.12",
+    "lucide-react": "^0.468.0",
+    "next": "^16.1.6",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "@opennextjs/cloudflare": "^1.20.15"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260702.1",
+    "@types/node": "^24.10.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18",
+    "wrangler": "^4.156.0"
+  }
+}
