@@ -1,0 +1,34 @@
+# Dependencies and build output
+node_modules/
+.next/
+.open-next/
+.wrangler/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Secrets and local state: never committed
+.env
+.env.*
+!.env.example
+.dev.vars
+.poppy/
+*.pem
+*.key
+
+# Local copies of the published draft fetched by `pnpm spec:drift`
+spec/**/*.latest.md
+
+# Agent and editor tooling (local to each machine)
+.codex/
+.claude/
+.cursor/
+.agents/
+.impeccable/
+**/.impeccable/
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,14 @@
+packages:
+  - apps/*
+  - packages/*
+
+allowBuilds:
+  esbuild: true
+  workerd: true
+
+minimumReleaseAge: 1440
+
+overrides:
+  # glob <10.5 ships a CLI with a command-injection issue (advisory); we never
+  # run it, but pin the patched line pulled in through OpenNext anyway.
+  "glob@>=10.2.0 <10.5.0": ">=10.5.0"

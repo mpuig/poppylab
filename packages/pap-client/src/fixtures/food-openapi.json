@@ -1,0 +1,211 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Kettle Street Noodles (PAP Sandbox)",
+    "version": "1",
+    "description": "Menu, delivery slots, the customer's orders, and changes to a scheduled delivery A reference store for personal agents: nothing is charged and nothing ships. Every request carries a Session Token with the DPoP scheme and a DPoP proof (Personal Agent Protocol 4.3). Endpoints that change an order or booking return operations (operations extension v1, HTTP 202)."
+  },
+  "servers": [{ "url": "https://food.papsandbox.com" }],
+  "paths": {
+    "/poppy/products": {
+      "get": {
+        "operationId": "menu",
+        "summary": "Search the catalogue by name, category or tag. Prices in cents.",
+        "security": [{ "dpop": [] }],
+        "x-poppy-scope": null,
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "Words to search for; empty lists everything."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": { "schema": { "type": "object" } }
+            }
+          },
+          "401": {
+            "description": "invalid_token or invalid_dpop_proof, in WWW-Authenticate."
+          }
+        }
+      }
+    },
+    "/poppy/delivery-slots": {
+      "get": {
+        "operationId": "delivery_slots",
+        "summary": "The delivery slots open for the next week or two.",
+        "security": [{ "dpop": [] }],
+        "x-poppy-scope": null,
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": { "schema": { "type": "object" } }
+            }
+          },
+          "401": {
+            "description": "invalid_token or invalid_dpop_proof, in WWW-Authenticate."
+          }
+        }
+      }
+    },
+    "/poppy/orders": {
+      "get": {
+        "operationId": "my_orders",
+        "summary": "The signed-in customer's open orders.",
+        "security": [{ "dpop": ["poppy:read"] }],
+        "x-poppy-scope": "poppy:read",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": { "schema": { "type": "object" } }
+            }
+          },
+          "401": {
+            "description": "invalid_token or invalid_dpop_proof, in WWW-Authenticate."
+          },
+          "403": {
+            "description": "sign_in_required or insufficient_scope, in WWW-Authenticate."
+          }
+        }
+      }
+    },
+    "/poppy/orders/{order_id}/changes": {
+      "post": {
+        "operationId": "change_order",
+        "summary": "Propose a change to an order: move the delivery, add, swap or remove items. Returns HTTP 202 with an operation (operations extension v1); nothing changes until it is confirmed.",
+        "security": [{ "dpop": ["poppy:write"] }],
+        "x-poppy-scope": "poppy:write",
+        "parameters": [
+          {
+            "name": "order_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "slot": {
+                    "type": "string",
+                    "description": "Move the delivery: one of the values from delivery_slots."
+                  },
+                  "add": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["product_id"],
+                      "properties": {
+                        "product_id": { "type": "string" },
+                        "variant_id": { "type": "string" },
+                        "quantity": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 10
+                        }
+                      }
+                    }
+                  },
+                  "replace": {
+                    "type": "array",
+                    "description": "Swap a line for another product, keeping its quantity.",
+                    "items": {
+                      "type": "object",
+                      "required": ["line_id", "product_id"],
+                      "properties": {
+                        "line_id": { "type": "string" },
+                        "product_id": { "type": "string" },
+                        "variant_id": { "type": "string" }
+                      }
+                    }
+                  },
+                  "remove": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "line_id values to remove."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "An operation with the proposed terms (operations extension v1). Confirm it at the operations endpoint after the User approves.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "operation": { "$ref": "#/components/schemas/Operation" }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "invalid_token or invalid_dpop_proof, in WWW-Authenticate."
+          },
+          "403": {
+            "description": "sign_in_required or insufficient_scope, in WWW-Authenticate."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "dpop": {
+        "type": "http",
+        "scheme": "DPoP",
+        "description": "A Session Token from the token endpoint, bound to the DPoP key (RFC 9449). Account scopes: poppy:read, poppy:write."
+      }
+    },
+    "schemas": {
+      "Operation": {
+        "type": "object",
+        "required": [
+          "operation_id",
+          "revision",
+          "state",
+          "summary",
+          "confirmation",
+          "result"
+        ],
+        "properties": {
+          "operation_id": { "type": "string" },
+          "revision": { "type": "integer" },
+          "state": {
+            "type": "string",
+            "enum": [
+              "proposed",
+              "in_progress",
+              "succeeded",
+              "failed",
+              "cancelled",
+              "expired"
+            ]
+          },
+          "summary": { "type": "string" },
+          "terms": { "type": "object" },
+          "expires_at": { "type": ["string", "null"] },
+          "user_approval_required": { "type": "boolean" },
+          "url": { "type": "string" },
+          "confirmation": { "type": ["object", "null"] },
+          "result": { "type": ["object", "null"] }
+        }
+      }
+    }
+  }
+}

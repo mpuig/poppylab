@@ -1,0 +1,16 @@
+{
+  "retrieved": "2026-11-03",
+  "note": "Poppy Lab implements the text as retrieved on this date. Run `pnpm spec:drift` to see whether the published draft changed.",
+  "documents": [
+    {
+      "file": "spec/draft-0.3/spec.md",
+      "url": "https://personalagentprotocol.org/docs/0.3/spec.md",
+      "sha256": "294ca9fb16d6e04e281bece1cc8cc2dc542b4904691d6340fc567b781c3c3d3a"
+    },
+    {
+      "file": "spec/draft-0.3/extensions-operations.md",
+      "url": "https://personalagentprotocol.org/docs/0.3/extensions/operations.md",
+      "sha256": "007eb3ff483e952cded4cc310c078720407e145fae963af9fd60f6f894775cc0"
+    }
+  ]
+}

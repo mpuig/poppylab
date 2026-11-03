@@ -1,0 +1,19 @@
+name = "juniper-market"
+main = "src/worker.ts"
+compatibility_date = "2026-10-01"
+# global_fetch_strictly_public: fetch() only reaches the public internet.
+compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
+routes = [{ pattern = "juniper.poppylab.dev", custom_domain = true }]
+workers_dev = false
+
+[vars]
+PUBLIC_ORIGIN = "https://juniper.poppylab.dev"
+PUBLIC_DOMAIN = "juniper.poppylab.dev"
+
+[[durable_objects.bindings]]
+name = "JUNIPER"
+class_name = "JuniperCompany"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["JuniperCompany"]
