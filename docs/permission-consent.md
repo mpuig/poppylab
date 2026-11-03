@@ -1,47 +1,45 @@
-# Permisos mínimos y recuperación de cuenta
+# Least-privilege permissions and account recovery
 
-## Lectura primero
+## Read first
 
-Poppy solicita `poppy:read` al pulsar Sign in. Una cuenta de lectura puede consultar datos, pero no proponer ni confirmar cambios. El control **Request change permission** abre otro consentimiento, ahora para `poppy:read poppy:write`. Solo se ofrece si la Company anuncia escritura; el servidor también verifica los scopes anunciados antes de construir la autorización. No se añaden scopes nuevos ni permisos por servicio.
+Poppy asks for the Company's read scopes when you choose **Sign in**. A read-only account can look at data but can't propose or confirm changes. The **Request change permission** control opens another consent, this time for read and write. It's only offered if the Company advertises write access; the server also checks the advertised scopes before building the authorization. No new scopes or per-service permissions are added.
 
-La ruta humana acepta `access: "read"` (por defecto) o `access: "write"` (lectura + escritura), no scopes arbitrarios. Ninguna tool del modelo inicia este consentimiento. El bloqueo por scope indica qué control debe usar el usuario, sin cerrar su acceso de lectura.
+The human route accepts `access: "read"` (the default) or `access: "write"` (read plus write), not arbitrary scopes. No model tool starts this consent. A scope block tells the user which control to use, without closing their read access.
 
-Juniper acepta los subconjuntos no vacíos de sus dos scopes independientes, incluidos escritura sola y el orden inverso. Rechaza scopes desconocidos, duplicados o vacíos. El scope solicitado queda asociado al nonce/PKCE del consentimiento: enviar `write=yes` en un formulario solicitado solo para lectura no puede elevarlo. La pantalla solo describe permisos solicitados; no ofrece checkbox de escritura en la variante de lectura. En lectura + escritura se puede desmarcar escritura; en escritura sola no se concede lectura implícita.
+Juniper accepts any non-empty subset of its two independent scopes, including write alone and the reverse order. It rejects unknown, duplicated or empty scopes. The requested scope is bound to the consent's nonce and PKCE: sending `write=yes` on a form requested for read only can't raise it. The page describes only the requested permissions; there's no write checkbox in the read-only variant. With read plus write, write can be unticked; with write alone, read isn't granted implicitly.
 
-Poppy ofrece las dos elecciones de uso anteriores, no un selector general de scopes personalizados. Rechaza una respuesta de token que conceda permisos fuera de lo solicitado. La renovación también solicita explícitamente los scopes actuales y rechaza una respuesta más amplia: expirar una Session no puede convertir lectura en escritura.
+Poppy offers the two choices above, not a general picker of custom scopes. It rejects a token response that grants permissions beyond what was requested. Renewal also asks explicitly for the current scopes and rejects a wider response: an expiring Session can't turn read into write.
 
-## Ampliar no es ejecutar
+## Widening is not acting
 
-Cada consentimiento utiliza una Session candidata nueva. Hasta que termina correctamente se mantienen el acceso anterior, su conversación y sus propuestas. Un contador de consentimientos completados evita confundir un rechazo con éxito solo porque la cuenta anterior seguía conectada.
+Each consent uses a new candidate Session. Until it completes successfully, the previous access, its conversation and its proposals stay in place. A counter of completed consents avoids mistaking a refusal for success just because the previous account was still connected.
 
-Tras éxito se sustituye el acceso activo y se conserva la conversación previa al primer acceso de cuenta (hasta 10 mensajes). El callback guarda esa parte pública y el polling de la UI restaura el historial devuelto por el servidor, en lugar de vaciarlo. En consentimientos posteriores solo se conserva esa parte pública: los turnos privados y las propuestas anteriores se eliminan porque la pantalla Company puede seleccionar otra cuenta. Sign out elimina también la copia pública. La interfaz pide volver a solicitar el cambio; no reproduce automáticamente el mensaje ni la compra. Cada operación conserva su aprobación humana separada.
+On success, the active access is replaced and the conversation from before the first account access is kept (up to 10 messages). The callback stores that public part, and the UI's polling restores the history the server returns instead of emptying it. On later consents only that public part is kept: private turns and earlier proposals are dropped, because the Company's page may select another account. Sign out also removes the public copy. The interface asks you to request the change again; it doesn't replay the message or the purchase. Each operation keeps its own separate human approval.
 
-Los tokens y grants anteriores no se amplían ni se revocan automáticamente. Revocar el grant antiguo corta sus tokens sin invalidar el nuevo. Los grants anteriores pueden gestionarse desde **Accesos** en Juniper; Sign out en Poppy revoca su grant activo, no todos los grants históricos. Los accesos de escritura guardados antes de esta entrega se mantienen: no hay migración silenciosa a lectura.
+Earlier tokens and grants aren't widened or revoked automatically. Revoking the old grant ends its tokens without invalidating the new one. Earlier grants can be managed from the Company website's connected-agents section; Sign out in Poppy revokes its active grant, not every historical grant.
 
-## Recuperación visible
+## Visible recovery
 
-| Situación                           | Comportamiento                                                                                                                                                              |
-| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Permiso insuficiente                | HTTP 403 y orientación para solicitar permisos; confirmación bloqueada localmente antes de enviar si falta escritura.                                                       |
-| Acceso no aceptado                  | Se explica que pudo caducar o revocarse, sin inventar una causa exacta; se ofrece Sign in y se deshabilita la aprobación en la UI. Se conservan propuestas para inspección. |
-| Propuesta caducada                  | HTTP 410 local al intentar aprobar; no se envía confirmación. Consultar estado y pedir otra propuesta si procede.                                                           |
-| Términos cambiados                  | Consultar estado, revisar la nueva revisión y aprobarla por separado.                                                                                                       |
-| Respuesta incierta                  | HTTP 502 y Check status antes de volver a confirmar o proponer. No hay reintento de compra.                                                                                 |
-| Consentimiento rechazado/incompleto | No se interpreta el acceso anterior como un consentimiento nuevo ni se borra su contexto.                                                                                   |
+| Situation                     | Behaviour                                                                                                                                                           |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Insufficient permission       | HTTP 403 and guidance to request permissions; approval blocked locally before anything is sent if write access is missing.                                          |
+| Access no longer accepted     | Explains that it may have expired or been revoked, without inventing an exact cause; offers Sign in and disables approval in the UI. Proposals stay for inspection. |
+| Expired proposal              | A local HTTP 410 when approving; nothing is sent. Ask for another proposal if needed.                                                                               |
+| Changed terms                 | Review the new revision and approve it separately.                                                                                                                  |
+| Uncertain response            | HTTP 502 and the only action is to retry the same approval. No purchase is retried.                                                                                 |
+| Refused or incomplete consent | The previous access isn't taken as a new consent, and its context isn't cleared.                                                                                    |
 
-Un 5xx con un código de error ambiguo no se presenta como revocación comprobada. No se muestran descripciones arbitrarias recibidas de la Company. Las restricciones de Retry-After siguen vigentes.
+A 5xx with an ambiguous error code isn't presented as a confirmed revocation. Arbitrary descriptions received from the Company aren't shown. Retry-After restrictions still apply.
 
-## Pruebas
-
-Validación: 269 tests, TypeScript, lint, build y formato. El escenario permissions pasa 22 tests de Company y 47 de Poppy. Escaneo de 11 trazas de despliegue: cero referencias a archivos secretos.
+## Tests
 
 ```sh
 pnpm scenarios permissions
 ```
 
-- `consent-scopes.test.ts`: subconjuntos independientes y formulario manipulado sin ampliación.
-- `authority-regression.test.ts`: lectura → propuesta bloqueada → nuevo consentimiento → propuesta → aprobación explícita; token antiguo inmutable y revocación independiente.
-- Tests de rutas Poppy: petición predeterminada, ampliación explícita, rechazo de concesión excesiva, permisos insuficientes, caducidad, acceso no disponible y resultado incierto.
-- `account-permissions.test.ts`: elección de scopes, validación del subconjunto, recuperación y detección de consentimiento completado.
+- Juniper's account tests: independent subsets and a tampered form that can't widen access.
+- `authority-regression.test.ts`: read → blocked proposal → new consent → proposal → explicit approval; old token unchanged and independent revocation.
+- Poppy route tests: default request, explicit widening, rejection of an over-broad grant, insufficient permissions, expiry, unavailable access and uncertain outcome.
+- `account-permissions.test.ts`: scope choice, subset validation, recovery and detection of a completed consent.
 
-Revisión visual en dos lotes escritorio/móvil. Juniper: páginas reales de consentimiento sin enviarlas. Poppy: estado de lectura y fallo de acceso inyectados con fixtures de navegador, sin emitir grants, consultar datos de cuentas ni llamar modelos. No se ha revalidado Sandbox en vivo. Revisión en el mismo hilo, sin revisor independiente.
+The visual review was done in two desktop and mobile batches: Juniper's real consent pages without submitting them, and Poppy's read-only and failed-access states with browser fixtures, without issuing grants, reading account data or calling models. The review was done in-thread, with no independent reviewer.

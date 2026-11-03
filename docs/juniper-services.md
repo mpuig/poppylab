@@ -6,7 +6,7 @@ First vertical slice of the approved [testbed plan](juniper-testbed-plan.md), no
 
 1. Open `/help` for public FAQs, or enter `/account` as fictional Alex.
 2. The account navigation covers shopping, deliveries, orders, billing, help/cases, profile and collapsed agent activity. [Shopping and recurring delivery editors](juniper-shopping-web.md) share version guards with agent proposals. Billing derives simulated documents from existing orders; profile now supports [versioned website edits and approval-gated agent changes](juniper-profile.md). No new payment ledger is implied.
-3. Submit a case in **Ayuda e incidencias**, optionally selecting one of your actual fictional orders. Submission is an explicit customer action, not a PAP approval. Both surfaces read the same persisted record.
+3. Submit a case in **Help and support**, optionally selecting one of your actual fictional orders. Submission is an explicit customer action, not a PAP approval. Both surfaces read the same persisted record.
 4. A clearly labeled automatic test responder posts topic-based guidance. No real support worker, LLM support conversation, refund or delivery intervention is involved.
 5. In Poppy, choose an LLM (verified with OpenAI compatible / `gpt-6-luna`) and ask it to read the complete case and propose closing it as answered. The deterministic Protocol demo has not gained a support-intent parser.
 6. Review Company-owned terms and explicitly approve or decline in Poppy. Natural-language agreement does not close a case. An approved closure changes only case status/version.

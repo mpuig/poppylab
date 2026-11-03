@@ -1,13 +1,13 @@
 # Editable shopping and recurring delivery
 
-Open `/account` and choose **Editar carrito** or **Editar entrega recurrente**. Editors use the same persisted customer records, catalogue, stock bounds, allowed days and totals engine as the agent APIs. There is no duplicate frontend dataset or second pricing implementation.
+Open `/account` and choose **Edit basket** or **Edit recurring delivery**. Editors use the same persisted customer records, catalogue, stock bounds, allowed days and totals engine as the agent APIs. There is no duplicate frontend dataset or second pricing implementation.
 
 ## Human website actions
 
-- The basket editor shows all four catalogue products, including products not currently present. Integer quantities range from zero to the declared per-product stock cap. Zero removes a line. **Guardar carrito** updates the basket only; it never creates or pays for an order. Checkout remains a separately reviewed, explicitly approved Poppy operation.
+- The basket editor shows all four catalogue products, including products not currently present. Integer quantities range from zero to the declared per-product stock cap. Zero removes a line. **Save basket** updates the basket only; it never creates or pays for an order. Checkout remains a separately reviewed, explicitly approved Poppy operation.
 - The recurring editor updates its day and all item quantities atomically. It never changes the shopping basket or existing orders. An empty recurring configuration has zero delivery fee/total and is labeled as having no simulated shipment.
 - Displayed totals describe saved state, not a price preview of an unsaved draft. Totals are recomputed by the existing Company engine after save.
-- Both forms capture their opening entity version. Polling may update the saved-state read view but does not replace drafts or silently update their version. Conflicts return 409 and retain text/quantities; **Cargar los datos actuales** explicitly replaces the draft from the latest observed state. Cancel discards it on reopening. Save/cancel/reload controls disable while saving.
+- Both forms capture their opening entity version. Polling may update the saved-state read view but does not replace drafts or silently update their version. Conflicts return 409 and retain text/quantities; **Load the current data** explicitly replaces the draft from the latest observed state. Cancel discards it on reopening. Save/cancel/reload controls disable while saving.
 - An uncertain save instructs refresh before resending. Reusing an old version cannot apply a second update. These are not a general durable idempotency-key implementation.
 
 ## Authority and shared invariants

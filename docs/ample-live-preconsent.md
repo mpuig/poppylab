@@ -1,22 +1,24 @@
-# Ample: prueba real hasta la autorización humana
+# Ample: live test up to human authorization
 
-Se probó el flujo en una sesión aislada de agent-browser, sin fixtures ni cookies de cuentas existentes.
+> **Historical.** Ample publishes PAP 0.1 and the integration was removed when Poppy moved to 0.3 only.
 
-## Observado en vivo
+The flow was tested in an isolated agent-browser session, with no fixtures and no cookies from existing accounts.
 
-1. La metadata pública del relay respondió HTTP 200 por HTTPS.
-2. Connect descubrió `https://ample.computer` como Ample Computer, PAP 0.1, canal MCP.
-3. Se envió a GPT-6 Luna/low: «Lista mis servidores de Ample. Solo lectura, sin hacer cambios.» El modelo respondió que hacía falta pulsar Sign in; no afirmó haber listado servidores ni realizado cambios.
-4. Al pulsar Sign in, Poppy obtuvo una respuesta válida de Session previa al consentimiento desde Ample y abrió su endpoint real `/poppy/authorize`.
-5. La página de Ample mostró un campo Email vacío y Continue. Se verificaron los scopes solicitados `servers:read budgets:read`, PKCE S256 y presencia de state, sin registrar sus valores ni el challenge. Client y callback usaban el nuevo origen público del relay.
-6. El chat de Poppy conservó la conversación y mostró que esperaba finalizar el sign-in en la Company.
+## Observed live
 
-## Límite de esta prueba
+1. The relay's public metadata answered HTTP 200 over HTTPS.
+2. Connect discovered `https://ample.computer` as Ample Computer, PAP 0.1, MCP channel.
+3. GPT-6 Luna (low) was sent: "List my Ample servers. Read only, make no changes." The model replied that Sign in was needed; it didn't claim to have listed servers or made changes.
+4. On Sign in, Poppy got a valid pre-consent Session response from Ample and opened its real `/poppy/authorize` endpoint.
+5. Ample's page showed an empty Email field and Continue. The requested scopes `servers:read budgets:read`, PKCE S256 and the presence of state were checked, without logging their values or the challenge. The client and callback used the relay's new public origin.
+6. Poppy's chat kept the conversation and showed that it was waiting for sign-in to finish at the Company.
 
-Se detuvo antes de introducir email o continuar en Ample. **No se autenticó ninguna cuenta, no se aprobó consentimiento, no se recibió un Account Token y no se llamó ninguna herramienta privada de infraestructura.** La Session previa al consentimiento sí se creó en vivo; no es equivalente a acceso de cuenta.
+## Limit of this test
 
-La sesión aislada del navegador se cerró tras comprobar el formulario. Su state pendiente no debe reutilizarse. El usuario debe pulsar Connect y Sign in en su propio navegador, completar el consentimiento y después probar una lectura. Callback real, canje firmado de cuenta, listado privado y revocación real siguen pendientes; los cubren pruebas aisladas, no esta observación live.
+It stopped before entering an email or continuing at Ample. **No account was authenticated, no consent was approved, no Account Token was received and no private infrastructure tool was called.** The pre-consent Session was created live; that isn't account access.
 
-Captura del formulario sin credenciales: tomada localmente, no incluida en el repositorio. Se inspeccionó la imagen: formulario Email vacío y Continue; no contiene state, códigos ni credenciales. No se guardó un HAR ni se imprimieron URLs de autorización con parámetros transitorios.
+The isolated browser session was closed after checking the form, and its pending state must not be reused. The callback, the signed account exchange, private listing and real revocation remained covered only by isolated tests, not by this observation.
 
-El relay y túnel restringidos se dejaron activos. No se cambiaron claves, configuración, grants existentes ni datos de infraestructura durante esta prueba.
+A screenshot of the form without credentials was taken locally and isn't included in the repository. It showed the empty Email form and Continue, and no state, codes or credentials. No HAR was saved and no authorization URLs with transient parameters were printed.
+
+The restricted relay and tunnel were left running. No keys, configuration, existing grants or infrastructure data were changed during this test.

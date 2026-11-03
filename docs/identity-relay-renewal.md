@@ -1,52 +1,45 @@
-# Renovación del relay de identidad — 20 octubre 2026
+# Identity relay renewal (20 October 2026)
 
-El operador autorizó renovar el túnel después de comprobar que su hostname anterior no resolvía. Se detuvieron únicamente los procesos antiguos del relay/túnel cuya identidad y PIDs propios se verificaron, no los servicios de Poppy o Juniper.
+> **Historical.** The relay exposed a local Poppy's public identity while the playground ran only locally. Poppy now runs publicly at `poppylab.dev` with its own HTTPS identity, so the relay is no longer used.
 
-## Cambios
+The operator authorized renewing the tunnel after checking that its previous hostname no longer resolved. Only the old relay and tunnel processes, whose identity and PIDs were verified as ours, were stopped; Poppy and Juniper were left running.
 
-- Nuevo Cloudflare quick tunnel dirigido exclusivamente a `127.0.0.1:4101`.
-- Relay reiniciado con el callback permitido para el issuer exacto `https://api.ample.computer/poppy`, además de los tres issuers Sandbox existentes. El origen sin `/poppy`, paths distintos y dominios similares se rechazan.
-- Actualizado únicamente `AGENT_PUBLIC_ORIGIN` en `.env.local` ignorado. Un fingerprint del resto del archivo confirmó que modelos, claves y demás valores no cambiaron. Next recogió el cambio sin terminar su proceso.
-- La clave de firma no cambió: JWKS público antes/después idéntico.
-- El supervisor temporal consume la salida de cloudflared y guarda solo la URL pública asignada y estado de salida, no URLs de peticiones ni valores de callback.
+## Changes
 
-Estado operativo temporal:
+- A new Cloudflare quick tunnel pointed only at `127.0.0.1:4101`.
+- The relay was restarted with the callback allowed for the exact issuer `https://api.ample.computer/poppy`, as well as the three existing Sandbox issuers. The origin without `/poppy`, other paths and look-alike domains are rejected.
+- Only `AGENT_PUBLIC_ORIGIN` was updated in the ignored `.env.local`. A fingerprint of the rest of the file confirmed that models, keys and other values didn't change. Next picked up the change without restarting.
+- The signing key didn't change: the public JWKS before and after was identical.
+- The temporary supervisor read cloudflared's output and kept only the assigned public URL and exit status, not request URLs or callback values.
 
-- `/tmp/poppy-identity-relay.pid`
-- `/tmp/poppy-identity-tunnel.pid`
-- `/tmp/poppy-identity-tunnel-wrapper.pid`
-- `/tmp/poppy-identity-tunnel-url.txt`
-- `/tmp/poppy-identity-relay.log`
-- `/tmp/poppy-identity-tunnel-events.log`
+The process and log files lived under `/tmp` for that session. The tunnel was temporary, not a production deployment.
 
-Estos archivos describen procesos de esta sesión; verifica siempre PIDs y comandos antes de detenerlos. El túnel es temporal, no un despliegue de producción.
+## Real public checks
 
-## Comprobaciones públicas reales
+All over HTTPS with certificate validation; TLS was never disabled:
 
-Todas usando HTTPS con validación de certificado; no se desactivó TLS:
+| Public request                                | Result                                                 |
+| --------------------------------------------- | ------------------------------------------------------ |
+| GET `/agent/client.json`                      | 200; client_id, JWKS and callback match the new origin |
+| GET `/agent/jwks.json`                        | 200; same public key, no `d`                           |
+| GET `/`, `/api/chat`, `/api/account`          | 404                                                    |
+| GET `/.env.local`, `/.poppy/identity.json`    | 404                                                    |
+| GET metadata with proxy parameters            | 404                                                    |
+| POST `/agent/client.json`                     | 405                                                    |
+| Ample callback with synthetic state and code  | 302 to the fixed localhost; not followed               |
+| Callback from Ample's origin without `/poppy` | 400                                                    |
 
-| Petición pública                              | Resultado                                                     |
-| --------------------------------------------- | ------------------------------------------------------------- |
-| GET `/agent/client.json`                      | 200; client_id, JWKS y callback coinciden con el nuevo origen |
-| GET `/agent/jwks.json`                        | 200; misma clave pública, sin `d`                             |
-| GET `/`, `/api/chat`, `/api/account`          | 404                                                           |
-| GET `/.env.local`, `/.poppy/identity.json`    | 404                                                           |
-| GET metadata con parámetros de proxy          | 404                                                           |
-| POST `/agent/client.json`                     | 405                                                           |
-| Callback Ample con state/código sintéticos    | 302 al localhost fijo; no se siguió                           |
-| Callback con origen Ample sin issuer `/poppy` | 400                                                           |
+The synthetic callback didn't correspond to any consent and wasn't exchanged for tokens. No tools or Ample accounts were called.
 
-El callback sintético no correspondía a ningún consentimiento ni se intercambió por tokens. No hubo llamadas a herramientas ni a cuentas de Ample.
+The first check with Python's urllib failed because of the local Python certificate store; it was completed with curl and its normal TLS verification, without `-k` or equivalent.
 
-La comprobación inicial con urllib falló por el almacén de certificados local de Python; se completó con curl y su verificación TLS habitual, sin usar `-k` ni equivalentes.
+## What to do next (at the time)
 
-## Qué hacer ahora
+1. Reload `http://localhost:3000`.
+2. Enter `https://ample.computer` and choose **Connect** again, even if it already shows as connected: a new run with the new identity is needed.
+3. Choose **Sign in to Ample Computer · read only** and complete the consent at Ample yourself.
+4. Return to Poppy and ask for a read. Keep the relay and tunnel running.
 
-1. Recarga `http://localhost:3000`.
-2. Introduce `https://ample.computer` y pulsa **Connect** de nuevo, aunque ya aparezca conectado: hace falta un run nuevo con la nueva identidad.
-3. Pulsa **Sign in to Ample Computer · read only** y completa tú el consentimiento en Ample.
-4. Vuelve a Poppy y solicita una lectura. Mantén el relay y el túnel en ejecución.
+The origin change changes the `client_id`. Grants stored under the previous identity weren't changed, revoked or migrated. Since the old URL no longer resolved, revoking them may need to happen at the Company; they weren't reused under the new identity.
 
-El cambio de origen cambia el `client_id`. Los grants guardados de la identidad anterior no se han modificado, revocado ni migrado. Como la URL anterior ya no resolvía, puede ser necesario gestionar su revocación desde la Company correspondiente; no se intentó reutilizarlos bajo la nueva identidad.
-
-Los 10 tests del relay cubren superficie pública, claves privadas rechazadas, callback de Sandbox y Ample, redirect fijo e issuers incorrectos. Suite completa actual: 322 tests. Ninguna de estas pruebas sustituye la autorización humana ni demuestra lecturas privadas exitosas en Ample.
+The relay's 10 tests cover the public surface, rejected private keys, the Sandbox and Ample callbacks, the fixed redirect and wrong issuers. Full suite at the time: 322 tests. None of these replace human authorization or show successful private reads at Ample.
