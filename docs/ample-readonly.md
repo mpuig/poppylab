@@ -1,71 +1,67 @@
-# Ample Computer: consentimiento MCP de solo lectura
+# Ample Computer: read-only MCP consent
 
-Poppy admite ahora Direct Sign-In para los dos orígenes exactos `https://ample.computer` y `https://api.ample.computer`, vinculados exclusivamente al issuer `https://api.ample.computer/poppy` y a los endpoints públicos verificados de Ample. Esto no amplía el soporte de Operations ni permite otras Companies de infraestructura.
+> **Historical.** Ample publishes PAP 0.1, and Poppy now implements 0.3 only, so this integration was removed. The notes are kept as a record of the read-only MCP design.
 
-## Permisos y herramientas
+Poppy supported Direct Sign-In for the two exact origins `https://ample.computer` and `https://api.ample.computer`, bound exclusively to the issuer `https://api.ample.computer/poppy` and to Ample's verified public endpoints. This didn't widen Operations support or allow other infrastructure Companies.
 
-El consentimiento pide **`servers:read budgets:read`**, nunca `servers:write`, `servers:exec`, comodines de almacenamiento ni permisos de credenciales. Una concesión que añada escritura se rechaza antes de sustituir el acceso anterior. La UI explica que Ample es una cuenta real, no una persona ficticia de Juniper.
+## Permissions and tools
 
-El catálogo público observado permite verificar estas seis herramientas declaradas de lectura:
+The consent asked for **`servers:read budgets:read`**, never `servers:write`, `servers:exec`, storage wildcards or credential permissions. A grant that added write access was rejected before replacing the previous access. The UI explained that Ample is a real account, not one of Juniper's fictional personas.
 
-| Tool                  | Scope exigido localmente                  |
-| --------------------- | ----------------------------------------- |
-| `ample_server_list`   | `servers:read`                            |
-| `ample_server_get`    | `servers:read`                            |
-| `ample_app_list`      | `servers:read`                            |
-| `ample_app_get`       | `servers:read`                            |
-| `ample_budget_status` | `budgets:read`                            |
-| `ample_usage_current` | `budgets:read` (restricción conservadora) |
+The observed public catalogue allowed verifying these six tools declared as read-only:
 
-La lista está integrada en código y no puede ampliarse con `PAP_MCP_READ_TOOLS`. Además, cada herramienta debe seguir anunciando `readOnlyHint: true` y un esquema soportado. No se exponen logs, comandos, despliegues, borrados, tokens, credenciales, workspaces ni la UI embebida de Ample.
+| Tool                  | Scope required locally               |
+| --------------------- | ------------------------------------ |
+| `ample_server_list`   | `servers:read`                       |
+| `ample_server_get`    | `servers:read`                       |
+| `ample_app_list`      | `servers:read`                       |
+| `ample_app_get`       | `servers:read`                       |
+| `ample_budget_status` | `budgets:read`                       |
+| `ample_usage_current` | `budgets:read` (conservative choice) |
 
-Poppy genera `execution_key` en código, fuera del modelo (un identificador aleatorio por llamada) y oculta `execution_key` y `workspace_id` del esquema disponible al LLM. Inyectarlos manualmente se rechaza. Los argumentos normales, como el ID del servidor, siguen validándose.
+The list was built into the code and couldn't be widened with `PAP_MCP_READ_TOOLS`. Each tool also had to keep advertising `readOnlyHint: true` and a supported schema. Logs, commands, deployments, deletions, tokens, credentials, workspaces and Ample's embedded UI weren't exposed.
 
-La verificación del contrato público **no prueba** que un servidor remoto sea incapaz de mentir sobre los efectos de sus herramientas. La allowlist local y los scopes limitan la autoridad; no constituyen un sandbox de infraestructura.
+Poppy generated `execution_key` in code, outside the model (a random identifier per call), and hid `execution_key` and `workspace_id` from the schema available to the LLM. Injecting them manually was rejected. Normal arguments, such as the server ID, were still validated.
 
-## Flujo
+Verifying the public contract **doesn't prove** that a remote server can't lie about the effects of its tools. The local allowlist and scopes limit authority; they aren't an infrastructure sandbox.
 
-1. Conecta `https://ample.computer` en Poppy.
-2. Pulsa **Sign in to Ample Computer · read only** en el chat. Es una acción humana; el modelo solo puede explicar que hace falta acceso.
-3. Completa el consentimiento en Ample. Poppy no recoge sus credenciales.
-4. Vuelve a Poppy y pide listar apps/servidores o consultar presupuesto/consumo. No se reproduce automáticamente el mensaje anterior ni se cobra una llamada al modelo sin enviar un mensaje nuevo.
-5. Si Ample concede solo uno de los scopes, las herramientas sin permiso permanecen bloqueadas. **Request remaining read access** abre un consentimiento nuevo, también de lectura.
-6. **Sign out** revoca el Account Token activo y elimina las credenciales de Session cacheadas tras una respuesta satisfactoria. Las respuestas OAuth de revocación vacías HTTP 200/204 se aceptan solo en esa petición. Un fallo incierto no borra el acceso local ni provoca reintentos automáticos.
+## Flow
 
-La conversación previa al primer acceso de cuenta se conserva. Los turnos privados y propuestas anteriores no atraviesan otro consentimiento, porque puede seleccionar una cuenta distinta.
+1. Connect `https://ample.computer` in Poppy.
+2. Choose **Sign in to Ample Computer · read only** in the chat. It's a human action; the model can only explain that access is needed.
+3. Complete the consent at Ample. Poppy doesn't collect its credentials.
+4. Return to Poppy and ask to list apps or servers, or to check the budget or usage. The earlier message isn't replayed, and no model call is made without a new message.
+5. If Ample grants only one of the scopes, the tools without permission stay blocked. **Request remaining read access** opens a new consent, also read-only.
+6. **Sign out** revokes the active Account Token and removes the cached Session credentials after a successful response. Empty HTTP 200/204 OAuth revocation responses are accepted only for that request. An uncertain failure doesn't delete the local access or trigger automatic retries.
 
-## Tokens y renovación
+The conversation from before the first account access is kept. Private turns and earlier proposals don't cross another consent, because it may select a different account.
 
-El consentimiento usa una Session candidata nueva, PKCE S256, state y validación del issuer. La preparación no inicializa MCP ni llama herramientas remotas. Una concesión inválida deja intacto el acceso anterior.
+## Tokens and renewal
 
-El token general DPoP y el token MCP son distintos. Para MCP se valida la metadata de recurso, se solicita `resource=https://api.ample.computer/mcp` y se renueva usando el Account Token y sus scopes actuales. La metadata pública de Ample no anuncia DPoP para MCP, por lo que esa conexión usa Bearer; no se envía el token general al MCP. El Account Token rotado se guarda únicamente tras validar tipo, Session, duración y subconjunto de scopes. La renovación general sigue usando DPoP y no amplía scopes.
+The consent used a new candidate Session, PKCE S256, state and issuer validation. Preparing it didn't initialize MCP or call remote tools. An invalid grant left the previous access intact.
 
-Cada nueva conexión de chat obtiene un token de recurso; no hay caché durable de Session MCP ni reanudación. Un recurso caducado durante una conexión falla con orientación para reconectar. Solo los challenges explícitos de nonce pueden repetirse una vez; las respuestas inciertas no se reintentan. Los errores explícitos de acceso no aceptado marcan la cuenta como no disponible.
+The general DPoP token and the MCP token were different. For MCP, the resource metadata was validated, `resource=https://api.ample.computer/mcp` requested, and the token renewed using the Account Token and its current scopes. Ample's public metadata didn't advertise DPoP for MCP, so that connection used Bearer; the general token was never sent to MCP. The rotated Account Token was stored only after validating its type, Session, lifetime and scope subset. General renewal still used DPoP and didn't widen scopes.
 
-## Identidad pública: relay renovado
+Each new chat connection obtained a resource token; there was no durable MCP Session cache or resumption. A resource token expiring during a connection failed with guidance to reconnect. Only explicit nonce challenges could be repeated once; uncertain responses weren't retried. Explicit access-not-accepted errors marked the account as unavailable.
 
-Ample necesita verificar metadata y JWKS de Poppy mediante HTTPS público. El relay debe exponer solo identidad pública y callback fijo; **nunca el playground**.
+## Public identity: renewed relay
 
-Tras comprobar que la URL anterior no resolvía, el operador autorizó renovar el relay. La nueva identidad HTTPS responde con metadata y JWKS públicos, mantiene la misma clave de firma y admite el issuer exacto de Ample para el callback. El playground sigue bloqueado. Solo cambió `AGENT_PUBLIC_ORIGIN`; el resto del entorno se verificó idéntico mediante un fingerprint sin registrar sus valores. La URL temporal actual vive en `.env.local` ignorado y `/tmp/poppy-identity-tunnel-url.txt`, no en configuración compartida.
+Ample needed to verify Poppy's metadata and JWKS over public HTTPS. The relay was to expose only the public identity and a fixed callback; **never the playground**.
 
-El cambio de origen cambia el `client_id`. Los grants anteriores no se migran ni se revocan automáticamente: inicia una conexión nueva con **Connect** antes de autorizar Ample. La prueba humana de consentimiento y lecturas privadas sigue pendiente. Véase [verificación del relay](identity-relay-renewal.md).
+After checking that the earlier URL no longer resolved, the operator authorized renewing the relay. The new HTTPS identity answered with public metadata and JWKS, kept the same signing key, and allowed Ample's exact issuer for the callback. The playground stayed blocked. Only `AGENT_PUBLIC_ORIGIN` changed; the rest of the environment was verified identical through a fingerprint without logging its values. The temporary URL lived in the ignored `.env.local`, not in shared configuration.
 
-## Evidencia y límites
+The origin change changes the `client_id`. Earlier grants aren't migrated or revoked automatically. See [relay verification](identity-relay-renewal.md).
 
-Fuentes públicas consultadas el 20 de octubre de 2026:
+## Evidence and limits
+
+Public sources consulted on 20 October 2026:
 
 - [Discovery](https://api.ample.computer/.well-known/poppy.json)
-- [Authorization Server Metadata](https://api.ample.computer/.well-known/oauth-authorization-server/poppy)
-- [Metadata de recurso MCP](https://api.ample.computer/.well-known/oauth-protected-resource/mcp)
-- [Catálogo MCP](https://api.ample.computer/mcp/catalog)
-- [OpenAPI público](https://ample.computer/openapi.json), usado como evidencia complementaria de los scopes de lectura.
+- [Authorization server metadata](https://api.ample.computer/.well-known/oauth-authorization-server/poppy)
+- [MCP resource metadata](https://api.ample.computer/.well-known/oauth-protected-resource/mcp)
+- [MCP catalogue](https://api.ample.computer/mcp/catalog)
+- [Public OpenAPI](https://ample.computer/openapi.json), used as supporting evidence for the read scopes.
 
-`apps/playground/lib/fixtures/ample-read-catalog.json` conserva solo las seis descripciones/esquemas seleccionados y el hash SHA256 del catálogo completo observado; no es un hash de release oficial. Las instrucciones remotas no se ejecutaron.
+Isolated tests covered the exact issuer and endpoints, read-only consent and rejection of write, Ample's callback, the six tools with the published catalogue, rejected key and context injection, resource tokens, rotation, reduced scopes, revocation, refused access, and the absence of uncertain retries. Full suite at the time: **322 tests**.
 
-```sh
-pnpm scenarios ample
-```
-
-Pruebas aisladas: issuer/endpoints exactos, consentimiento de lectura y rechazo de escritura, callback de Ample, seis herramientas con el catálogo publicado, inyección de claves/contexto rechazada, tokens de recurso, rotación, scopes reducidos, revocación, acceso rechazado y ausencia de reintentos inciertos. Suite completa: **322 tests**.
-
-La implementación de autorización de cuenta está probada con fixtures, no con una cuenta real de Ample. En la [prueba live posterior](ample-live-preconsent.md) se verificaron discovery, respuesta con GPT-6 Luna, creación de Session previa al consentimiento y apertura del formulario real de Ample. Se detuvo antes de introducir email: no se aprobó consentimiento, no se recibió Account Token ni se leyó infraestructura privada o llamó herramientas remotas. No hubo despliegues, comandos, compras ni cambios en grants existentes. La interoperabilidad completa sigue pendiente de la autorización humana; la identidad pública ya fue comprobada accesible durante la renovación.
+Account authorization was tested with fixtures, not with a real Ample account. The [later live test](ample-live-preconsent.md) verified discovery, a GPT-6 Luna response, creation of a Session before consent, and opening Ample's real form. It stopped before entering an email: no consent was approved, no Account Token was received, no private infrastructure was read and no remote tools were called.

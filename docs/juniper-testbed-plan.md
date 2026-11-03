@@ -10,7 +10,7 @@ Build a coherent fictional Company that exercises PAP draft 0.2 across services,
 
 Juniper has two separate surfaces:
 
-1. **Customer website:** a believable Spanish-language grocery/service account, preserving warm paper/forest-green branding. Customers shop and manage their account here.
+1. **Customer website:** a believable grocery/service account (now in English), preserving warm paper/forest-green branding. Customers shop and manage their account here.
 2. **Local test console:** developers select fictional scenarios, inspect sanitized events and verify invariants. Never mix debugging controls with the customer navigation, expose them through the public identity relay, or make them model tools.
 
 One Company identity/issuer and shared domain state underpin both. Public help, customer data and administrative controls have separate authority boundaries.
@@ -66,7 +66,7 @@ Security fixtures should include untrusted Company text attempting to obtain sec
 
 ### A. Service foundation and customer portal
 
-Define shared entities and invariants, independent fictional accounts and explicit migrations. Build navigable Compra, Pedidos y entregas, Facturación, Ayuda e incidencias, and Perfil. Implement one complete path per service, with actual shared-state mutations and safe customer controls; do not fill the portal with nonfunctional sections.
+Define shared entities and invariants, independent fictional accounts and explicit migrations. Build navigable Shopping, Orders and deliveries, Billing, Help and support, and Profile sections. Implement one complete path per service, with actual shared-state mutations and safe customer controls; do not fill the portal with nonfunctional sections.
 
 Initial vertical slice: delivery problem → account-specific case → response → proposed resolution → human decision → visible shared result. Preserve the already working shopping paths and existing local data.
 

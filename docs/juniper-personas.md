@@ -6,7 +6,7 @@ The [coverage matrix, A08](pap-coverage.md) now includes the corrected Session r
 
 ## Try it
 
-At `http://juniper.localhost:4100/site/login`, select **Alex Rivers**, **Maya Sol** or **Leo Mar**, then enter the selected account. The account page labels the current persona and links to **Cambiar cuenta ficticia**. Alex's existing profile, purchases, cases and Operations are preserved. Maya starts with apples/broccoli and Tuesday recurrence; Leo with coffee and Saturday recurrence. Their order/case histories start empty, not with invented transactions. Defaults are created lazily once and persisted, never reset on sign-in.
+At `http://juniper.localhost:4100/site/login`, select **Alex Rivers**, **Maya Sol** or **Leo Mar**, then enter the selected account. The account page labels the current persona and links to **Switch fictional account**. Alex's existing profile, purchases, cases and Operations are preserved. Maya starts with apples/broccoli and Tuesday recurrence; Leo with coffee and Saturday recurrence. Their order/case histories start empty, not with invented transactions. Defaults are created lazily once and persisted, never reset on sign-in.
 
 In Poppy, sign out of the current grant if needed, then use **Sign in**. The Company consent form has the same explicit persona selector. Selection is captured in the one-time authorization code and bound into the grant and issued token; it is not a model-controlled account parameter. A successful new consent clears the previous Poppy conversation and local approval list, so they are not carried into another account. This does not cancel Company operations or erase customer data.
 
@@ -14,7 +14,7 @@ The optional local password protects the **whole demo**. It is not a different p
 
 ## Revocation from the website
 
-Under **Accesos → Acceso de tu agente**, select **Consultar autorizaciones**. Each active grant shows its public client, permissions and expiry. **Revocar esta autorización** is an explicit website action, protected by browser session, exact Origin and page-account binding.
+Under **Connected agents → Your agent's access**, select **Show grants**. Each active grant shows its public client, permissions and expiry. **Revoke this grant** is an explicit website action, protected by browser session, exact Origin and page-account binding.
 
 Only grants belonging to that browser's selected account are listed/revocable. Public random grant IDs are separate from Account Tokens and their hashes; no credential is sent to the browser. Revocation removes the grant, immediately rejecting its account API access, Operations and refresh. It does not revoke unrelated grants, log out the website, erase orders or cancel business operations. The next agent API request fails; the Poppy badge is not a real-time revocation subscription. Sign out/re-authorize there to regain access.
 
