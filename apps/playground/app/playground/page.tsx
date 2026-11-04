@@ -13,8 +13,8 @@ import { IdentityPanel } from "./identity-panel";
 
 const copy: Record<View, { title: string; lead: string; tab: string }> = {
   run: {
-    title: "Your personal agent.",
-    lead: "Choose a model, connect a company, and start a conversation.",
+    title: "Meet Iris, your agent.",
+    lead: "Choose a model, connect a company, and tell Iris what you need.",
     tab: "Playground",
   },
   inspect: {
@@ -23,8 +23,8 @@ const copy: Record<View, { title: string; lead: string; tab: string }> = {
     tab: "Inspector",
   },
   identity: {
-    title: "Your agent’s identity.",
-    lead: "The public metadata a Company uses to verify Poppy Lab.",
+    title: "Iris’s identity.",
+    lead: "The public metadata a Company uses to verify Iris.",
     tab: "Identity",
   },
 };

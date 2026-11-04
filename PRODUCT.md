@@ -8,7 +8,7 @@ web
 
 ## Stack
 
-Delegated: a TypeScript monorepo using pnpm. Next.js (OpenNext on Cloudflare Workers, or Node) for the playground at poppylab.dev; a Hono Company gateway (`@poppy-lab/pap-company`) that runs the two fictional Companies on Workers with Durable Objects or on Node; provider-neutral LLM adapters. Public visitors are isolated: one Durable Object per visitor for the agent, sealed at rest, and one copy of each Company's fictional customers per agent user.
+Delegated: a TypeScript monorepo using pnpm. Next.js (OpenNext on Cloudflare Workers, or Node) for the playground at poppylab.dev, whose Personal Agent is called Iris; a Hono Company gateway (`@poppy-lab/pap-company`) that runs the two fictional Companies on Workers with Durable Objects or on Node; provider-neutral LLM adapters. Public visitors are isolated: one Durable Object per visitor for the agent, sealed at rest, and one copy of each Company's fictional customers per agent user.
 
 ## Users
 
@@ -39,7 +39,7 @@ Developers use the product locally while implementing or evaluating PAP Companie
 
 ## Brand Commitments
 
-The working product name is “Poppy Lab.” Its voice is precise and developer-first without being austere. The user requested a clean, minimalist playground inspired by papplayground.com; prioritize model/URL setup and conversation, with protocol details available on demand. The interface should behave like a trustworthy instrument with an approachable chat layer. “Personal Agent Protocol” and “Poppy” are names belonging to the protocol project; the product must not imply endorsement or affiliation.
+The working product name is “Poppy Lab.” Its voice is precise and developer-first without being austere. The user requested a clean, minimalist playground inspired by papplayground.com; prioritize model/URL setup and conversation, with protocol details available on demand. The interface should behave like a trustworthy instrument with an approachable chat layer. “Personal Agent Protocol” and “Poppy” are names belonging to the protocol project; the product must not imply endorsement or affiliation. Poppy Lab's Personal Agent is called **Iris** (its `client_name`), never "Poppy", so the agent stays distinct from the protocol. Companies show it as "Iris from poppylab.dev": the name is self-asserted, the host is verified.
 
 ## Evidence on Hand
 

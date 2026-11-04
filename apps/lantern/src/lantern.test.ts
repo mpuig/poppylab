@@ -74,7 +74,7 @@ async function setup(deploy: Partial<Deployment> = {}) {
       url.endsWith("client.json")
         ? {
             client_id: client,
-            client_name: "Poppy Lab",
+            client_name: "Iris",
             jwks_uri: "http://localhost:3000/agent/jwks.json",
             redirect_uris: [redirect],
             extensions: { operations: { version: "2" } },
@@ -112,6 +112,8 @@ async function setup(deploy: Partial<Deployment> = {}) {
       `/oauth/authorize?${new URLSearchParams({ client_id: client, redirect_uri: redirect, response_type: "code", state: "s".repeat(32), scope: write ? "orders:read orders:write" : "orders:read", code_challenge_method: "S256", code_challenge: createHash("sha256").update(verifier).digest("base64url") })}`,
     );
     expect(page.body).toContain("Lantern Noodle Bar");
+    // The self-asserted name always comes with the verified client_id host.
+    expect(page.body).toContain("Connecting Iris from localhost:3000");
     const cookie = String(page.headers["set-cookie"]).split(";")[0]!;
     const consent = await inject({
       method: "POST",

@@ -16,6 +16,7 @@ it("renders complete English consent with native accessible controls and no scri
     'value="leo"',
     'name="write" value="yes" checked',
     'value="approve">Allow access',
+    "Connecting Iris from poppylab.dev",
     `value="decline" formnovalidate>Don't allow`,
   ])
     expect(html).toContain(text);
@@ -31,4 +32,17 @@ it("escapes consent nonce, retains password protection and allows declining with
   expect(html).toContain("It protects the whole environment");
   expect(html).toContain('value="decline" formnovalidate');
   expect(html).not.toContain('value="approve" formnovalidate');
+});
+it("shows the agent's self-asserted name with its verified host, escaped", () => {
+  const html = consentPage(
+    "n",
+    false,
+    "poppy:read",
+    "<b>Iris</b>",
+    "agent.example",
+  );
+  expect(html).toContain(
+    "Connecting &#60;b&#62;Iris&#60;/b&#62; from agent.example",
+  );
+  expect(html).not.toContain("<b>Iris");
 });

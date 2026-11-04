@@ -72,7 +72,7 @@ export function Conversation({
           >
             <h3>
               {message.role === "Agent"
-                ? "Personal Agent"
+                ? "Iris"
                 : message.role === "Demo"
                   ? "Protocol demo"
                   : message.role}
@@ -171,9 +171,7 @@ export function Conversation({
               event.currentTarget.form?.requestSubmit();
             }
           }}
-          placeholder={
-            connected ? "Ask your agent…" : "Connect a Company first…"
-          }
+          placeholder={connected ? "Ask Iris…" : "Connect a Company first…"}
         />
         <button
           type="submit"

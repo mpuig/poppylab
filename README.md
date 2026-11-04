@@ -1,8 +1,8 @@
 # Poppy Lab
 
-An independent test bench for the **Personal Agent Protocol, draft 0.3**: a Personal Agent you run with your own model key, and two fictional Companies it can sign in to. Everything runs on Cloudflare Workers or on Node from the same code.
+An independent test bench for the **Personal Agent Protocol, draft 0.3**: **Iris**, a Personal Agent you run with your own model key, and two fictional Companies it can sign in to. Everything runs on Cloudflare Workers or on Node from the same code.
 
-- **https://poppylab.dev** explains the lab; **/playground** is the agent.
+- **https://poppylab.dev** explains the lab; **/playground** is Iris.
 - **https://juniper.poppylab.dev** is Juniper Market, a grocery with a full customer website.
 - **https://noodles.poppylab.dev** is Lantern Noodle Bar, a noodle bar with scheduled orders.
 

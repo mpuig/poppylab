@@ -10,7 +10,7 @@ export function GET(request: Request) {
   return Response.json(
     {
       client_id: `${origin}/agent/client.json`,
-      client_name: "Poppy Lab",
+      client_name: "Iris",
       jwks_uri: `${origin}/agent/jwks.json`,
       redirect_uris: [`${origin}/api/account/callback`],
       extensions: { operations: { version: "2" } },
