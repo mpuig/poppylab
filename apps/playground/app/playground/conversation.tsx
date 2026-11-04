@@ -6,6 +6,15 @@ import { OperationReview } from "../operation-review";
 import { accountCompany } from "./companies";
 import type { Playground } from "./use-playground";
 
+/** A Company message's data, indented for reading (it arrives compact). */
+function prettyData(json: string) {
+  try {
+    return JSON.stringify(JSON.parse(json), null, 2);
+  } catch {
+    return json;
+  }
+}
+
 /** The transcript, the account controls, approval cards and the composer. */
 export function Conversation({
   p,
@@ -75,9 +84,21 @@ export function Conversation({
                 ? "Iris"
                 : message.role === "Demo"
                   ? "Protocol demo"
-                  : message.role}
+                  : message.role === "Company"
+                    ? message.author
+                    : message.role}
+              {message.role === "Company" && (
+                <span className="company-badge">Company content</span>
+              )}
             </h3>
-            <div className="message-text">{message.text}</div>
+            {message.text && <div className="message-text">{message.text}</div>}
+            {message.note && <p className="company-note">{message.note}</p>}
+            {message.data && (
+              <details className="company-data">
+                <summary>Data</summary>
+                <pre>{prettyData(message.data)}</pre>
+              </details>
+            )}
           </article>
         ))}
         {company &&

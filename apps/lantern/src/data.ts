@@ -14,6 +14,15 @@ export const slots = [
   { id: "sun-1300", label: "Sunday 13:00–13:30" },
 ] as const;
 export const DELIVERY_CENTS = 300;
+/** Kitchen hours, for the website and the Company Agent. */
+export const hours = [
+  { days: "Wednesday to Friday", open: "17:30–21:30" },
+  { days: "Saturday and Sunday", open: "12:00–21:30" },
+  { days: "Monday and Tuesday", open: "Closed" },
+] as const;
+/** Fictional: 555-0100 to 555-0199 are reserved for fiction in North America. */
+export const PHONE = "+1 555-0142";
+export const PHONE_HOURS = "Wednesday to Sunday, during kitchen hours";
 export const customers = [
   {
     id: "sam",
@@ -23,11 +32,22 @@ export const customers = [
       slot: "fri-1830",
       lines: { "shoyu-ramen": 2, edamame: 1 },
     },
+    /** The last delivered order, for missing-item reports. */
+    delivered: {
+      id: "ord_LNB0907",
+      at: "Friday 31 October, 19:12",
+      lines: { "shoyu-ramen": 2, "pork-gyoza": 1 },
+    },
   },
   {
     id: "robin",
     name: "Robin Ito",
     order: { id: "ord_LNB2001", slot: "sat-1230", lines: { "miso-ramen": 1 } },
+    delivered: {
+      id: "ord_LNB1907",
+      at: "Saturday 1 November, 13:05",
+      lines: { "miso-ramen": 1, "veg-gyoza": 1, "matcha-ice": 1 },
+    },
   },
 ];
 export const noodlePersona = (id: unknown) =>

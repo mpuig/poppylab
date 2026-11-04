@@ -43,6 +43,10 @@ One self-hosted Source Sans 3 family, restrained weights, and a compact type sca
 
 Inputs have 6px corners; the single conversation surface has 12px corners and a border, without shadows. No drawing grids, decorative coordinates, topology nodes, or oversized headings remain.
 
+## Company messages in the chat
+
+What the Company's own agent says (§8) appears as separate transcript entries before Iris's answer. They are indented behind a 2px rule in `--line`, headed with the Company's name and "automated agent" (or the person's name) in the mono label style, and marked with a small "Company content" badge so they never read as Iris speaking. Structured `data` stays collapsed under a native "Data" disclosure with a bounded, scrollable mono block. A short muted note marks what the entry asked for: sign-in, or an operation to approve in the usual card below.
+
 ## Interaction and accessibility
 
 Visible labels, keyboard focus rings, explicit loading/disabled/error states, and polite live updates remain. Enter submits a message; Shift+Enter inserts a line break. Composition events are respected for IME users. Empty-state suggestions fill the composer but never trigger paid requests automatically. Reduced-motion preferences disable activity animation.

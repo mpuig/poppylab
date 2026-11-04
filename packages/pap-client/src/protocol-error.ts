@@ -18,6 +18,13 @@ const codes = new Set([
   "operation_not_found",
   "unsupported_grant_type",
   "approval_required",
+  // Conversations (0.3 §8.13).
+  "conversation_not_found",
+  "conversation_closed",
+  "direct_conversation_open",
+  "message_id_conflict",
+  "invalid_cursor",
+  "cursor_expired",
 ]);
 export class ProtocolError extends Error {
   constructor(

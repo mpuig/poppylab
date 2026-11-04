@@ -14,6 +14,7 @@ import { consentPage } from "./consent-page.js";
 import { persona } from "./personas.js";
 import { labLineHtml } from "@poppy-lab/pap-core";
 import { router } from "./router.js";
+import { juniperAgent, PHONE, PHONE_HOURS } from "./agent.js";
 
 const escapeHtml = (value: string) =>
   value.replace(
@@ -83,6 +84,19 @@ const paths = {
   },
 };
 
+const delivery = {
+  days: ["Tuesday", "Thursday", "Saturday"],
+  fee_cents: 500,
+  free_above_cents: 3500,
+  coverage: "Within 5 miles of Juniper Market",
+  note: "Fictional demo; no real deliveries.",
+};
+const policies = {
+  hours: "Monday–Saturday, 8am–7pm; Sunday, 9am–4pm",
+  returns:
+    "Fresh produce issues can be reported within 48 hours for a replacement or refund.",
+};
+
 /** A Map persisted as a plain object inside the Company state. */
 class ObjectMap<V> extends Map<string, V> {
   constructor(private target: Record<string, V>) {
@@ -110,6 +124,13 @@ export function juniperCompany(options: {
     persona,
     defaultAccount: "alex",
     paths,
+    agent: {
+      name: "Juniper's automated agent",
+      handoff: {
+        text: `Nobody at Juniper can join this conversation right now. Call ${PHONE} (${PHONE_HOURS}).`,
+        data: { handoff: "unavailable", phone: PHONE, hours: PHONE_HOURS },
+      },
+    },
     discovery: (publicOrigin, publicDomain) => {
       return {
         protocol_version: "0.3",
@@ -131,6 +152,11 @@ export function juniperCompany(options: {
         },
         extensions: {
           operations: { version: "2" },
+        },
+        agent: {
+          protocols: [
+            { type: "poppy", endpoint: `${publicOrigin}/poppy/conversations` },
+          ],
         },
         apis: [
           {
@@ -215,6 +241,7 @@ export function juniperCompany(options: {
         (req) => ctx.sessionFor(req.ctx),
         business.commerce,
         (req, action) => ctx.gate(req.ctx, action),
+        ctx.operations,
       );
       website(
         r,
@@ -226,19 +253,12 @@ export function juniperCompany(options: {
         options.portal,
       );
       r.get("/api/products", async () => ({ currency: "USD", products }));
-      r.get("/api/delivery", async () => ({
-        days: ["Tuesday", "Thursday", "Saturday"],
-        fee_cents: 500,
-        free_above_cents: 3500,
-        coverage: "Within 5 miles of Juniper Market",
-        note: "Fictional demo; no real deliveries.",
-      }));
+      r.get("/api/delivery", async () => delivery);
       r.get("/api/policies", async () => ({
-        hours: "Monday–Saturday, 8am–7pm; Sunday, 9am–4pm",
-        returns:
-          "Fresh produce issues can be reported within 48 hours for a replacement or refund.",
+        ...policies,
         note: "Read-only demo: purchases and account changes are not available.",
       }));
+      ctx.converse(juniperAgent(commerce, { ...policies, delivery }));
     },
   };
 }

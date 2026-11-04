@@ -221,6 +221,8 @@ export async function POST(request: Request) {
       run.operations = {};
       run.history = [];
       delete run.publicHistory;
+      // Iris forgets it; the Company keeps the conversation open (§5.5).
+      delete run.conversation;
       return NextResponse.json({ signedIn: false });
     }
     if (!["approve", "decline", "retry"].includes(body.action))

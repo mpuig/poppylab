@@ -43,7 +43,14 @@ export type Action = {
   /** Fields left out when comparing approved and requested terms. */
   ignore?: string[];
 };
-export type Outcome = { status: 200 | 403 | 409 | 429; body: unknown };
+export type Outcome = {
+  status: 200 | 403 | 409 | 429;
+  body: unknown;
+  /** The operation was performed before: this is its first response (§7). */
+  replayed?: boolean;
+};
+/** An approval from `Poppy-Approval` or from a conversation message. */
+export type Approval = { operation_id: string; revision: string };
 
 const same = (a: Owner, r: OperationRecord) =>
   r.client === a.client && r.user === a.user && r.account === a.account;
@@ -70,7 +77,7 @@ export function approvals(
     },
     gate(
       owner: Owner,
-      approvalHeader: string | undefined,
+      approvalIn: string | Approval | undefined,
       action: Action,
     ): Outcome {
       const at = now();
@@ -89,11 +96,15 @@ export function approvals(
         .slice(0, 24)}`;
       let r = records[id];
       if (r && !same(owner, r)) r = undefined;
-      const approval = parseApprovalHeader(approvalHeader);
+      const approval =
+        typeof approvalIn === "string" || approvalIn === undefined
+          ? parseApprovalHeader(approvalIn)
+          : approvalIn;
       // 1. Only this account's Sessions can approve it; otherwise ignore it.
       if (approval?.operation_id === id && r) {
         // 2. Already performed: the first response, never a second action.
-        if (r.performed) return { status: 200, body: r.performed.body };
+        if (r.performed)
+          return { status: 200, body: r.performed.body, replayed: true };
         // 3. A returned, unexpired revision describing exactly this request.
         const approved = r.revisions.find(
           (v) =>
@@ -119,7 +130,8 @@ export function approvals(
           return { status: 429, body: { error: "too_many_operations" } };
         r = records[id] = { ...owner, key: action.key, revisions: [] };
       }
-      if (r.performed) return { status: 200, body: r.performed.body };
+      if (r.performed)
+        return { status: 200, body: r.performed.body, replayed: true };
       // Same terms → same unexpired revision; never the revision just refused.
       let revision = r.revisions.find(
         (v) =>

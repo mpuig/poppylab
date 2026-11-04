@@ -14,6 +14,7 @@ Nothing is sold, charged or shipped. Poppy Lab is not affiliated with or endorse
 - **Sessions (§5):** a delegated ES256 `Poppy-Session` header on every API request, one account per Session, DPoP-bound access tokens, refresh and revocation.
 - **Direct Sign-In (§4.2)** on the Company's own consent page, read-only first, with a separate step to add change proposals.
 - **Operations v2:** a change comes back as `approval_required`; the Company performs it only when the agent resends the same request with the user's `Poppy-Approval`, at most once. The model reads and proposes; only the user's click approves.
+- **Conversations (§8):** each Company has its own agent. It's deterministic, takes structured requests in `data` and answers with data, so the only model is yours. It asks for sign-in with an authorization event, proposes a refund or a support case as an Operations v2 operation inside a message, and answers a handoff with a (fictional) phone number. See [conversations](docs/conversations.md).
 - **Companies you can inspect:** OpenAPI tools, excluded tasks, an Inspector that labels every step with its spec section and copies a trace for interop reports.
 - **Public and isolated:** every visitor gets their own agent state (sealed at rest) and their own copy of each Company's fictional customers; rate limits per visitor, IP and globally.
 

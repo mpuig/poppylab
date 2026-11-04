@@ -8,7 +8,14 @@ import { Hono } from "hono";
 import { randomId } from "@poppy-lab/pap-client/core";
 import { approvals } from "../approvals.ts";
 import type { Ctx } from "./context.ts";
-import { hash, SHARED_TENANT, type Gate, type GrantAccess } from "./types.ts";
+import {
+  hash,
+  SHARED_TENANT,
+  type ConversationHandler,
+  type Gate,
+  type GrantAccess,
+  type Tenant,
+} from "./types.ts";
 
 export function createTenancy(ctx: Ctx) {
   const { def, deploy, origin, state, isolated } = ctx;
@@ -57,10 +64,13 @@ export function createTenancy(ctx: Ctx) {
       return true;
     },
   });
-  const apps = new Map<
-    string,
-    { app: Hono; engine: ReturnType<typeof approvals> }
-  >();
+  type Entry = {
+    app: Hono;
+    engine: ReturnType<typeof approvals>;
+    tenant: Tenant;
+    converse?: ConversationHandler;
+  };
+  const apps = new Map<string, Entry>();
   /** The request's tenant (created or renewed), recorded for persistence. */
   function enter(request: Request) {
     const key = ctx.tenantKeys.get(request) ?? SHARED_TENANT;
@@ -104,8 +114,13 @@ export function createTenancy(ctx: Ctx) {
     let entry = apps.get(key);
     if (!entry) {
       const sub = new Hono();
-      entry = { app: sub, engine: approvals(tenant.operations) };
-      apps.set(key, entry);
+      const created: Entry = {
+        app: sub,
+        engine: approvals(tenant.operations),
+        tenant,
+      };
+      entry = created;
+      apps.set(key, created);
       def.mount(sub, {
         sessionFor: ctx.sessionFor,
         state: tenant.business,
@@ -113,6 +128,9 @@ export function createTenancy(ctx: Ctx) {
         grants: grantsOf(key),
         origin,
         operations: () => tenant.operations,
+        converse: (handler) => {
+          created.converse = handler;
+        },
       });
     }
     return entry;

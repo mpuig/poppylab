@@ -26,6 +26,13 @@ import {
 import { tokenResponse } from "./token-response";
 export { tokenResponse };
 import { recordOperation } from "./operation-store";
+import {
+  approveInConversation,
+  conversationEndpoint,
+  conversationTools,
+  type CompanyEntry,
+  type ConversationState,
+} from "./conversations";
 export { recordOperation };
 import { isSandbox } from "./company-policy";
 import { UserFacingError } from "./user-error";
@@ -119,7 +126,10 @@ export type Operation = {
   expires_at: string;
   state: "proposed" | "succeeded" | "declined" | "expired" | "uncertain";
   result?: { summary: string } | null;
-  request?: { url: string; body: unknown };
+  /** An API request to resend, or the conversation the operation is in (§8). */
+  request?:
+    | { url: string; body: unknown; conversation?: undefined }
+    | { conversation: { endpoint: string; id: string }; url?: undefined };
 };
 /**
  * One conversation with one Company over PAP 0.3. `sessionId` is the
@@ -166,6 +176,8 @@ export type Run = {
       }
     | undefined;
   operations?: Record<string, Operation>;
+  /** The conversation with the Company's own agent (§8), if any. */
+  conversation?: ConversationState;
   history: Array<{ role: "user" | "assistant"; content: string }>;
   /** Pre-account conversation only; safe to retain across account consent. */
   publicHistory?: Array<{ role: "user" | "assistant"; content: string }>;
@@ -499,6 +511,10 @@ function operationsVersion(run: Run) {
  * the Company performs the operation at most once (§7).
  */
 export async function sendApproval(run: Run, op: Operation) {
+  if (op.request?.conversation)
+    return approveInConversation(run, op, (r, url, method, body) =>
+      papRequest(r, url, method, body),
+    );
   if (!op.request) throw new Error("Operation request unavailable");
   return papRequest(run, op.request.url, "POST", op.request.body, {
     approval: { operation_id: op.operation_id, revision: op.revision },
@@ -538,6 +554,8 @@ export async function revokeRefreshToken(run: Run, token: string) {
 export async function connect(
   run: Run,
   trace: string[],
+  /** Company messages the chat shows for this turn (conversations, §8). */
+  shown: CompanyEntry[] = [],
 ): Promise<Record<string, ApiTool>> {
   const company = await discoverCompany(run.url, {
     allowedPrivateOrigins: localOrigins,
@@ -551,10 +569,26 @@ export async function connect(
   const api =
     company.document.apis?.find((item) => item.type === "openapi") ??
     company.document.apis?.find((item) => item.type === "mcp");
-  if (!api)
+  const endpoint = conversationEndpoint(company);
+  const conversation = endpoint
+    ? conversationTools(run, {
+        endpoint,
+        request: (r, url, method, body) => papRequest(r, url, method, body),
+        allowProposals:
+          !!profile.issuer &&
+          proposalsAllowed(profile.issuer) &&
+          operationsVersion(run) === "2",
+        trace: (line) => trace.push(line),
+        shown,
+      })
+    : {};
+  if (endpoint) trace.push(`Company Agent conversations at ${endpoint}`);
+  if (!api) {
+    if (endpoint) return conversation;
     throw new UserFacingError(
-      "This Company has no supported OpenAPI or MCP endpoint. Company conversations are not yet implemented.",
+      "This Company lists no OpenAPI, MCP or conversation endpoint Poppy Lab supports.",
     );
+  }
   const sandbox =
     isSandbox(new URL(run.url).origin) &&
     profile.issuer === new URL(run.url).origin &&
@@ -568,7 +602,7 @@ export async function connect(
       ? await mcpConnect(run, api.url, trace)
       : await openApiConnect(run, api.url, trace, sandbox);
   if (profile.excludedTasksUrl) tools.excluded_tasks = excludedTasksTool(run);
-  return tools;
+  return { ...tools, ...conversation };
 }
 
 /** 0.3 §9.1: a read-only, token-free view of tasks the Company doesn't offer. */

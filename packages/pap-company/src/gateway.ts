@@ -18,7 +18,8 @@
  * Company website can show next to the agent.
  *
  * The sections live under `gateway/`: `context` (shared state and helpers),
- * `persistence`, `discovery`, `signin`, `tokens`, `sessions` and `tenancy`.
+ * `persistence`, `discovery`, `signin`, `tokens`, `sessions`, `tenancy` and
+ * `conversations` (§8, when the Company defines an `agent`).
  * Middleware order matters: body limit and persistence first, the Session
  * middleware before the business dispatch.
  */
@@ -30,6 +31,7 @@ import { mountSignIn } from "./gateway/signin.ts";
 import { mountTokens } from "./gateway/tokens.ts";
 import { mountSessions } from "./gateway/sessions.ts";
 import { createTenancy } from "./gateway/tenancy.ts";
+import { mountConversations } from "./gateway/conversations.ts";
 import type { CompanyDefinition, Deployment } from "./gateway/types.ts";
 
 export * from "./gateway/types.ts";
@@ -43,6 +45,7 @@ export function createCompany(def: CompanyDefinition, deploy: Deployment) {
   mountTokens(app, ctx, codes);
   const tenancy = createTenancy(ctx);
   mountSessions(app, ctx, tenancy);
+  mountConversations(app, ctx, tenancy);
   tenancy.mountDispatch(app);
   return app;
 }

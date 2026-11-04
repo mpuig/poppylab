@@ -57,7 +57,10 @@ export function ConnectionSetup({
             <span className="quiet">
               {" "}
               · {company.document.apis?.length ?? 0}{" "}
-              {(company.document.apis?.length ?? 0) === 1 ? "API" : "APIs"} ·
+              {(company.document.apis?.length ?? 0) === 1 ? "API" : "APIs"} ·{" "}
+              {company.document.agent?.protocols.some((p) => p.type === "poppy")
+                ? "Company agent · "
+                : ""}
               PAP {company.document.protocol_version}
             </span>
           </span>

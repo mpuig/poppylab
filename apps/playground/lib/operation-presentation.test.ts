@@ -11,6 +11,9 @@ it("labels support proposals without inventing historical case state", () => {
   expect(operationTitle(op({ kind: "support_case" }))).toBe(
     "Open support request",
   );
+  expect(
+    operationTitle(op({ order_id: "ord_LNB0907", refund_cents: 800 })),
+  ).toBe("Review refund");
   expect(operationTitle(op({ kind: "support_resolution" }))).toBe(
     "Close support case",
   );

@@ -9,9 +9,16 @@ import type { Ctx } from "./context.ts";
 import { isChallenge, SESSION_MS, type Token } from "./types.ts";
 import type { Tenancy } from "./tenancy.ts";
 
+/** Session destinations (§5.2): the APIs and the conversation routes (§8.2). */
+const guarded = (path: string) =>
+  path.startsWith("/api/") ||
+  path === "/poppy/conversations" ||
+  path.startsWith("/poppy/conversations/");
+
 export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
   const { def, origin, state, replay, isolated } = ctx;
-  app.use("/api/*", async (c, next) => {
+  app.use("*", async (c, next) => {
+    if (!guarded(new URL(c.req.url).pathname)) return next();
     const authorization = c.req.header("authorization") ?? "";
     const token = authorization.startsWith("DPoP ")
       ? authorization.slice(5)
@@ -114,6 +121,7 @@ export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
       );
     ctx.sessions.set(c.req.raw, {
       ...session,
+      operations: (await ctx.client(verified.clientId)).operations,
       ...(record
         ? {
             account: record.accountId,

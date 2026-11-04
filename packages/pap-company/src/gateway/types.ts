@@ -5,7 +5,12 @@
  */
 import type { Context, Hono } from "hono";
 import { createHash } from "node:crypto";
-import type { Action, OperationRecord } from "../approvals.ts";
+import type {
+  Action,
+  Approval,
+  OperationRecord,
+  Outcome,
+} from "../approvals.ts";
 
 export type Session = {
   client: string;
@@ -15,6 +20,8 @@ export type Session = {
   account?: string;
   grant?: string;
   scopes?: string;
+  /** The Personal Agent lists Operations v2 in its client metadata. */
+  operations?: boolean;
 };
 export type Grant = {
   account: string;
@@ -73,7 +80,91 @@ export type Tenant = {
   business: Record<string, unknown>;
   operations: Record<string, OperationRecord>;
   used: number;
+  /** Conversations (§8) by ID, and accepted message IDs by owner hash. */
+  conversations?: Record<string, Conversation>;
+  messageIds?: Record<string, MessageRecord>;
 };
+
+// ---- Conversations (§8) ----------------------------------------------------
+export type ConversationMessage = {
+  id: string;
+  role: "user" | "company";
+  author: { type: "agent" | "human"; id?: string; name?: string };
+  text?: string;
+  data?: Record<string, unknown>;
+  context?: Record<string, unknown>;
+  extensions?: Record<string, unknown>;
+};
+export type ConversationEvent = {
+  id: string;
+  type: "message" | "state" | "authorization";
+  created_at: string;
+  message?: ConversationMessage;
+  status?: "idle" | "queued" | "closed";
+  responder?: "agent";
+  error?: string;
+  scope?: string;
+};
+export type Conversation = {
+  id: string;
+  /** Part of every event ID, so a cursor names its conversation. */
+  tag: string;
+  /** Owner (§8.2): client and User ID, and the account once it uses one. */
+  client: string;
+  user: string;
+  account?: string;
+  status: "idle" | "closed";
+  /** Last event number; events before the first kept one were dropped. */
+  seq: number;
+  events: ConversationEvent[];
+  context: Record<string, unknown>;
+  /** The Company Agent's own notes, such as a pending proposal. */
+  memory: Record<string, unknown>;
+  /** User messages accepted. */
+  messages: number;
+  updated: number;
+};
+export type MessageRecord = {
+  conversation: string;
+  digest: string;
+  /** The message started the conversation (its response was 201). */
+  started: boolean;
+};
+/** One accepted User-side message, for the Company Agent. */
+export type ConversationTurn = {
+  conversation: string;
+  message: {
+    author: "agent" | "human";
+    text?: string;
+    data?: Record<string, unknown>;
+  };
+  /** Merged `context` of the conversation so far. */
+  context: Record<string, unknown>;
+  /** Signed in: the token's account and scopes (none when signed out). */
+  account?: string;
+  scopes: string[];
+  /** Notes kept for this conversation; the Company Agent may change them. */
+  memory: Record<string, unknown>;
+  /** `extensions.operations.approval`, only from an Operations v2 agent. */
+  approval?: Approval;
+  /** Whether operations may be sent to this agent (Operations v2 §2). */
+  operations: boolean;
+  /** Operations v2 for an action of this conversation (needs `account`). */
+  propose: (action: Action) => Outcome;
+};
+export type CompanyReply = {
+  text?: string;
+  data?: Record<string, unknown>;
+  /** An operation from `propose`, sent in `extensions.operations`. */
+  operation?: Record<string, unknown>;
+};
+export type TurnResult = {
+  replies?: CompanyReply[];
+  /** Sign-in or more scopes are needed: the scopes, space-separated (§8.11). */
+  authorization?: string;
+};
+/** A deterministic Company Agent: structured data in, structured data out. */
+export type ConversationHandler = (turn: ConversationTurn) => TurnResult;
 /** What a request changed, for stores that persist tenants separately. */
 export type Changes = { tenants: string[]; removed: string[] };
 export const emptyState = (): GatewayState => ({
@@ -142,6 +233,15 @@ export type CompanyDefinition = {
   /** Web-font origins the consent page's CSP allows (style and font). */
   fontSources?: { style: string; font: string };
   paths: Record<string, unknown>;
+  /**
+   * The Company Agent (§8), when the Company offers conversations at
+   * `/poppy/conversations`. `handoff` is the reply when the User asks for a
+   * person (§8.9): this lab has nobody to join, so it says how to call.
+   */
+  agent?: {
+    name: string;
+    handoff: { text: string; data: Record<string, unknown> };
+  };
   /** Called once per tenant with that tenant's own state. */
   mount: (
     app: Hono,
@@ -153,6 +253,8 @@ export type CompanyDefinition = {
       origin: string;
       /** This tenant's Operations v2 records, read-only (for a website). */
       operations: () => Readonly<Record<string, OperationRecord>>;
+      /** Registers this tenant's Company Agent (with `agent` set). */
+      converse: (handler: ConversationHandler) => void;
     },
   ) => void;
 };

@@ -14,8 +14,12 @@ export const accountCompany = (origin: string) =>
 
 export type View = "run" | "inspect" | "identity";
 export type Message = {
-  role: "You" | "Agent" | "Demo" | "Error";
+  role: "You" | "Agent" | "Demo" | "Error" | "Company";
   text: string;
+  /** A Company message (§8): who wrote it, its data and a short note. */
+  author?: string;
+  data?: string;
+  note?: string;
 };
 /** Server history (`user`/`assistant`) as transcript messages. */
 export const historyToMessages = (

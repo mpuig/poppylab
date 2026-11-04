@@ -273,8 +273,24 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
         }
         throw new Error(data.error ?? "Chat failed. Please try again.");
       }
+      // What the Company's own agent said this turn comes before Iris's answer.
+      const company: Message[] = (
+        (data.company ?? []) as Array<{
+          author: string;
+          text?: string;
+          data?: string;
+          note?: string;
+        }>
+      ).map((entry) => ({
+        role: "Company",
+        author: entry.author,
+        text: entry.text ?? "",
+        ...(entry.data ? { data: entry.data } : {}),
+        ...(entry.note ? { note: entry.note } : {}),
+      }));
       setMessages((old) => [
         ...old,
+        ...company,
         { role: data.mode === "demo" ? "Demo" : "Agent", text: data.text },
       ]);
       setChatTrace((old) => [...old, ...data.trace].slice(-30));
