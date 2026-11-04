@@ -1210,3 +1210,13 @@ h2,
     padding-bottom: max(12px, env(safe-area-inset-bottom));
   }
 }
+
+footer .lab-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+}
+footer .lab-links a:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}

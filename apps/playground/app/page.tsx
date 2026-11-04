@@ -1,4 +1,5 @@
 import { ArrowRight, ArrowUpRight } from "lucide-react";
+import { LAB_REPOSITORY, labSites } from "@poppy-lab/pap-core";
 import { Barcode, TrackingSlip } from "./tracking-slip";
 import "./site.css";
 
@@ -313,6 +314,18 @@ export default function Home() {
             security.
           </p>
         </div>
+        <nav aria-label="Poppy Lab sites" className="lab-nav">
+          {labSites(juniper)
+            .filter((s) => s.id !== "home")
+            .map((s) => (
+              <a key={s.id} href={s.url}>
+                {s.label}
+              </a>
+            ))}
+          <a href={LAB_REPOSITORY}>
+            Source on GitHub <ArrowUpRight size={14} aria-hidden="true" />
+          </a>
+        </nav>
         <nav aria-label="Elsewhere">
           <a href="https://personalagentprotocol.org/docs/0.3/spec">
             Specification <ArrowUpRight size={14} aria-hidden="true" />

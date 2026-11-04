@@ -12,6 +12,7 @@ import { operations, type Commerce } from "./operations.js";
 import { website, type WebSession } from "./website.js";
 import { consentPage } from "./consent-page.js";
 import { persona } from "./personas.js";
+import { labLineHtml } from "@poppy-lab/pap-core";
 import { router } from "./router.js";
 
 const escapeHtml = (value: string) =>
@@ -183,7 +184,7 @@ export function juniperCompany(options: {
       .shelf{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--ink)}
       article{padding:28px 24px 42px;border-right:1px solid var(--line)} article:last-child{border:0}
       .number{font-variant-numeric:tabular-nums;color:var(--fruit);font-weight:800}.produce{font-size:2rem;margin:42px 0 8px}.meta{color:var(--leaf)}
-      footer{display:flex;justify-content:space-between;gap:20px;padding:24px clamp(24px,5vw,72px);border-top:1px solid var(--line);font-size:.8rem}
+      footer{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px 20px;padding:24px clamp(24px,5vw,72px);border-top:1px solid var(--line);font-size:.8rem}footer .lab{flex-basis:100%;margin:0;color:var(--muted)}footer .lab a{color:inherit}
       code{font-family:ui-monospace,monospace}
       @media(max-width:700px){.shelf{grid-template-columns:1fr}.shelf article{border-right:0;border-bottom:1px solid var(--line)}footer{flex-direction:column}}
     </style>
@@ -199,7 +200,7 @@ export function juniperCompany(options: {
       <article><span class="number">A—03</span><h2 class="produce">Pink lady apples</h2><div class="meta">Crisp · tart · Washington</div></article>
     </section>
     </main>
-    <footer><span>Fictional Company. Nothing is sold or shipped.</span><code>${escapeHtml(publicOrigin)}/.well-known/poppy.json</code></footer>
+    <footer><span>Fictional Company. Nothing is sold or shipped.</span><code>${escapeHtml(publicOrigin)}/.well-known/poppy.json</code>${labLineHtml(publicOrigin, "juniper")}</footer>
     </body></html>`;
     },
     mount(app, ctx) {

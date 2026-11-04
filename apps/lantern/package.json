@@ -17,7 +17,8 @@
     "@poppy-lab/pap-client": "workspace:*",
     "hono": "^4.9.0",
     "@hono/node-server": "^1.19.0",
-    "@poppy-lab/pap-company": "workspace:*"
+    "@poppy-lab/pap-company": "workspace:*",
+    "@poppy-lab/pap-core": "workspace:*"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20251001.0",

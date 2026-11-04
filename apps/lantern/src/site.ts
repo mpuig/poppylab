@@ -4,6 +4,7 @@
  * the same arrays the API serves, so the page and the agent never disagree.
  * The consent page shares the visual system.
  */
+import { labLineHtml } from "@poppy-lab/pap-core";
 import { customers, DELIVERY_CENTS, menu, slots } from "./data.ts";
 
 export const escape = (t: string) =>
@@ -89,6 +90,8 @@ footer{background:var(--ink);color:#dfe3ea;font-size:14px;padding:28px 0 32px}
 footer .wrap{display:grid;gap:10px}
 footer p{margin:0;max-width:78ch}
 footer a{color:#fff}
+footer .lab{margin-top:6px;padding-top:12px;border-top:1px solid rgba(255,255,255,.14);color:#b9c0cc;font-size:13px}
+footer .lab [aria-current]{color:#fff}
 .consent main{max-width:720px;margin:auto;padding:clamp(28px,5vw,56px) clamp(16px,4vw,32px)}
 .consent h1{font:900 clamp(34px,6vw,56px)/1 var(--display);text-transform:uppercase;margin:0 0 12px}
 .consent p{margin:0 0 14px;color:var(--ink-soft)}
@@ -143,6 +146,7 @@ export function shell(
   title: string,
   body: string,
   current: "/" | "/for-agents" | "/account",
+  origin: string,
 ) {
   const nav = (
     [
@@ -156,7 +160,7 @@ export function shell(
         `<a href="${href}"${href === current ? ' aria-current="page"' : ""}>${label}</a>`,
     )
     .join("");
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${title}</title>${fonts}<style>${css}</style></head><body><header class="strip"><div class="wrap"><a class="brand" href="/">Lantern Noodle Bar</a><nav aria-label="Site">${nav}</nav><span class="tag">Fictional test Company · PAP 0.3</span></div></header>${body}<footer><div class="wrap"><p>Lantern Noodle Bar is a fictional restaurant for testing personal agents. Nothing is sold, charged or delivered.</p><p>Independent experiment, not affiliated with or endorsed by the authors of the Personal Agent Protocol. “Personal Agent Protocol” and “Poppy” are their names.</p></div></footer></body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${title}</title>${fonts}<style>${css}</style></head><body><header class="strip"><div class="wrap"><a class="brand" href="/">Lantern Noodle Bar</a><nav aria-label="Site">${nav}</nav><span class="tag">Fictional test Company · PAP 0.3</span></div></header>${body}<footer><div class="wrap"><p>Lantern Noodle Bar is a fictional restaurant for testing personal agents. Nothing is sold, charged or delivered.</p><p>Independent experiment, not affiliated with or endorsed by the authors of the Personal Agent Protocol. “Personal Agent Protocol” and “Poppy” are their names.</p>${labLineHtml(origin, "lantern")}</div></footer></body></html>`;
 }
 
 const [slotDay, slotTime] = [
@@ -178,7 +182,7 @@ export function homePage(origin: string) {
     )
     .join("");
   const body = `<main class="wrap"><section class="intro"><h1>Noodles on your night, not your to-do list.</h1><p>Six dishes, four delivery slots, one neighbourhood noodle bar. Your personal agent reads the menu and the slots, proposes the order, and nothing happens until you approve it.</p><p class="how">A fictional shop for testing the Personal Agent Protocol. No kitchen, no delivery van.</p></section><section class="machine" aria-labelledby="machine-title"><div class="head"><h2 id="machine-title">Ticket machine</h2><span>Delivery ${usd(DELIVERY_CENTS)} per order · USD</span></div><ol class="buttons" aria-label="Menu">${dishes}</ol><ol class="buttons slots" aria-label="Delivery slots">${slotButtons}</ol><div class="tray"><p><strong>No coins here.</strong> Your personal agent presses the buttons for you. In Poppy Lab, connect this Company, sign in as a test customer, and ask it to change a scheduled order; you approve the exact new total.</p><a class="cta" href="${playgroundFor(origin)}">Order through your agent</a></div></section><section class="plain"><h2>How ordering works</h2><div class="cols"><div><h3>1. Your agent reads</h3><p>It discovers this shop, starts a signed Session, and reads the menu and the slots. No account is needed for that.</p></div><div><h3>2. You sign in here</h3><p>To see or change a scheduled order, you sign in on this shop&apos;s own page as a test customer and choose what the agent may do.</p></div><div><h3>3. You approve the ticket</h3><p>The agent proposes the change with the exact dishes, slot and price difference. The shop waits for your approval and performs it once.</p></div></div></section><section class="plain"><h2>Hours and delivery</h2><div class="cols"><div><h3>Kitchen</h3><dl class="hours"><div><dt>Wednesday to Friday</dt><dd>17:30–21:30</dd></div><div><dt>Saturday and Sunday</dt><dd>12:00–21:30</dd></div><div><dt>Monday and Tuesday</dt><dd>Closed</dd></div></dl></div><div><h3>Delivery slots</h3><p>Scheduled orders go out in the four slots above. A change of slot costs nothing; a change of dishes is charged at the difference, simulated.</p></div><div><h3>Find us</h3><p>12 Lantern Lane (fictional).<br>Dine in, collect, or let your agent schedule a delivery.</p></div></div></section></main>`;
-  return shell("Lantern Noodle Bar · fictional noodle bar", body, "/");
+  return shell("Lantern Noodle Bar · fictional noodle bar", body, "/", origin);
 }
 
 export function forAgentsPage(origin: string) {
@@ -228,7 +232,7 @@ export function forAgentsPage(origin: string) {
     })
     .join("");
   const body = `<main class="wrap"><section class="intro"><h1>Point your agent here.</h1><p>Lantern Noodle Bar speaks Personal Agent Protocol draft 0.3. Any Personal Agent with an HTTPS <code>client_id</code> that serves its metadata and keys can start a Session, sign in as a test customer and change a scheduled order with Operations v2. Every visitor gets its own copy of the customers.</p></section><section class="plain"><h2>Endpoints at ${host}</h2><div class="table-wrap"><table><thead><tr><th scope="col">What</th><th scope="col">Where</th><th scope="col">Spec</th></tr></thead><tbody>${table}</tbody></table></div><p class="try">Scopes: <code>orders:read</code> (scheduled orders) and <code>orders:write</code> (propose changes). Sign-in offers read first; a visitor adds write later.</p></section><section class="plain"><h2>Test customers</h2><ul class="customers">${people}</ul><p class="try">Try: <q>Add a matcha ice cream to my order and move it to Sunday lunchtime.</q> The approval shows the new slot, the dishes and the price difference before anything changes.</p></section><section class="plain"><h2>Watch it work</h2><p class="try">Open <a href="${playgroundFor(origin)}">Poppy Lab</a>, our test Personal Agent, with this Company connected. Its Inspector shows discovery, the Session and each API call with the spec section it meets.</p></section></main>`;
-  return shell("For agents · Lantern Noodle Bar", body, "/for-agents");
+  return shell("For agents · Lantern Noodle Bar", body, "/for-agents", origin);
 }
 
 /** Server-rendered consent (§4.2) in the shop's own visual system. */

@@ -291,3 +291,4 @@ export class PapDiscoveryError extends Error {
     this.trace = trace;
   }
 }
+export * from "./lab.ts";
