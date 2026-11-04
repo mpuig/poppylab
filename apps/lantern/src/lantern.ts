@@ -9,6 +9,7 @@
 import type { Hono } from "hono";
 import type {
   CompanyDefinition,
+  ConversationHandler,
   Gate,
   GrantAccess,
   OperationRecord,
@@ -23,6 +24,7 @@ import {
   pageHeaders,
 } from "./site.ts";
 import { mountPortal } from "./portal.ts";
+import { lanternAgent, type Refund } from "./agent.ts";
 
 export {
   customers,
@@ -36,6 +38,8 @@ import {
   DELIVERY_CENTS,
   menu,
   noodlePersona,
+  PHONE,
+  PHONE_HOURS,
   slots,
 } from "./data.ts";
 
@@ -48,7 +52,11 @@ export type Order = {
   recipient: string;
   address: string;
 };
-type State = { orders?: Record<string, Order[]> };
+type State = {
+  orders?: Record<string, Order[]>;
+  /** Refunds made through the Company Agent, by account. */
+  refunds?: Record<string, Refund[]>;
+};
 const usd = (cents: number) => `USD ${(cents / 100).toFixed(2)}`;
 const slotLabel = (id: string) => slots.find((s) => s.id === id)?.label ?? id;
 function priced(lines: Record<string, number>) {
@@ -234,10 +242,18 @@ function mount(
     grants: GrantAccess;
     origin: string;
     operations: () => Readonly<Record<string, OperationRecord>>;
+    converse: (handler: ConversationHandler) => void;
   },
 ) {
   const state = ctx.state as State;
   const orders = (state.orders ??= {});
+  const refunds = (state.refunds ??= {});
+  // Bounded in place, so the agent's push lands in the persisted list.
+  const refundsFor = (account: string) => {
+    const list = (refunds[account] ??= []);
+    if (list.length > 20) list.splice(0, list.length - 20);
+    return list;
+  };
   const account = (s: Session) => s.account ?? "sam";
   const ordersFor = (id: string) => {
     const customer = noodlePersona(id) ?? customers[0]!;
@@ -253,7 +269,19 @@ function mount(
     ]);
   };
   const ordersOf = (s: Session) => ordersFor(account(s));
-  mountPortal(app, ctx, { ordersFor, view, priced, slotLabel });
+  mountPortal(app, ctx, {
+    ordersFor,
+    refundsFor,
+    view,
+    priced,
+    slotLabel,
+  });
+  ctx.converse(
+    lanternAgent({
+      scheduled: (account) => ordersFor(account).map(view),
+      refunds: refundsFor,
+    }),
+  );
   app.get("/api/menu", (c) =>
     c.json({
       currency: "USD",
@@ -334,6 +362,13 @@ export const lantern: CompanyDefinition = {
   defaultAccount: "sam",
   paths: noodlePaths,
   mount,
+  agent: {
+    name: "Lantern's automated agent",
+    handoff: {
+      text: `Nobody at Lantern can join this conversation right now. Call ${PHONE} (${PHONE_HOURS}).`,
+      data: { handoff: "unavailable", phone: PHONE, hours: PHONE_HOURS },
+    },
+  },
   discovery: (origin, domain) => ({
     protocol_version: "0.3",
     organization: { name: "Lantern Noodle Bar", domain },
@@ -358,6 +393,9 @@ export const lantern: CompanyDefinition = {
           "Menu, delivery slots, the customer's scheduled orders, and changes to them",
       },
     ],
+    agent: {
+      protocols: [{ type: "poppy", endpoint: `${origin}/poppy/conversations` }],
+    },
     web: {},
     excluded_tasks: { url: `${origin}/poppy/excluded-tasks.json` },
     extensions: { operations: { version: "2" } },

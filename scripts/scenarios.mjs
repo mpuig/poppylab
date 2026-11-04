@@ -60,6 +60,11 @@ const groups = {
     ["lantern", ["src/lantern.test.ts"]],
     ["example-company", ["src/operations-v2.test.ts"]],
   ],
+  conversations: [
+    ["lantern", ["src/conversations.test.ts"]],
+    ["example-company", ["src/conversations.test.ts"]],
+    ["playground", ["lib/conversations.test.ts"]],
+  ],
   mcp: [
     ["pap-client", ["src/mcp.test.ts", "src/mcp-transport.test.ts"]],
     ["playground", ["lib/mcp-runtime.test.ts"]],

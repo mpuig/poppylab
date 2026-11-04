@@ -1,184 +1,21 @@
-import { createHash } from "node:crypto";
 import { afterEach, expect, it, vi } from "vitest";
-import {
-  assertion,
-  createIdentity,
-  createSessionKey,
-  newSessionId,
-  proof,
-  signSessionHeader,
-} from "@poppy-lab/pap-client/core";
+import { createIdentity } from "@poppy-lab/pap-client/core";
 import {
   createCompany,
   memoryStore,
   splitStore,
-  type Deployment,
   type KeyValue,
 } from "@poppy-lab/pap-company";
 import { lantern } from "./lantern.ts";
-const origin = "http://noodles.localhost:4200",
-  client = "http://localhost:3000/agent/client.json",
-  redirect = "http://localhost:3000/api/account/callback";
-let app: ReturnType<typeof createCompany>;
+import {
+  client,
+  inject,
+  lab,
+  origin,
+  redirect,
+  setup,
+} from "./test-harness.ts";
 afterEach(() => vi.restoreAllMocks());
-/** Fastify-like inject over Hono's Web Request API. */
-type Inject = {
-  method?: string;
-  url: string;
-  headers?: Record<string, string>;
-  payload?: Record<string, unknown>;
-};
-async function inject(input: Inject | string) {
-  const o = typeof input === "string" ? { url: input } : input;
-  const form = o.url.startsWith("/oauth/") && o.method === "POST";
-  const response = await app.request(o.url, {
-    method: o.method ?? "GET",
-    headers: {
-      ...(o.payload
-        ? {
-            "content-type": form
-              ? "application/x-www-form-urlencoded"
-              : "application/json",
-          }
-        : {}),
-      ...o.headers,
-    },
-    ...(o.payload
-      ? {
-          body: form
-            ? new URLSearchParams(
-                o.payload as Record<string, string>,
-              ).toString()
-            : JSON.stringify(o.payload),
-        }
-      : {}),
-  });
-  const body = await response.text();
-  return {
-    statusCode: response.status,
-    headers: Object.fromEntries(response.headers.entries()),
-    body,
-    json: () => JSON.parse(body),
-  };
-}
-
-async function setup(deploy: Partial<Deployment> = {}) {
-  const keys = await createIdentity(),
-    dpop = await createIdentity();
-  app = createCompany(lantern, {
-    origin,
-    domain: "noodles.localhost",
-    store: memoryStore(),
-    httpClients: [client],
-    fetchJson: async (url) =>
-      url.endsWith("client.json")
-        ? {
-            client_id: client,
-            client_name: "Iris",
-            jwks_uri: "http://localhost:3000/agent/jwks.json",
-            redirect_uris: [redirect],
-            extensions: { operations: { version: "2" } },
-          }
-        : { keys: [keys.publicKey] },
-    ...deploy,
-  });
-  const sessionKey = await createSessionKey(keys.privateKey, client);
-  const sids = new Map<string, string>();
-  const token = async (body: Record<string, string>) =>
-    (
-      await inject({
-        method: "POST",
-        url: "/oauth/token",
-        headers: {
-          DPoP: await proof(dpop.privateKey, `${origin}/oauth/token`, "POST"),
-        },
-        payload: {
-          ...body,
-          client_id: client,
-          client_assertion_type:
-            "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
-          client_assertion: await assertion(
-            keys.privateKey,
-            client,
-            client,
-            origin,
-          ),
-        },
-      })
-    ).json();
-  const sign = async (account: string, write: boolean) => {
-    const verifier = "v".repeat(64);
-    const page = await inject(
-      `/oauth/authorize?${new URLSearchParams({ client_id: client, redirect_uri: redirect, response_type: "code", state: "s".repeat(32), scope: write ? "orders:read orders:write" : "orders:read", code_challenge_method: "S256", code_challenge: createHash("sha256").update(verifier).digest("base64url") })}`,
-    );
-    expect(page.body).toContain("Lantern Noodle Bar");
-    // The self-asserted name always comes with the verified client_id host.
-    expect(page.body).toContain("Connecting Iris from localhost:3000");
-    const cookie = String(page.headers["set-cookie"]).split(";")[0]!;
-    const consent = await inject({
-      method: "POST",
-      url: "/oauth/authorize",
-      headers: { cookie, origin },
-      payload: {
-        nonce: cookie.split("=")[1],
-        decision: "approve",
-        account,
-        ...(write ? { write: "yes" } : {}),
-      },
-    });
-    const code = new URL(String(consent.headers.location)).searchParams.get(
-      "code",
-    )!;
-    const issued = await token({
-      grant_type: "authorization_code",
-      code,
-      code_verifier: verifier,
-      redirect_uri: redirect,
-    });
-    sids.set(issued.access_token, newSessionId());
-    return issued;
-  };
-  const call = async (
-    access: string,
-    method: "GET" | "POST",
-    url: string,
-    payload?: Record<string, unknown>,
-    approval?: { operation_id: string; revision: string },
-    user = "usr_noodles",
-  ) =>
-    inject({
-      method,
-      url,
-      headers: {
-        "Poppy-Session": await signSessionHeader({
-          key: sessionKey,
-          clientId: client,
-          audience: origin,
-          sessionId:
-            (user === "usr_noodles" ? sids.get(access) : undefined) ??
-            sids.get(user) ??
-            (sids.set(user, newSessionId()), sids.get(user))!,
-          userId: user,
-          method,
-          url: origin + url,
-          ...(access ? { accessToken: access } : {}),
-        }),
-        ...(access
-          ? {
-              Authorization: `DPoP ${access}`,
-              DPoP: await proof(dpop.privateKey, origin + url, method, access),
-            }
-          : {}),
-        ...(approval
-          ? {
-              "Poppy-Approval": `operation_id="${approval.operation_id}", revision="${approval.revision}"`,
-            }
-          : {}),
-      },
-      ...(payload ? { payload } : {}),
-    });
-  return { sign, call, token };
-}
 
 it("publishes its own issuer, scopes and an Operations v2 contract", async () => {
   const x = await setup();
@@ -358,7 +195,7 @@ it("accepts only redirect URIs from the client's own metadata and HTTPS clients"
 it("saves only when state can change, and fails closed if storage fails", async () => {
   const keys = await createIdentity();
   const store = memoryStore();
-  app = createCompany(lantern, {
+  lab.app = createCompany(lantern, {
     origin,
     domain: "noodles.localhost",
     store,
@@ -389,7 +226,7 @@ it("limits chunked bodies on the stream and caps one client's share of consents"
       controller.close();
     },
   });
-  const chunked = await app.request("/oauth/revoke", {
+  const chunked = await lab.app.request("/oauth/revoke", {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
     body: big,
@@ -555,7 +392,7 @@ it("keeps two consent pages open at once (another tab can't replace a consent)",
 
 it("serves the website pages with their own headers and fonts allowed on consent", async () => {
   await setup();
-  const home = await app.request("/");
+  const home = await lab.app.request("/");
   expect(home.status).toBe(200);
   expect(home.headers.get("content-security-policy")).toContain(
     "font-src https://fonts.gstatic.com",
@@ -566,7 +403,7 @@ it("serves the website pages with their own headers and fonts allowed on consent
     expect(html.toLowerCase()).toContain(dish.toLowerCase());
   expect(html).toContain("Sunday");
   expect(html).not.toContain("<script");
-  const agents = await app.request("/for-agents");
+  const agents = await lab.app.request("/for-agents");
   expect(agents.status).toBe(200);
   expect(await agents.text()).toContain("/.well-known/poppy.json");
   const consent = await inject(
@@ -583,7 +420,7 @@ it("serves the website pages with their own headers and fonts allowed on consent
 async function webLogin(account: string) {
   const page = await inject("/site/login");
   const login = String(page.headers["set-cookie"]).split(";")[0]!;
-  const entered = await app.request("/site/login", {
+  const entered = await lab.app.request("/site/login", {
     method: "POST",
     headers: {
       cookie: login,
@@ -614,7 +451,7 @@ it("customer website: signs in, shows the agent's orders, edits one and makes th
   // The browser (shared tenant in this test) sees the same order, unchanged.
   const web = await webLogin("robin");
   expect((await inject("/account")).statusCode).toBe(302);
-  const page = await app.request("/account", {
+  const page = await lab.app.request("/account", {
     headers: { cookie: web.cookie },
   });
   expect(page.status).toBe(200);
@@ -622,7 +459,7 @@ it("customer website: signs in, shows the agent's orders, edits one and makes th
     "script-src 'self'",
   );
   const state = (await (
-    await app.request("/site/state", { headers: { cookie: web.cookie } })
+    await lab.app.request("/site/state", { headers: { cookie: web.cookie } })
   ).json()) as { orders: unknown[]; activity: unknown[] };
   expect(state.orders[0]).toMatchObject({
     id: "ord_LNB2001",
@@ -632,7 +469,7 @@ it("customer website: signs in, shows the agent's orders, edits one and makes th
   expect(state.activity[0]).toMatchObject({ state: "proposed" });
   // A website edit needs the session, the Origin and the account header.
   const edit = (headers: Record<string, string>, body: unknown) =>
-    app.request("/site/orders/ord_LNB2001", {
+    lab.app.request("/site/orders/ord_LNB2001", {
       method: "POST",
       headers: { ...headers, "content-type": "application/json" },
       body: JSON.stringify(body),
@@ -691,12 +528,12 @@ it("customer website: signs in, shows the agent's orders, edits one and makes th
   });
   // Connected agents: the grant is listed and can be revoked from the website.
   const grants = (await (
-    await app.request("/site/access", { headers: { cookie: web.cookie } })
+    await lab.app.request("/site/access", { headers: { cookie: web.cookie } })
   ).json()) as { grants: Array<{ id: string }> };
   expect(grants.grants).toHaveLength(1);
   expect(
     (
-      await app.request(`/site/access/${grants.grants[0]!.id}/revoke`, {
+      await lab.app.request(`/site/access/${grants.grants[0]!.id}/revoke`, {
         method: "POST",
         headers: web.headers,
       })
@@ -711,6 +548,6 @@ it("customer website: signs in, shows the agent's orders, edits one and makes th
   expect(readFileSync(target, "utf8")).toBe(
     render(readFileSync(source, "utf8")),
   );
-  const script = await (await app.request("/site/app.js")).text();
+  const script = await (await lab.app.request("/site/app.js")).text();
   expect(() => new Function(script)).not.toThrow();
 });

@@ -119,17 +119,19 @@ export function operationTitle(op: ReviewOperation) {
       ? "Open support request"
       : t.kind === "support_resolution"
         ? "Close support case"
-        : t.booking_id
-          ? "Review booking change"
-          : t.order_id
-            ? "Review order change"
-            : t.kind === "checkout"
-              ? "Review checkout"
-              : t.kind === "delivery"
-                ? "Change delivery day"
-                : t.kind === "basket"
-                  ? "Update basket"
-                  : t.kind === "delivery_items"
-                    ? "Update recurring delivery"
-                    : "Review Company proposal";
+        : typeof t.refund_cents === "number"
+          ? "Review refund"
+          : t.booking_id
+            ? "Review booking change"
+            : t.order_id
+              ? "Review order change"
+              : t.kind === "checkout"
+                ? "Review checkout"
+                : t.kind === "delivery"
+                  ? "Change delivery day"
+                  : t.kind === "basket"
+                    ? "Update basket"
+                    : t.kind === "delivery_items"
+                      ? "Update recurring delivery"
+                      : "Review Company proposal";
 }

@@ -13,12 +13,14 @@ import { randomId, tokenHash } from "@poppy-lab/pap-client/core";
 import type { GrantAccess, OperationRecord } from "@poppy-lab/pap-company";
 import { customers, menu, slots } from "./data.ts";
 import type { Order } from "./lantern.ts";
+import { deliveredView, type Refund } from "./agent.ts";
 import { escape, shell } from "./site.ts";
 import { siteScript } from "./site/app-script.ts";
 
 type WebSession = { expires: number; account: string };
 type Deps = {
   ordersFor: (account: string) => Order[];
+  refundsFor: (account: string) => Refund[];
   view: (o: Order) => unknown;
   priced: (lines: Record<string, number>) => { total_cents: number };
   slotLabel: (id: string) => string;
@@ -161,6 +163,7 @@ export function mountPortal(app: Hono, ctx: Ctx, deps: Deps) {
       menu,
       slots,
       orders: deps.ordersFor(account).map(deps.view),
+      delivered: deliveredView(account, deps.refundsFor(account)),
       activity,
     };
   };
@@ -243,7 +246,7 @@ export function mountPortal(app: Hono, ctx: Ctx, deps: Deps) {
   app.get("/account", (c) => {
     const record = current(c);
     if (!record) return c.redirect("/site/login", 302);
-    const body = `<main class="wrap account" data-account="${escape(record.account)}"><section class="intro"><h1>Your orders.</h1><p id="current-account" class="notice"></p><p>The same scheduled orders your agent reads. A pending proposal changes nothing until you approve it in Poppy Lab. <a href="/site/login">Switch test customer</a></p><div class="live-row"><p id="status" class="live" role="status">Loading your account…</p><div><button id="refresh" class="secondary" type="button">Refresh now</button> <button id="logout" class="secondary" type="button">Log out</button></div></div></section><div id="content" aria-busy="true"><section class="plain" id="orders"><h2>Scheduled orders</h2><div id="order-list"></div></section><section class="plain" id="activity"><h2>Your agent's activity</h2><p class="notice">A pending proposal doesn't change your order. Approve or decline it in Poppy Lab.</p><div id="activity-list"></div></section><section class="plain" id="agent-access"><h2>Connected agents</h2><p class="notice">Revoking ends that grant's access. It doesn't log you out of this website. Logging out here doesn't revoke the agent.</p><button id="load-access" type="button" class="secondary">Show grants</button><div id="access-list"></div><p id="access-status" role="status"></p></section></div></main><script defer src="/site/app.js"></script>`;
+    const body = `<main class="wrap account" data-account="${escape(record.account)}"><section class="intro"><h1>Your orders.</h1><p id="current-account" class="notice"></p><p>The same scheduled orders your agent reads. A pending proposal changes nothing until you approve it in Poppy Lab. <a href="/site/login">Switch test customer</a></p><div class="live-row"><p id="status" class="live" role="status">Loading your account…</p><div><button id="refresh" class="secondary" type="button">Refresh now</button> <button id="logout" class="secondary" type="button">Log out</button></div></div></section><div id="content" aria-busy="true"><section class="plain" id="orders"><h2>Scheduled orders</h2><div id="order-list"></div></section><section class="plain" id="delivered"><h2>Last delivery</h2><div id="delivered-order"></div></section><section class="plain" id="activity"><h2>Your agent's activity</h2><p class="notice">A pending proposal doesn't change your order. Approve or decline it in Poppy Lab.</p><div id="activity-list"></div></section><section class="plain" id="agent-access"><h2>Connected agents</h2><p class="notice">Revoking ends that grant's access. It doesn't log you out of this website. Logging out here doesn't revoke the agent.</p><button id="load-access" type="button" class="secondary">Show grants</button><div id="access-list"></div><p id="access-status" role="status"></p></section></div></main><script defer src="/site/app.js"></script>`;
     return c.html(
       shell("Your account · Lantern Noodle Bar", body, "/account", origin),
       200,

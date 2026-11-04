@@ -68,3 +68,7 @@ The full suite has 362 tests.
 ### Customer account area
 
 `/site/login`, `/account` and `/site/*` (`src/portal.ts`, browser script `src/site/app.js`) give Lantern the same capabilities as Juniper's portal, in Lantern's terms: sign in as Sam or Robin; a live view (2 s polling) of the scheduled orders the agent reads; **Edit order** (slot and dish quantities), which moves the order's version on so a pending agent proposal becomes stale; the agent's activity from the tenant's Operations v2 records (exposed read-only to `mount` as `operations()`); connected agents with revocation; logout. POSTs need the session cookie, the Company's Origin and an `X-Lantern-Account` header naming the account the page was opened for. The gateway routes each browser to its own tenant, or to the agent user's tenant once that browser approved the agent's consent.
+
+## Company Agent (4 November 2026)
+
+Lantern lists `agent.protocols` with a `poppy` endpoint at `/poppy/conversations`. Its agent answers structured requests: `opening_hours`, `delivery_info`, `order_status` and `report_missing_item`. A missing dish from the last delivery (`ord_LNB0907` for Sam, `ord_LNB1907` for Robin) gets a refund proposal, performed once after approval. The account page shows it under "Last delivery" and in the agent's activity. A handoff says nobody can join and gives +1 555-0142, a fictional number. Details in [conversations](conversations.md).

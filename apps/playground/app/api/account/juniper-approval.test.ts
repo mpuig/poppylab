@@ -134,7 +134,7 @@ it("model tool → real Juniper 403 operation → human approval → Poppy-Appro
     },
   );
   state.send.mockImplementation((_run, op: Operation) =>
-    invoke(op.request!.url, "POST", op.request!.body, {
+    invoke(op.request!.url!, "POST", (op.request as { body: unknown }).body, {
       operation_id: op.operation_id,
       revision: op.revision,
     }),

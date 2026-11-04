@@ -75,6 +75,9 @@ export function operations(
   sessionFor: (request: Req) => Session,
   state: Commerce = { customers: {}, records: {} },
   gateway?: Approve,
+  /** With the gateway: its operation records, for the website's activity. */
+  records: () => Readonly<Record<string, OperationRecord>> = () =>
+    state.records,
 ) {
   const account = (s: Session) => s.account ?? "alex";
   const customer = (s: Session) => {
@@ -438,7 +441,7 @@ export function operations(
           version: c.deliveryVersion,
         },
         orders: c.orders.slice().reverse(),
-        activity: Object.entries(state.records)
+        activity: Object.entries(records())
           .filter(([, r]) => r.account === account(s))
           .slice(-8)
           .reverse()

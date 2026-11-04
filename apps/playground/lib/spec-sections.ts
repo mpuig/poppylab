@@ -13,7 +13,13 @@ const discovery: Record<string, string> = {
 export const discoverySection = (id: string) => discovery[id] ?? "";
 
 const api: Array<[RegExp, string]> = [
+  [/Conversation operation/i, "§8.4 · Operations §4"],
   [/approval required|Poppy-Approval/i, "Operations §4–6"],
+  [/Conversation authorization/i, "§8.11"],
+  [/Conversation handoff/i, "§8.9"],
+  [/Conversation state/i, "§8.7"],
+  [/Company Agent conversations/i, "§8.1"],
+  [/Conversation (started|message)/i, "§8.3"],
   [/excluded tasks/i, "§9.1"],
   [/^(GET|POST|PUT|PATCH|DELETE) |API tools|OpenAPI/i, "§7"],
   [/MCP/, "§7"],

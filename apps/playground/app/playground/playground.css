@@ -490,6 +490,61 @@ h2 {
   overflow-wrap: anywhere;
   max-width: 75ch;
 }
+/* The Company's own agent (§8): set apart, and marked as its content. */
+.message.company {
+  margin-left: 16px;
+  padding-left: 16px;
+  border-left: 2px solid var(--line);
+}
+.message.company + .message.company {
+  border-top: 0;
+  padding-top: 0;
+}
+.message.company h3 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.company-badge {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+.company-note {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.company-data {
+  margin-top: 8px;
+  font-size: 13px;
+}
+.company-data summary {
+  cursor: pointer;
+  color: var(--muted);
+  min-height: 28px;
+}
+.company-data summary:hover {
+  color: var(--ink);
+}
+.company-data pre {
+  margin-top: 6px;
+  padding: 10px 12px;
+  max-height: 280px;
+  overflow: auto;
+  background: var(--soft);
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .thinking {
   display: flex;
   align-items: center;

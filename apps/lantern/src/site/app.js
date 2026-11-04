@@ -197,6 +197,47 @@ function render(data) {
     }
     list.append(article);
   }
+  const delivered = $("delivered-order");
+  delivered.replaceChildren();
+  if (data.delivered) {
+    const d = data.delivered;
+    const article = node("article", undefined, "order");
+    const head = node("div", undefined, "order-head");
+    head.append(
+      node("h3", d.id),
+      node("span", "Delivered " + d.delivered_at, "mono"),
+    );
+    article.append(head);
+    const lines = node("div", undefined, "lines");
+    for (const i of d.items) {
+      const row = node("div", undefined, "line");
+      row.append(
+        node("span", i.quantity + " × " + i.name),
+        node(
+          "span",
+          i.refunded_quantity
+            ? "Refunded " +
+                i.refunded_quantity +
+                " · " +
+                money(i.refunded_quantity * i.unit_price_cents)
+            : money(i.quantity * i.unit_price_cents),
+          "mono",
+        ),
+      );
+      lines.append(row);
+    }
+    article.append(lines);
+    article.append(
+      node(
+        "p",
+        d.refunds.length
+          ? "Refunds are made through Lantern's agent in a conversation. Simulated: no real money moved."
+          : "Something missing? Ask your agent to tell Lantern; a refund needs your approval.",
+        "notice",
+      ),
+    );
+    delivered.append(article);
+  }
   const activity = $("activity-list");
   activity.replaceChildren();
   if (!data.activity.length)

@@ -5,7 +5,7 @@ import { validateOperation } from "./operation-validation";
 export function recordOperation(
   run: { operations?: Record<string, Operation> },
   raw: unknown,
-  request: { url: string; body: unknown },
+  request: NonNullable<Operation["request"]>,
 ) {
   const previous =
     run.operations?.[

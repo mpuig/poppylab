@@ -5,7 +5,14 @@
  * The consent page shares the visual system.
  */
 import { labLineHtml } from "@poppy-lab/pap-core";
-import { customers, DELIVERY_CENTS, menu, slots } from "./data.ts";
+import {
+  customers,
+  DELIVERY_CENTS,
+  hours,
+  menu,
+  PHONE,
+  slots,
+} from "./data.ts";
 
 export const escape = (t: string) =>
   t.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -181,7 +188,7 @@ export function homePage(origin: string) {
         `<li class="btn slot"><span class="name">${escape(slotDay(s.label))}</span><span class="time">${escape(slotTime(s.label))}</span></li>`,
     )
     .join("");
-  const body = `<main class="wrap"><section class="intro"><h1>Noodles on your night, not your to-do list.</h1><p>Six dishes, four delivery slots, one neighbourhood noodle bar. Your personal agent reads the menu and the slots, proposes the order, and nothing happens until you approve it.</p><p class="how">A fictional shop for testing the Personal Agent Protocol. No kitchen, no delivery van.</p></section><section class="machine" aria-labelledby="machine-title"><div class="head"><h2 id="machine-title">Ticket machine</h2><span>Delivery ${usd(DELIVERY_CENTS)} per order · USD</span></div><ol class="buttons" aria-label="Menu">${dishes}</ol><ol class="buttons slots" aria-label="Delivery slots">${slotButtons}</ol><div class="tray"><p><strong>No coins here.</strong> Your personal agent presses the buttons for you. In Poppy Lab, connect this Company, sign in as a test customer, and ask it to change a scheduled order; you approve the exact new total.</p><a class="cta" href="${playgroundFor(origin)}">Order through your agent</a></div></section><section class="plain"><h2>How ordering works</h2><div class="cols"><div><h3>1. Your agent reads</h3><p>It discovers this shop, starts a signed Session, and reads the menu and the slots. No account is needed for that.</p></div><div><h3>2. You sign in here</h3><p>To see or change a scheduled order, you sign in on this shop&apos;s own page as a test customer and choose what the agent may do.</p></div><div><h3>3. You approve the ticket</h3><p>The agent proposes the change with the exact dishes, slot and price difference. The shop waits for your approval and performs it once.</p></div></div></section><section class="plain"><h2>Hours and delivery</h2><div class="cols"><div><h3>Kitchen</h3><dl class="hours"><div><dt>Wednesday to Friday</dt><dd>17:30–21:30</dd></div><div><dt>Saturday and Sunday</dt><dd>12:00–21:30</dd></div><div><dt>Monday and Tuesday</dt><dd>Closed</dd></div></dl></div><div><h3>Delivery slots</h3><p>Scheduled orders go out in the four slots above. A change of slot costs nothing; a change of dishes is charged at the difference, simulated.</p></div><div><h3>Find us</h3><p>12 Lantern Lane (fictional).<br>Dine in, collect, or let your agent schedule a delivery.</p></div></div></section></main>`;
+  const body = `<main class="wrap"><section class="intro"><h1>Noodles on your night, not your to-do list.</h1><p>Six dishes, four delivery slots, one neighbourhood noodle bar. Your personal agent reads the menu and the slots, proposes the order, and nothing happens until you approve it.</p><p class="how">A fictional shop for testing the Personal Agent Protocol. No kitchen, no delivery van.</p></section><section class="machine" aria-labelledby="machine-title"><div class="head"><h2 id="machine-title">Ticket machine</h2><span>Delivery ${usd(DELIVERY_CENTS)} per order · USD</span></div><ol class="buttons" aria-label="Menu">${dishes}</ol><ol class="buttons slots" aria-label="Delivery slots">${slotButtons}</ol><div class="tray"><p><strong>No coins here.</strong> Your personal agent presses the buttons for you. In Poppy Lab, connect this Company, sign in as a test customer, and ask it to change a scheduled order; you approve the exact new total.</p><a class="cta" href="${playgroundFor(origin)}">Order through your agent</a></div></section><section class="plain"><h2>How ordering works</h2><div class="cols"><div><h3>1. Your agent reads</h3><p>It discovers this shop, starts a signed Session, and reads the menu and the slots. No account is needed for that.</p></div><div><h3>2. You sign in here</h3><p>To see or change a scheduled order, you sign in on this shop&apos;s own page as a test customer and choose what the agent may do.</p></div><div><h3>3. You approve the ticket</h3><p>The agent proposes the change with the exact dishes, slot and price difference. The shop waits for your approval and performs it once.</p></div></div></section><section class="plain"><h2>Hours and delivery</h2><div class="cols"><div><h3>Kitchen</h3><dl class="hours">${hours.map((h) => `<div><dt>${h.days}</dt><dd>${h.open}</dd></div>`).join("")}</dl></div><div><h3>Delivery slots</h3><p>Scheduled orders go out in the four slots above. A change of slot costs nothing; a change of dishes is charged at the difference, simulated.</p></div><div><h3>Find us</h3><p>12 Lantern Lane (fictional).<br>Dine in, collect, or let your agent schedule a delivery.<br>Phone <span class="mono">${PHONE}</span> (fictional number).</p></div></div></section></main>`;
   return shell("Lantern Noodle Bar · fictional noodle bar", body, "/", origin);
 }
 
@@ -210,6 +217,11 @@ export function forAgentsPage(origin: string) {
     ["API", `${origin}/openapi.json · OpenAPI 3.1`, "§7"],
     ["Excluded tasks", `${origin}/poppy/excluded-tasks.json`, "§9.1"],
     [
+      "Conversations",
+      `${origin}/poppy/conversations · structured requests in data`,
+      "§8",
+    ],
+    [
       "Approvals",
       "403 approval_required → resend with Poppy-Approval",
       "Operations v2",
@@ -231,7 +243,7 @@ export function forAgentsPage(origin: string) {
       return `<li><strong>${escape(c.name)}</strong><span>Account <code>${c.id}</code> · order <code>${c.order.id}</code>: ${escape(lines)} · ${escape(slot)}</span></li>`;
     })
     .join("");
-  const body = `<main class="wrap"><section class="intro"><h1>Point your agent here.</h1><p>Lantern Noodle Bar speaks Personal Agent Protocol draft 0.3. Any Personal Agent with an HTTPS <code>client_id</code> that serves its metadata and keys can start a Session, sign in as a test customer and change a scheduled order with Operations v2. Every visitor gets its own copy of the customers.</p></section><section class="plain"><h2>Endpoints at ${host}</h2><div class="table-wrap"><table><thead><tr><th scope="col">What</th><th scope="col">Where</th><th scope="col">Spec</th></tr></thead><tbody>${table}</tbody></table></div><p class="try">Scopes: <code>orders:read</code> (scheduled orders) and <code>orders:write</code> (propose changes). Sign-in offers read first; a visitor adds write later.</p></section><section class="plain"><h2>Test customers</h2><ul class="customers">${people}</ul><p class="try">Try: <q>Add a matcha ice cream to my order and move it to Sunday lunchtime.</q> The approval shows the new slot, the dishes and the price difference before anything changes.</p></section><section class="plain"><h2>Watch it work</h2><p class="try">Open <a href="${playgroundFor(origin)}">Iris</a>, the test Personal Agent in Poppy Lab, with this Company connected. Its Inspector shows discovery, the Session and each API call with the spec section it meets.</p></section></main>`;
+  const body = `<main class="wrap"><section class="intro"><h1>Point your agent here.</h1><p>Lantern Noodle Bar speaks Personal Agent Protocol draft 0.3. Any Personal Agent with an HTTPS <code>client_id</code> that serves its metadata and keys can start a Session, sign in as a test customer and change a scheduled order with Operations v2. Every visitor gets its own copy of the customers.</p></section><section class="plain"><h2>Endpoints at ${host}</h2><div class="table-wrap"><table><thead><tr><th scope="col">What</th><th scope="col">Where</th><th scope="col">Spec</th></tr></thead><tbody>${table}</tbody></table></div><p class="try">Scopes: <code>orders:read</code> (scheduled orders) and <code>orders:write</code> (propose changes). Sign-in offers read first; a visitor adds write later.</p></section><section class="plain"><h2>Test customers</h2><ul class="customers">${people}</ul><p class="try">Try: <q>Add a matcha ice cream to my order and move it to Sunday lunchtime.</q> The approval shows the new slot, the dishes and the price difference before anything changes.</p><p class="try">Or: <q>The gyoza were missing from my last delivery.</q> Your agent takes it up with Lantern's own agent in a conversation. It answers structured requests with data, and proposes a refund you approve.</p></section><section class="plain"><h2>Watch it work</h2><p class="try">Open <a href="${playgroundFor(origin)}">Iris</a>, the test Personal Agent in Poppy Lab, with this Company connected. Its Inspector shows discovery, the Session and each API call with the spec section it meets.</p></section></main>`;
   return shell("For agents · Lantern Noodle Bar", body, "/for-agents", origin);
 }
 

@@ -7,6 +7,7 @@ import { ProtocolError } from "@poppy-lab/pap-client";
 import { shoppingTarget } from "@/lib/shopping-context";
 import { cookies } from "next/headers";
 import { connect, type Run } from "@/lib/runtime";
+import type { CompanyEntry } from "@/lib/conversations";
 import {
   acquireRun,
   createRun,
@@ -156,14 +157,33 @@ export async function POST(request: Request) {
         "This run reached its 20-turn limit. Connect again to start another run.",
       );
     const trace: string[] = [];
+    const shown: CompanyEntry[] = [];
     stage = "pap";
-    const tools = await connect(run, trace);
+    const tools = await connect(run, trace, shown);
     // A turn counts once the Company answered; a failed discovery is free.
     run.calls++;
     const provider = typeof body.provider === "string" ? body.provider : "demo";
     let text: string;
-    if (provider === "demo") {
-      const message = body.message.toLowerCase();
+    const lowered = body.message.toLowerCase();
+    if (
+      provider === "demo" &&
+      tools.company_agent_send &&
+      /customer service|support|company'?s agent|talk to|speak to|a person|human|someone/.test(
+        lowered,
+      )
+    ) {
+      // The demo's way into a conversation (§8): ask what the Company's agent
+      // handles, or ask for a person (which needs a conversation first).
+      const person = /talk to|speak to|a person|human|someone/.test(lowered);
+      const results: unknown[] = [];
+      if (!person || !run.conversation?.id)
+        results.push(
+          await tools.company_agent_send.execute({ data: { request: "help" } }),
+        );
+      if (person) results.push(await tools.company_agent_handoff!.execute({}));
+      text = `Protocol demo (no LLM). Live Company Agent ${person ? "handoff" : "reply"}:\n\n${JSON.stringify(results.at(-1), null, 2)}\n\nThe Company's agent answers structured requests. For a real conversation with it, select a model.`;
+    } else if (provider === "demo") {
+      const message = lowered;
       const day = ["saturday", "tuesday", "thursday"].find((day) =>
         message.includes(day),
       );
@@ -196,10 +216,18 @@ export async function POST(request: Request) {
                       : /hour|return|refund|open|policy/.test(message)
                         ? "store_policies"
                         : "list_products";
-      // Another Company's tools: never guess arguments for unknown schemas.
+      // Another Company's tools: never guess arguments for unknown schemas,
+      // and never talk to the Company's agent unless asked (above).
       const fallback = tools[selected]
         ? selected
-        : pickDemoTool(message, tools);
+        : pickDemoTool(
+            message,
+            Object.fromEntries(
+              Object.entries(tools).filter(
+                ([name]) => !name.startsWith("company_agent_"),
+              ),
+            ),
+          );
       const selectedTool = fallback ? tools[fallback] : undefined;
       const product_id = /coffee/.test(message)
         ? "coffee"
@@ -261,6 +289,7 @@ export async function POST(request: Request) {
         scopes: run.scopes,
         recovery: run.accountUnavailable ? accountUnavailableNotice : undefined,
         operations: Object.values(run.operations ?? {}),
+        company: shown,
       },
       { headers: { "Cache-Control": "no-store" } },
     );

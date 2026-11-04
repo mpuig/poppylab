@@ -34,6 +34,12 @@ const legend = [
   ["AP", "APIs", "/openapi.json · OpenAPI 3.1", "§7"],
   ["EX", "Excluded tasks", "/poppy/excluded-tasks.json", "§9.1"],
   [
+    "CV",
+    "Conversations",
+    "/poppy/conversations · the Company's own agent",
+    "§8",
+  ],
+  [
     "OP",
     "Approvals",
     "403 approval_required → resend with Poppy-Approval",

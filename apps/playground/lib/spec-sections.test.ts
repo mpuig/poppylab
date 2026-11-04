@@ -15,6 +15,20 @@ it("labels discovery and API steps with their PAP 0.3 sections", () => {
   expect(apiSection("Approval required · nothing performed")).toBe(
     "Operations §4–6",
   );
+  // Conversations (§8).
+  expect(apiSection("Company Agent conversations at https://x/poppy")).toBe(
+    "§8.1",
+  );
+  expect(apiSection("Conversation started")).toBe("§8.3");
+  expect(apiSection("Conversation authorization event · scope a")).toBe(
+    "§8.11",
+  );
+  expect(apiSection("Conversation handoff requested")).toBe("§8.9");
+  expect(
+    apiSection(
+      "Conversation operation · approval required · nothing performed",
+    ),
+  ).toBe("§8.4 · Operations §4");
 });
 
 it("builds a plain-text report for interop issues", () => {
