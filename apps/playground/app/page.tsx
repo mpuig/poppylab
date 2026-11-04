@@ -80,10 +80,10 @@ export default function Home() {
             </h1>
             <p className="lead">
               Poppy Lab is an independent test bench for the Personal Agent
-              Protocol, draft 0.3. Run a Personal Agent with your own model key,
-              point it at two fictional Companies, and watch every step it
-              takes: discovery, sign-in, signed Sessions, and changes that wait
-              for your approval.
+              Protocol, draft 0.3. Run Iris, its Personal Agent, with your own
+              model key, point it at two fictional Companies, and watch every
+              step it takes: discovery, sign-in, signed Sessions, and changes
+              that wait for your approval.
             </p>
             <div className="actions">
               <a className="button" href="/playground">
@@ -137,9 +137,9 @@ export default function Home() {
               <h3>The playground</h3>
               <p className="address">poppylab.dev/playground</p>
               <p>
-                A chat-first Personal Agent. Choose GPT-6 Luna or Sonnet 5 with
-                your own key, connect a Company, and open the Inspector for the
-                discovery document, the Session and every API call. Approval
+                Iris, a chat-first Personal Agent. Choose GPT-6 Luna or Sonnet 5
+                with your own key, connect a Company, and open the Inspector for
+                the discovery document, the Session and every API call. Approval
                 cards show exact terms; the model can&apos;t press them.
               </p>
             </div>

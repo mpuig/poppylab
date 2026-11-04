@@ -105,8 +105,8 @@ export function juniperCompany(options: {
     name: "Juniper Market",
     readScope: "poppy:read",
     writeScope: "poppy:write",
-    consent: ({ nonce, passwordRequired, scopes, client }) =>
-      consentPage(nonce, passwordRequired, scopes, client),
+    consent: ({ nonce, passwordRequired, scopes, client, clientHost }) =>
+      consentPage(nonce, passwordRequired, scopes, client, clientHost),
     persona,
     defaultAccount: "alex",
     paths,

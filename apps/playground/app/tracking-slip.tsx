@@ -68,7 +68,7 @@ export function TrackingSlip() {
       <dl className="slip-route">
         <div>
           <dt>From</dt>
-          <dd>Poppy, your agent</dd>
+          <dd>Iris, your agent</dd>
         </div>
         <div>
           <dt>To</dt>

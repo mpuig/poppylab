@@ -70,6 +70,7 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
         passwordRequired: !!deploy.passwordHash,
         scopes,
         client: info.name,
+        clientHost: new URL(q.client_id!).host,
       }),
       200,
       {

@@ -124,7 +124,10 @@ export type CompanyDefinition = {
     nonce: string;
     passwordRequired: boolean;
     scopes: string;
+    /** The agent's `client_name`: self-asserted, so show it with `clientHost`. */
     client: string;
+    /** Host of the verified `client_id`. */
+    clientHost: string;
   }) => string;
   persona: (id: unknown) => { id: string } | undefined;
   defaultAccount: string;

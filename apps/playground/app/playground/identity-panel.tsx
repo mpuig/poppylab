@@ -7,7 +7,7 @@ export function IdentityPanel() {
       <dl>
         <div>
           <dt>Agent</dt>
-          <dd>Poppy Lab</dd>
+          <dd>Iris, the Poppy Lab agent</dd>
         </div>
         <div>
           <dt>Authentication</dt>
