@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ArrowUpRight } from "lucide-react";
+import { LAB_REPOSITORY, labSites } from "@poppy-lab/pap-core";
+import { exampleUrl } from "./companies";
 import type { View } from "./companies";
 import { usePlayground } from "./use-playground";
 import { ConnectionSetup } from "./connection-setup";
@@ -117,13 +119,25 @@ export default function PlaygroundPage() {
           An independent PAP 0.3 experiment. The shops are fictional; nothing is
           charged or shipped.
         </span>
-        <a
-          href="https://personalagentprotocol.org/docs/0.3/spec"
-          target="_blank"
-          rel="noreferrer"
-        >
-          Protocol docs <ArrowUpRight size={13} />
-        </a>
+        <nav aria-label="Poppy Lab sites" className="lab-links">
+          {labSites(exampleUrl)
+            .filter((s) => s.id !== "playground")
+            .map((s) => (
+              <a key={s.id} href={s.url}>
+                {s.label}
+              </a>
+            ))}
+          <a href={LAB_REPOSITORY}>
+            Source on GitHub <ArrowUpRight size={13} />
+          </a>
+          <a
+            href="https://personalagentprotocol.org/docs/0.3/spec"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Protocol docs <ArrowUpRight size={13} />
+          </a>
+        </nav>
       </footer>
     </div>
   );

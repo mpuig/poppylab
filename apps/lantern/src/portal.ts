@@ -82,6 +82,7 @@ export function mountPortal(app: Hono, ctx: Ctx, deps: Deps) {
         "Sign in · Lantern Noodle Bar",
         `<main class="wrap"><section class="intro"><h1>Your orders, on the board.</h1><p>Sign in to see your scheduled orders, edit them, and manage which agents may act for you. You share the same data with your agent in Poppy Lab.</p></section><section class="plain"><form class="card form" method="post" action="/site/login"><label for="account">Test customer</label><select id="account" name="account">${options}</select><p class="notice">Fictional accounts for testing the protocol. Choosing one doesn't verify who you are.</p><button type="submit">Sign in to the selected account</button><p class="notice">Don't enter credentials from other services. Your agent's proposals are approved in Poppy Lab.</p></form></section></main>`,
         "/account",
+        origin,
       ),
       200,
       {
@@ -244,7 +245,7 @@ export function mountPortal(app: Hono, ctx: Ctx, deps: Deps) {
     if (!record) return c.redirect("/site/login", 302);
     const body = `<main class="wrap account" data-account="${escape(record.account)}"><section class="intro"><h1>Your orders.</h1><p id="current-account" class="notice"></p><p>The same scheduled orders your agent reads. A pending proposal changes nothing until you approve it in Poppy Lab. <a href="/site/login">Switch test customer</a></p><div class="live-row"><p id="status" class="live" role="status">Loading your account…</p><div><button id="refresh" class="secondary" type="button">Refresh now</button> <button id="logout" class="secondary" type="button">Log out</button></div></div></section><div id="content" aria-busy="true"><section class="plain" id="orders"><h2>Scheduled orders</h2><div id="order-list"></div></section><section class="plain" id="activity"><h2>Your agent's activity</h2><p class="notice">A pending proposal doesn't change your order. Approve or decline it in Poppy Lab.</p><div id="activity-list"></div></section><section class="plain" id="agent-access"><h2>Connected agents</h2><p class="notice">Revoking ends that grant's access. It doesn't log you out of this website. Logging out here doesn't revoke the agent.</p><button id="load-access" type="button" class="secondary">Show grants</button><div id="access-list"></div><p id="access-status" role="status"></p></section></div></main><script defer src="/site/app.js"></script>`;
     return c.html(
-      shell("Your account · Lantern Noodle Bar", body, "/account"),
+      shell("Your account · Lantern Noodle Bar", body, "/account", origin),
       200,
       pageHeaders,
     );

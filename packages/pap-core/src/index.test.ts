@@ -58,3 +58,24 @@ describe("PAP document boundary", () => {
     ).toBe(false);
   });
 });
+
+import { labLineHtml, labSites } from "./lab.ts";
+it("links the Poppy Lab sites, locally to localhost and the current one as text", () => {
+  expect(labSites("https://noodles.poppylab.dev").map((s) => s.url)).toEqual([
+    "https://poppylab.dev",
+    "https://poppylab.dev/playground",
+    "https://juniper.poppylab.dev",
+    "https://noodles.poppylab.dev",
+  ]);
+  expect(labSites("http://juniper.localhost:4100")[3]!.url).toBe(
+    "http://noodles.localhost:4200",
+  );
+  const line = labLineHtml("https://noodles.poppylab.dev", "lantern");
+  expect(line).toContain(
+    '<span aria-current="page">Lantern&nbsp;Noodle&nbsp;Bar</span>',
+  );
+  expect(line).toContain(
+    '<a href="https://juniper.poppylab.dev">Juniper&nbsp;Market</a>',
+  );
+  expect(line).toContain("https://github.com/mpuig/poppylab");
+});
