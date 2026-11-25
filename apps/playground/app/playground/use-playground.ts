@@ -453,6 +453,8 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
                   ? "Demo"
                   : "Agent") as Message["role"],
                 text: data.text as string,
+                // Demo mode: the Company's exact answer, behind "Data".
+                ...(typeof data.data === "string" ? { data: data.data } : {}),
                 steps: ((data.trace ?? []) as string[]).map((line) =>
                   agentStep(logEntry(line)),
                 ),

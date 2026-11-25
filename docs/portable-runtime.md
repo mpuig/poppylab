@@ -142,7 +142,7 @@ The demo Companies are named by what they are: `grocery-demo.poppylab.dev` (Juni
 
 1. `wrangler login` on the operator machine, or a scoped API token.
 2. Routes are set in each `wrangler.toml` (`custom_domain = true`); Wrangler creates the DNS record in the zone.
-3. Deploy the Companies with `pnpm --filter @poppy-lab/lantern deploy`, `pnpm --filter @poppy-lab/example-company deploy`, `pnpm --filter @poppy-lab/harborline deploy`, and `pnpm --filter @poppy-lab/northwind deploy`; deploy Poppy with `pnpm --filter @poppy-lab/playground build:worker` then `deploy:worker`.
+3. Deploy the Companies with `pnpm --filter @poppy-lab/lantern run deploy`, `pnpm --filter @poppy-lab/example-company run deploy`, `pnpm --filter @poppy-lab/harborline run deploy`, and `pnpm --filter @poppy-lab/northwind run deploy`; deploy Poppy with `pnpm --filter @poppy-lab/playground build:worker` then `deploy:worker`.
 4. Optional secrets: `wrangler secret put JUNIPER_PASSWORD_HASH`, `LANTERN_PASSWORD_HASH`, `HARBORLINE_PASSWORD_HASH` or `NORTHWIND_PASSWORD_HASH` in the corresponding workspace.
 
 Lantern can go live on its own, as a public Poppy 1.0 test Company that any agent with an HTTPS `client_id` can use. Poppy still needs its own port before `poppylab.dev` hosts the playground.

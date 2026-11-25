@@ -18,6 +18,7 @@ import {
 } from "@/lib/runs";
 import { overBudget } from "@/lib/limits";
 import { pickDemoTool } from "@/lib/demo-tool";
+import { readable } from "@/lib/demo-text";
 import { demoChange, demoChangeKind } from "@/lib/demo-changes";
 import { UserFacingError } from "@/lib/user-error";
 import { PapDiscoveryError } from "@poppy-lab/pap-core";
@@ -192,6 +193,13 @@ async function reply(request: Request, started: { id?: string }) {
     run.calls++;
     const provider = typeof body.provider === "string" ? body.provider : "demo";
     let text: string;
+    // Demo mode has no model to put an answer into words: it shows the
+    // Company's answer as plain lines and keeps the exact JSON for "Data".
+    let raw: unknown;
+    const show = (value: unknown) => {
+      raw = value;
+      return readable(value);
+    };
     const lowered = body.message.toLowerCase();
     const companyName = run.company!.document.organization.name;
     if (direct) {
@@ -266,7 +274,7 @@ async function reply(request: Request, started: { id?: string }) {
             data: { request: "order_not_delivered", order_id: order },
           })
         : status;
-      text = `Protocol demo (no LLM). ${order ? `Told the Company's agent that order ${order} never arrived.` : "Asked the Company's agent for your orders first."} Live reply:\n\n${JSON.stringify(result, null, 2)}\n\nIf the Company asks to talk with you, accept or decline with the buttons above the message box.`;
+      text = `Protocol demo (no LLM). ${order ? `Told the Company's agent that order ${order} never arrived.` : "Asked the Company's agent for your orders first."} The company's agent answered:\n\n${show(result)}\n\nIf the Company asks to talk with you, accept or decline with the buttons above the message box.`;
     } else if (
       provider === "demo" &&
       tools.company_agent_send &&
@@ -283,7 +291,7 @@ async function reply(request: Request, started: { id?: string }) {
           await tools.company_agent_send.execute({ data: { request: "help" } }),
         );
       if (person) results.push(await tools.company_agent_handoff!.execute({}));
-      text = `Protocol demo (no LLM). Live Company Agent ${person ? "handoff" : "reply"}:\n\n${JSON.stringify(results.at(-1), null, 2)}\n\nThe Company's agent answers structured requests. For a real conversation with it, select a model.`;
+      text = `Protocol demo (no LLM). Live Company Agent ${person ? "handoff" : "reply"}:\n\n${show(results.at(-1))}\n\nThe Company's agent answers structured requests. For a real conversation with it, select a model.`;
     } else if (
       provider === "demo" &&
       tools.report_unsupported_task &&
@@ -295,7 +303,7 @@ async function reply(request: Request, started: { id?: string }) {
         description:
           "The User wanted to pay with a gift card they were given. None of the Company's APIs or its agent's requests apply a gift card.",
       });
-      text = `Protocol demo (no LLM). Feedback report sent to the Company (§9.3):\n\n${JSON.stringify(result, null, 2)}\n\nWith a model, Iris reports a task only after trying the Company's tools.`;
+      text = `Protocol demo (no LLM). Feedback report sent to the Company (§9.3):\n\n${show(result)}\n\nWith a model, Iris reports a task only after trying the Company's tools.`;
     } else if (provider === "demo" && demoChangeKind(body.message, tools)) {
       // Another kind of Company (orders, a bank, flights): the demo reads the
       // account and asks for one change with exact arguments. The Company
@@ -309,7 +317,7 @@ async function reply(request: Request, started: { id?: string }) {
           text = `Protocol demo (no LLM). ${plan?.say ?? "The demo can't prepare that change here."}`;
         } else {
           const result = await tools[plan.call]!.execute(plan.args);
-          text = `Protocol demo (no LLM). ${plan.because}\n\nLive Company response:\n\n${JSON.stringify(result, null, 2)}\n\nThe Company holds a change until you click Approve. For natural-language reasoning, select a model.`;
+          text = `Protocol demo (no LLM). ${plan.because}\n\nThe company answered:\n\n${show(result)}\n\nThe Company holds a change until you click Approve. For natural-language reasoning, select a model.`;
         }
       }
     } else if (provider === "demo") {
@@ -390,7 +398,7 @@ async function reply(request: Request, started: { id?: string }) {
             Object.entries(args).filter(([key]) => Object.hasOwn(allowed, key)),
           ),
         );
-        text = `Protocol demo (no LLM). Live Company response:\n\n${JSON.stringify(result, null, 2)}\n\n${tools.my_basket ? "Try “my basket”, “set apples in my basket to 2”, “checkout on Saturday”, “my orders”, or “my deliveries”. Basket edits and checkout are proposals only until you click Approve. Demo quantities are absolute totals, not increments." : `The demo called ${fallback}, a tool that needs no arguments.`} For natural-language reasoning, select a model.`;
+        text = `Protocol demo (no LLM). The company answered:\n\n${show(result)}\n\n${tools.my_basket ? "Try “my basket”, “set apples in my basket to 2”, “checkout on Saturday”, “my orders”, or “my deliveries”. Basket edits and checkout are proposals only until you click Approve. Demo quantities are absolute totals, not increments." : `The demo called ${fallback}, a tool that needs no arguments.`} For natural-language reasoning, select a model.`;
       }
     } else {
       stage = "provider";
@@ -413,6 +421,9 @@ async function reply(request: Request, started: { id?: string }) {
     return NextResponse.json(
       {
         text,
+        ...(raw !== undefined
+          ? { data: JSON.stringify(raw).slice(0, 20000) }
+          : {}),
         trace,
         sessionId: run.sessionId,
         mode: provider,
