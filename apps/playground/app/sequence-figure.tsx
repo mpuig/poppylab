@@ -78,6 +78,14 @@ export function SequenceFigure() {
     acted.current = true;
     setSigned(next);
   };
+  // A CSS animation plays when its element is mounted, and messages 1 to 4 stay
+  // mounted when the figure is reset. Counting the runs in their keys mounts
+  // them again, so "Show it again" draws the sequence from its first message.
+  const [run, setRun] = useState(0);
+  const replay = () => {
+    setRun((n) => n + 1);
+    set(false);
+  };
   return (
     <figure className="seq" aria-label="Sample of one agent request">
       <div className="seq-heads" aria-hidden="true">
@@ -93,7 +101,12 @@ export function SequenceFigure() {
       </div>
       <ol className="seq-rows">
         {asked.map((message, i) => (
-          <Row key={message.text} message={message} number={i + 1} order={i} />
+          <Row
+            key={`${run}-${message.text}`}
+            message={message}
+            number={i + 1}
+            order={i}
+          />
         ))}
         <li>
           <div className={signed ? "seq-gate done" : "seq-gate"}>
@@ -143,7 +156,7 @@ export function SequenceFigure() {
             ref={again}
             type="button"
             className="seq-again"
-            onClick={() => set(false)}
+            onClick={replay}
           >
             <RotateCcw size={15} aria-hidden="true" /> Show it again
           </button>
