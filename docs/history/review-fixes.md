@@ -1,5 +1,7 @@
 # Authorization and persistence review fixes
 
+> **Historical.** Written for an earlier draft of the protocol (0.1 to 0.3) or a feature Poppy Lab has since removed, and kept as a record. For what the lab does now, see [Poppy 1.0](../poppy-1.0.md) and [Learn](../learn/README.md).
+
 ## Immutable token authority
 
 Juniper account Session Token records now snapshot their granted scopes and original grant hash. API authorization reads that snapshot, not the mutable Session's current scopes/grant. A later refresh or consent cannot promote an older read-only token or attach it to a replacement grant. Revoking its original grant invalidates it even after a second consent in the same Session. Grant checks also bind client and user.

@@ -1,6 +1,6 @@
-# Lantern Noodle Bar — local PAP 1.0 sandbox
+# Lantern Noodle Bar — local Poppy 1.0 sandbox
 
-A second **fictional** example Company, so Poppy can be tested against more than one PAP 1.0 Company without depending on third-party services. It replaces the role the public PAP Sandbox played, which still uses 0.2 Sessions and Operations v1 (and is an independent project, not affiliated with the protocol's authors). Lantern Noodle Bar is also independent and unaffiliated; "Personal Agent Protocol" and "Poppy" are the authors' names. Nothing is sold, charged or delivered.
+A second **fictional** example Company, so Poppy can be tested against more than one Poppy 1.0 Company without depending on third-party services. It replaces the role the public PAP Sandbox played, which still uses 0.2 Sessions and Operations v1 (and is an independent project, not affiliated with the protocol's authors). Lantern Noodle Bar is also independent and unaffiliated; "Personal Agent Protocol" and "Poppy" are the authors' names. Nothing is sold, charged or delivered.
 
 > **Update:** Lantern now lives in `apps/lantern` on the portable Hono gateway (`@poppy-lab/pap-company`) and runs on Node and on Cloudflare Workers + Durable Objects. See [portable runtime](portable-runtime.md). The Fastify notes below describe the first version.
 
@@ -21,7 +21,7 @@ A second **fictional** example Company, so Poppy can be tested against more than
 | Excluded tasks      | Cancel an order (alternative: move it, with an `openapi` reference to `change_order`); change the delivery address                             |
 | State               | Encrypted vault `noodles`, separate from Juniper's                                                                                             |
 
-It reuses the same PAP 1.0 gateway as Juniper, parameterized by a `CompanyDefinition` in `pap.ts`. That gateway provides:
+It reuses the same Poppy 1.0 gateway as Juniper, parameterized by a `CompanyDefinition` in `pap.ts`. That gateway provides:
 
 - discovery metadata (RFC 8414/9728);
 - OAuth with PKCE and `private_key_jwt`;

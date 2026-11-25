@@ -1,6 +1,8 @@
 # Ample: live test up to human authorization
 
-> **Historical.** Ample publishes PAP 0.1 and the integration was removed when Poppy moved to 0.3 only.
+> **Historical.** Written for an earlier draft of the protocol (0.1 to 0.3) or a feature Poppy Lab has since removed, and kept as a record. For what the lab does now, see [Poppy 1.0](../poppy-1.0.md) and [Learn](../learn/README.md).
+
+> Ample publishes PAP 0.1 and the integration was removed when Poppy moved to 0.3 only.
 
 The flow was tested in an isolated agent-browser session, with no fixtures and no cookies from existing accounts.
 

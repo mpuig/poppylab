@@ -19,7 +19,7 @@ The package also has `dev:worker`, `build`, `test`, `typecheck` and `deploy` scr
 - **Elena Maren**: operating checking, reserve savings, posted transactions, one active and one inactive card, active and inactive recipients, and two budgets.
 - **Robin Ito**: everyday checking, rainy-day savings, posted and pending transactions, a frozen card, one active recipient and one budget.
 
-The account portal and PAP APIs use the same tenant state. Approved agent changes appear in the portal's next two-second refresh. Pending proposals appear only as activity and never as committed account state.
+The account portal and Poppy APIs use the same tenant state. Approved agent changes appear in the portal's next two-second refresh. Pending proposals appear only as activity and never as committed account state.
 
 ## Scopes
 

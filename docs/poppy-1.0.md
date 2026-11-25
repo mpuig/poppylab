@@ -1,6 +1,6 @@
 # Personal Agent Protocol 1.0
 
-Iris, Juniper, Lantern, Harborline and Northwind implement **only** PAP 1.0, published 14 November 2026, and version 3 of the Operations extension. There is no compatibility with 0.1–0.4: a document of another version is refused ("Unsupported PAP version"), and runs saved by the 0.3 implementation are discarded, not migrated. The text is pinned in `spec/1.0/` (spec, Operations extension, guides); `pnpm spec:drift` reports when the published text changes.
+Iris, Juniper, Lantern, Harborline and Northwind implement **only** Poppy 1.0, published 14 November 2026, and version 3 of the Operations extension. There is no compatibility with 0.1–0.4: a document of another version is refused ("Unsupported Poppy version"), and runs saved by the 0.3 implementation are discarded, not migrated. The text is pinned in `spec/1.0/` (spec, Operations extension, guides); `pnpm spec:drift` reports when the published text changes.
 
 1.0 is 0.4 with the fixes implementers needed. Coming from 0.3, both releases changed what's on the wire. What Poppy Lab does now, section by section:
 
@@ -64,3 +64,4 @@ Live on the local stack, 25 November 2026, fictional data only:
 4. Iris at Juniper: sign-in through PAR, a recurring delivery moved Thursday → Saturday with a `Poppy-Approval` v3 header at the API, then back to Thursday, then sign-out with revocation.
 5. From production (`poppylab.dev`), against Cliffside Retail 1.0: discovery, `whoami` and a conversation with its Company agent, signed out. See [community demos](community-demos.md).
 6. The Poppy Demo Agent validator, checking 1.0: Juniper, Lantern and Iris's client metadata are valid with 0 errors, 0 warnings and 0 info.
+7. The official validator from the [Company kit](https://personalagentprotocol.org/kit/company), against all four live Companies: 107 passed, 0 failed, 0 warnings and 26 skipped (features not offered) at each, after two fixes it prompted: `invalid_grant` for an unknown refresh token before the DPoP check, and the spec's errors for a bad Direct Conversation parent. See [validator results](learn/validator.md).

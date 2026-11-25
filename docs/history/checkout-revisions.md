@@ -1,6 +1,8 @@
 # Revising a checkout and continuing from another Session
 
-> **Historical.** This describes the Operations v1 design under draft 0.2 (`checkout-revision` endpoint, numeric revisions). Under Operations v2 a Company returns a new opaque revision whenever the terms of the same request change, and the `/checkout-revision` route was removed. See [PAP 0.3](pap-03.md).
+> **Historical.** Written for an earlier draft of the protocol (0.1 to 0.3) or a feature Poppy Lab has since removed, and kept as a record. For what the lab does now, see [Poppy 1.0](../poppy-1.0.md) and [Learn](../learn/README.md).
+
+> This describes the Operations v1 design under draft 0.2 (`checkout-revision` endpoint, numeric revisions). Under Operations v2 a Company returns a new opaque revision whenever the terms of the same request change, and the `/checkout-revision` route was removed. See PAP 0.3.
 
 Juniper supported renegotiating a **pending checkout**. It wasn't a generic revision of every proposal: profile, support, basket and recurring delivery kept their own flows.
 

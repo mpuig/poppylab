@@ -1,5 +1,7 @@
 # Code and security review
 
+> **Historical.** Written for an earlier draft of the protocol (0.1 to 0.3) or a feature Poppy Lab has since removed, and kept as a record. For what the lab does now, see [Poppy 1.0](../poppy-1.0.md) and [Learn](../learn/README.md).
+
 Historical scope: the first discovery-only implementation. **Update:** the project now also implements signed-out Sessions, DPoP, OpenAPI GET tools, and model execution. The original findings below remain useful, but they are not a security review or approval of those new features. Current implementation limits are listed in README.md. This is a source review, automated regression check, dependency audit, and local integration check, not an independent penetration test or PAP certification.
 
 ## Verdict

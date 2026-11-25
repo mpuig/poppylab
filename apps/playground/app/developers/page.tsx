@@ -114,6 +114,9 @@ export default function Developers() {
             <a className="button" href="/playground">
               Open the playground <ArrowRight size={18} aria-hidden="true" />
             </a>
+            <a className="button ghost" href="/learn">
+              Learn how it works
+            </a>
             <a className="button ghost" href={SPEC_URL}>
               Specification <ArrowUpRight size={16} aria-hidden="true" />
             </a>
@@ -258,7 +261,9 @@ export default function Developers() {
               Poppy Lab makes no claim of conformance. The draft changes, and
               interop findings are expected output. Other implementations are
               listed in the{" "}
-              <a href={DEMOS_URL}>protocol&apos;s community demos</a>.
+              <a href={DEMOS_URL}>protocol&apos;s community demos</a>. How each
+              side is built, and what the official validator found, is in{" "}
+              <a href="/learn">Learn</a>.
             </p>
           </div>
           <ul>

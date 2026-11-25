@@ -1,6 +1,8 @@
 # Personal Agent Protocol notes
 
-Target: **draft 0.2**. For implemented subsets, evidence and known deviations, see the [coverage matrix](pap-coverage.md). The flow below is the conceptual protocol flow, not a list of fully implemented channels.
+> **Historical.** Written for an earlier draft of the protocol (0.1 to 0.3) or a feature Poppy Lab has since removed, and kept as a record. For what the lab does now, see [Poppy 1.0](../poppy-1.0.md) and [Learn](../learn/README.md).
+
+Target: **draft 0.2**. For implemented subsets, evidence and known deviations, see the [coverage matrix](../coverage.md). The flow below is the conceptual protocol flow, not a list of fully implemented channels.
 
 ## Client flow
 

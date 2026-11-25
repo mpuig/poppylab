@@ -2,7 +2,7 @@
 
 ## Known protocol deviation
 
-The [coverage matrix, A08](pap-coverage.md) now includes the corrected Session rule: exchange and refresh reject `account_mismatch`, including after revocation and signed-out renewal. Poppy prepares a new candidate Session for explicit consent and replaces its old context only after success. Integration tests keep different personas in distinct Sessions. See [protocol corrections](protocol-corrections.md) for evidence and migration limits; this is not a full conformance claim.
+The [coverage matrix, A08](coverage.md) now includes the corrected Session rule: exchange and refresh reject `account_mismatch`, including after revocation and signed-out renewal. Poppy prepares a new candidate Session for explicit consent and replaces its old context only after success. Integration tests keep different personas in distinct Sessions. See [protocol corrections](history/protocol-corrections.md) for evidence and migration limits; this is not a full conformance claim.
 
 ## Try it
 
@@ -27,7 +27,7 @@ Closing the website is not revocation. Switching accounts is not revocation eith
 - Customer state, profile, basket, recurrence, orders, cases, invoice projections and Operations ownership are partitioned by account. Cross-account object lookups return 404, and linking a foreign order to a case is rejected.
 - Pre-persona web sessions, grants and account tokens were exclusively Elena's: migration assigns Elena without touching business records. Tokens missing earlier immutable scope/grant metadata still require renewal, per the review fixes.
 - Browser sessions persist the selected account. Logging into another persona replaces the cookie and invalidates that browser's previous session. Mutation requests carry `X-Juniper-Account` from the page's server-rendered account, checked against the session. A stale tab cannot apply a coincidentally matching version from another account. Polling detects an account change and reloads, discarding the old page's drafts rather than rebasing them onto another customer.
-- Website grant routes are not advertised as model tools. No reset, arbitrary-account seeding, operator scenario console or additional PAP channel is included here.
+- Website grant routes are not advertised as model tools. No reset, arbitrary-account seeding, operator scenario console or additional Poppy channel is included here.
 
 ## Evidence
 

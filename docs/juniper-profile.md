@@ -22,15 +22,15 @@ Old records lazily initialize `profile_version` to 1 while preserving any existi
 
 - `GET /api/account/profile`: DPoP account Session, `poppy:read`; returns `{profile, profile_version, fictional:true}`.
 - `POST /api/account/profile-proposal`: account Session with write authority; OpenAPI tool declares read/write, returns 202 Operation only.
-- `POST /site/profile`: browser session + exact Origin; PAP authorization alone cannot replace the browser cookie. Not a model tool.
+- `POST /site/profile`: browser session + exact Origin; Poppy authorization alone cannot replace the browser cookie. Not a model tool.
 - Name: 1–80 characters; email: up to 120, normalized to lowercase, `.invalid` only; address: 1–240. Blank values, control characters, missing/invalid integer versions and authority/unknown fields are rejected. The profile is a complete contact snapshot, not an unrestricted JSON patch.
 
 No real delivery validation, verification email, address-book management, identity change, real payment or production authentication is implemented. The deterministic Protocol demo has no profile intent parser; use a configured LLM.
 
 ## Evidence
 
-Automated tests cover web/PAP authority separation, read-only write rejection, malformed/real-domain email input, stale draft/proposal rejection, idempotent confirmation, cross-account profile isolation, result immutability, legacy contact/order preservation, independent versions, checkout invalidation and immutable order destinations.
+Automated tests cover web/Poppy authority separation, read-only write rejection, malformed/real-domain email input, stale draft/proposal rejection, idempotent confirmation, cross-account profile isolation, result immutability, legacy contact/order preservation, independent versions, checkout invalidation and immutable order destinations.
 
 A real GPT-6 Luna / OpenAI compatible run loaded 19 API tools, read the current profile and proposed only a fictional address change while retaining the name/email. It ended awaiting human approval. **No live profile save or confirmation was performed, and no existing customer/order data was modified by this smoke test.** Website save and checkout effects were exercised in isolated fixtures. The browser checked editor population, draft retention on refresh and desktop/mobile layout without submitting the draft. The live proposal can expire normally.
 
-Billing/credits, website checkout/order management, the scenario/fault lab and additional PAP channels remain roadmap work.
+Billing/credits, website checkout/order management, the scenario/fault lab and additional Poppy channels remain roadmap work.

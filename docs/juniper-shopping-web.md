@@ -14,7 +14,7 @@ Open `/account` and choose **Edit basket** or **Edit recurring delivery**. Edito
 
 `POST /site/basket` requires `{version, items}`; `POST /site/delivery` requires `{version, items, day}`. `items` is the complete catalogue-keyed numeric quantity map. Missing/unknown product keys, missing/extra authority fields, non-integer/negative/excessive quantities and invalid days are rejected before any business mutation.
 
-Both routes require a live, separate customer browser session and exact Origin. A PAP token alone cannot use them. They are not advertised as model tools and do not confirm Operations. Existing DPoP API protections and mandatory agent approval remain unchanged. The read projection includes public catalogue data and the correct separate basket/delivery versions, not credentials.
+Both routes require a live, separate customer browser session and exact Origin. A Poppy token alone cannot use them. They are not advertised as model tools and do not confirm Operations. Existing DPoP API protections and mandatory agent approval remain unchanged. The read projection includes public catalogue data and the correct separate basket/delivery versions, not credentials.
 
 The basket's version increments on each website basket save; this invalidates pending basket edits and checkout proposals. Delivery has its own version for day/items; either kind of website delivery change invalidates old agent day/items proposals. Date proposals now capture `delivery_version`, preventing a change-away-and-back (ABA) from making an old proposal valid again. Legacy pending day proposals without that version fail closed and need fresh terms; old records are not silently rewritten.
 
@@ -29,8 +29,8 @@ In-process integration tests exercise browser login/session/Origin checks and sh
 - Approved fresh agent edits make old browser drafts fail without overwriting the latest data.
 - Legacy unversioned day proposals fail closed; fresh confirmation is idempotent.
 - Invalid bodies are atomic no-ops; empty configurations have zero totals/fees.
-- Actual scoped DPoP tests confirm PAP authorization cannot replace browser authority on these routes.
+- Actual scoped DPoP tests confirm Poppy authorization cannot replace browser authority on these routes.
 
-A live browser checked all eight quantity fields, independent basket/delivery versions, draft preservation on refresh and desktop/mobile layout. It did not submit the drafts or change persisted shopping data. Business mutations/conflicts were exercised in isolated test fixtures, not against the user's existing fictional purchases. Model tools are unchanged (19 total); this milestone adds ordinary website controls, not another PAP channel or a new model tool.
+A live browser checked all eight quantity fields, independent basket/delivery versions, draft preservation on refresh and desktop/mobile layout. It did not submit the drafts or change persisted shopping data. Business mutations/conflicts were exercised in isolated test fixtures, not against the user's existing fictional purchases. Model tools are unchanged (19 total); this milestone adds ordinary website controls, not another Poppy channel or a new model tool.
 
-Still pending: website checkout/order management, richer billing/credits, local reproducible scenarios/faults and remaining PAP channels. All products, stock, prices, orders and shipments are fictional. Local single-writer storage is not production transactional commerce.
+Still pending: website checkout/order management, richer billing/credits, local reproducible scenarios/faults and remaining Poppy channels. All products, stock, prices, orders and shipments are fictional. Local single-writer storage is not production transactional commerce.

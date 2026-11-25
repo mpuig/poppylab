@@ -1,6 +1,8 @@
 # Identity relay renewal (20 October 2026)
 
-> **Historical.** The relay exposed a local Poppy's public identity while the playground ran only locally. Poppy now runs publicly at `poppylab.dev` with its own HTTPS identity, so the relay is no longer used.
+> **Historical.** Written for an earlier draft of the protocol (0.1 to 0.3) or a feature Poppy Lab has since removed, and kept as a record. For what the lab does now, see [Poppy 1.0](../poppy-1.0.md) and [Learn](../learn/README.md).
+
+> The relay exposed a local Poppy's public identity while the playground ran only locally. Poppy now runs publicly at `poppylab.dev` with its own HTTPS identity, so the relay is no longer used.
 
 The operator authorized renewing the tunnel after checking that its previous hostname no longer resolved. Only the old relay and tunnel processes, whose identity and PIDs were verified as ours, were stopped; Poppy and Juniper were left running.
 

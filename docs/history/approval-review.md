@@ -1,5 +1,7 @@
 # Structured order and booking approvals
 
+> **Historical.** Written for an earlier draft of the protocol (0.1 to 0.3) or a feature Poppy Lab has since removed, and kept as a record. For what the lab does now, see [Poppy 1.0](../poppy-1.0.md) and [Learn](../learn/README.md).
+
 Juniper keeps its existing quantity/day/checkout review. Sandbox Companies now get structured order/booking reviews in addition to their **unaltered Company summary and exact terms**:
 
 - Food/Flowers: delivery slot/date, changed/added/removed lines and unit prices, card message.

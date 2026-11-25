@@ -7,7 +7,7 @@ Goal: run the same code on **Cloudflare Workers + Durable Objects** (`poppylab.d
 The gateway (`packages/pap-company/src/gateway.ts`) is a 50-line composition of modules under `src/gateway/`: `types` (state, definition and deployment types), `context` (the shared state, replay cache, dirty flag, cookie and client-metadata helpers, DPoP helpers, per-request carriers), `persistence` (body limit, save-when-dirty, security headers), `discovery`, `signin` (Direct Sign-In), `tokens` (token and revocation endpoints), `sessions` (the `Poppy-Session` middleware for `/api/*`) and `tenancy` (one business app per tenant, the Operations v3 gate, grant access, website dispatch). Middleware order is fixed in `createCompany`: body limit and persistence first, the Session middleware before the business dispatch.
 
 - **`@poppy-lab/pap-client/core`** is the runtime-portable subset of the client library: Session header and delegations, DPoP proofs and assertions, the `Poppy-Approval` header. It uses Web APIs, `jose` and the parts of `node:crypto` that Workers provides with `nodejs_compat`. The DNS-pinned network client (undici) stays in the Node entry point.
-- **`@poppy-lab/pap-company`** is a PAP 1.0 Company gateway on **Hono**:
+- **`@poppy-lab/pap-company`** is a Poppy 1.0 Company gateway on **Hono**:
   - discovery metadata (RFC 8414/9728), Direct Sign-In and DPoP access tokens, refresh and RFC 7009 revocation;
   - verification of the delegated `Poppy-Session` header and one account per Session;
   - Operations v3 through a pure engine (`approvals.ts`).
@@ -77,7 +77,7 @@ Harborline has deployment configuration but is not claimed as deployed by this d
 - `pnpm dev:northwind` runs it at `http://northwind.localhost:4400`; the matching fictional passenger portal is `/account`.
 - `pnpm --filter @poppy-lab/northwind dev:worker` runs it under Wrangler. `wrangler.toml` targets `northwind.poppylab.dev`, binds the SQLite-backed `NorthwindCompany` Durable Object, and enables visitor isolation.
 - Public tools cover flight search, cheapest dates, status, fare and baggage information, and fictional booking lookup. Signed-in tools cover trips, loyalty, preferences and approval-gated seat, baggage, cancellation, upgrade and flight changes.
-- Tests cover PAP 1.0 discovery, differentiated scopes, public and account tools, exact Operations v3 terms, stale fare/inventory revisions, idempotent execution, conversations and portal/API parity. Run `pnpm scenarios airline`.
+- Tests cover Poppy 1.0 discovery, differentiated scopes, public and account tools, exact Operations v3 terms, stale fare/inventory revisions, idempotent execution, conversations and portal/API parity. Run `pnpm scenarios airline`.
 
 Northwind has deployment configuration but is not claimed as deployed by this document.
 
@@ -141,4 +141,4 @@ The same Next.js app runs with `next dev`/`next start` on Node and on Cloudflare
 3. Deploy the Companies with `pnpm --filter @poppy-lab/lantern deploy`, `pnpm --filter @poppy-lab/example-company deploy`, `pnpm --filter @poppy-lab/harborline deploy`, and `pnpm --filter @poppy-lab/northwind deploy`; deploy Poppy with `pnpm --filter @poppy-lab/playground build:worker` then `deploy:worker`.
 4. Optional secrets: `wrangler secret put JUNIPER_PASSWORD_HASH`, `LANTERN_PASSWORD_HASH`, `HARBORLINE_PASSWORD_HASH` or `NORTHWIND_PASSWORD_HASH` in the corresponding workspace.
 
-Lantern can go live on its own, as a public PAP 1.0 test Company that any agent with an HTTPS `client_id` can use. Poppy still needs its own port before `poppylab.dev` hosts the playground.
+Lantern can go live on its own, as a public Poppy 1.0 test Company that any agent with an HTTPS `client_id` can use. Poppy still needs its own port before `poppylab.dev` hosts the playground.

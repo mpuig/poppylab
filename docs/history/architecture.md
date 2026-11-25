@@ -1,5 +1,7 @@
 # Architecture
 
+> **Historical.** Written for an earlier draft of the protocol (0.1 to 0.3) or a feature Poppy Lab has since removed, and kept as a record. For what the lab does now, see [Poppy 1.0](../poppy-1.0.md) and [Learn](../learn/README.md).
+
 ## Working request path
 
 ```text
@@ -26,7 +28,7 @@ The Company stores hashed opaque tokens, Session ownership, DPoP bindings, expir
 
 ## Supported OpenAPI subset
 
-The adapter generates up to 24 tools from OpenAPI, including scalar path/query parameters and bounded object/array JSON proposal bodies. It validates arguments before sending, rejects unsupported schemas and control endpoints, and never accepts model-provided destinations or headers. Proposal POSTs require an independent trusted-example policy (local Juniper or three exact Sandbox origins) as well as explicit proposal/Operations declarations; arbitrary Companies cannot grant themselves write authority through metadata. See pap-sandbox.md for the scoped 0.1 compatibility profile and remaining live verification. Confirmation remains outside the model. See [openapi-tools.md](openapi-tools.md) for the exact subset and security boundary.
+The adapter generates up to 24 tools from OpenAPI, including scalar path/query parameters and bounded object/array JSON proposal bodies. It validates arguments before sending, rejects unsupported schemas and control endpoints, and never accepts model-provided destinations or headers. Proposal POSTs require an independent trusted-example policy (local Juniper or three exact Sandbox origins) as well as explicit proposal/Operations declarations; arbitrary Companies cannot grant themselves write authority through metadata. See pap-sandbox.md for the scoped 0.1 compatibility profile and remaining live verification. Confirmation remains outside the model. See [openapi-tools.md](../openapi-tools.md) for the exact subset and security boundary.
 
 ## Model execution
 

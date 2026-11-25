@@ -1,8 +1,10 @@
-# PAP 1.0 coverage matrix: Iris, Juniper, Lantern, Harborline and Northwind
+# Poppy 1.0 coverage matrix: Iris, Juniper, Lantern, Harborline and Northwind
 
-This describes the current implementation against **Personal Agent Protocol 1.0** and the **Operations extension, version 3**. **It does not certify conformance**: it is a map of capabilities, limits and evidence, not an inventory of every MUST and SHOULD. The text is pinned in `spec/1.0/` (published 14 November 2026, retrieved 25 November); `pnpm spec:drift` reports later changes. Details in [PAP 1.0](pap-10.md).
+This describes the current implementation against **Personal Agent Protocol 1.0** and the **Operations extension, version 3**. **It does not certify conformance**: it is a map of capabilities, limits and evidence, not an inventory of every MUST and SHOULD. The text is pinned in `spec/1.0/` (published 14 November 2026, retrieved 25 November); `pnpm spec:drift` reports later changes. Details in [Poppy 1.0](poppy-1.0.md).
 
 **Iris** is the Personal Agent in the playground. **Juniper Market**, **Lantern Noodle Bar**, **Harborline Bank** and **Northwind Air** are fictional Companies that share one gateway (`packages/pap-company`) with their own scopes, contracts, Company Agents and business. They run locally at ports 4100, 4200, 4300 and 4400; Wrangler configurations target `juniper.poppylab.dev`, `noodles.poppylab.dev`, `harborline.poppylab.dev` and `northwind.poppylab.dev`. Earlier versions (0.1–0.4) are not accepted.
+
+**Validators (25 November 2026).** The official validator from the [Company kit](https://personalagentprotocol.org/kit/company) passes 107 checks, fails none and warns on none at each of the four live Companies; 26 are skipped because they test features the Companies don't offer. The community Poppy Demo Agent validator reports Juniper, Lantern and Iris's client metadata valid with 0 errors, 0 warnings and 0 info. Details in [validator results](learn/validator.md).
 
 Legend: **I** implemented (within the stated limits) · **P** partial · **N** not implemented · **—** not applicable. Evidence: **A** automated tests · **V** documented live check · **C** code inspection only.
 
@@ -90,4 +92,4 @@ Legend: **I** implemented (within the stated limits) · **P** partial · **N** n
 - **External demos:** see [community demos](community-demos.md).
 - There has been no independent security review and no official conformance check.
 
-Related documents: [PAP 1.0](pap-10.md), [conversations](conversations.md), [Lantern](lantern-noodles.md), [Harborline](harborline-bank.md), [permissions](permission-consent.md), [MCP](mcp-readonly.md), [scenarios](scenario-lab.md), [portable runtime](portable-runtime.md). Documents about 0.2 and 0.3 (for example `protocol-corrections.md` and `checkout-revisions.md`) are kept as history.
+Related documents: [Poppy 1.0](poppy-1.0.md), [conversations](conversations.md), [Lantern](lantern-noodles.md), [Harborline](harborline-bank.md), [permissions](permission-consent.md), [MCP](mcp-readonly.md), [scenarios](scenario-lab.md), [portable runtime](portable-runtime.md). Documents about 0.2 and 0.3 (for example `protocol-corrections.md` and `checkout-revisions.md`) are kept as history.

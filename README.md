@@ -65,9 +65,9 @@ pnpm spec:drift
 
 ## Documentation
 
-Start with [Learn Poppy by running it](docs/learn/README.md): one task request by request, Poppy compared with an API, MCP, browser automation and UCP, and the official validator's results.
+Start with **Learn**, at [poppylab.dev/learn](https://poppylab.dev/learn) or in [`docs/learn`](docs/learn/README.md): one task request by request, Poppy compared with an API, MCP, browser automation and UCP, conversations, approvals, how to build either side, the pitfalls we hit, the official validator's results and a glossary. The site pages are built from the same Markdown.
 
-`docs/` holds the design notes: [Poppy 1.0 notes](docs/pap-10.md), [coverage matrix](docs/pap-coverage.md), [portable runtime and deployment](docs/portable-runtime.md), [security review](docs/security-review.md), [community demos and interop](docs/community-demos.md), [Lantern](docs/lantern-noodles.md), [Harborline](docs/harborline-bank.md), [Northwind Air](docs/northwind-air.md), and the Juniper website and service notes. `DESIGN.md` records the visual systems; `PRODUCT.md` the product context.
+[`docs/`](docs/README.md) also holds the design notes for contributors ([Poppy 1.0](docs/poppy-1.0.md), the [coverage matrix](docs/coverage.md), the [portable runtime](docs/portable-runtime.md), one note per Company) and, in [`docs/history`](docs/history), notes from earlier drafts. `DESIGN.md` records the visual systems; `PRODUCT.md` the product context.
 
 ## Deploy
 

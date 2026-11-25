@@ -1,4 +1,4 @@
-# Northwind Air — fictional PAP 1.0 airline
+# Northwind Air — fictional Poppy 1.0 airline
 
 Northwind Air is a standalone fictional Company at `apps/northwind`, parallel to Juniper Market and Lantern Noodle Bar. It implements Personal Agent Protocol **1.0 only** through `@poppy-lab/pap-company`, including Direct Sign-In with PAR, DPoP-bound tokens and refresh, signed Sessions, task discovery, deterministic conversations and Operations v3 approvals.
 

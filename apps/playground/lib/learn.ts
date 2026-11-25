@@ -18,6 +18,12 @@ export const LEARN_PAGES = [
   },
   { slug: "compared", file: "compared.md", label: "Poppy compared" },
   {
+    slug: "conversations",
+    file: "conversations.md",
+    label: "Conversations",
+  },
+  { slug: "operations", file: "operations.md", label: "Approvals" },
+  {
     slug: "build-a-company",
     file: "build-a-company.md",
     label: "Build a Company",
@@ -29,6 +35,7 @@ export const LEARN_PAGES = [
   },
   { slug: "pitfalls", file: "pitfalls.md", label: "Pitfalls and interop" },
   { slug: "validator", file: "validator.md", label: "Validator results" },
+  { slug: "glossary", file: "glossary.md", label: "Glossary" },
 ] as const;
 
 export type LearnPage = (typeof LEARN_PAGES)[number];

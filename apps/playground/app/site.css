@@ -978,9 +978,10 @@ body:has(.site) {
   font-weight: 600;
   font-size: 14px;
 }
+/* Code in a table breaks at its spaces, never inside a word or path. */
 .learn-body td code {
   overflow-wrap: normal;
-  white-space: nowrap;
+  word-break: normal;
 }
 .learn-body td:first-child {
   color: var(--ink);

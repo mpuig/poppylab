@@ -1,6 +1,8 @@
 # Ample Computer: read-only MCP consent
 
-> **Historical.** Ample publishes PAP 0.1, and Poppy now implements 0.3 only, so this integration was removed. The notes are kept as a record of the read-only MCP design.
+> **Historical.** Written for an earlier draft of the protocol (0.1 to 0.3) or a feature Poppy Lab has since removed, and kept as a record. For what the lab does now, see [Poppy 1.0](../poppy-1.0.md) and [Learn](../learn/README.md).
+
+> Ample publishes PAP 0.1, and Poppy now implements 0.3 only, so this integration was removed. The notes are kept as a record of the read-only MCP design.
 
 Poppy supported Direct Sign-In for the two exact origins `https://ample.computer` and `https://api.ample.computer`, bound exclusively to the issuer `https://api.ample.computer/poppy` and to Ample's verified public endpoints. This didn't widen Operations support or allow other infrastructure Companies.
 

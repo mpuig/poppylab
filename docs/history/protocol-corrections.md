@@ -1,6 +1,8 @@
 # PAP corrections: Session, negotiation and recovery
 
-> **Historical.** This records work done against draft 0.2 and Operations v1. The project now implements 0.3 only; see [PAP 0.3](pap-03.md) and the [coverage matrix](pap-coverage.md).
+> **Historical.** Written for an earlier draft of the protocol (0.1 to 0.3) or a feature Poppy Lab has since removed, and kept as a record. For what the lab does now, see [Poppy 1.0](../poppy-1.0.md) and [Learn](../learn/README.md).
+
+> This records work done against draft 0.2 and Operations v1. The project now implements 0.3 only; see PAP 0.3 and the [coverage matrix](../coverage.md).
 
 Reference: PAP draft 0.2 §§3.3, 4.2–4.4, 4.8–4.9, 6 and Operations v1 §2, using the same reference copies as the matrix at the time. This is not a complete certification and not a live revalidation of the Sandbox.
 
@@ -18,7 +20,7 @@ The capability `extensions.operations.version === "1"` comes from the client's a
 
 The token endpoint distinguishes `invalid_client`, `invalid_dpop_proof`, `invalid_session`, `invalid_scope`, `account_mismatch` and `rate_limited`. An unsupported `resource` is rejected as `invalid_target`, not ignored. At the APIs, the token and its proof are validated first; account, scope and extension errors carry `WWW-Authenticate`, including the required scope. Invalid proofs are no longer labelled as invalid tokens.
 
-The client keeps the HTTP status, an allowlisted code and the wait time in a `ProtocolError`; it never shows arbitrary descriptions, remote bodies, tokens or full challenges. Errors for missing channels remain outside the implemented profile. The `use_dpop_nonce` cycle was added later: see [nonces and scenarios](scenario-lab.md). No claim is made about covering all of OAuth.
+The client keeps the HTTP status, an allowlisted code and the wait time in a `ProtocolError`; it never shows arbitrary descriptions, remote bodies, tokens or full challenges. Errors for missing channels remain outside the implemented profile. The `use_dpop_nonce` cycle was added later: see [nonces and scenarios](../scenario-lab.md). No claim is made about covering all of OAuth.
 
 ## Retry-After (A14)
 
@@ -34,11 +36,11 @@ A second test in Poppy's route simulates an uncertain response: a single confirm
 
 ## Evidence and limits
 
-- [Authority, negotiation, errors, rate limit and socket loss](../apps/example-company/src/authority-regression.test.ts).
-- [Candidate consent and human recovery](../apps/playground/app/api/account/route.test.ts).
-- [Callback and mismatch](../apps/playground/app/api/account/callback/route.test.ts).
-- [Transport errors and cooldown](../packages/pap-client/src/protocol-error.test.ts).
-- [Encrypted cooldown and restart](../packages/pap-client/src/retry-persistence.test.ts).
+- [Authority, negotiation, errors, rate limit and socket loss](../../apps/example-company/src/authority-regression.test.ts).
+- [Candidate consent and human recovery](../../apps/playground/app/api/account/route.test.ts).
+- [Callback and mismatch](../../apps/playground/app/api/account/callback/route.test.ts).
+- [Transport errors and cooldown](../../packages/pap-client/src/protocol-error.test.ts).
+- [Encrypted cooldown and restart](../../packages/pap-client/src/retry-persistence.test.ts).
 
 Validation of this delivery at the time: **199 tests** passed, along with TypeScript, lint, production build and formatting. A scan of 11 deployment traces found no references to secret files.
 

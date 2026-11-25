@@ -53,4 +53,4 @@ A new revision needs a new approval. The client rejects changes to the summary o
 
 ## Validation
 
-The full suite and every scenario group pass on each change; see the [coverage matrix](pap-coverage.md) for the current count. The UI for summary-only proposals is checked by server rendering and the absence of invented facts. The review was done in-thread, with no independent reviewer.
+The full suite and every scenario group pass on each change; see the [coverage matrix](coverage.md) for the current count. The UI for summary-only proposals is checked by server rendering and the absence of invented facts. The review was done in-thread, with no independent reviewer.

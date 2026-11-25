@@ -16,7 +16,7 @@ Request-schema refs, compositions, multipart input, header/cookie parameters, pa
 
 ## Authority boundary
 
-The Poppy Lab Companies use two **local experimental OpenAPI annotations**, not standardized PAP fields:
+The Poppy Lab Companies use two **local experimental OpenAPI annotations**, not standardized Poppy fields:
 
 - `x-poppy-scopes` declares required account scopes for a tool.
 - `x-poppy-proposal: true` plus a declared HTTP 202 response identifies an endpoint that only proposes an operation.
