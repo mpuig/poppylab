@@ -144,13 +144,13 @@ through the API.
 
 ### 5. Read what you are approving
 
-![The approval panel: Review refund, approval required, refund 37 dollars, Lantern's description, the exact terms with two shoyu ramen and one pork gyoza, an expiry time, and the buttons Approve and Decline](../../../apps/playground/public/learn-media/how-it-works/talking-to-the-company-yourself/05-exact-terms.webp "The terms come from Lantern. Elena approves these and no others.")
+![The approval panel: Review refund, approval required, the amount of 37 dollars in large type, Lantern's description, the exact terms with two shoyu ramen and one pork gyoza, an expiry time, and the buttons Approve and Decline](../../../apps/playground/public/learn-media/how-it-works/talking-to-the-company-yourself/05-exact-terms.webp "The terms come from Lantern. Elena approves these and no others.")
 
 The panel shows what Lantern will do if Elena approves: refund all of order
-ord_LNB0907, both ramen and the gyoza, 37 dollars, to the card used for the
-order. The paragraph that begins "Lantern Noodle Bar says" is the company's
-own description, shown as written. All exact terms is opened in the
-screenshot.
+ord_LNB0907, both ramen and the gyoza, to the card used for the order. The
+amount, 37 dollars, stands at the top in large type. The paragraph that begins
+"Lantern Noodle Bar says" is the company's own description, shown as written.
+All exact terms is opened in the screenshot.
 
 Talking to Lantern directly changes nothing about approvals. This one covers
 this revision of the terms and no other, and it was good for ten minutes.
@@ -175,12 +175,12 @@ step 4:
 
 ### 6. Approve
 
-![The entry Review refund now reads Completed, with Lantern's confirmation in green: Refunded 37 dollars for order ord_LNB0907](../../../apps/playground/public/learn-media/how-it-works/talking-to-the-company-yourself/06-approved.webp "Lantern refunded the order when the approval arrived, and said so.")
+![Under the conversation the entry Review refund now reads Completed. Without being opened it shows what Lantern says, Refunded 37 dollars for order ord_LNB0907, and the line Approved by you](../../../apps/playground/public/learn-media/how-it-works/talking-to-the-company-yourself/06-approved.webp "Lantern refunded the order when the approval arrived, and said so.")
 
 Elena presses Approve $37.00. Iris sends Lantern her approval for exactly
 those terms, in the same Direct Conversation. Lantern checks it, makes the
-refund and confirms it. The panel becomes an entry marked Completed, opened
-here to show Lantern's confirmation.
+refund and confirms it. The panel becomes an entry marked Completed. Without
+being opened, the entry shows Lantern's confirmation and who approved.
 
 The approval is the press of the button. A sentence typed into the
 conversation would not count as one, even though Elena herself is writing.
@@ -198,21 +198,27 @@ the company checks.
 
 ### 7. Reload the page
 
-![After a reload the chat shows Elena's own line, said to Lantern Noodle Bar directly, without Iris: yes. The yellow bar and the Leave and go back to Iris button are still there](../../../apps/playground/public/learn-media/how-it-works/talking-to-the-company-yourself/07-after-reload.webp "After a reload Elena is still in the Direct Conversation, and her own words are still shown.")
+![After a reload the chat shows the same conversation: Lantern's question, Iris's notice, Elena's line headed You to Lantern Noodle Bar with the answer yes, Lantern's offer, a line from Iris that the company's operation succeeded, and the Completed refund. The yellow bar and the Leave and go back to Iris button are still there](../../../apps/playground/public/learn-media/how-it-works/talking-to-the-company-yourself/07-after-reload.webp "After a reload Elena is still in the Direct Conversation, and both sides of it are still shown.")
 
 Elena reloads the page in the middle of the Direct Conversation. She is still
 in it afterwards: the yellow bar is there, the message box still writes to
 Lantern, and the next thing she types will again go as her own words.
 
-What the chat shows after a reload is Iris's saved record of the
-conversation. It has Elena's own line, marked as said to Lantern directly
-without Iris, a note that Iris gave no reply to it, and the result of the
-refund. Lantern's messages from the Direct Conversation are not part of that
-record, so its question and its offer are no longer on the screen.
+The conversation is still on the screen as well. Iris keeps a record of what
+the page showed and shows it again after a reload: Lantern's question and its
+offer, each marked Direct, without Iris; Elena's own line, headed "You →
+Lantern Noodle Bar"; Iris's notice; and the Completed refund with Lantern's
+confirmation. The Data and What Iris did disclosures open as before. A reload
+while the refund is still waiting keeps the approval panel too.
+
+The record has one line that the screen did not show before the reload. Under
+Iris's name it notes that the company's operation succeeded, with the
+confirmation that the Completed entry already carries. The same record is
+what Elena sees if she opens this conversation later from the History view.
 
 ### 8. Leave, and Iris comes back
 
-![Elena asks when the refund will reach her card. Lantern's agent answers that it only answers questions it asked and gives a phone number. Iris then says she has left the direct conversation and Iris is back](../../../apps/playground/public/learn-media/how-it-works/talking-to-the-company-yourself/08-leaving.webp "Lantern's agent does not repeat its question. Elena leaves, and the message box writes to Iris again.")
+![Elena asks when the refund will reach her card. Lantern's agent answers that it only answers questions it asked and gives a phone number. Iris then says she has left the direct conversation and Iris is back. The Completed refund stays under the conversation](../../../apps/playground/public/learn-media/how-it-works/talking-to-the-company-yourself/08-leaving.webp "Lantern's agent does not repeat its question. Elena leaves, and the message box writes to Iris again.")
 
 Elena asks one more thing: when will the refund reach her card? Lantern's
 agent has had its answer and does not ask its question again. It says that
@@ -239,11 +245,13 @@ While Elena was talking, Lantern took no messages from the agent there.
 
 ### 9. Check the refund at Lantern
 
-![Lantern's account page: both dishes of order ord_LNB0907 are marked refunded, and the agent's activity lists the refund as applied, approved by you, in your agent](../../../apps/playground/public/learn-media/how-it-works/talking-to-the-company-yourself/09-refund-at-lantern.webp "Lantern's website shows the refund and who approved it.")
+![Lantern's account page: both dishes of order ord_LNB0907 are marked refunded, and the agent's activity lists the refund as applied on 25 November at 20:40 UTC, approved by you, in your agent](../../../apps/playground/public/learn-media/how-it-works/talking-to-the-company-yourself/09-refund-at-lantern.webp "Lantern's website shows the refund, when it was made and who approved it.")
 
 Lantern's website shows the last delivery with both dishes refunded. Under
-Your agent's activity, Lantern lists the refund as applied, with the terms it
-offered, its confirmation, and the line "Approved by you, in your agent".
+Your agent's activity, Lantern lists the refund as applied, with its time in
+UTC, the terms it offered, its confirmation, and the line "Approved by you, in
+your agent". The entry was still listed a quarter of an hour later, after
+Iris had made another request for Elena.
 
 ## What Lantern controls
 
