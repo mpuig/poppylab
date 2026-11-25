@@ -31,6 +31,7 @@ import {
   demoChangeReply,
 } from "@/lib/demo-changes";
 import { demoFdxAnswer, demoFdxRead, demoFdxReply } from "@/lib/demo-fdx";
+import { demoEspiAnswer, demoEspiRead, demoEspiReply } from "@/lib/demo-espi";
 import { UserFacingError } from "@/lib/user-error";
 import { PapDiscoveryError } from "@poppy-lab/pap-core";
 import { publicMode, serving } from "@/lib/deployment";
@@ -220,6 +221,9 @@ async function reply(request: Request, started: { id?: string }) {
     // Use FDX on: balances and transactions through the FDX-shaped tools.
     const fdxRead =
       provider === "demo" ? demoFdxRead(body.message, tools) : undefined;
+    // Use ESPI on: usage and bills through the ESPI-shaped tools.
+    const espiRead =
+      provider === "demo" ? demoEspiRead(body.message, tools) : undefined;
     if (direct) {
       // §8.10: the User, not the model. Their words go to the Company as
       // written; Iris adds only a line about what happened.
@@ -342,6 +346,8 @@ async function reply(request: Request, started: { id?: string }) {
       }
     } else if (provider === "demo" && fdxRead) {
       text = demoFdxReply(await demoFdxAnswer(fdxRead, tools), show);
+    } else if (provider === "demo" && espiRead) {
+      text = demoEspiReply(await demoEspiAnswer(espiRead, tools), show);
     } else if (provider === "demo") {
       const message = lowered;
       const day = ["saturday", "tuesday", "thursday"].find((day) =>
