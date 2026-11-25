@@ -38,6 +38,12 @@ import type { CompanyDefinition, Deployment } from "./gateway/types.ts";
 
 export * from "./gateway/types.ts";
 export { feedbackSection } from "./gateway/feedback.ts";
+export {
+  agentActivity,
+  keepActivity,
+  type ActivityEntry,
+  type ActivityItem,
+} from "./gateway/activity.ts";
 
 export function createCompany(def: CompanyDefinition, deploy: Deployment) {
   const ctx = createContext(def, deploy);

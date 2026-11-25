@@ -476,6 +476,7 @@ function mount(
     grants: GrantAccess;
     origin: string;
     operations: () => Readonly<Record<string, OperationRecord>>;
+    activity: Parameters<CompanyDefinition["mount"]>[1]["activity"];
     converse: (handler: ConversationHandler) => void;
     feedback: () => readonly FeedbackReport[];
   },

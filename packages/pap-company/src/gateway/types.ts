@@ -7,6 +7,7 @@ import type { Context, Hono } from "hono";
 import { createHash } from "node:crypto";
 import type { Approval } from "@poppy-lab/pap-client/core";
 import type { Action, OperationRecord, Outcome } from "../approvals.ts";
+import type { ActivityEntry, ActivityItem } from "./activity.ts";
 
 /** A Session as the gateway keeps it between requests (§5.3). */
 export type SessionRecord = {
@@ -152,6 +153,13 @@ export type Tenant = {
   requests?: Record<string, RequestRecord>;
   /** §9.3 reports from this tenant's agents, newest last (bounded). */
   feedback?: FeedbackReport[];
+  /**
+   * What the gate finished, newest last (bounded), for the website: it
+   * outlasts `operations`, which forget an operation with its revision.
+   * A tenant stored before this has none, and gets what its `operations`
+   * still remember when it is next used.
+   */
+  activity?: ActivityEntry[];
 };
 export type FeedbackReport = {
   task: string;
@@ -499,8 +507,14 @@ export type CompanyDefinition = {
        */
       grantFor: (c: Context) => GrantView | undefined;
       origin: string;
-      /** This tenant's Operations v3 records, read-only (for a website). */
+      /** This tenant's Operations v3 records, read-only. */
       operations: () => Readonly<Record<string, OperationRecord>>;
+      /**
+       * What an account's agents asked for, for a website: the proposals
+       * that wait, then the requests that were applied or not, newest
+       * first, kept after the operation itself is forgotten.
+       */
+      activity: (account: string) => ActivityItem[];
       /** Registers this tenant's Company Agent (with `agent` set). */
       converse: (handler: ConversationHandler) => void;
       /** This tenant's §9.3 reports, newest last, read-only (for a website). */

@@ -211,6 +211,46 @@ it("shows the same basket and delivery state before and after agent approval; ne
     await app.close();
   }
 });
+it("keeps the customer's record of an applied request and of who approved it after its gate has forgotten the operation", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  const app = await setup();
+  try {
+    const cookie = ((await login(app)).headers["set-cookie"] as string[])
+      .find((c) => c.startsWith("juniper_web="))!
+      .split(";")[0]!;
+    const activity = async () =>
+      (await app.inject({ url: "/site/state", headers: { cookie } })).json()
+        .activity as Array<Record<string, unknown>>;
+    const change = (quantity: number, headers = {}) =>
+      app.inject({
+        method: "POST",
+        url: "/api/account/delivery-items-change",
+        payload: { product_id: "oranges", quantity },
+        headers,
+      });
+    const op = (await change(0)).json().operation;
+    expect((await change(0, approvalOf(op))).statusCode).toBe(200);
+    const applied = {
+      state: "succeeded",
+      approver: "user",
+      summary: op.summary,
+    };
+    expect(await activity()).toMatchObject([applied]);
+    // Eleven minutes on, the next request makes the gateway forget the
+    // performed operation. The customer's record of it stays.
+    vi.setSystemTime(Date.now() + 11 * 60000);
+    const next = (await change(2)).json().operation;
+    const later = await activity();
+    expect(later).toMatchObject([
+      { state: "proposed", summary: next.summary },
+      applied,
+    ]);
+    expect(later[1]!.when).toMatch(/^[A-Z][a-z]{2} \d{1,2}, \d{2}:\d{2} UTC$/);
+  } finally {
+    vi.useRealTimers();
+    await app.close();
+  }
+});
 it("uses the configured password for website login too", async () => {
   const salt = "01".repeat(16);
   vi.stubEnv(

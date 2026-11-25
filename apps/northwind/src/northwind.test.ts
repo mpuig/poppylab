@@ -701,6 +701,51 @@ it("opens the consent page on the passenger the gateway names, else on the first
   expect(page()).toContain('id="account-elena" value="elena" checked>');
 });
 
+it("keeps the customer's record of an applied request and of who approved it after the gateway has forgotten the operation", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  try {
+    const x = await setup();
+    const elena = await x.sign("elena", true);
+    const choose = (seat: string, approval?: Parameters<typeof x.call>[4]) =>
+      x.call(
+        elena.access_token,
+        "POST",
+        "/api/account/bookings/NW7K2P/seat",
+        { flight_id: "flt_na402_20270518", seat },
+        approval,
+      );
+    const op = (await choose("14A")).json().operation;
+    expect((await choose("14A", op)).statusCode).toBe(200);
+    const web = await webLogin("elena");
+    const activity = async () =>
+      (
+        (await (
+          await lab.app.request("/site/state", {
+            headers: { cookie: web.cookie },
+          })
+        ).json()) as { activity: Array<Record<string, unknown>> }
+      ).activity;
+    const applied = {
+      state: "succeeded",
+      approver: "user",
+      summary: op.summary,
+    };
+    expect(await activity()).toMatchObject([applied]);
+    // Eleven minutes on, the next request makes the gateway forget the
+    // performed operation. The customer's record of it stays.
+    vi.setSystemTime(Date.now() + 11 * 60000);
+    const next = (await choose("14C")).json().operation;
+    const later = await activity();
+    expect(later).toMatchObject([
+      { state: "proposed", summary: next.summary },
+      applied,
+    ]);
+    expect(later[1]!.when).toMatch(/^[A-Z][a-z]{2} \d{1,2}, \d{2}:\d{2} UTC$/);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
 it("serves responsive website, consent and account scripts with honest notices", async () => {
   await setup();
   const home = await lab.app.request("/");

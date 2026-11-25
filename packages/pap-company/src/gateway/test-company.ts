@@ -179,6 +179,8 @@ export async function setup(
       extensions?: string;
       user?: string;
       session?: string;
+      /** A `Poppy-Approval` header (Operations v3 §6). */
+      approval?: string;
       /** A JSON body for a POST or PUT (default `{}`). */
       body?: Record<string, unknown>;
     } = {},
@@ -192,6 +194,7 @@ export async function setup(
         ...(options.extensions !== undefined
           ? { "Poppy-Extensions": options.extensions }
           : {}),
+        ...(options.approval ? { "Poppy-Approval": options.approval } : {}),
         "Poppy-Session": await signSessionHeader({
           key: sessionKey,
           clientId: client,

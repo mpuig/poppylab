@@ -209,6 +209,55 @@ describe("Fernwick conversations and portal", () => {
     ).toBe(401);
   });
 
+  it("keeps the customer's record of an applied request and of who approved it after the gateway has forgotten the operation", async () => {
+    const tokens = await h.sign("elena", ["account:read", "plan:write"]);
+    const change = (
+      meter: string,
+      plan: string,
+      key: string,
+      approval?: Parameters<typeof h.call>[4],
+    ) =>
+      h.call(
+        tokens.access_token,
+        "POST",
+        "/api/account/plan",
+        { usage_point_id: meter, plan, idempotency_key: key },
+        approval,
+      );
+    const first = ["UP-E1", "time-of-use", "plan-history-01"] as const;
+    const op = (await change(...first)).json().operation;
+    expect((await change(...first, op)).statusCode).toBe(200);
+    const login = await inject("/site/login");
+    const loginCookie = String(login.headers["set-cookie"]).split(";")[0]!;
+    const signed = await inject({
+      method: "POST",
+      url: "/site/login",
+      headers: { cookie: loginCookie, origin },
+      payload: { account: "elena", login_token: loginCookie.split("=")[1] },
+    });
+    const web = String(signed.headers["set-cookie"]).split(";")[0]!;
+    const activity = async () =>
+      (await inject({ url: "/site/state", headers: { cookie: web } })).json()
+        .activity as Array<Record<string, unknown>>;
+    const applied = {
+      state: "succeeded",
+      approver: "user",
+      summary: op.summary,
+    };
+    expect(await activity()).toMatchObject([applied]);
+    // Eleven minutes on, the next request makes the gateway forget the
+    // performed operation. The customer's record of it stays.
+    vi.setSystemTime(Date.now() + 11 * 60000);
+    const next = (await change("UP-E2", "flat", "plan-history-02")).json()
+      .operation;
+    const later = await activity();
+    expect(later).toMatchObject([
+      { state: "proposed", summary: next.summary },
+      applied,
+    ]);
+    expect(later[1]!.when).toMatch(/^[A-Z][a-z]{2} \d{1,2}, \d{2}:\d{2} UTC$/);
+  });
+
   it("accepts the login form after a restart, and gives a form without its token a page with a way back", async () => {
     const load = restartingStore();
     await setup({ store: load(), isolation: "visitor" });

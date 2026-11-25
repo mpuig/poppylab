@@ -8,6 +8,7 @@
 import { Hono, type Context } from "hono";
 import { randomId } from "@poppy-lab/pap-client/core";
 import { approvals } from "../approvals.ts";
+import { activityOf, agentActivity, keepActivity } from "./activity.ts";
 import type { Ctx } from "./context.ts";
 import {
   hash,
@@ -139,12 +140,15 @@ export function createTenancy(ctx: Ctx) {
     if (now - tenant.used > 3600000) ctx.markDirty(request);
     tenant.used = now;
     tenant.operations ??= {};
+    const kept = (tenant.activity ??= activityOf(tenant.operations));
     let entry = apps.get(key);
     if (!entry) {
       const sub = new Hono();
       const created: Entry = {
         app: sub,
-        engine: approvals(tenant.operations),
+        engine: approvals(tenant.operations, {
+          finished: (entry) => keepActivity(kept, entry),
+        }),
         tenant,
       };
       entry = created;
@@ -157,6 +161,7 @@ export function createTenancy(ctx: Ctx) {
         grantFor: grantFor(key),
         origin,
         operations: () => tenant.operations,
+        activity: (account) => agentActivity(account, tenant.operations, kept),
         converse: (handler) => {
           created.converse = handler;
         },

@@ -1121,6 +1121,78 @@ describe("Harborline Bank", () => {
     expect(state.json().note).toContain("No real money moves");
   });
 
+  it("keeps the customer's record of a request and of who approved it after the gateway has forgotten the operation", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      const { sign, call } = await setup();
+      const token = await sign("elena", all);
+      const transfer = (key: string, approval?: Parameters<typeof call>[4]) =>
+        call(
+          token.access_token,
+          "POST",
+          "/api/account/transfers",
+          {
+            source_account_id: "acc_HLB_A100",
+            destination_account_id: "acc_HLB_A200",
+            amount_cents: 50000,
+            idempotency_key: key,
+          },
+          approval,
+        );
+      // Harborline declines the agent's own approval, then takes Elena's.
+      const op = operation(await transfer("history-01"));
+      expect(
+        (await transfer("history-01", { ...op, approver: "agent" })).statusCode,
+      ).toBe(403);
+      expect((await transfer("history-01", op)).statusCode).toBe(200);
+      const login = await inject("/site/login");
+      const loginCookie = String(login.headers["set-cookie"]).split(";")[0]!;
+      const signed = await inject({
+        method: "POST",
+        url: "/site/login",
+        headers: { cookie: loginCookie, origin },
+        payload: { account: "elena", login_token: loginCookie.split("=")[1] },
+      });
+      const cookie = String(signed.headers["set-cookie"])
+        .split(",")
+        .find((value) => value.includes("harborline_web="))!
+        .trim()
+        .split(";")[0]!;
+      const activity = async () =>
+        (await inject({ url: "/site/state", headers: { cookie } })).json()
+          .activity as Array<Record<string, unknown>>;
+      const applied = {
+        state: "succeeded",
+        approver: "user",
+        summary: op.summary,
+      };
+      expect((await activity())[0]).toMatchObject(applied);
+
+      // Eleven minutes on, the next request makes the gateway forget the
+      // performed operation. The customer's record of it stays.
+      vi.setSystemTime(Date.now() + 11 * 60000);
+      const next = operation(await transfer("history-02"));
+      const later = await activity();
+      expect(later).toHaveLength(3);
+      expect(later[0]).toMatchObject({
+        state: "proposed",
+        summary: next.summary,
+      });
+      expect(later[1]).toMatchObject(applied);
+      expect(later[1]!.when).toMatch(
+        /^[A-Z][a-z]{2} \d{1,2}, \d{2}:\d{2} UTC$/,
+      );
+      expect(later[2]).toMatchObject({
+        state: "declined",
+        approver: "agent",
+        summary: op.summary,
+        result: expect.stringContaining("only when you approve it yourself"),
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("accepts the login form after a restart, and gives a form without its token a page with a way back", async () => {
     const load = restartingStore();
     await setup({ store: load(), isolation: "visitor" });

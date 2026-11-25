@@ -42,14 +42,23 @@ const states = {
   proposed: "Awaiting approval",
   succeeded: "Done once",
   expired: "Expired without change",
+  declined: "Not applied",
+  refused: "Not applied",
 };
-/** One row of agent activity: a state tag, what was proposed, the result. */
+/** One row of agent activity: a state tag and time, what was proposed, the result. */
 const tones = { proposed: "pending", succeeded: "done", expired: "muted" };
 function record(item, label) {
   const row = node("li", undefined, "record");
   row.dataset.tone = tones[item.state] || "muted";
   const head = node("div", undefined, "record-head");
   head.append(node("span", label, "record-tag"));
+  // When it was applied, refused or ran out. A proposal that waits has
+  // no time yet.
+  if (item.when && item.state !== "proposed") {
+    const time = node("time", item.when, "record-when");
+    time.dateTime = item.at;
+    head.append(time);
+  }
   row.append(head, node("p", item.summary || item.result, "record-title"));
   if (item.result && item.summary && item.result !== item.summary)
     row.append(node("p", item.result, "record-body"));

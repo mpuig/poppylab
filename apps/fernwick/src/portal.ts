@@ -6,9 +6,9 @@ import {
   LOGIN_FORM_MS,
   loginFormToken,
   loginFormValid,
+  type ActivityItem,
   type FeedbackReport,
   type GrantAccess,
-  type OperationRecord,
 } from "@poppy-lab/pap-company";
 import { addressLine, customers, FICTION_NOTICE } from "./data.ts";
 import { billsFor, monthToDate, readings } from "./billing.ts";
@@ -22,7 +22,7 @@ type PortalContext = {
   state: Record<string, unknown>;
   grants: GrantAccess;
   origin: string;
-  operations: () => Readonly<Record<string, OperationRecord>>;
+  activity: (account: string) => ActivityItem[];
   feedback: () => readonly FeedbackReport[];
 };
 type Deps = { customerFor: (account: string) => Customer };
@@ -173,37 +173,17 @@ export function mountPortal(app: Hono, ctx: PortalContext, deps: Deps) {
           })),
       };
     });
-    const activity = Object.entries(ctx.operations())
-      .filter(([, record]) => record.account === account)
-      .slice(-12)
-      .reverse()
-      .map(([id, record]) => {
-        const latest = record.revisions.at(-1);
-        const expired =
-          !record.performed &&
-          (!latest || Date.parse(latest.expires_at) < Date.now());
-        return {
-          id,
-          // Who approved it, as the Personal Agent stated (Operations v3 §6).
-          ...(record.performed ? { approver: record.performed.approver } : {}),
-          state: record.performed
-            ? "succeeded"
-            : expired
-              ? "expired"
-              : "proposed",
-          summary:
-            record.revisions.find(
-              (revision) => revision.revision === record.performed?.revision,
-            )?.summary ??
-            latest?.summary ??
-            "",
-          result: record.performed
-            ? record.performed.body.summary
-            : expired
-              ? "The proposal expired. Nothing changed."
-              : null,
-        };
-      });
+    // What a request that changed nothing says, when the gate gave no reason.
+    const unchanged: Record<string, string> = {
+      expired: "The proposal expired. Nothing changed.",
+      declined: "Fernwick declined this approval. Nothing changed.",
+      refused:
+        "Your account had changed when this was approved. Nothing changed.",
+    };
+    const activity = ctx.activity(account).map((item) => ({
+      ...item,
+      result: item.result ?? unchanged[item.state] ?? null,
+    }));
     return {
       account_id: customer.seed.id,
       customer: {

@@ -2,8 +2,12 @@ import type { Req, Router } from "./router.js";
 import { createHash } from "node:crypto";
 import { randomId } from "@poppy-lab/pap-client";
 import {
+  agentActivity,
   approvals,
+  keepActivity,
   type Action,
+  type ActivityEntry,
+  type ActivityItem,
   type OperationRecord,
 } from "@poppy-lab/pap-company";
 import type { Reply } from "./router.js";
@@ -67,6 +71,15 @@ type Customer = ServiceCustomer & {
 export type Commerce = {
   customers: Record<string, Customer>;
   records: Record<string, OperationRecord>;
+  /** Without the gateway: what the gate finished (the gateway keeps its own). */
+  activity?: ActivityEntry[];
+};
+// What a request that changed nothing says, when the gate gave no reason.
+const unchanged: Record<string, string> = {
+  expired: "The proposal expired without changing anything.",
+  declined: "Juniper declined this approval without changing anything.",
+  refused:
+    "Your account had changed when this was approved, so the proposal changed nothing.",
 };
 /** Operations v3 from the gateway; standalone (tests) builds its own. */
 export type Approve = (req: Req, action: Action) => Response;
@@ -75,9 +88,9 @@ export function operations(
   sessionFor: (request: Req) => Session,
   state: Commerce = { customers: {}, records: {} },
   gateway?: Approve,
-  /** With the gateway: its operation records, for the website's activity. */
-  records: () => Readonly<Record<string, OperationRecord>> = () =>
-    state.records,
+  /** With the gateway: its record of an account's agent activity. */
+  activity: (account: string) => ActivityItem[] = (account) =>
+    agentActivity(account, state.records, state.activity ?? []),
 ) {
   const account = (s: Session) => s.account ?? "elena";
   const customer = (s: Session) => {
@@ -130,7 +143,9 @@ export function operations(
   let approve = gateway;
   if (!approve) {
     // Without the gateway (unit tests): the same engine, and its §7 replay.
-    const engine = approvals(state.records);
+    const engine = approvals(state.records, {
+      finished: (entry) => keepActivity((state.activity ??= []), entry),
+    });
     app.addHook("preHandler", (req, reply) => {
       if (req.method !== "POST" || !req.url.startsWith("/api/account/")) return;
       const first = engine.replay(owner(req), req.headers["poppy-approval"]);
@@ -441,37 +456,10 @@ export function operations(
           version: c.deliveryVersion,
         },
         orders: c.orders.slice().reverse(),
-        activity: Object.entries(records())
-          .filter(([, r]) => r.account === account(s))
-          .slice(-8)
-          .reverse()
-          .map(([id, r]) => {
-            const latest = r.revisions.at(-1);
-            const expired =
-              !r.performed &&
-              (!latest || Date.parse(latest.expires_at) < Date.now());
-            return {
-              id,
-              // Who approved it, as the Personal Agent stated (Operations v3 §6).
-              ...(r.performed ? { approver: r.performed.approver } : {}),
-              state: r.performed
-                ? "succeeded"
-                : expired
-                  ? "expired"
-                  : "proposed",
-              summary:
-                r.revisions.find((v) => v.revision === r.performed?.revision)
-                  ?.summary ??
-                latest?.summary ??
-                r.performed?.body.summary ??
-                "",
-              result: r.performed
-                ? r.performed.body.summary
-                : expired
-                  ? "The proposal expired without changing anything."
-                  : null,
-            };
-          }),
+        activity: activity(account(s)).map((item) => ({
+          ...item,
+          result: item.result ?? unchanged[item.state] ?? null,
+        })),
       };
     },
   };

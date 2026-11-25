@@ -240,7 +240,7 @@ export function juniperCompany(options: {
         (req) => ctx.sessionFor(req.ctx),
         business.commerce,
         (req, action) => ctx.gate(req.ctx, action),
-        ctx.operations,
+        ctx.activity,
       );
       website(
         r,

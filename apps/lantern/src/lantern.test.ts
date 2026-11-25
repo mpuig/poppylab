@@ -578,6 +578,51 @@ it("accepts the login form after a restart, and gives a form without its token a
   ).toBe(true);
 });
 
+it("keeps the customer's record of an applied request and of who approved it after the gateway has forgotten the operation", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  try {
+    const x = await setup();
+    const robin = await x.sign("robin", true);
+    const move = (slot_id: string, approval?: Parameters<typeof x.call>[4]) =>
+      x.call(
+        robin.access_token,
+        "POST",
+        "/api/account/orders/ord_LNB2001/changes",
+        { slot_id },
+        approval,
+      );
+    const op = (await move("sun-1300")).json().operation;
+    expect((await move("sun-1300", op)).statusCode).toBe(200);
+    const web = await webLogin("robin");
+    const activity = async () =>
+      (
+        (await (
+          await lab.app.request("/site/state", {
+            headers: { cookie: web.cookie },
+          })
+        ).json()) as { activity: Array<Record<string, unknown>> }
+      ).activity;
+    const applied = {
+      state: "succeeded",
+      approver: "user",
+      summary: op.summary,
+    };
+    expect(await activity()).toMatchObject([applied]);
+    // Eleven minutes on, the next request makes the gateway forget the
+    // performed operation. The customer's record of it stays.
+    vi.setSystemTime(Date.now() + 11 * 60000);
+    const next = (await move("sat-1230")).json().operation;
+    const later = await activity();
+    expect(later).toMatchObject([
+      { state: "proposed", summary: next.summary },
+      applied,
+    ]);
+    expect(later[1]!.when).toMatch(/^[A-Z][a-z]{2} \d{1,2}, \d{2}:\d{2} UTC$/);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
 it("customer website: signs in, shows the agent's orders, edits one and makes the pending proposal stale, revokes a grant", async () => {
   const x = await setup();
   const robin = await x.sign("robin", true);

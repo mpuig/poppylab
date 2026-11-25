@@ -6,9 +6,9 @@ import {
   LOGIN_FORM_MS,
   loginFormToken,
   loginFormValid,
+  type ActivityItem,
   type FeedbackReport,
   type GrantAccess,
-  type OperationRecord,
 } from "@poppy-lab/pap-company";
 import { customers, FICTION_NOTICE, northwindPersona } from "./data.ts";
 import type { Booking, FlightInventory } from "./northwind.ts";
@@ -20,7 +20,7 @@ type Ctx = {
   state: Record<string, unknown>;
   grants: GrantAccess;
   origin: string;
-  operations: () => Readonly<Record<string, OperationRecord>>;
+  activity: (account: string) => ActivityItem[];
   feedback: () => readonly FeedbackReport[];
 };
 type Deps = {
@@ -124,33 +124,16 @@ export function mountPortal(app: Hono, ctx: Ctx, deps: Deps) {
 
   const stateFor = (account: string) => {
     const customer = northwindPersona(account)!;
-    const activity = Object.entries(ctx.operations())
-      .filter(([, record]) => record.account === account)
-      .slice(-12)
-      .reverse()
-      .map(([id, record]) => {
-        const latest = record.revisions.at(-1);
-        const expired =
-          !record.performed &&
-          (!latest || Date.parse(latest.expires_at) < Date.now());
-        return {
-          id,
-          // Who approved it, as the Personal Agent stated (Operations v3 §6).
-          ...(record.performed ? { approver: record.performed.approver } : {}),
-          state: record.performed
-            ? "succeeded"
-            : expired
-              ? "expired"
-              : "proposed",
-          summary:
-            record.revisions.find(
-              (revision) => revision.revision === record.performed?.revision,
-            )?.summary ??
-            latest?.summary ??
-            "",
-          result: record.performed?.body.summary ?? null,
-        };
-      });
+    // What a request that changed nothing says, when the gate gave no reason.
+    const unchanged: Record<string, string> = {
+      declined: "Northwind declined this approval. Nothing changed.",
+      refused:
+        "Your booking had changed when this was approved. Nothing changed.",
+    };
+    const activity = ctx.activity(account).map((item) => ({
+      ...item,
+      result: item.result ?? unchanged[item.state] ?? null,
+    }));
     return {
       account_id: account,
       customer: customer.name,

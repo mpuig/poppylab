@@ -40,6 +40,24 @@ export type OperationRecord = {
   };
 };
 export type Owner = { client: string; user: string; account: string };
+/**
+ * An approval the gate answered for good: the action was performed, the
+ * Company declined the approval (§6), or the account had changed since the
+ * proposal, so nothing was done. Told once to `finished`, for a record that
+ * outlasts the operation (§8.1). The gate never reads it back.
+ */
+export type Finished = {
+  id: string;
+  account: string;
+  outcome: "succeeded" | "declined" | "refused";
+  /** The approved revision's summary. */
+  summary: string;
+  /** What the action answered, or why the Company declined. */
+  result?: string;
+  /** Who approved it, as the Personal Agent stated (§6, §8.1). */
+  approver: "user" | "agent";
+  at: string;
+};
 export type Action = {
   /** What the request is for: the same action keeps its operation_id. */
   key: string;
@@ -86,7 +104,11 @@ const same = (a: Owner, r: OperationRecord) =>
 
 export function approvals(
   records: Record<string, OperationRecord>,
-  options: { revisionMs?: number; now?: () => number } = {},
+  options: {
+    revisionMs?: number;
+    now?: () => number;
+    finished?: (entry: Finished) => void;
+  } = {},
 ) {
   const revisionMs = options.revisionMs ?? 10 * 60000;
   const now = options.now ?? (() => Date.now());
@@ -142,10 +164,23 @@ export function approvals(
             comparable(v.terms) === comparable(action.terms),
         );
         if (approved) {
-          if (action.stale?.(approved.terms))
+          const finish = (outcome: Finished["outcome"], result?: string) =>
+            options.finished?.({
+              id,
+              account: owner.account,
+              outcome,
+              summary: approved.summary,
+              ...(result ? { result } : {}),
+              approver: approval.approver,
+              at: new Date(at).toISOString(),
+            });
+          if (action.stale?.(approved.terms)) {
+            finish("refused");
             return { status: 409, body: { error: "account_changed" } };
+          }
           const declined = action.decline?.(approval, approved.terms);
-          if (declined)
+          if (declined) {
+            finish("declined", declined.reason);
             return {
               status: 403,
               body: {
@@ -160,6 +195,7 @@ export function approvals(
                   : {}),
               },
             };
+          }
           const result = action.perform(approved.terms);
           r.performed = {
             revision: approved.revision,
@@ -169,6 +205,7 @@ export function approvals(
             approver: approval.approver,
             ...(approval.reference ? { reference: approval.reference } : {}),
           };
+          finish("succeeded", result.summary);
           return { status: 200, body: r.performed.body };
         }
       }

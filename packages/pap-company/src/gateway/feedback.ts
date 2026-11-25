@@ -59,7 +59,7 @@ export function mountFeedback(app: Hono, ctx: Ctx, tenancy: Tenancy) {
 const escapeHtml = (v: string) =>
   v.replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`);
 /** "Nov 25, 09:14 UTC": the same for every viewer. */
-const when = (iso: string) => {
+export const when = (iso: string) => {
   const d = new Date(iso);
   return Number.isNaN(d.getTime())
     ? ""
