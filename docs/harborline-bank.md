@@ -10,7 +10,10 @@ Harborline Bank (`apps/harborline`) is a standalone, deployable, fully fictional
 pnpm dev:harborline
 # http://harbor.localhost:4300
 # customer portal: http://harbor.localhost:4300/account
+# how it works, for a visitor: http://harbor.localhost:4300/how-it-works
 ```
+
+`/how-it-works` shows a visitor the three steps with a personal agent: the discovery document as served (its sixteen permissions said in words, with a link to the whole file), the API's operations as a ledger, and Elena's $500 transfer waiting for approval. It is built from the same objects the endpoints serve, and a test holds it to them.
 
 The package also has `dev:worker`, `build`, `test`, `typecheck` and `deploy` scripts. `wrangler.toml` deploys `HarborlineCompany` to `bank-demo.poppylab.dev` with visitor isolation and SQLite-backed Durable Object storage.
 

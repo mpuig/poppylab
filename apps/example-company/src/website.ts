@@ -28,6 +28,7 @@ const sections = [
   ["/help", "Help"],
   ["/for-agents", "For agents"],
   ["/account", "Your account"],
+  ["/how-it-works", "How it works"],
 ] as const;
 /** Every Juniper page: the demo strip, one header and nav, one footer. */
 function frame(
@@ -37,6 +38,8 @@ function frame(
   current: string,
   script = false,
   account = "",
+  /** Rules of one page only, after the site's own. */
+  style = "",
 ) {
   const nav = sections
     .map(
@@ -44,7 +47,7 @@ function frame(
         `<a href="${href}"${href === current ? ' aria-current="page"' : ""}>${label}</a>`,
     )
     .join("");
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} · Juniper Market</title><style>${css}</style>${script ? '<script defer src="/site/app.js"></script>' : ""}</head><body data-account="${account}">${parts.bar}<header><a class="brand" href="/">Juniper Market</a><nav class="site-nav" aria-label="Site">${nav}</nav></header><main>${body}</main><footer>Juniper Market is a fictional shop. Nothing is charged or shipped.${parts.lab}</footer></body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} · Juniper Market</title><style>${css}${style}</style>${script ? '<script defer src="/site/app.js"></script>' : ""}</head><body data-account="${account}">${parts.bar}<header><a class="brand" href="/">Juniper Market</a><nav class="site-nav" aria-label="Site">${nav}</nav></header><main>${body}</main><footer>Juniper Market is a fictional shop. Nothing is charged or shipped.${parts.lab}</footer></body></html>`;
 }
 function page(title: string, body: string, script = false, account = "") {
   return frame(
@@ -61,7 +64,8 @@ export function publicPage(
   origin: string,
   title: string,
   body: string,
-  current: "/" | "/for-agents",
+  current: "/" | "/for-agents" | "/how-it-works",
+  style = "",
 ) {
   return frame(
     {
@@ -71,6 +75,9 @@ export function publicPage(
     title,
     body,
     current,
+    false,
+    "",
+    style,
   );
 }
 export function website(

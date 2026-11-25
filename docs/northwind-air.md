@@ -14,6 +14,7 @@ pnpm --filter @poppy-lab/northwind dev
 - Company and customer website: `http://northwind.localhost:4400`
 - Account portal: `http://northwind.localhost:4400/account`
 - Agent notes: `http://northwind.localhost:4400/for-agents`
+- How it works, for a visitor: `http://northwind.localhost:4400/how-it-works` (the discovery document as served, the API's operations and Elena's upgrade waiting for approval, built from the same objects the endpoints serve)
 - Discovery: `http://northwind.localhost:4400/.well-known/poppy.json`
 
 The root `pnpm dev` starts Northwind with the other apps. In Iris, select Northwind Air or enter its URL. Initial consent requests only scopes marked as read-only. **Request change permission** asks for the reversible and consequential change scopes; every mutation still returns exact terms and waits for a separate Operations v3 approval.

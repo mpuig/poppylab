@@ -5,10 +5,16 @@
  * The consent page shares the visual system.
  */
 import {
+  annotatedJsonHtml,
+  approvalSequenceSvg,
+  breakablePath,
+  guideOperations,
+  howItWorksLayoutCss,
   labBarHtml,
   labLineHtml,
   labPlaygroundUrl,
   specRefHtml,
+  type GuidePaths,
 } from "@poppy-lab/pap-core";
 import {
   customers,
@@ -151,23 +157,18 @@ article.activity p{margin:0;color:var(--ink-soft);font-size:15px}.records{list-s
 .agents{padding:0 0 clamp(40px,6vw,64px)}
 .agents.steps{padding-bottom:0}
 .more{margin:20px 0 0;font:700 14px var(--mono)}
-.step{display:grid;grid-template-columns:minmax(0,4fr) minmax(0,7fr);gap:clamp(20px,4vw,48px);align-items:start;padding:clamp(24px,4vw,40px) 0;border-top:1px solid var(--rule)}
-.step>div:first-child{position:sticky;top:24px}
-.step .num{display:block;font:900 clamp(56px,7vw,88px)/.85 var(--display);color:var(--red)}
+.step .num{font:900 clamp(56px,7vw,88px)/.85 var(--display);color:var(--red)}
 .step h2{font:900 clamp(26px,3vw,36px)/1 var(--display);text-transform:uppercase;letter-spacing:.02em;margin:14px 0 10px}
-.step .say{margin:0;color:var(--ink-soft);max-width:44ch}
-.mark{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--amber);color:var(--ink);font:700 12px/1 var(--mono)}
-.keys{list-style:none;margin:20px 0 0;padding:0;display:grid;gap:10px;font-size:15px;line-height:1.45;color:var(--ink-soft)}
-.keys li{display:grid;grid-template-columns:22px minmax(0,1fr);gap:12px}
+.step .say{color:var(--ink-soft)}
+.how{--how-rule:var(--rule);--how-mark:var(--amber);--how-mark-ink:var(--ink)}
+.mark{font-family:var(--mono)}
+.keys{color:var(--ink-soft)}
 .keys strong{color:var(--ink)}
-.doc{background:var(--panel);color:var(--tile);border-radius:14px;overflow:hidden}
-.doc-head{margin:0;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:4px 12px;padding:12px 18px;border-bottom:1px solid rgba(255,255,255,.12);font:700 13px var(--mono)}
+.doc{background:var(--panel);color:var(--tile);border-radius:14px}
+.doc-head{border-bottom:1px solid rgba(255,255,255,.12);font:700 13px var(--mono)}
 .doc-head span{font-weight:400;color:#b9c0cc}
-.doc pre{margin:0;padding:14px 0;font:400 13px/1.65 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere}
-.doc .ln{display:block;position:relative;padding:0 18px 0 calc(46px + var(--d,0)*2ch + 2ch);text-indent:-2ch}
-.doc .d1{--d:1}.doc .d2{--d:2}.doc .d3{--d:3}.doc .d4{--d:4}.doc .d5{--d:5}
+.doc pre{font-family:var(--mono)}
 .doc .ln.hit{background:rgba(228,161,27,.16)}
-.doc .ln .mark{position:absolute;left:14px;top:1px;width:20px;height:20px;font-size:11px;text-indent:0}
 .doc .k{color:#f3c96a}
 .ops{background:var(--panel);color:var(--tile);border-radius:18px;padding:clamp(16px,2.4vw,24px);display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 12px}
 .zone{grid-column:span var(--n);grid-row:span 2;display:grid;grid-template-rows:subgrid;gap:0}
@@ -183,7 +184,6 @@ article.activity p{margin:0;color:var(--ink-soft);font-size:15px}.records{list-s
 .op .path{justify-self:start;font:700 12px/1.35 var(--mono);background:var(--ink);color:#fff;padding:4px 7px;border-radius:3px;overflow-wrap:break-word}
 .op .sum{margin:0;font-size:13px;line-height:1.4;color:var(--ink-soft)}
 .op.lit{box-shadow:0 0 0 3px var(--amber-glow),0 0 18px 2px var(--amber-glow)}
-.tel{white-space:nowrap}
 .ticket{margin-top:24px;max-width:340px;background:var(--tile);border:1px solid var(--tile-edge);border-radius:6px;font:400 13px/1.5 var(--mono);color:var(--ink)}
 .ticket .top{padding:14px 16px 10px;text-align:center;border-bottom:2px dashed var(--rule)}
 .ticket .top strong{display:block;font:900 22px/1 var(--display);text-transform:uppercase;letter-spacing:.04em}
@@ -195,24 +195,17 @@ article.activity p{margin:0;color:var(--ink-soft);font-size:15px}.records{list-s
 .ticket .was dd{font-weight:400;text-decoration:line-through;color:var(--muted)}
 .ticket .rule{border-top:1px solid var(--rule);margin-top:6px;padding-top:8px}
 .ticket .stamp{margin:0 16px;padding:6px 8px;border:2px solid var(--amber);font-weight:700;text-align:center;letter-spacing:.06em;text-transform:uppercase}
-.ticket .acts{display:flex;gap:8px;padding:12px 16px 16px}
-.ticket .acts span{flex:1;text-align:center;padding:9px 8px;border-radius:6px;font:800 15px var(--display);text-transform:uppercase;letter-spacing:.04em;background:var(--ink);color:#fff}
-.ticket .acts span+span{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1px var(--rule)}
-.seq{margin:0}
-.seq svg{display:block;width:100%;height:auto}
-.seq .narrow{display:none}
+.ticket .where{margin:0;padding:10px 16px 14px;text-align:center;font-size:12px;color:var(--ink-soft)}
 .seq figcaption{margin-top:10px;font-size:14px;color:var(--muted);max-width:60ch}
 .sq-head{font:800 17px var(--display);letter-spacing:.04em;text-transform:uppercase}
 .sq-label{font:700 12px var(--mono);letter-spacing:.04em;text-transform:uppercase}
 .faq-title{font:900 clamp(24px,2.6vw,32px)/1 var(--display);text-transform:uppercase;letter-spacing:.02em;margin:0;padding-top:clamp(24px,4vw,40px);border-top:1px solid var(--rule)}
-.faq{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px clamp(24px,4vw,56px);margin:20px 0 0}
 .faq dt{font:800 20px/1.15 var(--display);text-transform:uppercase;letter-spacing:.02em;margin:0 0 6px}
-.faq dd{margin:0;color:var(--ink-soft);font-size:15px;max-width:52ch}
-@media(max-width:1000px){.step,.faq{grid-template-columns:minmax(0,1fr)}.step>div:first-child{position:static}}
-@media(max-width:640px){.seq .wide{display:none}.seq .narrow{display:block;max-width:420px}.sq-head{font-size:15px}.doc pre{font-size:12px}.ops{grid-template-columns:minmax(0,1fr)}.zone{--n:1!important;grid-row:auto;grid-template-rows:none}.zone .cap{margin-top:22px}.zone:first-child .cap{margin-top:0}}
+.faq dd{color:var(--ink-soft);font-size:15px}
+@media(max-width:640px){.sq-head{font-size:15px}.ops{grid-template-columns:minmax(0,1fr)}.zone{--n:1!important;grid-row:auto;grid-template-rows:none}.zone .cap{margin-top:22px}.zone:first-child .cap{margin-top:0}}
 @media(max-width:900px){.buttons{grid-template-columns:repeat(2,minmax(0,1fr))}.buttons.slots{grid-template-columns:repeat(2,minmax(0,1fr))}.cols{grid-template-columns:1fr}.tray{grid-template-columns:1fr}.tray .cta{justify-self:start}}
 @media(max-width:560px){.strip .wrap{flex-wrap:wrap;row-gap:8px}.strip nav{width:100%;gap:14px;font-size:12px;white-space:nowrap}.quantities{grid-template-columns:1fr}.strip .tag{display:none}.btn{min-height:104px;padding:14px}.customers{grid-template-columns:1fr}.consent .actions{flex-wrap:wrap}.consent .actions button{flex:1}}
-`;
+${howItWorksLayoutCss}`;
 
 export function shell(
   title: string,
@@ -241,14 +234,8 @@ const [slotDay, slotTime] = [
   (label: string) => label.split(" ").slice(1).join(" "),
 ];
 
-type GuideOperation = {
-  operationId: string;
-  summary: string;
-  "x-poppy-scopes"?: readonly string[];
-  "x-poppy-proposal"?: boolean;
-};
-export type GuidePaths = Record<string, Record<string, GuideOperation>>;
-/** What the home page shows of the protocol; built in lantern.ts from the objects the endpoints serve. */
+export type { GuidePaths };
+/** What "How it works" shows of the protocol; built in lantern.ts from the objects the endpoints serve. */
 export type AgentGuide = {
   discovery: Record<string, unknown>;
   paths: GuidePaths;
@@ -305,86 +292,9 @@ const discoveryKeys: Array<[key: string, title: string, text: string]> = [
   ],
 ];
 
-/** JSON on one line, spaced as a person would write it. */
-function inlineJson(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(inlineJson).join(", ")}]`;
-  if (value && typeof value === "object") {
-    const entries = Object.entries(value);
-    return entries.length
-      ? `{ ${entries.map(([k, v]) => `${JSON.stringify(k)}: ${inlineJson(v)}`).join(", ")} }`
-      : "{}";
-  }
-  return JSON.stringify(value);
-}
-
-type JsonLine = { depth: number; text: string };
-/** A document's lines: a value stays on its line when it is short and opens up when it is not. */
-function jsonLines(
-  value: unknown,
-  depth = 0,
-  lead = "",
-  trail = "",
-): JsonLine[] {
-  const short = inlineJson(value);
-  if (
-    value === null ||
-    typeof value !== "object" ||
-    depth * 2 + lead.length + short.length <= 76
-  )
-    return [{ depth, text: `${lead}${short}${trail}` }];
-  const array = Array.isArray(value);
-  const entries: Array<[string, unknown]> = array
-    ? value.map((item) => ["", item])
-    : Object.entries(value).map(([k, v]) => [`${JSON.stringify(k)}: `, v]);
-  return [
-    { depth, text: `${lead}${array ? "[" : "{"}` },
-    ...entries.flatMap(([key, item], i) =>
-      jsonLines(item, depth + 1, key, i < entries.length - 1 ? "," : ""),
-    ),
-    { depth, text: `${array ? "]" : "}"}${trail}` },
-  ];
-}
-
-/** The discovery document, with a numbered mark on each part the page explains. */
-function annotatedJson(document: Record<string, unknown>) {
-  return jsonLines(document)
-    .map(({ depth, text }) => {
-      const key = depth === 1 ? /^"([^"]+)":/.exec(text)?.[1] : undefined;
-      const number = discoveryKeys.findIndex(([k]) => k === key) + 1;
-      const html = escape(text).replace(
-        /^(&#34;[^&]*&#34;)(:)/,
-        '<span class="k">$1</span>$2',
-      );
-      return `<span class="ln d${depth}${number ? " hit" : ""}">${number ? `<b class="mark">${number}</b>` : ""}${html}</span>`;
-    })
-    .join("");
-}
-
 /** The API's operations and the Company's own agent as buttons, grouped by what each needs from the customer. */
 function operationZones(guide: AgentGuide) {
-  const operations = Object.entries(guide.paths).flatMap(([path, methods]) =>
-    Object.entries(methods).map(([method, operation]) => ({
-      name: operation.operationId.replace(/_/g, " "),
-      where: `${method.toUpperCase()} ${path}`,
-      // The first clause of the API's own summary.
-      text: operation.summary.split(/[:.]/)[0] ?? "",
-      signedIn: (operation["x-poppy-scopes"] ?? []).length > 0,
-      approval: operation["x-poppy-proposal"] === true,
-    })),
-  );
-  const agent = (
-    guide.discovery.agent as
-      | { protocols?: Array<{ endpoint?: string; description?: string }> }
-      | undefined
-  )?.protocols?.[0];
-  if (agent?.endpoint)
-    operations.push({
-      name: "ask our agent",
-      where: `POST ${new URL(agent.endpoint).pathname}`,
-      text: (agent.description ?? "").split(/[.;]/)[0] ?? "",
-      signedIn: false,
-      approval: false,
-    });
+  const operations = guideOperations(guide.paths, guide.discovery);
   const zones: Array<[title: string, who: string, list: typeof operations]> = [
     [
       "Anyone",
@@ -410,7 +320,7 @@ function operationZones(guide: AgentGuide) {
         `<div class="zone n${Math.min(list.length, 3)}"><div class="cap"><h3>${title}</h3><p class="who">${who}</p></div><ul>${list
           .map(
             (o) =>
-              `<li class="op${o.approval ? " lit" : ""}"><span class="n">${String(++n).padStart(2, "0")}</span><span class="name">${escape(o.name)}</span><span class="path">${escape(o.where).replace(/\//g, "/<wbr>")}</span><p class="sum">${escape(o.text)}.</p></li>`,
+              `<li class="op${o.approval ? " lit" : ""}"><span class="n">${String(++n).padStart(2, "0")}</span><span class="name">${escape(o.name)}</span><span class="path">${breakablePath(o.where)}</span><p class="sum">${escape(o.text)}.</p></li>`,
           )
           .join("")}</ul></div>`,
     )
@@ -426,69 +336,31 @@ function changeTicket(example: AgentGuide["example"]) {
         `<div${item.added ? ' class="new"' : ""}><dt>${item.added ? "+ " : ""}${item.quantity} × ${escape(item.name)}</dt><dd>${usd(item.cents)}</dd></div>`,
     )
     .join("");
-  return `<div class="ticket" role="img" aria-label="Change ticket for order ${escape(example.order)}: delivery moves from ${escape(example.fromSlot)} to ${escape(example.toSlot)}, the new total is ${usd(example.afterCents)}, ${usd(Math.abs(difference))} ${difference >= 0 ? "more" : "less"} than before, waiting for your approval."><div class="top"><strong>Change ticket</strong>${escape(example.order)} · ${escape(example.customer)}</div><dl><div class="was"><dt>Delivery</dt><dd>${escape(example.fromSlot)}</dd></div><div class="new"><dt>Moves to</dt><dd>${escape(example.toSlot)}</dd></div><div class="rule"></div>${dishes}<div><dt>Delivery</dt><dd>${usd(example.deliveryCents)}</dd></div><div class="rule was"><dt>Was</dt><dd>${usd(example.beforeCents)}</dd></div><div><dt>New total</dt><dd>${usd(example.afterCents)}</dd></div><div><dt>Difference</dt><dd>${difference >= 0 ? "+" : "−"} ${usd(Math.abs(difference))}</dd></div></dl><p class="stamp">Waiting for you</p><p class="acts" aria-hidden="true"><span>Approve</span><span>Decline</span></p></div>`;
+  return `<div class="ticket" role="img" aria-label="Change ticket for order ${escape(example.order)}: delivery moves from ${escape(example.fromSlot)} to ${escape(example.toSlot)}, the new total is ${usd(example.afterCents)}, ${usd(Math.abs(difference))} ${difference >= 0 ? "more" : "less"} than before, waiting for your approval."><div class="top"><strong>Change ticket</strong>${escape(example.order)} · ${escape(example.customer)}</div><dl><div class="was"><dt>Delivery</dt><dd>${escape(example.fromSlot)}</dd></div><div class="new"><dt>Moves to</dt><dd>${escape(example.toSlot)}</dd></div><div class="rule"></div>${dishes}<div><dt>Delivery</dt><dd>${usd(example.deliveryCents)}</dd></div><div class="rule was"><dt>Was</dt><dd>${usd(example.beforeCents)}</dd></div><div><dt>New total</dt><dd>${usd(example.afterCents)}</dd></div><div><dt>Difference</dt><dd>${difference >= 0 ? "+" : "−"} ${usd(Math.abs(difference))}</dd></div></dl><p class="stamp">Waiting for you</p><p class="where">You approve or decline in your agent.</p></div>`;
 }
 
-/**
- * Who says what when a change is approved: three lifelines and six messages,
- * straight and level, each label on its own ground above its line. The one
- * amber message is the customer's own.
- */
-function approvalSequence(narrow = false) {
-  // The same picture twice: lifelines 230 apart on a wide screen, 128 on a phone,
-  // where a label may cross a lifeline on its own ground.
-  const id = `lantern-approval${narrow ? "-narrow" : ""}`;
-  const width = narrow ? 360 : 640;
-  const at = narrow
-    ? { you: 52, agent: 180, lantern: 308 }
-    : { you: 90, agent: 320, lantern: 550 };
-  const box = narrow ? 100 : 156;
-  const messages: Array<
-    [from: keyof typeof at, to: keyof typeof at, label: string, kind?: string]
-  > = [
-    ["you", "agent", "Ask for a change"],
-    ["agent", "lantern", "Change order"],
-    ["lantern", "agent", "403 · exact terms", "reply"],
-    ["you", "agent", "Approve", "yours"],
-    ["agent", "lantern", "Again, with approval"],
-    ["lantern", "agent", "Changed, once", "reply"],
-  ];
-  const rows = messages
-    .map(([from, to, label, kind], i) => {
-      const y = 98 + i * 48 + (i >= 3 ? 48 : 0);
-      const x1 = at[from],
-        x2 = at[to];
-      const text = `${i + 1} · ${label}`;
-      const ground = text.length * 7.9 + 16;
-      // Centred on its arrow, and kept inside the picture.
-      const middle = Math.min(
-        Math.max((x1 + x2) / 2, ground / 2 + 4),
-        width - ground / 2 - 4,
-      );
-      const yours = kind === "yours";
-      return `<line x1="${x1}" y1="${y}" x2="${x2 > x1 ? x2 - 10 : x2 + 10}" y2="${y}" stroke="${yours ? "#e4a11b" : "#17202a"}" stroke-width="${yours ? 2.5 : 1.5}"${kind === "reply" ? ' stroke-dasharray="5 4"' : ""} marker-end="url(#${id}-${yours ? "amber" : "ink"})"/><rect x="${middle - ground / 2}" y="${y - 27}" width="${ground}" height="18" rx="2" fill="${yours ? "#e4a11b" : "#f3efe6"}"/><text class="sq-label" x="${middle}" y="${y - 14}" text-anchor="middle" fill="#17202a">${escape(text)}</text>`;
-    })
-    .join("");
-  const head = (x: number, label: string, dark: boolean) =>
-    `<rect x="${x - box / 2}" y="8" width="${box}" height="40" rx="6" fill="${dark ? "#17202a" : "#fbf7ee"}" stroke="#17202a" stroke-width="1.5"/><text class="sq-head" x="${x}" y="34" text-anchor="middle" fill="${dark ? "#fbf7ee" : "#17202a"}">${label}</text>`;
-  const marker = (name: string, fill: string) =>
-    `<marker id="${id}-${name}" viewBox="0 0 10 10" refX="1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="${fill}"/></marker>`;
-  const lifelines = Object.values(at)
-    .map(
-      (x) =>
-        `<line x1="${x}" y1="48" x2="${x}" y2="398" stroke="#d9d2c5" stroke-width="1.5"/>`,
-    )
-    .join("");
-  // Between the terms and the approval the order is as it was: the band says so across all three.
-  const held = `<rect x="${narrow ? 2 : 12}" y="216" width="${width - (narrow ? 4 : 24)}" height="30" rx="4" fill="#fbf7ee" stroke="#e4a11b" stroke-width="1.5" stroke-dasharray="6 4"/><text class="sq-label" x="${width / 2}" y="235" text-anchor="middle" fill="#17202a">The ticket waits · nothing has changed</text>`;
-  return `<svg class="${narrow ? "narrow" : "wide"}" viewBox="0 0 ${width} 410" role="img" aria-labelledby="${id}-title ${id}-desc"><title id="${id}-title">How a change to an order is approved</title><desc id="${id}-desc">You ask your agent for a change. Your agent sends it to Lantern, which answers with the exact terms and changes nothing. You approve. Your agent sends the same request again with your approval, and Lantern changes the order once.</desc><defs>${marker("ink", "#17202a")}${marker("amber", "#e4a11b")}</defs>${lifelines}${held}${rows}${head(at.you, "You", false)}${head(at.agent, "Your agent", false)}${head(at.lantern, "Lantern", true)}</svg>`;
-}
+/** The approval as a sequence diagram, in the shop's colours; drawn wide and narrow. */
+const approvalSequence = (narrow = false) =>
+  approvalSequenceSvg(
+    {
+      id: "lantern-approval",
+      company: "Lantern",
+      request: "Change order",
+      held: "The ticket waits · nothing has changed",
+      ink: "#17202a",
+      ground: "#f3efe6",
+      paper: "#fbf7ee",
+      line: "#d9d2c5",
+      accent: "#e4a11b",
+    },
+    narrow,
+  );
 
 /** "How it works": three steps with a personal agent, each showing the real thing, then questions. */
 export function howItWorksPage(origin: string, guide: AgentGuide) {
   const { example } = guide;
-  const keys = discoveryKeys
-    .filter(([key]) => key in guide.discovery)
+  const shown = discoveryKeys.filter(([key]) => key in guide.discovery);
+  const keys = shown
     .map(
       ([, title, text], i) =>
         `<li><b class="mark">${i + 1}</b><span><strong>${title}</strong> ${text}</span></li>`,
@@ -523,7 +395,10 @@ export function howItWorksPage(origin: string, guide: AgentGuide) {
       `Any personal agent that follows Personal Agent Protocol 1.0. <a href="${labPlaygroundUrl(origin)}">Iris</a>, the agent of Poppy Lab, is one you can try now. The addresses an agent needs are under <a href="/for-agents">For agents</a>.`,
     ],
   ];
-  const body = `<main class="wrap"><section class="intro wide"><h1>How Lantern works with your agent.</h1><p>Lantern takes orders from personal AI agents through Personal Agent Protocol, an open protocol. It takes three steps. Each is shown here as this site serves it.</p></section><section class="agents steps" aria-label="The three steps"><article class="step"><div><span class="num" aria-hidden="true">01</span><h2>Your agent finds the door</h2><p class="say">Every agent starts at one small file on our site. This is ours, as an agent reads it.</p><ol class="keys">${keys}</ol></div><div class="doc"><p class="doc-head"><code>/.well-known/poppy.json</code><span>as served to every agent</span></p><pre tabindex="0" aria-label="Lantern&#39;s discovery document">${annotatedJson(guide.discovery)}</pre></div></article><article class="step"><div><span class="num" aria-hidden="true">02</span><h2>The machine shows it the buttons</h2><p class="say">The file leads to our API, which works like the machine at the door: a few buttons, each with one job. Some are for anyone, some open once you sign in, and one waits for you.</p></div><div class="ops">${operationZones(guide)}</div></article><article class="step"><div><span class="num" aria-hidden="true">03</span><h2>You approve the ticket</h2><p class="say">Ask your agent: <q>${escape(example.ask)}</q> It presses the last button, and the kitchen prints a ticket with the exact change and holds it. Nothing changes until you approve, and then it changes once.</p>${changeTicket(example)}</div><figure class="seq">${approvalSequence()}${approvalSequence(true)}<figcaption>The kitchen answers the first request with the terms, not with the change. The amber step is yours.</figcaption></figure></article></section><section class="agents" aria-labelledby="questions-title"><h2 class="faq-title" id="questions-title">Questions</h2><dl class="faq">${questions.map(([q, a]) => `<div><dt>${q}</dt><dd>${a}</dd></div>`).join("")}</dl></section></main>`;
+  const body = `<main class="wrap how"><section class="intro wide"><h1>How Lantern works with your agent.</h1><p>Lantern takes orders from personal AI agents through Personal Agent Protocol, an open protocol. It takes three steps. Each is shown here as this site serves it.</p></section><section class="agents steps" aria-label="The three steps"><article class="step"><div><span class="num" aria-hidden="true">01</span><h2>Your agent finds the door</h2><p class="say">Every agent starts at one small file on our site. This is ours, as an agent reads it.</p><ol class="keys">${keys}</ol></div><div class="doc"><p class="doc-head"><code>/.well-known/poppy.json</code><span>as served to every agent</span></p><pre tabindex="0" aria-label="Lantern&#39;s discovery document">${annotatedJsonHtml(
+    guide.discovery,
+    shown.map(([key]) => key),
+  )}</pre></div></article><article class="step"><div><span class="num" aria-hidden="true">02</span><h2>The machine shows it the buttons</h2><p class="say">The file leads to our API, which works like the machine at the door: a few buttons, each with one job. Some are for anyone, some open once you sign in, and one waits for you.</p></div><div class="ops">${operationZones(guide)}</div></article><article class="step"><div><span class="num" aria-hidden="true">03</span><h2>You approve the ticket</h2><p class="say">Ask your agent: <q>${escape(example.ask)}</q> It presses the last button, and the kitchen prints a ticket with the exact change and holds it. Nothing changes until you approve, and then it changes once.</p>${changeTicket(example)}</div><figure class="seq">${approvalSequence()}${approvalSequence(true)}<figcaption>The kitchen answers the first request with the terms, not with the change. The amber step is yours.</figcaption></figure></article></section><section class="agents" aria-labelledby="questions-title"><h2 class="faq-title" id="questions-title">Questions</h2><dl class="faq">${questions.map(([q, a]) => `<div><dt>${q}</dt><dd>${a}</dd></div>`).join("")}</dl></section></main>`;
   return shell(
     "Lantern Noodle Bar · How it works with your agent",
     body,

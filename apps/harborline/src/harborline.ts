@@ -7,6 +7,7 @@ import { createHash } from "node:crypto";
 import type { Context, Hono } from "hono";
 import type { CompanyDefinition, Session } from "@poppy-lab/pap-company";
 import {
+  accountLast4,
   bankPersona,
   categories,
   customers,
@@ -22,6 +23,7 @@ import {
   type Transaction,
 } from "./data.ts";
 import { consentPage, forAgentsPage, homePage, pageHeaders } from "./site.ts";
+import { howItWorksPage, type AgentGuide } from "./how-it-works.ts";
 import { mountPortal } from "./portal.ts";
 import { harborlineAgent } from "./agent.ts";
 import { isFdxScope, scopes, type HarborlineScope } from "./scopes.ts";
@@ -1137,6 +1139,34 @@ const scopeDescriptions: Record<HarborlineScope, string> = {
     "Allow the Personal Agent to refresh this fictional grant while you are away. It does not add data or change permissions.",
 };
 
+/** What "How it works" shows, read from this definition and the seeded customer. */
+function agentGuide(origin: string): AgentGuide {
+  const elena = customers[0]!;
+  const account = (type: Account["type"]) => {
+    const found = elena.accounts.find((a) => a.type === type)!;
+    return {
+      name: found.name,
+      type: found.type,
+      last4: accountLast4(found.id),
+      cents: found.available_cents,
+    };
+  };
+  return {
+    discovery: harborline.discovery(origin, new URL(origin).host),
+    paths: bankPaths as unknown as AgentGuide["paths"],
+    excluded: (harborline.excludedTasks?.(origin) ?? []).map((task) =>
+      String(task.task),
+    ),
+    example: {
+      ask: "Transfer $500 from checking to savings.",
+      customer: elena.name,
+      cents: 50000,
+      from: account("checking"),
+      to: account("savings"),
+    },
+  };
+}
+
 export const harborline: CompanyDefinition = {
   name: "Harborline Bank",
   readScope: "accounts:read",
@@ -1278,6 +1308,9 @@ export const harborline: CompanyDefinition = {
     },
   ],
   landing: homePage,
-  pages: { "/for-agents": forAgentsPage },
+  pages: {
+    "/for-agents": forAgentsPage,
+    "/how-it-works": (origin) => howItWorksPage(origin, agentGuide(origin)),
+  },
   pageHeaders,
 };

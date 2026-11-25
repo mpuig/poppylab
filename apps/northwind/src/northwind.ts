@@ -34,6 +34,7 @@ import {
   homePage,
   pageHeaders,
 } from "./site.ts";
+import { howItWorksPage, type AgentGuide } from "./how-it-works.ts";
 import { mountPortal } from "./portal.ts";
 import { northwindAgent } from "./agent.ts";
 
@@ -63,6 +64,9 @@ type State = {
 const object = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === "object" && !Array.isArray(value);
 const usd = (cents: number) => `USD ${(cents / 100).toFixed(2)}`;
+/** The refund terms of an upgrade: in the proposal the passenger approves, and on "How it works". */
+const UPGRADE_REFUND_TERMS =
+  "The fictional upgrade is refundable only if Northwind Air cancels this segment.";
 const dateOf = (iso: string) => iso.slice(0, 10);
 const flightById = (id: string) =>
   flightSchedule.find((flight) => flight.id === id);
@@ -921,8 +925,7 @@ function mount(
       to_cabin: "Business",
       amount_due_cents: offer.price_cents,
       currency: "USD",
-      refund_terms:
-        "The fictional upgrade is refundable only if Northwind Air cancels this segment.",
+      refund_terms: UPGRADE_REFUND_TERMS,
       payment: "Simulated card on file — no real charge",
     };
     return ctx.gate(c, {
@@ -1096,6 +1099,48 @@ const scopes = [
   "bookings:change",
 ];
 
+/** What "How it works" shows, read from this definition and the seeded booking. */
+function agentGuide(origin: string): AgentGuide {
+  const elena = customers[0]!;
+  const { booking } = elena;
+  const offer = booking.upgrade_offer;
+  const flight = flightSchedule.find((f) => f.id === offer.flight_id)!;
+  const airport = (code: string) => ({
+    code,
+    city: airports.find((a) => a.code === code)?.city ?? code,
+  });
+  const fare = fareBrands[booking.fare];
+  const day = new Date(
+    `${flight.departure.slice(0, 10)}T12:00:00Z`,
+  ).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+  return {
+    discovery: northwind.discovery(origin, new URL(origin).host),
+    paths: northwindPaths as unknown as AgentGuide["paths"],
+    excluded: (northwind.excludedTasks?.(origin) ?? []).map((task) =>
+      String(task.task),
+    ),
+    phone: PHONE,
+    example: {
+      ask: `Upgrade my ${flight.number} flight to Business.`,
+      booking: booking.reference,
+      passenger: booking.passenger.name,
+      flight: flight.number,
+      from: airport(flight.origin),
+      to: airport(flight.destination),
+      departs: `${day} · ${flight.departure.slice(11, 16)}`,
+      fromCabin: fare.name,
+      toCabin: fareBrands.AURORA.name,
+      cents: offer.price_cents,
+      refund: UPGRADE_REFUND_TERMS,
+    },
+  };
+}
+
 export const northwind: CompanyDefinition = {
   name: "Northwind Air",
   readScope: "bookings:read",
@@ -1199,7 +1244,10 @@ export const northwind: CompanyDefinition = {
     },
   ],
   landing: homePage,
-  pages: { "/for-agents": forAgentsPage },
+  pages: {
+    "/for-agents": forAgentsPage,
+    "/how-it-works": (origin) => howItWorksPage(origin, agentGuide(origin)),
+  },
   pageHeaders,
   fontSources,
 };
