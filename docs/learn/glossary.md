@@ -68,8 +68,9 @@ then signs almost nothing.
 another, for agents without a browser on hand.
 
 **Direct Conversation.** A conversation in which the user talks to the Company
-in their own words, linked to the agent's conversation before it. Poppy Lab
-doesn't offer it yet.
+in their own words, linked to the agent's conversation before it. The Company
+can ask for one; only the agent, on the user's choice, opens it. See
+[Conversations](conversations.md#6-the-company-asks-for-the-user-a-direct-conversation).
 
 **Direct Sign-In.** Signing in through the browser: the agent opens the
 Company's consent page and gets a code back. What Poppy Lab uses.

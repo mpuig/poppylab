@@ -47,7 +47,8 @@ the same at every Company because they share one gateway:
    `conversation_not_found` and `conversation_closed`
    ([§8.10](https://personalagentprotocol.org/docs/1.0/spec#direct-conversations)),
    and it doesn't make Direct Conversations optional. The parent is now
-   checked first; Direct Conversations themselves are our next piece of work.
+   checked first, and Direct Conversations are implemented since; see
+   [Conversations](conversations.md#6-the-company-asks-for-the-user-a-direct-conversation).
 
 Neither showed up in our own 470-odd tests or in the community validator,
 because both test what we thought the rules were.

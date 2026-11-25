@@ -228,10 +228,76 @@ Lantern's fictional staff are never available, so its agent says how to call:
 ```
 
 At a real Company, a person would join and `responder` would become `human`.
-When the user should speak for themselves, a **Direct Conversation**
+
+## 6. The Company asks for the user: a Direct Conversation
+
+Sometimes the Company needs the user's own word, not their agent's. A
+**Direct Conversation**
 ([§8.10](https://personalagentprotocol.org/docs/1.0/spec#direct-conversations))
-opens a new thread linked to this one, where the user's own words go as
-`author.type` `human`. Poppy Lab doesn't offer Direct Conversations yet.
+is a new thread linked to this one, where the user speaks for themselves and
+the Company keeps the earlier history.
+
+Before refunding a whole order, Lantern wants to hear it from the customer.
+Its agent answers the report with a `user_requested` event in the parent; it
+doesn't change the state:
+
+```json
+{
+  "id": "evt_3_N8aUhFy3",
+  "type": "user_requested",
+  "reason": "Lantern wants to confirm with you that order ord_LNB0907 never arrived before refunding all of it."
+}
+```
+
+Only the Personal Agent can open the Direct Conversation, so the user decides.
+Iris shows the reason with **Talk to Lantern Noodle Bar** and **Not now**.
+Accepting opens it with no message, so the Company speaks first:
+
+```json
+{
+  "id": "dir_1",
+  "parent_conversation_id": "cnv_…",
+  "user_requested_event_id": "evt_3_N8aUhFy3"
+}
+```
+
+```json
+HTTP/1.1 201 Created
+
+{ "conversation_id": "cnv_uQ886kXJdesO8niYeZjZ",
+  "events": [{ "type": "message", "message": { "role": "company", "as_of_request": "dir_1",
+    "text": "Hi, this is Lantern. Did none of order ord_LNB0907 arrive? Reply yes or no.",
+    "data": { "question": "order_not_delivered", "answers": ["yes", "no"] } } }] }
+```
+
+The parent gets a `direct_opened` event, and while the Direct Conversation is
+open it takes no messages, so the agent can't talk over the user:
+
+```json
+HTTP/1.1 409 Conflict
+
+{ "error": "direct_conversation_open", "conversation_id": "cnv_uQ886kXJdesO8niYeZjZ" }
+```
+
+In the Direct Conversation, what the user types goes as written, with
+`author.type` `human`. In Iris the model isn't involved at all:
+
+```json
+{
+  "id": "req_3",
+  "message": { "author": { "type": "human" }, "text": "Yes, nothing came." }
+}
+```
+
+Lantern answers with the refund as an operation, and the user approves it with
+the usual card. Lantern's agent reads only "yes" or "no" there, and only to a
+question it asked; a message from the agent saying "yes" doesn't count. When
+the user leaves, Iris closes the thread, the parent gets `direct_closed` and
+takes messages again. If the user had chosen **Not now**, Iris would have said
+so in the parent, as the spec asks.
+
+A Company whose agent doesn't handle Direct Conversations still gets them
+right: the gateway answers the user with its handoff reply, the phone number.
 
 ## Building the Company side
 

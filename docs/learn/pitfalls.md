@@ -74,6 +74,17 @@ _Seen:_ `**+1 555-0117**` with the asterisks, in a chat that renders plain text.
 _Fix:_ render the few marks models use (bold, code) as elements, never as
 HTML, and only for the model's own messages. Company content stays verbatim.
 
+**Reading the wrong thread after an approval.**
+_Seen:_ in production, approving a refund proposed in a Direct Conversation
+left Iris's card pending, although the Company had refunded.
+_Cause:_ Iris read the Company's reply with the parent conversation's cursor.
+The Direct Conversation has its own, so the read started from its beginning,
+met the original proposal, and Iris took it for new terms.
+_Fix:_ keep a read position per conversation and use the operation's own
+thread, and ignore Company replies whose `as_of_request` names another
+request ([§8.4](https://personalagentprotocol.org/docs/1.0/spec#message-fields)).
+The tests had a single thread; the bug needed two.
+
 ## Company side
 
 **The token endpoint's check order.**

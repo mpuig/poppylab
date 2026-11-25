@@ -44,7 +44,7 @@ See [conversations](conversations.md). In short: every `POST` has a request `id`
 
 ## Not yet done
 
-Direct Conversations, streaming, browser join (`poppy:browser-sign-in`, `web.*`), operations on websites, Device and Mediated Sign-In, signed-in MCP, approvals over MCP `_meta`, agent approvals, skills, and Agent IDs.
+Streaming, browser join (`poppy:browser-sign-in`, `web.*`), operations on websites, Device and Mediated Sign-In, signed-in MCP, approvals over MCP `_meta`, agent approvals, skills, and Agent IDs.
 
 ## Closed gaps (25 November 2026)
 

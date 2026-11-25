@@ -14,7 +14,6 @@ The [demos page](https://personalagentprotocol.org/docs/demos) now lists Cliffsi
 
 ## Next
 
-- Direct Conversations (§8.10), which the official validator expects; then run it again.
 - Mediated and Device Sign-In, so Iris can sign in at Cliffside and Print with Poppy.
 - Signed-in interop runs with the Poppy Demo Agent (its `client_id` is accepted by our Companies) and Cliffside.
 - The official validator's results are in [validator results](learn/validator.md); the community validator's are above.
