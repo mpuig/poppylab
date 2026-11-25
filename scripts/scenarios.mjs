@@ -116,9 +116,22 @@ const groups = {
         "src/espi.test.ts",
         "src/fernwick.test.ts",
         "src/conversations.test.ts",
+        "src/how-it-works.test.ts",
       ],
     ],
     ["pap-company", ["src/gateway/account-routes.test.ts"]],
+    ["pap-client", ["src/espi.test.ts", "src/xml.test.ts"]],
+    [
+      "playground",
+      [
+        "lib/espi-fernwick.test.ts",
+        "lib/espi-runtime.test.ts",
+        "lib/use-espi-fernwick.test.ts",
+        "lib/demo-espi.test.ts",
+        "lib/token-response.test.ts",
+        "app/playground/espi-authorization.test.ts",
+      ],
+    ],
   ],
   conversations: [
     ["lantern", ["src/conversations.test.ts"]],
