@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { MAX_PER_HOUR, nextAutoApproval } from "./auto-approval";
+import { MAX_PER_HOUR, nextAutoApproval, usesAllowance } from "./auto-approval";
 
 const op = (id: string, cents: number, revision = "1") => ({
   operation_id: id,
@@ -143,4 +143,45 @@ it("forgets approvals older than an hour", () => {
       now,
     }),
   ).toMatchObject({ kind: "approve" });
+});
+
+it("spends the allowance on what the Company performed on Iris's approval", () => {
+  const done = { ...op("a", 100), state: "succeeded" };
+  expect(
+    usesAllowance({
+      status: 200,
+      operation: { ...done, approvedBy: { approver: "agent" } },
+    }),
+  ).toBe(true);
+  // Performed on the User's own tap: not the rule's doing.
+  expect(
+    usesAllowance({
+      status: 200,
+      operation: { ...done, approvedBy: { approver: "user" } },
+    }),
+  ).toBe(false);
+});
+
+it("spends nothing when the answer says nothing was performed", () => {
+  const waiting = op("a", 100);
+  for (const answer of [
+    // Not covered by the server's own check, new terms, a busy conversation.
+    { status: 409, operation: waiting },
+    { status: 409 },
+    // The Company declined Iris's approval (Harborline always does).
+    { status: 200, operation: { ...waiting, agentDeclined: {} } },
+    { status: 409, operation: { ...waiting, state: "expired" } },
+    // Expired, access lost, a missing permission, a request Poppy refused.
+    { status: 410 },
+    { status: 401 },
+    { status: 403 },
+    { status: 400 },
+  ])
+    expect(usesAllowance(answer)).toBe(false);
+});
+
+it("spends the allowance when the outcome is unknown: it may have been performed", () => {
+  // No answer from Poppy, a lost Company response, the Company still at it.
+  for (const answer of ["lost", { status: 502 }, { status: 429 }] as const)
+    expect(usesAllowance(answer)).toBe(true);
 });

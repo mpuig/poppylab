@@ -64,3 +64,27 @@ export function nextAutoApproval(input: {
   }
   return null;
 }
+
+/**
+ * How the account route answered an approval sent on a standing
+ * instruction: its status and the operation it returned, or `lost` when no
+ * answer came back (the approval may still have reached the Company).
+ */
+export type ApprovalAnswer =
+  { status: number; operation?: ReviewOperation | undefined } | "lost";
+
+/**
+ * Whether that approval uses up the hour's allowance. One the Company
+ * performed on Iris's approval does. So does one whose outcome is unknown,
+ * because it may have been performed and the allowance bounds what is: no
+ * answer, the route's 502 for a lost Company response, or its 429 while the
+ * Company is still performing (the page can't tell that from Poppy's own
+ * rate limit). An answer that says nothing was performed doesn't: not
+ * covered, declined by the Company, new terms, expired.
+ */
+export function usesAllowance(answer: ApprovalAnswer) {
+  if (answer === "lost") return true;
+  if (answer.operation?.state === "succeeded")
+    return answer.operation.approvedBy?.approver === "agent";
+  return answer.status === 429 || answer.status >= 500;
+}
