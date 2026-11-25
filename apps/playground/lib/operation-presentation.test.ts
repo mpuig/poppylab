@@ -115,3 +115,22 @@ it("flags a summary that quotes an amount the terms lack", () => {
   expect(summaryDisagreements({ ...op, summary: "Order for $9.99 total." })).toHaveLength(1);
   expect(summaryDisagreements({ ...op, summary: "No amounts here." })).toEqual([]);
 });
+
+import { needsYou } from "./operation-presentation";
+
+const pending = (terms: Record<string, unknown>, extra = {}) => ({
+  operation_id: "op_1",
+  revision: "1",
+  state: "proposed",
+  expires_at: new Date(Date.now() + 60_000).toISOString(),
+  terms,
+  ...extra,
+});
+
+it("says which operations wait for the User", () => {
+  expect(needsYou(pending({}))).toBe(true);
+  expect(needsYou(pending({}, { state: "uncertain" }))).toBe(true);
+  expect(needsYou(pending({}, { state: "succeeded" }))).toBe(false);
+  expect(needsYou(pending({}, { expires_at: "2000-01-01T00:00:00Z" }))).toBe(false);
+});
+

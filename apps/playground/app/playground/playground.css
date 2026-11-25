@@ -1385,3 +1385,45 @@ footer .lab-links a:hover {
   margin-top: 8px;
   font-size: 14px;
 }
+.needs-you {
+  border-top: 1px solid var(--line);
+  background: var(--soft);
+}
+.needs-you-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 22px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.needs-you-toggle b {
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--ink);
+  font-size: 12px;
+  text-align: center;
+}
+.needs-you-toggle small {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+}
+.needs-you-body {
+  max-height: 46vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 22px 14px;
+}
+.needs-you .operation-review {
+  margin: 8px 0;
+}

@@ -174,3 +174,11 @@ export function summaryDisagreements(op: ReviewOperation): string[] {
     )
     .filter((line, index, all) => all.indexOf(line) === index);
 }
+
+/** Whether an operation still waits for the User: open and in time, or unresolved. */
+export function needsYou(op: ReviewOperation, now = Date.now()) {
+  return (
+    op.state === "uncertain" ||
+    (op.state === "proposed" && Date.parse(op.expires_at) > now)
+  );
+}

@@ -1,8 +1,9 @@
 "use client";
 import { inlineText } from "./inline-text";
-import { type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { ArrowUp, LoaderCircle } from "lucide-react";
 import { companyProfile } from "@poppy-lab/pap-core";
+import { needsYou } from "@/lib/operation-presentation";
 import { hideLinkSecrets } from "@/lib/link-display";
 import { OperationReview } from "../operation-review";
 import { accountCompany } from "./companies";
@@ -28,6 +29,33 @@ export function Conversation({
   taskInput: RefObject<HTMLTextAreaElement | null>;
 }) {
   const { result, connected, busy, messages, signedIn, waitingSignIn } = p;
+  const [now, setNow] = useState(() => Date.now());
+  const [panelOpen, setPanelOpen] = useState(true);
+  const panel = useRef<HTMLElement>(null);
+  const waiting = p.operations.filter((op) => needsYou(op, now));
+  const settled = p.operations.filter((op) => !needsYou(op, now));
+  // An open proposal expires on its own clock.
+  useEffect(() => {
+    if (!waiting.length) return;
+    const timer = setInterval(() => setNow(Date.now()), 15000);
+    return () => clearInterval(timer);
+  }, [waiting.length]);
+  // A new proposal opens the panel again.
+  const waitingKey = waiting.map((op) => `${op.operation_id}:${op.revision}`).join();
+  useEffect(() => {
+    if (waitingKey) setPanelOpen(true);
+  }, [waitingKey]);
+  const review = (op: (typeof p.operations)[number]) => (
+    <OperationReview
+      key={op.operation_id}
+      op={op}
+      company={result?.document.organization.name ?? "Company"}
+      domain={result?.document.organization.domain}
+      busy={busy}
+      signedIn={signedIn}
+      onAction={(action, operation) => void p.accountAction(action, operation)}
+    />
+  );
   // `connected` implies a result; keep the type in step with the flag.
   const company = connected ? result : null;
   return (
@@ -199,19 +227,7 @@ export function Conversation({
             {p.error}
           </p>
         )}
-        {p.operations.map((op) => (
-          <OperationReview
-            key={op.operation_id}
-            op={op}
-            company={result?.document.organization.name ?? "Company"}
-            domain={result?.document.organization.domain}
-            busy={busy}
-            signedIn={signedIn}
-            onAction={(action, operation) =>
-              void p.accountAction(action, operation)
-            }
-          />
-        ))}
+        {settled.map(review)}
         {p.sending && (
           <div className="thinking" role="status">
             <LoaderCircle className="spin" size={14} />
@@ -219,6 +235,31 @@ export function Conversation({
           </div>
         )}
       </div>
+      {!!waiting.length && (
+        <section
+          ref={panel}
+          className="needs-you"
+          aria-label="Needs you"
+          onKeyDown={(event) => {
+            if (event.key === "Escape" && panelOpen) {
+              setPanelOpen(false);
+              taskInput.current?.focus();
+            }
+          }}
+        >
+          <button
+            type="button"
+            className="needs-you-toggle"
+            aria-expanded={panelOpen}
+            onClick={() => setPanelOpen((open) => !open)}
+          >
+            <span>Needs you</span>
+            <b>{waiting.length}</b>
+            <small>{panelOpen ? "Hide" : "Show"}</small>
+          </button>
+          {panelOpen && <div className="needs-you-body">{waiting.map(review)}</div>}
+        </section>
+      )}
       <form className="composer" onSubmit={p.send}>
         <label className="sr-only" htmlFor="task">
           Message
