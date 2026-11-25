@@ -1,5 +1,5 @@
 import { expect, it, vi } from "vitest";
-import { demoChange, type DemoTools } from "./demo-changes";
+import { demoChange, demoChangeKind, type DemoTools } from "./demo-changes";
 
 const tool = (value: unknown) => ({ execute: vi.fn(async () => value) });
 const key = () => "key_fixture_0001";
@@ -348,6 +348,33 @@ it("accepts the upgrade offer on the flight named, and adds bags", async () => {
   expect(await demoChange("add 3 bags to NA 402", airline(), key)).toEqual({
     say: "The demo adds 1 or 2 checked bags at a time; you asked for 3.",
   });
+});
+
+it("answers a question about a change by reading, never by asking for the change", async () => {
+  const called = async (message: string, tools: DemoTools) => {
+    expect(demoChangeKind(message, tools)).toBeUndefined();
+    expect(await demoChange(message, tools, key)).toBeUndefined();
+    // Not even the account is read on the way to deciding.
+    for (const each of Object.values(tools))
+      expect(each!.execute).not.toHaveBeenCalled();
+  };
+  await called("Is there an upgrade available on my trip?", airline());
+  await called("What upgrades do I have", airline());
+  await called("How much is an extra bag?", airline());
+  await called("An upgrade on NA 118?", airline());
+  await called("Did you remove the edamame?", restaurant());
+  await called("Which day can I move my order to?", restaurant());
+  await called("How do I transfer $500 to savings?", bank());
+  // Asking the demo to do it is still a request, with or without "?".
+  expect(
+    await demoChange("Can you upgrade my NA 118 flight?", airline(), key),
+  ).toMatchObject({ call: "accept_upgrade" });
+  expect(
+    await demoChange("Could I add a bag to NA 402?", airline(), key),
+  ).toMatchObject({ call: "add_baggage" });
+  expect(
+    await demoChange("Please move my order to Sunday?", restaurant(), key),
+  ).toMatchObject({ call: "change_order" });
 });
 
 it("leaves reading questions and unknown Companies to the other rules", async () => {

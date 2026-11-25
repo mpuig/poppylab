@@ -521,12 +521,30 @@ export async function demoChange(
 }
 
 /**
+ * A question about a change is not a request for one: "Is there an upgrade
+ * available on my trip?" is answered by reading, and must never file an
+ * upgrade. A message that opens with a question word is a question; so is
+ * one that ends in "?", unless it asks the demo to act ("Can you…?",
+ * "Could I…?", "Please…?").
+ */
+const asking = (message: string) => {
+  const said = message.trim();
+  return (
+    /^(is|are|was|were|do|does|did|what|which|how|when|where|why|who|any|have|has)\b/.test(
+      said,
+    ) ||
+    (said.endsWith("?") && !/^(please|can|could|would|will|may|i)\b/.test(said))
+  );
+};
+
+/**
  * Whether the message asks for a change the demo knows how to prepare here,
  * decided from the words and the tools alone: nothing is read yet, so the
  * caller can ask for sign-in first.
  */
 export function demoChangeKind(message: string, tools: DemoTools) {
   const lowered = message.toLowerCase();
+  if (asking(lowered)) return undefined;
   if (
     tools.change_order &&
     tools.my_orders &&
