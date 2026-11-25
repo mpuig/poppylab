@@ -25,6 +25,51 @@ Qué debe quedar demostrado:
 | Extractos | Dejarlos para la fase 2b: exigen generar documentos (PDF) y quitar la tarea de `excludedTasks`. |
 | Versión FDX que se imita | La 6.x vigente; se fija en la fase 0. |
 
+## Hallazgos de la fase 0 (verificados el 25/11/2026)
+
+Fuentes: la licencia de FDX (primaria), el subconjunto público de Plaid Core Exchange 6.4 y documentación de Akoya y Flinks (implementadores), y un SDK no oficial generado desde FDX 6.2. La especificación oficial requiere registro y no se ha consultado.
+
+**Licencia.** El *FDX API License Agreement* (15/07/2026) prohíbe copiar, crear obras derivadas y publicar la especificación o su documentación (§2.1, §2.2), y se acepta con solo acceder a ella. Por tanto:
+- No entra en el repo ningún YAML, esquema ni texto descriptivo de FDX, tampoco el `corex.yaml` de Plaid, que arrastra los mismos términos.
+- Escribimos a mano un subconjunto que reutiliza rutas y nombres de campo, como hacen públicamente Plaid, Akoya, Flinks y MX. Siempre lo etiquetamos como "con forma FDX, sin conformidad ni certificación", sin logotipos ni marca FDX. Que eso sea suficiente es una cuestión legal que no hemos resuelto.
+- Nadie del proyecto debe registrarse para ver la especificación oficial con el fin de copiarla.
+
+**Versión.** La última confirmada es la 6.4 (junio de 2025). `/fdx/v6` es una convención de los implementadores, no una regla de FDX. Imitamos la 6.4 y paginamos con `offset`/`limit` y `page.nextOffset`. La 6.4 los marca como obsoletos en favor de `pageKey`, pero siguen existiendo y son más simples para una demo.
+
+**Mapeo `data.ts` → forma FDX:**
+
+| Harborline | Forma FDX |
+|---|---|
+| `Account.id` | `accountId` |
+| — | `accountCategory: "DEPOSIT_ACCOUNT"` |
+| `type: checking / savings` | `accountType: CHECKING / SAVINGS` |
+| `name` | `productName`, más `nickname` (no existe `displayName`) |
+| últimos dígitos derivados del id | `accountNumberDisplay` (no existe `maskedAccountNumber`) |
+| `status: active / inactive` | `status: OPEN / CLOSED` |
+| `"USD"` | `currency: { currencyCode: "USD" }` |
+| `balance_cents`, `available_cents` | `currentBalance`, `availableBalance` en decimal, más `balanceAsOf` |
+| `Transaction.id` | `transactionId` |
+| `occurred_at` | `transactionTimestamp`, y `postedTimestamp` si está `posted` |
+| signo de `amount_cents` | `amount` en valor absoluto, más `debitCreditMemo: DEBIT / CREDIT` |
+| `status: posted / pending` | `status: POSTED / PENDING` |
+| `category` | `category` (texto propio de Harborline, no MCC) |
+
+**Consentimiento.** El registro tiene `id`, `status` (`ACTIVE`, `EXPIRED`, `REVOKED`), `parties[]` (el banco como `DATA_PROVIDER` y el agente como `DATA_RECIPIENT`), `createdTime`, `expirationTime`, `durationType` (`TIME_BOUND`, o `ONE_TIME` sin `offline_access`), `durationPeriod` y `resources[]` (`{ resourceType: "ACCOUNT", resourceId, dataClusters }`). La revocación es `PUT /consents/{consentId}/revocation` con `{ reason: "USER_ACTION", initiator }` y responde 204.
+
+**Clusters.** Los nombres están confirmados (`ACCOUNT_BASIC`, `ACCOUNT_DETAILED`, `TRANSACTIONS`, `CUSTOMER_CONTACT`, `STATEMENTS`…), pero sus definiciones oficiales están detrás del registro. Usamos la interpretación que publican bancos implementadores: `ACCOUNT_BASIC` son descriptores sin saldos y `ACCOUNT_DETAILED` añade los saldos. La documentamos como decisión de Harborline, no como norma FDX.
+
+**Errores.** El cuerpo es `{ code, message, debugMessage? }`, con `code` como string. Usamos estos códigos:
+
+| Situación | Respuesta |
+|---|---|
+| Cuenta inexistente o no incluida en el consentimiento | 404 `701` |
+| Rango de fechas inválido | 400 `703` |
+| Cliente no autorizado | 401 `602` (solo dentro del cuerpo FDX; los errores de token siguen siendo OAuth, en `WWW-Authenticate`) |
+
+**Seguridad.** El modelo CSDF de la 6.4 tiene un perfil "Blue" basado en FAPI 2.0. Lo que ya ofrece Harborline (PAR, PKCE, `private_key_jwt`, tokens ligados con DPoP) encaja con ese estilo, pero no está confirmado contra la especificación. Lo documentamos así.
+
+**Contexto.** FDX abrió en abril de 2026 una iniciativa sobre IA agéntica (identidad del agente, consentimiento y delegación), sin estándar publicado todavía. `docs/extensions/fdx.md` la debe citar.
+
 ## Diseño de la extensión (v1)
 
 **Declaración en `poppy.json`:**
@@ -34,7 +79,7 @@ Qué debe quedar demostrado:
   "operations": [{ "version": "3" }],
   "poppylab.dev/fdx": [{
     "version": "1",
-    "fdx_version": "6.x",
+    "fdx_version": "6.4",
     "base_url": "https://bank-demo.poppylab.dev/fdx/v6",
     "resources": ["customer", "accounts", "transactions"],
     "consent_endpoint": "https://bank-demo.poppylab.dev/fdx/v6/consents"
@@ -66,7 +111,7 @@ Son scopes aparte de `accounts:read` y demás. Un sign-in puede pedir ambos tipo
 
 ## Fases
 
-### Fase 0: verificar FDX (S)
+### Fase 0: verificar FDX (S) — hecha, ver "Hallazgos de la fase 0"
 
 - Obtener la especificación FDX 6.x y revisar su licencia.
 - Confirmar rutas, nombres de campos (`accountId`, `accountCategory`, `maskedAccountNumber`, `postedTimestamp`, `debitCreditMemo`…), paginación (`offset`/`limit`, `page.nextOffset`), data clusters, códigos de error y modelo de consentimiento (`durationType`).
@@ -85,7 +130,7 @@ Hoy el gateway solo entiende Operations: `Session.operations?: boolean` en `pack
 ### Fase 2: API FDX en Harborline (M)
 
 - `apps/harborline/src/fdx.ts`: `mountFdx(app, ctx, { customerFor })`.
-  - Vistas: `Account` → cuenta de depósito FDX (céntimos → decimal, `checking`/`savings` → tipos FDX, número enmascarado determinista). `Transaction` → transacción FDX (signo → `debitCreditMemo`, `posted`/`pending` → estado).
+  - Vistas según la tabla de mapeo de la fase 0: `Account` → cuenta de depósito con forma FDX y `Transaction` → transacción con forma FDX.
   - `GET /fdx/v6/accounts`, `/accounts/{id}`, `/accounts/{id}/transactions` (`startTime`, `endTime`, `offset`, `limit` acotado), `/customers/current`, la Consent API.
   - Saldos solo con `fdx:ACCOUNT_DETAILED`. Filtrado por las cuentas del grant.
   - `FICTION_NOTICE` en cada respuesta, como el resto de Harborline.
