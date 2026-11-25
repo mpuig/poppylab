@@ -24,6 +24,6 @@ for those who want it.
 | [When something goes wrong](when-something-goes-wrong.md)                 | A declined proposal, an approval that expires, terms that change and a request the company refuses. Nothing is done twice or without approval. |
 
 Every screenshot comes from the live lab at [poppylab.dev](https://poppylab.dev)
-and its four fictional companies, so each page is also a record of that process
+and its fictional companies, so each page is also a record of that process
 working end to end on the day it was captured. Nothing in them is real: no
 account, money, food or flight.
