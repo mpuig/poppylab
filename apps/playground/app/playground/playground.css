@@ -381,10 +381,7 @@ h1 {
   text-decoration: none;
 }
 .connected {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--success);
+  color: var(--ink);
 }
 .error-message {
   color: var(--danger);

@@ -1,5 +1,5 @@
 "use client";
-import { ArrowUpRight, Check, LoaderCircle } from "lucide-react";
+import { ArrowUpRight, LoaderCircle } from "lucide-react";
 import { ModelSettings } from "../model-settings";
 import {
   exampleUrl,
@@ -56,12 +56,15 @@ export function ConnectionSetup({
       </form>
       <div className="connection-row">
         {company ? (
+          // What discovery proved: a valid poppy.json at this domain. Account
+          // access is shown in the conversation header, not here.
           <span className="connected">
-            <Check size={14} aria-hidden="true" />
+            <span className="quiet">Found</span>{" "}
             {company.document.organization.name}
             <span className="quiet">
               {" "}
-              · {company.document.apis?.length ?? 0}{" "}
+              · {company.document.organization.domain} ·{" "}
+              {company.document.apis?.length ?? 0}{" "}
               {(company.document.apis?.length ?? 0) === 1 ? "API" : "APIs"} ·{" "}
               {company.document.agent?.protocols.some((p) => p.type === "poppy")
                 ? "Company agent · "
