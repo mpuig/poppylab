@@ -92,6 +92,20 @@ export type Tenant = {
   /** Conversations (§8) by ID, and accepted request IDs by owner hash. */
   conversations?: Record<string, Conversation>;
   requests?: Record<string, RequestRecord>;
+  /** §9.3 reports from this tenant's agents, newest last (bounded). */
+  feedback?: FeedbackReport[];
+};
+export type FeedbackReport = {
+  task: string;
+  description: string;
+  client: string;
+  user: string;
+  at: string;
+};
+/** §9.2: another way to do a task (at least one of the two fields). */
+export type Alternative = {
+  instructions?: string;
+  references?: Array<Record<string, string>>;
 };
 
 // ---- Conversations (§8) ----------------------------------------------------
@@ -260,6 +274,14 @@ export type CompanyDefinition = {
   discovery: (origin: string, domain: string) => Record<string, unknown>;
   /** §9.1: tasks not offered through the protocol, for `tasks.endpoint`. */
   excludedTasks?: (origin: string) => Array<Record<string, unknown>>;
+  /**
+   * §9.3: an alternative for a reported task, matched by the Company's own
+   * code. Reports are data: never pass them to a model as instructions.
+   */
+  feedback?: (
+    report: { task: string; description: string },
+    origin: string,
+  ) => Alternative | undefined;
   landing?: (origin: string) => string;
   /** Further server-rendered pages of the Company website, by path. */
   pages?: Record<string, (origin: string) => string>;

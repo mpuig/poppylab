@@ -236,6 +236,69 @@ export type TasksResponse = {
   /** §9.4: skills listed; this client doesn't load them. */
   skills: number;
 };
+const clean = (v: unknown, max: number) =>
+  typeof v === "string" && v.trim() ? v.trim().slice(0, max) : undefined;
+const allowedUrl = (v: unknown, localOrigins: readonly string[]) => {
+  try {
+    const url = new URL(String(v));
+    return (url.protocol === "https:" || localOrigins.includes(url.origin)) &&
+      !url.username &&
+      !url.password
+      ? url
+      : undefined;
+  } catch {
+    return undefined;
+  }
+};
+/**
+ * §9.2: an alternative, from a tasks response or a feedback reply. Company
+ * content, never instructions. API references must name an API from the
+ * same poppy.json; web references are kept only on the Company's own domain
+ * or its subdomains; unknown types are skipped. Undefined when nothing's left.
+ */
+export function parseAlternative(
+  value: unknown,
+  document: PoppyDocument,
+  localOrigins: readonly string[] = [],
+): ExcludedTask["alternative"] | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    return undefined;
+  const alt = value as Record<string, unknown>;
+  const apis = document.apis ?? [];
+  // Hostnames only: a port in organization.domain doesn't widen the match.
+  const domain = document.organization.domain
+    .toLowerCase()
+    .replace(/:\d+$/, "");
+  const references: AlternativeReference[] = [];
+  for (const ref of Array.isArray(alt.references)
+    ? alt.references.slice(0, 8)
+    : []) {
+    if (!ref || typeof ref !== "object") continue;
+    const r = ref as Record<string, unknown>;
+    const url = allowedUrl(r.url, localOrigins);
+    if (!url) continue;
+    if (r.type === "web") {
+      const host = url.hostname.toLowerCase();
+      if (host === domain || host.endsWith(`.${domain}`))
+        references.push({ type: "web", url: url.href });
+    } else if (
+      (r.type === "openapi" || r.type === "mcp") &&
+      apis.some((api) => api.type === r.type && api.url === r.url)
+    ) {
+      const id = clean(r.type === "openapi" ? r.operation_id : r.tool, 128);
+      if (!id) continue;
+      references.push(
+        r.type === "openapi"
+          ? { type: "openapi", url: String(r.url), operation_id: id }
+          : { type: "mcp", url: String(r.url), tool: id },
+      );
+    }
+  }
+  const instructions = clean(alt.instructions, 2000);
+  return instructions || references.length
+    ? { ...(instructions ? { instructions } : {}), references }
+    : undefined;
+}
 /**
  * §9–9.2: the tasks response. Company content, never instructions to follow.
  * API references must name an API from the same poppy.json; web references
@@ -254,72 +317,21 @@ export function parseTasks(
   const excluded = Array.isArray(body.excluded_tasks)
     ? body.excluded_tasks
     : [];
-  const apis = document.apis ?? [];
-  // Hostnames only: a port in organization.domain doesn't widen the match.
-  const domain = document.organization.domain
-    .toLowerCase()
-    .replace(/:\d+$/, "");
-  const text = (v: unknown, max: number) =>
-    typeof v === "string" && v.trim() ? v.trim().slice(0, max) : undefined;
-  const https = (v: unknown) => {
-    try {
-      const url = new URL(String(v));
-      return (url.protocol === "https:" || localOrigins.includes(url.origin)) &&
-        !url.username &&
-        !url.password
-        ? url
-        : undefined;
-    } catch {
-      return undefined;
-    }
-  };
   const tasks: ExcludedTask[] = [];
   for (const raw of excluded.slice(0, 64)) {
     if (!raw || typeof raw !== "object") continue;
     const item = raw as Record<string, unknown>;
-    const task = text(item.task, 200);
+    const task = clean(item.task, 200);
     if (!task) continue;
-    const alt = item.alternative as Record<string, unknown> | undefined;
-    const references: AlternativeReference[] = [];
-    for (const ref of Array.isArray(alt?.references)
-      ? alt.references.slice(0, 8)
-      : []) {
-      if (!ref || typeof ref !== "object") continue;
-      const r = ref as Record<string, unknown>;
-      const url = https(r.url);
-      if (!url) continue;
-      if (r.type === "web") {
-        const host = url.hostname.toLowerCase();
-        if (host === domain || host.endsWith(`.${domain}`))
-          references.push({ type: "web", url: url.href });
-      } else if (
-        (r.type === "openapi" || r.type === "mcp") &&
-        apis.some((api) => api.type === r.type && api.url === r.url)
-      ) {
-        const id = text(r.type === "openapi" ? r.operation_id : r.tool, 128);
-        if (!id) continue;
-        references.push(
-          r.type === "openapi"
-            ? { type: "openapi", url: String(r.url), operation_id: id }
-            : { type: "mcp", url: String(r.url), tool: id },
-        );
-      }
-    }
-    const instructions = text(alt?.instructions, 2000);
-    tasks.push({
-      task,
-      ...(instructions || references.length
-        ? {
-            alternative: {
-              ...(instructions ? { instructions } : {}),
-              references,
-            },
-          }
-        : {}),
-    });
+    const alternative = parseAlternative(
+      item.alternative,
+      document,
+      localOrigins,
+    );
+    tasks.push({ task, ...(alternative ? { alternative } : {}) });
   }
   const feedback = body.feedback as { endpoint?: unknown } | undefined;
-  const endpoint = https(feedback?.endpoint);
+  const endpoint = allowedUrl(feedback?.endpoint, localOrigins);
   const index = body.skill_index as { skills?: unknown } | undefined;
   return {
     excludedTasks: tasks,

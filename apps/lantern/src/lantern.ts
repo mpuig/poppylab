@@ -424,6 +424,17 @@ export const lantern: CompanyDefinition = {
     },
     { task: "Change the delivery address of an order" },
   ],
+  // §9.3: Lantern's own matching, no model. Other reports get a plain 202.
+  feedback: ({ task, description }) => {
+    const said = `${task} ${description}`.toLowerCase();
+    if (
+      /gift ?card|voucher|catering|party|group booking|large order/.test(said)
+    )
+      return {
+        instructions: `Gift cards, catering and large group orders are handled by phone at ${PHONE} (fictional number).`,
+      };
+    return undefined;
+  },
   landing: homePage,
   pages: { "/for-agents": forAgentsPage },
   pageHeaders,

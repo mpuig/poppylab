@@ -193,6 +193,16 @@ export function juniperCompany(options: {
         { task: "Delete my account" },
       ];
     },
+    // §9.3: Juniper's own matching, no model. Other reports get a plain 202.
+    feedback: ({ task, description }, publicOrigin) => {
+      const said = `${task} ${description}`.toLowerCase();
+      if (/gift ?card|voucher|business account|bulk|invoice address/.test(said))
+        return {
+          instructions: `Gift cards, business accounts and bulk orders are handled by customer service at ${PHONE} (fictional number). The help page lists the frequent questions.`,
+          references: [{ type: "web", url: `${publicOrigin}/help` }],
+        };
+      return undefined;
+    },
     landing: (publicOrigin) => {
       return `<!doctype html>
     <html lang="en">

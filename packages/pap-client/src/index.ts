@@ -218,7 +218,10 @@ async function fetchJsonSafely(
             durationMs: Math.round(performance.now() - started),
           };
         }
-        if (options.acceptEmpty && response.ok && response.status === 204) {
+        if (
+          options.acceptEmpty &&
+          (response.status === 204 || response.status === 202)
+        ) {
           await response.body?.cancel();
           return {
             value: null,

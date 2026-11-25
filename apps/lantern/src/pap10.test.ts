@@ -311,3 +311,36 @@ async function formPost(
     body: new URLSearchParams(body).toString(),
   });
 }
+
+it("takes feedback with the Session header: 202, or 200 with Lantern's alternative (§9.3)", async () => {
+  const x = await setup();
+  expect((await inject("/poppy/tasks")).json().feedback).toEqual({
+    endpoint: `${origin}/poppy/feedback`,
+  });
+  const report = (task: string, description = "The User wanted it.") =>
+    x.call("", "POST", "/poppy/feedback", { task, description });
+  const plain = await report("Choose the spice level per bowl");
+  expect(plain.statusCode).toBe(202);
+  expect(plain.body).toBe("");
+  const alt = await report("Buy a gift card");
+  expect(alt.statusCode).toBe(200);
+  expect(alt.json().instructions).toContain("+1 555-0142");
+  // Malformed or too long: invalid_request.
+  for (const body of [
+    { task: "x" },
+    { task: "", description: "d" },
+    { task: "x".repeat(201), description: "d" },
+    { task: "x", description: "d".repeat(2001) },
+  ]) {
+    const r = await x.call("", "POST", "/poppy/feedback", body);
+    expect(r.statusCode).toBe(400);
+    expect(r.json()).toEqual({ error: "invalid_request" });
+  }
+  // Without a Session header, nothing is accepted (§5.3).
+  const bare = await inject({
+    url: "/poppy/feedback",
+    method: "POST",
+    payload: { task: "x", description: "d" },
+  });
+  expect(bare.statusCode).toBe(400);
+});

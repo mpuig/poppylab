@@ -19,6 +19,7 @@ import type { Tenancy } from "./tenancy.ts";
 const guarded = (path: string) =>
   path.startsWith("/api/") ||
   path === "/poppy/conversations" ||
+  path === "/poppy/feedback" ||
   path.startsWith("/poppy/conversations/");
 
 export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {

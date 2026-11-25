@@ -182,6 +182,18 @@ export async function POST(request: Request) {
         );
       if (person) results.push(await tools.company_agent_handoff!.execute({}));
       text = `Protocol demo (no LLM). Live Company Agent ${person ? "handoff" : "reply"}:\n\n${JSON.stringify(results.at(-1), null, 2)}\n\nThe Company's agent answers structured requests. For a real conversation with it, select a model.`;
+    } else if (
+      provider === "demo" &&
+      tools.report_unsupported_task &&
+      /gift ?card|voucher|report|feedback|can'?t do/.test(lowered)
+    ) {
+      // The demo's way into feedback (§9.3): a fixed, identifier-free report.
+      const result = await tools.report_unsupported_task.execute({
+        task: "Pay with a gift card",
+        description:
+          "The User wanted to pay with a gift card they were given. None of the Company's APIs or its agent's requests apply a gift card.",
+      });
+      text = `Protocol demo (no LLM). Feedback report sent to the Company (§9.3):\n\n${JSON.stringify(result, null, 2)}\n\nWith a model, Iris reports a task only after trying the Company's tools.`;
     } else if (provider === "demo") {
       const message = lowered;
       const day = ["saturday", "tuesday", "thursday"].find((day) =>

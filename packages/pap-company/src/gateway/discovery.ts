@@ -62,9 +62,16 @@ export function mountDiscovery(app: Hono, ctx: Ctx) {
     }),
   );
   // §9: the same for every Session, so it's served without verifying the
-  // Session header and may be cached; this lab takes no feedback.
+  // Session header and may be cached. Every Company takes feedback (§9.3).
   app.get("/poppy/tasks", (c) =>
-    c.json({ excluded_tasks: def.excludedTasks?.(origin) ?? [] }, 200, cached),
+    c.json(
+      {
+        excluded_tasks: def.excludedTasks?.(origin) ?? [],
+        feedback: { endpoint: `${origin}/poppy/feedback` },
+      },
+      200,
+      cached,
+    ),
   );
   const pageHeaders = def.pageHeaders ?? {};
   if (def.landing)

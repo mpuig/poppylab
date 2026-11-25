@@ -27,6 +27,7 @@ import {
 import {
   accountConfiguration,
   sendApproval,
+  feedbackTool,
   identity,
   operatorKey,
   papRequest,
@@ -514,4 +515,77 @@ it("after version_unsupported, chooses again and resends once only if the versio
     "no longer serves a protocol version",
   );
   expect(transport).toHaveBeenCalledTimes(1);
+});
+
+it("reports an unsupported task once per Session, signed out, and reads an alternative as Company content (§9.3)", async () => {
+  const r = example();
+  r.dpop = dpop;
+  const endpoint = "https://food.papsandbox.com/poppy/feedback";
+  r.tasks = {
+    sid: "",
+    value: {
+      excludedTasks: [{ task: "Cancel an order" }],
+      feedbackEndpoint: endpoint,
+      skills: 0,
+    },
+  };
+  const trace: string[] = [];
+  const tool = feedbackTool(r, trace);
+  const report = {
+    task: "Pay with a gift card",
+    description: "No API takes one.",
+  };
+  transport.mockReset().mockResolvedValueOnce({
+    instructions: "Call us.",
+    references: [
+      { type: "web", url: "https://food.papsandbox.com/help" },
+      { type: "web", url: "https://elsewhere.example/help" },
+      {
+        type: "openapi",
+        url: "https://other.example/openapi.json",
+        operation_id: "x",
+      },
+    ],
+  });
+  expect(await tool.execute(report)).toEqual({
+    sent: true,
+    untrusted_company_content: true,
+    alternative: {
+      instructions: "Call us.",
+      references: [{ type: "web", url: "https://food.papsandbox.com/help" }],
+    },
+  });
+  const [url, init, , dpopArg, options] = transport.mock.calls[0]!;
+  expect(url).toBe(endpoint);
+  expect(JSON.parse(String((init as RequestInit).body))).toEqual(report);
+  const h = headersOf(transport.mock.calls[0]!);
+  expect(h["Poppy-Session"]).toBeTruthy();
+  expect(h).not.toHaveProperty("Authorization");
+  expect(dpopArg).toBeUndefined();
+  expect(options).toEqual({ acceptEmpty: true });
+  expect(trace.at(-1)).toContain("200 with an alternative");
+
+  // The same task again: not sent. An excluded task or identifiers: not sent.
+  for (const input of [
+    { ...report, task: "pay with a GIFT card" },
+    { task: "Cancel an order", description: "Wanted to." },
+    { task: "Refund", description: "Order ord_LNB0907 was missing a bowl." },
+    { task: "Refund", description: "Email sam@example.com about it." },
+    { task: "Refund", description: "Call +1 555 0142 about it." },
+  ])
+    expect(await tool.execute(input)).toMatchObject({ sent: false });
+  expect(transport).toHaveBeenCalledTimes(1);
+
+  // A 202 (null from the transport): sent, no alternative.
+  transport.mockResolvedValueOnce(null);
+  expect(
+    await tool.execute({
+      task: "Choose a spice level",
+      description: "Per bowl.",
+    }),
+  ).toEqual({ sent: true });
+  // A new Session may report the first task again.
+  delete r.sessionId;
+  transport.mockResolvedValueOnce(null);
+  expect(await tool.execute(report)).toEqual({ sent: true });
 });
