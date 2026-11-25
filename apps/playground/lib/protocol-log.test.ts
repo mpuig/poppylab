@@ -40,3 +40,19 @@ it("reads an outcome from the words, not from the address", () => {
   ).toBe("info");
   expect(logEntry("GET /api/orders · request failed").outcome).toBe("error");
 });
+
+it("reads the User's FDX consent revocation as done, and its failure as an error", () => {
+  const done = logEntry(
+    "PUT /fdx/v6/consents/grant_1/revocation · FDX consent revoked · 204",
+  );
+  expect(done).toMatchObject({
+    method: "PUT",
+    url: "/fdx/v6/consents/grant_1/revocation",
+    outcome: "ok",
+  });
+  expect(
+    logEntry(
+      "PUT /fdx/v6/consents/grant_1/revocation · FDX consent revocation failed · 503",
+    ).outcome,
+  ).toBe("error");
+});

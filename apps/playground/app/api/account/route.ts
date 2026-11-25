@@ -15,6 +15,8 @@ import {
   pushAuthorizationRequest,
   fdxEntry,
   setFdx,
+  fdxConsentRecord,
+  revokeFdxConsent,
 } from "@/lib/runtime";
 import { record } from "@/lib/transcript";
 import {
@@ -39,6 +41,35 @@ import { BUDGET_FACTOR, MAX_PER_HOUR } from "@/lib/auto-approval";
 import { directState } from "@/lib/direct-state";
 export const runtime = "nodejs";
 const issuer = "http://juniper.localhost:4100";
+
+/**
+ * The run as sign-out leaves it (§5.5): no account tokens, scopes or FDX
+ * consent, and nothing Iris read with them. The Session continues signed out.
+ */
+function signedOutLocally(run: Run) {
+  delete run.accountToken;
+  delete run.token;
+  delete run.tokenType;
+  delete run.tokenExpires;
+  delete run.accountUnavailable;
+  // §4.5: the tokens for single services go with the account's.
+  delete run.resourceTokens;
+  delete run.scopes;
+  delete run.fdxConsent;
+  delete run.auth;
+  run.operations = {};
+  run.history = [];
+  delete run.transcript;
+  delete run.publicHistory;
+  // Iris forgets it; the Company keeps the conversation open (§5.5).
+  delete run.conversation;
+}
+
+/** The Company says this access is gone: a dead token or refresh token. */
+const accessEnded = (error: unknown) =>
+  error instanceof ProtocolError &&
+  ((error.status === 401 && (!error.code || error.code === "invalid_token")) ||
+    (error.status === 400 && error.code === "invalid_grant"));
 /** One conversation, named by `?conversation=`: running, or ended and read-only. */
 export async function GET(request: Request) {
   if (!serving())
@@ -63,6 +94,12 @@ export async function GET(request: Request) {
       scopes: run?.scopes,
       // Use FDX (poppylab.dev/fdx v1), a setting of this conversation.
       fdx: !!run?.fdx,
+      // The FDX consent of this sign-in, for the page to show and revoke
+      // with Use FDX on.
+      fdxConsent:
+        run?.accountToken && !run.accountUnavailable
+          ? run.fdxConsent
+          : undefined,
       consentVersion: run?.consentVersion ?? 0,
       recovery: run?.accountUnavailable ? accountUnavailableNotice : undefined,
       signedIn:
@@ -184,6 +221,94 @@ async function act(request: Request, started: { id?: string }) {
         { headers: { "Cache-Control": "no-store" } },
       );
     }
+    if (body.action === "fdx_consent" || body.action === "fdx_revoke") {
+      // poppylab.dev/fdx v1: the User's own look at, and revocation of, the
+      // consent of this sign-in. The endpoint and id come from the
+      // validated entry and the token response, never from this body.
+      if (run.accountToken && run.accountUnavailable)
+        return NextResponse.json(accountUnavailableNotice, {
+          status: accountUnavailableNotice.status,
+          headers: { "Cache-Control": "no-store" },
+        });
+      if (!fdxEntry(run) || !run.fdxConsent || !run.accountToken)
+        return NextResponse.json(
+          {
+            code: "no_fdx_consent",
+            error: !run.accountToken
+              ? "Sign in first: there is no FDX consent to revoke."
+              : !fdxEntry(run)
+                ? "Turn on Use FDX to manage the FDX consent."
+                : "This sign-in has no FDX consent. Sign in again to share accounts over FDX.",
+          },
+          { status: 400, headers: { "Cache-Control": "no-store" } },
+        );
+      const trace: string[] = [];
+      if (body.action === "fdx_consent") {
+        const record = await fdxConsentRecord(run, trace);
+        const resources = Array.isArray(record.resources)
+          ? (record.resources as Array<{ resourceId?: unknown }>)
+          : [];
+        return NextResponse.json(
+          {
+            consent:
+              typeof record.id === "string"
+                ? {
+                    id: record.id,
+                    status: record.status,
+                    expirationTime: record.expirationTime,
+                    accounts: resources.flatMap((r) =>
+                      typeof r.resourceId === "string" ? [r.resourceId] : [],
+                    ),
+                  }
+                : undefined,
+            // No record (`fdx_error`, `invalid_response`…): a message of
+            // ours, never the Company's words.
+            ...(typeof record.id === "string"
+              ? {}
+              : { error: "The bank didn't return this consent's record." }),
+            trace,
+          },
+          { headers: { "Cache-Control": "no-store" } },
+        );
+      }
+      const consent = run.fdxConsent;
+      try {
+        await revokeFdxConsent(run, trace);
+      } catch (error) {
+        // The bank no longer takes this sign-in's tokens: the consent has
+        // ended already. Its refresh token is dead too, so it isn't revoked.
+        if (accessEnded(error)) {
+          signedOutLocally(run);
+          trace.push("FDX consent already ended · signed out");
+          return NextResponse.json(
+            { signedIn: false, revoked: "already_ended", consent, trace },
+            { headers: { "Cache-Control": "no-store" } },
+          );
+        }
+        return NextResponse.json(
+          {
+            code: "fdx_revoke_failed",
+            error:
+              error instanceof ProtocolError &&
+              error.status === 429 &&
+              error.retryAt
+                ? "The Company asked to wait before trying again. The FDX consent wasn't revoked, and you're still signed in."
+                : error instanceof ProtocolError && error.status < 500
+                  ? `The Company didn't revoke the FDX consent (HTTP ${error.status}). You're still signed in; try again, or sign out to end this access.`
+                  : "The Company didn't confirm the revocation. You're still signed in; try again, or sign out to end this access.",
+            trace,
+          },
+          { status: 502, headers: { "Cache-Control": "no-store" } },
+        );
+      }
+      // The consent was the grant: its access and refresh tokens are gone
+      // at the Company, so sign-out has nothing left to revoke there.
+      signedOutLocally(run);
+      return NextResponse.json(
+        { signedIn: false, revoked: "revoked", consent, trace },
+        { headers: { "Cache-Control": "no-store" } },
+      );
+    }
     if (body.action === "signin") {
       // §4.2: plain OAuth Direct Sign-In. It doesn't know the Session;
       // the callback starts a new Session for the signed-in account.
@@ -270,22 +395,7 @@ async function act(request: Request, started: { id?: string }) {
     if (body.action === "signout") {
       // §5.5: sign-out revokes every refresh token held for the account.
       if (run.accountToken) await revokeRefreshToken(run, run.accountToken);
-      // §5.5: the Session continues signed out.
-      delete run.accountToken;
-      delete run.token;
-      delete run.tokenType;
-      delete run.tokenExpires;
-      // §4.5: the tokens for single services go with the account's.
-      delete run.resourceTokens;
-      delete run.scopes;
-      delete run.fdxConsent;
-      delete run.auth;
-      run.operations = {};
-      run.history = [];
-      delete run.transcript;
-      delete run.publicHistory;
-      // Iris forgets it; the Company keeps the conversation open (§5.5).
-      delete run.conversation;
+      signedOutLocally(run);
       return NextResponse.json({ signedIn: false });
     }
     if (!["approve", "decline", "retry"].includes(body.action))

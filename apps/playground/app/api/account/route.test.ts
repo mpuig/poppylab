@@ -1,7 +1,21 @@
 import type * as OperationStore from "../../../lib/operation-store";
 import type * as Runtime from "../../../lib/runtime";
-import { beforeEach, describe, it, expect, vi } from "vitest";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  it,
+  expect,
+  vi,
+} from "vitest";
 const state = vi.hoisted(() => ({
+  /** The network under the real runtime's FDX consent calls. */
+  transport: vi.fn<(url: string, ...args: unknown[]) => Promise<unknown>>(
+    async () => {
+      throw new Error("Unexpected request");
+    },
+  ),
   run: {
     url: "http://juniper.localhost:4100",
     expires: Date.now() + 60000,
@@ -91,6 +105,11 @@ vi.mock("@/lib/deployment", () => ({
   localOrigins: ["http://juniper.localhost:4100"],
 }));
 
+vi.mock("@poppy-lab/pap-client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@poppy-lab/pap-client")>()),
+  protocolRequest: state.transport,
+}));
+
 vi.mock("@/lib/runtime", async () => ({
   localOrigins: ["http://juniper.localhost:4100"],
   sendApproval: state.request,
@@ -112,12 +131,19 @@ vi.mock("@/lib/runtime", async () => ({
     .fdxEntry,
   setFdx: (await vi.importActual<typeof Runtime>("../../../lib/runtime"))
     .setFdx,
+  // The consent calls are the runtime's own, down to the request it sends.
+  fdxConsentRecord: (
+    await vi.importActual<typeof Runtime>("../../../lib/runtime")
+  ).fdxConsentRecord,
+  revokeFdxConsent: (
+    await vi.importActual<typeof Runtime>("../../../lib/runtime")
+  ).revokeFdxConsent,
 }));
 
 import { POST, GET } from "./route";
 import { seedRun } from "@/lib/runs";
 import { nextAutoApproval } from "@/lib/auto-approval";
-import { ProtocolError } from "@poppy-lab/pap-client";
+import { createIdentity, ProtocolError } from "@poppy-lab/pap-client";
 function request(body: unknown, origin = "http://localhost:3000") {
   return new Request("http://localhost:3000/api/account", {
     method: "POST",
@@ -999,5 +1025,256 @@ describe("Use FDX (poppylab.dev/fdx v1)", () => {
     state.revoke.mockResolvedValue(undefined);
     expect((await POST(request({ action: "signout" }))).status).toBe(200);
     expect(run.fdxConsent).toBeUndefined();
+  });
+});
+
+describe("Revoking the FDX consent (poppylab.dev/fdx v1)", () => {
+  const entry = {
+    version: "1",
+    base_url: "http://juniper.localhost:4100/fdx/v6",
+    consent_endpoint: "http://juniper.localhost:4100/fdx/v6/consents",
+  };
+  const revocation =
+    "http://juniper.localhost:4100/fdx/v6/consents/grant_1/revocation";
+  type FdxRun = typeof state.run & {
+    fdx?: boolean;
+    fdxConsent?: string;
+    visitor?: string;
+    dpop?: unknown;
+    tokenType?: string;
+    sessionId?: string;
+    resourceTokens?: unknown;
+  };
+  const run = state.run as FdxRun;
+  const company = structuredClone(state.run.company);
+  let dpop: unknown;
+  beforeAll(async () => {
+    const keys = await createIdentity();
+    vi.stubEnv("POPPY_IDENTITY", JSON.stringify(keys));
+    dpop = (await createIdentity()).privateKey;
+  });
+  beforeEach(() => {
+    vi.stubEnv("NODE_ENV", "development");
+    const bank = structuredClone(company) as { profile: object };
+    bank.profile = {
+      ...bank.profile,
+      extensions: { "poppylab.dev/fdx": entry },
+    };
+    Object.assign(run, {
+      company: bank,
+      fdx: true,
+      fdxConsent: "grant_1",
+      visitor: "visitor-fixture",
+      dpop,
+      tokenType: "DPoP",
+      // Not due for a refresh: the revocation goes with this token.
+      tokenExpires: Date.now() + 3600000,
+      resourceTokens: {
+        "http://juniper.localhost:4100/api": {
+          value: "service-token",
+          type: "DPoP",
+          expires: Date.now() + 3600000,
+        },
+      },
+      history: [{ role: "user", content: "my balances" }],
+    });
+    state.transport.mockReset();
+    state.transport.mockRejectedValue(new Error("Unexpected request"));
+  });
+  afterEach(() => {
+    state.run.company = structuredClone(company);
+    for (const key of [
+      "fdx",
+      "fdxConsent",
+      "visitor",
+      "dpop",
+      "tokenType",
+      "sessionId",
+      "resourceTokens",
+    ] as const)
+      delete run[key];
+    state.run.history = [];
+  });
+  const signedOut = () => {
+    expect(run.accountToken).toBeUndefined();
+    expect(run.token).toBeUndefined();
+    expect(run.tokenType).toBeUndefined();
+    expect(run.scopes).toBeUndefined();
+    expect(run.fdxConsent).toBeUndefined();
+    expect(run.resourceTokens).toBeUndefined();
+    expect(run.accountUnavailable).toBeUndefined();
+    expect(run.history).toEqual([]);
+    // The run and its Session go on, signed out (§5.5).
+    expect(run.sessionId).toEqual(expect.any(String));
+    // The dead refresh token isn't revoked again.
+    expect(state.revoke).not.toHaveBeenCalled();
+  };
+  const kept = () => {
+    expect(run.accountToken).toBe("secret");
+    expect(run.token).toBe("general-token");
+    expect(run.fdxConsent).toBe("grant_1");
+    expect(run.resourceTokens).toBeDefined();
+  };
+
+  it("is refused, sending nothing, without a consent, with Use FDX off or signed out", async () => {
+    const refused = async () => {
+      const r = await POST(request({ action: "fdx_revoke" }));
+      expect(r.status).toBe(400);
+      expect(await r.json()).toMatchObject({ code: "no_fdx_consent" });
+    };
+    delete run.fdxConsent;
+    await refused();
+    run.fdxConsent = "grant_1";
+    delete run.fdx;
+    await refused();
+    run.fdx = true;
+    // A profile with no valid entry: the extension isn't in use.
+    state.run.company = structuredClone(company);
+    await refused();
+    Object.assign(run, { company: structuredClone(company) });
+    (run.company as { profile: object }).profile = {
+      ...(run.company as { profile: object }).profile,
+      extensions: { "poppylab.dev/fdx": entry },
+    };
+    delete (run as { accountToken?: string }).accountToken;
+    await refused();
+    run.accountToken = "secret";
+    // Access the Company already refused: sign in again, nothing sent.
+    run.accountUnavailable = true;
+    const lost = await POST(request({ action: "fdx_revoke" }));
+    expect(lost.status).toBe(401);
+    expect(await lost.json()).toMatchObject({ code: "account_unavailable" });
+    run.accountUnavailable = false;
+    expect(state.transport).not.toHaveBeenCalled();
+    expect(state.revoke).not.toHaveBeenCalled();
+    expect(run.fdxConsent).toBe("grant_1");
+  });
+
+  it("sends one PUT to the stored consent's revocation, as a Poppy request with the extension declared", async () => {
+    state.transport.mockResolvedValue(null);
+    // The body's own URL or id are never used.
+    const r = await POST(
+      request({
+        action: "fdx_revoke",
+        consentId: "grant_other",
+        url: "http://juniper.localhost:4100/elsewhere",
+      }),
+    );
+    expect(r.status).toBe(200);
+    expect(state.transport).toHaveBeenCalledTimes(1);
+    const [url, init, , dpopOption, options] = state.transport.mock
+      .calls[0] as [
+      string,
+      RequestInit,
+      unknown,
+      { token?: string },
+      { acceptEmpty?: boolean },
+    ];
+    expect(url).toBe(revocation);
+    expect(init.method).toBe("PUT");
+    expect(JSON.parse(String(init.body))).toEqual({
+      reason: "USER_ACTION",
+      initiator: "INDIVIDUAL",
+    });
+    const headers = init.headers as Record<string, string>;
+    expect(headers["Content-Type"]).toBe("application/json");
+    expect(headers.Authorization).toBe("DPoP general-token");
+    expect(headers.DPoP).toEqual(expect.any(String));
+    expect(headers["Poppy-Session"]).toEqual(expect.any(String));
+    expect(headers["Poppy-Version"]).toBe("1.0");
+    expect(headers["Poppy-Extensions"]).toContain('"poppylab.dev/fdx";v="1"');
+    expect(dpopOption.token).toBe("general-token");
+    expect(options).toMatchObject({ acceptEmpty: true });
+    const body = await r.json();
+    expect(body).toMatchObject({
+      signedIn: false,
+      revoked: "revoked",
+      consent: "grant_1",
+    });
+    expect(body.trace).toContain(
+      "PUT /fdx/v6/consents/grant_1/revocation · FDX consent revoked · 204",
+    );
+    signedOut();
+  });
+
+  it("takes a 401 for a consent that has already ended, and signs out the same way", async () => {
+    state.transport.mockRejectedValue(new ProtocolError(401, "invalid_token"));
+    const r = await POST(request({ action: "fdx_revoke" }));
+    const answer = await r.json();
+    expect(r.status).toBe(200);
+    expect(answer).toMatchObject({
+      signedIn: false,
+      revoked: "already_ended",
+    });
+    expect(state.transport).toHaveBeenCalledTimes(1);
+    signedOut();
+  });
+
+  it("keeps the sign-in and says so when the Company doesn't revoke it", async () => {
+    for (const error of [
+      new ProtocolError(404, undefined),
+      new ProtocolError(403, "extension_required"),
+      new ProtocolError(503, undefined),
+      new Error("lost response"),
+    ]) {
+      state.transport.mockReset();
+      state.transport.mockRejectedValue(error);
+      const r = await POST(request({ action: "fdx_revoke" }));
+      expect(r.status).toBe(502);
+      const body = await r.json();
+      expect(body.code).toBe("fdx_revoke_failed");
+      expect(body.error).toMatch(/still signed in/);
+      expect(body.trace[0]).toMatch(
+        /^PUT \/fdx\/v6\/consents\/grant_1\/revocation · FDX consent revocation failed · /,
+      );
+      expect(state.transport).toHaveBeenCalledTimes(1);
+      kept();
+    }
+    expect(state.revoke).not.toHaveBeenCalled();
+  });
+
+  it("shows the consent's status and accounts from the bank's record, and its id on a reload", async () => {
+    state.transport.mockResolvedValue({
+      id: "grant_1",
+      status: "ACTIVE",
+      expirationTime: "2027-01-01T00:00:00Z",
+      resources: [
+        {
+          resourceType: "ACCOUNT",
+          resourceId: "acc_1",
+          dataClusters: ["ACCOUNT_BASIC"],
+        },
+      ],
+      note: "<script>",
+    });
+    const r = await POST(request({ action: "fdx_consent" }));
+    expect(r.status).toBe(200);
+    expect((await r.json()).consent).toEqual({
+      id: "grant_1",
+      status: "ACTIVE",
+      expirationTime: "2027-01-01T00:00:00Z",
+      accounts: ["acc_1"],
+    });
+    expect(state.transport.mock.calls[0]?.[0]).toBe(
+      "http://juniper.localhost:4100/fdx/v6/consents/grant_1",
+    );
+    const restored = await (
+      await GET(
+        new Request(
+          "http://localhost:3000/api/account?conversation=run_fixture_0001",
+        ),
+      )
+    ).json();
+    expect(restored.fdxConsent).toBe("grant_1");
+    run.accountUnavailable = true;
+    const off = await (
+      await GET(
+        new Request(
+          "http://localhost:3000/api/account?conversation=run_fixture_0001",
+        ),
+      )
+    ).json();
+    expect(off.fdxConsent).toBeUndefined();
+    run.accountUnavailable = false;
   });
 });

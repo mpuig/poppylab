@@ -79,7 +79,14 @@ const groups = {
     ["pap-company", ["src/gateway/account-routes.test.ts"]],
     ["harborline", ["src/fdx.test.ts"]],
     ["pap-client", ["src/fdx.test.ts"]],
-    ["playground", ["lib/fdx-runtime.test.ts", "lib/fdx-harborline.test.ts"]],
+    [
+      "playground",
+      [
+        "lib/fdx-runtime.test.ts",
+        "lib/fdx-harborline.test.ts",
+        "app/playground/fdx-consent.test.ts",
+      ],
+    ],
   ],
   airline: [["northwind", ["src/northwind.test.ts"]]],
   conversations: [

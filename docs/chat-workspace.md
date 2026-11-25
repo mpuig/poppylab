@@ -6,7 +6,7 @@ The playground offers exactly two model choices: **OpenAI compatible · gpt-6-lu
 
 1. Open Model settings, choose a provider, paste an API key and Save model. The form closes automatically.
 2. Enter the Company URL and Connect.
-3. Use the conversation. Sign-in, permission expansion, sign-out, recovery and Operation approval/status widgets are inside the chat. So is **Use FDX**, for a Company that lists the `poppylab.dev/fdx` extension (Harborline). It is off by default, kept with the conversation, and starts a new Session when changed ([Use FDX](openapi-tools.md#in-the-playground-use-fdx)). Inspector and Identity remain optional views. Company OAuth consent still opens the Company's own tab; Poppy never collects Company credentials in chat.
+3. Use the conversation. Sign-in, permission expansion, sign-out, recovery and Operation approval/status widgets are inside the chat. So is **Use FDX**, for a Company that lists the `poppylab.dev/fdx` extension (Harborline). It is off by default, kept with the conversation, and starts a new Session when changed ([Use FDX](openapi-tools.md#in-the-playground-use-fdx)). Signed in with it on, the account row shows the FDX consent (its id, status, shared accounts and expiry) and **Revoke FDX consent**. That button turns into **Confirm revoke** and **Cancel** in place, with no browser dialog. Once the bank revokes it, the conversation is signed out as after Sign out, and the row says so and offers sign-in again. Inspector and Identity remain optional views. Company OAuth consent still opens the Company's own tab; Poppy never collects Company credentials in chat.
 
 The API key and provider preference persist under `poppy.model.v1` in localStorage. This is **not encrypted**: scripts on the same origin and users of the browser profile can read it. Avoid shared devices; Forget saved settings removes this entry. It does not revoke the provider key or erase unrelated Poppy account grants.
 
@@ -69,7 +69,7 @@ The code is in `apps/playground/lib/` (`standing-instructions.ts`,
 `auto-approval.ts`, `operation-presentation.ts`, `protocol-log.ts`,
 `agent-steps.ts`, `link-display.ts`), each with its tests, and in
 `apps/playground/app/playground/` (`conversation.tsx`, `inspector.tsx`,
-`standing-instruction.tsx`).
+`standing-instruction.tsx`, `fdx-consent.tsx`).
 
 ## Evidence
 
