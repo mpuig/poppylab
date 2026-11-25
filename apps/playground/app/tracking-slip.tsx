@@ -14,16 +14,22 @@ const steps = [
   },
   {
     title: "You signed in",
-    detail: "On Juniper's own page, as Elena. You chose what Iris may do.",
+    detail:
+      "You did it on Juniper's own page, as Elena, and chose what Iris may do.",
   },
   {
     title: "Change proposed",
-    detail: "Juniper holds it: delivery from Thursday to Saturday.",
+    detail:
+      "Juniper is holding it. The delivery would move from Thursday to Saturday.",
   },
-  { title: "Approved by you", detail: "Your click. The AI can't press it." },
+  {
+    title: "Approved by you",
+    detail: "You clicked Approve, which the AI can't do.",
+  },
   {
     title: "Done, once",
-    detail: "Thursday → Saturday. A retry can't repeat it.",
+    detail:
+      "The delivery is now on Saturday, and a retry can't repeat the change.",
   },
 ] as const;
 
@@ -91,7 +97,7 @@ export function TrackingSlip() {
           </button>
         )}
         <figcaption>
-          A sample. In the live demo, you approve a real proposal.
+          This is a sample. In the live demo you approve a real proposal.
         </figcaption>
       </div>
     </figure>

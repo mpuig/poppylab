@@ -72,8 +72,8 @@ couldn't have asked the user about.
 | `summary`      | The same terms in plain language, optional. It may use bold, italics and lists, but never links or images.   |
 | `expires_at`   | The last moment an approval of this revision counts.                                                         |
 
-The rule that makes it work: the Company performs only what the approved
-revision describes. If something isn't in `terms`, it isn't part of the deal.
+The Company performs only what the approved revision describes, so anything
+missing from `terms` isn't part of the deal.
 
 ## 3. Where it shows up
 
@@ -159,19 +159,19 @@ the agent can't loop on a stale approval.
 A Company may refuse a valid approval for its own reasons: the approver, the
 account, its risk checks. It answers `403 {"error": "approval_declined"}` with
 the operation ID and revision, an optional `reason` in plain language and an
-optional alternative, such as a page where the user can do it themselves.
-There are no reason codes, deliberately: an agent does the same whatever the
-reason, and codes would reveal the Company's risk rules.
+optional alternative, such as a page where the user can do it themselves. The
+extension deliberately has no reason codes, because an agent does the same
+whatever the reason, and codes would reveal the Company's risk rules.
 
 A decline is final for that approval. Show it to the user; don't resend it.
 
 The lab's bank, Harborline, declines every agent approval that moves money:
-"Harborline moves money only when you approve it yourself." Iris then hands
-the operation back to the user, with the reason, and doesn't try the rule on
-it again. The user can approve the same revision with an approval of their
-own, which Harborline performs. That's the split a decline makes possible: a
-Company can accept agents for some actions and insist on the person for
-others, without reason codes and without a new operation.
+"Harborline moves money only when you approve it yourself." Iris then hands the
+operation back to the user, with the reason, and doesn't try the rule on it
+again. The user can approve the same revision with an approval of their own,
+which Harborline performs. A decline lets a Company accept agents for some
+actions and insist on the person for others, and it needs neither reason codes
+nor a new operation.
 
 ## 8. Retries and at most once
 
@@ -196,7 +196,7 @@ happened on the user's screen: the Company relies on the agent for that, as it
 does for sign-in. That's why approvals carry `approver`, `input_type` and a
 `reference`, and why a Company can stop accepting a misbehaving agent.
 
-For an action where a Company must see the user confirm with its own eyes,
+For an action where a Company must see the user confirm for itself,
 such as closing an account, it can skip operations and have the user confirm
 on its website or app, signed in.
 

@@ -146,7 +146,8 @@ public endpoint.
 
 **Consent pages that trust the name.**
 _Fix:_ always show the agent's `client_name` next to the verified host of its
-`client_id`: "Connecting Iris from poppylab.dev". The name is a claim.
+`client_id`: "Connecting Iris from poppylab.dev". The name is only what the
+agent claims; the host is what was verified.
 
 ## Between implementations
 
@@ -171,5 +172,5 @@ two implementations, compare the sign-in types each lists.
 **Two validators find different things.**
 The community validator found our missing `Cache-Control`; the official one
 found the token endpoint's check order and the Direct Conversation errors.
-Neither found what the other did, and neither found what our 470 tests
-missed. Run both, and treat a pass as evidence, not a certificate.
+Neither found what the other did, and our 470 tests had found none of it. Run
+both, and don't read a pass as proof that an implementation is correct.

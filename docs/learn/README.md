@@ -5,7 +5,7 @@ Practical notes on Personal Agent Protocol ("Poppy"), written while building
 Companies that pass the official validator.
 
 The official site already has the normative text and the advice. This section
-doesn't repeat them; it links to them. Use it next to:
+links to them rather than repeating them. Use it next to:
 
 - the [specification](https://personalagentprotocol.org/docs/1.0/spec) and the
   [Operations extension](https://personalagentprotocol.org/docs/1.0/extensions),

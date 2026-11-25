@@ -1,12 +1,12 @@
 # Poppy compared
 
-Personal Agent Protocol isn't a new kind of API. It's the agreement around
-the interfaces a Company already has: who the agent is, which user it acts
-for, what that user allowed, and when a person has to say yes. The
-interfaces themselves stay OpenAPI, MCP, a support chat or the website.
+Personal Agent Protocol is an agreement around the interfaces a Company already
+has. It settles who the agent is, which user it acts for, what that user
+allowed, and when a person has to say yes. The interfaces themselves stay
+OpenAPI, MCP, a support chat or the website.
 
-So the useful question isn't "Poppy or MCP?" but "what does each layer give
-the Company and the user?" This page answers it for the four options people
+"Poppy or MCP?" compares things that sit at different layers. This page asks
+what each layer gives the Company and the user, for the four options people
 usually weigh.
 
 ## The short version
@@ -50,9 +50,9 @@ Poppy keeps the API and OAuth, and changes three things around them:
   A Company can rate-limit per user, keep state per Session and serve signed-out
   traffic it can actually reason about, which a plain API can't.
 
-**Choose a plain API** when the only clients are ones you know and register
-yourself. **Add Poppy** when you want any agent your users choose to work, on
-your terms.
+A plain API is enough when the only clients are ones you know and register
+yourself. Add Poppy when you want any agent your users choose to work with your
+service, under your rules.
 
 ## Against MCP
 
@@ -68,7 +68,7 @@ details of running both.
 
 What Poppy adds on top of an MCP server:
 
-- **The Company as a whole, not one server.** Discovery covers the Company's
+- **The whole Company.** Discovery covers the Company's
   API, MCP servers, Company Agent, website and the tasks it won't do, with one
   identity and one sign-in across them.
 - **Attribution beyond the token.** With the Session header, a tool call
@@ -76,13 +76,13 @@ What Poppy adds on top of an MCP server:
   that ignores the header still works, but its calls belong to no Session.
 - **Approvals with exact terms.** Operations returns the terms of a change,
   pins them to a revision and accepts only an approval of that revision, over
-  MCP too (through `_meta`). That's a guarantee about what the user agreed to,
-  not a confirmation prompt the model can talk past.
+  MCP too (through `_meta`). That guarantees what the user agreed to, which a
+  confirmation prompt the model can talk past does not.
 - **A person, when needed.** Conversations let the agent ask the Company's own
   agent and hand off to staff, which tools alone don't model.
 
-**Keep MCP** as the way your tools are called. **List it in `poppy.json`** so
-agents find it, sign in once and get approvals that hold.
+Keep MCP as the way your tools are called, and list it in `poppy.json` so that
+agents find it, sign in once and get approvals tied to exact terms.
 
 ## Against browser automation
 
@@ -117,7 +117,7 @@ other.
 
 ## What it costs a Company
 
-Less than it sounds, because most of it is what you already run. The
+It costs less than it sounds, because most of it is what you already run. The
 [kit's architecture](https://personalagentprotocol.org/kit/company#architecture)
 lists the additions; in our gateway they map to:
 

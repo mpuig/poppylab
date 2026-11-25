@@ -24,7 +24,7 @@ const ladder = [
 const people = [
   [
     "No shared passwords.",
-    "You sign in at the company, as you do today. The agent gets a permission, not your login.",
+    "You sign in at the company, as you do today. The agent receives a permission and never sees your login.",
   ],
   [
     "You choose what it may do.",
@@ -32,7 +32,7 @@ const people = [
   ],
   [
     "Nothing changes without you.",
-    "The agent proposes exact terms: what, when and how much. Only your click approves.",
+    "The agent proposes the exact change, with its date and cost, and the company waits until you approve it.",
   ],
   [
     "Take it back any time.",
@@ -43,7 +43,7 @@ const people = [
 const forCompanies = [
   [
     "Start with what you have.",
-    "A website, APIs or your own agent. One discovery file describes them to every agent that follows the protocol.",
+    "You can offer a website, APIs or your own agent. One discovery file describes them to every agent that follows the protocol.",
   ],
   [
     "Know who is calling.",
@@ -62,7 +62,7 @@ const forCompanies = [
 const builders = [
   [
     "One protocol across companies.",
-    "The same discovery, sign-in and approval at a grocery, a bank or an airline, instead of one integration each.",
+    "Discovery, sign-in and approval work the same way at every company, so you don't build one integration for each.",
   ],
   [
     "Sign-in without the password.",
@@ -70,11 +70,11 @@ const builders = [
   ],
   [
     "Structured access.",
-    "APIs and conversations with the company's own agent, instead of clicking through pages built for people.",
+    "Your agent calls APIs and talks to the company's own agent. It doesn't have to click through pages built for people.",
   ],
   [
     "A place to test.",
-    "Four companies with different permissions and approval rules, and a trace of every step.",
+    "The lab has four companies with different permissions and approval rules, and it records every step.",
   ],
 ] as const;
 
@@ -85,7 +85,7 @@ const never = [
   ],
   [
     "Approve its own request.",
-    "The model can read and propose. Only your click approves; nothing typed in the chat counts.",
+    "The model can read and propose. A change is approved only when you click, and nothing typed in the chat counts as approval.",
   ],
   [
     "Be talked into it.",
@@ -131,8 +131,8 @@ export default function Home() {
             <p className="lead">
               Personal Agent Protocol, Poppy for short, is an open protocol for
               how personal agents and companies work together. Poppy Lab is an
-              independent place to watch it work: one agent, four fictional
-              companies, and every step in plain view.
+              independent place to watch it work. It has one agent and four
+              fictional companies, and it shows every step they take.
             </p>
             <div className="actions">
               <a className="button" href="/playground">
@@ -143,8 +143,9 @@ export default function Home() {
               </a>
             </div>
             <p className="fine">
-              Independent lab, not affiliated with the protocol&apos;s authors.
-              Nothing is charged, shipped or transferred.
+              Poppy Lab is independent and not affiliated with the
+              protocol&apos;s authors. Nothing here is charged, shipped or
+              transferred.
             </p>
           </div>
           <TrackingSlip />
@@ -179,8 +180,8 @@ export default function Home() {
           <div className="section-head">
             <h2 id="how-title">How it works</h2>
             <p>
-              Three parties, and each keeps its own job. The same three steps
-              apply at a grocery, a bank or an airline.
+              There are three parties, and each keeps its own job. The steps are
+              the same at a grocery, a bank or an airline.
             </p>
           </div>
           <FlowDiagram />
@@ -198,8 +199,8 @@ export default function Home() {
               <span>Step 2</span>
               <h3>You sign in on the company&apos;s own page</h3>
               <p>
-                The company shows which agent is asking and what it wants. You
-                decide what to allow. Your password never passes through the
+                The company shows which agent is asking and what it wants, and
+                you decide what to allow. Your password never passes through the
                 agent.
               </p>
             </li>
@@ -282,9 +283,8 @@ export default function Home() {
           <div>
             <h2 id="safety-title">What the AI can never do</h2>
             <p className="aside">
-              Iris is built so that the language model sits above a line it
-              can&apos;t cross. Signing in, sending credentials and approving
-              are done by plain code and by you.
+              Iris keeps the language model away from anything sensitive. Plain
+              code signs in and sends credentials, and you do the approving.
             </p>
           </div>
           <ul>
@@ -300,9 +300,10 @@ export default function Home() {
           <div>
             <h2 id="closing-title">See it for yourself</h2>
             <p>
-              No account or model key needed. Building an agent or a company?
-              The developer guide has the endpoints and the spec sections, and
-              the <a href={SPEC_URL}>specification</a> has the rest.
+              You don&apos;t need an account or a model key. If you are building
+              an agent or a company, the developer guide has the endpoints and
+              the spec sections, and the <a href={SPEC_URL}>specification</a>{" "}
+              has the rest.
             </p>
           </div>
           <div className="actions">

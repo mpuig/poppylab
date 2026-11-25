@@ -119,9 +119,10 @@ Lantern accepts the message, replies, and adds an `authorization` event
 { "type": "authorization", "error": "insufficient_scope", "scope": "orders:read orders:write" }
 ```
 
-The conversation isn't refused; it's waiting for more access. Iris turns the
-event into its usual "Request change permission" control, so the user grants
-`orders:write` on Lantern's consent page, and then sends the request again.
+Lantern keeps the conversation open while it waits for more access. Iris turns
+the event into its usual "Request change permission" control, so the user
+grants `orders:write` on Lantern's consent page, and then sends the request
+again.
 
 ## 3. A proposal inside a message
 
@@ -164,8 +165,8 @@ sends operations only to requests that declare the extension in
 
 ## 4. The approval as a message
 
-The user approves in Iris, with a button, not in the chat. Iris sends the
-approval in a message:
+The user approves with a button in Iris rather than by typing in the chat. Iris
+sends the approval in a message:
 
 ```json
 {
@@ -231,8 +232,8 @@ At a real Company, a person would join and `responder` would become `human`.
 
 ## 6. The Company asks for the user: a Direct Conversation
 
-Sometimes the Company needs the user's own word, not their agent's. A
-**Direct Conversation**
+Sometimes the Company needs to hear from the user rather than from their agent.
+A **Direct Conversation**
 ([§8.10](https://personalagentprotocol.org/docs/1.0/spec#direct-conversations))
 is a new thread linked to this one, where the user speaks for themselves and
 the Company keeps the earlier history.

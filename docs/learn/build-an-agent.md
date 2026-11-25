@@ -7,9 +7,9 @@ Agent has to do, in the order it does it, written from building
 [specification](https://personalagentprotocol.org/docs/1.0/spec) for the
 rules and to our code for one way to meet them.
 
-The hard part isn't the cryptography, which libraries handle. It's deciding
-where the model stops and deterministic code takes over. Most sections end
-with that line.
+Libraries handle the cryptography. The hard part is deciding where the model
+stops and deterministic code takes over, and most sections end with a paragraph
+headed **The line** that says where.
 
 ## The pieces
 
@@ -24,7 +24,7 @@ with that line.
 | The model      | Reads, plans, explains, proposes                                          | Any model; Iris runs GPT, Claude or no model at all                                                                        |
 
 Everything in the table except the last row is deterministic code. The model
-calls tools; the tools decide what actually goes over the wire.
+calls tools; the tools decide what goes over the wire.
 
 ## 1. Identity: a URL, two keys, no registration
 
@@ -65,11 +65,12 @@ Every request to a Company carries a Session header naming the user and the
 Session ([§5.2](https://personalagentprotocol.org/docs/1.0/spec#the-session-header)),
 so the agent needs both before its first request.
 
-**A user ID per Company, derived, not stored.** The ID must be stable, opaque,
-different at each Company and not derived from personal data, even with a
-keyed hash ([§5.1](https://personalagentprotocol.org/docs/1.0/spec#user-ids-and-agent-ids)).
-Iris computes it from its own internal visitor ID and the Company's
-identifier with a secret only it has:
+**A user ID per Company, derived rather than stored.** The ID must be stable,
+opaque, different at each Company and not derived from personal data, even with
+a keyed hash
+([§5.1](https://personalagentprotocol.org/docs/1.0/spec#user-ids-and-agent-ids)).
+Iris computes it from its own internal visitor ID and the Company's identifier
+with a secret only it has:
 
 ```ts
 const secret = hmac("poppy-user-ids", identitySecret);
@@ -98,7 +99,8 @@ A Personal Agent fetches URLs that strangers give it: whatever domain the user
 types, and whatever endpoints that domain lists. Without care, it becomes a
 way to reach internal services.
 
-What `protocolRequest` enforces, all of it below the model:
+`protocolRequest` enforces these rules in code, where the model can't change
+them:
 
 - **HTTPS only**, no credentials in URLs.
 - **No private, loopback or link-local addresses.** In Node, the hostname is
@@ -207,7 +209,7 @@ Iris:
 | Approval controls                                     | The model proposes; only the user approves              |
 | Raw URLs it hasn't been given by the Company          | Tools take parameters, not arbitrary destinations       |
 
-And what does enter it, flagged:
+What does enter the context is flagged:
 
 - Company content (API responses, Company Agent messages, alternatives,
   skills): marked `untrusted_company_content`, described in the system prompt

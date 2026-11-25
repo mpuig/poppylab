@@ -1,8 +1,8 @@
 # Build a Company
 
-How to add Personal Agent Protocol to systems you already run, one milestone
-at a time, with small pieces of code you can adapt and our gateway as a
-complete reference.
+This page shows how to add Personal Agent Protocol to systems you already run,
+one milestone at a time. It has small pieces of code you can adapt and points
+to our gateway as a complete reference.
 
 If you use a coding agent, start with the official
 [Company kit](https://personalagentprotocol.org/kit/company) instead: its skill
@@ -57,7 +57,7 @@ here.
 
 ## Milestone 1: foundation
 
-This is where agents become identifiable. Three things.
+This is where agents become identifiable. It has three parts.
 
 ### Metadata
 
@@ -232,7 +232,7 @@ async function changeOrder(req, session) {
 }
 ```
 
-What makes it hold:
+It depends on four rules:
 
 - **Terms are the contract.** Put everything the user is agreeing to in
   `terms`: amounts, dates, items. The summary is for reading; the terms are
@@ -260,6 +260,6 @@ the gateway does the protocol.
 | Operations | [`approvals.ts`](../../packages/pap-company/src/approvals.ts)                                                                                                                       |
 | A Company  | [`apps/lantern/src/lantern.ts`](../../apps/lantern/src/lantern.ts): about 450 lines of business code on top                                                                         |
 
-It's a lab, not a product: state lives in memory or a Durable Object, the
-customers are fictional, and nothing has been reviewed for production. Read
-it for the shape of the solution, then build on what you run.
+The gateway is lab code. Its state lives in memory or a Durable Object, its
+customers are fictional, and nobody has reviewed it for production. Read it to
+see how the pieces fit, then build on what you run.

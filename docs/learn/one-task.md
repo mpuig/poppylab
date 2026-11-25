@@ -17,14 +17,14 @@ The model sees none of the credentials. Which requests carry what:
 
 | Step | Request                        | Session header | Access token | Who decides                |
 | ---- | ------------------------------ | -------------- | ------------ | -------------------------- |
-| 1    | `GET /.well-known/poppy.json`  | –              | –            | –                          |
-| 2    | OAuth and resource metadata    | –              | –            | –                          |
-| 3    | `GET /poppy/tasks`             | yes            | –            | –                          |
-| 4    | `GET /api/menu`                | yes            | –            | –                          |
-| 5    | `POST /oauth/par`, consent     | –              | –            | **the user**, at Lantern   |
-| 6    | `POST /oauth/token`            | –              | –            | –                          |
-| 7    | `GET /api/account/orders`      | yes            | yes          | –                          |
-| 8    | `POST …/changes`               | yes            | yes          | –                          |
+| 1    | `GET /.well-known/poppy.json`  | no             | no           |                            |
+| 2    | OAuth and resource metadata    | no             | no           |                            |
+| 3    | `GET /poppy/tasks`             | yes            | no           |                            |
+| 4    | `GET /api/menu`                | yes            | no           |                            |
+| 5    | `POST /oauth/par`, consent     | no             | no           | **the user**, at Lantern   |
+| 6    | `POST /oauth/token`            | no             | no           |                            |
+| 7    | `GET /api/account/orders`      | yes            | yes          |                            |
+| 8    | `POST …/changes`               | yes            | yes          |                            |
 | 9    | same `POST`, with the approval | yes            | yes          | **the user**, in the agent |
 
 ## 1. Find out what the Company offers
@@ -214,7 +214,7 @@ Poppy-Version: 1.0
 Poppy-Session: eyJ0eXAi…
 ```
 
-Nothing new here. That's the point: an existing public API only gains the
+This request looks like any other. An existing public API only gains the
 Session header check.
 
 ## 5. Ask the user for access
@@ -370,8 +370,6 @@ result and doesn't move the order twice
 
 ## What the Company got, and the user
 
-Put the steps side by side and the trade becomes clear.
-
 **Lantern** knew which agent was calling (step 3, verified, not a user-agent
 string), on behalf of which pseudonymous user, in which Session, before
 anyone signed in. It decided what that agent could see and do with its own
@@ -379,10 +377,10 @@ scopes, and it never applied a change without exact terms approved for that
 revision. It used its own sign-in page, its own consent wording and its
 existing API.
 
-**The user** gave the agent two permissions, not their password, on Lantern's
-own page. They saw the exact change and its price before it happened. They
-can disconnect the agent from Lantern's website at any time, without logging
-out of anything else.
+**The user** gave the agent two permissions on Lantern's own page and never
+shared their password. They saw the exact change and its price before it
+happened. They can disconnect the agent from Lantern's website at any time,
+without logging out of anything else.
 
 ## Try it
 
