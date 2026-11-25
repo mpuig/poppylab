@@ -34,8 +34,12 @@ export async function splitStore(kv: KeyValue): Promise<Store> {
       for (const key of changes.tenants)
         if (tenants[key]) entries[PREFIX + key] = tenants[key];
       await kv.put(entries);
-      if (changes.removed.length)
-        await kv.delete(changes.removed.map((k) => PREFIX + k));
+      // A tenant dropped and started again under its key is live, and the
+      // request that started it writes it, in this save or in one that
+      // overlaps it. So only a key no tenant holds now, after the write, is
+      // deleted.
+      const gone = changes.removed.filter((k) => !tenants[k]);
+      if (gone.length) await kv.delete(gone.map((k) => PREFIX + k));
     },
   };
 }

@@ -296,7 +296,10 @@ export type TurnResult = {
 };
 /** A deterministic Company Agent: structured data in, structured data out. */
 export type ConversationHandler = (turn: ConversationTurn) => TurnResult;
-/** What a request changed, for stores that persist tenants separately. */
+/**
+ * What a request changed, for stores that persist tenants separately. A key
+ * in `removed` may hold a new tenant again by the time it is saved.
+ */
 export type Changes = { tenants: string[]; removed: string[] };
 export const emptyState = (): GatewayState => ({
   sessions: {},
