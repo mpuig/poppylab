@@ -1,6 +1,13 @@
 import { expect, it, vi } from "vitest";
 import { openApiTools } from "@poppy-lab/pap-client";
-import { inject, lab, origin, setup } from "./test-harness.ts";
+import {
+  bookElenaOnNa274,
+  business,
+  inject,
+  lab,
+  origin,
+  setup,
+} from "./test-harness.ts";
 
 it("publishes Poppy 1.0 discovery, five differentiated scopes and excluded tasks", async () => {
   await setup();
@@ -170,6 +177,87 @@ it("invalidates a flight-change proposal when inventory price changes and requir
   expect(
     (await x.call(robin.access_token, "POST", url, body, fresh)).json(),
   ).toEqual(done.json());
+});
+
+const toNa278 = {
+  old_flight_id: "flt_na274_20270603",
+  new_flight_id: "flt_na278_20270603",
+};
+
+it("gives two customers changing to the same flight different seats, named in the terms", async () => {
+  const x = await setup();
+  const elena = await x.sign("elena", true);
+  const robin = await x.sign("robin", true);
+  await x.call(robin.access_token, "GET", "/api/account/bookings");
+  bookElenaOnNa274();
+  const elenaUrl = "/api/account/bookings/NW2E9S/change-flight";
+  const robinUrl = "/api/account/bookings/NW4D8R/change-flight";
+  const early = (
+    await x.call(elena.access_token, "POST", elenaUrl, toNa278)
+  ).json().operation;
+  expect(early.terms).toMatchObject({
+    from: { seat: "14A" },
+    to: { seat: "12A" },
+  });
+  expect(early.summary).toContain("seat 12A is assigned on NA 278");
+  const proposal = (
+    await x.call(robin.access_token, "POST", robinUrl, toNa278)
+  ).json().operation;
+  expect(proposal.terms).toMatchObject({
+    from: { seat: "27D" },
+    to: { seat: "12A" },
+  });
+  const changed = await x.call(
+    robin.access_token,
+    "POST",
+    robinUrl,
+    toNa278,
+    proposal,
+  );
+  expect(changed.json().data.itinerary[0].seat).toBe("12A");
+  // Robin now holds the seat Elena was shown: her approval of it is refused.
+  const refused = await x.call(
+    elena.access_token,
+    "POST",
+    elenaUrl,
+    toNa278,
+    early,
+  );
+  expect(refused.statusCode).toBe(403);
+  const fresh = refused.json().operation;
+  expect(fresh.terms.to.seat).toBe("12C");
+  const done = await x.call(
+    elena.access_token,
+    "POST",
+    elenaUrl,
+    toNa278,
+    fresh,
+  );
+  expect(done.json().data.itinerary[0].seat).toBe("12C");
+  const { inventory } = business();
+  expect(inventory.flt_na278_20270603!.available_seats).not.toContain("12A");
+  expect(inventory.flt_na278_20270603!.available_seats).not.toContain("12C");
+  expect(inventory.flt_na274_20270603!.available_seats).toEqual(
+    expect.arrayContaining(["14A", "27D"]),
+  );
+});
+
+it("leaves the seat unassigned, and says so, when the new flight has no standard seat left", async () => {
+  const x = await setup();
+  const robin = await x.sign("robin", true);
+  const url = "/api/account/bookings/NW4D8R/change-flight";
+  await x.call(robin.access_token, "GET", "/api/account/bookings");
+  business().inventory.flt_na278_20270603!.available_seats = [];
+  const proposal = (
+    await x.call(robin.access_token, "POST", url, toNa278)
+  ).json().operation;
+  expect(proposal.terms.to.seat).toBeNull();
+  expect(proposal.summary).toContain("the seat is left unassigned");
+  const done = await x.call(robin.access_token, "POST", url, toNa278, proposal);
+  expect(done.json().data.itinerary[0]).toMatchObject({
+    flight_number: "NA 278",
+    seat: null,
+  });
 });
 
 it("returns exact baggage, preference, upgrade and cancellation terms", async () => {

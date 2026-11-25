@@ -970,6 +970,10 @@ function mount(
       const difference = newPrice - oldPrice;
       const due = Math.max(0, difference + fare.change_fee_cents);
       const refund = Math.max(0, -difference - fare.change_fee_cents);
+      // The User approves the seat they get: the first standard seat still
+      // free on the new flight, or none when every one is taken.
+      const oldSeat = booking.seats[oldId] ?? null,
+        newSeat = newStock.available_seats[0] ?? null;
       const terms = {
         booking_reference: booking.reference,
         booking_version: booking.version,
@@ -981,34 +985,40 @@ function mount(
           flight_number: oldFlight.number,
           departure: oldFlight.departure,
           fare_cents: oldPrice,
+          seat: oldSeat,
         },
         to: {
           flight_number: newFlight.number,
           departure: newFlight.departure,
           fare_cents: newPrice,
+          seat: newSeat,
         },
         change_fee_cents: fare.change_fee_cents,
         fare_difference_cents: difference,
         amount_due_cents: due,
         refund_cents: refund,
         currency: "USD",
-        seat: "The current seat does not carry over; a standard seat is assigned after the change.",
+        seat: newSeat
+          ? `The current seat does not carry over; standard seat ${newSeat} is assigned on ${newFlight.number}.`
+          : `The current seat does not carry over; no standard seat is free on ${newFlight.number}, so the seat is left unassigned.`,
         payment: "Simulated card on file — no real charge or refund",
       };
       return ctx.gate(c, {
         key: `change-flight:${booking.reference}:${booking.version}`,
         terms,
-        summary: `Change ${oldFlight.number} (${oldFlight.departure}) to ${newFlight.number} (${newFlight.departure}). Fare difference ${difference >= 0 ? usd(difference) + " more" : usd(-difference) + " less"}; change fee ${usd(fare.change_fee_cents)}; ${due ? `${usd(due)} due` : `${usd(refund)} refunded`}. Current seat does not carry over. ${FICTION_NOTICE}`,
+        summary: `Change ${oldFlight.number} (${oldFlight.departure}) to ${newFlight.number} (${newFlight.departure}). Fare difference ${difference >= 0 ? usd(difference) + " more" : usd(-difference) + " less"}; change fee ${usd(fare.change_fee_cents)}; ${due ? `${usd(due)} due` : `${usd(refund)} refunded`}. ${terms.seat} ${FICTION_NOTICE}`,
         perform: () => {
           const index = booking.flight_ids.indexOf(oldId);
           booking.flight_ids[index] = newId;
-          const oldSeat = booking.seats[oldId];
           if (oldSeat) oldStock.available_seats.push(oldSeat);
           delete booking.seats[oldId];
-          booking.seats[newId] = "29A";
-          const newSeatIndex = newStock.available_seats.indexOf("29A");
-          if (newSeatIndex >= 0)
-            newStock.available_seats.splice(newSeatIndex, 1);
+          if (newSeat) {
+            newStock.available_seats.splice(
+              newStock.available_seats.indexOf(newSeat),
+              1,
+            );
+            booking.seats[newId] = newSeat;
+          }
           booking.baggage[newId] = booking.baggage[oldId] ?? 0;
           delete booking.baggage[oldId];
           booking.cabins[newId] = booking.cabins[oldId] ?? "Economy";
@@ -1024,13 +1034,20 @@ function mount(
             data: bookingView(booking, inventory),
           };
         },
-        stale: (approved) =>
-          booking.version !== approved.booking_version ||
-          oldStock.version !== approved.old_inventory_version ||
-          newStock.version !== approved.new_inventory_version ||
-          newStock.economy_available < 1 ||
-          newStock.economy_cents + (booking.fare === "FLEX" ? 9600 : 0) !==
-            (approved.to as { fare_cents?: unknown }).fare_cents,
+        stale: (approved) => {
+          const to = approved.to as { fare_cents?: unknown; seat?: unknown };
+          return (
+            booking.version !== approved.booking_version ||
+            oldStock.version !== approved.old_inventory_version ||
+            newStock.version !== approved.new_inventory_version ||
+            newStock.economy_available < 1 ||
+            newStock.economy_cents + (booking.fare === "FLEX" ? 9600 : 0) !==
+              to.fare_cents ||
+            // Someone else took the approved seat in the meantime.
+            (typeof to.seat === "string" &&
+              !newStock.available_seats.includes(to.seat))
+          );
+        },
       });
     },
   );

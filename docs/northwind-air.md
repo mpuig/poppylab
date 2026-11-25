@@ -41,7 +41,7 @@ Approval-gated mutations:
 - set meal and assistance preferences;
 - cancel a booking with exact fee/refund terms;
 - accept the current upgrade offer;
-- change a flight with old/new fare, fare difference, change fee, amount due or refund, and seat-reset terms.
+- change a flight with old/new fare, fare difference, change fee, amount due or refund, and the standard seat assigned on the new flight (the current seat does not carry over; the seat is left unassigned when none is free).
 
 Operations include booking and inventory versions and current prices. If inventory or price changes after a proposal, the old revision cannot execute: the Company returns fresh terms for a new approval. Approved execution is idempotent; a retry gets the first response.
 
