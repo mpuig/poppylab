@@ -29,6 +29,20 @@ export type ClientInfo = {
   until: number;
 };
 
+/**
+ * The key a client assertion is verified with: the one its `kid` names.
+ * Neither §4.1 nor RFC 7523 requires a `kid`, so an assertion without one
+ * gets the client's key when it publishes exactly one, and never the first
+ * of several.
+ */
+export function assertionKey(info: ClientInfo, assertion: string) {
+  const { kid } = decodeProtectedHeader(assertion);
+  return (
+    info.keys.find((k) => k.kid === kid) ??
+    (kid === undefined && info.keys.length === 1 ? info.keys[0] : undefined)
+  );
+}
+
 export function createContext(def: CompanyDefinition, deploy: Deployment) {
   const { origin, store } = deploy;
   const state: GatewayState = store.value;

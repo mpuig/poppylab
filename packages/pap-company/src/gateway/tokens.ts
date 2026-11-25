@@ -5,12 +5,11 @@
  */
 import type { Hono } from "hono";
 import {
-  decodeProtectedHeader,
   randomId,
   tokenHash,
   verifyAssertion,
 } from "@poppy-lab/pap-client/core";
-import type { Ctx } from "./context.ts";
+import { assertionKey, type Ctx } from "./context.ts";
 import {
   GRANT_MS,
   hash,
@@ -43,10 +42,7 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
       await ctx.challengeBeforeConsuming(c);
       const id = String(body.client_id ?? "");
       const info = await ctx.client(id);
-      const kid = decodeProtectedHeader(
-        String(body.client_assertion ?? ""),
-      ).kid;
-      const key = info.keys.find((k) => k.kid === kid);
+      const key = assertionKey(info, String(body.client_assertion ?? ""));
       if (!key) throw new Error("invalid_client");
       await verifyAssertion(
         body.client_assertion!,
@@ -182,10 +178,7 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
       await ctx.challengeBeforeConsuming(c);
       const id = String(body.client_id ?? "");
       const info = await ctx.client(id);
-      const kid = decodeProtectedHeader(
-        String(body.client_assertion ?? ""),
-      ).kid;
-      const key = info.keys.find((k) => k.kid === kid);
+      const key = assertionKey(info, String(body.client_assertion ?? ""));
       if (!key) throw new Error();
       await verifyAssertion(
         body.client_assertion ?? "",

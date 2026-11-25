@@ -7,12 +7,11 @@
 import type { Context, Hono } from "hono";
 import { scryptSync, timingSafeEqual } from "node:crypto";
 import {
-  decodeProtectedHeader,
   randomId,
   tokenHash,
   verifyAssertion,
 } from "@poppy-lab/pap-client/core";
-import type { Ctx } from "./context.ts";
+import { assertionKey, type Ctx } from "./context.ts";
 import {
   isChallenge,
   ObjectMap,
@@ -84,10 +83,7 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
       )
         return c.json({ error: "invalid_request" }, 400);
       const info = await ctx.client(id);
-      const kid = decodeProtectedHeader(
-        String(body.client_assertion ?? ""),
-      ).kid;
-      const key = info.keys.find((k) => k.kid === kid);
+      const key = assertionKey(info, String(body.client_assertion ?? ""));
       if (!key) throw Error();
       await verifyAssertion(
         body.client_assertion!,
