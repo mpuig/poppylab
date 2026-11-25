@@ -56,7 +56,7 @@ pnpm spec:drift
 ## Workspace
 
 - `apps/playground`: the Next.js agent (OpenNext on Workers or `next start`), per-visitor state in Durable Objects, the home page.
-- `apps/example-company`: Juniper Market, a `CompanyDefinition` with a customer portal.
+- `apps/juniper`: Juniper Market, a `CompanyDefinition` with a customer portal.
 - `apps/lantern`: Lantern Noodle Bar, a second independent Company.
 - `apps/harborline`: Harborline Bank, a standalone fictional banking Company with a matching customer portal and narrow banking scopes.
 - `apps/northwind`: Northwind Air, an airline-shaped Company with differentiated scopes, stale fare/inventory revisions and a customer portal.
@@ -74,7 +74,7 @@ Start with **Learn**, at [poppylab.dev/learn](https://poppylab.dev/learn) or in 
 
 ## Deploy
 
-Six Cloudflare Workers, deployed with Wrangler: `pnpm --filter @poppy-lab/lantern run deploy`, `pnpm --filter @poppy-lab/example-company run deploy`, `pnpm --filter @poppy-lab/harborline run deploy`, `pnpm --filter @poppy-lab/northwind run deploy`, `pnpm --filter @poppy-lab/fernwick run deploy`, and for Poppy `pnpm --filter @poppy-lab/playground build:worker && pnpm --filter @poppy-lab/playground deploy:worker`. Poppy needs two secrets, `POPPY_IDENTITY` (the agent key pair) and `POPPY_STATE_KEY` (32 random bytes, base64url). See [portable runtime](docs/portable-runtime.md).
+Six Cloudflare Workers, deployed with Wrangler: `pnpm --filter @poppy-lab/lantern run deploy`, `pnpm --filter @poppy-lab/juniper run deploy`, `pnpm --filter @poppy-lab/harborline run deploy`, `pnpm --filter @poppy-lab/northwind run deploy`, `pnpm --filter @poppy-lab/fernwick run deploy`, and for Poppy `pnpm --filter @poppy-lab/playground build:worker && pnpm --filter @poppy-lab/playground deploy:worker`. Poppy needs two secrets, `POPPY_IDENTITY` (the agent key pair) and `POPPY_STATE_KEY` (32 random bytes, base64url). See [portable runtime](docs/portable-runtime.md).
 
 ## License
 

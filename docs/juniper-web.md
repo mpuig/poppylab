@@ -6,7 +6,7 @@ The public page **http://juniper.localhost:4100/how-it-works** shows a visitor t
 
 ## Flow
 
-1. Enter as Elena in demo mode, or supply the dedicated local password if configured with `node apps/example-company/scripts/set-password.mjs`.
+1. Enter as Elena in demo mode, or supply the dedicated local password if configured with `node apps/juniper/scripts/set-password.mjs`.
 2. Keep Juniper open beside Poppy Lab.
 3. Ask the agent for a basket, recurring-delivery, or checkout proposal.
 4. Juniper shows the proposal as pending, without changing the account's basket/delivery/order data.

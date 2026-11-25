@@ -1,13 +1,13 @@
 import { it, expect, vi } from "vitest";
 import type * as OperationStore from "../../../lib/operation-store";
-import { testApp } from "../../../../example-company/src/test-app";
+import { testApp } from "../../../../juniper/src/test-app";
 import {
   approvalHeader,
   openApiTools,
   ProtocolError,
 } from "@poppy-lab/pap-client";
-import { operations } from "../../../../example-company/src/operations";
-import { accountPaths } from "../../../../example-company/src/openapi";
+import { operations } from "../../../../juniper/src/operations";
+import { accountPaths } from "../../../../juniper/src/openapi";
 import type { Operation } from "@/lib/runtime";
 import { recordOperation } from "../../../lib/operation-store";
 const state = vi.hoisted(() => ({

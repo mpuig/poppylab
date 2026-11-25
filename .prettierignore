@@ -5,7 +5,7 @@ dist
 pnpm-lock.yaml
 .open-next/
 spec/
-apps/example-company/src/site/app-script.ts
+apps/juniper/src/site/app-script.ts
 apps/lantern/src/site/app-script.ts
 apps/harborline/src/site/app-script.ts
 apps/northwind/src/site/app-script.ts

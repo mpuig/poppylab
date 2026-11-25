@@ -56,7 +56,7 @@ Each answers `{"request":"help"}` (and any message it doesn't understand) with t
 | `card_status`      | `cards:read`                        | Fictional cards and their active, frozen or inactive status              |
 | `freeze_card`      | `cards:read`, `cards:write`         | A card-freeze proposal, performed once after exact conversation approval |
 
-**Juniper** (`apps/example-company/src/agent.ts`):
+**Juniper** (`apps/juniper/src/agent.ts`):
 
 | Request           | Needs                       | Answer                                                                  |
 | ----------------- | --------------------------- | ----------------------------------------------------------------------- |

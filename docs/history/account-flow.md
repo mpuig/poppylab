@@ -17,10 +17,10 @@ Shopping tools are now generated from the published OpenAPI, including scalar pa
 By default, Juniper presents a clearly labeled fictional Elena persona selector. It does not verify a real identity. To require a dedicated local account password, run:
 
 ```sh
-node apps/example-company/scripts/set-password.mjs
+node apps/juniper/scripts/set-password.mjs
 ```
 
-The interactive script hides password input and creates `apps/example-company/.env.local` containing only a salted scrypt hash, with mode 0600. It refuses to overwrite an existing configuration file. Restart the Company after configuring it. Use a dedicated local password, never a password from another service. The Company rate-limits incorrect attempts to ten per minute (single-process). The playground/model never sees the password. The password protects the entire local demo, which now has three selectable fictional accounts. It is not per-person authentication, registration, recovery, MFA or a hosted identity provider. See [persona isolation and website revocation](../juniper-personas.md).
+The interactive script hides password input and creates `apps/juniper/.env.local` containing only a salted scrypt hash, with mode 0600. It refuses to overwrite an existing configuration file. Restart the Company after configuring it. Use a dedicated local password, never a password from another service. The Company rate-limits incorrect attempts to ten per minute (single-process). The playground/model never sees the password. The password protects the entire local demo, which now has three selectable fictional accounts. It is not per-person authentication, registration, recovery, MFA or a hosted identity provider. See [persona isolation and website revocation](../juniper-personas.md).
 
 Poppy requests read-only access initially. **Request change permission** opens a separate read/write consent without revoking the old grant. Juniper only offers requested permissions; when both are requested, the user can disable **Allow change proposals** and keep reading alone. Scopes are enforced at the Company, not just in the UI. Read-only grants cannot issue mutation proposals or confirm them. The model directs the user to the permission control, never initiates consent itself. First sign-in preserves the pre-account conversation (up to 10 messages). Later consent retains only that public prefix, clearing private account turns and proposals because it can select a different account; request the change again afterwards. See [permissions and recovery](../permission-consent.md).
 

@@ -12,7 +12,7 @@ not photographs of real food and show no real brand.
 
 | Company | Folder                             | Files                                                                           |
 | ------- | ---------------------------------- | ------------------------------------------------------------------------------- |
-| Juniper | `apps/example-company/public/img/` | `oranges`, `broccoli`, `apples`, `coffee`                                       |
+| Juniper | `apps/juniper/public/img/` | `oranges`, `broccoli`, `apples`, `coffee`                                       |
 | Lantern | `apps/lantern/public/img/`         | `shoyu-ramen`, `miso-ramen`, `pork-gyoza`, `veg-gyoza`, `edamame`, `matcha-ice` |
 
 Each is `<id>.webp`, where `<id>` is the product or dish id, 1024 by 1024
@@ -41,7 +41,7 @@ Pages allow images from their own origin and nothing else:
   for its home page. Its account pages keep their own policy, which allows no
   images.
 - The default the gateway adds to every other response allows **no** images,
-  so Harborline and Northwind are unchanged. `apps/example-company/src/pap.test.ts`
+  so Harborline and Northwind are unchanged. `apps/juniper/src/pap.test.ts`
   checks both halves.
 
 ## In the catalogue

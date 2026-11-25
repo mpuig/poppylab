@@ -34,43 +34,6 @@ importers:
         specifier: ^4.0.18
         version: 4.1.12(@types/node@24.19.2)(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(terser@5.46.0)(tsx@4.23.15)(yaml@2.9.1))
 
-  apps/example-company:
-    dependencies:
-      '@hono/node-server':
-        specifier: ^2.1.11
-        version: 2.1.11(hono@4.13.16)
-      '@poppy-lab/pap-client':
-        specifier: workspace:*
-        version: link:../../packages/pap-client
-      '@poppy-lab/pap-company':
-        specifier: workspace:*
-        version: link:../../packages/pap-company
-      '@poppy-lab/pap-core':
-        specifier: workspace:*
-        version: link:../../packages/pap-core
-      hono:
-        specifier: ^4.9.0
-        version: 4.13.16
-    devDependencies:
-      '@cloudflare/workers-types':
-        specifier: ^5.20261124.1
-        version: 5.20261124.1
-      '@types/node':
-        specifier: ^24.10.0
-        version: 24.19.2
-      tsx:
-        specifier: ^4.21.0
-        version: 4.23.15
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: ^4.0.18
-        version: 4.1.12(@types/node@24.19.2)(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(terser@5.46.0)(tsx@4.23.15)(yaml@2.9.1))
-      wrangler:
-        specifier: ^4.40.0
-        version: 4.156.0(@cloudflare/workers-types@5.20261124.1)(@types/node@24.19.2)
-
   apps/fernwick:
     dependencies:
       '@hono/node-server':
@@ -109,6 +72,43 @@ importers:
         version: 4.156.0(@cloudflare/workers-types@5.20261124.1)(@types/node@24.19.2)
 
   apps/harborline:
+    dependencies:
+      '@hono/node-server':
+        specifier: ^2.1.11
+        version: 2.1.11(hono@4.13.16)
+      '@poppy-lab/pap-client':
+        specifier: workspace:*
+        version: link:../../packages/pap-client
+      '@poppy-lab/pap-company':
+        specifier: workspace:*
+        version: link:../../packages/pap-company
+      '@poppy-lab/pap-core':
+        specifier: workspace:*
+        version: link:../../packages/pap-core
+      hono:
+        specifier: ^4.9.0
+        version: 4.13.16
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: ^5.20261124.1
+        version: 5.20261124.1
+      '@types/node':
+        specifier: ^24.10.0
+        version: 24.19.2
+      tsx:
+        specifier: ^4.21.0
+        version: 4.23.15
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.0.18
+        version: 4.1.12(@types/node@24.19.2)(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(terser@5.46.0)(tsx@4.23.15)(yaml@2.9.1))
+      wrangler:
+        specifier: ^4.40.0
+        version: 4.156.0(@cloudflare/workers-types@5.20261124.1)(@types/node@24.19.2)
+
+  apps/juniper:
     dependencies:
       '@hono/node-server':
         specifier: ^2.1.11

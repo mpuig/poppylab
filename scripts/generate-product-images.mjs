@@ -44,7 +44,7 @@ const style =
   "no logos, no people, no hands.";
 
 const companies = {
-  "example-company": [
+  juniper: [
     [
       "oranges",
       "A paper bag of Cara cara oranges, a few cut open to show pink flesh",

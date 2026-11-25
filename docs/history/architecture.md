@@ -24,7 +24,7 @@ The Company stores hashed opaque tokens, Session ownership, DPoP bindings, expir
 - `pap-client`: pinned-DNS HTTPS transport, byte/time limits, discovery, ES256 assertions, DPoP creation/verification, replay cache.
 - `llm-adapters`: browser-safe provider metadata at its root export; actual model execution at the separate `./server` export.
 - `apps/playground/lib/runtime.ts`: identity lifecycle, bounded encrypted-snapshot-backed runs, Session negotiation, and a restricted OpenAPI-to-tool adapter.
-- `apps/example-company/src/pap.ts`: signed-out token issuance, Session-bound protected APIs, and the example OpenAPI description.
+- `apps/juniper/src/pap.ts`: signed-out token issuance, Session-bound protected APIs, and the example OpenAPI description.
 
 ## Supported OpenAPI subset
 

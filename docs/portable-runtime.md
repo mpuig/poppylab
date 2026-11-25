@@ -35,7 +35,7 @@ The gateway (`packages/pap-company/src/gateway.ts`) is a 50-line composition of 
 
 ## Status
 
-**Lantern Noodle Bar** is migrated (`apps/lantern`). It no longer lives in `example-company`.
+**Lantern Noodle Bar** is migrated (`apps/lantern`). It no longer lives in Juniper's directory.
 
 - `pnpm dev` or `pnpm dev:lantern` runs it on Node at `http://noodles.localhost:4200`.
 - `pnpm --filter @poppy-lab/lantern dev:worker` runs it in `workerd` (the Workers runtime) through Wrangler.
@@ -55,7 +55,7 @@ The gateway (`packages/pap-company/src/gateway.ts`) is a 50-line composition of 
 
 - **Tests:** `lantern.test.ts` (14) covers the full flow on the portable gateway via Hono `app.request`: redirect URIs from client metadata, refusal of HTTP clients, persistence after each request and failing closed on storage errors. `approvals.test.ts` (3) covers the pure engine. Total: 356 tests.
 
-**Juniper Market** is migrated too (`apps/example-company`). Fastify is gone from the repository.
+**Juniper Market** is migrated too (`apps/juniper`). Fastify is gone from the repository.
 
 - `src/juniper.ts` is its `CompanyDefinition`. The business modules (shopping, customer services, profiles, shopping edits, website/portal, Operations v3) are unchanged. They are written against `src/router.ts`, a small `(req, reply)` facade over Hono.
 - `src/node.ts` (vault `juniper`, `protocolRequest`) and `src/worker.ts` (Durable Object `JuniperCompany`) are the entry points. `wrangler.toml` targets `grocery-demo.poppylab.dev`.
@@ -151,7 +151,7 @@ The demo Companies are named by what they are: `grocery-demo.poppylab.dev` (Juni
 
 1. `wrangler login` on the operator machine, or a scoped API token.
 2. Routes are set in each `wrangler.toml` (`custom_domain = true`); Wrangler creates the DNS record in the zone.
-3. Deploy the Companies with `pnpm --filter @poppy-lab/lantern run deploy`, `pnpm --filter @poppy-lab/example-company run deploy`, `pnpm --filter @poppy-lab/harborline run deploy`, and `pnpm --filter @poppy-lab/northwind run deploy`; deploy Poppy with `pnpm --filter @poppy-lab/playground build:worker` then `deploy:worker`.
+3. Deploy the Companies with `pnpm --filter @poppy-lab/lantern run deploy`, `pnpm --filter @poppy-lab/juniper run deploy`, `pnpm --filter @poppy-lab/harborline run deploy`, and `pnpm --filter @poppy-lab/northwind run deploy`; deploy Poppy with `pnpm --filter @poppy-lab/playground build:worker` then `deploy:worker`.
 4. Optional secrets: `wrangler secret put JUNIPER_PASSWORD_HASH`, `LANTERN_PASSWORD_HASH`, `HARBORLINE_PASSWORD_HASH` or `NORTHWIND_PASSWORD_HASH` in the corresponding workspace.
 
 Lantern can go live on its own, as a public Poppy 1.0 test Company that any agent with an HTTPS `client_id` can use. Poppy still needs its own port before `poppylab.dev` hosts the playground.

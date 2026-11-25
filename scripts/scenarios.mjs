@@ -9,7 +9,7 @@ const root = fileURLToPath(new URL("../", import.meta.url));
 const groups = {
   authority: [
     [
-      "example-company",
+      "juniper",
       [
         "src/accounts.test.ts",
         "src/refresh.test.ts",
@@ -20,7 +20,7 @@ const groups = {
   ],
   permissions: [
     [
-      "example-company",
+      "juniper",
       [
         "src/accounts.test.ts",
         "src/consent-page.test.ts",
@@ -63,7 +63,7 @@ const groups = {
   ],
   noodles: [
     ["lantern", ["src/lantern.test.ts"]],
-    ["example-company", ["src/operations-v2.test.ts"]],
+    ["juniper", ["src/operations-v2.test.ts"]],
   ],
   banking: [
     ["pap-company", ["src/gateway/grant-lifetime.test.ts"]],
@@ -138,7 +138,7 @@ const groups = {
     ["harborline", ["src/conversations.test.ts"]],
     ["northwind", ["src/conversations.test.ts"]],
     ["fernwick", ["src/conversations.test.ts"]],
-    ["example-company", ["src/conversations.test.ts"]],
+    ["juniper", ["src/conversations.test.ts"]],
     ["playground", ["lib/conversations.test.ts"]],
   ],
   mcp: [
@@ -147,11 +147,11 @@ const groups = {
   ],
   nonce: [
     ["pap-client", ["src/nonce-request.test.ts"]],
-    ["example-company", ["src/dpop-nonce.test.ts"]],
+    ["juniper", ["src/dpop-nonce.test.ts"]],
   ],
   revisions: [
     [
-      "example-company",
+      "juniper",
       [
         "src/operations-v2.test.ts",
         "src/authority-regression.test.ts",
@@ -183,7 +183,7 @@ const groups = {
         "src/vault.test.ts",
       ],
     ],
-    ["example-company", ["src/authority-regression.test.ts"]],
+    ["juniper", ["src/authority-regression.test.ts"]],
   ],
 };
 const selected = process.argv.slice(2);

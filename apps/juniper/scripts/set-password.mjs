@@ -31,7 +31,7 @@ process.stdin.on("data", (data) => {
         mode: 0o600,
       });
       process.stdout.write(
-        "Saved password hash to apps/example-company/.env.local. Restart the Company server. No password was stored.\n",
+        "Saved password hash to apps/juniper/.env.local. Restart the Company server. No password was stored.\n",
       );
       process.exit(0);
     }

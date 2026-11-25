@@ -36,7 +36,7 @@ A second test in Poppy's route simulates an uncertain response: a single confirm
 
 ## Evidence and limits
 
-- [Authority, negotiation, errors, rate limit and socket loss](../../apps/example-company/src/authority-regression.test.ts).
+- [Authority, negotiation, errors, rate limit and socket loss](../../apps/juniper/src/authority-regression.test.ts).
 - [Candidate consent and human recovery](../../apps/playground/app/api/account/route.test.ts).
 - [Callback and mismatch](../../apps/playground/app/api/account/callback/route.test.ts).
 - [Transport errors and cooldown](../../packages/pap-client/src/protocol-error.test.ts).

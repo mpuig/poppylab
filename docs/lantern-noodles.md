@@ -6,7 +6,7 @@ A second **fictional** example Company, so Poppy can be tested against more than
 
 ## Run
 
-`pnpm dev` now starts Poppy (3000), Juniper (4100) and Lantern (4200). On its own: `pnpm --filter @poppy-lab/example-company dev:noodles`. In Poppy, choose **Lantern Noodle Bar** under the Company URL, or enter `http://noodles.localhost:4200`. As with Juniper, the private-network exception applies only to these exact local origins, in development, with `PAP_ALLOW_PRIVATE_NETWORK=true`.
+`pnpm dev` now starts Poppy (3000), Juniper (4100) and Lantern (4200). On its own: `pnpm --filter @poppy-lab/lantern dev`. In Poppy, choose **Lantern Noodle Bar** under the Company URL, or enter `http://noodles.localhost:4200`. As with Juniper, the private-network exception applies only to these exact local origins, in development, with `PAP_ALLOW_PRIVATE_NETWORK=true`.
 
 ## What it is
 
