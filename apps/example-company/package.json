@@ -15,18 +15,18 @@
     "site:script": "node scripts/site-script.mjs"
   },
   "dependencies": {
+    "@hono/node-server": "^2.1.11",
     "@poppy-lab/pap-client": "workspace:*",
     "@poppy-lab/pap-company": "workspace:*",
-    "hono": "^4.9.0",
-    "@hono/node-server": "^1.19.0",
-    "@poppy-lab/pap-core": "workspace:*"
+    "@poppy-lab/pap-core": "workspace:*",
+    "hono": "^4.9.0"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261124.1",
     "@types/node": "^24.10.0",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18",
-    "@cloudflare/workers-types": "^4.20251001.0",
     "wrangler": "^4.40.0"
   }
 }

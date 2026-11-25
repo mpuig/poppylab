@@ -11,4 +11,7 @@ minimumReleaseAge: 1440
 overrides:
   # glob <10.5 ships a CLI with a command-injection issue (advisory); we never
   # run it, but pin the patched line pulled in through OpenNext anyway.
-  "glob@>=10.2.0 <10.5.0": ">=10.5.0"
+  # OpenNext's build pulls in glob and minimatch with moderate advisories
+  # (AbortSignal bypass, ReDoS); build-time only, pinned to patched lines.
+  "glob@>=9.0.0 <14.0.2": ">=14.0.2"
+  "minimatch@>=7.0.0 <11.0.1": ">=11.0.1"
