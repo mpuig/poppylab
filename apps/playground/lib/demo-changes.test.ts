@@ -201,7 +201,7 @@ it("adds and removes dishes in one message, each by its own verb", async () => {
     remove: ["edamame"],
   });
   // Named before any verb: the first one after it decides.
-  expect(await change("The edamame, take it off")).toEqual({
+  expect(await change("The edamame, remove it")).toEqual({
     order_id: "ord_LNB1001",
     remove: ["edamame"],
   });
