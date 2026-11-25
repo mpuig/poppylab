@@ -19,6 +19,10 @@ import {
   type OperatorKey,
   openApiTools,
   fdxTools,
+  fdxStatementPdf,
+  validFdxId,
+  type BinaryBody,
+  type FdxRequestOptions,
   mcpTools,
   mcpRequest,
   mcpResourcePolicy,
@@ -594,6 +598,11 @@ export async function papRequest(
      * `ProtocolError.body`), for an API with error bodies of its own.
      */
     errorBody?: boolean;
+    /**
+     * A success is a document of this type, read as a `BinaryBody` of at
+     * most `maxBytes` (a statement PDF). Sent as the request's Accept.
+     */
+    binary?: FdxRequestOptions;
   } = {},
 ) {
   if (run.accountToken && !options.signedOut) await renewIfNeeded(run);
@@ -623,6 +632,7 @@ export async function papRequest(
     const headers = {
       ...(await sessionHeaders(run, url, method, token)),
       ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+      ...(options.binary ? { Accept: options.binary.accept } : {}),
       ...(options.approval
         ? { "Poppy-Approval": approvalHeader(options.approval) }
         : {}),
@@ -647,10 +657,13 @@ export async function papRequest(
             },
           }
         : undefined,
-      options.acceptEmpty || options.errorBody
+      options.acceptEmpty || options.errorBody || options.binary
         ? {
             ...(options.acceptEmpty ? { acceptEmpty: true } : {}),
             ...(options.errorBody ? { errorBody: true } : {}),
+            ...(options.binary
+              ? { binary: { maxBytes: options.binary.maxBytes } }
+              : {}),
           }
         : undefined,
     );
@@ -1083,7 +1096,7 @@ function fdxConnect(
  * data clusters, through `papRequest`.
  */
 function fdxRequest(run: Run) {
-  return async (url: string, scopes: string[]) => {
+  return async (url: string, scopes: string[], options?: FdxRequestOptions) => {
     // Every FDX-shaped route is account data, the consent API included.
     if (!run.accountToken)
       return {
@@ -1104,6 +1117,18 @@ function fdxRequest(run: Run) {
         },
       };
     try {
+      // A document (a statement PDF): its bytes, for the adapter to check.
+      if (options) {
+        const document = (await papRequest(run, url, "GET", undefined, {
+          errorBody: true,
+          binary: options,
+        })) as BinaryBody;
+        return {
+          status: 200,
+          contentType: document.contentType,
+          bytes: document.bytes,
+        };
+      }
       return {
         status: 200,
         body: await papRequest(run, url, "GET", undefined, {
@@ -1125,6 +1150,45 @@ function fdxRequest(run: Run) {
       throw error;
     }
   };
+}
+
+/**
+ * `poppylab.dev/fdx` v1: the native tools for the User's own actions in the
+ * account row, built as the model's are: the same transport, scopes and
+ * bounds, so the page sees what the model would.
+ */
+export function fdxUserTools(run: Run, trace: string[]) {
+  const entry = fdxEntry(run);
+  if (!entry) throw new UserFacingError("Turn on Use FDX first.");
+  return fdxTools({
+    entry,
+    trace: (line) => trace.push(line),
+    consentId: () => run.fdxConsent,
+    request: fdxRequest(run),
+  });
+}
+
+/**
+ * `poppylab.dev/fdx` v1: one statement's PDF for the User to download, never
+ * for the model. The URL comes only from the validated entry and the two ids,
+ * checked with the adapter's own id rule; the adapter checks the answer is a
+ * bounded PDF. Resolves to `{ pdf, sha256 }` or the adapter's error answer.
+ */
+export async function fdxStatementDownload(
+  run: Run,
+  accountId: unknown,
+  statementId: unknown,
+  trace: string[],
+) {
+  const entry = fdxEntry(run);
+  if (!entry) throw new UserFacingError("Turn on Use FDX first.");
+  if (!validFdxId(accountId) || !validFdxId(statementId))
+    throw new UserFacingError("That isn't a statement of a shared account.");
+  return fdxStatementPdf(
+    { entry, request: fdxRequest(run), trace: (line) => trace.push(line) },
+    accountId,
+    statementId,
+  );
 }
 
 /** The consent id as one path segment, as the token response was checked. */

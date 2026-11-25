@@ -21,9 +21,17 @@ vi.mock("node:fs/promises", () => ({
     throw Object.assign(new Error("fixture missing"), { code: "ENOENT" });
   }),
 }));
-import { ProtocolError } from "@poppy-lab/pap-client";
+import { FDX_LIMITS, ProtocolError } from "@poppy-lab/pap-client";
 import type { CompanyProfile } from "@poppy-lab/pap-core";
-import { connect, papRequest, renewAccount, setFdx, type Run } from "./runtime";
+import {
+  connect,
+  fdxStatementDownload,
+  papRequest,
+  renewAccount,
+  setFdx,
+  type Run,
+} from "./runtime";
+import { UserFacingError } from "./user-error";
 
 const origin = "https://bank.example";
 const fdxEntry = {
@@ -35,6 +43,7 @@ const fdxScopes = [
   "fdx:ACCOUNT_BASIC",
   "fdx:ACCOUNT_DETAILED",
   "fdx:TRANSACTIONS",
+  "fdx:STATEMENTS",
   "fdx:CUSTOMER_CONTACT",
 ];
 /** Harborline's shape: its own API first, then the FDX-shaped one. */
@@ -174,7 +183,7 @@ it("declares poppylab.dev/fdx v1 next to Operations v3 only with Use FDX on (§3
     'Poppy-Extensions "operations";v="3", "poppylab.dev/fdx";v="1"',
   );
   expect(trace).toContain(
-    "Extension poppylab.dev/fdx v1 · native FDX-shaped adapter · 5 read tools",
+    "Extension poppylab.dev/fdx v1 · native FDX-shaped adapter · 7 read tools",
   );
 });
 
@@ -352,4 +361,103 @@ it("keeps the consent id the bank returns on refresh (§4.4)", async () => {
   });
   await renewAccount(run);
   expect(run.fdxConsent).toBe("grant_new");
+});
+
+it("reads a statement as a PDF with Accept: application/pdf, and gives the model only its size and hash", async () => {
+  const run = bank({ fdx: true });
+  const tools = await connected(run);
+  const bytes = new Uint8Array(
+    Buffer.from("%PDF-1.4\n%\xe2\xe3\n1 0 obj\n", "latin1"),
+  );
+  serve(async () => ({ contentType: "application/pdf", bytes }));
+  const answer = await tools.fdx_get_statement!.execute({
+    accountId: "acc_1",
+    statementId: "stmt_1",
+  });
+  expect(answer).toEqual({
+    statementId: "stmt_1",
+    accountId: "acc_1",
+    contentType: "application/pdf",
+    bytes: bytes.byteLength,
+    sha256: expect.stringMatching(/^[0-9a-f]{64}$/),
+  });
+  const call = transport.mock.calls.at(-1)!;
+  expect(call[0]).toBe(`${origin}/fdx/v6/accounts/acc_1/statements/stmt_1`);
+  expect(headersOf(call).Accept).toBe("application/pdf");
+  expect(headersOf(call).Authorization).toBe("Bearer access-1");
+  expect(headersOf(call)["Poppy-Session"]).toBeTruthy();
+  expect(headersOf(call)["Poppy-Extensions"]).toContain(
+    '"poppylab.dev/fdx";v="1"',
+  );
+  expect(call[4]).toEqual({
+    errorBody: true,
+    binary: { maxBytes: FDX_LIMITS.statementBytes },
+  });
+  // An HTML page where a PDF was expected: refused.
+  serve(async () => ({
+    contentType: "text/html",
+    bytes: new Uint8Array(Buffer.from("<html>")),
+  }));
+  expect(
+    await tools.fdx_get_statement!.execute({
+      accountId: "acc_1",
+      statementId: "stmt_1",
+    }),
+  ).toEqual({ error: "invalid_response" });
+  // The bank's own 406 or 404 body reaches the model as fdx_error.
+  serve(async () => {
+    throw new ProtocolError(
+      406,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      { code: "not_acceptable", message: "Not acceptable" },
+    );
+  });
+  expect(
+    await tools.fdx_get_statement!.execute({
+      accountId: "acc_1",
+      statementId: "stmt_1",
+    }),
+  ).toMatchObject({ error: "fdx_error", status: 406, code: "not_acceptable" });
+});
+
+it("downloads a statement for the User from the entry and checked ids only", async () => {
+  const run = bank({ fdx: true });
+  await connected(run);
+  const bytes = new Uint8Array(Buffer.from("%PDF-1.4\n".repeat(3)));
+  serve(async () => ({ contentType: "application/pdf", bytes }));
+  transport.mockClear();
+  const trace: string[] = [];
+  const read = await fdxStatementDownload(run, "acc_1", "stmt_1", trace);
+  expect(read.pdf).toEqual(bytes);
+  // One request to the bank's FDX-shaped routes, built from the entry.
+  expect(
+    transport.mock.calls
+      .map((call) => call[0])
+      .filter((url) => url.startsWith(fdxEntry.base_url)),
+  ).toEqual([`${origin}/fdx/v6/accounts/acc_1/statements/stmt_1`]);
+  expect(trace).toEqual([
+    "GET /fdx/v6/accounts/acc_1/statements/stmt_1 · FDX-shaped · fdx:STATEMENTS · application/pdf",
+  ]);
+  transport.mockClear();
+  for (const [accountId, statementId] of [
+    ["acc_1", "../../oauth/token"],
+    ["acc_1", "https://evil.example/x"],
+    ["acc/1", "stmt_1"],
+    [7, "stmt_1"],
+    ["acc_1", undefined],
+  ])
+    await expect(
+      fdxStatementDownload(run, accountId, statementId, []),
+    ).rejects.toBeInstanceOf(UserFacingError);
+  // Use FDX off: no entry to build a URL from.
+  setFdx(run, false);
+  await expect(
+    fdxStatementDownload(run, "acc_1", "stmt_1", []),
+  ).rejects.toBeInstanceOf(UserFacingError);
+  expect(transport).not.toHaveBeenCalled();
 });

@@ -4,7 +4,8 @@
  * is replaced: DNS answers loopback and the pinned fetch hands each request
  * to the Harborline app, so the transport's own checks (no redirects, error
  * parsing, DPoP nonces, sizes) still run. No model: tools are called
- * directly, and one demo-mode chat turn reads balances.
+ * directly, and demo-mode chat turns read balances and statements. A
+ * statement's PDF is downloaded from the account row's route.
  */
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 const net = vi.hoisted(() => {
@@ -211,6 +212,7 @@ describe("Use FDX against Harborline, end to end", () => {
         "fdx:ACCOUNT_BASIC",
         "fdx:ACCOUNT_DETAILED",
         "fdx:TRANSACTIONS",
+        "fdx:STATEMENTS",
         "fdx:CUSTOMER_CONTACT",
       ]),
     );
@@ -229,7 +231,7 @@ describe("Use FDX against Harborline, end to end", () => {
     const trace: string[] = [];
     const t = await tools(trace);
     expect(trace).toContain(
-      "Extension poppylab.dev/fdx v1 · native FDX-shaped adapter · 5 read tools",
+      "Extension poppylab.dev/fdx v1 · native FDX-shaped adapter · 7 read tools",
     );
     // The generic adapter got Harborline's own API, listed first; the
     // FDX-shaped description wasn't even read.
@@ -315,6 +317,93 @@ describe("Use FDX against Harborline, end to end", () => {
     expect(((await moves.json()) as { data: string }).data).toContain(
       "transactionId",
     );
+  });
+
+  it("lists statements, gives the model a statement's size and hash only, and downloads the PDF from the account row", async () => {
+    const t = await tools();
+    const listed = (await t.fdx_list_statements!.execute({
+      accountId: "acc_HLB_A100",
+    })) as {
+      statements: Array<{ statementId: string; statementDate: string }>;
+      totalElements: number;
+    };
+    // Harborline's closed cycles so far, newest first.
+    expect(listed.statements.length).toBeGreaterThan(0);
+    expect(listed.totalElements).toBe(listed.statements.length);
+    const [newest] = listed.statements;
+    expect(newest!.statementId).toMatch(/^stmt_acc_HLB_A100_\d{8}$/);
+    const checked = (await t.fdx_get_statement!.execute({
+      accountId: "acc_HLB_A100",
+      statementId: newest!.statementId,
+    })) as Record<string, unknown>;
+    expect(checked).toEqual({
+      statementId: newest!.statementId,
+      accountId: "acc_HLB_A100",
+      contentType: "application/pdf",
+      bytes: expect.any(Number),
+      sha256: expect.stringMatching(/^[0-9a-f]{64}$/),
+    });
+    expect(JSON.stringify(checked)).not.toContain("PDF-");
+    // The unshared account: the bank's 701 reaches the model.
+    expect(
+      await t.fdx_list_statements!.execute({ accountId: "acc_HLB_A200" }),
+    ).toMatchObject({ error: "fdx_error", status: 404, code: "701" });
+
+    // The account row: the shared account's statements only.
+    const row = await post(act, "/api/account", { action: "fdx_statements" });
+    expect(row.status).toBe(200);
+    const shown = (await row.json()) as {
+      accounts: Array<{ accountId: string; statements: unknown[] }>;
+    };
+    expect(shown.accounts.map((a) => a.accountId)).toEqual(["acc_HLB_A100"]);
+    expect(shown.accounts[0]!.statements).toHaveLength(
+      listed.statements.length,
+    );
+
+    // The download: one GET of the PDF, the same bytes the tool hashed.
+    const from = net.seen.length;
+    const download = await post(act, "/api/account", {
+      action: "fdx_statement",
+      accountId: "acc_HLB_A100",
+      statementId: newest!.statementId,
+    });
+    expect(download.status).toBe(200);
+    expect(download.headers.get("content-type")).toBe("application/pdf");
+    expect(download.headers.get("content-disposition")).toBe(
+      `attachment; filename="statement-acc_HLB_A100-${newest!.statementId}.pdf"`,
+    );
+    expect(download.headers.get("cache-control")).toBe("no-store");
+    const pdf = new Uint8Array(await download.arrayBuffer());
+    expect(String.fromCharCode(...pdf.slice(0, 5))).toBe("%PDF-");
+    expect(pdf.byteLength).toBe(checked.bytes);
+    expect(download.headers.get("x-poppy-statement-sha256")).toBe(
+      checked.sha256,
+    );
+    expect(net.seen.slice(from)).toEqual([
+      `${base}/accounts/acc_HLB_A100/statements/${newest!.statementId}`,
+    ]);
+    // Of the account not shared: not found, in our own words.
+    const hidden = await post(act, "/api/account", {
+      action: "fdx_statement",
+      accountId: "acc_HLB_A200",
+      statementId: newest!.statementId.replace("A100", "A200"),
+    });
+    expect(hidden.status).toBe(404);
+    expect(await hidden.json()).toMatchObject({ code: "statement_not_found" });
+
+    // Demo mode: the statements, and where to download them.
+    const reply = await post(chat, "/api/chat", {
+      url: origin,
+      message: "show my statements",
+      provider: "demo",
+    });
+    expect(reply.status).toBe(200);
+    const body = (await reply.json()) as { text: string; data: string };
+    expect(body.text).toContain("Operating checking");
+    expect(body.text).toContain(newest!.statementDate);
+    expect(body.text).toContain("Download a statement as a PDF");
+    expect(body.data).toContain(newest!.statementId);
+    expect(body.data).not.toContain("acc_HLB_A200");
   });
 
   it("refreshes within narrower scopes, keeping the consent id; balances need ACCOUNT_DETAILED in the token", async () => {

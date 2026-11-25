@@ -17,14 +17,22 @@ import {
   setFdx,
   fdxConsentRecord,
   revokeFdxConsent,
+  fdxUserTools,
+  fdxStatementDownload,
 } from "@/lib/runtime";
+import { fdxStatementsByAccount } from "@/lib/demo-fdx";
 import { record } from "@/lib/transcript";
 import {
   accountRecovery,
   accountUnavailableNotice,
 } from "../../../lib/account-recovery";
 import { canChange, consentScopes } from "../../../lib/account-permissions";
-import { randomId, createIdentity, ProtocolError } from "@poppy-lab/pap-client";
+import {
+  randomId,
+  createIdentity,
+  ProtocolError,
+  validFdxId,
+} from "@poppy-lab/pap-client";
 import { isAccountCompany, serving } from "@/lib/deployment";
 import {
   acquireRun,
@@ -63,6 +71,69 @@ function signedOutLocally(run: Run) {
   delete run.publicHistory;
   // Iris forgets it; the Company keeps the conversation open (§5.5).
   delete run.conversation;
+}
+
+/**
+ * An FDX-shaped answer that isn't what the page asked for, in our own words:
+ * the adapter's error code and status, never the Company's text.
+ */
+function fdxRefusal(answer: Record<string, unknown>) {
+  if (answer.error === "insufficient_scope")
+    return {
+      status: 403,
+      code: "insufficient_scope",
+      error:
+        "This sign-in doesn't include statements (fdx:STATEMENTS). Sign in again with Use FDX on.",
+    };
+  if (answer.error === "sign_in_required")
+    return { status: 400, code: "no_fdx_access", error: "Sign in first." };
+  if (answer.error === "fdx_error" && answer.status === 404)
+    return {
+      status: 404,
+      code: "statement_not_found",
+      error: "The bank has no such statement for an account you shared.",
+    };
+  return {
+    status: 502,
+    code: "fdx_statement_failed",
+    error: "The bank didn't return the statements as expected.",
+  };
+}
+
+/** The shared accounts' statements, reduced to what the account row shows. */
+function fdxStatementsAnswer(
+  answer: { accounts?: unknown; error?: unknown },
+  trace: string[],
+) {
+  if (typeof answer.error === "string" || !Array.isArray(answer.accounts)) {
+    const refusal = fdxRefusal(answer);
+    return NextResponse.json(
+      { code: refusal.code, error: refusal.error, trace },
+      { status: refusal.status, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+  const str = (v: unknown) => (typeof v === "string" ? v : undefined);
+  const accounts = (answer.accounts as Array<Record<string, unknown>>).map(
+    (item) =>
+      Array.isArray(item?.statements)
+        ? {
+            accountId: str(item.accountId),
+            productName: str(item.productName),
+            accountNumberDisplay: str(item.accountNumberDisplay),
+            statements: (item.statements as Array<Record<string, unknown>>).map(
+              (st) => ({
+                statementId: str(st.statementId),
+                statementDate: str(st.statementDate),
+                description: str(st.description),
+              }),
+            ),
+          }
+        : { error: fdxRefusal(item ?? {}).error },
+  );
+  return NextResponse.json(
+    { accounts, trace },
+    { headers: { "Cache-Control": "no-store" } },
+  );
 }
 
 /** The Company says this access is gone: a dead token or refresh token. */
@@ -205,6 +276,9 @@ async function act(request: Request, started: { id?: string }) {
       instruction?: unknown;
       /** `fdx`: Use FDX on or off. */
       enabled?: unknown;
+      /** `fdx_statement`: which statement of which shared account. */
+      accountId?: unknown;
+      statementId?: unknown;
     };
     if (body.action === "fdx") {
       // §3.3: only for a Company that lists a valid poppylab.dev/fdx v1
@@ -308,6 +382,70 @@ async function act(request: Request, started: { id?: string }) {
         { signedIn: false, revoked: "revoked", consent, trace },
         { headers: { "Cache-Control": "no-store" } },
       );
+    }
+    if (body.action === "fdx_statements" || body.action === "fdx_statement") {
+      // poppylab.dev/fdx v1: the User's own statements, listed and
+      // downloaded through the native adapter. The URL comes from the
+      // validated entry and the ids alone; the model never gets the PDF.
+      if (run.accountToken && run.accountUnavailable)
+        return NextResponse.json(accountUnavailableNotice, {
+          status: accountUnavailableNotice.status,
+          headers: { "Cache-Control": "no-store" },
+        });
+      if (!fdxEntry(run) || !run.accountToken)
+        return NextResponse.json(
+          {
+            code: "no_fdx_access",
+            error: !run.accountToken
+              ? "Sign in first: statements come from the accounts you share over FDX."
+              : "Turn on Use FDX to see statements.",
+          },
+          { status: 400, headers: { "Cache-Control": "no-store" } },
+        );
+      const trace: string[] = [];
+      if (body.action === "fdx_statements") {
+        const answer = (await fdxStatementsByAccount(
+          fdxUserTools(run, trace),
+        )) as { accounts?: unknown; error?: unknown };
+        return fdxStatementsAnswer(answer, trace);
+      }
+      // The adapter's own id rule, before anything is sent.
+      if (!validFdxId(body.accountId) || !validFdxId(body.statementId))
+        return NextResponse.json(
+          {
+            code: "invalid_request",
+            error: "Choose a statement from the list.",
+          },
+          { status: 400, headers: { "Cache-Control": "no-store" } },
+        );
+      const result = await fdxStatementDownload(
+        run,
+        body.accountId,
+        body.statementId,
+        trace,
+      );
+      if (!result.pdf) {
+        const refusal = fdxRefusal(result);
+        return NextResponse.json(
+          { code: refusal.code, error: refusal.error, trace },
+          { status: refusal.status, headers: { "Cache-Control": "no-store" } },
+        );
+      }
+      // Our own file name, from the checked ids: never the Company's header.
+      const name =
+        `statement-${String(body.accountId)}-${String(body.statementId)}`
+          .replace(/[^A-Za-z0-9._-]/g, "_")
+          .slice(0, 120);
+      return new Response(result.pdf as Uint8Array<ArrayBuffer>, {
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="${name}.pdf"`,
+          "Content-Length": String(result.pdf.byteLength),
+          "Cache-Control": "no-store",
+          "X-Content-Type-Options": "nosniff",
+          "X-Poppy-Statement-Sha256": result.sha256,
+        },
+      });
     }
     if (body.action === "signin") {
       // §4.2: plain OAuth Direct Sign-In. It doesn't know the Session;

@@ -8,6 +8,7 @@ import { hideLinkSecrets } from "@/lib/link-display";
 import { OperationReview } from "../operation-review";
 import { StandingInstruction } from "./standing-instruction";
 import { FdxConsent } from "./fdx-consent";
+import { FdxStatements } from "./fdx-statements";
 import { accountCompany, labCompanies, labCompany } from "./companies";
 import type { Playground } from "./use-playground";
 
@@ -282,6 +283,16 @@ export function Conversation({
                   record={p.fdxRecord}
                   disabled={busy || waitingSignIn}
                   onRevoke={() => void p.revokeFdx()}
+                />
+              )}
+              {signedIn && p.fdxStatementsShown && (
+                <FdxStatements
+                  accounts={p.fdxStatements}
+                  disabled={busy || waitingSignIn}
+                  onList={() => void p.listFdxStatements()}
+                  onDownload={(accountId, statementId) =>
+                    void p.downloadFdxStatement(accountId, statementId)
+                  }
                 />
               )}
               {!signedIn && !waitingSignIn && p.fdxRevoked && (

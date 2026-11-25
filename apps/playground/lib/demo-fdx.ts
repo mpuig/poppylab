@@ -1,13 +1,16 @@
 /**
- * Protocol demo (no model) with Use FDX on: a request to read balances or
- * transactions goes to the native FDX-shaped tools (`poppylab.dev/fdx` v1)
+ * Protocol demo (no model) with Use FDX on: a request to read balances,
+ * transactions or statements goes to the native FDX-shaped tools
+ * (`poppylab.dev/fdx` v1)
  * instead of the Company's own API. They exist only with Use FDX on, so the
  * tools decide, never the Company's name. The demo invents no account id: it
- * lists the accounts the User shared, then reads each one's transactions.
+ * lists the accounts the User shared, then reads each one's transactions or
+ * statements. A statement's PDF is the User's to download from the account
+ * row; no tool's answer carries its bytes.
  */
 type Tool = { execute: (input?: Record<string, unknown>) => Promise<unknown> };
 export type FdxDemoTools = Record<string, Tool | undefined>;
-export type FdxDemoRead = "balances" | "transactions";
+export type FdxDemoRead = "balances" | "transactions" | "statements";
 
 /** Accounts whose transactions one demo answer reads. */
 const ACCOUNTS = 3;
@@ -19,6 +22,8 @@ export function demoFdxRead(
 ): FdxDemoRead | undefined {
   if (!tools.fdx_list_accounts) return undefined;
   const lowered = message.toLowerCase();
+  if (tools.fdx_list_statements && /statement|extracto/.test(lowered))
+    return "statements";
   if (
     tools.fdx_list_transactions &&
     /transaction|movimiento|movements|transacci/.test(lowered)
@@ -35,6 +40,7 @@ const refused = (value: unknown) =>
 
 /** Reads with the FDX-shaped tools; an error answer is returned as it is. */
 export async function demoFdxAnswer(kind: FdxDemoRead, tools: FdxDemoTools) {
+  if (kind === "statements") return fdxStatementsByAccount(tools);
   const listed = await tools.fdx_list_accounts!.execute(
     kind === "balances" ? { balances: true } : {},
   );
@@ -58,6 +64,41 @@ export async function demoFdxAnswer(kind: FdxDemoRead, tools: FdxDemoTools) {
         : {
             ...(moves as Record<string, unknown>),
             ...pick(listedAccount, [
+              "productName",
+              "accountNumberDisplay",
+              "currency",
+            ]),
+          },
+    );
+  }
+  return { accounts: read };
+}
+
+/**
+ * The shared accounts' statements, each list with its account's name,
+ * digits and currency: for the demo's answer and the account row alike.
+ */
+export async function fdxStatementsByAccount(tools: FdxDemoTools) {
+  const listed = await tools.fdx_list_accounts!.execute({});
+  if (refused(listed)) return listed;
+  const accounts = (listed as { accounts?: unknown }).accounts;
+  const shared = (Array.isArray(accounts) ? accounts : [])
+    .filter(
+      (a): a is Record<string, unknown> =>
+        !!a && typeof (a as { accountId?: unknown }).accountId === "string",
+    )
+    .slice(0, ACCOUNTS);
+  const read = [];
+  for (const account of shared) {
+    const statements = await tools.fdx_list_statements!.execute({
+      accountId: account.accountId,
+    });
+    read.push(
+      refused(statements) || !statements || typeof statements !== "object"
+        ? statements
+        : {
+            ...(statements as Record<string, unknown>),
+            ...pick(account, [
               "productName",
               "accountNumberDisplay",
               "currency",
@@ -131,6 +172,18 @@ export function formatFdx(answer: unknown): string | undefined {
         lines.push("  More transactions exist: ask for a shorter period.");
       continue;
     }
+    if (Array.isArray(item.statements)) {
+      lines.push(`${accountName(item)}:`);
+      const statements = item.statements as Array<Record<string, unknown>>;
+      if (!statements.length) lines.push("  No statements.");
+      for (const st of statements)
+        lines.push(
+          `  - ${[text(st.statementDate), text(st.description), lower(st.status)].filter(Boolean).join(" · ")}`,
+        );
+      if (item.truncated === true)
+        lines.push("  More statements exist: ask for a shorter period.");
+      continue;
+    }
     if (refused(item)) {
       lines.push(`- ${(item as { error: string }).error}`);
       continue;
@@ -154,11 +207,22 @@ export function demoFdxReply(answer: unknown, show: (v: unknown) => string) {
   const raw = show(answer);
   const shown = formatFdx(answer) ?? raw;
   const error = refused(answer) ? (answer as { error: string }).error : "";
+  const statements =
+    !error &&
+    Array.isArray((answer as { accounts?: unknown })?.accounts) &&
+    (
+      (answer as { accounts: unknown[] }).accounts as Array<{
+        statements?: unknown;
+      }>
+    ).some((a) => Array.isArray(a?.statements));
   const hint =
     error === "sign_in_required"
       ? " Sign in first; the bank's consent page asks which accounts to share."
       : error === "insufficient_scope"
         ? " This sign-in doesn't include the FDX-shaped data clusters: sign in again with Use FDX on."
         : "";
-  return `Protocol demo (no LLM). Read through the FDX-shaped tools (poppylab.dev/fdx v1), with only the accounts you shared:\n\n${shown}\n\n${hint ? `${hint.trim()} ` : ""}Turn Use FDX off to read through the Company's own API instead. For natural-language reasoning, select a model.`;
+  const download = statements
+    ? "Download a statement as a PDF from Statements in the account row; Iris doesn't read the PDF. "
+    : "";
+  return `Protocol demo (no LLM). Read through the FDX-shaped tools (poppylab.dev/fdx v1), with only the accounts you shared:\n\n${shown}\n\n${download}${hint ? `${hint.trim()} ` : ""}Turn Use FDX off to read through the Company's own API instead. For natural-language reasoning, select a model.`;
 }

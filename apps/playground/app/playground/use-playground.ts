@@ -27,6 +27,7 @@ import {
   missingFdxScopes,
 } from "@/lib/account-permissions";
 import type { FdxConsentRecord } from "./fdx-consent";
+import type { FdxStatementAccount } from "./fdx-statements";
 import type { ReviewOperation as Operation } from "@/lib/operation-presentation";
 import { agentStep } from "@/lib/agent-steps";
 import { logEntry, type ProtocolEntry } from "@/lib/protocol-log";
@@ -108,6 +109,10 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
   /** The User revoked the FDX consent (or found it had ended), and how. */
   const [fdxRevoked, setFdxRevoked] = useState<
     "revoked" | "already_ended" | undefined
+  >();
+  /** The shared accounts' statements, once the User asked for them. */
+  const [fdxStatements, setFdxStatements] = useState<
+    FdxStatementAccount[] | undefined
   >();
   const [consentVersion, setConsentVersion] = useState(0);
   const [accountBusy, setAccountBusy] = useState(false);
@@ -262,6 +267,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     setMessages([]);
     setFdxConsent(undefined);
     setFdxRecord(undefined);
+    setFdxStatements(undefined);
     // Signing out drops Iris's conversation with the Company's agent,
     // and the Direct Conversation with it.
     applyDirect();
@@ -460,6 +466,99 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     }
   }
 
+  // A list read under another consent may name accounts no longer shared.
+  useEffect(() => setFdxStatements(undefined), [fdxConsent]);
+  /** Statements need their data cluster in this sign-in, with Use FDX on. */
+  const fdxStatementsShown =
+    fdxConsentShown && scopes.split(" ").includes("fdx:STATEMENTS");
+  /** Lists the shared accounts' statements (poppylab.dev/fdx v1). */
+  async function listFdxStatements() {
+    if (busy || ended || !fdxStatementsShown) return;
+    setAccountBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/account", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-PAP-Company": result?.requestedUrl ?? companyUrl,
+          ...named(),
+        },
+        body: JSON.stringify({ action: "fdx_statements" }),
+      });
+      adopt(response);
+      const data = await response.json();
+      addTrace(data.trace ?? []);
+      if (!response.ok || !Array.isArray(data.accounts))
+        throw new Error(data.error);
+      setFdxStatements(data.accounts);
+    } catch (caught) {
+      setError(
+        caught instanceof Error && caught.message
+          ? caught.message
+          : "Could not list the statements.",
+      );
+    } finally {
+      setAccountBusy(false);
+    }
+  }
+  /**
+   * Downloads one statement's PDF through the server, which fetches it from
+   * the bank. The file goes to the User's browser, never to Iris.
+   */
+  async function downloadFdxStatement(accountId: string, statementId: string) {
+    if (busy || ended || !fdxStatementsShown) return;
+    setAccountBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/account", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-PAP-Company": result?.requestedUrl ?? companyUrl,
+          ...named(),
+        },
+        body: JSON.stringify({
+          action: "fdx_statement",
+          accountId,
+          statementId,
+        }),
+      });
+      adopt(response);
+      if (
+        !response.ok ||
+        response.headers.get("content-type") !== "application/pdf"
+      ) {
+        const data = await response.json().catch(() => ({}));
+        addTrace(data.trace ?? []);
+        throw new Error(data.error);
+      }
+      const file = await response.blob();
+      const name =
+        /filename="([A-Za-z0-9._-]+)"/.exec(
+          response.headers.get("content-disposition") ?? "",
+        )?.[1] ?? "statement.pdf";
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(file);
+      link.download = name;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(link.href), 10000);
+      addTrace([
+        `Statement ${statementId} · PDF downloaded · ${file.size} bytes · not shown to Iris`,
+      ]);
+    } catch (caught) {
+      setError(
+        caught instanceof Error && caught.message
+          ? caught.message
+          : "Could not download the statement.",
+      );
+    } finally {
+      setAccountBusy(false);
+    }
+  }
+
   // The User's standing instruction for this Company, if they wrote one.
   useEffect(() => {
     setInstruction(origin ? loadInstruction(origin) : undefined);
@@ -523,6 +622,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     setFdxConsent(undefined);
     setFdxRecord(undefined);
     setFdxRevoked(undefined);
+    setFdxStatements(undefined);
     // The new conversation has no Direct Conversation, whatever the last had.
     applyDirect();
     setStartingDirect(false);
@@ -712,6 +812,11 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     fdxRecord: fdxRecord?.id === fdxConsent ? fdxRecord : undefined,
     fdxRevoked,
     revokeFdx,
+    /** Statements to list and download, with Use FDX on and fdx:STATEMENTS. */
+    fdxStatementsShown,
+    fdxStatements: fdxStatementsShown ? fdxStatements : undefined,
+    listFdxStatements,
+    downloadFdxStatement,
     waitingSignIn,
     operations,
     connected,

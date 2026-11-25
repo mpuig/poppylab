@@ -138,6 +138,11 @@ vi.mock("@/lib/runtime", async () => ({
   revokeFdxConsent: (
     await vi.importActual<typeof Runtime>("../../../lib/runtime")
   ).revokeFdxConsent,
+  fdxUserTools: (await vi.importActual<typeof Runtime>("../../../lib/runtime"))
+    .fdxUserTools,
+  fdxStatementDownload: (
+    await vi.importActual<typeof Runtime>("../../../lib/runtime")
+  ).fdxStatementDownload,
 }));
 
 import { POST, GET } from "./route";
@@ -1598,5 +1603,262 @@ describe("Revoking the FDX consent (poppylab.dev/fdx v1)", () => {
     ).json();
     expect(off.fdxConsent).toBeUndefined();
     run.accountUnavailable = false;
+  });
+});
+
+describe("FDX statements in the account row (poppylab.dev/fdx v1)", () => {
+  const entry = {
+    version: "1",
+    base_url: "http://juniper.localhost:4100/fdx/v6",
+    consent_endpoint: "http://juniper.localhost:4100/fdx/v6/consents",
+  };
+  const document =
+    "http://juniper.localhost:4100/fdx/v6/accounts/acc_1/statements/stmt_1";
+  type FdxRun = typeof state.run & {
+    fdx?: boolean;
+    fdxConsent?: string;
+    visitor?: string;
+    dpop?: unknown;
+    tokenType?: string;
+    sessionId?: string;
+  };
+  const run = state.run as FdxRun;
+  const company = structuredClone(state.run.company);
+  const scopes = state.run.scopes;
+  const pdf = Buffer.from("%PDF-1.4\n%\xe2\xe3\n1 0 obj\n", "latin1");
+  let dpop: unknown;
+  beforeAll(async () => {
+    const keys = await createIdentity();
+    vi.stubEnv("POPPY_IDENTITY", JSON.stringify(keys));
+    dpop = (await createIdentity()).privateKey;
+  });
+  beforeEach(() => {
+    vi.stubEnv("NODE_ENV", "development");
+    const bank = structuredClone(company) as { profile: object };
+    bank.profile = {
+      ...bank.profile,
+      extensions: { "poppylab.dev/fdx": entry },
+    };
+    Object.assign(run, {
+      company: bank,
+      fdx: true,
+      fdxConsent: "grant_1",
+      visitor: "visitor-fixture",
+      dpop,
+      tokenType: "DPoP",
+      tokenExpires: Date.now() + 3600000,
+      scopes: "poppy:read fdx:ACCOUNT_BASIC fdx:STATEMENTS",
+    });
+    state.transport.mockReset();
+    state.transport.mockRejectedValue(new Error("Unexpected request"));
+  });
+  afterEach(() => {
+    state.run.company = structuredClone(company);
+    state.run.scopes = scopes;
+    for (const key of [
+      "fdx",
+      "fdxConsent",
+      "visitor",
+      "dpop",
+      "tokenType",
+      "sessionId",
+    ] as const)
+      delete run[key];
+  });
+  /** The bank's network: only FDX-shaped routes answer. */
+  const bank = (answer: (url: string, options: unknown) => unknown) =>
+    state.transport.mockImplementation(async (url, ...rest) => {
+      if (!url.startsWith(entry.base_url))
+        throw new ProtocolError(404, undefined);
+      return answer(url, rest[3]);
+    });
+  const fdxCalls = () =>
+    state.transport.mock.calls.filter(([url]) =>
+      url.startsWith(entry.base_url),
+    );
+
+  it("is refused, sending nothing, signed out, with Use FDX off, for bad ids or lost access", async () => {
+    const refused = async (body: unknown, status: number, code: string) => {
+      const r = await POST(request(body));
+      expect(r.status).toBe(status);
+      expect(await r.json()).toMatchObject({ code });
+    };
+    const download = {
+      action: "fdx_statement",
+      accountId: "acc_1",
+      statementId: "stmt_1",
+    };
+    delete run.fdx;
+    await refused(download, 400, "no_fdx_access");
+    await refused({ action: "fdx_statements" }, 400, "no_fdx_access");
+    run.fdx = true;
+    delete (run as { accountToken?: string }).accountToken;
+    await refused(download, 400, "no_fdx_access");
+    run.accountToken = "secret";
+    for (const ids of [
+      { accountId: "acc_1", statementId: "../../oauth/token" },
+      { accountId: "acc_1", statementId: "http://evil.example/x" },
+      { accountId: "acc/1", statementId: "stmt_1" },
+      { accountId: "acc_1", statementId: 7 },
+      { accountId: "acc_1" },
+    ])
+      await refused(
+        { action: "fdx_statement", ...ids },
+        400,
+        "invalid_request",
+      );
+    run.accountUnavailable = true;
+    await refused(download, 401, "account_unavailable");
+    run.accountUnavailable = false;
+    expect(state.transport).not.toHaveBeenCalled();
+  });
+
+  it("returns the PDF as an attachment, fetched once from the entry's base URL with the checked ids", async () => {
+    bank(async () => ({ contentType: "application/pdf", bytes: pdf }));
+    const r = await POST(
+      request({
+        action: "fdx_statement",
+        accountId: "acc_1",
+        statementId: "stmt_1",
+        // Never used: the URL comes from the entry.
+        url: "http://juniper.localhost:4100/oauth/token",
+      }),
+    );
+    expect(r.status).toBe(200);
+    expect(r.headers.get("content-type")).toBe("application/pdf");
+    expect(r.headers.get("content-disposition")).toBe(
+      'attachment; filename="statement-acc_1-stmt_1.pdf"',
+    );
+    expect(r.headers.get("cache-control")).toBe("no-store");
+    expect(r.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(r.headers.get("x-poppy-statement-sha256")).toMatch(/^[0-9a-f]{64}$/);
+    expect(Buffer.from(await r.arrayBuffer())).toEqual(pdf);
+    const calls = fdxCalls();
+    expect(calls).toHaveLength(1);
+    const [url, init, , dpopOption, options] = calls[0] as [
+      string,
+      RequestInit,
+      unknown,
+      { token?: string },
+      unknown,
+    ];
+    expect(url).toBe(document);
+    expect(init.method).toBe("GET");
+    const headers = init.headers as Record<string, string>;
+    expect(headers.Accept).toBe("application/pdf");
+    expect(headers.Authorization).toBe("DPoP general-token");
+    expect(headers["Poppy-Session"]).toEqual(expect.any(String));
+    expect(headers["Poppy-Extensions"]).toContain('"poppylab.dev/fdx";v="1"');
+    expect(dpopOption.token).toBe("general-token");
+    expect(options).toEqual({ errorBody: true, binary: { maxBytes: 512000 } });
+    // A file name of our own, whatever the ids hold.
+    bank(async () => ({ contentType: "application/pdf", bytes: pdf }));
+    const odd = await POST(
+      request({
+        action: "fdx_statement",
+        accountId: 'a"c;c',
+        statementId: "s=1",
+      }),
+    );
+    expect(odd.headers.get("content-disposition")).toBe(
+      'attachment; filename="statement-a_c_c-s_1.pdf"',
+    );
+  });
+
+  it("answers in its own words when the bank has no such statement, sends no PDF, or the sign-in lacks the cluster", async () => {
+    const download = {
+      action: "fdx_statement",
+      accountId: "acc_1",
+      statementId: "stmt_1",
+    };
+    bank(async () => {
+      throw new ProtocolError(
+        404,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        { code: "statement_not_found", message: "<b>Not found</b>" },
+      );
+    });
+    const missing = await POST(request(download));
+    expect(missing.status).toBe(404);
+    const body = await missing.json();
+    expect(body).toMatchObject({ code: "statement_not_found" });
+    expect(JSON.stringify(body)).not.toContain("<b>");
+    for (const answer of [
+      { contentType: "text/html", bytes: Buffer.from("<html>%PDF-") },
+      {
+        contentType: "application/pdf",
+        bytes: Buffer.from("not a pdf at all"),
+      },
+      { accounts: [] },
+    ]) {
+      bank(async () => answer);
+      const bad = await POST(request(download));
+      expect(bad.status).toBe(502);
+      expect(bad.headers.get("content-type")).toContain("application/json");
+      expect(await bad.json()).toMatchObject({ code: "fdx_statement_failed" });
+    }
+    state.transport.mockClear();
+    run.scopes = "poppy:read fdx:ACCOUNT_BASIC";
+    const scoped = await POST(request(download));
+    expect(scoped.status).toBe(403);
+    expect(await scoped.json()).toMatchObject({ code: "insufficient_scope" });
+    expect(fdxCalls()).toHaveLength(0);
+  });
+
+  it("lists the shared accounts' statements with only the fields the row shows", async () => {
+    bank(async (url) =>
+      url.endsWith("/accounts")
+        ? {
+            accounts: [
+              {
+                accountId: "acc_1",
+                productName: "Everyday checking",
+                accountNumberDisplay: "0479",
+              },
+            ],
+          }
+        : {
+            statements: [
+              {
+                statementId: "stmt_1",
+                accountId: "acc_1",
+                statementDate: "2026-11-20",
+                description: "Monthly statement",
+                status: "AVAILABLE",
+                url: "http://evil.example",
+              },
+            ],
+            page: { totalElements: 1 },
+          },
+    );
+    const r = await POST(request({ action: "fdx_statements" }));
+    expect(r.status).toBe(200);
+    const body = await r.json();
+    expect(body.accounts).toEqual([
+      {
+        accountId: "acc_1",
+        productName: "Everyday checking",
+        accountNumberDisplay: "0479",
+        statements: [
+          {
+            statementId: "stmt_1",
+            statementDate: "2026-11-20",
+            description: "Monthly statement",
+          },
+        ],
+      },
+    ]);
+    expect(body.trace).toContain(
+      "GET /fdx/v6/accounts/acc_1/statements?limit=50 · FDX-shaped · fdx:STATEMENTS",
+    );
+    expect(fdxCalls().map(([url]) => url)).toEqual([
+      "http://juniper.localhost:4100/fdx/v6/accounts",
+      "http://juniper.localhost:4100/fdx/v6/accounts/acc_1/statements?limit=50",
+    ]);
   });
 });

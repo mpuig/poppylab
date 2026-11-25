@@ -122,3 +122,60 @@ it("words FDX-shaped balances and transactions for the User, with the account's 
   expect(formatFdx({ error: "fdx_error" })).toBeUndefined();
   expect(formatFdx({ something: 1 })).toBeUndefined();
 });
+
+it("lists each shared account's statements, words them, and offers the download in the account row", async () => {
+  const tools = {
+    ...fdx({
+      accounts: [
+        {
+          accountId: "acc_HLB_A100",
+          productName: "Operating checking",
+          accountNumberDisplay: "0479",
+          currency: { currencyCode: "USD" },
+        },
+      ],
+    }),
+    fdx_list_statements: {
+      execute: vi.fn(async (input?: Record<string, unknown>) => ({
+        accountId: input?.accountId,
+        statements: [
+          {
+            statementId: "stmt_acc_HLB_A100_20261120",
+            statementDate: "2026-11-20",
+            description: "Monthly statement, 2026-10-21 to 2026-11-20",
+            status: "AVAILABLE",
+          },
+        ],
+        truncated: false,
+      })),
+    },
+  };
+  expect(demoFdxRead("my statements", tools)).toBe("statements");
+  expect(demoFdxRead("quiero mis extractos", tools)).toBe("statements");
+  // Without the statements tool, statements aren't a demo read.
+  expect(demoFdxRead("my statements", fdx({ accounts: [] }))).toBeUndefined();
+  const answer = await demoFdxAnswer("statements", tools);
+  expect(tools.fdx_list_statements.execute).toHaveBeenCalledWith({
+    accountId: "acc_HLB_A100",
+  });
+  expect(formatFdx(answer)).toBe(
+    [
+      "Operating checking ···0479:",
+      "  - 2026-11-20 · Monthly statement, 2026-10-21 to 2026-11-20 · available",
+    ].join("\n"),
+  );
+  const reply = demoFdxReply(answer, () => "raw");
+  expect(reply).toContain("Download a statement as a PDF");
+  expect(reply).toContain("account row");
+  expect(
+    formatFdx({
+      accounts: [{ accountId: "acc_1", statements: [], truncated: true }],
+    }),
+  ).toBe(
+    "acc_1:\n  No statements.\n  More statements exist: ask for a shorter period.",
+  );
+  // An error answer offers no download.
+  expect(
+    demoFdxReply({ error: "sign_in_required" }, () => "raw"),
+  ).not.toContain("Download a statement");
+});
