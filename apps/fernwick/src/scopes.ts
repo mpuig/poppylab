@@ -36,5 +36,5 @@ export const scopeDescriptions: Record<FernwickScope, string> = {
   "espi:customer":
     "ESPI-shaped API (not certified): see the customer's name and service address (RetailCustomer). Covers function blocks 51, 53, 54 and 55: common customer data, third-party access to it, basic customer data and the address. Read only; includes personal data.",
   offline_access:
-    "Allow the Personal Agent to refresh this fictional grant while you are away. It does not add data or change permissions.",
+    "Allow the Personal Agent to refresh this fictional grant while you are away, for up to 7 days. Without it, the grant ends with its first access token, after 1 hour. It does not add data or change permissions.",
 };

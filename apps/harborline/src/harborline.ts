@@ -1147,7 +1147,7 @@ const scopeDescriptions: Record<HarborlineScope, string> = {
   "fdx:CUSTOMER_CONTACT":
     "FDX-shaped API: see the fictional customer's name and email. Read only; includes personal data.",
   offline_access:
-    "Allow the Personal Agent to refresh this fictional grant while you are away. It does not add data or change permissions.",
+    "Allow the Personal Agent to refresh this fictional grant while you are away, for up to 7 days. Without it, the grant ends with its first access token, after 1 hour. It does not add data or change permissions.",
 };
 
 /** What "How it works" shows, read from this definition and the seeded customer. */
