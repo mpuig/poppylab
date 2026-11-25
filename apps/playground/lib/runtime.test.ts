@@ -28,6 +28,7 @@ import {
   accountConfiguration,
   sendApproval,
   approvalFor,
+  excludedTasksTool,
   feedbackTool,
   identity,
   operatorKey,
@@ -598,6 +599,69 @@ it("reports an unsupported task once per Session, with the token when signed in,
   delete r.sessionId;
   transport.mockResolvedValueOnce(null);
   expect(await tool.execute(report)).toEqual({ sent: true });
+});
+
+it("reads the tasks again when a new Session started during the turn, before listing or reporting (§9)", async () => {
+  const r = example("food", false);
+  const products = "https://food.papsandbox.com/poppy/products";
+  const tasks = "https://food.papsandbox.com/poppy/tasks";
+  const feedback = "https://food.papsandbox.com/poppy/feedback";
+  r.company!.profile.tasksEndpoint = tasks;
+  transport.mockImplementation(async (url) =>
+    url === tasks
+      ? {
+          excluded_tasks: [{ task: "Cancel an order" }],
+          feedback: { endpoint: feedback },
+        }
+      : null,
+  );
+  const tasksReads = () =>
+    transport.mock.calls.filter(([url]) => url === tasks).length;
+  // As connect leaves the run: tasks read for the Session the turn began in.
+  await papRequest(r, products, "GET");
+  r.tasks = {
+    sid: r.sessionId!,
+    value: {
+      excludedTasks: [{ task: "Cancel an order" }],
+      feedbackEndpoint: feedback,
+      skills: 0,
+    },
+  };
+  const trace: string[] = [];
+  const excluded = excludedTasksTool(r, trace);
+  const report = feedbackTool(r, trace);
+  const listed = {
+    untrusted_company_content: true,
+    tasks: [{ task: "Cancel an order" }],
+  };
+  expect(await excluded.execute()).toEqual(listed);
+  expect(tasksReads()).toBe(0);
+  // An API call finds the Session ended: a new one, without the old tasks.
+  const endSession = async () => {
+    transport.mockRejectedValueOnce(new ProtocolError(400, "session_ended"));
+    await papRequest(r, products, "GET");
+    expect(r.tasks).toBeUndefined();
+  };
+  await endSession();
+  expect(await excluded.execute()).toEqual(listed);
+  expect(r.tasks?.sid).toBe(r.sessionId);
+  // The same Session reuses them, and an excluded task still isn't reported.
+  expect(
+    await report.execute({ task: "Cancel an order", description: "Asked." }),
+  ).toMatchObject({ sent: false, reason: expect.stringContaining("excluded") });
+  expect(tasksReads()).toBe(1);
+  await endSession();
+  expect(
+    await report.execute({ task: "Cancel an order", description: "Asked." }),
+  ).toMatchObject({ sent: false, reason: expect.stringContaining("excluded") });
+  await endSession();
+  expect(
+    await report.execute({
+      task: "Pay with a gift card",
+      description: "No API takes one.",
+    }),
+  ).toEqual({ sent: true });
+  expect(tasksReads()).toBe(3);
 });
 
 it("sends no report, Session header or token to a feedback endpoint outside the Company's domain", async () => {
