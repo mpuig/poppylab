@@ -7,7 +7,7 @@ An independent test bench for **Personal Agent Protocol 1.0**: **Iris**, a Perso
 - **https://food-demo.poppylab.dev** is Lantern Noodle Bar, a noodle bar with scheduled orders.
 - **Harborline Bank** targets **https://bank-demo.poppylab.dev** when deployed: a fully fictional bank with accounts, transactions, cards, recipients, budgets, payments and transfers, plus a read-only FDX-shaped API (not FDX-conformant or certified) behind the `poppylab.dev/fdx` extension.
 - **Northwind Air** targets **https://airline-demo.poppylab.dev** when deployed: a fictional airline with flight search, trips, loyalty and approval-gated booking changes.
-- **Fernwick Power & Light** targets **https://energy-demo.poppylab.dev** when deployed (not yet deployed): a fictional electricity utility with hourly meter readings, monthly bills and an approval-gated rate plan switch, plus a read-only ESPI-shaped API (modelled on NAESB REQ.21 ESPI, not certified) behind the `poppylab.dev/espi` extension.
+- **Fernwick Power & Light** is deployed at **https://energy-demo.poppylab.dev**: a fictional electricity utility with hourly meter readings, monthly bills and an approval-gated rate plan switch, plus a read-only ESPI-shaped API (modelled on NAESB REQ.21 ESPI, not certified) behind the `poppylab.dev/espi` extension.
 
 Nothing is sold, charged, shipped or transferred. Harborline moves no real money; Northwind sells or changes no real ticket; Fernwick supplies and bills no electricity. No real banking, passenger, payment or account credentials should be entered anywhere in the demo. Poppy Lab is not affiliated with or endorsed by the protocol's authors; "Personal Agent Protocol" and "Poppy" are their names. It makes no claim of conformance: the draft changes often (`pnpm spec:drift` reports when the published text differs from the pinned copy in `spec/`).
 
@@ -74,7 +74,7 @@ Start with **Learn**, at [poppylab.dev/learn](https://poppylab.dev/learn) or in 
 
 ## Deploy
 
-Five Cloudflare Workers, deployed with Wrangler: `pnpm --filter @poppy-lab/lantern run deploy`, `pnpm --filter @poppy-lab/example-company run deploy`, `pnpm --filter @poppy-lab/harborline run deploy`, `pnpm --filter @poppy-lab/northwind run deploy`, and for Poppy `pnpm --filter @poppy-lab/playground build:worker && pnpm --filter @poppy-lab/playground deploy:worker`. Fernwick (`pnpm --filter @poppy-lab/fernwick run deploy`, to `energy-demo.poppylab.dev`) is configured the same way but not deployed yet. Poppy needs two secrets, `POPPY_IDENTITY` (the agent key pair) and `POPPY_STATE_KEY` (32 random bytes, base64url). See [portable runtime](docs/portable-runtime.md).
+Six Cloudflare Workers, deployed with Wrangler: `pnpm --filter @poppy-lab/lantern run deploy`, `pnpm --filter @poppy-lab/example-company run deploy`, `pnpm --filter @poppy-lab/harborline run deploy`, `pnpm --filter @poppy-lab/northwind run deploy`, `pnpm --filter @poppy-lab/fernwick run deploy`, and for Poppy `pnpm --filter @poppy-lab/playground build:worker && pnpm --filter @poppy-lab/playground deploy:worker`. Poppy needs two secrets, `POPPY_IDENTITY` (the agent key pair) and `POPPY_STATE_KEY` (32 random bytes, base64url). See [portable runtime](docs/portable-runtime.md).
 
 ## License
 

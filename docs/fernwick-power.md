@@ -14,7 +14,7 @@ pnpm dev:fernwick
 # customer portal: http://fernwick.localhost:4500/account
 ```
 
-The package also has `dev:worker`, `build`, `test`, `typecheck` and `deploy` scripts. `wrangler.toml` deploys `FernwickCompany` to `energy-demo.poppylab.dev` (a custom domain) with visitor isolation and SQLite-backed Durable Object storage, like Harborline. It hasn't been deployed. `http://fernwick.localhost:4500` is in `LOCAL_COMPANY_ORIGINS` (`pap-core`), the exact origins allowed plain HTTP in development.
+The package also has `dev:worker`, `build`, `test`, `typecheck` and `deploy` scripts. `wrangler.toml` deploys `FernwickCompany` to `energy-demo.poppylab.dev` (a custom domain) with visitor isolation and SQLite-backed Durable Object storage, like Harborline. It is deployed there. `http://fernwick.localhost:4500` is in `LOCAL_COMPANY_ORIGINS` (`pap-core`), the exact origins allowed plain HTTP in development.
 
 ## Customers, meters and plans
 
