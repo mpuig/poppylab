@@ -13,6 +13,7 @@ import { cookies } from "next/headers";
 import { connect, directConversation, type Run } from "@/lib/runtime";
 import { record } from "@/lib/transcript";
 import type { CompanyEntry, DirectAction } from "@/lib/conversations";
+import { directState } from "@/lib/direct-state";
 import {
   acquireRun,
   createRun,
@@ -540,14 +541,4 @@ async function reply(request: Request, started: { id?: string }) {
     if (held && visitor) await releaseRun(visitor, held).catch(() => {});
     active--;
   }
-}
-
-/** §8.10: whether the User is in a Direct Conversation, or invited to one. */
-function directState(run: Run) {
-  const c = run.conversation;
-  return {
-    direct: !!(c?.direct && !c.direct.closed),
-    conversation: !!c?.id,
-    invitation: c?.invitation?.reason ?? (c?.invitation ? "" : null),
-  };
 }

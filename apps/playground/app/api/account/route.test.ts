@@ -439,6 +439,51 @@ describe("Human-controlled account boundary", () => {
     expect(state.run.operations.op_test.state).toBe("proposed");
     expect(state.request).toHaveBeenCalledTimes(1);
   });
+  it("tells a reloaded page about an open Direct Conversation (§8.10)", async () => {
+    const run = state.run as { conversation?: unknown };
+    const restored = async () =>
+      (
+        await (
+          await GET(
+            new Request(
+              "http://localhost:3000/api/account?conversation=run_fixture_0001",
+            ),
+          )
+        ).json()
+      ).directConversation;
+    try {
+      expect(await restored()).toEqual({
+        direct: false,
+        conversation: false,
+        invitation: null,
+      });
+      run.conversation = {
+        endpoint: "http://juniper.localhost:4100/agent",
+        id: "conv_1",
+        seen: [],
+        invitation: { event: "evt_1", reason: "About your refund" },
+      };
+      expect(await restored()).toEqual({
+        direct: false,
+        conversation: true,
+        invitation: "About your refund",
+      });
+      // Accepted: the page must send the next words to the Company.
+      run.conversation = {
+        endpoint: "http://juniper.localhost:4100/agent",
+        id: "conv_1",
+        seen: [],
+        direct: { id: "dir_1", seen: [] },
+      };
+      expect(await restored()).toEqual({
+        direct: true,
+        conversation: true,
+        invitation: null,
+      });
+    } finally {
+      delete run.conversation;
+    }
+  });
   it("rejects cross-origin approval", async () => {
     expect(
       (

@@ -34,6 +34,7 @@ import {
 import { overBudget } from "@/lib/limits";
 import { coveredBy, parseInstruction } from "@/lib/standing-instructions";
 import { BUDGET_FACTOR, MAX_PER_HOUR } from "@/lib/auto-approval";
+import { directState } from "@/lib/direct-state";
 export const runtime = "nodejs";
 const issuer = "http://juniper.localhost:4100";
 /** One conversation, named by `?conversation=`: running, or ended and read-only. */
@@ -65,6 +66,9 @@ export async function GET(request: Request) {
         !run.accountUnavailable &&
         run.expires > Date.now(),
       authPending: !!run?.auth || !!run?.busy,
+      // §8.10: a reload must not send the User's words for the Company to
+      // Iris. Under its own name: `conversation` here is the ID.
+      directConversation: run ? directState(run) : undefined,
       // An ended conversation shows how its proposals ended.
       operations:
         run && (run.archived || run.expires > Date.now())

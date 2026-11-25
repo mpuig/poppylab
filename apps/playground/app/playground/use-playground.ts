@@ -29,6 +29,7 @@ import type { ReviewOperation as Operation } from "@/lib/operation-presentation"
 import { agentStep } from "@/lib/agent-steps";
 import { logEntry, type ProtocolEntry } from "@/lib/protocol-log";
 import { nextAutoApproval } from "@/lib/auto-approval";
+import { directView } from "@/lib/direct-state";
 import {
   loadApprovals,
   loadInstruction,
@@ -104,6 +105,16 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
   const [canTalkDirectly, setCanTalkDirectly] = useState(false);
   /** The next message starts a Direct Conversation. */
   const [startingDirect, setStartingDirect] = useState(false);
+  /**
+   * Takes what the server says about the Direct Conversation: in a chat
+   * answer, on a reload, or nothing at all for a conversation just started.
+   */
+  const applyDirect = (state?: unknown) => {
+    const view = directView(state);
+    setDirect(view.direct);
+    setInvitation(view.invitation);
+    setCanTalkDirectly(view.canTalkDirectly);
+  };
   const [instruction, setInstruction] = useState<Instruction | undefined>();
   const decided = useRef(new Set<string>());
   const profile = result ? companyProfile(result) : undefined;
@@ -154,6 +165,9 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
         setScopes(data.scopes ?? "");
         if (data.recovery?.error) setError(data.recovery.error);
         setOperations(data.operations ?? []);
+        // §8.10: an open Direct Conversation is still open after a reload,
+        // so the next message goes to the Company and not to Iris.
+        applyDirect(data.directConversation);
         setMessages(historyToMessages(data.history));
       })
       .catch(() => {});
@@ -269,6 +283,10 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
         setOperations([]);
         setWaitingSignIn(false);
         setMessages([]);
+        // Signing out drops Iris's conversation with the Company's agent,
+        // and the Direct Conversation with it.
+        applyDirect();
+        setStartingDirect(false);
         addTrace(["Account grant revoked · Session signed out"]);
       }
       if (data.operation) {
@@ -342,6 +360,9 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     setSignedIn(false);
     setWaitingSignIn(false);
     setOperations([]);
+    // The new conversation has no Direct Conversation, whatever the last had.
+    applyDirect();
+    setStartingDirect(false);
     try {
       // Connecting starts a new conversation, whatever this page showed.
       const response = await fetch("/api/discover", {
@@ -467,11 +488,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
       setScopes(data.scopes ?? "");
       setError(data.recovery?.error ?? "");
       setOperations(data.operations ?? []);
-      setDirect(!!data.direct);
-      setInvitation(
-        typeof data.invitation === "string" ? data.invitation : null,
-      );
-      setCanTalkDirectly(!!data.conversation);
+      applyDirect(data);
       if (action === "start") setStartingDirect(false);
     } catch (caught) {
       setMessages((old) => [
