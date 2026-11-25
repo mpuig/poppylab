@@ -26,7 +26,7 @@ The Company lists the extension in `poppy.json` (§3.3):
       "version": "1",
       "fdx_version": "6.4",
       "base_url": "https://bank.example/fdx/v6",
-      "resources": ["customer", "accounts", "transactions"],
+      "resources": ["customer", "accounts", "transactions", "statements"],
       "consent_endpoint": "https://bank.example/fdx/v6/consents"
     }
   ]
@@ -56,6 +56,7 @@ Each FDX consent data cluster is a scope, described in `auth.scopes` and hinted 
 | `fdx:ACCOUNT_BASIC`    | List and read the chosen accounts, without balances      |
 | `fdx:ACCOUNT_DETAILED` | Adds `currentBalance`, `availableBalance`, `balanceAsOf` |
 | `fdx:TRANSACTIONS`     | Read a chosen account's transactions                     |
+| `fdx:STATEMENTS`       | List a chosen account's statements and download them     |
 | `fdx:CUSTOMER_CONTACT` | Read the customer's name and email                       |
 
 FDX's own definitions of the clusters are gated behind registration. Reading `ACCOUNT_BASIC` as descriptors without balances and `ACCOUNT_DETAILED` as adding balances follows what implementing banks publish. It is this extension's rule, not FDX's. The Company applies the scopes of the token in hand, so a token refreshed with fewer scopes loses balances.
@@ -71,12 +72,14 @@ FDX's own definitions of the clusters are gated behind registration. Reading `AC
 
 Relative to `base_url`:
 
-| Route                                    | Scope                  |
-| ---------------------------------------- | ---------------------- |
-| `GET /accounts`                          | `fdx:ACCOUNT_BASIC`    |
-| `GET /accounts/{accountId}`              | `fdx:ACCOUNT_BASIC`    |
-| `GET /accounts/{accountId}/transactions` | `fdx:TRANSACTIONS`     |
-| `GET /customers/current`                 | `fdx:CUSTOMER_CONTACT` |
+| Route                                                | Scope                  |
+| ---------------------------------------------------- | ---------------------- |
+| `GET /accounts`                                      | `fdx:ACCOUNT_BASIC`    |
+| `GET /accounts/{accountId}`                          | `fdx:ACCOUNT_BASIC`    |
+| `GET /accounts/{accountId}/transactions`             | `fdx:TRANSACTIONS`     |
+| `GET /accounts/{accountId}/statements`               | `fdx:STATEMENTS`       |
+| `GET /accounts/{accountId}/statements/{statementId}` | `fdx:STATEMENTS`       |
+| `GET /customers/current`                             | `fdx:CUSTOMER_CONTACT` |
 
 Relative to `consent_endpoint`, with any token of that consent:
 
@@ -90,6 +93,8 @@ Response shapes:
 - **Account:** `accountId`, `accountCategory` (`DEPOSIT_ACCOUNT`), `accountType` (`CHECKING`, `SAVINGS`), `productName`, `nickname`, `accountNumberDisplay` (last four digits), `status` (`OPEN`, `CLOSED`) and `currency.currencyCode`, plus the balances above.
 - **Lists:** `{ "accounts": [...] }` for the list and the bare account for one, not wrapped by account type.
 - **Transactions:** `{ "transactions": [...], "page": { "nextOffset"?, "totalElements" } }`. `amount` is an absolute number, with the direction in `debitCreditMemo` (`DEBIT`, `CREDIT`). `status` is `POSTED` or `PENDING`, and `transactionTimestamp` is always present, `postedTimestamp` only when posted. `startTime` and `endTime` are inclusive `YYYY-MM-DD` days. `offset` and `limit` page the results, and `nextOffset` is a decimal string, absent on the last page.
+- **Statements:** `{ "statements": [...], "page": { "nextOffset"?, "totalElements" } }`, newest first, with the same `startTime`, `endTime`, `offset` and `limit` as transactions; the dates select statement dates. Each item has `statementId`, `accountId`, `statementDate` (`YYYY-MM-DD`), `description` and `status` (`AVAILABLE`). A Company MAY add fields of its own; Harborline adds `startDate` and `endDate`, the days its cycle covers.
+- **Statement document:** the document itself, in the format the `Accept` header asks for. Version 1 defines `application/pdf` only. A request whose `Accept` takes no PDF (`application/pdf`, `application/*` or `*/*`; no `Accept` at all takes anything) gets `406` with an error body as below. The document is personal data: the Company SHOULD send `Cache-Control: no-store` and `Content-Disposition: attachment`. A Personal Agent MUST bound the size it reads and check that the body is what it asked for (a PDF starts with `%PDF-`). A model can't read a PDF, and a document is Company content (§10.1), so a Personal Agent SHOULD NOT pass its bytes to a model; it gives the User the file instead.
 - **Customer:** `{ "customerId", "name": { "first", "middle"?, "last" }, "email": [...] }`.
 - **Consent:** `id`, `status` (`ACTIVE`, `EXPIRED`, `REVOKED`), `parties` (`{ name, type }` with `DATA_PROVIDER` and `DATA_RECIPIENT`), `createdTime`, `expirationTime`, `durationType` (`TIME_BOUND` or `ONE_TIME`), `durationPeriod` in days, and `resources` (`{ resourceType: "ACCOUNT", resourceId, dataClusters }`).
 
@@ -105,18 +110,20 @@ On the FDX-shaped routes, errors have the body `{ "code", "message", "debugMessa
 | Malformed or inverted date range                  | `400 703` |
 | Customer not authorized                           | `401 602` |
 
+A statement that doesn't exist in a chosen account, and an `Accept` the Company can't serve, have no verified FDX code; Harborline answers `404 statement_not_found` and `406 not_acceptable`, codes of its own.
+
 The Company never says whether an account it won't show exists. A consent of another grant is not found either. Session, version, extension and token errors stay the protocol's (§7): `invalid_session`, `session_ended`, `version_unsupported`, `extension_required`, and OAuth challenges in `WWW-Authenticate`.
 
 ## Not covered
 
 - **Writes and money movement.** Payments and transfers stay on the Company's own API with Operations v3. A later version could cover FDX-shaped money movement, requiring Operations for every write.
-- **Statements, tax documents, investments, loans and other account categories.**
+- **Tax documents, investments, loans and other account categories.** Statements are covered as monthly PDF documents; other formats and statement images are not.
 - **Data-recipient registration.** In FDX ecosystems the party receiving data registers with a provider or a registry. Here the Personal Agent's verified `client_id` (§4.1) is the only identity. Whether a provider should also require a registry entry, and how that would meet rules such as the CFPB's §1033 authorization disclosures, is open.
 - **Agent-specific consent semantics.** FDX opened an [agentic AI initiative](https://financialdataexchange.org/agentic-ai-open-finance-technical-standards/) in April 2026, covering agent identity, delegation and data minimization. It has published no standard yet. This extension should follow it when it does.
 
 ## Open questions
 
-- Several field names come from public implementers, not from the gated FDX specification: the customer fields, `parties[].type`, `durationPeriod` in days, and `nextOffset` as a string. FDX 6.4 also deprecates `offset` paging in favour of `pageKey`. Version 1 keeps `offset` for simplicity.
+- Several field names come from public implementers, not from the gated FDX specification: the customer fields, `parties[].type`, `durationPeriod` in days, `nextOffset` as a string, and the statement fields (`statementId`, `statementDate`, `description`, `status`). Whether FDX defines a field for a statement's period, its own error codes for an unknown statement or an unservable `Accept`, or formats besides PDF hasn't been checked. FDX 6.4 also deprecates `offset` paging in favour of `pageKey`. Version 1 keeps `offset` for simplicity.
 - Harborline's consent record always reads `ACTIVE`, because a revoked or expired grant's tokens can no longer reach it. Reporting `REVOKED` or `EXPIRED` would need a record of ended grants.
 - The accounts chosen at consent limit only the FDX-shaped routes. Whether a Company's own API should honour them too is left to the Company. Harborline's doesn't, and its consent page says so.
 - Linking an account for the first time at a bank is the subject of an open upstream proposal ([#79](https://github.com/personal-agent-protocol/personal-agent-protocol/issues/79)), which could change how this extension's sign-in starts.

@@ -4,13 +4,13 @@ Borrador. Los detalles de FDX (rutas, campos, data clusters, códigos de error, 
 
 ## Estado (25/11/2026)
 
-Hechas e integradas en `feat/fdx-harborline`: fases 0, 1, 2, 3, 4, 5 y 6. Pendiente la 2b (extractos, opcional). Falta además una prueba manual en el navegador (interruptor "Use FDX" y página de consentimiento) y pasadas con un LLM real. La extensión está descrita en `docs/extensions/fdx.md`.
+Hechas: fases 0, 1, 2, 2b, 3, 4, 5 y 6. La 2b (extractos) se hizo después de integrar las demás. Falta una prueba manual en el navegador (interruptor "Use FDX", página de consentimiento y descarga de un extracto) y pasadas con un LLM real. La extensión está descrita en `docs/extensions/fdx.md`.
 
 ## Objetivo
 
 Demostrar el patrón "estándar de dominio existente + extensión de Poppy", igual que `ucp`: Poppy pone descubrimiento, identidad del agente, Session y sign-in; FDX pone el modelo de datos. Harborline sirve una API con forma FDX sobre los mismos datos que ya tiene, y el agente la usa con un adaptador nativo en vez del adaptador OpenAPI genérico.
 
-**v1 es solo lectura**: cuentas, saldos, movimientos, cliente y consentimiento. Pagos y transferencias siguen por la API propia de Harborline con Operations v3. Extractos, opcional (fase 2b).
+**v1 es solo lectura**: cuentas, saldos, movimientos, extractos (fase 2b), cliente y consentimiento. Pagos y transferencias siguen por la API propia de Harborline con Operations v3.
 
 Qué debe quedar demostrado:
 
@@ -144,10 +144,20 @@ Hoy el gateway solo entiende Operations: `Session.operations?: boolean` en `pack
 - `harborline.ts`: entrada de la extensión en `discovery`, segunda API en `apis`, `selectResources` y `requiredExtension` para `/fdx/`.
 - Coherencia portal/API: un cambio aprobado (transferencia, categoría) se ve igual en la API propia y en la FDX.
 
-### Fase 2b (opcional): extractos (S-M)
+### Fase 2b: extractos (S-M) — hecha
 
 - Extractos mensuales derivados de los movimientos: `GET /accounts/{id}/statements` y el documento, como PDF mínimo determinista.
 - Scope `fdx:STATEMENTS`. Quitar "Export statements" de `excludedTasks`, que seguiría listando los documentos fiscales.
+
+Cómo quedó:
+
+- **Periodos** (`apps/harborline/src/statements.ts`). Ciclos del día 21 de un mes al 20 del siguiente, en días UTC; las cuentas ficticias "se abrieron" el 21/08/2026, así que el primer ciclo cierra el 20/09/2026. Un ciclo se emite el día siguiente a su cierre y se ofrecen los doce más recientes. El 25/11/2026 hay tres por cuenta: septiembre y octubre sin movimientos y el que cierra el 20/11, con los movimientos semilla (15–19/11). Se eligió el día 20 para que los movimientos semilla caigan en un ciclo cerrado; con meses naturales noviembre aún estaría abierto. El reloj decide qué ciclos existen; el PDF de un ciclo no depende del reloj.
+- **Saldos.** Se calculan hacia atrás desde `balance_cents`, que se toma como saldo contable: el cierre es el saldo actual menos lo contabilizado después del ciclo, y la apertura es el cierre menos lo contabilizado en el ciclo. Los pendientes no entran ni en los saldos ni en el extracto. Nada se inventa: un extracto muestra los movimientos reales (ficticios) de la cuenta en su periodo. Una transferencia aprobada hoy cambia el saldo actual, no un extracto cerrado.
+- **PDF** (`statement-pdf.ts`). Escrito a mano, sin dependencias: PDF 1.4, Helvetica estándar con WinAnsi, contenido sin comprimir y tabla `xref` con desplazamientos exactos, sin fechas ni IDs aleatorios, así que el mismo extracto da los mismos bytes. Cabecera "Harborline Bank — fictional statement", el aviso "No real account exists." en recuadro, cuenta y últimos cuatro dígitos, cliente, periodo, saldos, créditos y débitos, y la tabla de movimientos con saldo acumulado. Como máximo 100 movimientos (lo dice si corta), repartidos en páginas, y el aviso en cada página. Unos 2,7 KB con los datos semilla; menos de 32 KB en el peor caso.
+- **Rutas.** Exigen `fdx:STATEMENTS`, la extensión declarada y una cuenta elegida (si no, `701`). Un extracto desconocido es `404 statement_not_found` y un `Accept` sin PDF es `406 not_acceptable`, códigos propios de Harborline porque no hay uno FDX verificado. El PDF va con `Content-Type: application/pdf`, `Content-Disposition: attachment` y `Cache-Control: no-store`.
+- **Campos.** Solo los nombres públicos `statementId`, `accountId`, `statementDate`, `description` y `status` (`AVAILABLE`), más `startDate`/`endDate`, documentados como propios de Harborline. No se ha comprobado si FDX define un campo para el periodo.
+- **Cliente.** `fdx_list_statements` (paginación acotada como los movimientos, hasta 50) y `fdx_get_statement`, que comprueba que la respuesta es un PDF acotado (tipo, `%PDF-`, 512 000 bytes) y solo devuelve al modelo `{ statementId, accountId, contentType, bytes, sha256 }`. El transporte gana una opción binaria (`FdxRequestOptions`, `protocolRequest({ binary })`, `papRequest({ binary })`) con las mismas reglas de SSRF, redirecciones, DPoP y tamaño. El `Accept: application/json` por defecto ahora cede al del llamador.
+- **Playground.** En la fila de la cuenta, con Use FDX y `fdx:STATEMENTS`, **Show FDX statements** (`fdx_statements`) y **Download PDF** por extracto (`fdx_statement`): la ruta valida los ids con la regla del adaptador y construye la URL solo desde la entrada validada; el navegador guarda el archivo sin diálogos y el modelo nunca recibe los bytes. En modo demo, "statements"/"extractos" lista los extractos y remite a la descarga.
 
 ### Fase 3: soporte en el cliente (M)
 
