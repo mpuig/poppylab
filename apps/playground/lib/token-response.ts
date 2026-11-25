@@ -7,7 +7,8 @@ import { grantedSubset } from "./account-permissions";
  */
 const consentId = (value: unknown) =>
   typeof value === "string" &&
-  /^[A-Za-z0-9][\x21-\x7e]{0,127}$/.test(value) &&
+  // As the FDX-shaped adapter's ids: base64url may start with - or _.
+  /^[A-Za-z0-9_-][\x21-\x7e]{0,127}$/.test(value) &&
   !/[/\\%?#]/.test(value)
     ? value
     : undefined;

@@ -159,8 +159,22 @@ it("keeps the FDX-shaped consent id of the grant, and drops an earlier one when 
   s.request.mockResolvedValue(success({ consent_id: "grant_7Hk2" }));
   expect((await GET(req())).status).toBe(200);
   expect(run.fdxConsent).toBe("grant_7Hk2");
+  // A base64url grant ID may start with - or _: kept.
+  for (const consent_id of ["-Hk2_a", "_Hk2-a"]) {
+    s.run.auth = {
+      state: "state_test",
+      verifier: "verifier_test",
+      issuer: "https://food.papsandbox.com",
+      scopes: "orders:read",
+      expires: Date.now() + 60000,
+      dpop: { kty: "EC" },
+    };
+    s.request.mockResolvedValue(success({ consent_id }));
+    expect((await GET(req())).status).toBe(200);
+    expect(run.fdxConsent).toBe(consent_id);
+  }
   // Not one path segment: not kept.
-  for (const consent_id of [undefined, "../grant", 7]) {
+  for (const consent_id of [undefined, "../grant", ".", 7]) {
     run.fdxConsent = "grant_old";
     s.run.auth = {
       state: "state_test",

@@ -50,8 +50,13 @@ type Json = Record<string, unknown>;
 const obj = (v: unknown): v is Json =>
   !!v && typeof v === "object" && !Array.isArray(v);
 
-/** Ids go in one path segment: printable ASCII, no separators or dot segments. */
-const ID = /^[A-Za-z0-9][\x21-\x7e]{0,127}$/;
+/**
+ * Ids go in one path segment: printable ASCII, no separators or dot segments.
+ * They may start with `-` or `_`, as base64url ids do (a Poppy grant ID,
+ * returned as `consent_id`, starts with one about once in 32); a leading dot
+ * stays refused, so `.` and `..` never reach a path.
+ */
+const ID = /^[A-Za-z0-9_-][\x21-\x7e]{0,127}$/;
 const validId = (v: unknown): v is string =>
   typeof v === "string" && ID.test(v) && !/[/\\%?#]/.test(v);
 

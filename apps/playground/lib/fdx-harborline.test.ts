@@ -220,7 +220,7 @@ describe("Use FDX against Harborline, end to end", () => {
     const done = await callback(new Request(back));
     expect(done.status).toBe(200);
     await withRun(async (run) => {
-      expect(run.fdxConsent).toMatch(/^[A-Za-z0-9]/);
+      expect(run.fdxConsent).toMatch(/^[A-Za-z0-9_-]/);
       expect(run.scopes).toContain("fdx:TRANSACTIONS");
     });
   });
@@ -461,7 +461,7 @@ describe("Use FDX against Harborline, end to end", () => {
     const back = await consent((await signin.json()).url, ["acc_HLB_A100"]);
     expect((await callback(new Request(back))).status).toBe(200);
     const fresh = await withRun(async (run) => run.fdxConsent);
-    expect(fresh).toMatch(/^[A-Za-z0-9]/);
+    expect(fresh).toMatch(/^[A-Za-z0-9_-]/);
     expect(fresh).not.toBe(before.consent);
   });
 

@@ -291,14 +291,24 @@ describe("FDX-shaped tools (poppylab.dev/fdx v1)", () => {
     await expect(
       tools.fdx_consent_status!.execute({ consentId: "../accounts" }),
     ).rejects.toBeInstanceOf(InvalidToolArguments);
+    // A base64url id may start with - or _ (a Poppy grant ID often does).
+    for (const id of ["-Hk2_a", "_Hk2-a"]) {
+      known = id;
+      await tools.fdx_consent_status!.execute({});
+      expect(request).toHaveBeenLastCalledWith(
+        `https://bank.example/fdx/v6/consents/${id}`,
+        [],
+      );
+    }
     // None kept, or one that couldn't be a path segment: nothing is sent.
-    for (const value of [undefined, "../x"]) {
+    for (const value of [undefined, "../x", ".", ".."]) {
       known = value;
       expect(await tools.fdx_consent_status!.execute({})).toMatchObject({
         error: "consent_unknown",
       });
     }
-    expect(request).toHaveBeenCalledTimes(1);
+    // The two base64url ids above, besides the first read.
+    expect(request).toHaveBeenCalledTimes(3);
   });
 
   it("passes FDX error bodies on as structured, bounded errors", async () => {
