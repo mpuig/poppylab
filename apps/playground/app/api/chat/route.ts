@@ -24,6 +24,7 @@ import { overBudget } from "@/lib/limits";
 import { pickDemoTool } from "@/lib/demo-tool";
 import { readable } from "@/lib/demo-text";
 import {
+  demoAside,
   demoChange,
   demoChangeKind,
   demoChangeReply,
@@ -210,6 +211,10 @@ async function reply(request: Request, started: { id?: string }) {
     };
     const lowered = body.message.toLowerCase();
     const companyName = run.company!.document.organization.name;
+    const change =
+      provider === "demo" ? demoChangeKind(body.message, tools) : undefined;
+    const aside =
+      provider === "demo" ? demoAside(body.message, tools) : undefined;
     if (direct) {
       // §8.10: the User, not the model. Their words go to the Company as
       // written; Iris adds only a line about what happened.
@@ -283,58 +288,56 @@ async function reply(request: Request, started: { id?: string }) {
           })
         : status;
       text = `Protocol demo (no LLM). ${order ? `Told the Company's agent that order ${order} never arrived.` : "Asked the Company's agent for your orders first."} The company's agent answered:\n\n${show(result)}\n\nIf the Company asks to talk with you, accept or decline with the buttons above the message box.`;
-    } else if (
-      provider === "demo" &&
-      tools.company_agent_send &&
-      /customer service|support|company'?s agent|talk to|speak to|a person|human|someone/.test(
-        lowered,
-      )
-    ) {
-      // The demo's way into a conversation (§8): ask what the Company's agent
-      // handles, or ask for a person (which needs a conversation first).
-      const person = /talk to|speak to|a person|human|someone/.test(lowered);
-      const results: unknown[] = [];
-      if (!person || !run.conversation?.id)
-        results.push(
-          await tools.company_agent_send.execute({ data: { request: "help" } }),
-        );
-      if (person) results.push(await tools.company_agent_handoff!.execute({}));
-      text = `Protocol demo (no LLM). Live Company Agent ${person ? "handoff" : "reply"}:\n\n${show(results.at(-1))}\n\nThe Company's agent answers structured requests. For a real conversation with it, select a model.`;
-    } else if (
-      provider === "demo" &&
-      tools.report_unsupported_task &&
-      /gift ?card|voucher|report|feedback|can'?t do/.test(lowered)
-    ) {
-      // The demo's way into feedback (§9.3): a fixed, identifier-free report.
-      const result = await tools.report_unsupported_task.execute({
-        task: "Pay with a gift card",
-        description:
-          "The User wanted to pay with a gift card they were given. None of the Company's APIs or its agent's requests apply a gift card.",
-      });
-      text = `Protocol demo (no LLM). Feedback report sent to the Company (§9.3):\n\n${show(result)}\n\nWith a model, Iris reports a task only after trying the Company's tools.`;
-    } else if (provider === "demo" && demoChangeKind(body.message, tools)) {
-      // Another kind of Company (orders, a bank, flights): the demo reads the
-      // account and asks for one change with exact arguments. The Company
-      // answers approval_required and holds it for the User.
-      if (!run.accountToken) {
+    } else if (provider === "demo" && (change || aside)) {
+      // A change the demo can prepare comes first, whatever else the message
+      // says: "for the quarterly report" in a payment is its memo, not
+      // feedback. Short of one, words for the Company's agent or for
+      // feedback decide; only then does the demo ask for what is missing.
+      const plan =
+        change && run.accountToken
+          ? await demoChange(body.message, tools, randomId)
+          : undefined;
+      if (plan && "call" in plan) {
+        // Another kind of Company (orders, a bank, flights): the demo read
+        // the account and asks for one change with exact arguments. The
+        // Company answers approval_required and holds it for the User.
+        try {
+          const result = await tools[plan.call]!.execute(plan.args);
+          text = `Protocol demo (no LLM). ${demoChangeReply(plan, result, show)}`;
+        } catch (error) {
+          // The demo chose the arguments; when the Company's description
+          // of the tool rejects them, nothing was sent. Say that, not
+          // "check the Company is running".
+          if (!(error instanceof InvalidToolArguments)) throw error;
+          text = `Protocol demo (no LLM). The demo prepared a request for ${plan.call} that this Company's description of the tool doesn't accept, so nothing was sent. Ask for it in other words or with other values, or select a model.`;
+        }
+      } else if (aside === "agent") {
+        // The demo's way into a conversation (§8): ask what the Company's
+        // agent handles, or ask for a person (which needs a conversation first).
+        const person = /talk to|speak to|a person|human|someone/.test(lowered);
+        const results: unknown[] = [];
+        if (!person || !run.conversation?.id)
+          results.push(
+            await tools.company_agent_send!.execute({
+              data: { request: "help" },
+            }),
+          );
+        if (person)
+          results.push(await tools.company_agent_handoff!.execute({}));
+        text = `Protocol demo (no LLM). Live Company Agent ${person ? "handoff" : "reply"}:\n\n${show(results.at(-1))}\n\nThe Company's agent answers structured requests. For a real conversation with it, select a model.`;
+      } else if (aside === "feedback") {
+        // The demo's way into feedback (§9.3): a fixed, identifier-free report.
+        const result = await tools.report_unsupported_task!.execute({
+          task: "Pay with a gift card",
+          description:
+            "The User wanted to pay with a gift card they were given. None of the Company's APIs or its agent's requests apply a gift card.",
+        });
+        text = `Protocol demo (no LLM). Feedback report sent to the Company (§9.3):\n\n${show(result)}\n\nWith a model, Iris reports a task only after trying the Company's tools.`;
+      } else if (!run.accountToken) {
         text =
           "Protocol demo (no LLM). Sign in first: the demo reads your account to prepare this change, and nothing changes until you approve it.";
       } else {
-        const plan = await demoChange(body.message, tools, randomId);
-        if (!plan || "say" in plan) {
-          text = `Protocol demo (no LLM). ${plan?.say ?? "The demo can't prepare that change here."}`;
-        } else {
-          try {
-            const result = await tools[plan.call]!.execute(plan.args);
-            text = `Protocol demo (no LLM). ${demoChangeReply(plan, result, show)}`;
-          } catch (error) {
-            // The demo chose the arguments; when the Company's description
-            // of the tool rejects them, nothing was sent. Say that, not
-            // "check the Company is running".
-            if (!(error instanceof InvalidToolArguments)) throw error;
-            text = `Protocol demo (no LLM). The demo prepared a request for ${plan.call} that this Company's description of the tool doesn't accept, so nothing was sent. Ask for it in other words or with other values, or select a model.`;
-          }
-        }
+        text = `Protocol demo (no LLM). ${plan?.say ?? "The demo can't prepare that change here."}`;
       }
     } else if (provider === "demo") {
       const message = lowered;

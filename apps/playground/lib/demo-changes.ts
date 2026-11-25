@@ -420,6 +420,9 @@ const overLimit = (tool: Tool | undefined, amount: number) => {
     : undefined;
 };
 
+/** What a payment is for, in the User's words: "… for November design work". */
+const MEMO = /\bfor\s+(.{1,100})$/i;
+
 /** Bank accounts: a transfer between two of them, or a payment to a saved recipient. */
 async function moneyChange(
   message: string,
@@ -470,7 +473,7 @@ async function moneyChange(
     if (over) return over;
     // What the payment is for; a memo of nothing but punctuation is none.
     const memo = (
-      message.match(/\bfor\s+(.{1,100})$/i)?.[1]?.replace(/[\s.!?]+$/, "") ||
+      message.match(MEMO)?.[1]?.replace(/[\s.!?]+$/, "") ||
       "Payment asked for in the demo"
     ).slice(0, limit(tools.request_payment, "memo", "maxLength") ?? 100);
     return {
@@ -691,5 +694,32 @@ export function demoChangeKind(message: string, tools: DemoTools) {
     )
   )
     return "trip" as const;
+  return undefined;
+}
+
+/**
+ * Whether the message is for the Company's agent or is feedback: the demo's
+ * two other ways in, each by its own words. In a payment with an amount,
+ * what it is for is the memo, in the User's words to the recipient: "for
+ * the quarterly report" or "for design support" asks for neither.
+ */
+export function demoAside(message: string, tools: DemoTools) {
+  const lowered = message.toLowerCase();
+  const said =
+    demoChangeKind(message, tools) === "money" && cents(message)
+      ? lowered.replace(MEMO, "")
+      : lowered;
+  if (
+    tools.company_agent_send &&
+    /customer service|support|company'?s agent|talk to|speak to|a person|human|someone/.test(
+      said,
+    )
+  )
+    return "agent" as const;
+  if (
+    tools.report_unsupported_task &&
+    /gift ?card|voucher|report|feedback|can'?t do/.test(said)
+  )
+    return "feedback" as const;
   return undefined;
 }

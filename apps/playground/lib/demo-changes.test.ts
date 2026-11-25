@@ -1,5 +1,6 @@
 import { expect, it, vi } from "vitest";
 import {
+  demoAside,
   demoChange,
   demoChangeKind,
   demoChangeReply,
@@ -528,4 +529,43 @@ it("leaves reading questions and unknown Companies to the other rules", async ()
       key,
     ),
   ).toBeUndefined();
+});
+
+it("reads words for the agent or for feedback outside a payment's memo only", async () => {
+  const company = (tools: DemoTools): DemoTools => ({
+    ...tools,
+    company_agent_send: tool({}),
+    report_unsupported_task: tool({}),
+  });
+  // What a payment is for is its memo, not a request for either.
+  for (const message of [
+    "Send Beacon Studio $125 for the quarterly report",
+    "Send Beacon Studio $125 for November design support",
+    "Pay Beacon Studio $40 for the gift card we owe someone",
+  ]) {
+    expect(demoAside(message, company(bank()))).toBeUndefined();
+    expect(await demoChange(message, company(bank()), key)).toMatchObject({
+      call: "request_payment",
+    });
+  }
+  // The demo's own ways in still work, at a bank too.
+  expect(demoAside("Pay with a gift card", company(bank()))).toBe("feedback");
+  expect(
+    demoAside("Pay for my order with a gift card", company(restaurant())),
+  ).toBe("feedback");
+  expect(demoAside("I want to talk to a person", company(bank()))).toBe(
+    "agent",
+  );
+  expect(
+    demoAside(
+      "Talk to someone about a transfer for my landlord",
+      company(bank()),
+    ),
+  ).toBe("agent");
+  // Outside a memo the words count, wherever they are.
+  expect(
+    demoAside("Transfer $5 to savings, then send feedback", company(bank())),
+  ).toBe("feedback");
+  // A Company with neither is asked for neither.
+  expect(demoAside("talk to support about a voucher", bank())).toBeUndefined();
 });
