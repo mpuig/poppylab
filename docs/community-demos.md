@@ -12,23 +12,34 @@ The [demos page](https://personalagentprotocol.org/docs/demos) now lists Cliffsi
 
 **Found and fixed:** Cliffside's 1.0 OpenAPI contract declares `Poppy-Version` on every operation as a header parameter, by reference to `#/components/parameters`. Iris's tool generator refused `$ref` parameters, so it skipped every operation. It now resolves local parameter references and leaves the protocol headers it sets itself out of the model's arguments.
 
-## 0.3 round (3 November 2026)
+## Next
+
+- Direct Conversations (§8.10), which the official validator expects; then run it again.
+- Mediated and Device Sign-In, so Iris can sign in at Cliffside and Print with Poppy.
+- Signed-in interop runs with the Poppy Demo Agent (its `client_id` is accepted by our Companies) and Cliffside.
+- The official validator's results are in [validator results](learn/validator.md); the community validator's are above.
+
+## Earlier rounds (0.3, historical)
+
+These describe implementations, ours included, as they were on 3 November 2026, under draft 0.3. Several have moved on since.
+
+### 0.3 round (3 November 2026)
 
 Reviewed: [personalagentprotocol.org/docs/demos](https://personalagentprotocol.org/docs/demos), Cliffside Retail, Poppy Demo Agent (`adewale/pda`), Print with Poppy (`spenciefy/print-with-poppy`) and Poppy on Cloudflare Workers (`irvinebroque/poppy-demo`). Nothing was signed in to or ordered.
 
-## Evidence
+### Evidence
 
 - The PDA validator reports `juniper.poppylab.dev`, `noodles.poppylab.dev` and `https://poppylab.dev/agent/client.json` **valid with 0 errors, 0 warnings and 0 info** (after adding `Cache-Control` to the OAuth/resource metadata, client metadata and JWKS).
 - PAP Sandbox stores publish `protocol_version: "0.3"` with Operations v1, but their APIs still ask for the 0.2 Session Token (`Authorization: DPoP <token>`, "4.3"). They stay incompatible; Poppy now explains a refused signed-out Session instead of asking to sign in again.
 
-## Done
+### Done
 
 1. **Protocol demo without a key** in the public playground (keyword rules call the Company's tools; proposals still need approval).
 2. **`Cache-Control`** on metadata.
 3. **Inspector:** a spec section on every discovery and API step, **Copy trace for an interop report** (no secrets), and a link to the independent validator (sends only the domain).
-4. **Spec pin and drift check** (`pnpm spec:drift`). It found the `poppy_dlg` change immediately; see `pap-03.md`.
+4. **Spec pin and drift check** (`pnpm spec:drift`). It found the `poppy_dlg` change immediately.
 
-## Playground against the other demos (3 November 2026, production, signed out, Protocol demo)
+### Playground against the other demos (3 November 2026, production, signed out, Protocol demo)
 
 | Company                                 | Result                                                                                                                                                                                                                                                                                                                                                                                                |
 | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -39,12 +50,3 @@ Reviewed: [personalagentprotocol.org/docs/demos](https://personalagentprotocol.o
 | PAP Sandbox                             | `poppy.json` says 0.3, the API still wants the 0.2 Session Token.                                                                                                                                                                                                                                                                                                                                     |
 
 Fixes from this round: the Protocol demo picks a tool that needs no arguments (or the one named in the message) instead of guessing arguments; protocol errors show the Company's status and code; signed-out sign-in challenges and refused Sessions get accurate messages; Juniper and Lantern accept both 0.3 delegation forms.
-
-## Next
-
-- Inspector for external agents at Juniper and Lantern (Cliffside's private link obtained with a client assertion).
-- Mediated and Device Sign-In (Cliffside, Print with Poppy).
-- Company conversations (§8), with handoff and Direct conversations.
-- A strict Juniper mode that records an agent's violations; later an adversarial Company.
-- Interop runs with PDA (its `client_id` is already accepted), Cliffside and the Print with Poppy sandbox (needs registration).
-- Listing on the community demos page (the user's decision).

@@ -1,6 +1,6 @@
 # Conversations with the Company's own agent (Poppy 1.0 §8)
 
-All three Companies offer a conversation endpoint next to their APIs, and Iris can talk to it. The design rule: **the only model is the Personal Agent's.** Each Company Agent is deterministic code. It takes structured requests in `data` and answers with data and a short fixed sentence. It never reads free text and never needs a model key, so a public Company can't be made to spend money, and its answers are predictable and testable.
+All four Companies offer a conversation endpoint next to their APIs, and Iris can talk to it. The design rule: **the only model is the Personal Agent's.** Each Company Agent is deterministic code. It takes structured requests in `data` and answers with data and a short fixed sentence. It never reads free text and never needs a model key, so a public Company can't be made to spend money, and its answers are predictable and testable.
 
 ## What a conversation adds over the API
 
@@ -29,7 +29,7 @@ Every `POST` has a JSON body with a request `id` chosen by the Personal Agent; a
 - **Authorization events (§8.11).** An account request without the scopes is still accepted. The reply is followed by `{"type":"authorization","error":"insufficient_scope","scope":"…"}`.
 - **Operations v3 in messages.** A proposal arrives in `extensions.operations.operation`, with its terms. Only a later message carrying `extensions.operations.approval` (with `approver`) performs it, at most once. A repeated approval adds no reply. Text never approves anything. Operations are keyed to the conversation and sent only to requests that declare the extension in `Poppy-Extensions`.
 - **Bounds.** 8 conversations per User (closed, then least recently used, go first), 40 messages and 64 KiB of events per conversation, 8 KiB of `data` per message.
-- **Not offered yet:** Direct Conversations (§8.10; a `parent_conversation_id` gets `invalid_request`) and streaming (§8.6; a stream request gets JSON, which the spec allows).
+- **Not offered yet:** Direct Conversations (§8.10; a bad parent gets `conversation_not_found` or `conversation_closed`, as the spec says, and a valid one `invalid_request`) and streaming (§8.6; a stream request gets JSON, which the spec allows).
 
 The phone numbers are fictional: 555-0100 to 555-0199 are reserved for fiction in North America.
 
