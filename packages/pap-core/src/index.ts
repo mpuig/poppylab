@@ -130,6 +130,140 @@ export const listsExtension = (
   version: string,
 ) => extensionEntries(document, name).some((e) => e.version === version);
 
+/**
+ * `poppylab.dev/fdx` version 1: a read-only, FDX-shaped API (not FDX
+ * conformant) next to the Company's own. Each URL is on the Company's own
+ * origin; `fdx_version` and `resources` are informational.
+ */
+export const FDX_EXTENSION = "poppylab.dev/fdx";
+export interface FdxExtensionEntry {
+  version: "1";
+  /** Absolute, without a trailing slash; resource paths go under it. */
+  base_url: string;
+  /** Absolute, without a trailing slash; `/{consentId}` goes under it. */
+  consent_endpoint: string;
+  fdx_version?: string;
+  resources?: string[];
+}
+/** The extensions, and the version of each, that this client uses (§3.3). */
+export const SUPPORTED_EXTENSIONS = {
+  operations: "3",
+  [FDX_EXTENSION]: "1",
+} as const;
+/** Name → the entry of the version this client uses, when listed and valid. */
+export interface CompanyExtensions {
+  /** Operations v3 defines no other fields (§2 of that extension). */
+  operations?: { version: "3" };
+  [FDX_EXTENSION]?: FdxExtensionEntry;
+}
+export type ExtensionCheck<T> =
+  { entry: T; reason?: undefined } | { entry?: undefined; reason: string };
+
+/**
+ * An extension URL is used only on the Company's own origin: HTTPS on
+ * `organization.domain`, or one of the given development-only local origins
+ * (§3: HTTPS everywhere, no redirects or other hosts for an extension
+ * endpoint). No credentials, query, fragment or encoded path.
+ */
+function extensionUrl(
+  value: unknown,
+  domain: string,
+  localOrigins: readonly string[],
+): string | undefined {
+  if (typeof value !== "string" || value.length > 2048) return undefined;
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return undefined;
+  }
+  if (
+    !(url.protocol === "https:" || localOrigins.includes(url.origin)) ||
+    url.host.toLowerCase() !== domain.toLowerCase() ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash ||
+    value.includes("?") ||
+    value.includes("#") ||
+    /[%\\]/.test(url.pathname)
+  )
+    return undefined;
+  return url.href.replace(/\/+$/, "");
+}
+
+/**
+ * The `poppylab.dev/fdx` v1 entry, validated (§3.3, §3). Undefined when the
+ * Company doesn't list version 1; a reason when it does but the entry can't be
+ * used, which then counts as not listed.
+ */
+export function fdxExtension(
+  document: Pick<PoppyDocument, "extensions" | "organization">,
+  /** Development-only plain-HTTP origins (the local example Companies). */
+  localOrigins: readonly string[] = [],
+): ExtensionCheck<FdxExtensionEntry> | undefined {
+  const raw = extensionEntries(document, FDX_EXTENSION).find(
+    (e) => e.version === "1",
+  );
+  if (!raw) return undefined;
+  const domain = document.organization.domain;
+  const fields = ["base_url", "consent_endpoint"] as const;
+  const urls: Partial<Record<(typeof fields)[number], string>> = {};
+  for (const field of fields) {
+    if (raw[field] === undefined) return { reason: `${field} is missing` };
+    const url = extensionUrl(raw[field], domain, localOrigins);
+    if (!url)
+      return {
+        reason: `${field} is not an HTTPS URL on ${domain.slice(0, 260)}`,
+      };
+    urls[field] = url;
+  }
+  const fdxVersion =
+    typeof raw.fdx_version === "string" &&
+    /^[0-9A-Za-z.]{1,16}$/.test(raw.fdx_version)
+      ? raw.fdx_version
+      : undefined;
+  const resources = Array.isArray(raw.resources)
+    ? raw.resources
+        .slice(0, 16)
+        .filter(
+          (r): r is string =>
+            typeof r === "string" && /^[a-z][a-z0-9_-]{0,63}$/.test(r),
+        )
+    : undefined;
+  return {
+    entry: {
+      version: "1",
+      base_url: urls.base_url!,
+      consent_endpoint: urls.consent_endpoint!,
+      ...(fdxVersion ? { fdx_version: fdxVersion } : {}),
+      ...(resources ? { resources } : {}),
+    },
+  };
+}
+
+/**
+ * §3.3: the supported extensions the document lists, in the version this
+ * client uses. Entries that fail validation are left out, with a reason.
+ */
+export function companyExtensions(
+  document: Pick<PoppyDocument, "extensions" | "organization">,
+  localOrigins: readonly string[] = [],
+): {
+  extensions: CompanyExtensions;
+  rejected: Array<{ name: string; version: string; reason: string }>;
+} {
+  const extensions: CompanyExtensions = {};
+  const rejected: Array<{ name: string; version: string; reason: string }> = [];
+  if (listsExtension(document, "operations", SUPPORTED_EXTENSIONS.operations))
+    extensions.operations = { version: "3" };
+  const fdx = fdxExtension(document, localOrigins);
+  if (fdx?.entry) extensions[FDX_EXTENSION] = fdx.entry;
+  else if (fdx)
+    rejected.push({ name: FDX_EXTENSION, version: "1", reason: fdx.reason });
+  return { extensions, rejected };
+}
+
 /** RFC 9728 protected resource metadata (fields this client uses). */
 export const protectedResourceMetadataSchema = z.object({
   resource: httpsUrl,
@@ -193,7 +327,14 @@ export type TraceStatus = "pending" | "active" | "passed" | "failed";
 
 export interface DiscoveryTraceStep {
   id:
-    "input" | "poppy" | "domain" | "resource" | "issuer" | "metadata" | "link";
+    | "input"
+    | "poppy"
+    | "domain"
+    | "extension"
+    | "resource"
+    | "issuer"
+    | "metadata"
+    | "link";
   label: string;
   detail: string;
   status: TraceStatus;
@@ -218,6 +359,12 @@ export interface CompanyProfile {
   tasksEndpoint?: string;
   /** Operations version 3 is listed (the only version this client uses). */
   operations: boolean;
+  /**
+   * §3.3: each supported extension the Company lists, as the validated entry
+   * of the version this client uses. An entry that fails validation is absent.
+   * Discovery always sets it; a profile stored before it existed has none.
+   */
+  extensions?: CompanyExtensions;
 }
 
 export type AlternativeReference =

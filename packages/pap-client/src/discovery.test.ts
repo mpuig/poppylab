@@ -98,6 +98,8 @@ describe("Poppy 1.0 discovery profile", () => {
       },
       tasksEndpoint: "https://company.example/poppy/tasks",
       operations: true,
+      // §3.3: only the supported version of a supported extension.
+      extensions: { operations: { version: "3" } },
     });
     expect(company.document.apis).toHaveLength(2);
   });
@@ -445,5 +447,82 @@ describe("ports and sign-in options (§3.1, §4.2)", () => {
     await expect(result).rejects.toThrow(
       "pushed_authorization_request_endpoint",
     );
+  });
+});
+
+describe("poppylab.dev/fdx in the profile (§3.3)", () => {
+  const fdx = {
+    version: "1",
+    fdx_version: "6.4",
+    base_url: "https://company.example/fdx/v6",
+    resources: ["customer", "accounts", "transactions"],
+    consent_endpoint: "https://company.example/fdx/v6/consents",
+  };
+  const withFdx = (entry: unknown) => ({
+    ...document,
+    extensions: { ...document.extensions, "poppylab.dev/fdx": [entry] },
+  });
+  it("keeps a valid v1 entry next to Operations, with a trace step", async () => {
+    const { result } = discover(
+      Response.json(withFdx(fdx)),
+      Response.json(resource),
+      Response.json(metadata),
+    );
+    const company = await result;
+    expect(company.profile.operations).toBe(true);
+    expect(company.profile.extensions).toEqual({
+      operations: { version: "3" },
+      "poppylab.dev/fdx": fdx,
+    });
+    expect(company.trace).toContainEqual({
+      id: "extension",
+      label: "Extension poppylab.dev/fdx v1",
+      detail: "https://company.example/fdx/v6",
+      status: "passed",
+    });
+  });
+  it("treats an entry on another host as not listed, and says why", async () => {
+    const { result } = discover(
+      Response.json(
+        withFdx({ ...fdx, base_url: "https://evil.example/fdx/v6" }),
+      ),
+      Response.json(resource),
+      Response.json(metadata),
+    );
+    const company = await result;
+    expect(company.profile.extensions).toEqual({
+      operations: { version: "3" },
+    });
+    expect(company.trace).toContainEqual({
+      id: "extension",
+      label: "Extension poppylab.dev/fdx v1 ignored",
+      detail: "base_url is not an HTTPS URL on company.example",
+      status: "failed",
+    });
+  });
+  it("accepts plain HTTP only for a configured local origin", async () => {
+    const local = "http://harbor.localhost:4300";
+    const doc = {
+      ...withFdx({
+        ...fdx,
+        base_url: `${local}/fdx/v6`,
+        consent_endpoint: `${local}/fdx/v6/consents`,
+      }),
+      organization: { name: "Harborline", domain: "harbor.localhost:4300" },
+      auth: undefined,
+    };
+    const run = (allowedPrivateOrigins: string[]) =>
+      discoverCompany(local, {
+        fetchImpl: fetcher(
+          Response.json(doc),
+          new Response(null, { status: 404 }),
+        ),
+        allowedPrivateOrigins,
+      });
+    expect(
+      (await run([local])).profile.extensions?.["poppylab.dev/fdx"],
+    ).toMatchObject({ base_url: `${local}/fdx/v6` });
+    // Without the exception the port alone stops discovery.
+    await expect(run([])).rejects.toThrow();
   });
 });
