@@ -201,7 +201,12 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
       for (const [k, t] of Object.entries(state.tokens))
         if (t.grant === revoked && t.client === id) delete state.tokens[k];
       return c.body(null, 200, { "Cache-Control": "no-store" });
-    } catch {
+    } catch (e) {
+      // Answered as at the token endpoint, so the agent can retry with it.
+      if (isChallenge(e))
+        return c.json({ error: "use_dpop_nonce" }, 400, {
+          "DPoP-Nonce": e.nonce,
+        });
       return c.json({ error: "invalid_client" }, 401);
     }
   });

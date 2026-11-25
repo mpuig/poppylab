@@ -112,3 +112,31 @@ it("revokes without a DPoP proof", async () => {
   });
   expect(revoked.status).toBe(200);
 });
+
+it("challenges a revocation's DPoP proof as the token endpoint does, so the same request can be retried", async () => {
+  const x = await setup({ dpopNonces });
+  const dpop = await createIdentity();
+  const body = {
+    token: "unknown-refresh-token",
+    ...(await x.credentials()),
+  };
+  const revoke = async (nonce?: string) =>
+    x.form("/oauth/revoke", body, {
+      DPoP: await proof(
+        dpop.privateKey,
+        `${origin}/oauth/revoke`,
+        "POST",
+        undefined,
+        nonce,
+      ),
+    });
+  const challenge = await revoke();
+  expect(challenge.status).toBe(400);
+  expect(await error(challenge)).toBe("use_dpop_nonce");
+  // The same client assertion still verifies: the challenge used nothing.
+  expect((await revoke(challenge.headers.get("dpop-nonce")!)).status).toBe(200);
+  // Anything else is refused as before: that assertion is used now.
+  const replayed = await x.form("/oauth/revoke", body);
+  expect(replayed.status).toBe(401);
+  expect(await error(replayed)).toBe("invalid_client");
+});
