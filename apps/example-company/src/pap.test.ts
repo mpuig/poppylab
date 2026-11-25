@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { expect, it, vi } from "vitest";
 import {
   createIdentity,
@@ -152,6 +153,30 @@ it("publishes 1.0 OAuth metadata and no longer accepts the JWT-bearer Session gr
       },
     });
     expect(legacy.json()).toEqual({ error: "unsupported_grant_type" });
+  } finally {
+    await app.close();
+  }
+});
+
+it("gives every product a photo URL on its own origin, and the photo exists", async () => {
+  const { app, header } = await setup();
+  try {
+    const response = await app.inject({
+      url: "/api/products",
+      headers: { "poppy-session": await header(newSessionId()) },
+    });
+    const { products } = response.json() as {
+      products: Array<{ id: string; image: string }>;
+    };
+    expect(products.length).toBeGreaterThan(0);
+    for (const product of products) {
+      const url = new URL(product.image);
+      expect(url.pathname).toBe(`/img/${product.id}.webp`);
+      expect(url.search).toBe("");
+      expect(
+        existsSync(new URL(`../public${url.pathname}`, import.meta.url)),
+      ).toBe(true);
+    }
   } finally {
     await app.close();
   }

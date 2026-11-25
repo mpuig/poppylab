@@ -160,7 +160,8 @@ export const noodlePaths = {
   "/api/menu": {
     get: {
       operationId: "menu",
-      summary: "Read the fictional menu with prices in USD cents. Public.",
+      summary:
+        "Read the fictional menu with prices in USD cents and a photo URL (image) for each dish. Public.",
       "x-poppy-scopes": [],
       responses: { "200": { description: "Menu" } },
     },
@@ -287,7 +288,10 @@ function mount(
   app.get("/api/menu", (c) =>
     c.json({
       currency: "USD",
-      dishes: menu,
+      dishes: menu.map((d) => ({
+        ...d,
+        image: `${ctx.origin}/img/${d.id}.webp`,
+      })),
       delivery_cents: DELIVERY_CENTS,
       note: "Fictional menu.",
     }),

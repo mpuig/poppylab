@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { afterEach, expect, it, vi } from "vitest";
 import { createIdentity } from "@poppy-lab/pap-client/core";
 import {
@@ -35,6 +36,21 @@ it("publishes its own issuer, scopes and an Operations v2 contract", async () =>
   ).toHaveProperty("403");
   // Juniper's routes are not mounted on this Company.
   expect((await x.call("", "GET", "/api/products")).statusCode).toBe(404);
+});
+
+it("gives every dish a photo URL on its own origin, and the photo exists", async () => {
+  const x = await setup();
+  const { dishes } = (await x.call("", "GET", "/api/menu")).json() as {
+    dishes: Array<{ id: string; image: string }>;
+  };
+  for (const dish of dishes) {
+    const url = new URL(dish.image);
+    expect(url.pathname).toBe(`/img/${dish.id}.webp`);
+    expect(url.search).toBe("");
+    expect(
+      existsSync(new URL(`../public${url.pathname}`, import.meta.url)),
+    ).toBe(true);
+  }
 });
 
 it("serves the menu signed out and challenges for orders:read", async () => {

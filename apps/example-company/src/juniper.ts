@@ -56,7 +56,8 @@ const paths = {
   "/api/products": {
     get: {
       operationId: "list_products",
-      summary: "Browse products, prices in cents, and current stock",
+      summary:
+        "Browse products, prices in cents, current stock, and a photo URL (image) for each",
       responses: { "200": { description: "Product catalogue" } },
     },
   },
@@ -222,7 +223,13 @@ export function juniperCompany(options: {
         options.portal,
         ctx.feedback,
       );
-      r.get("/api/products", async () => ({ currency: "USD", products }));
+      r.get("/api/products", async () => ({
+        currency: "USD",
+        products: products.map((p) => ({
+          ...p,
+          image: `${ctx.origin}/img/${p.id}.webp`,
+        })),
+      }));
       r.get("/api/delivery", async () => delivery);
       r.get("/api/policies", async () => ({
         ...policies,
