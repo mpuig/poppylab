@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { memoryStore, SHARED_TENANT } from "@poppy-lab/pap-company";
 import { scopes } from "./scopes.ts";
 import { inject, origin, setup } from "./test-harness.ts";
 
@@ -538,6 +539,117 @@ describe("Harborline Bank", () => {
         { id: "acc_HLB_A100", balance_cents: 1154500 },
         { id: "acc_HLB_A200", balance_cents: 4350000 },
       ]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps nothing of its own for an idempotency key, whether or not the gateway takes the request", async () => {
+    const store = memoryStore();
+    const { sign, call } = await setup({ store });
+    const token = await sign("elena", all);
+    const budget = (n: number) =>
+      call(token.access_token, "POST", "/api/account/budgets", {
+        name: `Harbor trips ${n}`,
+        category: "travel",
+        limit_cents: 90000,
+        month: "2026-12",
+        idempotency_key: `budget-fresh-${n}`,
+      });
+    expect((await budget(0)).statusCode).toBe(403);
+    const tenant = store.value.tenants[SHARED_TENANT]!;
+    const kept = () => JSON.stringify(tenant.business);
+    const before = kept();
+    // Fill the gateway's own cap, so it refuses every further key.
+    for (let n = 0; Object.keys(tenant.operations).length < 2000; n++)
+      tenant.operations[`op_filler_${n}`] = {
+        client: "filler",
+        user: "filler",
+        account: "filler",
+        key: `filler:${n}`,
+        revisions: [
+          {
+            revision: "filler",
+            summary: "",
+            terms: {},
+            expires_at: new Date(Date.now() + 10 * 60000).toISOString(),
+          },
+        ],
+      };
+    for (let n = 1; n <= 5; n++) {
+      const refused = await budget(n);
+      expect(refused.statusCode).toBe(429);
+      expect(refused.json().error).toBe("too_many_operations");
+    }
+    expect(kept()).toBe(before);
+    expect(Object.keys(tenant.operations)).toHaveLength(2000);
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      // Keys the gateway takes are held in its operations and nowhere else.
+      vi.setSystemTime(Date.now() + 11 * 60000);
+      for (let n = 6; n <= 10; n++)
+        expect((await budget(n)).statusCode).toBe(403);
+      expect(Object.keys(tenant.operations)).toHaveLength(5);
+      expect(kept()).toBe(before);
+      // The operations expire, and nothing of their keys is left behind.
+      vi.setSystemTime(Date.now() + 11 * 60000);
+      expect((await budget(11)).statusCode).toBe(403);
+      expect(Object.keys(tenant.operations)).toHaveLength(1);
+      expect(kept()).toBe(before);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("frees an idempotency key when its operation expires unapproved, and keeps one that was performed", async () => {
+    const { sign, call } = await setup();
+    const token = await sign("elena", all);
+    const post = (
+      payload: Record<string, unknown>,
+      approval?: ReturnType<typeof operation>,
+    ) =>
+      call(
+        token.access_token,
+        "POST",
+        "/api/account/payments",
+        payload,
+        approval,
+      );
+    const balance = async () =>
+      (await call(token.access_token, "GET", "/api/account/accounts")).json()
+        .accounts[0].balance_cents;
+    const payment = {
+      source_account_id: "acc_HLB_A100",
+      recipient_id: "rcp_HLB_A501",
+      amount_cents: 30000,
+      memo: "Logo revisions",
+      idempotency_key: "payment-expire-001",
+    };
+    const other = { ...payment, amount_cents: 31000 };
+    const first = operation(await post(payment));
+    // While the operation can be approved, its key stands for that request.
+    expect((await post(other)).json().error).toBe("idempotency_conflict");
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      // Nobody approved it: nothing was done under the key, so it is free.
+      vi.setSystemTime(Date.now() + 11 * 60000);
+      const proposed = await post(other);
+      expect(proposed.statusCode).toBe(403);
+      const second = operation(proposed);
+      expect(second.terms.amount_cents).toBe(31000);
+      // Now the key stands for the second request, and only for it.
+      expect((await post(payment)).json().error).toBe("idempotency_conflict");
+      expect((await post(payment, first)).json().error).toBe(
+        "idempotency_conflict",
+      );
+      expect((await post(other, second)).statusCode).toBe(200);
+      expect(await balance()).toBe(1253500);
+      // Performed: the payment answers for the key after the gateway forgets.
+      vi.setSystemTime(Date.now() + 11 * 60000);
+      const conflict = await post(payment);
+      expect(conflict.statusCode).toBe(409);
+      expect(conflict.json().error).toBe("idempotency_conflict");
+      expect(await balance()).toBe(1253500);
     } finally {
       vi.useRealTimers();
     }

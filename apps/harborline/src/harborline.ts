@@ -82,10 +82,8 @@ export type CustomerState = {
 };
 type State = {
   customers?: Record<string, CustomerState>;
-  idempotency?: Record<
-    string,
-    { digest: string; terms?: Record<string, unknown> }
-  >;
+  /** What older versions kept for every key ever sent; no longer used. */
+  idempotency?: unknown;
 };
 
 const object = (value: unknown): value is Record<string, unknown> =>
@@ -116,8 +114,11 @@ const cloneCustomer = (seed: CustomerSeed): CustomerState => ({
   payments: [],
   transfers: [],
 });
-const digest = (value: unknown) =>
-  createHash("sha256").update(JSON.stringify(value)).digest("base64url");
+/** Whether a stored record or an operation's terms carry this request. */
+const sameRequest = (
+  made: Record<string, unknown>,
+  request: Record<string, unknown>,
+) => Object.entries(request).every(([name, value]) => made[name] === value);
 const generatedId = (prefix: string, key: string) =>
   `${prefix}_${createHash("sha256").update(key).digest("base64url").slice(0, 14)}`;
 const accountView = (account: Account) => ({
@@ -460,25 +461,38 @@ function mount(
 ) {
   const state = ctx.state as State;
   const customerStates = (state.customers ??= {});
-  const reservations = (state.idempotency ??= {});
+  // Keys are no longer kept here (see reservedForAnother): shed the old ones.
+  delete state.idempotency;
   const customerFor = (id: string) => {
     const seed = bankPersona(id) ?? customers[0]!;
     return (customerStates[id] ??= cloneCustomer(seed));
   };
   const customerOf = (session: Session) =>
     customerFor(session.account ?? "elena");
-  const reserve = (
+  /**
+   * An idempotency key stands for one request, and the gateway's operation
+   * for the key is the reservation: while it can still be approved, a
+   * different request under the key is refused. Nothing is kept here, so a
+   * key costs what its operation costs and goes when the gateway forgets it.
+   * A forgotten operation that nobody approved did nothing, so its key is
+   * free and a different request under it is a new proposal. A key that was
+   * performed is answered by the payment, transfer or budget it made.
+   */
+  const reservedForAnother = (
     customer: CustomerState,
-    kind: string,
-    key: string,
-    value: unknown,
-  ) => {
-    const id = `${customer.id}:${kind}:${key}`;
-    const next = digest(value);
-    const found = reservations[id];
-    if (found && found.digest !== next) return false;
-    return (reservations[id] ??= { digest: next });
-  };
+    action: string,
+    request: Record<string, unknown>,
+  ) =>
+    Object.values(ctx.operations()).some(
+      (record) =>
+        record.account === customer.id &&
+        record.key === action &&
+        record.revisions.some(
+          (revision) =>
+            Date.parse(revision.expires_at) > Date.now() &&
+            !sameRequest(revision.terms, request),
+        ),
+    );
   const findAccount = (customer: CustomerState, id: string) =>
     customer.accounts.find((item) => item.id === id);
   const addTransaction = (
@@ -603,9 +617,14 @@ function mount(
       amount_cents: amount,
       memo,
     };
-    if (!reserve(customer, "payment", key, request))
-      return c.json({ error: "idempotency_conflict" }, 409);
     const id = generatedId("pay_HLB", `${customer.id}:${key}`);
+    const paid = customer.payments.find((item) => item.id === id);
+    if (
+      paid
+        ? !sameRequest(paid, request)
+        : reservedForAnother(customer, `payment:${key}`, request)
+    )
+      return c.json({ error: "idempotency_conflict" }, 409);
     // The key reserves the request, not a balance: the terms describe the
     // account as it is now, so a reused key can still be approved.
     const terms = {
@@ -717,9 +736,14 @@ function mount(
       destination_account_id: destination.id,
       amount_cents: amount,
     };
-    if (!reserve(customer, "transfer", key, request))
-      return c.json({ error: "idempotency_conflict" }, 409);
     const id = generatedId("trf_HLB", `${customer.id}:${key}`);
+    const made = customer.transfers.find((item) => item.id === id);
+    if (
+      made
+        ? !sameRequest(made, request)
+        : reservedForAnother(customer, `transfer:${key}`, request)
+    )
+      return c.json({ error: "idempotency_conflict" }, 409);
     // As for payments: the terms describe the accounts as they are now.
     const terms = {
       ...request,
@@ -947,17 +971,27 @@ function mount(
       limit_cents: limit,
       month,
     };
-    const reservation = reserve(customer, "budget", key, request);
-    if (!reservation) return c.json({ error: "idempotency_conflict" }, 409);
     const id = generatedId("bdg_HLB", `${customer.id}:${key}`);
-    const terms = (reservation.terms ??= {
+    // A budget changed since it was created no longer shows the name and
+    // limit it was created with, so only what can't change is compared then.
+    const created = customer.budgets.find((budget) => budget.id === id);
+    if (
+      created
+        ? !sameRequest(
+            created,
+            created.version > 1 ? { category: nextCategory, month } : request,
+          )
+        : reservedForAnother(customer, `budget-create:${key}`, request)
+    )
+      return c.json({ error: "idempotency_conflict" }, 409);
+    const terms = {
       budget_id: id,
       ...request,
       spent_cents: 0,
       currency: "USD",
       idempotency_key: key,
       notice: FICTION_NOTICE,
-    });
+    };
     return ctx.gate(c, {
       key: `budget-create:${key}`,
       terms,
