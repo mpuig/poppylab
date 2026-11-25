@@ -20,6 +20,7 @@ export const FDX_SCOPES = {
   accountBasic: "fdx:ACCOUNT_BASIC",
   accountDetailed: "fdx:ACCOUNT_DETAILED",
   transactions: "fdx:TRANSACTIONS",
+  statements: "fdx:STATEMENTS",
   customerContact: "fdx:CUSTOMER_CONTACT",
 } as const;
 
@@ -30,12 +31,27 @@ export const FDX_LIMITS = {
   maxPages: 4,
   /** Transactions returned by one tool call. */
   maxTransactions: 100,
+  /** Statements returned by one tool call, read like transactions. */
+  maxStatements: 50,
+  /** The largest statement document accepted, in bytes. */
+  statementBytes: 512_000,
   accounts: 50,
   text: 200,
 } as const;
 
 /** A Company response: status and the parsed JSON body (or null). */
 export type FdxResponse = { status: number; body: unknown };
+/**
+ * A successful response read as a document (`FdxRequestOptions`): its
+ * bytes, unparsed, and its content type. Errors still come as FdxResponse.
+ */
+export type FdxDocument = {
+  status: number;
+  contentType: string;
+  bytes: Uint8Array;
+};
+/** Asks for a document instead of JSON: the Accept header and a size cap. */
+export type FdxRequestOptions = { accept: "application/pdf"; maxBytes: number };
 /**
  * The caller's own result, such as "sign in first", returned to the model as
  * it is. Never Company content: the caller makes it without a request.
@@ -44,7 +60,8 @@ export type FdxOutcome = { outcome: Record<string, unknown> };
 export type FdxRequest = (
   url: string,
   scopes: string[],
-) => Promise<FdxResponse | FdxOutcome>;
+  options?: FdxRequestOptions,
+) => Promise<FdxResponse | FdxDocument | FdxOutcome>;
 
 type Json = Record<string, unknown>;
 const obj = (v: unknown): v is Json =>
@@ -57,8 +74,9 @@ const obj = (v: unknown): v is Json =>
  * stays refused, so `.` and `..` never reach a path.
  */
 const ID = /^[A-Za-z0-9_-][\x21-\x7e]{0,127}$/;
-const validId = (v: unknown): v is string =>
+export const validFdxId = (v: unknown): v is string =>
   typeof v === "string" && ID.test(v) && !/[/\\%?#]/.test(v);
+const validId = validFdxId;
 
 const text = (v: unknown, max: number = FDX_LIMITS.text) => {
   if (typeof v !== "string") return undefined;
@@ -124,6 +142,37 @@ function transaction(v: unknown): Json | undefined {
     ["debitCreditMemo", memo ? v.debitCreditMemo : undefined],
     ["status", code(v.status)],
     ["category", text(v.category, 64)],
+  ]);
+}
+
+/** A calendar day, `YYYY-MM-DD`, that exists. */
+const calendarDay = (v: unknown) =>
+  typeof v === "string" &&
+  /^\d{4}-\d{2}-\d{2}$/.test(v) &&
+  Date.parse(`${v}T00:00:00.000Z`) ===
+    Date.UTC(
+      Number(v.slice(0, 4)),
+      Number(v.slice(5, 7)) - 1,
+      Number(v.slice(8)),
+    )
+    ? v
+    : undefined;
+
+/**
+ * A statement list item. `startDate` and `endDate` are Harborline's own
+ * fields, kept when present; one for another account is dropped.
+ */
+function statement(v: unknown, accountId: string): Json | undefined {
+  if (!obj(v) || !validId(v.statementId)) return undefined;
+  if (v.accountId !== undefined && v.accountId !== accountId) return undefined;
+  return defined([
+    ["statementId", v.statementId],
+    ["accountId", accountId],
+    ["statementDate", calendarDay(v.statementDate)],
+    ["description", text(v.description)],
+    ["status", code(v.status)],
+    ["startDate", calendarDay(v.startDate)],
+    ["endDate", calendarDay(v.endDate)],
   ]);
 }
 
@@ -226,15 +275,119 @@ function failure(status: number, body: unknown) {
 }
 const invalid = { error: "invalid_response" } as const;
 
-const isOutcome = (r: FdxResponse | FdxOutcome): r is FdxOutcome =>
-  "outcome" in r;
-const ok = (r: FdxResponse) => r.status >= 200 && r.status < 300;
+const isOutcome = (
+  r: FdxResponse | FdxDocument | FdxOutcome,
+): r is FdxOutcome => "outcome" in r;
+const isDocument = (r: FdxResponse | FdxDocument): r is FdxDocument =>
+  "bytes" in r;
+const ok = (r: { status: number }) => r.status >= 200 && r.status < 300;
+
+/** Lowercase hex SHA-256, with Web Crypto (Node and Workers alike). */
+async function sha256(bytes: Uint8Array) {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    bytes as Uint8Array<ArrayBuffer>,
+  );
+  return [...new Uint8Array(digest)]
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+const PDF_MAGIC = [0x25, 0x50, 0x44, 0x46, 0x2d]; // "%PDF-"
 
 function checkedBase(value: string, label: string) {
   const url = new URL(value);
   if (url.username || url.password || url.search || url.hash)
     throw Error(`Unsafe ${label}`);
   return url.href.replace(/\/+$/, "");
+}
+
+type FdxOptions = {
+  /** From `fdxExtension` in pap-core, already checked against the domain. */
+  entry: FdxExtensionEntry;
+  request: FdxRequest;
+  trace: (line: string) => void;
+};
+
+/**
+ * The entry's two URLs, checked, and one GET under either: fixed segments
+ * and validated ids only, percent-encoded, never leaving the prefix.
+ */
+function fdxClient({ entry, request, trace }: FdxOptions) {
+  const base = checkedBase(entry.base_url, "base_url");
+  const consents = checkedBase(entry.consent_endpoint, "consent_endpoint");
+  if (new URL(base).origin !== new URL(consents).origin)
+    throw Error("FDX URLs must share one origin");
+  const send = async (
+    prefix: string,
+    segments: string[],
+    query: Record<string, string>,
+    scopes: string[],
+    options?: FdxRequestOptions,
+  ) => {
+    const path = segments.map((s) => `/${encodeURIComponent(s)}`).join("");
+    const target = new URL(prefix + path);
+    if (
+      target.origin !== new URL(prefix).origin ||
+      !target.pathname.startsWith(new URL(prefix).pathname)
+    )
+      throw Error("Unsafe FDX target");
+    for (const [k, v] of Object.entries(query)) target.searchParams.set(k, v);
+    trace(
+      `GET ${target.pathname}${target.search} · FDX-shaped · ${scopes.join(" ") || "no data cluster"}${options ? ` · ${options.accept}` : ""}`,
+    );
+    return options
+      ? request(target.toString(), scopes, options)
+      : request(target.toString(), scopes);
+  };
+  /** A JSON GET: a document where JSON was expected has no body. */
+  const get = async (
+    prefix: string,
+    segments: string[],
+    query: Record<string, string>,
+    scopes: string[],
+  ): Promise<FdxResponse | FdxOutcome> => {
+    const r = await send(prefix, segments, query, scopes);
+    return "bytes" in r ? { status: r.status, body: undefined } : r;
+  };
+  return { base, consents, get, send };
+}
+
+/**
+ * One statement document, checked: a 2xx `application/pdf` body that
+ * starts with `%PDF-` and is at most `FDX_LIMITS.statementBytes`. Either
+ * the bytes with their SHA-256, or an error answer for the model. Never
+ * parsed or shown to a model: the caller decides who gets the bytes.
+ */
+export async function fdxStatementPdf(
+  options: FdxOptions,
+  accountId: string,
+  statementId: string,
+): Promise<
+  | { pdf: Uint8Array; sha256: string }
+  | { pdf?: undefined; [k: string]: unknown }
+> {
+  if (!validId(accountId) || !validId(statementId))
+    throw new InvalidToolArguments();
+  const { base, send } = fdxClient(options);
+  const r = await send(
+    base,
+    ["accounts", accountId, "statements", statementId],
+    {},
+    [FDX_SCOPES.statements],
+    { accept: "application/pdf", maxBytes: FDX_LIMITS.statementBytes },
+  );
+  if (isOutcome(r)) return r.outcome;
+  if (!ok(r)) return failure(r.status, "body" in r ? r.body : undefined);
+  if (!isDocument(r)) return invalid;
+  const type = r.contentType.split(";")[0]!.trim().toLowerCase();
+  if (
+    type !== "application/pdf" ||
+    r.bytes.byteLength > FDX_LIMITS.statementBytes ||
+    r.bytes.byteLength < 16 ||
+    PDF_MAGIC.some((b, i) => r.bytes[i] !== b)
+  )
+    return invalid;
+  return { pdf: r.bytes, sha256: await sha256(r.bytes) };
 }
 
 export function fdxTools({
@@ -254,31 +407,7 @@ export function fdxTools({
    */
   consentId?: () => string | undefined;
 }): Record<string, ApiTool> {
-  const base = checkedBase(entry.base_url, "base_url");
-  const consents = checkedBase(entry.consent_endpoint, "consent_endpoint");
-  if (new URL(base).origin !== new URL(consents).origin)
-    throw Error("FDX URLs must share one origin");
-
-  /** One GET under a fixed prefix; segments are validated ids. */
-  const get = async (
-    prefix: string,
-    segments: string[],
-    query: Record<string, string>,
-    scopes: string[],
-  ) => {
-    const path = segments.map((s) => `/${encodeURIComponent(s)}`).join("");
-    const target = new URL(prefix + path);
-    if (
-      target.origin !== new URL(prefix).origin ||
-      !target.pathname.startsWith(new URL(prefix).pathname)
-    )
-      throw Error("Unsafe FDX target");
-    for (const [k, v] of Object.entries(query)) target.searchParams.set(k, v);
-    trace(
-      `GET ${target.pathname}${target.search} · FDX-shaped · ${scopes.join(" ") || "no data cluster"}`,
-    );
-    return request(target.toString(), scopes);
-  };
+  const { base, consents, get } = fdxClient({ entry, request, trace });
 
   const tool = (
     description: string,
@@ -377,64 +506,74 @@ export function fdxTools({
       },
     },
     ["accountId"],
+    async (input) =>
+      paged(input, "transactions", FDX_SCOPES.transactions, transaction, {
+        items: "transactions",
+        id: "transactionId",
+        max: FDX_LIMITS.maxTransactions,
+      }),
+    datesInOrder,
+  );
+  tools.fdx_list_statements = tool(
+    `List an account's monthly statements in the order the bank returns them, at most ${FDX_LIMITS.maxStatements}. The dates select statement dates. ${note}`,
+    {
+      accountId: accountIdInput,
+      startTime: {
+        type: "string",
+        format: "date",
+        description: "First statement date to include, YYYY-MM-DD.",
+      },
+      endTime: {
+        type: "string",
+        format: "date",
+        description: "Last statement date to include, YYYY-MM-DD.",
+      },
+    },
+    ["accountId"],
+    async (input) =>
+      paged(
+        input,
+        "statements",
+        FDX_SCOPES.statements,
+        (v) => statement(v, input.accountId as string),
+        {
+          items: "statements",
+          id: "statementId",
+          max: FDX_LIMITS.maxStatements,
+        },
+      ),
+    datesInOrder,
+  );
+  tools.fdx_get_statement = tool(
+    `Check that one statement's PDF is available, and get its size and SHA-256. The PDF's contents aren't shown to you: for what's in it, use fdx_list_transactions with the statement's dates. ${note}`,
+    {
+      accountId: accountIdInput,
+      statementId: {
+        type: "string",
+        minLength: 1,
+        maxLength: 128,
+        description: "A statementId from fdx_list_statements.",
+      },
+    },
+    ["accountId", "statementId"],
     async (input) => {
-      const id = input.accountId as string;
-      const dates: Record<string, string> = {};
-      if (typeof input.startTime === "string")
-        dates.startTime = input.startTime;
-      if (typeof input.endTime === "string") dates.endTime = input.endTime;
-      const transactions: Json[] = [];
-      const seen = new Set<string>();
-      const used = new Set<string>();
-      let offset: string | undefined;
-      let notes: Json = {};
-      let total: number | undefined;
-      for (let page = 0; page < FDX_LIMITS.maxPages; page++) {
-        const r = await get(
-          base,
-          ["accounts", id, "transactions"],
-          {
-            ...dates,
-            ...(offset === undefined ? {} : { offset }),
-            limit: String(FDX_LIMITS.pageSize),
-          },
-          [FDX_SCOPES.transactions],
-        );
-        if (isOutcome(r)) return r.outcome;
-        if (!ok(r)) return failure(r.status, r.body);
-        if (!obj(r.body) || !Array.isArray(r.body.transactions)) return invalid;
-        if (page === 0) {
-          notes = notice(r.body);
-          total = totalElements(r.body);
-        }
-        for (const t of r.body.transactions.slice(0, FDX_LIMITS.pageSize)) {
-          const kept = transaction(t);
-          if (!kept || seen.has(kept.transactionId as string)) continue;
-          seen.add(kept.transactionId as string);
-          transactions.push(kept);
-        }
-        if (offset !== undefined) used.add(offset);
-        offset = nextOffset(r.body, used);
-        if (offset === undefined) break;
-        if (transactions.length >= FDX_LIMITS.maxTransactions) break;
-      }
+      const accountId = input.accountId as string,
+        statementId = input.statementId as string;
+      const r = await fdxStatementPdf(
+        { entry, request, trace },
+        accountId,
+        statementId,
+      );
+      if (!r.pdf) return r;
       return {
-        accountId: id,
-        transactions: transactions.slice(0, FDX_LIMITS.maxTransactions),
-        truncated:
-          offset !== undefined ||
-          transactions.length > FDX_LIMITS.maxTransactions,
-        ...(total === undefined ? {} : { totalElements: total }),
-        ...notes,
+        statementId,
+        accountId,
+        contentType: "application/pdf",
+        bytes: r.pdf.byteLength,
+        sha256: r.sha256,
       };
     },
-    (input) =>
-      validId(input.accountId) &&
-      !(
-        typeof input.startTime === "string" &&
-        typeof input.endTime === "string" &&
-        input.startTime > input.endTime
-      ),
+    (input) => validId(input.accountId) && validId(input.statementId),
   );
   tools.fdx_get_customer = tool(
     `Get the signed-in User's name and email at this bank. ${note}`,
@@ -488,7 +627,77 @@ export function fdxTools({
     (input) => input.consentId === undefined || validId(input.consentId),
   );
   return tools;
+
+  /**
+   * Reads pages of `{ [items]: [...], page }` under an account, following
+   * `page.nextOffset` within `FDX_LIMITS.maxPages` and `max` items, and
+   * keeping each item once, reduced by `keep`.
+   */
+  async function paged(
+    input: Json,
+    resource: "transactions" | "statements",
+    scope: string,
+    keep: (v: unknown) => Json | undefined,
+    { items, id, max }: { items: string; id: string; max: number },
+  ) {
+    const accountId = input.accountId as string;
+    const dates: Record<string, string> = {};
+    if (typeof input.startTime === "string") dates.startTime = input.startTime;
+    if (typeof input.endTime === "string") dates.endTime = input.endTime;
+    const kept: Json[] = [];
+    const seen = new Set<string>();
+    const used = new Set<string>();
+    let offset: string | undefined;
+    let notes: Json = {};
+    let total: number | undefined;
+    for (let page = 0; page < FDX_LIMITS.maxPages; page++) {
+      const r = await get(
+        base,
+        ["accounts", accountId, resource],
+        {
+          ...dates,
+          ...(offset === undefined ? {} : { offset }),
+          limit: String(FDX_LIMITS.pageSize),
+        },
+        [scope],
+      );
+      if (isOutcome(r)) return r.outcome;
+      if (!ok(r)) return failure(r.status, r.body);
+      const list = obj(r.body) ? r.body[items] : undefined;
+      if (!obj(r.body) || !Array.isArray(list)) return invalid;
+      if (page === 0) {
+        notes = notice(r.body);
+        total = totalElements(r.body);
+      }
+      for (const item of list.slice(0, FDX_LIMITS.pageSize)) {
+        const one = keep(item);
+        if (!one || seen.has(one[id] as string)) continue;
+        seen.add(one[id] as string);
+        kept.push(one);
+      }
+      if (offset !== undefined) used.add(offset);
+      offset = nextOffset(r.body, used);
+      if (offset === undefined) break;
+      if (kept.length >= max) break;
+    }
+    return {
+      accountId,
+      [items]: kept.slice(0, max),
+      truncated: offset !== undefined || kept.length > max,
+      ...(total === undefined ? {} : { totalElements: total }),
+      ...notes,
+    };
+  }
 }
+
+/** A start date no later than the end date, when both are given. */
+const datesInOrder = (input: Json) =>
+  validId(input.accountId) &&
+  !(
+    typeof input.startTime === "string" &&
+    typeof input.endTime === "string" &&
+    input.startTime > input.endTime
+  );
 
 /**
  * `page.nextOffset`, when it moves on: a decimal string (absent on the last

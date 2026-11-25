@@ -229,3 +229,48 @@ it("keeps an API's own error body only when asked, and never for a Poppy or OAut
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 });
+
+it("reads a document's bytes with binary, bounded, and still parses its errors as JSON", async () => {
+  let status = 200,
+    type = "application/pdf",
+    payload: Buffer = Buffer.from("%PDF-1.4\n%\xe2\xe3\n", "latin1");
+  const seen: Array<string | undefined> = [];
+  const server = createServer((req, res) => {
+    seen.push(req.headers.accept);
+    res.writeHead(status, { "content-type": type });
+    res.end(payload);
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const origin = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+  const send = (maxBytes = 64) =>
+    protocolRequest(
+      origin + "/doc",
+      { headers: { Accept: "application/pdf" } },
+      [origin],
+      undefined,
+      { binary: { maxBytes }, errorBody: true },
+    ).then(
+      (value) => value,
+      (e: unknown) => e,
+    );
+  try {
+    const read = (await send()) as { contentType: string; bytes: Uint8Array };
+    expect(read.contentType).toBe("application/pdf");
+    // Unparsed and undecoded: the high bytes are as sent.
+    expect([...read.bytes]).toEqual([...payload]);
+    expect(seen.at(-1)).toBe("application/pdf");
+    // Over the cap: refused, never truncated.
+    payload = Buffer.alloc(65, 0x25);
+    expect(await send()).toBeInstanceOf(Error);
+    // An error still comes as JSON, with its body when asked.
+    status = 406;
+    type = "application/json";
+    payload = Buffer.from(JSON.stringify({ code: "not_acceptable" }));
+    expect(await send()).toMatchObject({
+      status: 406,
+      body: { code: "not_acceptable" },
+    });
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+});

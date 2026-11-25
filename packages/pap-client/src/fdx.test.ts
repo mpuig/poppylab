@@ -1,11 +1,15 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import type { FdxExtensionEntry } from "@poppy-lab/pap-core";
 import {
   FDX_LIMITS,
+  fdxStatementPdf,
   fdxTools,
+  type FdxDocument,
   type FdxOutcome,
+  type FdxRequestOptions,
   type FdxResponse,
 } from "./fdx.ts";
 import { InvalidToolArguments } from "./openapi.ts";
@@ -19,25 +23,30 @@ const entry: FdxExtensionEntry = {
   consent_endpoint: "https://bank.example/fdx/v6/consents",
 };
 const ok = (body: unknown): FdxResponse => ({ status: 200, body });
-function setup(...responses: Array<FdxResponse | FdxOutcome>) {
-  const request = vi.fn(async (url: string, scopes: string[]) => {
-    void url;
-    void scopes;
-    const next = responses.shift();
-    if (!next) throw Error("Unexpected request");
-    return next;
-  });
+function setup(...responses: Array<FdxResponse | FdxDocument | FdxOutcome>) {
+  const request = vi.fn(
+    async (url: string, scopes: string[], options?: FdxRequestOptions) => {
+      void url;
+      void scopes;
+      void options;
+      const next = responses.shift();
+      if (!next) throw Error("Unexpected request");
+      return next;
+    },
+  );
   const trace = vi.fn();
   return { request, trace, tools: fdxTools({ entry, request, trace }) };
 }
 
 describe("FDX-shaped tools (poppylab.dev/fdx v1)", () => {
-  it("offers the five read tools with closed input schemas", () => {
+  it("offers the seven read tools with closed input schemas", () => {
     const { tools } = setup();
     expect(Object.keys(tools)).toEqual([
       "fdx_list_accounts",
       "fdx_get_account",
       "fdx_list_transactions",
+      "fdx_list_statements",
+      "fdx_get_statement",
       "fdx_get_customer",
       "fdx_consent_status",
     ]);
@@ -416,6 +425,20 @@ describe("FDX-shaped tools (poppylab.dev/fdx v1)", () => {
         { accountId: "a", startTime: "2026-11-30", endTime: "2026-11-01" },
       ],
       ["fdx_list_transactions", { accountId: "a", offset: "10" }],
+      ["fdx_list_statements", {}],
+      ["fdx_list_statements", { accountId: "a", startTime: "2026-13-01" }],
+      [
+        "fdx_list_statements",
+        { accountId: "a", startTime: "2026-11-30", endTime: "2026-11-01" },
+      ],
+      ["fdx_get_statement", { accountId: "a" }],
+      ["fdx_get_statement", { accountId: "a", statementId: "../x" }],
+      ["fdx_get_statement", { accountId: "a", statementId: "s?x=1" }],
+      ["fdx_get_statement", { accountId: "a/b", statementId: "s" }],
+      [
+        "fdx_get_statement",
+        { accountId: "a", statementId: "s", accept: "text/html" },
+      ],
       ["fdx_get_customer", { customerId: "someone_else" }],
       ["fdx_consent_status", {}],
       ["fdx_consent_status", { consentId: "../accounts" }],
@@ -427,6 +450,170 @@ describe("FDX-shaped tools (poppylab.dev/fdx v1)", () => {
         `${name} ${JSON.stringify(input)}`,
       ).rejects.toBeInstanceOf(InvalidToolArguments);
     expect(request).not.toHaveBeenCalled();
+  });
+
+  it("lists statements with fdx:STATEMENTS, keeping known fields of this account's statements only", async () => {
+    const { tools, request, trace } = setup(ok(fixture.statements));
+    const result = await tools.fdx_list_statements!.execute({
+      accountId: "acc_elena_checking",
+      startTime: "2026-09-01",
+    });
+    expect(request).toHaveBeenCalledWith(
+      "https://bank.example/fdx/v6/accounts/acc_elena_checking/statements?startTime=2026-09-01&limit=50",
+      ["fdx:STATEMENTS"],
+    );
+    expect(trace).toHaveBeenCalledWith(
+      "GET /fdx/v6/accounts/acc_elena_checking/statements?startTime=2026-09-01&limit=50 · FDX-shaped · fdx:STATEMENTS",
+    );
+    expect(result).toEqual({
+      accountId: "acc_elena_checking",
+      statements: [
+        {
+          statementId: "stmt_elena_checking_20261120",
+          accountId: "acc_elena_checking",
+          statementDate: "2026-11-20",
+          description: "Monthly statement, 2026-10-21 to 2026-11-20",
+          status: "AVAILABLE",
+          startDate: "2026-10-21",
+          endDate: "2026-11-20",
+        },
+        // An impossible date is dropped, the statement kept.
+        {
+          statementId: "stmt_elena_checking_20261020",
+          accountId: "acc_elena_checking",
+          status: "AVAILABLE",
+        },
+      ],
+      truncated: false,
+      totalElements: 4,
+      note: fixture.statements.note,
+    });
+    expect(JSON.stringify(result)).not.toContain("evil.example");
+  });
+
+  it("pages statements as it pages transactions, within its bounds", async () => {
+    const item = (n: number) => ({
+      statementId: `stmt_${n}`,
+      statementDate: "2026-11-20",
+    });
+    const pages = Array.from({ length: FDX_LIMITS.maxPages + 1 }, (_, p) =>
+      ok({
+        statements: Array.from({ length: FDX_LIMITS.pageSize }, (_, i) =>
+          item(p * FDX_LIMITS.pageSize + i),
+        ),
+        page: { nextOffset: String((p + 1) * FDX_LIMITS.pageSize) },
+      }),
+    );
+    const { tools, request } = setup(...pages);
+    const result = (await tools.fdx_list_statements!.execute({
+      accountId: "a",
+    })) as { statements: unknown[]; truncated: boolean };
+    expect(result.statements).toHaveLength(FDX_LIMITS.maxStatements);
+    expect(result.truncated).toBe(true);
+    // A full first page is all one call keeps: no second request.
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  it("checks a statement is a bounded PDF and gives the model only its size and hash", async () => {
+    const pdf = new Uint8Array(
+      Buffer.from("%PDF-1.4\n%\xe2\xe3\n1 0 obj\n", "latin1"),
+    );
+    const document = (
+      bytes: Uint8Array,
+      contentType = "application/pdf",
+    ): FdxDocument => ({ status: 200, contentType, bytes });
+    const { tools, request, trace } = setup(document(pdf));
+    const result = await tools.fdx_get_statement!.execute({
+      accountId: "acc_elena_checking",
+      statementId: "stmt_elena_checking_20261120",
+    });
+    expect(request).toHaveBeenCalledWith(
+      "https://bank.example/fdx/v6/accounts/acc_elena_checking/statements/stmt_elena_checking_20261120",
+      ["fdx:STATEMENTS"],
+      { accept: "application/pdf", maxBytes: FDX_LIMITS.statementBytes },
+    );
+    expect(trace).toHaveBeenCalledWith(
+      "GET /fdx/v6/accounts/acc_elena_checking/statements/stmt_elena_checking_20261120 · FDX-shaped · fdx:STATEMENTS · application/pdf",
+    );
+    expect(result).toEqual({
+      statementId: "stmt_elena_checking_20261120",
+      accountId: "acc_elena_checking",
+      contentType: "application/pdf",
+      bytes: pdf.byteLength,
+      sha256: createHash("sha256").update(pdf).digest("hex"),
+    });
+    // Not PDF magic, another type, too big, too small or JSON: invalid.
+    const big = new Uint8Array(FDX_LIMITS.statementBytes + 1);
+    big.set(pdf);
+    const bad = setup(
+      document(new Uint8Array(Buffer.from("<html><body>%PDF-</body>"))),
+      document(pdf, "text/html"),
+      document(big),
+      document(pdf.slice(0, 8)),
+      ok({ statementId: "stmt_1" }),
+      { status: 204, body: null },
+    );
+    for (let i = 0; i < 6; i++)
+      expect(
+        await bad.tools.fdx_get_statement!.execute({
+          accountId: "a",
+          statementId: "s",
+        }),
+      ).toEqual({ error: "invalid_response" });
+    // Parameters of the type are fine.
+    const typed = setup(document(pdf, "Application/PDF; qs=1"));
+    expect(
+      await typed.tools.fdx_get_statement!.execute({
+        accountId: "a",
+        statementId: "s",
+      }),
+    ).toMatchObject({ contentType: "application/pdf" });
+  });
+
+  it("passes statement errors and outcomes through, and hands the bytes only to its own caller", async () => {
+    const outcome = { error: "sign_in_required", instruction: "Sign in" };
+    const { tools } = setup(
+      { status: 404, body: fixture.errors.statementNotFound },
+      {
+        status: 406,
+        body: { code: "not_acceptable", message: "Not acceptable" },
+      },
+      { outcome },
+    );
+    const input = { accountId: "a", statementId: "s" };
+    expect(await tools.fdx_get_statement!.execute(input)).toEqual({
+      error: "fdx_error",
+      status: 404,
+      code: "statement_not_found",
+      message: "Statement not found",
+    });
+    expect(await tools.fdx_get_statement!.execute(input)).toMatchObject({
+      error: "fdx_error",
+      status: 406,
+      code: "not_acceptable",
+    });
+    expect(await tools.fdx_get_statement!.execute(input)).toBe(outcome);
+    // The runtime's own download: the same checks, and the bytes.
+    const pdf = new Uint8Array(Buffer.from("%PDF-1.4\n".repeat(4)));
+    const own = setup({
+      status: 200,
+      contentType: "application/pdf",
+      bytes: pdf,
+    });
+    const read = await fdxStatementPdf(
+      { entry, request: own.request, trace: own.trace },
+      "a",
+      "s",
+    );
+    expect(read.pdf).toBe(pdf);
+    expect(read.sha256).toMatch(/^[0-9a-f]{64}$/);
+    await expect(
+      fdxStatementPdf(
+        { entry, request: own.request, trace: own.trace },
+        "a",
+        "../s",
+      ),
+    ).rejects.toBeInstanceOf(InvalidToolArguments);
   });
 
   it("refuses an entry whose URLs leave one origin or carry a query", () => {

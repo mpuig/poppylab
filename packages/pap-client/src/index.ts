@@ -19,10 +19,14 @@ export * from "./operator-signature.ts";
 export { openApiTools, InvalidToolArguments, type ApiTool } from "./openapi.ts";
 export {
   fdxTools,
+  fdxStatementPdf,
+  validFdxId,
   FDX_SCOPES,
   FDX_LIMITS,
   type FdxRequest,
+  type FdxRequestOptions,
   type FdxResponse,
+  type FdxDocument,
   type FdxOutcome,
 } from "./fdx.ts";
 import { sseRpc } from "./mcp-wire.ts";
@@ -172,6 +176,11 @@ async function fetchJsonSafely(
     acceptEmpty?: boolean;
     /** Keep the body of an error that is no Poppy or OAuth error. */
     errorBody?: boolean;
+    /**
+     * A success is a document, not JSON: its bytes, at most `maxBytes`, and
+     * its content type, as `BinaryBody`. Errors are read as JSON as ever.
+     */
+    binary?: { maxBytes: number };
   },
 ): Promise<{ value: unknown; finalUrl: URL; durationMs: number }> {
   let currentUrl = initialUrl;
@@ -196,9 +205,11 @@ async function fetchJsonSafely(
         ...options.request,
         redirect: "manual" as const,
         signal,
+        // Lowercase, as Headers names them, so a caller's Accept (such as
+        // a document's) replaces the default instead of joining it.
         headers: {
-          Accept: "application/json",
-          "User-Agent": "Poppy-Lab/0.1",
+          accept: "application/json",
+          "user-agent": "Poppy-Lab/0.1",
           ...Object.fromEntries(
             new Headers(options.request?.headers).entries(),
           ),
@@ -276,7 +287,7 @@ async function fetchJsonSafely(
             if (
               size >
               (response.ok
-                ? MAX_DOCUMENT_BYTES
+                ? (options.binary?.maxBytes ?? MAX_DOCUMENT_BYTES)
                 : response.status === 403
                   ? 65536
                   : 4096)
@@ -338,6 +349,15 @@ async function fetchJsonSafely(
               : undefined,
           );
         }
+        if (options.binary)
+          return {
+            value: {
+              contentType: response.headers.get("content-type") ?? "",
+              bytes: new Uint8Array(Buffer.concat(chunks)),
+            } satisfies BinaryBody,
+            finalUrl: currentUrl,
+            durationMs: Math.round(performance.now() - started),
+          };
         return {
           value:
             options.acceptEmpty && size === 0 && response.status === 200
@@ -772,6 +792,9 @@ async function discover10(
 
 export { metadataUrlForIssuer };
 
+/** A successful response read with `binary`: bytes, never parsed. */
+export type BinaryBody = { contentType: string; bytes: Uint8Array };
+
 export async function protocolRequest(
   url: string,
   request: RequestInit = {},
@@ -790,6 +813,11 @@ export async function protocolRequest(
      * OAuth error (no known `error` code, no `WWW-Authenticate`), as `body`.
      */
     errorBody?: boolean;
+    /**
+     * A success is a document of at most `maxBytes`, resolved as a
+     * `BinaryBody`. Redirect, SSRF and error handling stay the same.
+     */
+    binary?: { maxBytes: number };
   },
 ): Promise<unknown> {
   const send = (init: RequestInit) =>
@@ -798,6 +826,7 @@ export async function protocolRequest(
       protocol: true,
       acceptEmpty: options?.acceptEmpty ?? false,
       errorBody: options?.errorBody ?? false,
+      ...(options?.binary ? { binary: options.binary } : {}),
       allowedPrivateOrigins,
       fetchImpl: fetch,
       timeoutMs: 15000,

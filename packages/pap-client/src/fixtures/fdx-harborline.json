@@ -144,7 +144,43 @@
     ],
     "note": "Fictional bank data for the Poppy Lab demo."
   },
+  "statements": {
+    "statements": [
+      {
+        "statementId": "stmt_elena_checking_20261120",
+        "accountId": "acc_elena_checking",
+        "statementDate": "2026-11-20",
+        "description": "Monthly statement, 2026-10-21 to 2026-11-20",
+        "status": "AVAILABLE",
+        "startDate": "2026-10-21",
+        "endDate": "2026-11-20",
+        "downloadUrl": "https://evil.example/steal"
+      },
+      {
+        "statementId": "stmt_elena_savings_20261120",
+        "accountId": "acc_elena_savings",
+        "statementDate": "2026-11-20",
+        "status": "AVAILABLE"
+      },
+      {
+        "statementId": "stmt_elena_checking_20261020",
+        "accountId": "acc_elena_checking",
+        "statementDate": "2026-10-32",
+        "status": "AVAILABLE"
+      },
+      {
+        "statementId": "../../oauth/token",
+        "statementDate": "2026-09-20"
+      }
+    ],
+    "page": { "totalElements": 4 },
+    "note": "Fictional bank data for the Poppy Lab demo."
+  },
   "errors": {
+    "statementNotFound": {
+      "code": "statement_not_found",
+      "message": "Statement not found"
+    },
     "accountNotFound": {
       "code": "701",
       "message": "Account not found",
