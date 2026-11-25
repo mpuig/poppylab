@@ -523,24 +523,54 @@ export function conversationSession(run: Run, options: Options) {
             ? "Direct Conversation · accepting the Company's invitation"
             : "Direct Conversation · started by the user",
         );
-        const out = await call(
-          options.endpoint,
-          "POST",
-          {
-            // The same invitation always gets the same request ID (§8.3).
-            id: invitation
-              ? `dir_${createHash("sha256").update(`${s.id}\n${invitation.event}`).digest("base64url").slice(0, 24)}`
-              : requestId(),
-            parent_conversation_id: s.id,
-            ...(invitation
-              ? { user_requested_event_id: invitation.event }
-              : { message: human(text!) }),
-          },
-          thread,
-        );
-        delete s.invitation;
-        s.direct = thread;
-        return out;
+        try {
+          const out = await call(
+            options.endpoint,
+            "POST",
+            {
+              // The same invitation always gets the same request ID (§8.3).
+              id: invitation
+                ? `dir_${createHash("sha256").update(`${s.id}\n${invitation.event}`).digest("base64url").slice(0, 24)}`
+                : requestId(),
+              parent_conversation_id: s.id,
+              ...(invitation
+                ? { user_requested_event_id: invitation.event }
+                : { message: human(text!) }),
+            },
+            thread,
+          );
+          delete s.invitation;
+          s.direct = thread;
+          return out;
+        } catch (error) {
+          // §8.13: the Company has one open that Iris doesn't know, and
+          // names it, such as after a start whose answer was lost. Only the
+          // User asking to start one puts them back in it, never the
+          // Company's word alone (§8.10).
+          if (
+            action !== "start" ||
+            !(error instanceof ProtocolError) ||
+            error.code !== "direct_conversation_open" ||
+            !error.conversationId ||
+            error.conversationId === s.id
+          )
+            throw error;
+          thread.id = error.conversationId;
+          s.direct = thread;
+          options.trace("Direct Conversation · found the one already open");
+          // Shows what the Company said there so far. The User's earlier
+          // words may have arrived, so these aren't sent: the User decides.
+          const out = await call(
+            `${options.endpoint}/${thread.id}/events`,
+            "GET",
+            undefined,
+            thread,
+          ).catch(() => ({}));
+          return {
+            ...out,
+            note: `A direct conversation with ${company} was already open, and Iris had lost track of it. You're back in it now. This message wasn't sent: say it again if ${company} doesn't have it yet.`,
+          };
+        }
       }
       const open = s.direct && !s.direct.closed ? s.direct : undefined;
       if (!open) {

@@ -283,7 +283,8 @@ async function fetchJsonSafely(
         if (!response.ok) {
           let code: unknown,
             operation: unknown,
-            declined: { reason?: string } | undefined;
+            declined: { reason?: string } | undefined,
+            conversationId: string | undefined;
           try {
             const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
             code = body.error;
@@ -295,6 +296,14 @@ async function fetchJsonSafely(
                 typeof body.reason === "string"
                   ? { reason: body.reason.slice(0, 500) }
                   : {};
+            // §8.13: the open Direct Conversation, only if it's an ID (§8.2).
+            if (
+              response.status === 409 &&
+              code === "direct_conversation_open" &&
+              typeof body.conversation_id === "string" &&
+              /^[A-Za-z0-9_-]{1,256}$/.test(body.conversation_id)
+            )
+              conversationId = body.conversation_id;
           } catch {
             /* Untrusted error bodies are never surfaced. */
           }
@@ -308,6 +317,7 @@ async function fetchJsonSafely(
             response.headers.get("dpop-nonce") ?? undefined,
             operation,
             declined,
+            conversationId,
           );
         }
         return {

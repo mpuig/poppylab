@@ -41,6 +41,8 @@ export class ProtocolError extends Error {
     public operation?: unknown,
     /** Operations v3: an approval_declined body (Company content). */
     public declined?: { reason?: string },
+    /** §8.13: the Direct Conversation a direct_conversation_open names. */
+    public conversationId?: string,
   ) {
     super(
       `Remote server returned HTTP ${status}${code ? ` (${code})` : ""}${retryAt ? " — retry after " + new Date(Math.min(retryAt, 8640000000000000)).toISOString() : ""}`,

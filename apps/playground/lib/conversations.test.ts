@@ -775,6 +775,110 @@ describe("Direct Conversations (§8.10) in Iris", () => {
     });
   });
 
+  // §8.13: the refusal names the Direct Conversation that is open.
+  const alreadyOpen = (id: string) =>
+    new ProtocolError(
+      409,
+      "direct_conversation_open",
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      id,
+    );
+
+  it("puts the User back in the Direct Conversation a lost start left open, without sending their words twice", async () => {
+    // The Company opened cnv_d on the first start; its answer never arrived.
+    let lost = true;
+    const { run, s, shown, request } = session((url, body) => {
+      if (url.startsWith(`${endpoint}?`)) {
+        if (lost) throw new Error("socket hang up");
+        expect(body).toMatchObject({ parent_conversation_id: "cnv_1" });
+        throw alreadyOpen("cnv_d");
+      }
+      if (url.startsWith(`${endpoint}/cnv_d/events`))
+        return read(
+          [said("evt_d1", { text: "Hi, this is Lantern. How can I help?" })],
+          { conversation_id: "cnv_d" },
+        );
+      if (url.startsWith(`${endpoint}/cnv_d/messages`))
+        return read([said("evt_d2", { text: "On its way." })], {
+          conversation_id: "cnv_d",
+        });
+      throw new Error(`unexpected ${url}`);
+    });
+    run.conversation = { ...parentOnly };
+    await expect(s.direct("start", "Where is my order?")).rejects.toThrow();
+    expect(run.conversation).toEqual(parentOnly);
+
+    lost = false;
+    const result = (await s.direct("start", "Where is my order?")) as {
+      note?: string;
+    };
+    expect(result.note).toContain("wasn't sent");
+    // The thread is the one the Company named, read from its start.
+    expect(run.conversation.direct).toMatchObject({
+      id: "cnv_d",
+      cursor: "evt_d1",
+    });
+    expect(shown).toEqual([
+      {
+        author: "Lantern Noodle Bar · automated agent",
+        human: false,
+        text: "Hi, this is Lantern. How can I help?",
+        direct: true,
+      },
+    ]);
+    const [, url, method] = request.mock.calls.at(-1)!;
+    expect(url).toBe(`${endpoint}/cnv_d/events?wait=10`);
+    expect(method).toBe("GET");
+    // The parent keeps its place, and the User can talk and leave again.
+    expect(run.conversation).toMatchObject(parentOnly);
+    await s.direct("say", "Thanks.");
+    expect(request.mock.calls.at(-1)![1]).toBe(
+      `${endpoint}/cnv_d/messages?wait=10&cursor=evt_d1`,
+    );
+  });
+
+  it("joins an open Direct Conversation only when the User starts one", async () => {
+    // The model's message to the parent gets the same refusal: no joining.
+    const sending = session(() => {
+      throw alreadyOpen("cnv_d");
+    });
+    sending.run.conversation = { ...parentOnly };
+    expect(
+      await sending.s.tools.company_agent_send!.execute({ text: "Any news?" }),
+    ).toMatchObject({ error: "direct_conversation_open" });
+    expect(sending.run.conversation).toEqual(parentOnly);
+    // An invitation is for another thread than the one that is open.
+    const accepting = session(() => {
+      throw alreadyOpen("cnv_d");
+    });
+    accepting.run.conversation = {
+      ...parentOnly,
+      invitation: { event: "evt_ur" },
+    };
+    expect(await accepting.s.direct("accept")).toMatchObject({
+      error: "direct_conversation_open",
+    });
+    expect(accepting.run.conversation.direct).toBeUndefined();
+    // A refusal that names no thread, or the parent itself, opens nothing.
+    for (const error of [
+      new ProtocolError(409, "direct_conversation_open"),
+      alreadyOpen("cnv_1"),
+    ]) {
+      const unnamed = session(() => {
+        throw error;
+      });
+      unnamed.run.conversation = { ...parentOnly };
+      expect(await unnamed.s.direct("start", "Hello")).toMatchObject({
+        error: "direct_conversation_open",
+      });
+      expect(unnamed.run.conversation).toEqual(parentOnly);
+      expect(unnamed.request).toHaveBeenCalledTimes(1);
+    }
+  });
+
   it("tells the Company in the parent when the User declines", async () => {
     const { run, s, request } = session((url) =>
       url.startsWith(`${endpoint}?`)
