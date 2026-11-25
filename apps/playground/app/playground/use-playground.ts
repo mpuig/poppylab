@@ -14,7 +14,7 @@ import {
   useState,
   type FormEvent,
 } from "react";
-import { companyProfile, FDX_EXTENSION } from "@poppy-lab/pap-core";
+import { companyProfile } from "@poppy-lab/pap-core";
 import type {
   DiscoveredCompany,
   DiscoveryTraceStep,
@@ -24,9 +24,11 @@ import {
   canChange,
   canRequestChanges,
   consentOutcome,
-  missingFdxScopes,
+  missingExtensionScopes,
 } from "@/lib/account-permissions";
+import { domainExtension } from "@/lib/domain-extension";
 import type { FdxConsentRecord } from "./fdx-consent";
+import type { EspiAuthorizationRecord } from "./espi-authorization";
 import type { FdxStatementAccount } from "./fdx-statements";
 import type { ReviewOperation as Operation } from "@/lib/operation-presentation";
 import { agentStep } from "@/lib/agent-steps";
@@ -57,6 +59,29 @@ const conversationInAddress = () =>
     window.location.pathname,
   )?.[1];
 const CONVERSATION = "X-Poppy-Conversation";
+
+/**
+ * A domain extension's grant, as the account row reads and revokes it: the
+ * FDX consent, or the ESPI authorization (its subscription).
+ */
+const GRANTS = {
+  fdx: {
+    read: "fdx_consent",
+    revoke: "fdx_revoke",
+    field: "consent",
+    name: "FDX consent",
+  },
+  espi: {
+    read: "espi_authorization",
+    revoke: "espi_revoke",
+    field: "authorization",
+    name: "ESPI authorization",
+  },
+} as const;
+type GrantRecord = FdxConsentRecord | EspiAuthorizationRecord;
+/** The grant id the server keeps for this sign-in, whichever the extension. */
+const grantOf = (data: { fdxConsent?: string; espiAuthorization?: string }) =>
+  data.espiAuthorization ?? data.fdxConsent;
 
 export function usePlayground(options: { onConnected?: () => void } = {}) {
   const [companyUrl, setCompanyUrl] = useState(exampleUrl);
@@ -100,14 +125,17 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
   const [sending, setSending] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
   const [scopes, setScopes] = useState("");
-  /** Use FDX for this conversation (poppylab.dev/fdx v1), kept by the server. */
-  const [fdx, setFdx] = useState(false);
-  /** The FDX consent id of this sign-in, as the server keeps it. */
-  const [fdxConsent, setFdxConsent] = useState<string | undefined>();
-  /** Its record as the bank last returned it, read once per consent id. */
-  const [fdxRecord, setFdxRecord] = useState<FdxConsentRecord | undefined>();
-  /** The User revoked the FDX consent (or found it had ended), and how. */
-  const [fdxRevoked, setFdxRevoked] = useState<
+  /**
+   * Use FDX or Use ESPI for this conversation: the Company's domain
+   * extension (poppylab.dev/fdx v1, poppylab.dev/espi v1), kept by the server.
+   */
+  const [extensionOn, setExtensionOn] = useState(false);
+  /** Its grant's id for this sign-in (consent, authorization), as kept. */
+  const [grantId, setGrantId] = useState<string | undefined>();
+  /** Its record as the Company last returned it, read once per id. */
+  const [grantRecord, setGrantRecord] = useState<GrantRecord | undefined>();
+  /** The User revoked the grant (or found it had ended), and how. */
+  const [grantRevoked, setGrantRevoked] = useState<
     "revoked" | "already_ended" | undefined
   >();
   /** The shared accounts' statements, once the User asked for them. */
@@ -143,14 +171,17 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
   // Scope meaning comes from the Company's own hints (§4.7).
   const canWrite = canChange(profile, scopes);
   const moreAccess = canRequestChanges(profile, scopes);
-  /** Use FDX: the Company lists poppylab.dev/fdx v1 (profiles saved before may not say). */
-  const fdxAvailable = !!profile?.extensions?.[FDX_EXTENSION];
-  /** Use FDX is on but this sign-in has none or only some of its data clusters. */
-  const fdxSignIn =
-    fdx &&
-    fdxAvailable &&
+  /**
+   * The domain extension the Company lists, valid, for Use FDX or Use ESPI
+   * (profiles saved before may not say).
+   */
+  const extension = domainExtension(profile);
+  /** It is on but this sign-in has none or only some of its scopes. */
+  const extensionSignIn =
+    extensionOn &&
+    !!extension &&
     signedIn &&
-    missingFdxScopes(profile, scopes).length > 0;
+    missingExtensionScopes(profile, scopes, extension).length > 0;
   const connected =
     !!result && companyUrl === result.requestedUrl.replace(/\/$/, "");
   const trace = result?.trace ?? failedTrace;
@@ -192,8 +223,9 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
         setCompanyUrl(data.company.requestedUrl.replace(/\/$/, ""));
         setSignedIn(!!data.signedIn);
         setScopes(data.scopes ?? "");
-        setFdx(!!data.fdx);
-        setFdxConsent(data.fdxConsent);
+        const listed = domainExtension(companyProfile(data.company));
+        setExtensionOn(!!(listed && data[listed.key]));
+        setGrantId(grantOf(data));
         if (data.recovery?.error) setError(data.recovery.error);
         setOperations(data.operations ?? []);
         // §8.10: an open Direct Conversation is still open after a reload,
@@ -226,8 +258,8 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
             // A sign-in as another account drops the conversation and the
             // Direct Conversation in it: the page must not stay in one.
             applyDirect(data.directConversation);
-            setFdxConsent(data.fdxConsent);
-            setFdxRevoked(undefined);
+            setGrantId(grantOf(data));
+            setGrantRevoked(undefined);
             setWaitingSignIn(false);
             addTrace([
               "Direct Sign-In completed · PKCE + issuer validation · DPoP account Session",
@@ -261,15 +293,15 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
       ),
     );
 
-  /** What the page shows once the run is signed out (sign-out, FDX revocation). */
+  /** What the page shows once the run is signed out (sign-out, revocation). */
   function signedOutHere() {
     setScopes("");
     setSignedIn(false);
     setOperations([]);
     setWaitingSignIn(false);
     setMessages([]);
-    setFdxConsent(undefined);
-    setFdxRecord(undefined);
+    setGrantId(undefined);
+    setGrantRecord(undefined);
     setFdxStatements(undefined);
     // Signing out drops Iris's conversation with the Company's agent,
     // and the Direct Conversation with it.
@@ -358,11 +390,12 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
   }
 
   /**
-   * Use FDX on or off for this conversation. The server starts a new
-   * Session, whose declarations then say so (§3.4).
+   * Use FDX or Use ESPI on or off for this conversation. The server starts
+   * a new Session, whose declarations then say so (§3.4).
    */
-  async function chooseFdx(enabled: boolean) {
-    if (busy || ended || !fdxAvailable) return;
+  async function chooseExtension(enabled: boolean) {
+    if (busy || ended || !extension) return;
+    const { key, label, name } = extension;
     setAccountBusy(true);
     setError("");
     try {
@@ -373,28 +406,28 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
           "X-PAP-Company": result?.requestedUrl ?? companyUrl,
           ...named(),
         },
-        body: JSON.stringify({ action: "fdx", enabled }),
+        body: JSON.stringify({ action: key, enabled }),
       });
       adopt(response);
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
-      setFdx(!!data.fdx);
+      setExtensionOn(!!data[key]);
       addTrace([
-        `Use FDX ${data.fdx ? "on" : "off"} · new Session · ${data.fdx ? `${FDX_EXTENSION} v1 declared` : `${FDX_EXTENSION} not declared`}`,
+        `Use ${label} ${data[key] ? "on" : "off"} · new Session · ${data[key] ? `${name} v1 declared` : `${name} not declared`}`,
       ]);
     } catch (caught) {
       setError(
         caught instanceof Error && caught.message
           ? caught.message
-          : "Could not change Use FDX.",
+          : `Could not change Use ${label}.`,
       );
     } finally {
       setAccountBusy(false);
     }
   }
 
-  /** An FDX consent action of the User's (poppylab.dev/fdx v1). */
-  const fdxCall = async (action: "fdx_consent" | "fdx_revoke") => {
+  /** A grant action of the User's: read or revoke the consent or authorization. */
+  const grantCall = async (action: string) => {
     const response = await fetch("/api/account", {
       method: "POST",
       headers: {
@@ -408,17 +441,24 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     return { response, data: await response.json() };
   };
 
-  // The consent's status and accounts, read once for each consent id.
-  const fdxConsentShown = fdx && signedIn && !!fdxConsent;
-  /** The consent id whose record was asked for: each is read once. */
-  const fdxRead = useRef<string | undefined>(undefined);
+  // The grant's status and what it shares, read once for each id.
+  const grantShown = extensionOn && signedIn && !!grantId && !!extension;
+  const grants = extension ? GRANTS[extension.key] : undefined;
+  /** The grant id whose record was asked for: each is read once. */
+  const grantRead = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (!fdxConsentShown || busy || ended || fdxRead.current === fdxConsent)
+    if (
+      !grantShown ||
+      !grants ||
+      busy ||
+      ended ||
+      grantRead.current === grantId
+    )
       return;
-    const id = fdxConsent!;
-    fdxRead.current = id;
+    const id = grantId!;
+    grantRead.current = id;
     setAccountBusy(true);
-    void fdxCall("fdx_consent")
+    void grantCall(grants.read)
       .then(({ response, data }) => {
         addTrace(data.trace ?? []);
         if (data.code === "account_unavailable") {
@@ -426,28 +466,28 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
           setScopes("");
           setError(data.error ?? "");
         }
-        // A record the bank didn't return shows the id alone.
-        setFdxRecord(
-          response.ok && data.consent?.id === id
-            ? data.consent
-            : { id, unavailable: true },
+        // A record the Company didn't return shows the id alone.
+        const record = data[grants.field];
+        setGrantRecord(
+          response.ok && record?.id === id ? record : { id, unavailable: true },
         );
       })
-      .catch(() => setFdxRecord({ id, unavailable: true }))
+      .catch(() => setGrantRecord({ id, unavailable: true }))
       .finally(() => setAccountBusy(false));
-    // fdxCall is recreated each render and reads current state.
-  }, [fdxConsentShown, fdxConsent, busy, ended]);
+    // grantCall is recreated each render and reads current state.
+  }, [grantShown, grantId, busy, ended]);
 
   /**
-   * The User revokes the FDX consent. The bank ends the grant and its
-   * tokens, so the page signs out as sign-out does; Iris never does this.
+   * The User revokes the FDX consent or the ESPI authorization. The
+   * Company ends the grant and its tokens, so the page signs out as
+   * sign-out does; Iris never does this.
    */
-  async function revokeFdx() {
-    if (busy || ended || !fdxConsentShown) return;
+  async function revokeGrant() {
+    if (busy || ended || !grantShown || !grants) return;
     setAccountBusy(true);
     setError("");
     try {
-      const { response, data } = await fdxCall("fdx_revoke");
+      const { response, data } = await grantCall(grants.revoke);
       addTrace(data.trace ?? []);
       if (data.code === "account_unavailable") {
         setSignedIn(false);
@@ -455,14 +495,14 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
       }
       if (!response.ok) throw new Error(data.error);
       signedOutHere();
-      setFdxRevoked(
+      setGrantRevoked(
         data.revoked === "already_ended" ? "already_ended" : "revoked",
       );
     } catch (caught) {
       setError(
         caught instanceof Error && caught.message
           ? caught.message
-          : "Could not revoke the FDX consent.",
+          : `Could not revoke the ${grants.name}.`,
       );
     } finally {
       setAccountBusy(false);
@@ -470,10 +510,12 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
   }
 
   // A list read under another consent may name accounts no longer shared.
-  useEffect(() => setFdxStatements(undefined), [fdxConsent]);
+  useEffect(() => setFdxStatements(undefined), [grantId]);
   /** Statements need their data cluster in this sign-in, with Use FDX on. */
   const fdxStatementsShown =
-    fdxConsentShown && scopes.split(" ").includes("fdx:STATEMENTS");
+    grantShown &&
+    extension?.key === "fdx" &&
+    scopes.split(" ").includes("fdx:STATEMENTS");
   /** Lists the shared accounts' statements (poppylab.dev/fdx v1). */
   async function listFdxStatements() {
     if (busy || ended || !fdxStatementsShown) return;
@@ -621,10 +663,10 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     setWaitingSignIn(false);
     setOperations([]);
     // Use FDX is off in every new conversation.
-    setFdx(false);
-    setFdxConsent(undefined);
-    setFdxRecord(undefined);
-    setFdxRevoked(undefined);
+    setExtensionOn(false);
+    setGrantId(undefined);
+    setGrantRecord(undefined);
+    setGrantRevoked(undefined);
     setFdxStatements(undefined);
     // The new conversation has no Direct Conversation, whatever the last had.
     applyDirect();
@@ -806,15 +848,19 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     scopes,
     canWrite,
     moreAccess,
-    fdx,
-    fdxAvailable,
-    fdxSignIn,
-    chooseFdx,
-    /** The FDX consent to show and offer to revoke, with its record once read. */
-    fdxConsent: fdxConsentShown ? fdxConsent : undefined,
-    fdxRecord: fdxRecord?.id === fdxConsent ? fdxRecord : undefined,
-    fdxRevoked,
-    revokeFdx,
+    /** The Company's domain extension, for Use FDX or Use ESPI. */
+    extension,
+    extensionOn,
+    extensionSignIn,
+    chooseExtension,
+    /**
+     * The FDX consent or ESPI authorization to show and offer to revoke,
+     * with its record once read.
+     */
+    grant: grantShown ? grantId : undefined,
+    grantRecord: grantRecord?.id === grantId ? grantRecord : undefined,
+    grantRevoked,
+    revokeGrant,
     /** Statements to list and download, with Use FDX on and fdx:STATEMENTS. */
     fdxStatementsShown,
     fdxStatements: fdxStatementsShown ? fdxStatements : undefined,

@@ -131,6 +131,18 @@ vi.mock("@/lib/runtime", async () => ({
     .fdxEntry,
   setFdx: (await vi.importActual<typeof Runtime>("../../../lib/runtime"))
     .setFdx,
+  setExtension: (await vi.importActual<typeof Runtime>("../../../lib/runtime"))
+    .setExtension,
+  // Use ESPI (poppylab.dev/espi v1): the runtime's own rules and calls.
+  espiAuthorizationTarget: (
+    await vi.importActual<typeof Runtime>("../../../lib/runtime")
+  ).espiAuthorizationTarget,
+  espiAuthorizationRecord: (
+    await vi.importActual<typeof Runtime>("../../../lib/runtime")
+  ).espiAuthorizationRecord,
+  revokeEspiAuthorization: (
+    await vi.importActual<typeof Runtime>("../../../lib/runtime")
+  ).revokeEspiAuthorization,
   // The consent calls are the runtime's own, down to the request it sends.
   fdxConsentRecord: (
     await vi.importActual<typeof Runtime>("../../../lib/runtime")
@@ -1941,6 +1953,392 @@ describe("Revoking the FDX consent (poppylab.dev/fdx v1)", () => {
     ).json();
     expect(off.fdxConsent).toBeUndefined();
     run.accountUnavailable = false;
+  });
+});
+
+describe("Use ESPI (poppylab.dev/espi v1)", () => {
+  const entry = {
+    version: "1",
+    resource_endpoint: "http://juniper.localhost:4100/espi/1_1/resource",
+  };
+  const utility = (run: Record<string, unknown>) => {
+    const company = run.company as { profile: Record<string, unknown> };
+    company.profile = {
+      ...company.profile,
+      scopes: [
+        "poppy:read",
+        "poppy:write",
+        "espi:usage",
+        "espi:summary",
+        "espi:customer",
+      ],
+      scopeHints: {
+        "poppy:read": { changes: "none", personal_data: true },
+        "poppy:write": { changes: "irreversible", personal_data: true },
+        "espi:usage": { changes: "none", personal_data: true },
+        "espi:summary": { changes: "none", personal_data: true },
+        "espi:customer": { changes: "none", personal_data: true },
+      },
+      extensions: { "poppylab.dev/espi": entry },
+    };
+    return run;
+  };
+  const restored = async () =>
+    (
+      await GET(
+        new Request(
+          "http://localhost:3000/api/account?conversation=run_fixture_0001",
+        ),
+      )
+    ).json();
+  const run = state.run as typeof state.run & {
+    espi?: boolean;
+    fdx?: boolean;
+    espiResourceUri?: string;
+    espiAuthorizationUri?: string;
+    sessionId?: string;
+  };
+  const company = structuredClone(state.run.company);
+  const connect = state.connect.getMockImplementation()!;
+  beforeEach(() => {
+    state.run.company = structuredClone(company);
+    delete run.espi;
+    delete run.fdx;
+    run.sessionId = "sid-before";
+  });
+
+  it("is off by default, and a change starts a new Session the page restores (§3.4)", async () => {
+    utility(state.run);
+    expect(await restored()).toMatchObject({ espi: false, fdx: false });
+    const on = await POST(request({ action: "espi", enabled: true }));
+    expect(on.status).toBe(200);
+    const body = await on.json();
+    expect(body).toEqual({ espi: true, sessionId: expect.any(String) });
+    expect(run.espi).toBe(true);
+    expect(run.fdx).toBeUndefined();
+    expect(body.sessionId).not.toBe("sid-before");
+    expect((await restored()).espi).toBe(true);
+    await POST(request({ action: "espi", enabled: true }));
+    expect(run.sessionId).toBe(body.sessionId);
+    await POST(request({ action: "espi", enabled: false }));
+    expect(run.espi).toBeUndefined();
+    expect(run.sessionId).not.toBe(body.sessionId);
+  });
+
+  it("can't be turned on where the Company lists no valid entry, and Use FDX can't at a utility", async () => {
+    const r = await POST(request({ action: "espi", enabled: true }));
+    expect(r.status).toBe(400);
+    expect((await r.json()).error).toContain("ESPI-shaped");
+    expect(run.espi).toBeUndefined();
+    utility(state.run);
+    expect((await POST(request({ action: "fdx", enabled: true }))).status).toBe(
+      400,
+    );
+    expect(run.fdx).toBeUndefined();
+    expect(run.sessionId).toBe("sid-before");
+  });
+
+  it("asks for the scopes the ESPI-shaped tools use only with Use ESPI on, never espi:customer", async () => {
+    state.connect.mockImplementation(async (r: Record<string, unknown>) =>
+      utility(Object.assign(r, { company: structuredClone(company) })),
+    );
+    try {
+      utility(state.run);
+      const scope = async (access?: string) =>
+        new URL(
+          (await (await POST(request({ action: "signin", access }))).json())
+            .url,
+        ).searchParams.get("scope");
+      expect(await scope()).toBe("poppy:read");
+      await POST(request({ action: "espi", enabled: true }));
+      expect(await scope()).toBe("poppy:read espi:usage espi:summary");
+      expect(await scope("write")).toBe(
+        "poppy:read poppy:write espi:usage espi:summary",
+      );
+    } finally {
+      state.connect.mockImplementation(connect);
+      delete (state.run as { auth?: unknown }).auth;
+    }
+  });
+
+  it("forgets the subscription and authorization at sign-out", async () => {
+    run.espiResourceUri = `${entry.resource_endpoint}/Batch/Subscription/g`;
+    run.espiAuthorizationUri = `${entry.resource_endpoint}/Authorization/g`;
+    state.revoke.mockResolvedValue(undefined);
+    expect((await POST(request({ action: "signout" }))).status).toBe(200);
+    expect(run.espiResourceUri).toBeUndefined();
+    expect(run.espiAuthorizationUri).toBeUndefined();
+  });
+});
+
+describe("Revoking the ESPI authorization (poppylab.dev/espi v1)", () => {
+  const RE = "http://juniper.localhost:4100/espi/1_1/resource";
+  const entry = { version: "1", resource_endpoint: RE };
+  const authorization = `${RE}/Authorization/grant_1`;
+  type EspiRun = typeof state.run & {
+    espi?: boolean;
+    espiResourceUri?: string;
+    espiAuthorizationUri?: string;
+    visitor?: string;
+    dpop?: unknown;
+    tokenType?: string;
+    sessionId?: string;
+    resourceTokens?: unknown;
+  };
+  const run = state.run as EspiRun;
+  const company = structuredClone(state.run.company);
+  let dpop: unknown;
+  beforeAll(async () => {
+    const keys = await createIdentity();
+    vi.stubEnv("POPPY_IDENTITY", JSON.stringify(keys));
+    dpop = (await createIdentity()).privateKey;
+  });
+  const withEntry = () => {
+    const utility = structuredClone(company) as { profile: object };
+    utility.profile = {
+      ...utility.profile,
+      extensions: { "poppylab.dev/espi": entry },
+    };
+    return utility;
+  };
+  beforeEach(() => {
+    vi.stubEnv("NODE_ENV", "development");
+    Object.assign(run, {
+      company: withEntry(),
+      espi: true,
+      espiResourceUri: `${RE}/Batch/Subscription/grant_1`,
+      espiAuthorizationUri: authorization,
+      visitor: "visitor-fixture",
+      dpop,
+      tokenType: "DPoP",
+      tokenExpires: Date.now() + 3600000,
+      scopes: "poppy:read espi:usage espi:summary",
+      resourceTokens: {
+        "http://juniper.localhost:4100/api": {
+          value: "service-token",
+          type: "DPoP",
+          expires: Date.now() + 3600000,
+        },
+      },
+      history: [{ role: "user", content: "my usage" }],
+    });
+    state.transport.mockReset();
+    state.transport.mockRejectedValue(new Error("Unexpected request"));
+  });
+  afterEach(() => {
+    state.run.company = structuredClone(company);
+    for (const key of [
+      "espi",
+      "espiResourceUri",
+      "espiAuthorizationUri",
+      "visitor",
+      "dpop",
+      "tokenType",
+      "sessionId",
+      "resourceTokens",
+    ] as const)
+      delete run[key];
+    state.run.scopes = "poppy:read poppy:write";
+    state.run.history = [];
+  });
+  const signedOut = () => {
+    expect(run.accountToken).toBeUndefined();
+    expect(run.token).toBeUndefined();
+    expect(run.scopes).toBeUndefined();
+    expect(run.espiResourceUri).toBeUndefined();
+    expect(run.espiAuthorizationUri).toBeUndefined();
+    expect(run.resourceTokens).toBeUndefined();
+    expect(run.accountUnavailable).toBeUndefined();
+    expect(run.history).toEqual([]);
+    // The run, its Session and Use ESPI go on, signed out (§5.5).
+    expect(run.sessionId).toEqual(expect.any(String));
+    expect(run.espi).toBe(true);
+    // The dead refresh token isn't revoked again.
+    expect(state.revoke).not.toHaveBeenCalled();
+  };
+  const kept = () => {
+    expect(run.accountToken).toBe("secret");
+    expect(run.token).toBe("general-token");
+    expect(run.espiAuthorizationUri).toBe(authorization);
+    expect(run.resourceTokens).toBeDefined();
+  };
+  const restored = async () =>
+    (
+      await GET(
+        new Request(
+          "http://localhost:3000/api/account?conversation=run_fixture_0001",
+        ),
+      )
+    ).json();
+  afterEach(() => {
+    run.accountToken = "secret";
+    run.token = "general-token";
+    run.accountUnavailable = false;
+    state.revoke.mockClear();
+  });
+
+  it("is refused, sending nothing, without an authorization, with Use ESPI off or signed out", async () => {
+    const refused = async (action: string) => {
+      const r = await POST(request({ action }));
+      expect(r.status).toBe(400);
+      expect(await r.json()).toMatchObject({ code: "no_espi_authorization" });
+    };
+    for (const action of ["espi_revoke", "espi_authorization"]) {
+      delete run.espiAuthorizationUri;
+      await refused(action);
+      // One that doesn't fit the entry is no authorization either.
+      run.espiAuthorizationUri = `${authorization}?x`;
+      await refused(action);
+      run.espiAuthorizationUri = authorization;
+      delete run.espi;
+      await refused(action);
+      run.espi = true;
+      state.run.company = structuredClone(company);
+      await refused(action);
+      Object.assign(run, { company: withEntry() });
+      delete (run as { accountToken?: string }).accountToken;
+      await refused(action);
+      run.accountToken = "secret";
+      run.accountUnavailable = true;
+      const lost = await POST(request({ action }));
+      expect(lost.status).toBe(401);
+      expect(await lost.json()).toMatchObject({ code: "account_unavailable" });
+      run.accountUnavailable = false;
+    }
+    expect(state.transport).not.toHaveBeenCalled();
+    expect(state.revoke).not.toHaveBeenCalled();
+    expect(run.espiAuthorizationUri).toBe(authorization);
+  });
+
+  it("sends one DELETE to the kept authorization URI, as a Poppy request with the extension declared", async () => {
+    state.transport.mockResolvedValue(null);
+    expect((await restored()).espiAuthorization).toBe("grant_1");
+    // The body's own URL or id are never used.
+    const r = await POST(
+      request({
+        action: "espi_revoke",
+        authorizationId: "grant_other",
+        url: "http://juniper.localhost:4100/elsewhere",
+      }),
+    );
+    expect(r.status).toBe(200);
+    expect(state.transport).toHaveBeenCalledTimes(1);
+    const [url, init, , dpopOption, options] = state.transport.mock
+      .calls[0] as [
+      string,
+      RequestInit,
+      unknown,
+      { token?: string },
+      { acceptEmpty?: boolean },
+    ];
+    expect(url).toBe(authorization);
+    expect(init.method).toBe("DELETE");
+    expect(init.body).toBeUndefined();
+    const headers = init.headers as Record<string, string>;
+    expect(headers["Content-Type"]).toBeUndefined();
+    expect(headers.Authorization).toBe("DPoP general-token");
+    expect(headers.DPoP).toEqual(expect.any(String));
+    expect(headers["Poppy-Session"]).toEqual(expect.any(String));
+    expect(headers["Poppy-Version"]).toBe("1.0");
+    expect(headers["Poppy-Extensions"]).toContain('"poppylab.dev/espi";v="1"');
+    expect(dpopOption.token).toBe("general-token");
+    expect(options).toMatchObject({ acceptEmpty: true });
+    expect(await r.json()).toEqual({
+      signedIn: false,
+      revoked: "revoked",
+      authorization: "grant_1",
+      trace: [
+        "DELETE /espi/1_1/resource/Authorization/grant_1 · ESPI authorization revoked · 204",
+      ],
+    });
+    signedOut();
+    expect((await restored()).espiAuthorization).toBeUndefined();
+  });
+
+  it("takes a 401 for an authorization that has already ended, and signs out the same way", async () => {
+    state.transport.mockRejectedValue(new ProtocolError(401, "invalid_token"));
+    const r = await POST(request({ action: "espi_revoke" }));
+    expect(r.status).toBe(200);
+    expect(await r.json()).toMatchObject({
+      signedIn: false,
+      revoked: "already_ended",
+      authorization: "grant_1",
+    });
+    expect(state.transport).toHaveBeenCalledTimes(1);
+    signedOut();
+  });
+
+  it("keeps the sign-in and says so when the utility doesn't revoke it", async () => {
+    for (const error of [
+      new ProtocolError(404, undefined),
+      new ProtocolError(403, "extension_required"),
+      new ProtocolError(429, undefined, Date.now() + 60000),
+      new ProtocolError(503, undefined),
+      new Error("lost response"),
+    ]) {
+      state.transport.mockReset();
+      state.transport.mockRejectedValue(error);
+      const r = await POST(request({ action: "espi_revoke" }));
+      expect(r.status).toBe(502);
+      const body = await r.json();
+      expect(body.code).toBe("espi_revoke_failed");
+      expect(body.error).toMatch(/still signed in/);
+      expect(body.trace[0]).toMatch(
+        /^DELETE \/espi\/1_1\/resource\/Authorization\/grant_1 · ESPI authorization revocation failed · /,
+      );
+      expect(state.transport).toHaveBeenCalledTimes(1);
+      kept();
+    }
+    expect(state.revoke).not.toHaveBeenCalled();
+  });
+
+  it("shows the subscription's status, meters and expiry through the ESPI-shaped tools", async () => {
+    const xml = (body: string) => ({
+      contentType: "application/atom+xml",
+      bytes: new TextEncoder().encode(body),
+    });
+    const ns = `xmlns="http://www.w3.org/2005/Atom" xmlns:espi="http://naesb.org/espi"`;
+    state.transport.mockImplementation(async (url: string) => {
+      if (url === authorization)
+        return xml(
+          `<entry ${ns}><id>urn:uuid:a</id><title>A</title><link rel="self" href="${authorization}"/><content><espi:Authorization><espi:status>1</espi:status><espi:expires_at>1800000000</espi:expires_at></espi:Authorization></content></entry>`,
+        );
+      if (url === `${RE}/Subscription/grant_1/UsagePoint`)
+        return xml(
+          `<feed ${ns}><id>urn:uuid:f</id><entry><id>urn:uuid:u</id><title>EV charger</title><link rel="self" href="${RE}/Subscription/grant_1/UsagePoint/UP-E2"/><content><espi:UsagePoint><espi:ServiceCategory><espi:kind>0</espi:kind></espi:ServiceCategory></espi:UsagePoint></content></entry></feed>`,
+        );
+      if (url === `${RE}/Subscription/grant_1/UsagePoint/UP-E2/MeterReading`)
+        return xml(`<feed ${ns}><id>urn:uuid:m</id></feed>`);
+      throw new Error(`Unexpected ${url}`);
+    });
+    const r = await POST(request({ action: "espi_authorization" }));
+    expect(r.status).toBe(200);
+    expect((await r.json()).authorization).toEqual({
+      id: "grant_1",
+      status: "active",
+      expiresAt: "2027-01-15T08:00:00Z",
+      meters: [{ id: "UP-E2", title: "EV charger" }],
+    });
+    // Without espi:usage the meters aren't read; the rest is.
+    state.run.scopes = "poppy:read espi:summary";
+    state.transport.mockClear();
+    const summary = await (
+      await POST(request({ action: "espi_authorization" }))
+    ).json();
+    expect(summary.authorization).toEqual({
+      id: "grant_1",
+      status: "active",
+      expiresAt: "2027-01-15T08:00:00Z",
+    });
+    expect(state.transport).toHaveBeenCalledTimes(1);
+    // No record: a message of ours.
+    state.transport.mockReset();
+    state.transport.mockRejectedValue(new ProtocolError(404, undefined));
+    const missing = await (
+      await POST(request({ action: "espi_authorization" }))
+    ).json();
+    expect(missing.authorization).toBeUndefined();
+    expect(missing.error).toBe("The utility didn't return this authorization.");
   });
 });
 

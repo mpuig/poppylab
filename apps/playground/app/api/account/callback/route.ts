@@ -12,7 +12,7 @@ import {
   type Run,
 } from "@/lib/runtime";
 import { assertion, proof, protocolRequest } from "@poppy-lab/pap-client";
-import { tokenResponse } from "../../../../lib/token-response";
+import { keepTokenFields, tokenResponse } from "../../../../lib/token-response";
 import { serving } from "@/lib/deployment";
 import { acquireRun, releaseRun, runForState, visitorOf } from "@/lib/runs";
 export const runtime = "nodejs";
@@ -139,9 +139,9 @@ export async function GET(request: Request) {
     run.tokenType = result.tokenType;
     run.tokenExpires = result.expires;
     run.accountToken = result.refreshToken!;
-    // poppylab.dev/fdx v1: the consent id of this grant, when it has one.
-    if (result.consentId) run.fdxConsent = result.consentId;
-    else delete run.fdxConsent;
+    // poppylab.dev/fdx v1: the consent id of this grant, when it has one;
+    // poppylab.dev/espi v1: its subscription and authorization URIs.
+    keepTokenFields(run, result, true);
     if (dpop) run.dpop = dpop;
     // §4.5: per-service tokens were issued to the sign-in this one replaces:
     // its account, scopes and DPoP key. None is sent again.

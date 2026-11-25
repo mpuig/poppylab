@@ -195,6 +195,52 @@ it("keeps the FDX-shaped consent id of the grant, and drops an earlier one when 
   }
 });
 
+it("keeps the ESPI-shaped subscription and authorization URIs that fit the entry, and drops earlier ones (poppylab.dev/espi v1)", async () => {
+  const RE = "https://food.papsandbox.com/espi/1_1/resource";
+  const run = s.run as typeof s.run & {
+    company?: unknown;
+    espiResourceUri?: string;
+    espiAuthorizationUri?: string;
+  };
+  const sign = async (fields: Record<string, unknown>) => {
+    s.run.auth = {
+      state: "state_test",
+      verifier: "verifier_test",
+      issuer: "https://food.papsandbox.com",
+      scopes: "orders:read",
+      expires: Date.now() + 60000,
+      dpop: { kty: "EC" },
+    };
+    s.request.mockResolvedValue(success(fields));
+    expect((await GET(req())).status).toBe(200);
+  };
+  run.company = {
+    profile: {
+      extensions: {
+        "poppylab.dev/espi": { version: "1", resource_endpoint: RE },
+      },
+    },
+  };
+  try {
+    await sign({
+      resourceURI: `${RE}/Batch/Subscription/grant_7Hk2`,
+      authorizationURI: `${RE}/Authorization/grant_7Hk2`,
+    });
+    expect(run.espiResourceUri).toBe(`${RE}/Batch/Subscription/grant_7Hk2`);
+    expect(run.espiAuthorizationUri).toBe(`${RE}/Authorization/grant_7Hk2`);
+    // Elsewhere, or not exactly the shape: not kept, and the earlier gone.
+    await sign({
+      resourceURI:
+        "https://evil.example/espi/1_1/resource/Batch/Subscription/g",
+      authorizationURI: `${RE}/Authorization/grant_7Hk2/../x`,
+    });
+    expect(run.espiResourceUri).toBeUndefined();
+    expect(run.espiAuthorizationUri).toBeUndefined();
+  } finally {
+    delete run.company;
+  }
+});
+
 it("forgets the per-service tokens of the sign-in it replaces (§4.5)", async () => {
   const run = s.run as { resourceTokens?: unknown };
   const cached = {

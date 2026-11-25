@@ -5,8 +5,10 @@ import {
   consentScopes,
   grantedSubset,
   consentOutcome,
+  missingExtensionScopes,
   missingFdxScopes,
 } from "./account-permissions";
+import { extensionByKey } from "./domain-extension";
 import type { CompanyProfile } from "@poppy-lab/pap-core";
 const profile: CompanyProfile = {
   version: "1.0",
@@ -120,4 +122,47 @@ it("never describes an uncertain server failure as revoked access", () => {
     accountRecovery(new ProtocolError(500, "invalid_grant")),
   ).toBeUndefined();
   expect(accountRecovery(new Error("secret remote message"))).toBeUndefined();
+});
+it("asks for the ESPI-shaped scopes its tools use only with Use ESPI on, never espi:customer", () => {
+  const utility: CompanyProfile = {
+    ...profile,
+    scopes: [
+      "account:read",
+      "plan:write",
+      "espi:usage",
+      "espi:summary",
+      "espi:customer",
+      "fdx:ACCOUNT_BASIC",
+    ],
+    scopeHints: {
+      "account:read": { changes: "none", personal_data: true },
+      "plan:write": { changes: "reversible", personal_data: true },
+      "espi:usage": { changes: "none", personal_data: true },
+      "espi:summary": { changes: "none", personal_data: true },
+      "espi:customer": { changes: "none", personal_data: true },
+      "fdx:ACCOUNT_BASIC": { changes: "none", personal_data: true },
+    },
+  };
+  expect(consentScopes(utility)).toBe("account:read");
+  expect(consentScopes(utility, "read", { espi: true })).toBe(
+    "account:read espi:usage espi:summary",
+  );
+  expect(consentScopes(utility, "write", { espi: true })).toBe(
+    "account:read plan:write espi:usage espi:summary",
+  );
+  // Each extension's scopes go with its own setting only.
+  expect(consentScopes(utility, "read", { fdx: true })).toBe(
+    "account:read fdx:ACCOUNT_BASIC",
+  );
+  const espi = extensionByKey("espi")!;
+  expect(
+    missingExtensionScopes(utility, "account:read espi:usage", espi),
+  ).toEqual(["espi:summary"]);
+  expect(
+    missingExtensionScopes(
+      utility,
+      "account:read espi:usage espi:summary",
+      espi,
+    ),
+  ).toEqual([]);
 });

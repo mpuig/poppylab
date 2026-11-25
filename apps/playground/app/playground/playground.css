@@ -1038,42 +1038,42 @@ main {
 .messages .permission-note {
   flex: 0 0 100%;
 }
-/* Use FDX (poppylab.dev/fdx v1): a setting of this conversation. */
-.fdx-toggle {
+/* Use FDX or Use ESPI (a domain extension): a setting of this conversation. */
+.extension-toggle {
   display: inline-flex;
   align-items: flex-start;
   gap: 8px;
   cursor: pointer;
 }
-.fdx-toggle input {
+.extension-toggle input {
   margin: 3px 0 0;
 }
-.fdx-toggle small {
+.extension-toggle small {
   display: block;
   font-size: 12px;
 }
-/* The FDX consent of this sign-in, revoked by the User, confirmed in place. */
-.fdx-consent,
-.fdx-consent-actions {
+/* The FDX consent or ESPI authorization of this sign-in, revoked by the User, confirmed in place. */
+.extension-grant,
+.extension-grant-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 16px;
 }
-.fdx-consent {
+.extension-grant {
   flex-basis: 100%;
 }
-.fdx-consent p {
+.extension-grant p {
   margin: 0;
   flex-basis: 100%;
   overflow-wrap: anywhere;
 }
-.fdx-consent code {
+.extension-grant code {
   font-family: var(--mono);
   font-size: 13px;
   color: var(--ink);
 }
-.fdx-consent-actions > span {
+.extension-grant-actions > span {
   flex-basis: 100%;
   color: var(--ink-soft);
 }

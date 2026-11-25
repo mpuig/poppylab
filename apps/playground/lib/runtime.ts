@@ -21,7 +21,9 @@ import {
   fdxTools,
   fdxStatementPdf,
   validFdxId,
+  espiTools,
   type BinaryBody,
+  type EspiRequestOptions,
   type FdxRequestOptions,
   mcpTools,
   mcpRequest,
@@ -33,8 +35,13 @@ import {
   onWorkers,
   type RetryState,
 } from "@poppy-lab/pap-client";
-import { tokenResponse } from "./token-response";
+import { espiUri, keepTokenFields, tokenResponse } from "./token-response";
 export { tokenResponse };
+import {
+  DOMAIN_EXTENSIONS,
+  extensionsOn,
+  type DomainExtension,
+} from "./domain-extension";
 import { outcomeUnknown, recordOperation } from "./operation-store";
 import {
   approveInConversation,
@@ -53,11 +60,13 @@ export { localOrigins };
 import type { JWK } from "jose";
 import {
   companyProfile,
+  ESPI_EXTENSION,
   FDX_EXTENSION,
   isLocalCompany,
   parseAlternative,
   parseTasks,
   type DiscoveredCompany,
+  type EspiExtensionEntry,
   type FdxExtensionEntry,
   type TasksResponse,
 } from "@poppy-lab/pap-core";
@@ -249,6 +258,18 @@ export type Run = {
   fdx?: boolean;
   /** `poppylab.dev/fdx` v1: the consent id from the last token response. */
   fdxConsent?: string;
+  /**
+   * Use ESPI: the same choice for `poppylab.dev/espi` v1 and its
+   * ESPI-shaped tools, at a Company that lists it.
+   */
+  espi?: boolean;
+  /**
+   * `poppylab.dev/espi` v1: the subscription (`resourceURI`) and its
+   * authorization (`authorizationURI`) from the last token response, each
+   * checked against the entry (`espiUri`).
+   */
+  espiResourceUri?: string;
+  espiAuthorizationUri?: string;
   company?: DiscoveredCompany;
   auth?:
     | {
@@ -385,28 +406,48 @@ export function fdxEntry(run: Run): FdxExtensionEntry | undefined {
 }
 
 /**
+ * `poppylab.dev/espi` v1 (§3.3): the Company's validated entry, when Use
+ * ESPI is on.
+ */
+export function espiEntry(run: Run): EspiExtensionEntry | undefined {
+  return run.espi
+    ? run.company?.profile?.extensions?.[ESPI_EXTENSION]
+    : undefined;
+}
+
+/**
  * §3.3, §3.4: the extensions this Session declares, name → version: each
- * one the Company lists, Operations v3 always and the FDX-shaped one only
- * with Use FDX on.
+ * one the Company lists, Operations v3 always and a domain extension (the
+ * FDX-shaped or the ESPI-shaped one) only with Use FDX or Use ESPI on.
  */
 export function declaredExtensions(run: Run): Record<string, string> {
+  const on = extensionsOn(run);
   return {
     ...(companyProfile(run.company!).operations ? { operations: "3" } : {}),
-    ...(fdxEntry(run) ? { [FDX_EXTENSION]: "1" } : {}),
+    ...Object.fromEntries(
+      DOMAIN_EXTENSIONS.filter((e) => on[e.key]).map((e) => [e.name, "1"]),
+    ),
   };
 }
 
 /**
- * Turns Use FDX on or off. A Session's declarations don't change (§3.4), so
- * a change starts a new Session. Returns whether anything changed.
+ * Turns a domain extension (Use FDX, Use ESPI) on or off. A Session's
+ * declarations don't change (§3.4), so a change starts a new Session.
+ * Returns whether anything changed.
  */
-export function setFdx(run: Run, on: boolean) {
-  if (!!run.fdx === on) return false;
-  if (on) run.fdx = true;
-  else delete run.fdx;
+export function setExtension(
+  run: Run,
+  key: DomainExtension["key"],
+  on: boolean,
+) {
+  if (!!run[key] === on) return false;
+  if (on) run[key] = true;
+  else delete run[key];
   newSession(run);
   return true;
 }
+/** Turns Use FDX on or off (`setExtension`). */
+export const setFdx = (run: Run, on: boolean) => setExtension(run, "fdx", on);
 
 async function sessionHeaders(
   run: Run,
@@ -591,8 +632,11 @@ function markAccountFailure(run: Run, error: unknown) {
 export async function papRequest(
   run: Run,
   url: string,
-  /** PUT only for `poppylab.dev/fdx` consent revocation, the User's action. */
-  method: "GET" | "POST" | "PUT",
+  /**
+   * PUT only for `poppylab.dev/fdx` consent revocation and DELETE only for
+   * `poppylab.dev/espi` authorization revocation: the User's actions.
+   */
+  method: "GET" | "POST" | "PUT" | "DELETE",
   body?: unknown,
   options: {
     signedOut?: boolean;
@@ -606,9 +650,10 @@ export async function papRequest(
     errorBody?: boolean;
     /**
      * A success is a document of this type, read as a `BinaryBody` of at
-     * most `maxBytes` (a statement PDF). Sent as the request's Accept.
+     * most `maxBytes` (a statement PDF, an ESPI-shaped Atom feed). Sent as
+     * the request's Accept.
      */
-    binary?: FdxRequestOptions;
+    binary?: FdxRequestOptions | EspiRequestOptions;
   } = {},
 ) {
   if (run.accountToken && !options.signedOut) await renewIfNeeded(run);
@@ -864,8 +909,9 @@ export async function renewAccount(run: Run) {
   run.accountToken = result.refreshToken ?? refreshToken;
   run.scopes = result.scope;
   run.tokenExpires = result.expires;
-  // poppylab.dev/fdx v1: the grant's consent id comes again on refresh.
-  if (result.consentId) run.fdxConsent = result.consentId;
+  // poppylab.dev/fdx v1: the grant's consent id comes again on refresh, and
+  // poppylab.dev/espi v1: its subscription and authorization URIs.
+  keepTokenFields(run, result, false);
 }
 
 /**
@@ -990,7 +1036,12 @@ export async function connect(
   }
   api ??= company.document.apis?.find((item) => item.type === "mcp");
   const fdx = fdxEntry(run);
-  const fdxSet = fdx ? fdxConnect(run, fdx, trace) : {};
+  const espi = espiEntry(run);
+  // The domain extension's native tools, with Use FDX or Use ESPI on.
+  const domainSet = {
+    ...(fdx ? fdxConnect(run, fdx, trace) : {}),
+    ...(espi ? espiConnect(run, espi, trace) : {}),
+  };
   const endpoint = conversationEndpoint(company);
   const conversation = endpoint
     ? conversationTools(run, conversationOptions(run, endpoint, trace, shown))
@@ -1008,8 +1059,8 @@ export async function connect(
   if (feedbackEndpoint(run))
     taskTools.report_unsupported_task = feedbackTool(run, trace, names);
   if (!api) {
-    if (endpoint || fdx)
-      return offered({ ...conversation, ...fdxSet, ...taskTools });
+    if (endpoint || fdx || espi)
+      return offered({ ...conversation, ...domainSet, ...taskTools });
     throw new UserFacingError(
       "This Company lists no OpenAPI, MCP or conversation endpoint Poppy Lab supports.",
     );
@@ -1026,7 +1077,7 @@ export async function connect(
     api.type === "mcp"
       ? await mcpConnect(run, api.url, trace)
       : await openApiConnect(run, api.url, trace, sandbox, spec);
-  return offered({ ...tools, ...fdxSet, ...conversation, ...taskTools });
+  return offered({ ...tools, ...domainSet, ...conversation, ...taskTools });
 }
 
 /** A URL at or under a base URL: same origin, and the base's path segments. */
@@ -1109,20 +1160,27 @@ function fdxConnect(
   return tools;
 }
 
+const SIGN_IN_REQUIRED = {
+  error: "sign_in_required",
+  instruction: "Ask the user to use the Sign in control in the chat.",
+} as const;
+const FDX = DOMAIN_EXTENSIONS.find((e) => e.key === "fdx")!;
+const ESPI = DOMAIN_EXTENSIONS.find((e) => e.key === "espi")!;
+
 /**
- * How the FDX-shaped tools reach the Company: signed in, within the granted
- * data clusters, through `papRequest`.
+ * How a domain extension's native tools reach the Company: signed in,
+ * within the granted scopes, through `papRequest`. The FDX-shaped tools ask
+ * for JSON or a statement PDF, the ESPI-shaped ones for Atom XML.
  */
-function fdxRequest(run: Run) {
-  return async (url: string, scopes: string[], options?: FdxRequestOptions) => {
-    // Every FDX-shaped route is account data, the consent API included.
-    if (!run.accountToken)
-      return {
-        outcome: {
-          error: "sign_in_required",
-          instruction: "Ask the user to use the Sign in control in the chat.",
-        },
-      };
+function extensionRequest(run: Run, extension: DomainExtension) {
+  return async (
+    url: string,
+    scopes: string[],
+    options?: FdxRequestOptions | EspiRequestOptions,
+  ) => {
+    // Every route of a domain extension is account data, the consent and
+    // authorization ones included.
+    if (!run.accountToken) return { outcome: SIGN_IN_REQUIRED };
     const granted = (run.scopes ?? "").split(" ");
     const missing = scopes.filter((s) => !granted.includes(s));
     if (missing.length)
@@ -1130,12 +1188,12 @@ function fdxRequest(run: Run) {
         outcome: {
           error: "insufficient_scope",
           missing,
-          instruction:
-            "This sign-in doesn't include these FDX-shaped data clusters. Ask the user to sign in again with Use FDX on; do not retry until then.",
+          instruction: `This sign-in doesn't include these ${extension.shape} ${extension.key === "fdx" ? "data clusters" : "scopes"}. Ask the user to sign in again with Use ${extension.label} on; do not retry until then.`,
         },
       };
     try {
-      // A document (a statement PDF): its bytes, for the adapter to check.
+      // A document (a statement PDF, an Atom feed): its bytes, for the
+      // adapter to check.
       if (options) {
         const document = (await papRequest(run, url, "GET", undefined, {
           errorBody: true,
@@ -1154,21 +1212,28 @@ function fdxRequest(run: Run) {
         }),
       };
     } catch (error) {
-      // An FDX-shaped error (`701`, `703`, `consent_not_found`…): for the
-      // model, bounded by the adapter. Rate limits and server errors
-      // aren't the API's answer, and are thrown as before.
+      // The API's own error (FDX's `701`, `703`, `consent_not_found`…;
+      // ESPI's `invalid_parameter`): for the model, bounded by the adapter.
+      // An ESPI-shaped API also answers a resource it won't reveal with a
+      // bare 404, which has no body: passed on too, unless it is a Poppy or
+      // OAuth error (a known code) or a token's 401. Rate limits and server
+      // errors aren't the API's answer, and are thrown as before.
       if (
         error instanceof ProtocolError &&
-        error.body !== undefined &&
+        (error.body !== undefined ||
+          (extension.key === "espi" &&
+            error.code === undefined &&
+            error.status !== 401)) &&
         error.status >= 400 &&
         error.status < 500 &&
         error.status !== 429
       )
-        return { status: error.status, body: error.body };
+        return { status: error.status, body: error.body ?? null };
       throw error;
     }
   };
 }
+const fdxRequest = (run: Run) => extensionRequest(run, FDX);
 
 /**
  * `poppylab.dev/fdx` v1: the native tools for the User's own actions in the
@@ -1265,24 +1330,149 @@ export async function fdxConsentRecord(run: Run, trace: string[]) {
 export async function revokeFdxConsent(run: Run, trace: string[]) {
   const target = fdxConsentTarget(run);
   if (!target) throw new UserFacingError("No FDX consent to revoke.");
-  const path = new URL(target.revocation).pathname;
+  await sendRevocation(run, trace, "PUT", target.revocation, "FDX consent", {
+    reason: "USER_ACTION",
+    initiator: "INDIVIDUAL",
+  });
+}
+
+/**
+ * The User's revocation of a domain extension's grant, as one request
+ * through `papRequest`, traced with its outcome. Resolves on a 2xx; throws
+ * the Company's error otherwise.
+ */
+async function sendRevocation(
+  run: Run,
+  trace: string[],
+  method: "PUT" | "DELETE",
+  url: string,
+  what: string,
+  body?: unknown,
+) {
+  const path = new URL(url).pathname;
   try {
-    const answer = await papRequest(
-      run,
-      target.revocation,
-      "PUT",
-      { reason: "USER_ACTION", initiator: "INDIVIDUAL" },
-      { acceptEmpty: true },
-    );
+    const answer = await papRequest(run, url, method, body, {
+      acceptEmpty: true,
+    });
     trace.push(
-      `PUT ${path} · FDX consent revoked · ${answer === null ? 204 : 200}`,
+      `${method} ${path} · ${what} revoked · ${answer === null ? 204 : 200}`,
     );
   } catch (error) {
     trace.push(
-      `PUT ${path} · FDX consent revocation failed · ${error instanceof ProtocolError ? error.status : "no answer"}`,
+      `${method} ${path} · ${what} revocation failed · ${error instanceof ProtocolError ? error.status : "no answer"}`,
     );
     throw error;
   }
+}
+
+/** With Use ESPI on, the tools to use for usage and bills (`espiConnect`). */
+export const ESPI_GUIDANCE =
+  "The User turned on Use ESPI: for electricity usage, costs and bills, use these espi_ tools rather than the Company's own API tools.";
+
+/**
+ * `poppylab.dev/espi` v1: the native, read-only ESPI-shaped tools, as the
+ * model and the account row both get them. The subscription and its
+ * authorization are the URIs kept from the token response; signed out,
+ * every tool answers that the User should sign in, and sends nothing.
+ */
+function espiToolset(
+  run: Run,
+  entry: EspiExtensionEntry,
+  trace: string[],
+): Record<string, ApiTool> {
+  const tools = espiTools({
+    entry,
+    trace: (line) => trace.push(line),
+    request: extensionRequest(run, ESPI),
+    resourceUri: () => run.espiResourceUri,
+    authorizationUri: () => run.espiAuthorizationUri,
+  });
+  return Object.fromEntries(
+    Object.entries(tools).map(([name, tool]) => [
+      name,
+      {
+        ...tool,
+        execute: async (input?: Record<string, unknown>) =>
+          run.accountToken ? tool.execute(input) : SIGN_IN_REQUIRED,
+      },
+    ]),
+  );
+}
+
+/**
+ * `poppylab.dev/espi` v1, with Use ESPI on: the ESPI-shaped tools for the
+ * model, which send what other API tools send (`papRequest`) and ask for
+ * Atom XML. The utility applies the meters chosen at consent to both APIs.
+ */
+function espiConnect(
+  run: Run,
+  entry: EspiExtensionEntry,
+  trace: string[],
+): Record<string, ApiTool> {
+  const tools = espiToolset(run, entry, trace);
+  // The User chose this API: steer the model to it. A preference, not a
+  // block.
+  const meters = tools.espi_meters;
+  if (meters)
+    tools.espi_meters = {
+      ...meters,
+      description: `${ESPI_GUIDANCE} ${meters.description}`,
+    };
+  trace.push(
+    `Extension ${ESPI_EXTENSION} v1 · native ESPI-shaped adapter · ${Object.keys(tools).length} read tools`,
+  );
+  return tools;
+}
+
+/** The ESPI-shaped tools for the User's own actions in the account row. */
+export function espiUserTools(run: Run, trace: string[]) {
+  const entry = espiEntry(run);
+  if (!entry) throw new UserFacingError("Turn on Use ESPI first.");
+  return espiToolset(run, entry, trace);
+}
+
+/**
+ * `poppylab.dev/espi` v1: the authorization this sign-in holds, when Use
+ * ESPI is on and the utility returned its URI. Only the URI kept from the
+ * token response, checked again against the entry; never from the page.
+ */
+export function espiAuthorizationTarget(run: Run) {
+  const entry = espiEntry(run);
+  if (!entry || !run.accountToken || run.accountUnavailable) return;
+  const url = espiUri(entry, run.espiAuthorizationUri, "Authorization");
+  return url ? { entry, url, id: url.split("/").at(-1)! } : undefined;
+}
+
+/**
+ * The subscription as the page shows it: the authorization's status,
+ * period and expiry through `espi_authorization`, and the meters it shares
+ * through `espi_meters` when the grant reads usage. The same bounded fields
+ * the model would get.
+ */
+export async function espiAuthorizationRecord(run: Run, trace: string[]) {
+  const target = espiAuthorizationTarget(run);
+  if (!target) throw new UserFacingError("No ESPI authorization to show.");
+  const tools = espiToolset(run, target.entry, trace);
+  const authorization = (await tools.espi_authorization!.execute({})) as Record<
+    string,
+    unknown
+  >;
+  const meters = hasScope(run, "espi:usage")
+    ? ((await tools.espi_meters!.execute({})) as Record<string, unknown>)
+    : undefined;
+  return { authorization, meters };
+}
+
+/**
+ * `poppylab.dev/espi` v1: the User revokes the authorization, which is the
+ * grant (`DELETE {authorizationURI}`). Through `papRequest` like any
+ * ESPI-shaped call: Session header, DPoP token, the extension declared.
+ * Never a model tool.
+ */
+export async function revokeEspiAuthorization(run: Run, trace: string[]) {
+  const target = espiAuthorizationTarget(run);
+  if (!target) throw new UserFacingError("No ESPI authorization to revoke.");
+  await sendRevocation(run, trace, "DELETE", target.url, "ESPI authorization");
 }
 
 /** What a conversation needs from the run: transport, policy and output. */
@@ -1562,6 +1752,7 @@ async function openApiConnect(
   const api = { url };
   const spec = described ?? (await protocolRequest(api.url, {}, localOrigins));
   const fdx = profile.extensions?.[FDX_EXTENSION];
+  const espi = profile.extensions?.[ESPI_EXTENSION];
   // §4.5: the service is the URL in the description's servers.
   const server = (spec as { servers?: Array<{ url?: unknown }> })?.servers?.[0]
     ?.url;
@@ -1598,6 +1789,8 @@ async function openApiConnect(
             new URL(fdx.consent_endpoint).pathname,
           ]
         : []),
+      // And the ESPI-shaped ones.
+      ...(espi ? [new URL(espi.resource_endpoint).pathname] : []),
     ],
     trace: (message) => trace.push(message),
     request: async (target, method, body, scopes) => {

@@ -1,4 +1,4 @@
-import { companyProfile, FDX_EXTENSION } from "@poppy-lab/pap-core";
+import { companyProfile } from "@poppy-lab/pap-core";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createHash } from "node:crypto";
@@ -14,12 +14,16 @@ import {
   revokeRefreshToken,
   pushAuthorizationRequest,
   fdxEntry,
-  setFdx,
+  setExtension,
   fdxConsentRecord,
   revokeFdxConsent,
   fdxUserTools,
   fdxStatementDownload,
+  espiAuthorizationTarget,
+  espiAuthorizationRecord,
+  revokeEspiAuthorization,
 } from "@/lib/runtime";
+import { extensionByKey, extensionsOn } from "@/lib/domain-extension";
 import { fdxStatementsByAccount } from "@/lib/demo-fdx";
 import { recordOutcome } from "@/lib/transcript";
 import {
@@ -51,8 +55,9 @@ export const runtime = "nodejs";
 const issuer = "http://juniper.localhost:4100";
 
 /**
- * The run as sign-out leaves it (§5.5): no account tokens, scopes or FDX
- * consent, and nothing Iris read with them. The Session continues signed out.
+ * The run as sign-out leaves it (§5.5): no account tokens, scopes, FDX
+ * consent or ESPI subscription, and nothing Iris read with them. The
+ * Session continues signed out.
  */
 function signedOutLocally(run: Run) {
   delete run.accountToken;
@@ -64,6 +69,8 @@ function signedOutLocally(run: Run) {
   delete run.resourceTokens;
   delete run.scopes;
   delete run.fdxConsent;
+  delete run.espiResourceUri;
+  delete run.espiAuthorizationUri;
   delete run.auth;
   run.operations = {};
   run.history = [];
@@ -141,6 +148,58 @@ const accessEnded = (error: unknown) =>
   error instanceof ProtocolError &&
   ((error.status === 401 && (!error.code || error.code === "invalid_token")) ||
     (error.status === 400 && error.code === "invalid_grant"));
+
+/**
+ * The User revokes a domain extension's grant (the FDX consent, the ESPI
+ * authorization) with `revoke`, and the answer the page gets. Revoked, or
+ * found already ended: the Company holds no live token of this sign-in, so
+ * the run is signed out here without revoking the dead refresh token.
+ * Anything else keeps the sign-in.
+ */
+async function revocationAnswer(
+  run: Run,
+  revoke: (run: Run, trace: string[]) => Promise<void>,
+  what: { name: string; code: string; named: Record<string, unknown> },
+) {
+  const trace: string[] = [];
+  try {
+    await revoke(run, trace);
+  } catch (error) {
+    // The Company no longer takes this sign-in's tokens: the grant has
+    // ended already. Its refresh token is dead too, so it isn't revoked.
+    if (accessEnded(error)) {
+      signedOutLocally(run);
+      trace.push(`${what.name} already ended · signed out`);
+      return NextResponse.json(
+        { signedIn: false, revoked: "already_ended", ...what.named, trace },
+        { headers: { "Cache-Control": "no-store" } },
+      );
+    }
+    return NextResponse.json(
+      {
+        code: what.code,
+        error:
+          error instanceof ProtocolError &&
+          error.status === 429 &&
+          error.retryAt
+            ? `The Company asked to wait before trying again. The ${what.name} wasn't revoked, and you're still signed in.`
+            : error instanceof ProtocolError && error.status < 500
+              ? `The Company didn't revoke the ${what.name} (HTTP ${error.status}). You're still signed in; try again, or sign out to end this access.`
+              : "The Company didn't confirm the revocation. You're still signed in; try again, or sign out to end this access.",
+        trace,
+      },
+      { status: 502, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+  // The consent or authorization was the grant: its access and refresh
+  // tokens are gone at the Company, so sign-out has nothing left to revoke.
+  signedOutLocally(run);
+  return NextResponse.json(
+    { signedIn: false, revoked: "revoked", ...what.named, trace },
+    { headers: { "Cache-Control": "no-store" } },
+  );
+}
+
 /** One conversation, named by `?conversation=`: running, or ended and read-only. */
 export async function GET(request: Request) {
   if (!serving())
@@ -171,6 +230,10 @@ export async function GET(request: Request) {
         run?.accountToken && !run.accountUnavailable
           ? run.fdxConsent
           : undefined,
+      // Use ESPI (poppylab.dev/espi v1), the same setting at a utility, and
+      // the id of this sign-in's authorization, to show and revoke with it.
+      espi: !!run?.espi,
+      espiAuthorization: run ? espiAuthorizationTarget(run)?.id : undefined,
       consentVersion: run?.consentVersion ?? 0,
       recovery: run?.accountUnavailable ? accountUnavailableNotice : undefined,
       signedIn:
@@ -274,24 +337,28 @@ async function act(request: Request, started: { id?: string }) {
       revision?: string;
       /** The User's standing instruction, for an agent approval (§5). */
       instruction?: unknown;
-      /** `fdx`: Use FDX on or off. */
+      /** `fdx`, `espi`: Use FDX or Use ESPI on or off. */
       enabled?: unknown;
       /** `fdx_statement`: which statement of which shared account. */
       accountId?: unknown;
       statementId?: unknown;
     };
-    if (body.action === "fdx") {
-      // §3.3: only for a Company that lists a valid poppylab.dev/fdx v1
-      // entry. A change starts a new Session (§3.4); sign-in is kept.
+    const extension = extensionByKey(body.action);
+    if (extension) {
+      // Use FDX, Use ESPI. §3.3: only for a Company that lists a valid
+      // entry of that extension (v1). A change starts a new Session (§3.4);
+      // sign-in is kept.
       if (typeof body.enabled !== "boolean") throw new Error();
-      if (body.enabled && !run.company?.profile?.extensions?.[FDX_EXTENSION])
+      if (body.enabled && !run.company?.profile?.extensions?.[extension.name])
         return NextResponse.json(
-          { error: "This Company doesn't offer the FDX-shaped extension." },
+          {
+            error: `This Company doesn't offer the ${extension.shape} extension.`,
+          },
           { status: 400 },
         );
-      setFdx(run, body.enabled);
+      setExtension(run, extension.key, body.enabled);
       return NextResponse.json(
-        { fdx: !!run.fdx, sessionId: run.sessionId },
+        { [extension.key]: !!run[extension.key], sessionId: run.sessionId },
         { headers: { "Cache-Control": "no-store" } },
       );
     }
@@ -345,41 +412,72 @@ async function act(request: Request, started: { id?: string }) {
           { headers: { "Cache-Control": "no-store" } },
         );
       }
-      const consent = run.fdxConsent;
-      try {
-        await revokeFdxConsent(run, trace);
-      } catch (error) {
-        // The bank no longer takes this sign-in's tokens: the consent has
-        // ended already. Its refresh token is dead too, so it isn't revoked.
-        if (accessEnded(error)) {
-          signedOutLocally(run);
-          trace.push("FDX consent already ended · signed out");
-          return NextResponse.json(
-            { signedIn: false, revoked: "already_ended", consent, trace },
-            { headers: { "Cache-Control": "no-store" } },
-          );
-        }
+      return revocationAnswer(run, revokeFdxConsent, {
+        name: "FDX consent",
+        code: "fdx_revoke_failed",
+        named: { consent: run.fdxConsent },
+      });
+    }
+    if (body.action === "espi_authorization" || body.action === "espi_revoke") {
+      // poppylab.dev/espi v1: the User's own look at, and revocation of,
+      // the authorization of this sign-in, which is its subscription. The
+      // URI comes from the token response, checked against the entry,
+      // never from this body.
+      if (run.accountToken && run.accountUnavailable)
+        return NextResponse.json(accountUnavailableNotice, {
+          status: accountUnavailableNotice.status,
+          headers: { "Cache-Control": "no-store" },
+        });
+      const target = espiAuthorizationTarget(run);
+      if (!target)
         return NextResponse.json(
           {
-            code: "fdx_revoke_failed",
-            error:
-              error instanceof ProtocolError &&
-              error.status === 429 &&
-              error.retryAt
-                ? "The Company asked to wait before trying again. The FDX consent wasn't revoked, and you're still signed in."
-                : error instanceof ProtocolError && error.status < 500
-                  ? `The Company didn't revoke the FDX consent (HTTP ${error.status}). You're still signed in; try again, or sign out to end this access.`
-                  : "The Company didn't confirm the revocation. You're still signed in; try again, or sign out to end this access.",
-            trace,
+            code: "no_espi_authorization",
+            error: !run.accountToken
+              ? "Sign in first: there is no ESPI authorization to revoke."
+              : !run.espi
+                ? "Turn on Use ESPI to manage the ESPI authorization."
+                : "This sign-in has no ESPI authorization. Sign in again to share meters over ESPI.",
           },
-          { status: 502, headers: { "Cache-Control": "no-store" } },
+          { status: 400, headers: { "Cache-Control": "no-store" } },
         );
-      }
-      // The consent was the grant: its access and refresh tokens are gone
-      // at the Company, so sign-out has nothing left to revoke there.
-      signedOutLocally(run);
+      if (body.action === "espi_revoke")
+        return revocationAnswer(run, revokeEspiAuthorization, {
+          name: "ESPI authorization",
+          code: "espi_revoke_failed",
+          named: { authorization: target.id },
+        });
+      const trace: string[] = [];
+      const { authorization, meters } = await espiAuthorizationRecord(
+        run,
+        trace,
+      );
+      const str = (v: unknown) => (typeof v === "string" ? v : undefined);
+      const points = Array.isArray(meters?.usagePoints)
+        ? (meters.usagePoints as Array<Record<string, unknown>>)
+        : undefined;
+      const known = authorization.authorizationId === target.id;
       return NextResponse.json(
-        { signedIn: false, revoked: "revoked", consent, trace },
+        {
+          authorization: known
+            ? {
+                id: target.id,
+                status: str(authorization.status),
+                expiresAt: str(authorization.expiresAt),
+                meters: points?.flatMap((p) =>
+                  typeof p?.usagePointId === "string"
+                    ? [{ id: p.usagePointId, title: str(p.title) }]
+                    : [],
+                ),
+              }
+            : undefined,
+          // No record (`espi_error`, `invalid_response`…): a message of
+          // ours, never the Company's words.
+          ...(known
+            ? {}
+            : { error: "The utility didn't return this authorization." }),
+          trace,
+        },
         { headers: { "Cache-Control": "no-store" } },
       );
     }
@@ -461,10 +559,9 @@ async function act(request: Request, started: { id?: string }) {
         );
       let scopes: string;
       try {
-        // The FDX-shaped data clusters only with Use FDX on (RFC 9700 §2.3).
-        scopes = consentScopes(profile, body.access, {
-          fdx: !!fdxEntry(candidate),
-        });
+        // A domain extension's scopes (the FDX-shaped data clusters, the
+        // ESPI-shaped scopes) only with it on (RFC 9700 §2.3).
+        scopes = consentScopes(profile, body.access, extensionsOn(candidate));
       } catch (error) {
         return NextResponse.json(
           {

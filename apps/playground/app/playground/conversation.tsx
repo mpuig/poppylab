@@ -7,8 +7,30 @@ import { needsYou } from "@/lib/operation-presentation";
 import { hideLinkSecrets } from "@/lib/link-display";
 import { OperationReview } from "../operation-review";
 import { StandingInstruction } from "./standing-instruction";
-import { FdxConsent } from "./fdx-consent";
+import { FdxConsent, type FdxConsentRecord } from "./fdx-consent";
 import { FdxStatements } from "./fdx-statements";
+import {
+  EspiAuthorization,
+  type EspiAuthorizationRecord,
+} from "./espi-authorization";
+
+/** What the account row says of each domain extension's grant. */
+const GRANT_WORDS = {
+  fdx: {
+    revoked: (company: string) =>
+      `FDX consent revoked. ${company} ended the grant and its tokens, and this conversation is signed out.`,
+    ended: (company: string) =>
+      `This FDX consent had already ended at ${company}. This conversation is signed out.`,
+    again: "Sign in again to share accounts over FDX",
+  },
+  espi: {
+    revoked: (company: string) =>
+      `ESPI access revoked. ${company} ended the authorization, its subscription and its tokens, and this conversation is signed out.`,
+    ended: (company: string) =>
+      `This ESPI authorization had already ended at ${company}. This conversation is signed out.`,
+    again: "Sign in again to share meters over ESPI",
+  },
+} as const;
 import { accountCompany, labCompanies, labCompany } from "./companies";
 import type { Playground } from "./use-playground";
 
@@ -256,33 +278,46 @@ export function Conversation({
                     ? "Finish sign-in in the Company tab."
                     : "Account access is optional · only connect accounts you trust"}
               </span>
-              {p.fdxAvailable && (
-                // poppylab.dev/fdx v1, per conversation: declared from the
-                // next Session on (§3.4), with its native read tools.
-                <label className="fdx-toggle">
+              {p.extension && (
+                // Use FDX or Use ESPI, per conversation: the domain
+                // extension is declared from the next Session on (§3.4),
+                // with its native read tools.
+                <label className="extension-toggle">
                   <input
                     type="checkbox"
-                    checked={p.fdx}
+                    checked={p.extensionOn}
                     disabled={busy || waitingSignIn}
-                    onChange={(event) => void p.chooseFdx(event.target.checked)}
+                    onChange={(event) =>
+                      void p.chooseExtension(event.target.checked)
+                    }
                   />
                   <span>
-                    Use FDX
+                    Use {p.extension.label}
                     <small>
-                      FDX-shaped read tools (poppylab.dev/fdx v1). Changing it
-                      starts a new Session.
+                      {p.extension.shape} read tools ({p.extension.name} v1).
+                      Changing it starts a new Session.
                     </small>
                   </span>
                 </label>
               )}
-              {signedIn && p.fdxConsent && (
+              {signedIn && p.grant && p.extension?.key === "fdx" && (
                 <FdxConsent
-                  key={p.fdxConsent}
-                  consentId={p.fdxConsent}
+                  key={p.grant}
+                  consentId={p.grant}
                   company={company.document.organization.name}
-                  record={p.fdxRecord}
+                  record={p.grantRecord as FdxConsentRecord | undefined}
                   disabled={busy || waitingSignIn}
-                  onRevoke={() => void p.revokeFdx()}
+                  onRevoke={() => void p.revokeGrant()}
+                />
+              )}
+              {signedIn && p.grant && p.extension?.key === "espi" && (
+                <EspiAuthorization
+                  key={p.grant}
+                  authorizationId={p.grant}
+                  company={company.document.organization.name}
+                  record={p.grantRecord as EspiAuthorizationRecord | undefined}
+                  disabled={busy || waitingSignIn}
+                  onRevoke={() => void p.revokeGrant()}
                 />
               )}
               {signedIn && p.fdxStatementsShown && (
@@ -295,15 +330,15 @@ export function Conversation({
                   }
                 />
               )}
-              {!signedIn && !waitingSignIn && p.fdxRevoked && (
+              {!signedIn && !waitingSignIn && p.grantRevoked && p.extension && (
                 <p className="permission-note" role="status">
-                  {p.fdxRevoked === "revoked"
-                    ? `FDX consent revoked. ${company.document.organization.name} ended the grant and its tokens, and this conversation is signed out.`
-                    : `This FDX consent had already ended at ${company.document.organization.name}. This conversation is signed out.`}{" "}
-                  Sign in again to share accounts over FDX.
+                  {GRANT_WORDS[p.extension.key][
+                    p.grantRevoked === "revoked" ? "revoked" : "ended"
+                  ](company.document.organization.name)}{" "}
+                  {GRANT_WORDS[p.extension.key].again}.
                 </p>
               )}
-              {p.fdxSignIn && (
+              {p.extensionSignIn && p.extension && (
                 <button
                   type="button"
                   className="ghost-button"
@@ -316,7 +351,7 @@ export function Conversation({
                     )
                   }
                 >
-                  Sign in again to share accounts over FDX
+                  {GRANT_WORDS[p.extension.key].again}
                 </button>
               )}
               {signedIn && p.moreAccess && (

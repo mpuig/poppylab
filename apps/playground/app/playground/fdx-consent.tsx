@@ -1,5 +1,10 @@
 "use client";
-import { useState } from "react";
+import {
+  ConfirmedRevoke,
+  day,
+  ExtensionGrantView,
+  type Confirmation,
+} from "./extension-grant";
 
 /** The consent record's bounded fields the page shows (`fdx_consent` action). */
 export type FdxConsentRecord = {
@@ -9,18 +14,6 @@ export type FdxConsentRecord = {
   accounts?: string[];
   /** The bank didn't return the record: only the id is known. */
   unavailable?: boolean;
-};
-
-const day = (value: string | undefined) => {
-  const at = value ? Date.parse(value) : NaN;
-  return Number.isFinite(at)
-    ? new Date(at).toLocaleDateString("en", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-        timeZone: "UTC",
-      })
-    : undefined;
 };
 
 /**
@@ -34,17 +27,10 @@ export function FdxConsent(props: {
   disabled: boolean;
   onRevoke: () => void;
 }) {
-  const [confirming, setConfirming] = useState(false);
   return (
-    <FdxConsentView
-      {...props}
-      confirming={confirming}
-      onAsk={() => setConfirming(true)}
-      onCancel={() => setConfirming(false)}
-      onRevoke={() => {
-        setConfirming(false);
-        props.onRevoke();
-      }}
+    <ConfirmedRevoke
+      onRevoke={props.onRevoke}
+      view={(confirmation) => <FdxConsentView {...props} {...confirmation} />}
     />
   );
 }
@@ -55,19 +41,12 @@ export function FdxConsentView({
   company,
   record,
   disabled,
-  confirming,
-  onAsk,
-  onCancel,
-  onRevoke,
-}: {
+  ...confirmation
+}: Confirmation & {
   consentId: string;
   company: string;
   record: FdxConsentRecord | undefined;
   disabled: boolean;
-  confirming: boolean;
-  onAsk: () => void;
-  onCancel: () => void;
-  onRevoke: () => void;
 }) {
   const accounts = record?.accounts ?? [];
   const until = day(record?.expirationTime);
@@ -85,48 +64,15 @@ export function FdxConsentView({
           .filter(Boolean)
           .join(" · ");
   return (
-    <div className="fdx-consent">
-      <p>
-        FDX consent <code>{consentId}</code>
-        <span className="quiet"> · {details}</span>
-      </p>
-      {confirming ? (
-        <div
-          className="fdx-consent-actions"
-          role="group"
-          aria-label="Revoke the FDX consent"
-        >
-          <span>
-            {company} ends this consent, its tokens and this sign-in. You can
-            sign in again afterwards.
-          </span>
-          <button
-            type="button"
-            className="connect-button"
-            disabled={disabled}
-            onClick={onRevoke}
-          >
-            Confirm revoke
-          </button>
-          <button
-            type="button"
-            className="text-button"
-            disabled={disabled}
-            onClick={onCancel}
-          >
-            Cancel
-          </button>
-        </div>
-      ) : (
-        <button
-          type="button"
-          className="ghost-button"
-          disabled={disabled}
-          onClick={onAsk}
-        >
-          Revoke FDX consent
-        </button>
-      )}
-    </div>
+    <ExtensionGrantView
+      {...confirmation}
+      name="FDX consent"
+      id={consentId}
+      details={details}
+      revoke="Revoke FDX consent"
+      group="Revoke the FDX consent"
+      explanation={`${company} ends this consent, its tokens and this sign-in. You can sign in again afterwards.`}
+      disabled={disabled}
+    />
   );
 }
