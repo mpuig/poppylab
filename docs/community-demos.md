@@ -1,4 +1,18 @@
-# Ideas from the community demos (3 November 2026)
+# Community demos
+
+## 1.0 round (25 November 2026)
+
+The [demos page](https://personalagentprotocol.org/docs/demos) now lists Cliffside Retail (1.0), Poppy Demo Agent (0.4) and Print with Poppy (0.4). PAP Sandbox and Northstar are no longer listed. Iris implements 1.0 only. Nothing was signed in to or ordered.
+
+| Demo             | Result with Iris on `poppylab.dev`                                                                                                                                                                                                                                                                                                                                                        |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cliffside Retail | **Works signed out.** Discovery passes every check. `whoami` sees Iris, its User ID and a signed-out Session, with the standard `poppy_dlg` form (the 0.3 fallback is gone). Cliffside's Company agent answers a 1.0 conversation (request IDs, four state fields). Iris sends no `Poppy-Extensions`: Cliffside lists none. Sign-in needs Mediated Sign-In, which Iris doesn't implement. |
+| Poppy Demo Agent | Its validator checks against 1.0: `juniper.poppylab.dev`, `noodles.poppylab.dev` and `poppylab.dev/agent/client.json` are **valid with 0 errors, 0 warnings and 0 info**.                                                                                                                                                                                                                 |
+| Print with Poppy | Still on 0.4, which a 1.0-only Iris refuses; its sandbox also accepts registered agents only.                                                                                                                                                                                                                                                                                             |
+
+**Found and fixed:** Cliffside's 1.0 OpenAPI contract declares `Poppy-Version` on every operation as a header parameter, by reference to `#/components/parameters`. Iris's tool generator refused `$ref` parameters, so it skipped every operation. It now resolves local parameter references and leaves the protocol headers it sets itself out of the model's arguments.
+
+## 0.3 round (3 November 2026)
 
 Reviewed: [personalagentprotocol.org/docs/demos](https://personalagentprotocol.org/docs/demos), Cliffside Retail, Poppy Demo Agent (`adewale/pda`), Print with Poppy (`spenciefy/print-with-poppy`) and Poppy on Cloudflare Workers (`irvinebroque/poppy-demo`). Nothing was signed in to or ordered.
 

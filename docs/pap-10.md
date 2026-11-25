@@ -54,3 +54,5 @@ Live on the local stack, 25 November 2026, fictional data only:
 2. Keyless demo: the tasks response read once per Session; a conversation with Lantern's agent and a handoff (`pending` → `none`, phone number).
 3. Iris with GPT-6 Luna at Lantern: an `authorization` event, read-only sign-in **through PAR** (the browser opened only `client_id` and `request_uri`), change permission, a refund proposal in a conversation ("Review refund", USD 29.00), approved with a v3 user approval. Lantern's account page shows the refund and the activity. Iris correctly reported a refund from an earlier test instead of filing it twice.
 4. Iris at Juniper: sign-in through PAR, a recurring delivery moved Thursday → Saturday with a `Poppy-Approval` v3 header at the API, then back to Thursday, then sign-out with revocation.
+5. From production (`poppylab.dev`), against Cliffside Retail 1.0: discovery, `whoami` and a conversation with its Company agent, signed out. See [community demos](community-demos.md).
+6. The Poppy Demo Agent validator, checking 1.0: Juniper, Lantern and Iris's client metadata are valid with 0 errors, 0 warnings and 0 info.

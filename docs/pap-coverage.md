@@ -6,7 +6,7 @@ This describes the current implementation against **Personal Agent Protocol 1.0*
 
 Legend: **I** implemented (within the stated limits) · **P** partial · **N** not implemented · **—** not applicable. Evidence: **A** automated tests · **V** documented live check · **C** code inspection only.
 
-Current suite: **436 tests**; `pnpm scenarios` groups them by topic (`pap-1.0`, `conversations`, `noodles`, `permissions`, `revisions`, `operations`, `recovery`, `mcp`, `nonce`, `authority`).
+Current suite: **437 tests**; `pnpm scenarios` groups them by topic (`pap-1.0`, `conversations`, `noodles`, `permissions`, `revisions`, `operations`, `recovery`, `mcp`, `nonce`, `authority`).
 
 ## 1. Discovery and versions (§3)
 
