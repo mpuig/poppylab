@@ -21,7 +21,7 @@ Lantern's. Every screenshot is from the live lab, taken on 25 November 2026.
 
 ### 1. Pick the company
 
-![The playground with four fictional companies to choose from](../../../apps/playground/public/learn-media/how-it-works/changing-an-order/01-pick-a-company.webp "Iris starts with nothing but the company's address.")
+![The playground with its fictional companies to choose from](../../../apps/playground/public/learn-media/how-it-works/changing-an-order/01-pick-a-company.webp "Iris starts with nothing but the company's address.")
 
 Elena tells Iris which company she wants to deal with. Iris needs only its
 web address. From that address it fetches one public file in which Lantern
@@ -67,7 +67,7 @@ calling and for which of its users, without saying who that user is. Then it
 read the menu.
 
 ```text
-Started a Poppy Session
+Started a Poppy Session, signed out
 Read /poppy/tasks
 Found 5 API tools at the Company
 Read /api/menu
@@ -175,7 +175,7 @@ Lantern's answer to the request, as Iris received it:
 ```json
 {
   "status": "approval_required",
-  "operation_id": "op_tsGMAV_4xPsGTuijbK2s9ovA",
+  "operation_id": "op_3wYLlRHeudkKG__xQVsgdhW2",
   "summary": "Change order ord_LNB1001 for Elena Maren. Move delivery from Friday 18:30–19:00 to Sunday 13:00–13:30. New dishes: 2 × Shoyu ramen, 1 × Salted edamame, 1 × Matcha ice cream. New total USD 43.00 (was USD 37.00; USD 6.00 more, charged — simulated, no real payment).",
   "terms": {
     "order_id": "ord_LNB1001",
@@ -189,7 +189,7 @@ Lantern's answer to the request, as Iris received it:
     "currency": "USD",
     "payment": "Simulated card on file — no real charge"
   },
-  "expires_at": "2026-11-25T15:30:24.094Z"
+  "expires_at": "2026-11-25T20:52:23.895Z"
 }
 ```
 
@@ -218,12 +218,13 @@ in step 7, and they stay on Elena's screen until she decides.
 
 ### 9. Approve
 
-![The panel now reads Completed, with Lantern's confirmation that the order was changed](../../../apps/playground/public/learn-media/how-it-works/changing-an-order/09-approved.webp "Lantern made the change when the approval arrived, and said so.")
+![The proposal is now a finished entry in the conversation. It reads Completed, with Lantern's confirmation that the order was changed and the line Approved by you](../../../apps/playground/public/learn-media/how-it-works/changing-an-order/09-approved.webp "Lantern made the change when the approval arrived, and said so.")
 
 Elena presses Approve. Iris sends Lantern the same request again, this time
 with her approval attached. Lantern checks that the approval matches the
 terms it offered, makes the change and confirms it: the order is now for
-Sunday and costs 43 dollars.
+Sunday and costs 43 dollars. The proposal stays in the conversation as a
+finished entry, with Lantern's confirmation and the line "Approved by you."
 
 The approval is something Elena gives by pressing the button. A sentence in
 the conversation cannot stand in for it, whether Elena writes it or the model
@@ -248,13 +249,14 @@ dishes, 43 dollars.
 
 ### 11. See what the agent did
 
-![Lantern's record of the agent's activity: the change, applied, approved by you in your agent](../../../apps/playground/public/learn-media/how-it-works/changing-an-order/11-agent-activity-at-lantern.webp "Lantern shows the customer what her agent asked for and who approved it.")
+![Lantern's record of the agent's activity: the change, applied on 25 November at 20:42 UTC, approved by you in your agent](../../../apps/playground/public/learn-media/how-it-works/changing-an-order/11-agent-activity-at-lantern.webp "Lantern shows the customer what her agent asked for and who approved it.")
 
 Lower on the same page, Lantern lists what Elena's agent has asked for
-recently. The entry for this change says it was applied and that Elena
-approved it in her agent. A customer who wonders how an order changed finds
-the answer on the company's site while the entry is listed. The order keeps
-the change.
+recently. The entry for this change says it was applied, at what time, and
+that Elena approved it in her agent. A customer who wonders how an order
+changed finds the answer on the company's site. Lantern keeps the entry: the
+screenshot is from about thirteen minutes after the approval, after Iris had
+read the order once more.
 
 ## What Lantern controls
 
