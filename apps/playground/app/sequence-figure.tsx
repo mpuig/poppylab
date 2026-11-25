@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, RotateCcw } from "lucide-react";
 
 /** Where each party's lifeline sits, as a share of the figure's width. */
@@ -66,6 +66,18 @@ function Row({
 export function SequenceFigure() {
   // Messages 1 to 4 have happened; the rest wait for the visitor's approval.
   const [signed, setSigned] = useState(false);
+  // The button a click replaces takes the focus the click had, so a keyboard
+  // goes from Approve to "Show it again" and back without losing its place.
+  const approve = useRef<HTMLButtonElement>(null);
+  const again = useRef<HTMLButtonElement>(null);
+  const acted = useRef(false);
+  useEffect(() => {
+    if (acted.current) (signed ? again : approve).current?.focus();
+  }, [signed]);
+  const set = (next: boolean) => {
+    acted.current = true;
+    setSigned(next);
+  };
   return (
     <figure className="seq" aria-label="Sample of one agent request">
       <div className="seq-heads" aria-hidden="true">
@@ -100,19 +112,12 @@ export function SequenceFigure() {
                 ? "The delivery is now on Saturday, and a retry can't repeat the change."
                 : "Nothing has changed yet. The AI can't approve it."}
             </p>
-            {signed ? (
+            {signed ? null : (
               <button
-                type="button"
-                className="seq-button quiet"
-                onClick={() => setSigned(false)}
-              >
-                <RotateCcw size={16} aria-hidden="true" /> Show it again
-              </button>
-            ) : (
-              <button
+                ref={approve}
                 type="button"
                 className="seq-button"
-                onClick={() => setSigned(true)}
+                onClick={() => set(true)}
               >
                 Approve
               </button>
@@ -130,7 +135,19 @@ export function SequenceFigure() {
         ))}
       </ol>
       <figcaption>
-        A sample request. In the live demo you approve a real proposal.
+        <span>
+          A sample request. In the live demo you approve a real proposal.
+        </span>
+        {signed ? (
+          <button
+            ref={again}
+            type="button"
+            className="seq-again"
+            onClick={() => set(false)}
+          >
+            <RotateCcw size={15} aria-hidden="true" /> Show it again
+          </button>
+        ) : null}
       </figcaption>
     </figure>
   );

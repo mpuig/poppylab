@@ -127,9 +127,6 @@ export default function Home() {
               <a className="button" href="/playground">
                 Try the live demo <ArrowRight size={18} aria-hidden="true" />
               </a>
-              <a className="button ghost" href="#why">
-                Why it exists
-              </a>
             </div>
           </div>
           <SequenceFigure />
