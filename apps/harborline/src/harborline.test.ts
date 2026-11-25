@@ -335,6 +335,91 @@ describe("Harborline Bank", () => {
     });
   });
 
+  it("describes for each amount the most its handler takes", async () => {
+    const { sign, call } = await setup();
+    const token = await sign("elena", all);
+    const openapi = (await inject("/openapi.json")).json();
+    const body = (path: string) =>
+      openapi.paths[path].post.requestBody.content["application/json"].schema
+        .properties;
+    // A transfer: the description's maximum is the bank's limit.
+    const transfer = openapi.paths["/api/account/transfers"].post;
+    const most = body("/api/account/transfers").amount_cents.maximum;
+    expect(most).toBe(250000);
+    expect(body("/api/account/transfers").amount_cents.description).toContain(
+      "At most 250000 (USD 2,500.00) in one transfer.",
+    );
+    expect(transfer.summary).toContain(
+      "One transfer moves at most USD 2,500.00.",
+    );
+    const send = (amount: number, key: string) =>
+      call(token.access_token, "POST", "/api/account/transfers", {
+        source_account_id: "acc_HLB_A200",
+        destination_account_id: "acc_HLB_A100",
+        amount_cents: amount,
+        idempotency_key: key,
+      });
+    expect((await send(most, "transfer-at-limit")).json().error).toBe(
+      "approval_required",
+    );
+    const over = await send(most + 1, "transfer-over-limit");
+    expect(over.statusCode).toBe(422);
+    expect(over.json()).toEqual({
+      error: "transfer_limit_exceeded",
+      limit_cents: most,
+    });
+    // A payment and a budget: one more than the description's maximum is
+    // not an amount the handler reads.
+    const payment = body("/api/account/payments").amount_cents.maximum;
+    expect(
+      (
+        await call(token.access_token, "POST", "/api/account/payments", {
+          source_account_id: "acc_HLB_A200",
+          recipient_id: "rcp_HLB_A501",
+          amount_cents: payment + 1,
+          memo: "Over the most a request can name",
+          idempotency_key: "payment-over-most",
+        })
+      ).json(),
+    ).toEqual({ error: "invalid_payment" });
+    // Below it, the recipient's own limit decides, as the summary says.
+    expect(openapi.paths["/api/account/payments"].post.summary).toContain(
+      "payment_limit_cents",
+    );
+    const limited = await call(
+      token.access_token,
+      "POST",
+      "/api/account/payments",
+      {
+        source_account_id: "acc_HLB_A200",
+        recipient_id: "rcp_HLB_A501",
+        amount_cents: payment,
+        memo: "Over the recipient's limit",
+        idempotency_key: "payment-over-recipient",
+      },
+    );
+    expect(limited.statusCode).toBe(422);
+    expect(limited.json().error).toBe("recipient_limit_exceeded");
+    const budget = body("/api/account/budgets").limit_cents.maximum;
+    expect(budget).toBe(
+      body("/api/account/budgets/{budget_id}").limit_cents.maximum,
+    );
+    const create = (limit: number, key: string) =>
+      call(token.access_token, "POST", "/api/account/budgets", {
+        name: "Travel",
+        category: "travel",
+        limit_cents: limit,
+        month: "2026-12",
+        idempotency_key: key,
+      });
+    expect((await create(budget, "budget-at-most")).json().error).toBe(
+      "approval_required",
+    );
+    expect((await create(budget + 1, "budget-over-most")).json()).toEqual({
+      error: "invalid_budget",
+    });
+  });
+
   it("answers a stale transfer approval with a new revision after another approved transfer changes the account", async () => {
     const { sign, call } = await setup();
     const token = await sign("elena", all);

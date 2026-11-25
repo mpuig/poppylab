@@ -164,12 +164,24 @@ const idParameter = (name: string, description: string) => ({
   description,
   schema: { type: "string", maxLength: 80 },
 });
-const cents = {
+/**
+ * The most a request can name for an amount, and the most one transfer can
+ * move. The handlers refuse above these and the API's description states
+ * the same numbers, so an agent that reads the description can tell the
+ * customer the limit the bank will apply.
+ */
+const MAX_AMOUNT_CENTS = 1000000,
+  TRANSFER_LIMIT_CENTS = 250000;
+/** "USD 2,500.00": an amount as the descriptions write it. */
+const grouped = (amount: number) =>
+  `USD ${(amount / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })}`;
+/** An amount in a request body; `limit` says what a lower maximum is for. */
+const cents = (maximum = MAX_AMOUNT_CENTS, limit = "") => ({
   type: "integer",
   minimum: 1,
-  maximum: 1000000,
-  description: "Whole USD cents. For example, 1250 means USD 12.50.",
-};
+  maximum,
+  description: `Whole USD cents. For example, 1250 means USD 12.50.${limit && ` At most ${maximum} (${grouped(maximum)}) ${limit}.`}`,
+});
 const idempotencySchema = {
   type: "string",
   minLength: 8,
@@ -259,7 +271,7 @@ export const bankPaths: Record<string, unknown> = {
               properties: {
                 name: { type: "string", minLength: 1, maxLength: 60 },
                 category: { type: "string", enum: categories },
-                limit_cents: cents,
+                limit_cents: cents(),
                 month: {
                   type: "string",
                   pattern: "^20[0-9]{2}-(0[1-9]|1[0-2])$",
@@ -291,7 +303,7 @@ export const bankPaths: Record<string, unknown> = {
               required: ["expected_version"],
               properties: {
                 name: { type: "string", minLength: 1, maxLength: 60 },
-                limit_cents: cents,
+                limit_cents: cents(),
                 expected_version: { type: "integer", minimum: 1 },
               },
               additionalProperties: false,
@@ -306,7 +318,7 @@ export const bankPaths: Record<string, unknown> = {
     post: {
       operationId: "request_payment",
       summary:
-        "Propose one outgoing fictional payment from an owned active account to an existing active recipient. Read accounts and recipients first. The exact recipient, amount, memo and resulting balance require Operations v3 approval; no real money moves.",
+        "Propose one outgoing fictional payment from an owned active account to an existing active recipient. Read accounts and recipients first: each recipient has its own limit, payment_limit_cents, and a payment above it is refused. The exact recipient, amount, memo and resulting balance require Operations v3 approval; no real money moves.",
       ...auth(["accounts:read", "recipients:read", "payments:request"]),
       "x-poppy-proposal": true,
       requestBody: {
@@ -325,7 +337,7 @@ export const bankPaths: Record<string, unknown> = {
               properties: {
                 source_account_id: { type: "string", maxLength: 80 },
                 recipient_id: { type: "string", maxLength: 80 },
-                amount_cents: cents,
+                amount_cents: cents(),
                 memo: { type: "string", minLength: 1, maxLength: 120 },
                 idempotency_key: idempotencySchema,
               },
@@ -340,8 +352,7 @@ export const bankPaths: Record<string, unknown> = {
   "/api/account/transfers": {
     post: {
       operationId: "transfer_between_accounts",
-      summary:
-        "Propose moving fictional funds between two different owned active accounts. Read accounts first. Transfers are capped at USD 2,500.00 and require exact Operations v3 approval.",
+      summary: `Propose moving fictional funds between two different owned active accounts. Read accounts first. One transfer moves at most ${grouped(TRANSFER_LIMIT_CENTS)}. Requires exact Operations v3 approval.`,
       ...auth(["accounts:read", "transfers:request"]),
       "x-poppy-proposal": true,
       requestBody: {
@@ -359,7 +370,7 @@ export const bankPaths: Record<string, unknown> = {
               properties: {
                 source_account_id: { type: "string", maxLength: 80 },
                 destination_account_id: { type: "string", maxLength: 80 },
-                amount_cents: cents,
+                amount_cents: cents(TRANSFER_LIMIT_CENTS, "in one transfer"),
                 idempotency_key: idempotencySchema,
               },
               additionalProperties: false,
@@ -604,7 +615,7 @@ function mount(app: Hono, ctx: Parameters<CompanyDefinition["mount"]>[1]) {
       )
     )
       return c.json({ error: "invalid_payment" }, 400);
-    const amount = integer(body.amount_cents, 1, 1000000),
+    const amount = integer(body.amount_cents, 1, MAX_AMOUNT_CENTS),
       memo = text(body.memo, 120),
       key = idempotencyKey(body.idempotency_key),
       source = findAccount(reach, String(body.source_account_id)),
@@ -736,7 +747,7 @@ function mount(app: Hono, ctx: Parameters<CompanyDefinition["mount"]>[1]) {
       )
     )
       return c.json({ error: "invalid_transfer" }, 400);
-    const amount = integer(body.amount_cents, 1, 1000000),
+    const amount = integer(body.amount_cents, 1, MAX_AMOUNT_CENTS),
       key = idempotencyKey(body.idempotency_key),
       source = findAccount(reach, String(body.source_account_id)),
       destination = findAccount(reach, String(body.destination_account_id));
@@ -767,9 +778,9 @@ function mount(app: Hono, ctx: Parameters<CompanyDefinition["mount"]>[1]) {
         : c.json({ error: "idempotency_conflict" }, 409);
     if (source.status !== "active" || destination.status !== "active")
       return c.json({ error: "account_inactive" }, 409);
-    if (amount > 250000)
+    if (amount > TRANSFER_LIMIT_CENTS)
       return c.json(
-        { error: "transfer_limit_exceeded", limit_cents: 250000 },
+        { error: "transfer_limit_exceeded", limit_cents: TRANSFER_LIMIT_CENTS },
         422,
       );
     if (amount > source.available_cents)
@@ -987,7 +998,7 @@ function mount(app: Hono, ctx: Parameters<CompanyDefinition["mount"]>[1]) {
       return c.json({ error: "invalid_budget" }, 400);
     const name = text(body.name, 60),
       nextCategory = category(body.category),
-      limit = integer(body.limit_cents, 1, 1000000),
+      limit = integer(body.limit_cents, 1, MAX_AMOUNT_CENTS),
       month =
         typeof body.month === "string" &&
         /^20\d{2}-(0[1-9]|1[0-2])$/.test(body.month)
@@ -1074,7 +1085,7 @@ function mount(app: Hono, ctx: Parameters<CompanyDefinition["mount"]>[1]) {
       limit =
         body.limit_cents === undefined
           ? budget.limit_cents
-          : integer(body.limit_cents, 1, 1000000);
+          : integer(body.limit_cents, 1, MAX_AMOUNT_CENTS);
     if (!expected || !name || !limit)
       return c.json({ error: "invalid_budget" }, 400);
     if (expected !== budget.version)

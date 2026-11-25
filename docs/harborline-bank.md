@@ -73,7 +73,7 @@ Payment, transfer and budget creation requests require stable caller-generated i
 Modeled business errors include:
 
 - `insufficient_funds`;
-- `recipient_limit_exceeded` and `transfer_limit_exceeded`;
+- `recipient_limit_exceeded` (each recipient's `payment_limit_cents`) and `transfer_limit_exceeded` (USD 2,500.00 in one transfer; the handler and the `maximum` of the transfer's `amount_cents` in the OpenAPI description read one constant);
 - `recipient_inactive`, `card_inactive` and `account_inactive`;
 - `card_changed`, `transaction_changed`, `budget_changed` and Operations `account_changed`;
 - `transaction_pending`;
