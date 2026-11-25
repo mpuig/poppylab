@@ -297,8 +297,11 @@ async function act(request: Request, started: { id?: string }) {
         { status: 410, headers: { "Cache-Control": "no-store" } },
       );
     }
-    // Only an uncertain approval is resent, with the same approval (§7).
-    if (body.action === "retry" && op.state !== "uncertain") throw new Error();
+    // Only an uncertain approval is resent, and only the one that was sent
+    // (§7). Without it there is nothing to retry: a new approval, in the
+    // User's name or Iris's, is only ever made by "approve".
+    if (body.action === "retry" && (op.state !== "uncertain" || !op.approval))
+      throw new Error();
     // Operations v3 §5, agent approval: only on the User's own instruction,
     // checked here against these exact terms, never on the model's word,
     // and never again once the Company declined one for this operation or
@@ -379,6 +382,9 @@ async function act(request: Request, started: { id?: string }) {
               : {}),
           };
           delete op.approval;
+          // A declined retry is a known outcome too (§7). With no approval
+          // left to resend, it goes back to waiting for the User's Approve.
+          op.state = "proposed";
           record(run, {
             role: "assistant",
             content: `The Company declined the approval Iris sent on the user's standing instruction; nothing was performed, and it's waiting for the user.${error.declined?.reason ? ` Its reason: ${error.declined.reason}` : ""}`,
