@@ -16,7 +16,7 @@ Request-schema refs, compositions, multipart input, header/cookie parameters, pa
 
 ## FDX-shaped APIs: a native adapter
 
-`packages/pap-client/src/fdx.ts` builds five read tools for the `poppylab.dev/fdx` v1 extension instead of passing an FDX-shaped OpenAPI description through `openapi.ts`. The adapter is FDX-shaped, not FDX-conformant: it uses a hand-picked set of FDX resource paths and field names, and its descriptions are our own. No FDX text or schema is in the repository, because the FDX licence forbids copying it.
+`packages/pap-client/src/fdx.ts` builds five read tools for the `poppylab.dev/fdx` v1 extension instead of passing an FDX-shaped OpenAPI description through `openapi.ts`. The adapter is FDX-shaped, not FDX-conformant: it uses a hand-picked set of FDX resource paths and field names, and its descriptions are our own. No FDX text or schema is in the repository, because the FDX licence forbids copying it. The extension is described in [`poppylab.dev/fdx` v1](extensions/fdx.md).
 
 The generic adapter isn't a good fit for two reasons:
 

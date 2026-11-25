@@ -71,7 +71,7 @@ Modeled business errors include:
 
 ## FDX-shaped API
 
-Harborline also serves a read-only API shaped after FDX 6.4 over the same fictional state. It is **FDX-shaped, not FDX-conformant or certified**: paths and field names follow the shape that public implementers use, and every rule, description and error text is Harborline's own. No FDX specification text or schema is in this repository, and Harborline uses no FDX branding. It exists to show a domain standard used through a Poppy extension, the way `ucp` does for commerce.
+Harborline also serves a read-only API shaped after FDX 6.4 over the same fictional state. It is **FDX-shaped, not FDX-conformant or certified**: paths and field names follow the shape that public implementers use, and every rule, description and error text is Harborline's own. No FDX specification text or schema is in this repository, and Harborline uses no FDX branding. It exists to show a domain standard used through a Poppy extension, the way `ucp` does for commerce. The extension itself is described in [`poppylab.dev/fdx` v1](extensions/fdx.md).
 
 Discovery lists it twice. `extensions["poppylab.dev/fdx"]` has one entry, version `1`, with `fdx_version: "6.4"`, `base_url` (`/fdx/v6`), `resources` (`customer`, `accounts`, `transactions`) and `consent_endpoint` (`/fdx/v6/consents`). `apis` adds a second OpenAPI document, `/openapi/fdx.json`, public and served signed out, after Harborline's own `/openapi.json`. Every route under `/fdx/` needs the request to declare `Poppy-Extensions: "poppylab.dev/fdx";v="1"`; without it the gateway answers `403 extension_required` before looking at the token (§3.3). Operations v3 stays listed for Harborline's own API, where payments and transfers still go.
 
