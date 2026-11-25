@@ -61,11 +61,17 @@ const agentHost = (client: string) => {
 /**
  * A Company website's "Feedback from agents" section: this tenant's reports,
  * newest first, every value escaped. Report text is shown as data. `classes`
- * lets each website use its own section and note styles.
+ * lets each website use its own section and note styles, and `example`
+ * names a task that fits the Company for the empty state.
  */
 export function feedbackSection(
   reports: readonly FeedbackReport[],
-  classes: { section?: string; notice?: string } = {},
+  classes: {
+    section?: string;
+    notice?: string;
+    /** A task this Company doesn't offer, for the empty state. */
+    example?: string;
+  } = {},
 ): string {
   const notice = classes.notice ? ` class="${classes.notice}"` : "";
   const items = [...reports]
@@ -75,5 +81,5 @@ export function feedbackSection(
         `<li class="feedback-report"><p class="feedback-task"><strong>${escapeHtml(r.task)}</strong></p><p>${escapeHtml(r.description)}</p><p${notice}>From ${escapeHtml(agentHost(r.client))} · <time datetime="${escapeHtml(r.at)}">${escapeHtml(r.at.slice(0, 16).replace("T", " "))} UTC</time> · ${r.answer === "alternative" ? "We answered with another way to do it" : "Received, no alternative offered"}</p></li>`,
     )
     .join("");
-  return `<section${classes.section ? ` class="${classes.section}"` : ""} id="agent-feedback"><h2>Feedback from agents</h2><p${notice}>Tasks your agent couldn't do here and reported to us (Poppy §9.3). Reports describe the task, not you; their text is shown as written. Reload the page to see new ones.</p>${items ? `<ol class="feedback-list">${items}</ol>` : `<p${notice}>No reports yet. Ask your agent for something we don't offer through Poppy, such as paying with a gift card.</p>`}</section>`;
+  return `<section${classes.section ? ` class="${classes.section}"` : ""} id="agent-feedback"><h2>Feedback from agents</h2><p${notice}>Tasks your agent couldn't do here and reported to us (Poppy §9.3). Reports describe the task, not you; their text is shown as written. Reload the page to see new ones.</p>${items ? `<ol class="feedback-list">${items}</ol>` : `<p${notice}>No reports yet. Ask your agent for something we don't offer through Poppy, such as ${escapeHtml(classes.example ?? "a task this Company doesn't handle")}.</p>`}</section>`;
 }

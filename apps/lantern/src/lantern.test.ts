@@ -559,6 +559,7 @@ it("customer website: shows the agent's feedback reports, newest first and escap
   ).text();
   expect(empty).toContain("Feedback from agents");
   expect(empty).toContain("No reports yet");
+  expect(empty).toContain("such as booking a table for a large group.");
   for (const task of ["Buy a gift card", "Pick <b>chopsticks</b>"])
     expect(
       (
