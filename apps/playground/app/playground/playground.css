@@ -1314,3 +1314,40 @@ footer .lab-links a:hover {
   color: var(--ink);
   text-decoration: underline;
 }
+.operation-headline {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.operation-headline span {
+  font-size: 13px;
+  color: var(--muted);
+}
+.operation-headline strong {
+  font-family: var(--display);
+  font-size: 28px;
+  font-variant-numeric: tabular-nums;
+}
+.company-says {
+  margin: 0;
+  padding-left: 12px;
+  border-left: 2px solid var(--line);
+}
+.company-says figcaption {
+  font-size: 13px;
+  color: var(--muted);
+}
+.company-says blockquote {
+  margin: 2px 0 0;
+}
+.operation-warning {
+  border: 1px solid var(--accent-hover);
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 14px;
+}
+.operation-warning ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}

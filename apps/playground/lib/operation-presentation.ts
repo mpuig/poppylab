@@ -135,3 +135,42 @@ export function operationTitle(op: ReviewOperation) {
                       ? "Update recurring delivery"
                       : "Review Company proposal";
 }
+/** The amount an approval commits the User to, from the Company's own terms. */
+export function approvalTotal(op: ReviewOperation) {
+  const t = op.terms ?? {};
+  for (const key of ["new_total_cents", "total_cents", "refund_cents"]) {
+    if (typeof t[key] === "number" && Number.isFinite(t[key]))
+      return {
+        key,
+        label: money(t[key], t.currency),
+        text: key === "refund_cents" ? "Refund" : "Total",
+      };
+  }
+  return null;
+}
+/**
+ * Where a summary names an amount the terms do not contain. The summary is
+ * the Company's wording and the terms are what it commits to, so a summary
+ * that quotes only other figures is worth a second look before approving.
+ */
+export function summaryDisagreements(op: ReviewOperation): string[] {
+  const t = op.terms ?? {};
+  const cents = Object.entries(t).flatMap(([key, value]) =>
+    key.endsWith("_cents") && typeof value === "number" ? [value] : [],
+  );
+  if (!op.summary || !cents.length) return [];
+  const named = [
+    ...op.summary.matchAll(/[$€£]\s?(\d{1,3}(?:,\d{3})*|\d+)(?:\.(\d{1,2}))?/g),
+  ].map((m) =>
+    Math.round(
+      Number(`${(m[1] ?? "0").replaceAll(",", "")}.${(m[2] ?? "0").padEnd(2, "0")}`) * 100,
+    ),
+  );
+  return named
+    .filter((amount) => !cents.includes(amount))
+    .map(
+      (amount) =>
+        `The summary mentions ${money(amount, typeof t.currency === "string" ? t.currency : "USD")}, which is not one of the amounts in the terms.`,
+    )
+    .filter((line, index, all) => all.indexOf(line) === index);
+}

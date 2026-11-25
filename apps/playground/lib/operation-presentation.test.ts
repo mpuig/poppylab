@@ -88,3 +88,30 @@ it("shows days as changes and items as readable prices, never raw JSON", () => {
   ).toBe("2 × Oranges (bag) · $9.00");
   expect(termValue("items", [], {})).toBe("No items");
 });
+
+import { approvalTotal, summaryDisagreements } from "./operation-presentation";
+
+it("names the amount an approval commits to", () => {
+  const op = {
+    operation_id: "op_1",
+    revision: "1",
+    state: "proposed",
+    expires_at: "2099-01-01T00:00:00Z",
+    terms: { total_cents: 1450, currency: "USD" },
+  };
+  expect(approvalTotal(op)?.label).toBe("$14.50");
+  expect(approvalTotal({ ...op, terms: {} })).toBeNull();
+});
+
+it("flags a summary that quotes an amount the terms lack", () => {
+  const op = {
+    operation_id: "op_1",
+    revision: "1",
+    state: "proposed",
+    expires_at: "2099-01-01T00:00:00Z",
+    terms: { subtotal_cents: 1000, total_cents: 1450, currency: "USD" },
+  };
+  expect(summaryDisagreements({ ...op, summary: "Order for $14.50." })).toEqual([]);
+  expect(summaryDisagreements({ ...op, summary: "Order for $9.99 total." })).toHaveLength(1);
+  expect(summaryDisagreements({ ...op, summary: "No amounts here." })).toEqual([]);
+});

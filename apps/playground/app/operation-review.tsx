@@ -2,8 +2,10 @@
 import { useEffect, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import {
+  approvalTotal,
   changes,
   money,
+  summaryDisagreements,
   operationTitle,
   termValue,
   type ReviewOperation,
@@ -62,6 +64,8 @@ export function OperationReview({
   const diff = changes(op),
     t = op.terms ?? {};
   const active = pending || state === "uncertain";
+  const total = approvalTotal(op);
+  const disagreements = summaryDisagreements(op);
   return (
     <details className="operation-review" open={active}>
       <summary className="operation-summary">
@@ -73,14 +77,37 @@ export function OperationReview({
           {company}
           {domain ? <> · {domain}</> : null} · terms revision {op.revision}
         </p>
+        {total && pending && (
+          <p className="operation-headline" data-total>
+            <span>{total.text}</span>
+            <strong>{total.label}</strong>
+          </p>
+        )}
         {op.summary ? (
-          // Shown as text: a summary's Markdown, links or images never render.
-          <p>{op.summary}</p>
+          // Quoted as the Company's words and shown as text: a summary's
+          // Markdown, links or images never render.
+          <figure className="company-says">
+            <figcaption>{company} says:</figcaption>
+            <blockquote>{op.summary}</blockquote>
+          </figure>
         ) : (
           <p>
             {company} sent no summary. Review its exact terms below before you
             approve.
           </p>
+        )}
+        {disagreements.length > 0 && (
+          <div className="operation-warning" role="alert">
+            <strong>
+              Check before you approve: the terms and {company}’s summary
+              differ
+            </strong>
+            <ul>
+              {disagreements.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          </div>
         )}
         {diff.map((row, index) => (
           <div className="operation-diff" key={`${row.label}-${index}`}>
@@ -157,7 +184,7 @@ export function OperationReview({
                   disabled={busy || !signedIn}
                   onClick={() => onAction("approve", op)}
                 >
-                  Approve this change
+                  {total ? `Approve ${total.label}` : "Approve this change"}
                 </button>
                 <button
                   type="button"

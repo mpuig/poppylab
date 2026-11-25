@@ -164,7 +164,7 @@ it("always asks for approval and shows a slot change and exact money from the te
       onAction,
     }),
   );
-  expect(html).toContain("Approve this change");
+  expect(html).toContain("Approve $45.00");
   expect(html).toContain("Delivery slot");
   expect(html).toContain("sat-1900");
   expect(html).toContain("$45.00");
@@ -182,4 +182,23 @@ it("offers only a retry of the same approval when the outcome is unknown", () =>
   expect(html).toContain("Outcome unknown");
   expect(html).toContain("Retry the same approval");
   expect(html).not.toContain("Approve this change");
+});
+it("quotes the summary as the Company's and warns when its amount is not in the terms", () => {
+  const html = renderToStaticMarkup(
+    createElement(OperationReview, {
+      op: {
+        ...op,
+        summary: "Order for $9.99.",
+        terms: { total_cents: 1450, currency: "USD" },
+      },
+      company: "Juniper Market",
+      busy: false,
+      signedIn: true,
+      onAction: vi.fn(),
+    }),
+  );
+  expect(html).toContain("Juniper Market says:");
+  expect(html).toContain("Check before you approve");
+  expect(html).toContain("$9.99");
+  expect(html).toContain("Approve $14.50");
 });
