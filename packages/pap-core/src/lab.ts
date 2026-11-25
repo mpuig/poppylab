@@ -5,7 +5,13 @@
  * Local development links to the localhost addresses.
  */
 export type LabSite =
-  "home" | "playground" | "juniper" | "lantern" | "harborline" | "northwind";
+  | "home"
+  | "playground"
+  | "juniper"
+  | "lantern"
+  | "harborline"
+  | "northwind"
+  | "fernwick";
 export const LAB_REPOSITORY = "https://github.com/mpuig/poppylab";
 
 export function labSites(origin: string) {
@@ -50,6 +56,13 @@ export function labSites(origin: string) {
       url: local
         ? "http://northwind.localhost:4400"
         : "https://airline-demo.poppylab.dev",
+    },
+    {
+      id: "fernwick" as const,
+      label: "Fernwick Power & Light",
+      url: local
+        ? "http://fernwick.localhost:4500"
+        : "https://energy-demo.poppylab.dev",
     },
   ];
 }
