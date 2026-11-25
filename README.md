@@ -5,7 +5,7 @@ An independent test bench for **Personal Agent Protocol 1.0**: **Iris**, a Perso
 - **https://poppylab.dev** explains the protocol and its benefits in plain language; **/developers** has the endpoints, scopes and spec sections; **/playground** is Iris.
 - **https://grocery-demo.poppylab.dev** is Juniper Market, a grocery with a full customer website.
 - **https://food-demo.poppylab.dev** is Lantern Noodle Bar, a noodle bar with scheduled orders.
-- **Harborline Bank** targets **https://bank-demo.poppylab.dev** when deployed: a fully fictional bank with accounts, transactions, cards, recipients, budgets, payments and transfers.
+- **Harborline Bank** targets **https://bank-demo.poppylab.dev** when deployed: a fully fictional bank with accounts, transactions, cards, recipients, budgets, payments and transfers, plus a read-only FDX-shaped API (not FDX-conformant or certified) behind the `poppylab.dev/fdx` extension.
 - **Northwind Air** targets **https://airline-demo.poppylab.dev** when deployed: a fictional airline with flight search, trips, loyalty and approval-gated booking changes.
 
 Nothing is sold, charged, shipped or transferred. Harborline moves no real money; Northwind sells or changes no real ticket. No real banking, passenger, payment or account credentials should be entered anywhere in the demo. Poppy Lab is not affiliated with or endorsed by the protocol's authors; "Personal Agent Protocol" and "Poppy" are their names. It makes no claim of conformance: the draft changes often (`pnpm spec:drift` reports when the published text differs from the pinned copy in `spec/`).

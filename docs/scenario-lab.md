@@ -9,6 +9,7 @@ pnpm scenarios nonce operations # a selection
 pnpm scenarios permissions      # read first, widening and recovery
 pnpm scenarios mcp              # transport, reads and resource tokens
 pnpm scenarios banking          # Harborline reads, approvals and portal parity
+pnpm scenarios fdx              # Harborline's FDX-shaped API and its gateway options
 pnpm scenarios airline          # Northwind search, scopes, portal and changes
 ```
 
@@ -23,6 +24,7 @@ The runner (`scripts/scenarios.mjs`) runs deterministic regression tests, not mo
 | pap-1.0    | Discovery and versions, Poppy-Version and Poppy-Extensions, Session header, delegated keys (ES256, PS384), PAR, Operations v3 approvals      |
 | noodles    | Lantern Noodle Bar end to end on the portable gateway                                                                                        |
 | banking    | Harborline Bank scopes, reads, payment/transfer idempotency, limits, stale state, reversible changes, conversations and portal parity        |
+| fdx        | Gateway account prefixes, token fields and refused consent; Harborline's FDX-shaped API: extension, clusters, accounts, consent, revocation  |
 | airline    | Northwind Air public tools, differentiated scopes, portal state, exact terms, stale prices and idempotent execution                          |
 
 The `mcp` group covers client and transport tests and the runtime: reads with the local policy, metadata, DPoP and Bearer resource tokens, SSE, nonces and the absence of uncertain retries. See [MCP read-only](mcp-readonly.md).

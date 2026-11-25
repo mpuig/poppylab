@@ -44,6 +44,8 @@ Consequential requests are marked irreversible in scope hints:
 
 `offline_access` is optional and off by default on Harborline's consent page. It changes no data and only permits refresh of the fictional grant.
 
+The FDX-shaped API has its own read-only scopes, one per data cluster (see [below](#fdx-shaped-api)): `fdx:ACCOUNT_BASIC`, `fdx:ACCOUNT_DETAILED`, `fdx:TRANSACTIONS` and `fdx:CUSTOMER_CONTACT`.
+
 ## APIs and approvals
 
 Useful reads list accounts/balances, transactions, cards, recipients and budgets. Mutations are:
@@ -67,6 +69,30 @@ Modeled business errors include:
 - `transaction_pending`;
 - `idempotency_conflict` and safe replay of performed operations.
 
+## FDX-shaped API
+
+Harborline also serves a read-only API shaped after FDX 6.4 over the same fictional state. It is **FDX-shaped, not FDX-conformant or certified**: paths and field names follow the shape that public implementers use, and every rule, description and error text is Harborline's own. No FDX specification text or schema is in this repository, and Harborline uses no FDX branding. It exists to show a domain standard used through a Poppy extension, the way `ucp` does for commerce.
+
+Discovery lists it twice. `extensions["poppylab.dev/fdx"]` has one entry, version `1`, with `fdx_version: "6.4"`, `base_url` (`/fdx/v6`), `resources` (`customer`, `accounts`, `transactions`) and `consent_endpoint` (`/fdx/v6/consents`). `apis` adds a second OpenAPI document, `/openapi/fdx.json`, public and served signed out, after Harborline's own `/openapi.json`. Every route under `/fdx/` needs the request to declare `Poppy-Extensions: "poppylab.dev/fdx";v="1"`; without it the gateway answers `403 extension_required` before looking at the token (§3.3). Operations v3 stays listed for Harborline's own API, where payments and transfers still go.
+
+| Route                                           | Scope                     | Answers                                  |
+| ----------------------------------------------- | ------------------------- | ---------------------------------------- |
+| `GET /fdx/v6/accounts`                          | `fdx:ACCOUNT_BASIC`       | The accounts chosen at consent           |
+| `GET /fdx/v6/accounts/{accountId}`              | `fdx:ACCOUNT_BASIC`       | One chosen account                       |
+| `GET /fdx/v6/accounts/{accountId}/transactions` | `fdx:TRANSACTIONS`        | A page of its transactions, newest first |
+| `GET /fdx/v6/customers/current`                 | `fdx:CUSTOMER_CONTACT`    | Name and email                           |
+| `GET /fdx/v6/consents/{consentId}`              | any token of that consent | The consent record                       |
+| `PUT /fdx/v6/consents/{consentId}/revocation`   | any token of that consent | 204; revokes the grant                   |
+
+- **Accounts** are deposit accounts: `accountId`, `accountCategory: "DEPOSIT_ACCOUNT"`, `accountType` (`CHECKING`, `SAVINGS`), `productName`, `nickname`, `accountNumberDisplay` (four digits derived from the account ID, since no real number exists), `status` (`OPEN`, `CLOSED`) and `currency.currencyCode`. `currentBalance`, `availableBalance` and `balanceAsOf` appear only when the token carries `fdx:ACCOUNT_DETAILED`. Treating `ACCOUNT_BASIC` as descriptors without balances is Harborline's reading, as published by implementing banks, not an FDX rule.
+- **Transactions** carry `amount` as an absolute decimal number with `debitCreditMemo` (`DEBIT`, `CREDIT`), `status` (`POSTED`, `PENDING`), `transactionTimestamp`, `postedTimestamp` only when posted, and Harborline's own `category` names. Amounts are built from the cents' digits, so they are exact. `startTime` and `endTime` are inclusive `YYYY-MM-DD` UTC days; `offset` and `limit` page the results (default 25, a larger `limit` is cut to 100), and `page` has `totalElements` and, unless it's the last page, `nextOffset` as a string.
+- **Consent with account selection.** When a sign-in asks for any `fdx:*` scope, the consent page adds a list of accounts per test customer, all ticked by default. CSS `:has()` shows only the chosen customer's accounts and hides "Allow" while none is ticked, with no script (the consent page's CSP allows none); a browser without `:has()` shows all of them. The server keeps only the chosen customer's accounts. Approving FDX scopes with no account is turned down with a message (`400 invalid_request`) rather than granted empty. The choice limits the FDX-shaped routes only; Harborline's own API scopes, if granted in the same sign-in, see every account as before.
+- **The consent is the grant.** Its ID is the Poppy grant's, returned as `consent_id` in every token response of a grant with `fdx:*` scopes, including refreshes. The record has `id`, `status`, `parties` (Harborline as `DATA_PROVIDER`, the agent's verified host as `DATA_RECIPIENT`), `createdTime`, `expirationTime`, `durationType` (`TIME_BOUND` with `offline_access` and `durationPeriod` in days, otherwise `ONE_TIME`) and `resources` (each chosen account with its clusters). Only a live grant's tokens reach it, so its status reads `ACTIVE`. Revoking it through `PUT …/revocation` (`{ "reason": "USER_ACTION", "initiator": "INDIVIDUAL" }`) ends the grant, its access tokens and its refresh token, on both APIs. Disconnecting the agent in the customer portal ends FDX access the same way.
+- **Errors** on FDX routes are `{ code, message, debugMessage?, note }` with `code` a string: `404 701` for an account that doesn't exist or wasn't chosen (Harborline never says which), `400 703` for a malformed or inverted date range, and `401 602` if a token somehow has no grant. Harborline's own lowercase codes cover the rest: `invalid_parameter` (paging, revocation body), `consent_not_found` (another grant's consent, never revealed) and `not_found`. Session and token errors stay Poppy and OAuth errors from the gateway (`invalid_session`, `extension_required`, `WWW-Authenticate` challenges, `insufficient_scope`).
+- **Security** is Harborline's usual profile: Direct Sign-In with PAR offered, PKCE, `private_key_jwt` and DPoP-bound tokens. It resembles the FAPI 2.0 style FDX describes, but hasn't been checked against FDX.
+
+Every JSON body carries the fiction notice in `note`. Statements and tax documents stay excluded.
+
 ## Conversations and tasks
 
 `/poppy/conversations` exposes a deterministic Company Agent. Structured `data.request` values cover help, cash position, spending summary, card status, and approval-gated card freezing. Handoff returns an explicit fictional-demo response; no banker can join.
@@ -81,3 +107,5 @@ pnpm scenarios banking
 ```
 
 Coverage includes discovery and scope hints, consent subsets and offline access, route-specific scope enforcement, persona reads, exact payment terms, idempotent replay/conflicts, insufficient funds and limits, stale transfers, card state, transaction categories, budget create/update, Operations extension enforcement, conversations, and portal/API state parity.
+
+`src/fdx.test.ts` (`pnpm scenarios fdx`, also in `banking`) covers the FDX-shaped API: discovery, `extension_required`, scopes per cluster and balances only with `fdx:ACCOUNT_DETAILED`, unchosen and other customers' accounts as `701`, the account choice on the consent page and an empty choice turned down, paging and limits, dates and `703`, `consent_id` at sign-in and refresh, the consent record, revocation through FDX and through the portal, visitor isolation, parity with Harborline's own API after an approved transfer and category change, and an agent without the extension using Harborline as before.
