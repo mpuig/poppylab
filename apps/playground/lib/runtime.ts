@@ -173,6 +173,11 @@ export type Operation = {
    * a new approval of their own. Iris never resends the declined one.
    */
   agentDeclined?: { reason?: string };
+  /**
+   * The Company answered an agent approval with a new revision (§5). Iris
+   * doesn't approve the new terms on the same instruction: the User decides.
+   */
+  agentSuperseded?: true;
   /** An API request to resend, or the conversation the operation is in (§8). */
   request?:
     | { url: string; body: unknown; conversation?: undefined }

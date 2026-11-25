@@ -14,6 +14,8 @@ export type ReviewOperation = {
   };
   /** The Company declined an approval on the standing instruction (§6). */
   agentDeclined?: { reason?: string };
+  /** The Company answered one with new terms instead (§5). */
+  agentSuperseded?: true;
 };
 export function money(cents: unknown, currency: unknown) {
   if (typeof cents !== "number" || !Number.isFinite(cents))

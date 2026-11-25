@@ -110,6 +110,7 @@ vi.mock("@/lib/runtime", async () => ({
 
 import { POST, GET } from "./route";
 import { seedRun } from "@/lib/runs";
+import { nextAutoApproval } from "@/lib/auto-approval";
 import { ProtocolError } from "@poppy-lab/pap-client";
 function request(body: unknown, origin = "http://localhost:3000") {
   return new Request("http://localhost:3000/api/account", {
@@ -674,12 +675,12 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
     delete run.agentApprovals;
     propose();
   });
-  const approve = (instruction?: unknown) =>
+  const approve = (instruction?: unknown, revision = "r1") =>
     POST(
       request({
         action: "approve",
         id: "op_rule",
-        revision: "r1",
+        revision,
         ...(instruction ? { instruction } : {}),
       }),
     );
@@ -814,6 +815,86 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
       expect.anything(),
       expect.anything(),
       "user",
+    );
+  });
+
+  // $13.00 where $12.00 was approved: other terms, still under the rule.
+  const newTerms = () =>
+    new ProtocolError(403, "approval_required", undefined, undefined, {
+      operation_id: "op_rule",
+      revision: "r2",
+      summary: "Place the basket order.",
+      terms: { total_cents: 1300, currency: "USD" },
+      expires_at: new Date(Date.now() + 60000).toISOString(),
+    });
+
+  it("leaves a new revision to the User when the Company answers the agent's approval with one the rule also covers", async () => {
+    state.request.mockRejectedValueOnce(newTerms());
+    const r = await approve(rule);
+    expect(r.status).toBe(409);
+    const body = await r.json();
+    expect(body.code).toBe("terms_changed");
+    expect(body.operation).toMatchObject({ revision: "r2", state: "proposed" });
+    // The page's check, as after a reload, doesn't offer the new revision…
+    expect(
+      nextAutoApproval({
+        operations: [body.operation],
+        instruction: rule,
+        signedIn: true,
+        busy: false,
+        decided: new Set(),
+      }),
+    ).toBeNull();
+    // …and the server takes no agent approval for it, whatever the page asks.
+    const second = await approve(rule, "r2");
+    expect(second.status).toBe(409);
+    expect((await second.json()).error).toContain("new terms");
+    expect(state.request).toHaveBeenCalledTimes(1);
+    expect(body.operation).toMatchObject({ agentSuperseded: true });
+    expect(body.operation).not.toHaveProperty("agentDeclined");
+    // The User can still approve the new revision themselves.
+    state.request.mockResolvedValueOnce({ summary: "Ordered." });
+    expect((await approve(undefined, "r2")).status).toBe(200);
+    expect(state.request).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ revision: "r2" }),
+      "user",
+    );
+  });
+
+  it("leaves it to the User too when the answer is to a retry of the agent's approval", async () => {
+    state.request.mockImplementationOnce(
+      async (_run: unknown, op: Record<string, unknown>, approver: string) => {
+        // As sendApproval does: the approval stays with the operation.
+        op.approval = { approver, approved_at: 1791487260, reference: "a1" };
+        throw new Error("socket hang up");
+      },
+    );
+    expect((await approve(rule)).status).toBe(502);
+    state.request.mockRejectedValueOnce(newTerms());
+    const retried = await POST(
+      request({ action: "retry", id: "op_rule", revision: "r1" }),
+    );
+    expect(retried.status).toBe(409);
+    expect((await retried.json()).operation).toMatchObject({
+      revision: "r2",
+      agentSuperseded: true,
+    });
+    expect((await approve(rule, "r2")).status).toBe(409);
+    expect(state.request).toHaveBeenCalledTimes(2);
+  });
+
+  it("lets the rule look at a new revision the Company returned for the User's own approval", async () => {
+    state.request.mockRejectedValueOnce(newTerms());
+    const r = await approve();
+    expect(r.status).toBe(409);
+    expect((await r.json()).operation).not.toHaveProperty("agentSuperseded");
+    state.request.mockResolvedValueOnce({ summary: "Ordered." });
+    expect((await approve(rule, "r2")).status).toBe(200);
+    expect(state.request).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.anything(),
+      "agent",
     );
   });
 });

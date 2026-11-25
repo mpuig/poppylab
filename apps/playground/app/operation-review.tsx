@@ -178,6 +178,14 @@ export function OperationReview({
             . It&apos;s up to you now.
           </p>
         )}
+        {pending && op.agentSuperseded && (
+          // Not a decline, but the same kind of note: it waits for the User.
+          <p className="operation-ledger declined" role="status">
+            {company} answered the approval Iris sent on your standing
+            instruction with new terms, and did nothing. It&apos;s up to you
+            now.
+          </p>
+        )}
         <details className="operation-terms" open={!op.summary}>
           <summary>All exact terms</summary>
           <pre className="operation-exact">

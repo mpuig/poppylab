@@ -31,6 +31,11 @@ export function recordOperation(
     ...(previous?.agentDeclined
       ? { agentDeclined: previous.agentDeclined }
       : {}),
+    // §5: the same once the Company answered an agent approval with new
+    // terms, so asking for them again doesn't hand them back to the rule.
+    ...(previous?.agentSuperseded
+      ? { agentSuperseded: previous.agentSuperseded }
+      : {}),
   };
   const ops = (run.operations ??= {});
   ops[op.operation_id] = op;

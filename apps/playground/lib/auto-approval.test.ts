@@ -74,6 +74,22 @@ it("leaves an operation the Company declined from the agent for the User", () =>
   ).toBe("b");
 });
 
+it("leaves new terms the Company returned for the agent's approval for the User", () => {
+  // Covered by the rule, and never looked at before, as after a reload.
+  const superseded = { ...op("a", 100, "2"), agentSuperseded: true as const };
+  const decided = new Set<string>();
+  expect(
+    nextAutoApproval({ ...base, operations: [superseded], decided }),
+  ).toBeNull();
+  expect(
+    nextAutoApproval({
+      ...base,
+      operations: [superseded, op("b", 200)],
+      decided,
+    })?.op.operation_id,
+  ).toBe("b");
+});
+
 it("stops after the hour's count and leaves the operation for the User", () => {
   const now = 1_000_000_000;
   const recent = Array.from({ length: MAX_PER_HOUR }, (_, i) => ({

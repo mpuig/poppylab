@@ -301,7 +301,8 @@ async function act(request: Request, started: { id?: string }) {
     if (body.action === "retry" && op.state !== "uncertain") throw new Error();
     // Operations v3 §5, agent approval: only on the User's own instruction,
     // checked here against these exact terms, never on the model's word,
-    // and never again once the Company declined one for this operation.
+    // and never again once the Company declined one for this operation or
+    // answered one with new terms.
     let approver: "user" | "agent" =
       body.action === "retry" ? (op.approval?.approver ?? "user") : "user";
     let rule: string | undefined;
@@ -316,13 +317,15 @@ async function act(request: Request, started: { id?: string }) {
       const spent = recent.reduce((sum, a) => sum + a.cents, 0);
       const refusal = op.agentDeclined
         ? "The Company declined an approval on your standing instruction for this. Approve it yourself if you want it."
-        : !covered
-          ? "Your standing instruction doesn't cover these exact terms. Approve them yourself if you want them."
-          : recent.length >= MAX_PER_HOUR
-            ? `Your standing instruction approved ${MAX_PER_HOUR} changes in the last hour. Approve this one yourself.`
-            : spent + covered.cents > instruction!.maxCents * BUDGET_FACTOR
-              ? `Your standing instruction approved more than ${BUDGET_FACTOR} times its limit in the last hour. Approve this one yourself.`
-              : undefined;
+        : op.agentSuperseded
+          ? "The Company answered an approval on your standing instruction with new terms. Approve them yourself if you want them."
+          : !covered
+            ? "Your standing instruction doesn't cover these exact terms. Approve them yourself if you want them."
+            : recent.length >= MAX_PER_HOUR
+              ? `Your standing instruction approved ${MAX_PER_HOUR} changes in the last hour. Approve this one yourself.`
+              : spent + covered.cents > instruction!.maxCents * BUDGET_FACTOR
+                ? `Your standing instruction approved more than ${BUDGET_FACTOR} times its limit in the last hour. Approve this one yourself.`
+                : undefined;
       if (refusal || !covered)
         return NextResponse.json(
           { code: "not_covered", operation: op, error: refusal },
@@ -424,6 +427,9 @@ async function act(request: Request, started: { id?: string }) {
             { status: 409, headers: { "Cache-Control": "no-store" } },
           );
         }
+        // §5: new terms in answer to Iris's approval are never approved on
+        // the same instruction, even when it covers them. The User decides.
+        if (approver === "agent") next.agentSuperseded = true;
         return NextResponse.json(
           {
             code: "terms_changed",
