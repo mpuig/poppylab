@@ -639,12 +639,56 @@ h2 {
   font-variant-numeric: tabular-nums;
 }
 .api-events {
-  padding-left: 19px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
   font-size: 14px;
-  line-height: 1.7;
+  line-height: 1.6;
 }
 .api-events li {
-  padding: 5px 0;
+  display: grid;
+  grid-template-columns: 6.5rem minmax(0, 1fr) auto;
+  gap: 4px 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.api-events time {
+  font: 12px/1.9 var(--mono);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.api-events p {
+  overflow-wrap: anywhere;
+}
+.api-events code {
+  display: block;
+  margin-top: 2px;
+  font: 12px/1.5 var(--mono);
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.outcome {
+  align-self: start;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--muted);
+}
+.outcome.ok {
+  color: var(--success);
+}
+.outcome.error,
+.outcome.refused {
+  color: var(--danger);
+}
+@media (max-width: 600px) {
+  .api-events li {
+    grid-template-columns: 1fr auto;
+  }
+  .api-events li > div {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
 }
 .raw-document {
   border-block: 1px solid var(--line);

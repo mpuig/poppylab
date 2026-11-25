@@ -18,6 +18,7 @@ import {
   consentOutcome,
 } from "@/lib/account-permissions";
 import type { ReviewOperation as Operation } from "@/lib/operation-presentation";
+import { logEntry, type ProtocolEntry } from "@/lib/protocol-log";
 import { exampleUrl, historyToMessages, type Message } from "./companies";
 
 export function usePlayground(options: { onConnected?: () => void } = {}) {
@@ -33,7 +34,11 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
   const [failedTrace, setFailedTrace] = useState<DiscoveryTraceStep[]>([]);
   const [task, setTask] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
-  const [chatTrace, setChatTrace] = useState<string[]>([]);
+  const [chatLog, setChatLog] = useState<ProtocolEntry[]>([]);
+  const addTrace = (lines: string[]) =>
+    setChatLog((old) =>
+      [...old, ...lines.map((line) => logEntry(line))].slice(-30),
+    );
   const [sending, setSending] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
   const [scopes, setScopes] = useState("");
@@ -101,8 +106,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
             setSignedIn(true);
             setScopes(data.scopes ?? "");
             setWaitingSignIn(false);
-            setChatTrace((old) => [
-              ...old,
+            addTrace([
               "Direct Sign-In completed · PKCE + issuer validation · DPoP account Session",
             ]);
           } else if (outcome === "not_completed") {
@@ -187,15 +191,11 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
         setOperations([]);
         setWaitingSignIn(false);
         setMessages([]);
-        setChatTrace((old) => [
-          ...old,
-          "Account grant revoked · Session signed out",
-        ]);
+        addTrace(["Account grant revoked · Session signed out"]);
       }
       if (data.operation) {
         replaceOperation(data.operation);
-        setChatTrace((old) => [
-          ...old,
+        addTrace([
           `Operation ${data.operation.state} · revision ${data.operation.revision}`,
         ]);
       }
@@ -217,7 +217,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     setResult(null);
     setFailedTrace([]);
     setMessages([]);
-    setChatTrace([]);
+    setChatLog([]);
     setSignedIn(false);
     setWaitingSignIn(false);
     setOperations([]);
@@ -293,7 +293,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
         ...company,
         { role: data.mode === "demo" ? "Demo" : "Agent", text: data.text },
       ]);
-      setChatTrace((old) => [...old, ...data.trace].slice(-30));
+      addTrace(data.trace);
       setSignedIn(!!data.signedIn);
       setScopes(data.scopes ?? "");
       setError(data.recovery?.error ?? "");
@@ -321,7 +321,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     task,
     setTask,
     messages,
-    chatTrace,
+    chatLog,
     sending,
     signedIn,
     scopes,

@@ -1,3 +1,5 @@
+import type { ProtocolEntry } from "./protocol-log";
+
 /**
  * The PAP 1.0 section each inspector step meets, so a trace reads against
  * the spec. Labels, never claims of conformance.
@@ -30,7 +32,7 @@ export function apiSection(event: string) {
   return api.find(([pattern]) => pattern.test(event))?.[1] ?? "";
 }
 
-/** A plain-text trace for an interoperability report. Holds no secrets. */
+/** A plain-text trace for an interoperability report, oldest first, in UTC. Holds no secrets. */
 export function traceReport(input: {
   company: string;
   steps: Array<{
@@ -40,7 +42,7 @@ export function traceReport(input: {
     status: string;
     durationMs?: number | undefined;
   }>;
-  events: string[];
+  events: ProtocolEntry[];
   at?: Date;
 }) {
   const lines = [
@@ -58,8 +60,14 @@ export function traceReport(input: {
       "",
       "Session and API calls",
       ...input.events.map(
-        (e) => `- ${e}${apiSection(e) ? ` (${apiSection(e)})` : ""}`,
+        (e) =>
+          `- ${new Date(e.at).toISOString()}${e.section ? ` (${e.section})` : ""} ${e.text} [${e.outcome}]`,
       ),
     );
+  lines.push(
+    "",
+    "Recorded: time, spec section, method, address without its query, and the event's own words.",
+    "Never recorded: headers, bodies, tokens, Session JWTs, DPoP proofs, keys, codes or sign-in values.",
+  );
   return lines.join("\n");
 }

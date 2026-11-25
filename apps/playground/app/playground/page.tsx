@@ -108,7 +108,7 @@ export default function PlaygroundPage() {
           <Inspector
             result={p.result}
             trace={p.trace}
-            chatTrace={p.chatTrace}
+            chatLog={p.chatLog}
             companyUrl={p.companyUrl}
           />
         )}

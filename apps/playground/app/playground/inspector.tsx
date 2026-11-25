@@ -1,26 +1,52 @@
 "use client";
 import { useState } from "react";
-import { ArrowUpRight, Check, Copy } from "lucide-react";
+import { ArrowUpRight, Check, Copy, Download } from "lucide-react";
 import type {
   DiscoveredCompany,
   DiscoveryTraceStep,
 } from "@poppy-lab/pap-core";
-import { apiSection, discoverySection, traceReport } from "@/lib/spec-sections";
+import { discoverySection, traceReport } from "@/lib/spec-sections";
+import {
+  clock,
+  outcomeLabel,
+  traceFileName,
+  type ProtocolEntry,
+} from "@/lib/protocol-log";
 import { CompanyProfileView } from "../company-profile";
 
 /** Discovery steps and API events with their spec sections, and the document. */
 export function Inspector({
   result,
   trace,
-  chatTrace,
+  chatLog,
   companyUrl,
 }: {
   result: DiscoveredCompany | null;
   trace: DiscoveryTraceStep[];
-  chatTrace: string[];
+  chatLog: ProtocolEntry[];
   companyUrl: string;
 }) {
   const [copied, setCopied] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const report = () =>
+    traceReport({
+      company: result?.document.organization.name ?? companyUrl,
+      steps: trace,
+      events: chatLog,
+    });
+  function download() {
+    const url = URL.createObjectURL(
+      new Blob([report()], { type: "text/plain;charset=utf-8" }),
+    );
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = traceFileName(result?.requestedUrl ?? companyUrl);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+    setSaved(true);
+  }
   return (
     <section className="inspector" aria-label="Protocol inspector">
       {!trace.length && (
@@ -35,19 +61,18 @@ export function Inspector({
               type="button"
               className="text-button"
               onClick={() => {
-                const text = traceReport({
-                  company: result?.document.organization.name ?? companyUrl,
-                  steps: trace,
-                  events: chatTrace,
-                });
                 void navigator.clipboard
-                  ?.writeText(text)
+                  ?.writeText(report())
                   .then(() => setCopied(true))
                   .catch(() => setCopied(false));
               }}
             >
               <Copy size={14} aria-hidden="true" />{" "}
               {copied ? "Copied" : "Copy trace for an interop report"}
+            </button>
+            <button type="button" className="text-button" onClick={download}>
+              <Download size={14} aria-hidden="true" />{" "}
+              {saved ? "Downloaded" : "Download .txt"}
             </button>
             {result && (
               <a
@@ -90,16 +115,34 @@ export function Inspector({
           </ol>
         </>
       )}
-      {!!chatTrace.length && (
+      {!!chatLog.length && (
         <>
           <h2>Session & API calls</h2>
           <ol className="api-events">
-            {chatTrace.map((event, index) => (
-              <li key={index}>
-                {event}
-                {apiSection(event) && (
-                  <span className="spec-ref">{apiSection(event)}</span>
-                )}
+            {chatLog.map((entry, index) => (
+              <li key={index} className={`log-${entry.outcome}`}>
+                <time
+                  dateTime={new Date(entry.at).toISOString()}
+                  title={new Date(entry.at).toLocaleString()}
+                >
+                  {clock(entry.at)}
+                </time>
+                <div>
+                  <p>
+                    {entry.text}
+                    {entry.section && (
+                      <span className="spec-ref">{entry.section}</span>
+                    )}
+                  </p>
+                  {entry.url && (
+                    <code>
+                      {entry.method} {entry.url}
+                    </code>
+                  )}
+                </div>
+                <span className={`outcome ${entry.outcome}`}>
+                  {outcomeLabel[entry.outcome]}
+                </span>
               </li>
             ))}
           </ol>

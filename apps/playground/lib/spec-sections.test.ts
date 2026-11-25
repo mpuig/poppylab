@@ -1,4 +1,5 @@
 import { expect, it } from "vitest";
+import { logEntry } from "./protocol-log";
 import { apiSection, discoverySection, traceReport } from "./spec-sections";
 
 it("labels discovery and API steps with their Poppy 1.0 sections", () => {
@@ -44,7 +45,9 @@ it("builds a plain-text report for interop issues", () => {
         durationMs: 12,
       },
     ],
-    events: ["GET /api/products · Poppy Session"],
+    events: [
+      logEntry("GET /api/products · Poppy Session", Date.parse("2026-11-03T10:00:01.123Z")),
+    ],
   });
   expect(text).toBe(
     [
@@ -55,7 +58,10 @@ it("builds a plain-text report for interop issues", () => {
       "- [passed] Discovery document (§3): https://juniper.example/.well-known/poppy.json · 12 ms",
       "",
       "Session and API calls",
-      "- GET /api/products · Poppy Session (§7)",
+      "- 2026-11-03T10:00:01.123Z (§7) GET /api/products · Poppy Session [info]",
+      "",
+      "Recorded: time, spec section, method, address without its query, and the event's own words.",
+      "Never recorded: headers, bodies, tokens, Session JWTs, DPoP proofs, keys, codes or sign-in values.",
     ].join("\n"),
   );
 });
