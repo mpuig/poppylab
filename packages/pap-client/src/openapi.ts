@@ -193,6 +193,27 @@ function operationResponse(responses: unknown) {
   );
 }
 /** Bounded OpenAPI subset; proposal POST authority is a local runtime policy, never granted by metadata alone. */
+/** Headers the client sets itself; a contract may document them (1.0 §3.4). */
+const PROTOCOL_HEADERS = new Set([
+  "poppy-version",
+  "poppy-extensions",
+  "poppy-session",
+  "poppy-approval",
+  "authorization",
+  "dpop",
+]);
+/** A parameter, or a local `#/components/parameters/…` reference to one. */
+function parameterOf(spec: Record<string, unknown>, p: unknown) {
+  if (!obj(p) || typeof p.$ref !== "string") return p;
+  const m = /^#\/components\/parameters\/([A-Za-z0-9._-]{1,64})$/.exec(p.$ref);
+  const components = obj(spec.components) ? spec.components : undefined;
+  const table =
+    components && obj(components.parameters) ? components.parameters : {};
+  const target = m && Object.hasOwn(table, m[1]!) ? table[m[1]!] : undefined;
+  // One level only: a reference to a reference isn't followed.
+  return obj(target) && target.$ref === undefined ? target : undefined;
+}
+
 export function openApiTools(
   spec: unknown,
   specUrl: string,
@@ -295,7 +316,17 @@ export function openApiTools(
           ...(Array.isArray(op.parameters) ? op.parameters : []),
         ];
         if (parameters.length > 16) throw Error("Too many parameters");
-        for (const p of parameters) {
+        for (const raw of parameters) {
+          const p = parameterOf(spec, raw);
+          // Protocol headers (§3.4, §5.2) are set by the client, never by
+          // the model: a contract may document them as parameters.
+          if (
+            obj(p) &&
+            p.in === "header" &&
+            typeof p.name === "string" &&
+            PROTOCOL_HEADERS.has(p.name.toLowerCase())
+          )
+            continue;
           if (
             !obj(p) ||
             typeof p.name !== "string" ||

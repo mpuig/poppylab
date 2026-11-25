@@ -213,3 +213,72 @@ it("bounds generated tools and forwards declared scopes", async () => {
     "poppy:read",
   ]);
 });
+
+it("skips protocol headers a 1.0 contract documents, including by local reference, and refuses other headers", async () => {
+  const versionRef = { $ref: "#/components/parameters/PoppyVersion" };
+  const spec = {
+    servers: [{ url: base }],
+    components: {
+      parameters: {
+        PoppyVersion: {
+          name: "Poppy-Version",
+          in: "header",
+          required: true,
+          schema: { type: "string" },
+        },
+        Sku: {
+          name: "sku",
+          in: "path",
+          required: true,
+          schema: { type: "string" },
+        },
+        Tenant: { name: "X-Tenant", in: "header", schema: { type: "string" } },
+        Chained: { $ref: "#/components/parameters/Sku" },
+      },
+    },
+    paths: {
+      "/api/whoami": {
+        get: { operationId: "whoami", parameters: [versionRef] },
+      },
+      "/api/products/{sku}": {
+        get: {
+          operationId: "product",
+          parameters: [versionRef, { $ref: "#/components/parameters/Sku" }],
+        },
+      },
+      "/api/tenant": {
+        get: {
+          operationId: "tenant",
+          parameters: [{ $ref: "#/components/parameters/Tenant" }],
+        },
+      },
+      "/api/chained/{sku}": {
+        get: {
+          operationId: "chained",
+          parameters: [{ $ref: "#/components/parameters/Chained" }],
+        },
+      },
+      "/api/remote": {
+        get: {
+          operationId: "remote",
+          parameters: [{ $ref: "https://evil.example/p.json#/x" }],
+        },
+      },
+    },
+  };
+  const o = options();
+  const tools = openApiTools(spec, `${base}/openapi.json`, o);
+  expect(Object.keys(tools).sort()).toEqual(["product", "whoami"]);
+  // The model never sees Poppy-Version; the path parameter resolves.
+  expect(tools.whoami!.schema.properties).toEqual({});
+  expect(Object.keys(tools.product!.schema.properties as object)).toEqual([
+    "sku",
+  ]);
+  await tools.product!.execute({ sku: "shell" });
+  expect(o.request).toHaveBeenCalledWith(
+    `${base}/api/products/shell`,
+    "GET",
+    undefined,
+    [],
+  );
+});
