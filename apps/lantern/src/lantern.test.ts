@@ -141,11 +141,11 @@ it("performs an operation at most once; another revision gets the first response
     { remove: ["edamame"] },
     second,
   );
-  // Same operation (same order version), other revision: already performed,
-  // so the first response comes back and nothing else is applied.
+  // Same operation (the next change to this order), other revision: already
+  // performed, so the first response comes back and nothing else is applied.
   expect(stale.statusCode).toBe(200);
   expect(stale.json().data.slot.id).toBe("sat-1900");
-  // A new request is a new action on the new order version.
+  // A new request is the change after that one: a new operation.
   const fresh = await x.call(elena.access_token, "POST", url, {
     remove: ["edamame"],
   });
@@ -622,6 +622,84 @@ it("customer website: signs in, shows the agent's orders, edits one and makes th
   );
   const script = await (await lab.app.request("/site/app.js")).text();
   expect(() => new Function(script)).not.toThrow();
+});
+
+it("keeps a waiting change one operation when the order is edited on the website: new terms, a new revision", async () => {
+  const x = await setup();
+  const elena = await x.sign("elena", true);
+  const url = "/api/account/orders/ord_LNB1001/changes";
+  const body = {
+    slot_id: "sun-1300",
+    add: [{ dish_id: "matcha-ice", quantity: 1 }],
+  };
+  const first = (await x.call(elena.access_token, "POST", url, body)).json()
+    .operation;
+  expect(first.terms).toMatchObject({
+    order_version: 1,
+    new_total_cents: 4300,
+  });
+  // Elena adds a pork gyoza on the website while the proposal waits.
+  const web = await webLogin("elena");
+  const saved = await lab.app.request("/site/orders/ord_LNB1001", {
+    method: "POST",
+    headers: { ...web.headers, "content-type": "application/json" },
+    body: JSON.stringify({
+      version: 1,
+      slot_id: "fri-1830",
+      lines: { "shoyu-ramen": 2, edamame: 1, "pork-gyoza": 1 },
+    }),
+  });
+  expect(saved.status).toBe(200);
+  // Approving the old terms applies nothing and returns the same operation
+  // with the terms as they are now, under another revision.
+  const refused = await x.call(elena.access_token, "POST", url, body, first);
+  expect(refused.statusCode).toBe(403);
+  const second = refused.json().operation;
+  expect(second.operation_id).toBe(first.operation_id);
+  expect(second.revision).not.toBe(first.revision);
+  expect(second.terms).toMatchObject({
+    order_version: 2,
+    before_total_cents: 4500,
+    new_total_cents: 5100,
+    lines: { "pork-gyoza": 1, "matcha-ice": 1 },
+  });
+  expect(second.summary).toContain("New total USD 51.00");
+  const order = () =>
+    x
+      .call(elena.access_token, "GET", "/api/account/orders/ord_LNB1001")
+      .then((r) => r.json());
+  expect(await order()).toMatchObject({
+    version: 2,
+    slot: { id: "fri-1830" },
+    total_cents: 4500,
+  });
+  // The website shows one proposal for the order, not two.
+  const state = (await (
+    await lab.app.request("/site/state", { headers: { cookie: web.cookie } })
+  ).json()) as { activity: Array<{ id: string; summary: string }> };
+  expect(state.activity).toHaveLength(1);
+  expect(state.activity[0]!.summary).toContain("New total USD 51.00");
+  // The old revision stays refused; the new one is applied, once.
+  expect(
+    (await x.call(elena.access_token, "POST", url, body, first)).statusCode,
+  ).toBe(403);
+  expect((await order()).version).toBe(2);
+  const done = await x.call(elena.access_token, "POST", url, body, second);
+  expect(done.statusCode).toBe(200);
+  expect(done.json().data).toMatchObject({
+    version: 3,
+    slot: { id: "sun-1300" },
+    total_cents: 5100,
+  });
+  expect(
+    (await x.call(elena.access_token, "POST", url, body, second)).json(),
+  ).toEqual(done.json());
+  expect((await order()).version).toBe(3);
+  // The same request again is a new change to the order, so a new operation.
+  const again = await x.call(elena.access_token, "POST", url, body);
+  expect(again.statusCode).toBe(403);
+  expect(again.json().operation.operation_id).not.toBe(first.operation_id);
+  expect(again.json().operation.terms.new_total_cents).toBe(5700);
 });
 
 it("customer website: shows the agent's feedback reports, newest first and escaped (§9.3)", async () => {

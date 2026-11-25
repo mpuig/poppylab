@@ -33,8 +33,9 @@ The shared Operations v3 engine now lives in `approvals.ts`, and Juniper uses it
 
 **Changes.** A change re-prices the whole order (with USD 3.00 delivery) and returns 403 `approval_required`. The terms carry the before and after slot, the new dishes, the old and new totals and the price difference. The summary states the exact amount.
 
-- **Operation identity:** the key is `order:{id}:{version}`. Asking for different changes to the same order version gives the same `operation_id` and new revisions.
-- **At most once:** once one revision is performed, any other revision of that operation gets the first response, and nothing else is applied. A new request after that is a new action on the new version.
+- **Operation identity:** the key is `order-change:{id}:{n}`, where `n` counts the changes an approval has applied to the order. The operation is the next change to that order: asking for different changes gives the same `operation_id` and new revisions, and so does asking again after the order was edited on the website, because the terms are built from the order as it is at each request.
+- **Stale approvals:** the terms carry the order's version. An approval of terms the order no longer matches performs nothing and returns `approval_required` with the same `operation_id` and a new revision for the order as it is now.
+- **At most once:** once one revision is performed, any other revision of that operation gets the first response, and nothing else is applied. A new request after that is a new operation.
 - **Validation:** strict. Unknown fields, dishes or slots, quantities outside 1–5, no-op changes and removing every dish are rejected with 400.
 
 ## Evidence

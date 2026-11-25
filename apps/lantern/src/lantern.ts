@@ -52,6 +52,12 @@ export type Order = {
   slot: string;
   lines: Record<string, number>;
   version: number;
+  /**
+   * How many changes an approval has applied. It names the next one, so an
+   * edit on the website, which moves only `version`, leaves a waiting
+   * proposal the same operation. Absent on orders stored before it.
+   */
+  applied?: number;
   status: "scheduled";
   recipient: string;
   address: string;
@@ -345,13 +351,18 @@ function mount(
       `New total ${usd(after.total_cents)} (was ${usd(before.total_cents)}; ${difference > 0 ? `${usd(difference)} more, charged` : difference < 0 ? `${usd(-difference)} less, refunded` : "no price change"} — simulated, no real payment).`,
     ].join(" ");
     return ctx.gate(c, {
-      key: `order:${o.id}:${o.version}`,
+      // The operation is the next change to this order, whatever the order
+      // looks like by then: the terms above are built from the order as it
+      // is now, so an order edited since gets a new revision, not a new
+      // operation. Applying a change starts the next operation.
+      key: `order-change:${o.id}:${o.applied ?? 0}`,
       terms,
       summary,
       perform: (t) => {
         o.slot = String(t.to_slot);
         o.lines = { ...(t.lines as Record<string, number>) };
         o.version++;
+        o.applied = (o.applied ?? 0) + 1;
         return {
           summary: `Order ${o.id} changed: ${slotLabel(o.slot)}, total ${usd(priced(o.lines).total_cents)}. Simulated; nothing is charged or delivered.`,
           data: view(o),
