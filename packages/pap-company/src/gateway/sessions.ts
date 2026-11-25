@@ -3,8 +3,9 @@
  * §5.3, §7): checks `Poppy-Version`, reads `Poppy-Extensions`, verifies
  * `Poppy-Session`, finds the Session by client, `sid` and User ID, refuses
  * routes that need an undeclared extension (§3.3), keeps one account per
- * Session, enforces scopes and Operations v3 on account routes, and replays
- * performed operations (Operations §7).
+ * Session, enforces scopes and Operations v3 on account routes (the
+ * Company's `accountPrefixes`), and replays performed operations
+ * (Operations §7).
  */
 import type { Hono } from "hono";
 import {
@@ -26,15 +27,18 @@ import type { Tenancy } from "./tenancy.ts";
 /** Operations v3 (Operations §2), which account POSTs always need. */
 const OPERATIONS: ExtensionVersion = { name: "operations", version: "3" };
 
-/** Session destinations (§5.2): the APIs and the conversation routes (§8.2). */
-const guarded = (path: string) =>
-  path.startsWith("/api/") ||
-  path === "/poppy/conversations" ||
-  path === "/poppy/feedback" ||
-  path.startsWith("/poppy/conversations/");
-
 export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
-  const { def, origin, state, replay, isolated } = ctx;
+  const { def, origin, state, replay, isolated, accountPrefixes } = ctx;
+  /** Account routes (§7): scopes, a token challenge and Operations v3. */
+  const account = (path: string) =>
+    accountPrefixes.some((prefix) => path.startsWith(prefix));
+  /** Session destinations (§5.2): the APIs and the conversation routes (§8.2). */
+  const guarded = (path: string) =>
+    path.startsWith("/api/") ||
+    account(path) ||
+    path === "/poppy/conversations" ||
+    path === "/poppy/feedback" ||
+    path.startsWith("/poppy/conversations/");
   app.use("*", async (c, next) => {
     if (!guarded(new URL(c.req.url).pathname)) return next();
     // Without a Session header, nothing else can be checked (§5.3).
@@ -180,16 +184,15 @@ export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
           }
         : {}),
     });
-    if (path.startsWith("/api/account")) {
+    if (account(path)) {
       const needed = def.requiredScopes?.({ path, method: c.req.method }) ?? [
         c.req.method === "POST" ? def.writeScope : def.readScope,
       ];
       const scope = needed.join(" ");
-      if (!needed.length)
-        return c.json({ error: "invalid_scope_configuration" }, 500);
+      // An empty list: a token of any scope, and the route checks the rest.
       if (!record)
         return c.body(null, 401, {
-          "WWW-Authenticate": `DPoP scope="${scope}"`,
+          "WWW-Authenticate": needed.length ? `DPoP scope="${scope}"` : "DPoP",
         });
       const granted = record.scopes.split(" ");
       if (needed.some((required) => !granted.includes(required)))
@@ -197,7 +200,8 @@ export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
           "WWW-Authenticate": `DPoP error="insufficient_scope", scope="${scope}"`,
         });
       // Operations v3 §2: never return operations to a request that doesn't
-      // declare version 3. A JSON body, not a token error (§3.3).
+      // declare version 3. A JSON body, not a token error (§3.3). Only POSTs
+      // propose operations; other methods are the route's own business.
       if (c.req.method === "POST" && !operations)
         return c.json(
           { error: "extension_required", extension: OPERATIONS.name },

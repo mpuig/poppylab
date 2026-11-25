@@ -195,6 +195,7 @@ it("carries the consent's resources to the code, the grant, its tokens and every
     id: expect.any(String),
     scopes: ["things:read", "things:write"],
     resources: ["elena:acc_1", "elena:acc_2"],
+    created_at: expect.any(String),
     expires_at: expect.any(String),
   });
   const [stored] = Object.values(x.store.value.grants);

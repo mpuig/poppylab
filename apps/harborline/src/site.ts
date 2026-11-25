@@ -1,7 +1,12 @@
 /** Harborline Bank public, consent and shared portal visual system. */
 import { labBarHtml, labLineHtml, labPlaygroundUrl } from "@poppy-lab/pap-core";
-import { customers, FICTION_NOTICE, type CustomerSeed } from "./data.ts";
-import { scopes, type HarborlineScope } from "./scopes.ts";
+import {
+  accountLast4,
+  customers,
+  FICTION_NOTICE,
+  type CustomerSeed,
+} from "./data.ts";
+import { isFdxScope, scopes, type HarborlineScope } from "./scopes.ts";
 
 export const escape = (value: string) =>
   value.replace(/[&<>"']/g, (character) => `&#${character.charCodeAt(0)};`);
@@ -80,6 +85,10 @@ const scopePurpose: Record<HarborlineScope, string> = {
   "budgets:write": "Create or update a budget",
   "payments:request": "Request an outgoing payment",
   "transfers:request": "Transfer between owned accounts",
+  "fdx:ACCOUNT_BASIC": "FDX-shaped: chosen accounts, no balances",
+  "fdx:ACCOUNT_DETAILED": "FDX-shaped: balances of chosen accounts",
+  "fdx:TRANSACTIONS": "FDX-shaped: transactions of chosen accounts",
+  "fdx:CUSTOMER_CONTACT": "FDX-shaped: customer name and email",
   offline_access: "Refresh the fictional grant while away",
 };
 
@@ -103,6 +112,11 @@ export function forAgentsPage(origin: string) {
     ],
     ["Revocation", `POST ${origin}/oauth/revoke`, "§4.6"],
     ["OpenAPI", `${origin}/openapi.json`, "§7"],
+    [
+      "FDX-shaped API (not FDX-conformant)",
+      `${origin}/fdx/v6 · ${origin}/openapi/fdx.json · Poppy-Extensions: "poppylab.dev/fdx";v="1"`,
+      "§3.3",
+    ],
     ["Conversations", `${origin}/poppy/conversations`, "§8"],
     ["Excluded tasks", `${origin}/poppy/tasks`, "§9"],
     [
@@ -136,8 +150,52 @@ const permissionText: Record<HarborlineScope, string> = {
     "Propose an outgoing payment to an existing recipient. Treated as irreversible after approval.",
   "transfers:request":
     "Propose a transfer between owned accounts. Treated as irreversible after approval.",
+  "fdx:ACCOUNT_BASIC":
+    "Through the FDX-shaped API, see the accounts you choose below: type, name, masked number and status.",
+  "fdx:ACCOUNT_DETAILED":
+    "Through the FDX-shaped API, also see current and available balances of the accounts you choose.",
+  "fdx:TRANSACTIONS":
+    "Through the FDX-shaped API, see transactions of the accounts you choose.",
+  "fdx:CUSTOMER_CONTACT":
+    "Through the FDX-shaped API, see the customer's name and email.",
   offline_access:
     "Refresh this fictional grant after the current access token expires.",
+};
+
+/**
+ * The accounts shared through the FDX-shaped API, per persona. Without
+ * scripts (the consent CSP allows none), CSS `:has()` shows only the chosen
+ * persona's accounts and hides "Allow" until one is ticked; a browser
+ * without `:has()` shows every persona's, and the server keeps only the
+ * chosen persona's (`selectResources`). One field name per account, since
+ * the form keeps only the last value of a repeated name.
+ */
+const fdxAccounts = () =>
+  `<fieldset><legend>Accounts for the FDX-shaped API</legend>${customers
+    .map(
+      (customer) =>
+        `<div class="fdx-persona" data-persona="${escape(customer.id)}"><p class="fdx-owner">${escape(customer.name)}</p>${customer.accounts
+          .map(
+            (account) =>
+              `<label class="permission" for="fdx-${escape(account.id)}"><input id="fdx-${escape(account.id)}" type="checkbox" name="fdx_account_${escape(account.id)}" value="yes" checked><span><strong>${escape(account.name)}</strong><span>${account.type} · ending ${accountLast4(account.id)}</span></span></label>`,
+          )
+          .join("")}</div>`,
+    )
+    .join(
+      "",
+    )}<p class="fdx-empty">Choose at least one account to allow this access, or don't allow it.</p><p class="fine">Only these accounts are visible through the FDX-shaped API. Harborline's own API scopes, if requested above, are not limited by this choice. FDX-shaped, not FDX-conformant or certified.</p></fieldset>`;
+/** The persona's accounts only, and no "Allow" with none ticked. */
+const fdxStyle = () => {
+  const when = (id: string) =>
+    `form:has(#account option[value="${id}"]:checked)`;
+  const none = (id: string) =>
+    `${when(id)}:not(:has(.fdx-persona[data-persona="${id}"] input:checked))`;
+  return `.fdx-owner{margin:8px 0 0;font-weight:700}.fdx-empty{display:none;color:var(--danger);font-weight:700}@supports selector(:has(a)){.fdx-persona,.fdx-owner{display:none}${customers
+    .map(
+      ({ id }) =>
+        `${when(id)} .fdx-persona[data-persona="${id}"]{display:block}${none(id)} .fdx-empty{display:block}${none(id)} button[value=approve]{display:none}`,
+    )
+    .join("")}}`;
 };
 
 export function consentPage(input: {
@@ -158,6 +216,7 @@ export function consentPage(input: {
     (scope) => scope.endsWith(":write") || scope.endsWith(":request"),
   );
   const offline = requested.includes("offline_access");
+  const fdx = requested.some(isFdxScope);
   const agent = escape(input.client);
   const permissions = read
     .map(
@@ -171,5 +230,5 @@ export function consentPage(input: {
         `<label class="permission" for="allow-${scope}"><input id="allow-${scope}" type="checkbox" name="allow_${scope.replace(/[:_]/g, "_")}" value="yes" checked><span><strong>${escape(scopePurpose[scope])}</strong><span>${escape(permissionText[scope])}</span></span></label>`,
     )
     .join("");
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Allow ${agent} · Harborline Bank</title>${fonts}<style>${css}</style></head><body class="consent"><header class="mast"><div class="wrap"><span class="brand">Harborline Bank</span><span></span><span class="fiction-tag">Connecting ${agent}<br>verified host ${escape(input.clientHost)}</span></div></header><main><h1>Choose the fictional records ${agent} may use.</h1><p class="intro-copy">This is Harborline's own consent page. Select a test customer. Read scopes expose invented personal financial data; change scopes only let the agent propose exact Operations v3 terms that you approve separately.</p><p class="warning"><strong>No real account exists.</strong> Never enter a real banking password, account number, card number or financial information.</p><form method="post" action="/oauth/authorize"><input type="hidden" name="nonce" value="${escape(input.nonce)}"><fieldset><legend>Fictional customer</legend><label class="block" for="account">Persona</label><select id="account" name="account">${customers.map((customer) => `<option value="${customer.id}">${escape(customer.name)}</option>`).join("")}</select>${input.passwordRequired ? '<label class="block" for="password">Dedicated demo password</label><input id="password" type="password" name="password" required maxlength="256"><p class="fine">Use only the dedicated password configured for this demo.</p>' : '<p class="fine">Persona selection is not real identity verification.</p>'}</fieldset><fieldset><legend>Read access</legend>${permissions || '<p class="fine">No read scope was requested.</p>'}</fieldset>${changes.length ? `<fieldset><legend>Change proposals</legend>${changePermissions}<p class="fine">These permissions do not approve a payment, transfer or other change. Your agent must show each exact operation separately.</p></fieldset>` : ""}${offline ? `<fieldset><legend>Offline access</legend><label class="permission" for="allow-offline"><input id="allow-offline" type="checkbox" name="allow_offline" value="yes"><span><strong>Keep the fictional grant refreshable</strong><span>${escape(permissionText.offline_access)} Optional and off by default.</span></span></label></fieldset>` : ""}<div class="actions"><button class="secondary" name="decision" value="decline" formnovalidate>Don't allow</button><button name="decision" value="approve">Allow selected access</button></div></form><p class="fine">${escape(FICTION_NOTICE)} Independent experiment; no claim of banking or Poppy conformance.</p></main></body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Allow ${agent} · Harborline Bank</title>${fonts}<style>${css}${fdx ? fdxStyle() : ""}</style></head><body class="consent"><header class="mast"><div class="wrap"><span class="brand">Harborline Bank</span><span></span><span class="fiction-tag">Connecting ${agent}<br>verified host ${escape(input.clientHost)}</span></div></header><main><h1>Choose the fictional records ${agent} may use.</h1><p class="intro-copy">This is Harborline's own consent page. Select a test customer. Read scopes expose invented personal financial data; change scopes only let the agent propose exact Operations v3 terms that you approve separately.</p><p class="warning"><strong>No real account exists.</strong> Never enter a real banking password, account number, card number or financial information.</p><form method="post" action="/oauth/authorize"><input type="hidden" name="nonce" value="${escape(input.nonce)}"><fieldset><legend>Fictional customer</legend><label class="block" for="account">Persona</label><select id="account" name="account">${customers.map((customer) => `<option value="${customer.id}">${escape(customer.name)}</option>`).join("")}</select>${input.passwordRequired ? '<label class="block" for="password">Dedicated demo password</label><input id="password" type="password" name="password" required maxlength="256"><p class="fine">Use only the dedicated password configured for this demo.</p>' : '<p class="fine">Persona selection is not real identity verification.</p>'}</fieldset><fieldset><legend>Read access</legend>${permissions || '<p class="fine">No read scope was requested.</p>'}</fieldset>${fdx ? fdxAccounts() : ""}${changes.length ? `<fieldset><legend>Change proposals</legend>${changePermissions}<p class="fine">These permissions do not approve a payment, transfer or other change. Your agent must show each exact operation separately.</p></fieldset>` : ""}${offline ? `<fieldset><legend>Offline access</legend><label class="permission" for="allow-offline"><input id="allow-offline" type="checkbox" name="allow_offline" value="yes"><span><strong>Keep the fictional grant refreshable</strong><span>${escape(permissionText.offline_access)} Optional and off by default.</span></span></label></fieldset>` : ""}<div class="actions"><button class="secondary" name="decision" value="decline" formnovalidate>Don't allow</button><button name="decision" value="approve">Allow selected access</button></div></form><p class="fine">${escape(FICTION_NOTICE)} Independent experiment; no claim of banking or Poppy conformance.</p></main></body></html>`;
 }

@@ -17,6 +17,7 @@ import {
   type GrantAccess,
   type GrantView,
   type Tenant,
+  viewOf,
 } from "./types.ts";
 
 export function createTenancy(ctx: Ctx) {
@@ -89,12 +90,7 @@ export function createTenancy(ctx: Ctx) {
         g.holder !== ctx.holderOf(s.client, s.user)
       )
         return undefined;
-      return {
-        id: g.id,
-        scopes: g.scopes.split(" ").filter(Boolean),
-        ...(g.resources ? { resources: [...g.resources] } : {}),
-        expires_at: new Date(g.expires).toISOString(),
-      };
+      return viewOf(g);
     };
   type Entry = {
     app: Hono;

@@ -4,16 +4,8 @@
  * held behind Operations v3 approval. No real money or banking data exists.
  */
 import { createHash } from "node:crypto";
-import type { Context, Hono } from "hono";
-import type {
-  CompanyDefinition,
-  ConversationHandler,
-  FeedbackReport,
-  Gate,
-  GrantAccess,
-  OperationRecord,
-  Session,
-} from "@poppy-lab/pap-company";
+import type { Hono } from "hono";
+import type { CompanyDefinition, Session } from "@poppy-lab/pap-company";
 import {
   bankPersona,
   categories,
@@ -31,7 +23,9 @@ import {
 import { consentPage, forAgentsPage, homePage, pageHeaders } from "./site.ts";
 import { mountPortal } from "./portal.ts";
 import { harborlineAgent } from "./agent.ts";
-import { scopes, type HarborlineScope } from "./scopes.ts";
+import { isFdxScope, scopes, type HarborlineScope } from "./scopes.ts";
+import { FDX, FDX_BASE, FDX_OPENAPI, mountFdx } from "./fdx.ts";
+import { fdxOpenApi } from "./fdx-openapi.ts";
 
 /**
  * Harborline moves money only on the customer's own approval (Operations v3
@@ -51,7 +45,8 @@ const ownApprovalForMoney = (approval: { approver: string }) =>
     : undefined;
 
 export { bankPersona, categories, customers } from "./data.ts";
-export { scopes, type HarborlineScope } from "./scopes.ts";
+export { fdxScopes, scopes, type HarborlineScope } from "./scopes.ts";
+export { FDX } from "./fdx.ts";
 
 export type Payment = {
   id: string;
@@ -425,6 +420,13 @@ const routeScopes = ({
   path: string;
   method: string;
 }): string[] => {
+  // FDX-shaped routes: one data cluster each. A consent is read or revoked
+  // with any token issued under it, which the route itself checks.
+  if (path.startsWith(`${FDX_BASE}/consents/`)) return [];
+  if (/^\/fdx\/v6\/accounts\/[^/]+\/transactions$/.test(path))
+    return ["fdx:TRANSACTIONS"];
+  if (path === `${FDX_BASE}/customers/current`) return ["fdx:CUSTOMER_CONTACT"];
+  if (path.startsWith("/fdx/")) return ["fdx:ACCOUNT_BASIC"];
   if (method === "GET") {
     if (path.endsWith("/accounts")) return ["accounts:read"];
     if (path.endsWith("/transactions")) return ["transactions:read"];
@@ -445,19 +447,7 @@ const routeScopes = ({
   return ["accounts:read"];
 };
 
-function mount(
-  app: Hono,
-  ctx: {
-    sessionFor: (c: Context) => Session;
-    state: Record<string, unknown>;
-    gate: Gate;
-    grants: GrantAccess;
-    origin: string;
-    operations: () => Readonly<Record<string, OperationRecord>>;
-    converse: (handler: ConversationHandler) => void;
-    feedback: () => readonly FeedbackReport[];
-  },
-) {
+function mount(app: Hono, ctx: Parameters<CompanyDefinition["mount"]>[1]) {
   const state = ctx.state as State;
   const customerStates = (state.customers ??= {});
   const reservations = (state.idempotency ??= {});
@@ -505,6 +495,8 @@ function mount(
 
   mountPortal(app, ctx, { customerFor });
   ctx.converse(harborlineAgent({ customerFor }));
+  mountFdx(app, ctx, { customerFor });
+  app.get(FDX_OPENAPI, (c) => c.json(fdxOpenApi(ctx.origin)));
 
   app.get("/api/account/accounts", (c) => {
     const customer = customerOf(ctx.sessionFor(c));
@@ -1068,6 +1060,14 @@ const scopeDescriptions: Record<HarborlineScope, string> = {
     "Request an outgoing fictional payment to an existing recipient. Irreversible in this demo after approval; no real money moves.",
   "transfers:request":
     "Request a fictional transfer between owned accounts. Treated as irreversible after approval; no real money moves.",
+  "fdx:ACCOUNT_BASIC":
+    "FDX-shaped API: see the fictional accounts you choose at consent (type, name, masked number, status), without balances. Read only; includes personal financial data.",
+  "fdx:ACCOUNT_DETAILED":
+    "FDX-shaped API: add current and available balances to the accounts you choose. Needs fdx:ACCOUNT_BASIC to list them. Read only; includes personal financial data.",
+  "fdx:TRANSACTIONS":
+    "FDX-shaped API: see the transactions of the fictional accounts you choose. Read only; includes personal financial data.",
+  "fdx:CUSTOMER_CONTACT":
+    "FDX-shaped API: see the fictional customer's name and email. Read only; includes personal data.",
   offline_access:
     "Allow the Personal Agent to refresh this fictional grant while you are away. It does not add data or change permissions.",
 };
@@ -1078,6 +1078,28 @@ export const harborline: CompanyDefinition = {
   writeScope: "cards:write",
   scopes: [...scopes],
   requiredScopes: routeScopes,
+  // §7: Harborline's own account API and the FDX-shaped one.
+  accountPrefixes: ["/api/account", "/fdx/"],
+  // §3.3: the FDX-shaped routes only for requests that declare it.
+  requiredExtension: ({ path }) => (path.startsWith("/fdx/") ? FDX : undefined),
+  // The accounts the User shares through the FDX-shaped API, of the chosen
+  // persona only. FDX access with no account shares nothing, so it's
+  // turned down rather than granted empty.
+  selectResources: ({ persona, body, scopes: granted }) => {
+    if (!granted.some(isFdxScope)) return undefined;
+    const chosen = (bankPersona(persona)?.accounts ?? [])
+      .filter((account) => body[`fdx_account_${account.id}`] === "yes")
+      .map((account) => account.id);
+    return chosen.length
+      ? chosen
+      : {
+          refuse:
+            "Choose at least one account to share through the FDX-shaped API, or go back and don't allow access.",
+        };
+  },
+  // The consent ID of the FDX-shaped consent API is the grant's.
+  tokenFields: (grant) =>
+    grant.scopes.some(isFdxScope) ? { consent_id: grant.id } : {},
   selectScopes: ({ requested, body }) =>
     requested.filter((scope) => {
       if (scope === "offline_access") return body.allow_offline === "yes";
@@ -1123,6 +1145,12 @@ export const harborline: CompanyDefinition = {
         description:
           "Fictional accounts, balances, transactions, cards, recipients, budgets, payment requests and owned-account transfers",
       },
+      {
+        type: "openapi",
+        url: `${origin}${FDX_OPENAPI}`,
+        description:
+          "FDX-shaped, read-only view of the same fictional accounts, balances, transactions and customer, with a consent API. Not FDX-conformant or certified. Requests must declare the poppylab.dev/fdx extension, version 1.",
+      },
     ],
     agent: {
       protocols: [
@@ -1136,7 +1164,18 @@ export const harborline: CompanyDefinition = {
     },
     web: {},
     tasks: { endpoint: `${origin}/poppy/tasks` },
-    extensions: { operations: [{ version: "3" }] },
+    extensions: {
+      operations: [{ version: "3" }],
+      [FDX.name]: [
+        {
+          version: FDX.version,
+          fdx_version: "6.4",
+          base_url: `${origin}${FDX_BASE}`,
+          resources: ["customer", "accounts", "transactions"],
+          consent_endpoint: `${origin}${FDX_BASE}/consents`,
+        },
+      ],
+    },
   }),
   excludedTasks: (origin) => [
     {

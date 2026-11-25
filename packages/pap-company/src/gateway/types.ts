@@ -57,15 +57,27 @@ export type Grant = {
    * what that means.
    */
   resources?: string[];
+  /** When the consent was approved; grants from before this field lack it. */
+  created?: number;
 };
-/** A grant as a Company's routes see it (`grantFor`): a copy. */
+/** A grant as a Company's routes see it (`grantFor`, `tokenFields`): a copy. */
 export type GrantView = {
   id: string;
   /** What the grant covers; the request's token may carry fewer. */
   scopes: string[];
   resources?: string[];
+  /** When the consent was approved (absent on older grants). */
+  created_at?: string;
   expires_at: string;
 };
+/** The view of a grant that Company code may see. */
+export const viewOf = (g: Grant): GrantView => ({
+  id: g.id,
+  scopes: g.scopes.split(" ").filter(Boolean),
+  ...(g.resources ? { resources: [...g.resources] } : {}),
+  ...(g.created ? { created_at: new Date(g.created).toISOString() } : {}),
+  expires_at: new Date(g.expires).toISOString(),
+});
 /** One version of an extension (§3.3). */
 export type ExtensionVersion = { name: string; version: string };
 /** Whether a request's declarations (§3.4) include that version. */
@@ -325,14 +337,27 @@ export type CompanyDefinition = {
   writeScope: string;
   /** Every OAuth scope this Company accepts. Defaults to readScope/writeScope. */
   scopes?: string[];
-  /** Route-specific account scopes. Every returned scope is required. */
+  /**
+   * Path prefixes of the account routes (§7): each needs the Session header,
+   * an access token (401 with a scope challenge without one), the scopes of
+   * `requiredScopes`, and on POST Operations v3, with replay of performed
+   * operations. Default `["/api/account"]`. Prefixes are matched as given,
+   * so `/api/account` also covers `/api/accounts`. Paths under `/oauth/`,
+   * `/.well-known/` and `/poppy/` can't be account routes.
+   */
+  accountPrefixes?: string[];
+  /**
+   * Route-specific account scopes. Every returned scope is required. An
+   * empty list means the route needs an access token but no particular
+   * scope, and checks the rest itself (for example through `grantFor`).
+   */
   requiredScopes?: (input: { path: string; method: string }) => string[];
   /**
    * §3.3: the extension a route is handled only with, at the version this
    * Company lists in `poppy.json`. A request that doesn't declare that
    * version gets `extension_required` before its token is looked at. Asked
-   * for every request with the Session header (`/api/*`, conversations,
-   * feedback). Leave out routes a request can use the extension at without
+   * for every request with the Session header (`/api/*`, the account
+   * prefixes, conversations, feedback). Leave out routes a request can use the extension at without
    * declaring it (§3.3). Operations v3 on account POSTs is built in.
    */
   requiredExtension?: (input: {
@@ -349,15 +374,27 @@ export type CompanyDefinition = {
   }) => string[];
   /**
    * What else an approved consent grants, such as the accounts the User
-   * chose for `persona`, from the consent form. The grant keeps it through
-   * refresh, for `grantFor`. Without the hook, or with `undefined`, the
-   * grant has no resources. The form comes from the browser: return only
-   * what `persona` owns.
+   * chose for `persona`, from the consent form; `scopes` are the scopes the
+   * approval grants (`selectScopes`). The grant keeps it through refresh,
+   * for `grantFor`. Without the hook, or with `undefined`, the grant has no
+   * resources. The form comes from the browser: return only what `persona`
+   * owns. `{ refuse }` turns the approval down with that message for the
+   * User (400 `invalid_request` with `error_description`); the consent page
+   * stays pending, so nothing is issued and the agent learns nothing.
    */
   selectResources?: (input: {
     persona: string;
     body: Record<string, string>;
-  }) => string[] | undefined;
+    scopes: string[];
+  }) => string[] | undefined | { refuse: string };
+  /**
+   * Further fields of a token response, from the grant it serves, at the
+   * code exchange and at every refresh. RFC 6749 §5.1 lets a server add
+   * parameters, and clients ignore those they don't know. Names of the
+   * standard fields (`access_token`, `token_type`, `expires_in`, `scope`,
+   * `refresh_token`) and of errors are never replaced.
+   */
+  tokenFields?: (grant: GrantView) => Record<string, string>;
   consent: (input: {
     nonce: string;
     passwordRequired: boolean;
