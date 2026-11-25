@@ -17,7 +17,8 @@ const HOUR = 3_600_000;
  * operation only when the fixed check covers its exact terms and the hour's
  * count and total allow it; when only the hour's allowance is the obstacle
  * it says so and leaves the operation for the User. Anything else stays for
- * the User without a word.
+ * the User without a word, as does an operation whose agent approval the
+ * Company declined.
  */
 export type AutoDecision =
   | { kind: "approve"; op: ReviewOperation; covered: string; cents: number }
@@ -40,6 +41,9 @@ export function nextAutoApproval(input: {
   for (const op of operations) {
     const key = `${op.operation_id}:${op.revision}`;
     if (decided.has(key)) continue;
+    // The Company declined an agent approval for it: the User decides now.
+    // `decided` is lost on a reload; this is not.
+    if (op.agentDeclined) continue;
     const covered = coveredBy(op, instruction, now);
     if (!covered) continue;
     decided.add(key);

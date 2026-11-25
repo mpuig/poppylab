@@ -14,7 +14,24 @@ export function recordOperation(
   const clean = validateOperation(raw, previous);
   if (Date.parse(clean.expires_at) <= Date.now())
     throw new Error("Invalid proposal response");
-  const op: Operation = { ...clean, state: "proposed", request };
+  // The same revision again (the model asked twice) keeps its approval, so
+  // it goes out as first sent (§7), unless the Company declined it (§6:
+  // never sent again). A new revision needs a new approval.
+  const same = previous?.revision === clean.revision ? previous : undefined;
+  const op: Operation = {
+    ...clean,
+    state: "proposed",
+    request,
+    ...(same?.approval && same.state !== "refused"
+      ? { approval: same.approval }
+      : {}),
+    // §6: once the Company declined an agent approval, Iris must not
+    // approve a new revision for the same action without asking the User,
+    // so the decline stays with the operation whatever the revision.
+    ...(previous?.agentDeclined
+      ? { agentDeclined: previous.agentDeclined }
+      : {}),
+  };
   const ops = (run.operations ??= {});
   ops[op.operation_id] = op;
   // Bounded, newest last.

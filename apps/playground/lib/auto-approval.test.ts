@@ -58,6 +58,22 @@ it("leaves an over-limit operation for the User", () => {
   ).toBeNull();
 });
 
+it("leaves an operation the Company declined from the agent for the User", () => {
+  const declined = {
+    ...op("a", 100),
+    agentDeclined: { reason: "Approve money moves yourself." },
+  };
+  // Nothing remembered, as after a reload: the decline alone stops it.
+  const decided = new Set<string>();
+  expect(
+    nextAutoApproval({ ...base, operations: [declined], decided }),
+  ).toBeNull();
+  expect(
+    nextAutoApproval({ ...base, operations: [declined, op("b", 200)], decided })
+      ?.op.operation_id,
+  ).toBe("b");
+});
+
 it("stops after the hour's count and leaves the operation for the User", () => {
   const now = 1_000_000_000;
   const recent = Array.from({ length: MAX_PER_HOUR }, (_, i) => ({
