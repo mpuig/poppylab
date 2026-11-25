@@ -44,8 +44,9 @@ OpenAPI description can't say:
   both.
 - **Scopes mean the same at every bank.** They are FDX's consent data clusters
   (`fdx:ACCOUNT_BASIC`, `fdx:TRANSACTIONS`…), not names each bank invents.
-- **The User chooses accounts.** The grant records which ones, and the FDX-shaped
-  routes see only those.
+- **The User chooses accounts.** The grant records which ones, and everything
+  that grant reaches sees only those: the FDX-shaped routes, the bank's own API
+  and its Company Agent.
 - **The consent is the grant.** The bank's consent record and the Poppy grant
   begin and end together.
 
@@ -143,7 +144,9 @@ The sign-in is Poppy's usual Direct Sign-In with PAR, PKCE and DPoP. Only the
 scopes and the consent page change. The agent requests the clusters the task
 needs, and Harborline's page adds a list of the chosen customer's accounts, all
 ticked by default. The User unticks the savings account. Approving FDX scopes
-with no account at all is turned down rather than granted empty.
+with no account at all is turned down rather than granted empty. The choice
+holds for the whole grant: if the same sign-in also grants Harborline's own
+read scopes, that API sees only the checking account too.
 
 The token response names the consent:
 
@@ -188,7 +191,8 @@ GET https://bank-demo.poppylab.dev/fdx/v6/accounts
 }
 ```
 
-Only the shared account comes back. The balances are there because the token
+Only the shared account comes back, here and from Harborline's own
+`/api/account/accounts`. The balances are there because the token
 carries `fdx:ACCOUNT_DETAILED`, and a token refreshed without it loses them.
 Treating `ACCOUNT_BASIC` as descriptors without balances is how implementing
 banks describe it, not something we could check in FDX's own text.
@@ -307,7 +311,8 @@ website, ends the consent the same way.
 - Make each scope one consent cluster, with hints, and check the token's scopes,
   not the grant's.
 - Store the User's choice of accounts in the grant, and answer an unshared
-  account as if it didn't exist.
+  account as if it didn't exist. Apply the choice to every interface the grant
+  reaches, not only the extension's routes.
 - Keep the domain consent and the Poppy grant one record: same ID, same end.
 - Keep writes on Operations. This extension only reads.
 
@@ -341,6 +346,14 @@ website, ends the consent the same way.
 - **Error bodies were thrown away.** The transport turned every non-2xx response
   into an error with a code and dropped the body, which is right for Poppy errors
   and wrong for `701`.
+- **The account choice was bypassable.** At first the choice limited only the
+  FDX-shaped routes, and the consent page said so in small print. The same
+  sign-in also granted Harborline's own read scopes, and in a test with a real
+  model the model preferred that API and told the User the balance of the
+  savings account they hadn't shared. From the User's side the choice meant
+  nothing. Now the bank applies it to the whole grant, both APIs and the Company
+  Agent, and Iris, with Use FDX on, steers the model to the FDX-shaped tools for
+  account data.
 - **The specification can't be copied.** Check a domain standard's licence
   before you vendor its schemas. FDX's forbids it, so our shapes are written by
   hand from public implementers' documentation.

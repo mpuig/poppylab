@@ -5,7 +5,7 @@ import type {
   Outcome,
   TurnResult,
 } from "@poppy-lab/pap-company";
-import { FICTION_NOTICE, usd } from "./data.ts";
+import { FICTION_NOTICE, usd, withinGrant } from "./data.ts";
 import type { CustomerState } from "./harborline.ts";
 
 type Deps = { customerFor: (account: string) => CustomerState };
@@ -53,6 +53,14 @@ export function harborlineAgent(deps: Deps): ConversationHandler {
           authorization: required.join(" "),
         } satisfies TurnResult)
       : undefined;
+  /**
+   * The signed-in customer and what the grant may see and act on of it: the
+   * accounts chosen at consent, or every account (`withinGrant`).
+   */
+  const reachOf = (turn: ConversationTurn) => {
+    const customer = deps.customerFor(turn.account!);
+    return { customer, ...withinGrant(customer, turn.resources) };
+  };
   const catalogue = (note?: string): TurnResult => ({
     replies: [
       {
@@ -104,8 +112,7 @@ export function harborlineAgent(deps: Deps): ConversationHandler {
     };
   };
   const freeze = (turn: ConversationTurn, cardId: string): TurnResult => {
-    const customer = deps.customerFor(turn.account!);
-    const card = customer.cards.find((item) => item.id === cardId);
+    const card = reachOf(turn).cards.find((item) => item.id === cardId);
     if (!card)
       return {
         replies: [
@@ -204,8 +211,8 @@ export function harborlineAgent(deps: Deps): ConversationHandler {
       case "cash_position": {
         const missing = needs(turn, ["accounts:read"]);
         if (missing) return missing;
-        const customer = deps.customerFor(turn.account!);
-        const total = customer.accounts.reduce(
+        const { accounts } = reachOf(turn);
+        const total = accounts.reduce(
           (sum, account) => sum + account.available_cents,
           0,
         );
@@ -214,7 +221,7 @@ export function harborlineAgent(deps: Deps): ConversationHandler {
             {
               text: `Your total fictional available balance is ${usd(total)}.`,
               data: {
-                accounts: customer.accounts,
+                accounts,
                 total_available_cents: total,
                 currency: "USD",
                 notice: FICTION_NOTICE,
@@ -226,9 +233,9 @@ export function harborlineAgent(deps: Deps): ConversationHandler {
       case "spending_summary": {
         const missing = needs(turn, ["transactions:read", "budgets:read"]);
         if (missing) return missing;
-        const customer = deps.customerFor(turn.account!);
+        const { customer, transactions } = reachOf(turn);
         const spending: Record<string, number> = {};
-        for (const transaction of customer.transactions)
+        for (const transaction of transactions)
           if (transaction.amount_cents < 0)
             spending[transaction.category] =
               (spending[transaction.category] ?? 0) - transaction.amount_cents;
@@ -254,7 +261,7 @@ export function harborlineAgent(deps: Deps): ConversationHandler {
             {
               text: "Here are the fictional cards and their current status.",
               data: {
-                cards: deps.customerFor(turn.account!).cards,
+                cards: reachOf(turn).cards,
                 notice: FICTION_NOTICE,
               },
             },

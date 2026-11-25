@@ -254,7 +254,8 @@ describe("Harborline FDX-shaped API", () => {
           note: FICTION_NOTICE,
         });
       }
-    // Harborline's own API isn't limited by the FDX choice.
+    // Harborline's own API needs its own scopes, and is limited by the same
+    // choice (see account-choice.test.ts).
     const own = await h.call(
       token.access_token,
       "GET",
@@ -265,9 +266,10 @@ describe("Harborline FDX-shaped API", () => {
       fdxAccounts: ["acc_HLB_A200"],
     });
     expect(
-      (await h.call(both.access_token, "GET", "/api/account/accounts")).json()
-        .accounts,
-    ).toHaveLength(2);
+      (await h.call(both.access_token, "GET", "/api/account/accounts"))
+        .json()
+        .accounts.map((item: { id: string }) => item.id),
+    ).toEqual(["acc_HLB_A200"]);
   });
 
   it("keeps only the chosen persona's accounts, and turns down an FDX consent with none", async () => {
@@ -299,6 +301,11 @@ describe("Harborline FDX-shaped API", () => {
   it("shows an account choice per persona on the consent page only for FDX scopes, without scripts", async () => {
     const { page } = await h.authorize("elena", ["accounts:read", ...fdx]);
     expect(page.body).toContain("Accounts for the FDX-shaped API");
+    // The choice limits the whole grant, and the page says so.
+    expect(page.body).toContain(
+      "The accounts you choose are the only ones the agent can see or act on, through Harborline's own API or the FDX-shaped one.",
+    );
+    expect(page.body).not.toContain("not limited by this choice");
     for (const id of [
       "acc_HLB_A100",
       "acc_HLB_A200",

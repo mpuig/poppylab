@@ -4,7 +4,7 @@
  * held behind Operations v3 approval. No real money or banking data exists.
  */
 import { createHash } from "node:crypto";
-import type { Hono } from "hono";
+import type { Context, Hono } from "hono";
 import type { CompanyDefinition, Session } from "@poppy-lab/pap-company";
 import {
   bankPersona,
@@ -12,6 +12,7 @@ import {
   customers,
   FICTION_NOTICE,
   usd,
+  withinGrant,
   type Account,
   type Budget,
   type Card,
@@ -462,6 +463,19 @@ function mount(app: Hono, ctx: Parameters<CompanyDefinition["mount"]>[1]) {
   const customerOf = (session: Session) =>
     customerFor(session.account ?? "elena");
   /**
+   * The request's customer and what its grant may see and act on of it: the
+   * accounts chosen at consent, their transactions and cards, or everything
+   * for a grant without a choice (`withinGrant`). An account, card or
+   * transaction outside the choice is answered as one that doesn't exist.
+   */
+  const reachOf = (c: Context) => {
+    const customer = customerOf(ctx.sessionFor(c));
+    return {
+      customer,
+      ...withinGrant(customer, ctx.grantFor(c)?.resources),
+    };
+  };
+  /**
    * An idempotency key stands for one request, and the gateway's operation
    * for the key is the reservation: while it can still be approved, a
    * different request under the key is refused. Nothing is kept here, so a
@@ -485,8 +499,8 @@ function mount(app: Hono, ctx: Parameters<CompanyDefinition["mount"]>[1]) {
             !sameRequest(revision.terms, request),
         ),
     );
-  const findAccount = (customer: CustomerState, id: string) =>
-    customer.accounts.find((item) => item.id === id);
+  const findAccount = (reach: { accounts: Account[] }, id: string) =>
+    reach.accounts.find((item) => item.id === id);
   const addTransaction = (
     customer: CustomerState,
     account: Account,
@@ -515,25 +529,25 @@ function mount(app: Hono, ctx: Parameters<CompanyDefinition["mount"]>[1]) {
   app.get(FDX_OPENAPI, (c) => c.json(fdxOpenApi(ctx.origin)));
 
   app.get("/api/account/accounts", (c) => {
-    const customer = customerOf(ctx.sessionFor(c));
+    const { customer, accounts } = reachOf(c);
     return c.json({
       customer: { id: customer.id, name: customer.name },
       currency: "USD",
-      accounts: customer.accounts.map(accountView),
+      accounts: accounts.map(accountView),
       note: FICTION_NOTICE,
     });
   });
   app.get("/api/account/transactions", (c) => {
-    const customer = customerOf(ctx.sessionFor(c));
+    const { transactions } = reachOf(c);
     return c.json({
-      transactions: customer.transactions.map(transactionView),
+      transactions: transactions.map(transactionView),
       note: FICTION_NOTICE,
     });
   });
   app.get("/api/account/cards", (c) => {
-    const customer = customerOf(ctx.sessionFor(c));
+    const { cards } = reachOf(c);
     return c.json({
-      cards: customer.cards.map(cardView),
+      cards: cards.map(cardView),
       note: FICTION_NOTICE,
     });
   });
@@ -553,7 +567,8 @@ function mount(app: Hono, ctx: Parameters<CompanyDefinition["mount"]>[1]) {
   });
 
   app.post("/api/account/payments", async (c) => {
-    const customer = customerOf(ctx.sessionFor(c));
+    const reach = reachOf(c);
+    const { customer } = reach;
     let body: unknown;
     try {
       body = await c.req.json();
@@ -577,7 +592,7 @@ function mount(app: Hono, ctx: Parameters<CompanyDefinition["mount"]>[1]) {
     const amount = integer(body.amount_cents, 1, 1000000),
       memo = text(body.memo, 120),
       key = idempotencyKey(body.idempotency_key),
-      source = findAccount(customer, String(body.source_account_id)),
+      source = findAccount(reach, String(body.source_account_id)),
       recipient = customer.recipients.find(
         (item) => item.id === body.recipient_id,
       );
@@ -685,7 +700,8 @@ function mount(app: Hono, ctx: Parameters<CompanyDefinition["mount"]>[1]) {
   });
 
   app.post("/api/account/transfers", async (c) => {
-    const customer = customerOf(ctx.sessionFor(c));
+    const reach = reachOf(c);
+    const { customer } = reach;
     let body: unknown;
     try {
       body = await c.req.json();
@@ -707,8 +723,8 @@ function mount(app: Hono, ctx: Parameters<CompanyDefinition["mount"]>[1]) {
       return c.json({ error: "invalid_transfer" }, 400);
     const amount = integer(body.amount_cents, 1, 1000000),
       key = idempotencyKey(body.idempotency_key),
-      source = findAccount(customer, String(body.source_account_id)),
-      destination = findAccount(customer, String(body.destination_account_id));
+      source = findAccount(reach, String(body.source_account_id)),
+      destination = findAccount(reach, String(body.destination_account_id));
     if (!amount || !key) return c.json({ error: "invalid_transfer" }, 400);
     if (!source || !destination)
       return c.json({ error: "account_not_found" }, 404);
@@ -821,8 +837,7 @@ function mount(app: Hono, ctx: Parameters<CompanyDefinition["mount"]>[1]) {
   });
 
   app.post("/api/account/cards/:card_id/status", async (c) => {
-    const customer = customerOf(ctx.sessionFor(c));
-    const card = customer.cards.find(
+    const card = reachOf(c).cards.find(
       (item) => item.id === c.req.param("card_id"),
     );
     if (!card) return c.json({ error: "card_not_found" }, 404);
@@ -877,8 +892,7 @@ function mount(app: Hono, ctx: Parameters<CompanyDefinition["mount"]>[1]) {
   });
 
   app.post("/api/account/transactions/:transaction_id/category", async (c) => {
-    const customer = customerOf(ctx.sessionFor(c));
-    const transaction = customer.transactions.find(
+    const transaction = reachOf(c).transactions.find(
       (item) => item.id === c.req.param("transaction_id"),
     );
     if (!transaction) return c.json({ error: "transaction_not_found" }, 404);
@@ -1131,9 +1145,10 @@ export const harborline: CompanyDefinition = {
   accountPrefixes: ["/api/account", "/fdx/"],
   // §3.3: the FDX-shaped routes only for requests that declare it.
   requiredExtension: ({ path }) => (path.startsWith("/fdx/") ? FDX : undefined),
-  // The accounts the User shares through the FDX-shaped API, of the chosen
-  // persona only. FDX access with no account shares nothing, so it's
-  // turned down rather than granted empty.
+  // The accounts the User shares, of the chosen persona only, asked when
+  // the sign-in requests FDX scopes. They limit the whole grant: both APIs
+  // and the Company Agent (`withinGrant`). FDX access with no account
+  // shares nothing, so it's turned down rather than granted empty.
   selectResources: ({ persona, body, scopes: granted }) => {
     if (!granted.some(isFdxScope)) return undefined;
     const chosen = (bankPersona(persona)?.accounts ?? [])

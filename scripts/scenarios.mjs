@@ -72,13 +72,24 @@ const groups = {
         "src/harborline.test.ts",
         "src/conversations.test.ts",
         "src/fdx.test.ts",
+        "src/account-choice.test.ts",
         "src/statements.test.ts",
       ],
     ],
   ],
   fdx: [
-    ["pap-company", ["src/gateway/account-routes.test.ts"]],
-    ["harborline", ["src/fdx.test.ts", "src/statements.test.ts"]],
+    [
+      "pap-company",
+      ["src/gateway/account-routes.test.ts", "src/gateway/extensions.test.ts"],
+    ],
+    [
+      "harborline",
+      [
+        "src/fdx.test.ts",
+        "src/account-choice.test.ts",
+        "src/statements.test.ts",
+      ],
+    ],
     ["pap-client", ["src/fdx.test.ts", "src/protocol-error.test.ts"]],
     [
       "playground",

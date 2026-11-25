@@ -171,7 +171,8 @@ const permissionText: Record<HarborlineScope, string> = {
 };
 
 /**
- * The accounts shared through the FDX-shaped API, per persona. Without
+ * The accounts to share, per persona, asked with FDX scopes. They limit
+ * the whole grant: both APIs and the Company Agent. Without
  * scripts (the consent CSP allows none), CSS `:has()` shows only the chosen
  * persona's accounts and hides "Allow" until one is ticked; a browser
  * without `:has()` shows every persona's, and the server keeps only the
@@ -191,7 +192,7 @@ const fdxAccounts = () =>
     )
     .join(
       "",
-    )}<p class="fdx-empty">Choose at least one account to allow this access, or don't allow it.</p><p class="fine">Only these accounts are visible through the FDX-shaped API. Harborline's own API scopes, if requested above, are not limited by this choice. FDX-shaped, not FDX-conformant or certified.</p></fieldset>`;
+    )}<p class="fdx-empty">Choose at least one account to allow this access, or don't allow it.</p><p class="fine">The accounts you choose are the only ones the agent can see or act on, through Harborline's own API or the FDX-shaped one. FDX-shaped, not FDX-conformant or certified.</p></fieldset>`;
 /** The persona's accounts only, and no "Allow" with none ticked. */
 const fdxStyle = () => {
   const when = (id: string) =>

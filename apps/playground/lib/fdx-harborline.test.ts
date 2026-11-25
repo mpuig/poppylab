@@ -254,6 +254,12 @@ describe("Use FDX against Harborline, end to end", () => {
     expect(
       await t.fdx_get_account!.execute({ accountId: "acc_HLB_A200" }),
     ).toMatchObject({ error: "fdx_error", status: 404, code: "701" });
+    // Harborline's own API, through the same grant: the same one account.
+    const own = (await t.accounts!.execute({})) as {
+      accounts: Array<{ id: string }>;
+    };
+    expect(own.accounts.map((a) => a.id)).toEqual(["acc_HLB_A100"]);
+    expect(JSON.stringify(own)).not.toContain("acc_HLB_A200");
   });
 
   it("pages through transactions, and reads the consent by the id from sign-in", async () => {
