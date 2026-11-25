@@ -1265,12 +1265,6 @@ body:has(.site) {
   white-space: nowrap;
   overflow-wrap: normal;
 }
-.row-links a {
-  display: inline-block;
-  margin-right: 14px;
-  font-weight: 500;
-  white-space: nowrap;
-}
 
 /* Footer: what the lab is, then three groups of links. */
 .foot {
@@ -1457,17 +1451,6 @@ body:has(.site) {
     content: attr(data-label);
     font-size: 14px;
     color: var(--muted);
-  }
-  .legend.stack .row-links {
-    margin-top: 4px;
-  }
-  .legend.stack .row-links a {
-    display: inline;
-  }
-  .legend.stack .row-links span {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px 14px;
   }
 }
 @media (max-width: 640px) {

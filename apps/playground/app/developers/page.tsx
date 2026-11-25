@@ -1,16 +1,14 @@
 import type { Metadata } from "next";
-import { ArrowRight, ArrowUpRight } from "lucide-react";
-import { LAB_REPOSITORY } from "@poppy-lab/pap-core";
+import { ArrowRight } from "lucide-react";
 import {
   DEMOS_URL,
-  SPEC_URL,
   SiteBar,
   SiteFoot,
   companies,
   connect,
   host,
 } from "../site-chrome";
-import { SpecRef, specLink } from "../spec-ref";
+import { SpecRef } from "../spec-ref";
 import "../site.css";
 
 export const metadata: Metadata = {
@@ -115,15 +113,6 @@ export default function Developers() {
               <a className="button" href="/playground">
                 Open the playground <ArrowRight size={18} aria-hidden="true" />
               </a>
-              <a className="button ghost" href="/learn">
-                Learn how it works
-              </a>
-              <a className="button ghost" href={SPEC_URL} {...specLink}>
-                Specification <ArrowUpRight size={16} aria-hidden="true" />
-              </a>
-              <a className="button ghost" href={LAB_REPOSITORY}>
-                Source on GitHub <ArrowUpRight size={16} aria-hidden="true" />
-              </a>
             </div>
           </div>
           <figure
@@ -199,9 +188,10 @@ export default function Developers() {
           <div className="agents-intro">
             <h2 id="companies-title">The four test Companies</h2>
             <p>
-              Each one is a separate deployment with its own customers, scopes
-              and consent page. Every visitor gets a private copy of the
-              fictional customers; an idle copy starts again after 24 hours.
+              Each one is a separate deployment with its own scopes and consent
+              page, and the same two fictional customers: Elena Maren and Robin
+              Ito. Every visitor gets a private copy of them; an idle copy
+              starts again after 24 hours.
             </p>
           </div>
           <div
@@ -215,8 +205,7 @@ export default function Developers() {
                   <th scope="col">Company</th>
                   <th scope="col">Host</th>
                   <th scope="col">Scopes</th>
-                  <th scope="col">Customers</th>
-                  <th scope="col">Links</th>
+                  <th scope="col">Playground</th>
                 </tr>
               </thead>
               <tbody>
@@ -224,20 +213,13 @@ export default function Developers() {
                   <tr key={c.id}>
                     <th scope="row">{c.name}</th>
                     <td data-label="Host">
-                      <code>{host(c.url)}</code>
+                      <a href={c.url}>
+                        <code>{host(c.url)}</code>
+                      </a>
                     </td>
                     <td data-label="Scopes">{c.scopes}</td>
-                    <td data-label="Customers">
-                      {c.people.replace(" or ", ", ")}
-                    </td>
-                    <td className="row-links" data-label="Links">
-                      <span>
-                        <a href={connect(c.url)}>Connect</a>
-                        <a href={`${c.url}${c.agents.path}`}>
-                          {c.agents.label}
-                        </a>
-                        <a href={c.site.href}>{c.site.label}</a>
-                      </span>
+                    <td data-label="Playground">
+                      <a href={connect(c.url)}>Connect</a>
                     </td>
                   </tr>
                 ))}
