@@ -30,6 +30,26 @@ export {
   type FdxDocument,
   type FdxOutcome,
 } from "./fdx.ts";
+export {
+  espiTools,
+  decodeDstRule,
+  ESPI_SCOPES,
+  ESPI_LIMITS,
+  type EspiRequest,
+  type EspiRequestOptions,
+  type EspiResponse,
+  type EspiDocument,
+  type EspiOutcome,
+} from "./espi.ts";
+export {
+  parseXml,
+  xmlChild,
+  xmlChildren,
+  XmlError,
+  XML_LIMITS,
+  type XmlElement,
+  type XmlLimits,
+} from "./xml.ts";
 import { sseRpc } from "./mcp-wire.ts";
 export { mcpTools, mcpResourcePolicy } from "./mcp.ts";
 import { proof, assertion } from "./session.ts";
