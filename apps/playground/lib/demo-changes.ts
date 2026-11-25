@@ -133,12 +133,25 @@ async function orderChange(
   };
 }
 
-/** An amount the User wrote, in cents: "$500", "125.50". */
+/**
+ * An amount the User wrote, in cents: "$500", "$1,000", "125.50 dollars".
+ * Thousands may be grouped with commas. A number that goes on after the
+ * match ("$1,00", "$1.234") is not read as a shorter one: the demo asks.
+ */
 const cents = (message: string) => {
+  const number = String.raw`(\d{1,3}(?:,\d{3})+|\d{1,9})(\.\d{1,2})?(?![.,]?\d)`;
   const match = message.match(
-    /\$\s?(\d{1,6}(?:\.\d{1,2})?)|\b(\d{1,6}(?:\.\d{1,2})?)\s?(?:usd|dollars?)\b/i,
+    new RegExp(
+      String.raw`\$\s?${number}|(?<![\d.,])${number}\s?(?:usd|dollars?)\b`,
+      "i",
+    ),
   );
-  const amount = Number(match?.[1] ?? match?.[2]);
+  const amount = Number(
+    `${match?.[1] ?? match?.[3]}${match?.[2] ?? match?.[4] ?? ""}`.replaceAll(
+      ",",
+      "",
+    ),
+  );
   return Number.isFinite(amount) && amount > 0
     ? Math.round(amount * 100)
     : undefined;

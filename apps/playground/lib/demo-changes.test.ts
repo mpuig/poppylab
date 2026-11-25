@@ -142,6 +142,26 @@ it("transfers between the accounts the message names, in the direction it says",
       amount_cents: 2050,
     },
   });
+  // Thousands grouped with commas are one amount, not the digits before the comma.
+  expect(
+    await demoChange("Transfer $1,000 from checking to savings", bank(), key),
+  ).toMatchObject({ args: { amount_cents: 100000 } });
+  expect(
+    await demoChange(
+      "Transfer 2,500.75 dollars from checking to savings",
+      bank(),
+      key,
+    ),
+  ).toMatchObject({ args: { amount_cents: 250075 } });
+  // A number it can't read as one amount is never cut short.
+  for (const unclear of ["$1,00", "$1.234", "12,50 dollars"])
+    expect(
+      await demoChange(
+        `Transfer ${unclear} from checking to savings`,
+        bank(),
+        key,
+      ),
+    ).toMatchObject({ say: expect.stringContaining("How much?") });
   // No amount, or one account: it asks.
   expect(
     await demoChange("transfer from checking to savings", bank(), key),
