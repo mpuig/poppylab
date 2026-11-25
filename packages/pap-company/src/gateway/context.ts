@@ -43,6 +43,13 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
     delete state.operations;
   }
   const isolated = deploy.isolation === "visitor";
+  const scopes = [...new Set(def.scopes ?? [def.readScope, def.writeScope])];
+  if (
+    !scopes.length ||
+    !scopes.includes(def.readScope) ||
+    !scopes.includes(def.writeScope)
+  )
+    throw new Error("Company scopes must include readScope and writeScope");
   const replay = new ReplayCache(new Map(state.replays));
   const secure = origin.startsWith("https:"),
     cookiePrefix = secure ? "__Host-" : "";
@@ -195,7 +202,7 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
     state,
     isolated,
     replay,
-    both: [def.readScope, def.writeScope],
+    both: scopes,
     secure,
     cookiePrefix,
     flags,

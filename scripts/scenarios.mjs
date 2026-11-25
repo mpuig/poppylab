@@ -65,6 +65,9 @@ const groups = {
     ["lantern", ["src/lantern.test.ts"]],
     ["example-company", ["src/operations-v2.test.ts"]],
   ],
+  banking: [
+    ["harborline", ["src/harborline.test.ts", "src/conversations.test.ts"]],
+  ],
   conversations: [
     ["lantern", ["src/conversations.test.ts"]],
     ["example-company", ["src/conversations.test.ts"]],

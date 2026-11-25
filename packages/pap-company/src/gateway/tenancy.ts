@@ -1,7 +1,7 @@
 /**
  * Tenancy: one mounted copy of the Company's business routes per tenant
  * (the shared copy, or one per agent user with `isolation: "visitor"`), the
- * Operations v2 gate, grant access for the Company website, and the final
+ * Operations v3 gate, grant access for the Company website, and the final
  * dispatch that routes website browsers to their copy.
  */
 import { Hono } from "hono";

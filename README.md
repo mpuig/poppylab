@@ -1,12 +1,13 @@
 # Poppy Lab
 
-An independent test bench for **Personal Agent Protocol 1.0**: **Iris**, a Personal Agent you run with your own model key, and two fictional Companies it can sign in to. Everything runs on Cloudflare Workers or on Node from the same code.
+An independent test bench for **Personal Agent Protocol 1.0**: **Iris**, a Personal Agent you run with your own model key, and three fictional Companies it can sign in to. Everything runs on Cloudflare Workers or on Node from the same code.
 
 - **https://poppylab.dev** explains the lab; **/playground** is Iris.
 - **https://juniper.poppylab.dev** is Juniper Market, a grocery with a full customer website.
 - **https://noodles.poppylab.dev** is Lantern Noodle Bar, a noodle bar with scheduled orders.
+- **Harborline Bank** targets **https://harborline.poppylab.dev** when deployed: a fully fictional bank with accounts, transactions, cards, recipients, budgets, payments and transfers.
 
-Nothing is sold, charged or shipped. Poppy Lab is not affiliated with or endorsed by the protocol's authors; "Personal Agent Protocol" and "Poppy" are their names. It makes no claim of conformance: the draft changes often (`pnpm spec:drift` reports when the published text differs from the pinned copy in `spec/`).
+Nothing is sold, charged, shipped or transferred. Harborline moves no real money, and no real banking data or credentials should be entered anywhere in the demo. Poppy Lab is not affiliated with or endorsed by the protocol's authors; "Personal Agent Protocol" and "Poppy" are their names. It makes no claim of conformance: the draft changes often (`pnpm spec:drift` reports when the published text differs from the pinned copy in `spec/`).
 
 ## What it does
 
@@ -30,6 +31,7 @@ pnpm dev
 - Playground: http://localhost:3000/playground
 - Juniper Market: http://juniper.localhost:4100 (customer site at `/account`)
 - Lantern Noodle Bar: http://noodles.localhost:4200 (customer site at `/account`)
+- Harborline Bank: http://harbor.localhost:4300 (customer portal at `/account`)
 
 Choose **Protocol demo** in Model settings to try it without a key (keyword rules call the Company's tools), or paste an OpenAI or Anthropic key. Connect a Company, sign in as a fictional customer, ask for a change, and approve it from the card in the chat. The Company website shows the same data within two seconds.
 
@@ -52,6 +54,7 @@ pnpm spec:drift
 - `apps/playground`: the Next.js agent (OpenNext on Workers or `next start`), per-visitor state in Durable Objects, the home page.
 - `apps/example-company`: Juniper Market, a `CompanyDefinition` with a customer portal.
 - `apps/lantern`: Lantern Noodle Bar, a second independent Company.
+- `apps/harborline`: Harborline Bank, a standalone fictional banking Company with a matching customer portal and narrow banking scopes.
 - `packages/pap-company`: the Hono Company gateway (discovery, sign-in with PAR, tokens, Sessions, conversations, Operations v3, tenancy) that runs both.
 - `packages/pap-client`: discovery, safe transport, Session and DPoP cryptography.
 - `packages/pap-core`: 1.0 schemas and shared types.
@@ -59,8 +62,8 @@ pnpm spec:drift
 
 ## Documentation
 
-`docs/` holds the design notes: [PAP 1.0 notes](docs/pap-10.md), [coverage matrix](docs/pap-coverage.md), [portable runtime and deployment](docs/portable-runtime.md), [security review](docs/security-review.md), [community demos and interop](docs/community-demos.md), [Lantern](docs/lantern-noodles.md), and the Juniper website and service notes. `DESIGN.md` records the visual systems; `PRODUCT.md` the product context.
+`docs/` holds the design notes: [PAP 1.0 notes](docs/pap-10.md), [coverage matrix](docs/pap-coverage.md), [portable runtime and deployment](docs/portable-runtime.md), [security review](docs/security-review.md), [community demos and interop](docs/community-demos.md), [Lantern](docs/lantern-noodles.md), [Harborline](docs/harborline-bank.md), and the Juniper website and service notes. `DESIGN.md` records the visual systems; `PRODUCT.md` the product context.
 
 ## Deploy
 
-Three Cloudflare Workers, deployed with Wrangler: `pnpm --filter @poppy-lab/lantern deploy`, `pnpm --filter @poppy-lab/example-company deploy`, and for Poppy `pnpm --filter @poppy-lab/playground build:worker && pnpm --filter @poppy-lab/playground deploy:worker`. Poppy needs two secrets, `POPPY_IDENTITY` (the agent key pair) and `POPPY_STATE_KEY` (32 random bytes, base64url). See [portable runtime](docs/portable-runtime.md).
+Four Cloudflare Workers, deployed with Wrangler: `pnpm --filter @poppy-lab/lantern deploy`, `pnpm --filter @poppy-lab/example-company deploy`, `pnpm --filter @poppy-lab/harborline deploy`, and for Poppy `pnpm --filter @poppy-lab/playground build:worker && pnpm --filter @poppy-lab/playground deploy:worker`. Poppy needs two secrets, `POPPY_IDENTITY` (the agent key pair) and `POPPY_STATE_KEY` (32 random bytes, base64url). See [portable runtime](docs/portable-runtime.md).

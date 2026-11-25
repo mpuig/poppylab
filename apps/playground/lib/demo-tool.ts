@@ -16,7 +16,16 @@ const synonyms: Record<string, string[]> = {
   ],
   order: ["order", "booking", "reservation"],
   deliver: ["deliver", "slot", "shipping", "availability"],
-  account: ["account", "profile", "whoami", "me", "reward"],
+  account: ["account", "profile", "whoami", "me", "reward", "balance"],
+  bank: [
+    "transaction",
+    "card",
+    "recipient",
+    "budget",
+    "payment",
+    "transfer",
+    "bank",
+  ],
 };
 export function pickDemoTool(message: string, tools: Record<string, Tool>) {
   const free = Object.entries(tools).filter(([, t]) => {

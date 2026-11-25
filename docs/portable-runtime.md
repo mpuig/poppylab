@@ -58,6 +58,18 @@ The gateway (`packages/pap-company/src/gateway.ts`) is a 50-line composition of 
 - **Tests:** `src/test-app.ts` gives tests a Fastify-like `inject`/`listen` over the Hono apps. The account tests were rewritten as HTTP tests against the gateway (consent subsets, Origin and cookie binding, PKCE, one-time codes, password, refresh without widening, revocation). The socket-loss test drops the response after the commit at the network layer. Total: 357 tests.
 - **Verified live on Node with GPT-6 Luna:** read-only consent as Alex, read of orders and recurring delivery, **Request change permission**, then Thursday→Saturday proposed, approved and completed, and back to Thursday. Also on workerd (Wrangler dev): discovery, OpenAPI and health return 200, the API without a Session returns 400, and the portal returns 403.
 
+## Harborline Bank
+
+**Harborline Bank** is a third portable Company (`apps/harborline`) using the same `CompanyDefinition` and gateway.
+
+- `pnpm dev:harborline` runs it at `http://harbor.localhost:4300`; the matching fictional customer portal is `/account`.
+- `pnpm --filter @poppy-lab/harborline dev:worker` runs it under Wrangler. `wrangler.toml` targets `harborline.poppylab.dev`, binds the SQLite-backed `HarborlineCompany` Durable Object, and enables visitor isolation in the Worker entry point.
+- The gateway now accepts an optional complete scope list, route-specific required scopes and Company-owned consent selection. Existing two-scope Companies keep their previous defaults. Harborline uses this to separate five read scopes, three reversible change scopes, irreversible payment/transfer scopes and optional `offline_access` without weakening Session, DPoP or Operations checks.
+- All data is fictional. Payments and transfers only mutate the tenant's in-memory/persisted demo ledger after exact Operations v3 approval; stable idempotency keys reject conflicting reuse and repeated approvals return the first result.
+- Tests cover discovery, consent subsets, DPoP-bound signed calls through the shared harness, reads, all mutations, limits, insufficient funds, inactive resources, stale state, replay, conversations and portal/API parity. Run `pnpm scenarios banking`.
+
+Harborline has deployment configuration but is not claimed as deployed by this document.
+
 ## Per-visitor isolation
 
 With `isolation: "visitor"` (both Workers), the gateway gives every agent user its own copy of the Company's business data:
@@ -89,7 +101,7 @@ The same Next.js app runs with `next dev`/`next start` on Node and on Cloudflare
 - **Network** (`pap-client`): on Workers only public HTTPS hostnames or public IP literals are allowed, with no credentials, no `localhost`/`.local`/`.internal`/single-label names, and no redirects. `global_fetch_strictly_public` is on for all three Workers. Node still pins checked DNS answers; `node:dns` and `undici` are loaded lazily.
 - **Public mode** (`lib/deployment.ts`): `POPPY_PUBLIC=true` with an HTTPS `AGENT_PUBLIC_ORIGIN`.
   - Chat accepts only Protocol demo, OpenAI-compatible and Anthropic, each with the visitor's own key. The server keys are used only on localhost in development.
-  - Sign-in and proposals are allowed only for `PAP_ACCOUNT_ORIGINS` (Juniper and Lantern on poppylab.dev) and the PAP Sandbox. `client.json` always names the public origin.
+  - Sign-in and proposals are allowed only for `PAP_ACCOUNT_ORIGINS` (Juniper, Lantern and Harborline on poppylab.dev) and the PAP Sandbox. `client.json` always names the public origin.
 - **Budgets** (`lib/limits.ts`, public mode):
   - chat: 8/min and 150/day per visitor, 20/min per IP, 600/min global;
   - account: 20/min per visitor, 40/min per IP;
@@ -98,7 +110,7 @@ The same Next.js app runs with `next dev`/`next start` on Node and on Cloudflare
 - **Build:** `pnpm --filter @poppy-lab/playground build:worker` (`scripts/build-worker.mjs`).
   - OpenNext copies `.env*` values into `next-env.mjs`; the first build contained the local model keys and was deleted before any deployment.
   - The script now empties that file and scans the whole bundle for every local secret-like value and the local identity. If it finds one, it deletes the artifact and fails, printing names only.
-  - `NEXT_PUBLIC_JUNIPER_URL`/`NEXT_PUBLIC_LANTERN_URL` point the suggestions to poppylab.dev.
+  - `NEXT_PUBLIC_JUNIPER_URL`, `NEXT_PUBLIC_LANTERN_URL` and `NEXT_PUBLIC_HARBORLINE_URL` point the suggestions to poppylab.dev.
 - **Verified in production** (version deployed 2 Nov 2026):
   - JWKS without a private part; `client.json` with `https://poppylab.dev` and Operations v3.
   - Discovery of Juniper and Lantern; private, HTTP and metadata URLs refused.
@@ -115,7 +127,7 @@ The same Next.js app runs with `next dev`/`next start` on Node and on Cloudflare
 
 1. `wrangler login` on the operator machine, or a scoped API token.
 2. Routes are set in each `wrangler.toml` (`custom_domain = true`); Wrangler creates the DNS record in the zone.
-3. `pnpm --filter @poppy-lab/lantern deploy` / `pnpm --filter @poppy-lab/example-company deploy`; Poppy: `pnpm --filter @poppy-lab/playground build:worker` then `deploy:worker`.
-4. Optional secrets: `wrangler secret put JUNIPER_PASSWORD_HASH` (or `LANTERN_PASSWORD_HASH`).
+3. `pnpm --filter @poppy-lab/lantern deploy` / `pnpm --filter @poppy-lab/example-company deploy` / `pnpm --filter @poppy-lab/harborline deploy`; Poppy: `pnpm --filter @poppy-lab/playground build:worker` then `deploy:worker`.
+4. Optional secrets: `wrangler secret put JUNIPER_PASSWORD_HASH`, `LANTERN_PASSWORD_HASH` or `HARBORLINE_PASSWORD_HASH` in the corresponding workspace.
 
 Lantern can go live on its own, as a public PAP 1.0 test Company that any agent with an HTTPS `client_id` can use. Poppy still needs its own port before `poppylab.dev` hosts the playground.

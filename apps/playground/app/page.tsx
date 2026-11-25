@@ -8,6 +8,8 @@ const juniper =
   process.env.NEXT_PUBLIC_JUNIPER_URL ?? "http://juniper.localhost:4100";
 const lantern =
   process.env.NEXT_PUBLIC_LANTERN_URL ?? "http://noodles.localhost:4200";
+const harborline =
+  process.env.NEXT_PUBLIC_HARBORLINE_URL ?? "http://harbor.localhost:4300";
 const host = (url: string) => new URL(url).host;
 const connect = (url: string) =>
   `/playground?company=${encodeURIComponent(url)}`;
@@ -92,12 +94,12 @@ export default function Home() {
         <section className="hero" aria-labelledby="hero-title">
           <div className="hero-copy">
             <h1 id="hero-title">
-              Send an agent to the shops. Nothing changes until you sign.
+              Send your agent out. Nothing changes until you sign.
             </h1>
             <p className="lead">
               Poppy Lab is an independent test bench for Personal Agent Protocol
               1.0. Run Iris, its Personal Agent, with your own model key, point
-              it at two fictional Companies, and watch every step it takes:
+              it at three fictional Companies, and watch every step it takes:
               discovery, sign-in, signed Sessions, conversations with each
               Company&apos;s own agent, and changes that wait for your approval.
             </p>
@@ -111,7 +113,8 @@ export default function Home() {
             </div>
             <p className="fine">
               Bring an OpenAI or Anthropic key, or try the keyless protocol
-              demo. The shops are fictional: nothing is charged or shipped.
+              demo. The Companies are fictional: nothing is charged, shipped or
+              transferred.
             </p>
           </div>
           <TrackingSlip />
@@ -147,7 +150,7 @@ export default function Home() {
         </section>
 
         <section id="sites" className="sites" aria-labelledby="sites-title">
-          <h2 id="sites-title">Three sites, one lab</h2>
+          <h2 id="sites-title">Four sites, one lab</h2>
           <article className="label label-agent">
             <div className="label-main">
               <h3>The playground</h3>
@@ -241,6 +244,35 @@ export default function Home() {
                 </a>
               </div>
             </article>
+            <article className="label">
+              <LabelStrip code="HB · PAP 1.0 · Ops v3" bars="HARBORLINE" />
+              <h3>Harborline Bank</h3>
+              <p className="address">{host(harborline)}</p>
+              <p>
+                A fictional bank with owned accounts, balances, transactions,
+                cards, recipients and budgets. Payments and transfers recheck
+                exact balances, limits and versions after approval.
+              </p>
+              <dl className="facts">
+                <div>
+                  <dt>Customers</dt>
+                  <dd>Avery, Jordan</dd>
+                </div>
+                <div>
+                  <dt>Scopes</dt>
+                  <dd>Reads · reversible changes · payment requests</dd>
+                </div>
+              </dl>
+              <p className="try">“Transfer $500 from checking to savings.”</p>
+              <div className="label-links">
+                <a className="button dark" href={connect(harborline)}>
+                  Connect in the playground
+                </a>
+                <a href={`${harborline}/account`}>
+                  Customer portal <ArrowUpRight size={15} aria-hidden="true" />
+                </a>
+              </div>
+            </article>
           </div>
           <p className="note">
             Every visitor gets a separate copy of the fictional customers. An
@@ -274,11 +306,12 @@ export default function Home() {
           <div className="agents-intro">
             <h2 id="agents-title">Bring your own agent</h2>
             <p>
-              Juniper and Lantern accept any Personal Agent with an HTTPS{" "}
-              <code>client_id</code> that serves its metadata and keys, with
-              redirect URIs from that metadata. Both speak Operations v3.
+              Juniper, Lantern and Harborline accept any Personal Agent with an
+              HTTPS <code>client_id</code> that serves its metadata and keys,
+              with redirect URIs from that metadata. Both speak Operations v3.
               Replace <code>{"{company}"}</code> with{" "}
-              <code>{host(juniper)}</code> or <code>{host(lantern)}</code>.
+              <code>{host(juniper)}</code>, <code>{host(lantern)}</code> or{" "}
+              <code>{host(harborline)}</code>.
             </p>
           </div>
           <div

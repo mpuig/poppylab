@@ -1,7 +1,7 @@
 "use client";
 import { ArrowUpRight, Check, LoaderCircle } from "lucide-react";
 import { ModelSettings } from "../model-settings";
-import { exampleUrl, lanternUrl } from "./companies";
+import { exampleUrl, harborlineUrl, lanternUrl } from "./companies";
 import type { Playground } from "./use-playground";
 
 /** Model settings, the Company URL form and the connection status row. */
@@ -74,8 +74,8 @@ export function ConnectionSetup({
               onClick={() => suggest(exampleUrl)}
             >
               Juniper Market
-            </button>{" "}
-            or{" "}
+            </button>
+            ,{" "}
             <button
               className="text-button"
               type="button"
@@ -83,8 +83,17 @@ export function ConnectionSetup({
               onClick={() => suggest(lanternUrl)}
             >
               Lantern Noodle Bar
+            </button>{" "}
+            or{" "}
+            <button
+              className="text-button"
+              type="button"
+              disabled={busy}
+              onClick={() => suggest(harborlineUrl)}
+            >
+              Harborline Bank
             </button>
-            , our fictional test companies.
+            . They are our fictional test companies.
           </span>
         )}
         {result && (

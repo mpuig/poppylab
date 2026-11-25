@@ -149,15 +149,20 @@ export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
           }
         : {}),
     });
-    if (new URL(c.req.url).pathname.startsWith("/api/account")) {
-      const needed = c.req.method === "POST" ? def.writeScope : def.readScope;
+    const path = new URL(c.req.url).pathname;
+    if (path.startsWith("/api/account")) {
+      const needed = def.requiredScopes?.({ path, method: c.req.method }) ?? [
+        c.req.method === "POST" ? def.writeScope : def.readScope,
+      ];
+      const scope = needed.join(" ");
       if (!record)
         return c.body(null, 401, {
-          "WWW-Authenticate": `DPoP scope="${needed}"`,
+          "WWW-Authenticate": `DPoP scope="${scope}"`,
         });
-      if (!record.scopes.split(" ").includes(needed))
+      const granted = record.scopes.split(" ");
+      if (needed.some((required) => !granted.includes(required)))
         return c.json({ error: "insufficient_scope" }, 403, {
-          "WWW-Authenticate": `DPoP error="insufficient_scope", scope="${needed}"`,
+          "WWW-Authenticate": `DPoP error="insufficient_scope", scope="${scope}"`,
         });
       // Operations v3 §2: never return operations to a request that doesn't
       // declare version 3. A JSON body, not a token error (§3.3).

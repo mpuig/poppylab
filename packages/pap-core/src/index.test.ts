@@ -186,9 +186,13 @@ it("links the Poppy Lab sites, locally to localhost and the current one as text"
     "https://poppylab.dev/playground",
     "https://juniper.poppylab.dev",
     "https://noodles.poppylab.dev",
+    "https://harborline.poppylab.dev",
   ]);
   expect(labSites("http://juniper.localhost:4100")[3]!.url).toBe(
     "http://noodles.localhost:4200",
+  );
+  expect(labSites("http://juniper.localhost:4100")[4]!.url).toBe(
+    "http://harbor.localhost:4300",
   );
   const line = labLineHtml("https://noodles.poppylab.dev", "lantern");
   expect(line).toContain(
@@ -196,6 +200,9 @@ it("links the Poppy Lab sites, locally to localhost and the current one as text"
   );
   expect(line).toContain(
     '<a href="https://juniper.poppylab.dev">Juniper&nbsp;Market</a>',
+  );
+  expect(line).toContain(
+    '<a href="https://harborline.poppylab.dev">Harborline&nbsp;Bank</a>',
   );
   expect(line).toContain("https://github.com/mpuig/poppylab");
 });

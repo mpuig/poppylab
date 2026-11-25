@@ -2,7 +2,8 @@
  * The Poppy Lab sites, for the small "Part of Poppy Lab" line each site adds
  * to its own footer. Local development links to the localhost addresses.
  */
-export type LabSite = "home" | "playground" | "juniper" | "lantern";
+export type LabSite =
+  "home" | "playground" | "juniper" | "lantern" | "harborline";
 export const LAB_REPOSITORY = "https://github.com/mpuig/poppylab";
 
 export function labSites(origin: string) {
@@ -33,6 +34,13 @@ export function labSites(origin: string) {
       url: local
         ? "http://noodles.localhost:4200"
         : "https://noodles.poppylab.dev",
+    },
+    {
+      id: "harborline" as const,
+      label: "Harborline Bank",
+      url: local
+        ? "http://harbor.localhost:4300"
+        : "https://harborline.poppylab.dev",
     },
   ];
 }

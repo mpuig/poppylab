@@ -1,10 +1,10 @@
 /**
- * A PAP 0.3 Company gateway on Hono and Web APIs, so the same code runs in
+ * A PAP 1.0 Company gateway on Hono and Web APIs, so the same code runs in
  * Node and in Cloudflare Workers (`nodejs_compat`). It provides discovery
  * metadata (RFC 8414/9728), Direct Sign-In (PKCE S256, private_key_jwt),
  * DPoP-bound access tokens, refresh and revocation (RFC 7009), verification
  * of the delegated `Poppy-Session` header, one account per Session, and the
- * Operations v2 extension. Each Company supplies its scopes, consent page,
+ * Operations v3 extension. Each Company supplies its scopes, consent page,
  * test customers, OpenAPI contract and business routes.
  *
  * State is single-writer: one in-memory object persisted by a `Store` when

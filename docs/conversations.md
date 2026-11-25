@@ -1,6 +1,6 @@
 # Conversations with the Company's own agent (PAP 1.0 §8)
 
-Both Companies offer a conversation endpoint next to their APIs, and Iris can talk to it. The design rule: **the only model is the Personal Agent's.** Each Company Agent is deterministic code. It takes structured requests in `data` and answers with data and a short fixed sentence. It never reads free text and never needs a model key, so a public Company can't be made to spend money, and its answers are predictable and testable.
+All three Companies offer a conversation endpoint next to their APIs, and Iris can talk to it. The design rule: **the only model is the Personal Agent's.** Each Company Agent is deterministic code. It takes structured requests in `data` and answers with data and a short fixed sentence. It never reads free text and never needs a model key, so a public Company can't be made to spend money, and its answers are predictable and testable.
 
 ## What a conversation adds over the API
 
@@ -33,7 +33,7 @@ Every `POST` has a JSON body with a request `id` chosen by the Personal Agent; a
 
 The phone numbers are fictional: 555-0100 to 555-0199 are reserved for fiction in North America.
 
-## The two Company Agents
+## The three Company Agents
 
 Each answers `{"request":"help"}` (and any message it doesn't understand) with the list of requests it handles, their fields and the scopes they need.
 
@@ -45,6 +45,15 @@ Each answers `{"request":"help"}` (and any message it doesn't understand) with t
 | `delivery_info`       | —                             | Slots and the delivery fee                                                             |
 | `order_status`        | `orders:read`                 | Scheduled orders and the last delivery, with any refunds                               |
 | `report_missing_item` | `orders:read`, `orders:write` | A refund proposal for the missing dish, performed after approval; shown on the website |
+
+**Harborline** (`apps/harborline/src/agent.ts`):
+
+| Request            | Needs                               | Answer                                                                   |
+| ------------------ | ----------------------------------- | ------------------------------------------------------------------------ |
+| `cash_position`    | `accounts:read`                     | Owned accounts and total fictional available balance                     |
+| `spending_summary` | `transactions:read`, `budgets:read` | Recent debit totals by category and current budgets                      |
+| `card_status`      | `cards:read`                        | Fictional cards and their active, frozen or inactive status              |
+| `freeze_card`      | `cards:read`, `cards:write`         | A card-freeze proposal, performed once after exact conversation approval |
 
 **Juniper** (`apps/example-company/src/agent.ts`):
 

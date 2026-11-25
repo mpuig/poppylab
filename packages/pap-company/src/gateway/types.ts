@@ -229,8 +229,21 @@ export type DpopNonces = {
 };
 export type CompanyDefinition = {
   name: string;
+  /** Default scopes for account reads and changes (legacy two-scope Companies). */
   readScope: string;
   writeScope: string;
+  /** Every OAuth scope this Company accepts. Defaults to readScope/writeScope. */
+  scopes?: string[];
+  /** Route-specific account scopes. Every returned scope is required. */
+  requiredScopes?: (input: { path: string; method: string }) => string[];
+  /**
+   * Chooses which requested scopes the consent form granted. The default keeps
+   * every requested scope except writeScope unless the form posts write=yes.
+   */
+  selectScopes?: (input: {
+    requested: string[];
+    body: Record<string, string>;
+  }) => string[];
   consent: (input: {
     nonce: string;
     passwordRequired: boolean;
@@ -273,7 +286,7 @@ export type CompanyDefinition = {
       gate: Gate;
       grants: GrantAccess;
       origin: string;
-      /** This tenant's Operations v2 records, read-only (for a website). */
+      /** This tenant's Operations v3 records, read-only (for a website). */
       operations: () => Readonly<Record<string, OperationRecord>>;
       /** Registers this tenant's Company Agent (with `agent` set). */
       converse: (handler: ConversationHandler) => void;

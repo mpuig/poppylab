@@ -254,9 +254,20 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
     const selected = def.persona(body.account ?? def.defaultAccount);
     if (body.decision === "approve" && !selected)
       return c.json({ error: "invalid_account" }, 400);
-    const scopes = p.scopes
-      .split(" ")
-      .filter((s) => s !== def.writeScope || body.write === "yes")
+    const requested = p.scopes.split(" ").filter(Boolean);
+    const selectedScopes = def.selectScopes
+      ? def.selectScopes({ requested, body })
+      : requested.filter(
+          (scope) => scope !== def.writeScope || body.write === "yes",
+        );
+    const allowed = new Set(requested);
+    if (
+      new Set(selectedScopes).size !== selectedScopes.length ||
+      selectedScopes.some((scope) => !allowed.has(scope))
+    )
+      return c.json({ error: "invalid_scope" }, 400);
+    const scopes = both
+      .filter((scope) => selectedScopes.includes(scope))
       .join(" ");
     if (body.decision === "approve" && !scopes)
       return c.json({ error: "invalid_scope" }, 400);
