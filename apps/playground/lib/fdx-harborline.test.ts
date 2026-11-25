@@ -362,7 +362,110 @@ describe("Use FDX against Harborline, end to end", () => {
     await post(act, "/api/account", { action: "fdx", enabled: true });
   });
 
-  it("after the consent is revoked, calls fail with the runtime's sign-in handling", async () => {
+  it("revokes the consent from the account row: one PUT, the grant ends at Harborline and the run is signed out", async () => {
+    const restore = async () =>
+      (
+        await account(
+          new Request(`${agent}/api/account?conversation=${conversation}`),
+        )
+      ).json();
+    const before = await withRun(async (run) => ({
+      consent: run.fdxConsent!,
+      token: run.token!,
+      refresh: run.accountToken!,
+      expires: run.tokenExpires!,
+      scopes: run.scopes!,
+      revoke: run.company!.metadata!.revocation_endpoint!,
+    }));
+    // The page sees the consent, and its status and accounts.
+    expect(await restore()).toMatchObject({
+      signedIn: true,
+      fdxConsent: before.consent,
+    });
+    const shown = await post(act, "/api/account", { action: "fdx_consent" });
+    expect(shown.status).toBe(200);
+    expect((await shown.json()).consent).toMatchObject({
+      id: before.consent,
+      status: "ACTIVE",
+      accounts: ["acc_HLB_A100"],
+    });
+
+    const revocation = `${base}/consents/${before.consent}/revocation`;
+    const from = net.seen.length;
+    const revoked = await post(act, "/api/account", { action: "fdx_revoke" });
+    expect(revoked.status).toBe(200);
+    const body = await revoked.json();
+    expect(body).toMatchObject({
+      signedIn: false,
+      revoked: "revoked",
+      consent: before.consent,
+    });
+    expect(body.trace).toEqual([
+      `PUT /fdx/v6/consents/${before.consent}/revocation · FDX consent revoked · 204`,
+    ]);
+    // Exactly one request, the PUT; the dead refresh token isn't revoked.
+    expect(net.seen.slice(from)).toEqual([revocation]);
+    expect(net.seen.slice(from)).not.toContain(before.revoke);
+
+    // Signed out here, as after a sign-out, with Use FDX still on.
+    await withRun(async (run) => {
+      expect(run.accountToken).toBeUndefined();
+      expect(run.token).toBeUndefined();
+      expect(run.fdxConsent).toBeUndefined();
+      expect(run.resourceTokens).toBeUndefined();
+      expect(run.accountUnavailable).toBeUndefined();
+      expect(run.fdx).toBe(true);
+    });
+    expect(await restore()).toMatchObject({ signedIn: false, fdx: true });
+    expect((await restore()).fdxConsent).toBeUndefined();
+    expect(await (await tools()).fdx_list_accounts!.execute({})).toMatchObject({
+      error: "sign_in_required",
+    });
+    // Nothing left to revoke.
+    const again = await post(act, "/api/account", { action: "fdx_revoke" });
+    expect(again.status).toBe(400);
+    expect(await again.json()).toMatchObject({ code: "no_fdx_consent" });
+
+    // At Harborline, the grant's tokens are gone: the old access token is
+    // refused, and so is its refresh token.
+    await withRun(async (run) => {
+      Object.assign(run, {
+        token: before.token,
+        accountToken: before.refresh,
+        tokenExpires: before.expires,
+        scopes: before.scopes,
+      });
+      try {
+        const listed = await papRequest(run, `${base}/accounts`, "GET").then(
+          () => undefined,
+          (e: unknown) => e,
+        );
+        expect(listed).toMatchObject({ status: 401, code: "invalid_token" });
+        delete run.accountUnavailable;
+        const renewed = await renewAccount(run).then(
+          () => undefined,
+          (e: unknown) => e,
+        );
+        expect(renewed).toMatchObject({ status: 400, code: "invalid_grant" });
+      } finally {
+        delete run.token;
+        delete run.accountToken;
+        delete run.tokenExpires;
+        delete run.scopes;
+        delete run.accountUnavailable;
+      }
+    });
+
+    // Signing in again shares accounts over FDX with a new consent.
+    const signin = await post(act, "/api/account", { action: "signin" });
+    const back = await consent((await signin.json()).url, ["acc_HLB_A100"]);
+    expect((await callback(new Request(back))).status).toBe(200);
+    const fresh = await withRun(async (run) => run.fdxConsent);
+    expect(fresh).toMatch(/^[A-Za-z0-9]/);
+    expect(fresh).not.toBe(before.consent);
+  });
+
+  it("after the consent is revoked by another request, calls fail with the runtime's sign-in handling", async () => {
     await withRun(async (run) => {
       await ensureSession(run);
       const url = `${base}/consents/${run.fdxConsent}/revocation`;

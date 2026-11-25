@@ -26,6 +26,7 @@ import {
   consentOutcome,
   missingFdxScopes,
 } from "@/lib/account-permissions";
+import type { FdxConsentRecord } from "./fdx-consent";
 import type { ReviewOperation as Operation } from "@/lib/operation-presentation";
 import { agentStep } from "@/lib/agent-steps";
 import { logEntry, type ProtocolEntry } from "@/lib/protocol-log";
@@ -100,6 +101,14 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
   const [scopes, setScopes] = useState("");
   /** Use FDX for this conversation (poppylab.dev/fdx v1), kept by the server. */
   const [fdx, setFdx] = useState(false);
+  /** The FDX consent id of this sign-in, as the server keeps it. */
+  const [fdxConsent, setFdxConsent] = useState<string | undefined>();
+  /** Its record as the bank last returned it, read once per consent id. */
+  const [fdxRecord, setFdxRecord] = useState<FdxConsentRecord | undefined>();
+  /** The User revoked the FDX consent (or found it had ended), and how. */
+  const [fdxRevoked, setFdxRevoked] = useState<
+    "revoked" | "already_ended" | undefined
+  >();
   const [consentVersion, setConsentVersion] = useState(0);
   const [accountBusy, setAccountBusy] = useState(false);
   const [waitingSignIn, setWaitingSignIn] = useState(false);
@@ -179,6 +188,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
         setSignedIn(!!data.signedIn);
         setScopes(data.scopes ?? "");
         setFdx(!!data.fdx);
+        setFdxConsent(data.fdxConsent);
         if (data.recovery?.error) setError(data.recovery.error);
         setOperations(data.operations ?? []);
         // §8.10: an open Direct Conversation is still open after a reload,
@@ -208,6 +218,8 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
             setOperations(data.operations ?? []);
             setSignedIn(true);
             setScopes(data.scopes ?? "");
+            setFdxConsent(data.fdxConsent);
+            setFdxRevoked(undefined);
             setWaitingSignIn(false);
             addTrace([
               "Direct Sign-In completed · PKCE + issuer validation · DPoP account Session",
@@ -240,6 +252,21 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
         item.operation_id === operation.operation_id ? operation : item,
       ),
     );
+
+  /** What the page shows once the run is signed out (sign-out, FDX revocation). */
+  function signedOutHere() {
+    setScopes("");
+    setSignedIn(false);
+    setOperations([]);
+    setWaitingSignIn(false);
+    setMessages([]);
+    setFdxConsent(undefined);
+    setFdxRecord(undefined);
+    // Signing out drops Iris's conversation with the Company's agent,
+    // and the Direct Conversation with it.
+    applyDirect();
+    setStartingDirect(false);
+  }
 
   async function accountAction(
     action: string,
@@ -298,15 +325,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
           );
       }
       if (action === "signout") {
-        setScopes("");
-        setSignedIn(false);
-        setOperations([]);
-        setWaitingSignIn(false);
-        setMessages([]);
-        // Signing out drops Iris's conversation with the Company's agent,
-        // and the Direct Conversation with it.
-        applyDirect();
-        setStartingDirect(false);
+        signedOutHere();
         addTrace(["Account grant revoked · Session signed out"]);
       }
       if (data.operation) {
@@ -359,6 +378,82 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
         caught instanceof Error && caught.message
           ? caught.message
           : "Could not change Use FDX.",
+      );
+    } finally {
+      setAccountBusy(false);
+    }
+  }
+
+  /** An FDX consent action of the User's (poppylab.dev/fdx v1). */
+  const fdxCall = async (action: "fdx_consent" | "fdx_revoke") => {
+    const response = await fetch("/api/account", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-PAP-Company": result?.requestedUrl ?? companyUrl,
+        ...named(),
+      },
+      body: JSON.stringify({ action }),
+    });
+    adopt(response);
+    return { response, data: await response.json() };
+  };
+
+  // The consent's status and accounts, read once for each consent id.
+  const fdxConsentShown = fdx && signedIn && !!fdxConsent;
+  /** The consent id whose record was asked for: each is read once. */
+  const fdxRead = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!fdxConsentShown || busy || ended || fdxRead.current === fdxConsent)
+      return;
+    const id = fdxConsent!;
+    fdxRead.current = id;
+    setAccountBusy(true);
+    void fdxCall("fdx_consent")
+      .then(({ response, data }) => {
+        addTrace(data.trace ?? []);
+        if (data.code === "account_unavailable") {
+          setSignedIn(false);
+          setScopes("");
+          setError(data.error ?? "");
+        }
+        // A record the bank didn't return shows the id alone.
+        setFdxRecord(
+          response.ok && data.consent?.id === id
+            ? data.consent
+            : { id, unavailable: true },
+        );
+      })
+      .catch(() => setFdxRecord({ id, unavailable: true }))
+      .finally(() => setAccountBusy(false));
+    // fdxCall is recreated each render and reads current state.
+  }, [fdxConsentShown, fdxConsent, busy, ended]);
+
+  /**
+   * The User revokes the FDX consent. The bank ends the grant and its
+   * tokens, so the page signs out as sign-out does; Iris never does this.
+   */
+  async function revokeFdx() {
+    if (busy || ended || !fdxConsentShown) return;
+    setAccountBusy(true);
+    setError("");
+    try {
+      const { response, data } = await fdxCall("fdx_revoke");
+      addTrace(data.trace ?? []);
+      if (data.code === "account_unavailable") {
+        setSignedIn(false);
+        setScopes("");
+      }
+      if (!response.ok) throw new Error(data.error);
+      signedOutHere();
+      setFdxRevoked(
+        data.revoked === "already_ended" ? "already_ended" : "revoked",
+      );
+    } catch (caught) {
+      setError(
+        caught instanceof Error && caught.message
+          ? caught.message
+          : "Could not revoke the FDX consent.",
       );
     } finally {
       setAccountBusy(false);
@@ -425,6 +520,9 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     setOperations([]);
     // Use FDX is off in every new conversation.
     setFdx(false);
+    setFdxConsent(undefined);
+    setFdxRecord(undefined);
+    setFdxRevoked(undefined);
     // The new conversation has no Direct Conversation, whatever the last had.
     applyDirect();
     setStartingDirect(false);
@@ -609,6 +707,11 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     fdxAvailable,
     fdxSignIn,
     chooseFdx,
+    /** The FDX consent to show and offer to revoke, with its record once read. */
+    fdxConsent: fdxConsentShown ? fdxConsent : undefined,
+    fdxRecord: fdxRecord?.id === fdxConsent ? fdxRecord : undefined,
+    fdxRevoked,
+    revokeFdx,
     waitingSignIn,
     operations,
     connected,

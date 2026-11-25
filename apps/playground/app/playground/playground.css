@@ -1014,6 +1014,31 @@ main {
   display: block;
   font-size: 12px;
 }
+/* The FDX consent of this sign-in, revoked by the User, confirmed in place. */
+.fdx-consent,
+.fdx-consent-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+.fdx-consent {
+  flex-basis: 100%;
+}
+.fdx-consent p {
+  margin: 0;
+  flex-basis: 100%;
+  overflow-wrap: anywhere;
+}
+.fdx-consent code {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--ink);
+}
+.fdx-consent-actions > span {
+  flex-basis: 100%;
+  color: var(--ink-soft);
+}
 .messages .empty-state {
   min-height: 220px;
 }

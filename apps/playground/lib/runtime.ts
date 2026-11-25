@@ -581,7 +581,8 @@ function markAccountFailure(run: Run, error: unknown) {
 export async function papRequest(
   run: Run,
   url: string,
-  method: "GET" | "POST",
+  /** PUT only for `poppylab.dev/fdx` consent revocation, the User's action. */
+  method: "GET" | "POST" | "PUT",
   body?: unknown,
   options: {
     signedOut?: boolean;
@@ -1062,53 +1063,138 @@ function fdxConnect(
     trace: (line) => trace.push(line),
     // The consent id the bank returned at sign-in: the model never names it.
     consentId: () => run.fdxConsent,
-    request: async (url, scopes) => {
-      // Every FDX-shaped route is account data, the consent API included.
-      if (!run.accountToken)
-        return {
-          outcome: {
-            error: "sign_in_required",
-            instruction: "Ask the user to use the Sign in control in the chat.",
-          },
-        };
-      const granted = (run.scopes ?? "").split(" ");
-      const missing = scopes.filter((s) => !granted.includes(s));
-      if (missing.length)
-        return {
-          outcome: {
-            error: "insufficient_scope",
-            missing,
-            instruction:
-              "This sign-in doesn't include these FDX-shaped data clusters. Ask the user to sign in again with Use FDX on; do not retry until then.",
-          },
-        };
-      try {
-        return {
-          status: 200,
-          body: await papRequest(run, url, "GET", undefined, {
-            errorBody: true,
-          }),
-        };
-      } catch (error) {
-        // An FDX-shaped error (`701`, `703`, `consent_not_found`…): for the
-        // model, bounded by the adapter. Rate limits and server errors
-        // aren't the API's answer, and are thrown as before.
-        if (
-          error instanceof ProtocolError &&
-          error.body !== undefined &&
-          error.status >= 400 &&
-          error.status < 500 &&
-          error.status !== 429
-        )
-          return { status: error.status, body: error.body };
-        throw error;
-      }
-    },
+    request: fdxRequest(run),
   });
   trace.push(
     `Extension ${FDX_EXTENSION} v1 · native FDX-shaped adapter · ${Object.keys(tools).length} read tools`,
   );
   return tools;
+}
+
+/**
+ * How the FDX-shaped tools reach the Company: signed in, within the granted
+ * data clusters, through `papRequest`.
+ */
+function fdxRequest(run: Run) {
+  return async (url: string, scopes: string[]) => {
+    // Every FDX-shaped route is account data, the consent API included.
+    if (!run.accountToken)
+      return {
+        outcome: {
+          error: "sign_in_required",
+          instruction: "Ask the user to use the Sign in control in the chat.",
+        },
+      };
+    const granted = (run.scopes ?? "").split(" ");
+    const missing = scopes.filter((s) => !granted.includes(s));
+    if (missing.length)
+      return {
+        outcome: {
+          error: "insufficient_scope",
+          missing,
+          instruction:
+            "This sign-in doesn't include these FDX-shaped data clusters. Ask the user to sign in again with Use FDX on; do not retry until then.",
+        },
+      };
+    try {
+      return {
+        status: 200,
+        body: await papRequest(run, url, "GET", undefined, {
+          errorBody: true,
+        }),
+      };
+    } catch (error) {
+      // An FDX-shaped error (`701`, `703`, `consent_not_found`…): for the
+      // model, bounded by the adapter. Rate limits and server errors
+      // aren't the API's answer, and are thrown as before.
+      if (
+        error instanceof ProtocolError &&
+        error.body !== undefined &&
+        error.status >= 400 &&
+        error.status < 500 &&
+        error.status !== 429
+      )
+        return { status: error.status, body: error.body };
+      throw error;
+    }
+  };
+}
+
+/** The consent id as one path segment, as the token response was checked. */
+const consentSegment = (id: string | undefined) =>
+  id && /^[A-Za-z0-9][\x21-\x7e]{0,127}$/.test(id) && !/[/\\%?#]/.test(id)
+    ? id
+    : undefined;
+
+/**
+ * `poppylab.dev/fdx` v1: the consent this sign-in holds, when Use FDX is on
+ * and the bank returned its id. Only from the validated entry and the id
+ * kept from the token response, never from the page.
+ */
+export function fdxConsentTarget(run: Run) {
+  const entry = fdxEntry(run);
+  const id = consentSegment(run.fdxConsent);
+  if (!entry || !id || !run.accountToken || run.accountUnavailable) return;
+  const base = new URL(entry.consent_endpoint.replace(/\/+$/, ""));
+  const url = new URL(
+    `${base.href.replace(/\/$/, "")}/${encodeURIComponent(id)}/revocation`,
+  );
+  if (
+    url.origin !== base.origin ||
+    !url.pathname.startsWith(`${base.pathname.replace(/\/$/, "")}/`)
+  )
+    return;
+  return { entry, id, revocation: url.href };
+}
+
+/**
+ * Reads the consent record through the native adapter's own
+ * `fdx_consent_status`, so the page sees the same bounded fields the model
+ * would: status, expiry and the shared accounts.
+ */
+export async function fdxConsentRecord(run: Run, trace: string[]) {
+  const target = fdxConsentTarget(run);
+  if (!target) throw new UserFacingError("No FDX consent to show.");
+  const tools = fdxTools({
+    entry: target.entry,
+    trace: (line) => trace.push(line),
+    consentId: () => target.id,
+    request: fdxRequest(run),
+  });
+  return (await tools.fdx_consent_status!.execute({})) as Record<
+    string,
+    unknown
+  >;
+}
+
+/**
+ * `poppylab.dev/fdx` v1: the User revokes the consent, which is the grant
+ * (`PUT {consent_endpoint}/{id}/revocation`). It goes through `papRequest`
+ * like any FDX-shaped call: Session header, DPoP token, the extension
+ * declared. Never a model tool. Resolves once the Company answered 2xx;
+ * throws its error otherwise.
+ */
+export async function revokeFdxConsent(run: Run, trace: string[]) {
+  const target = fdxConsentTarget(run);
+  if (!target) throw new UserFacingError("No FDX consent to revoke.");
+  const path = new URL(target.revocation).pathname;
+  try {
+    const answer = await papRequest(
+      run,
+      target.revocation,
+      "PUT",
+      { reason: "USER_ACTION", initiator: "INDIVIDUAL" },
+      { acceptEmpty: true },
+    );
+    trace.push(
+      `PUT ${path} · FDX consent revoked · ${answer === null ? 204 : 200}`,
+    );
+  } catch (error) {
+    trace.push(
+      `PUT ${path} · FDX consent revocation failed · ${error instanceof ProtocolError ? error.status : "no answer"}`,
+    );
+    throw error;
+  }
 }
 
 /** What a conversation needs from the run: transport, policy and output. */

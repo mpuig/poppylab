@@ -64,7 +64,7 @@ FDX's own definitions of the clusters are gated behind registration. Reading `AC
 
 - **Accounts are chosen at consent.** When a sign-in requests any `fdx:*` scope, the Company's consent page asks which accounts to share. The grant records them, and the FDX-shaped routes see only those. A Company SHOULD turn down an approval of `fdx:*` scopes with no account chosen rather than grant empty access.
 - **The consent is the grant.** The consent ID is the grant's ID. The Company returns it as `consent_id` in every token response of a grant with `fdx:*` scopes, at the code exchange and at refresh. Other Personal Agents ignore the field (RFC 6749 §5.1).
-- **Revocation works both ways.** Revoking the consent ends the grant, its access tokens and its refresh token. Revoking the refresh token (§4.6) or disconnecting the agent at the Company ends the consent.
+- **Revocation works both ways.** Revoking the consent ends the grant, its access tokens and its refresh token. Revoking the refresh token (§4.6) or disconnecting the agent at the Company ends the consent. Revoking is the User's choice, like sign-out: a Personal Agent offers it in its own interface, not as a tool for its model. Iris offers it in the chat's account row ([Use FDX](../openapi-tools.md#in-the-playground-use-fdx)).
 - **Security.** Direct Sign-In only, with PKCE, `private_key_jwt` and DPoP-bound tokens, and PAR offered. This resembles the FAPI 2.0 style that FDX's security profile describes, but it hasn't been checked against FDX.
 
 ## Resources

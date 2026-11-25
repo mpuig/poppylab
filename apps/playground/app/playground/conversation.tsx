@@ -7,6 +7,7 @@ import { needsYou } from "@/lib/operation-presentation";
 import { hideLinkSecrets } from "@/lib/link-display";
 import { OperationReview } from "../operation-review";
 import { StandingInstruction } from "./standing-instruction";
+import { FdxConsent } from "./fdx-consent";
 import { accountCompany, labCompanies, labCompany } from "./companies";
 import type { Playground } from "./use-playground";
 
@@ -272,6 +273,24 @@ export function Conversation({
                     </small>
                   </span>
                 </label>
+              )}
+              {signedIn && p.fdxConsent && (
+                <FdxConsent
+                  key={p.fdxConsent}
+                  consentId={p.fdxConsent}
+                  company={company.document.organization.name}
+                  record={p.fdxRecord}
+                  disabled={busy || waitingSignIn}
+                  onRevoke={() => void p.revokeFdx()}
+                />
+              )}
+              {!signedIn && !waitingSignIn && p.fdxRevoked && (
+                <p className="permission-note" role="status">
+                  {p.fdxRevoked === "revoked"
+                    ? `FDX consent revoked. ${company.document.organization.name} ended the grant and its tokens, and this conversation is signed out.`
+                    : `This FDX consent had already ended at ${company.document.organization.name}. This conversation is signed out.`}{" "}
+                  Sign in again to share accounts over FDX.
+                </p>
               )}
               {p.fdxSignIn && (
                 <button
