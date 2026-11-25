@@ -35,7 +35,8 @@ export const money = (amount: number) => {
   const cents = Math.round(amount / 1000);
   return `${cents < 0 ? "−" : ""}$${(Math.abs(cents) / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
-const fontSources = {
+/** Where the site's faces load from; the consent page's policy must allow them too. */
+export const fontSources = {
   style: "https://fonts.googleapis.com",
   font: "https://fonts.gstatic.com",
 };

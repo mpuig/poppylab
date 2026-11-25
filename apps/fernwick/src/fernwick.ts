@@ -44,7 +44,13 @@ import {
 } from "./scopes.ts";
 import { fernwickAgent } from "./agent.ts";
 import { mountPortal } from "./portal.ts";
-import { consentPage, forAgentsPage, homePage, pageHeaders } from "./site.ts";
+import {
+  consentPage,
+  fontSources,
+  forAgentsPage,
+  homePage,
+  pageHeaders,
+} from "./site.ts";
 
 export { customers, energyPersona } from "./data.ts";
 export { scopes, espiScopes, type FernwickScope } from "./scopes.ts";
@@ -382,6 +388,8 @@ export const fernwick: CompanyDefinition = {
       return true;
     }),
   consent: consentPage,
+  // The consent page loads the same faces: without this its policy blocks them.
+  fontSources,
   persona: energyPersona,
   defaultAccount: "elena",
   paths: accountPaths,
