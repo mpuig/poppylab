@@ -424,6 +424,120 @@ describe("Human-controlled account boundary", () => {
       ).status,
     ).toBe(400);
   });
+  describe("new terms under another operation ID", () => {
+    const run = state.run as unknown as {
+      operations: Record<string, Record<string, unknown>>;
+    };
+    /** The spec keeps the ID for new terms; a Company may still change it. */
+    const otherId = (revision = "r9") =>
+      new ProtocolError(403, "approval_required", undefined, undefined, {
+        operation_id: "op_other",
+        revision,
+        summary: "Move fictional delivery, now with a fee",
+        terms: { to: "Saturday", fee_cents: 100 },
+        expires_at: new Date(Date.now() + 60000).toISOString(),
+      });
+    const approve = (id = "op_test", revision = "r1") =>
+      POST(request({ action: "approve", id, revision }));
+    afterEach(() => {
+      delete run.operations.op_other;
+    });
+
+    it("retires the approved proposal and returns both, so the page shows the new one in its place", async () => {
+      sendThenFail(otherId);
+      const r = await approve();
+      expect(r.status).toBe(409);
+      const body = await r.json();
+      expect(body.code).toBe("terms_changed");
+      expect(body.operation).toMatchObject({
+        operation_id: "op_other",
+        revision: "r9",
+        state: "proposed",
+      });
+      // The one the User approved is over: the Company refused that
+      // approval, and offered these terms instead.
+      expect(body.replaced).toMatchObject({
+        operation_id: "op_test",
+        state: "superseded",
+        result: {
+          summary:
+            "Juniper offered new terms instead of performing these, so they can no longer be approved.",
+        },
+      });
+      expect(run.operations.op_test).not.toHaveProperty("request");
+      expect(run.operations.op_test).not.toHaveProperty("approval");
+      // A reload shows the same two: one retired, one waiting.
+      const reloaded = await (
+        await GET(
+          new Request(
+            "http://localhost:3000/api/account?conversation=run_fixture_0001",
+          ),
+        )
+      ).json();
+      expect(
+        (reloaded.operations as Array<Record<string, unknown>>)
+          .filter((o) =>
+            ["op_test", "op_other"].includes(String(o.operation_id)),
+          )
+          .map((o) => [o.operation_id, o.state]),
+      ).toEqual([
+        ["op_test", "superseded"],
+        ["op_other", "proposed"],
+      ]);
+      // The retired one is never sent again; the new one is the User's to approve.
+      expect((await approve()).status).toBe(410);
+      expect(state.request).toHaveBeenCalledTimes(1);
+      state.request.mockResolvedValueOnce({ summary: "Moved." });
+      expect((await approve("op_other", "r9")).status).toBe(200);
+    });
+
+    it("takes them as new terms even when the revision reads the same", async () => {
+      sendThenFail(() => otherId("r1"));
+      const body = await (await approve()).json();
+      expect(body.code).toBe("terms_changed");
+      expect(body.replaced).toMatchObject({ state: "superseded" });
+      expect(body.operation).toMatchObject({ operation_id: "op_other" });
+    });
+
+    it("keeps for the new one that the Company declined Iris's approval of the old one (§6)", async () => {
+      run.operations.op_test!.agentDeclined = { reason: "Not for agents." };
+      sendThenFail(otherId);
+      const body = await (await approve()).json();
+      expect(body.operation).toMatchObject({
+        operation_id: "op_other",
+        agentDeclined: { reason: "Not for agents." },
+      });
+    });
+
+    it("leaves another operation's unknown outcome alone (§7)", async () => {
+      const out = {
+        operation_id: "op_other",
+        revision: "r9",
+        state: "uncertain",
+        summary: "Move fictional delivery, now with a fee",
+        terms: { to: "Saturday", fee_cents: 100 },
+        expires_at: new Date(Date.now() + 60000).toISOString(),
+        approval: {
+          approver: "user",
+          approved_at: 1791487000,
+          reference: "a0",
+        },
+        request: { url: "http://juniper.localhost:4100/x", body: {} },
+      };
+      run.operations.op_other = structuredClone(out);
+      sendThenFail(otherId);
+      const r = await approve();
+      const body = await r.json();
+      // Naming it doesn't say whether its own approval was performed, and
+      // offers nothing to approve: the approval sent now was refused.
+      expect(body.code).toBe("not_performed");
+      expect(body.operation).toMatchObject({
+        operation_id: "op_test",
+        state: "proposed",
+      });
+      expect(run.operations.op_other).toEqual(out);
+    });
+  });
   it("records a Company's decline: nothing performed, never sent again (Operations v3 §6)", async () => {
     state.request.mockRejectedValue(
       new ProtocolError(

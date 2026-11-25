@@ -39,6 +39,7 @@ import {
   type ApprovalAnswer,
 } from "@/lib/auto-approval";
 import { directView } from "@/lib/direct-state";
+import { withOperations } from "@/lib/operation-list";
 import {
   loadApprovals,
   loadInstruction,
@@ -286,12 +287,9 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     };
   }, [waitingSignIn, consentVersion]);
 
-  const replaceOperation = (operation: Operation) =>
-    setOperations((old) =>
-      old.map((item) =>
-        item.operation_id === operation.operation_id ? operation : item,
-      ),
-    );
+  /** Shows the operations an answer carries, as the server now holds them. */
+  const showOperations = (...answered: Array<Operation | undefined>) =>
+    setOperations((old) => withOperations(old, ...answered));
 
   /** What the page shows once the run is signed out (sign-out, revocation). */
   function signedOutHere() {
@@ -349,9 +347,10 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
           setScopes("");
         }
         // New terms (Operations v3) or an unknown outcome: show current state.
-        if (data.operation) replaceOperation(data.operation);
+        // New terms under another ID come with the operation they replace.
+        showOperations(data.replaced, data.operation);
         if (data.code === "outcome_unknown" && op)
-          replaceOperation({ ...op, state: "uncertain" });
+          showOperations({ ...op, state: "uncertain" });
         throw new Error(data.error);
       }
       if (data.url) {
@@ -370,7 +369,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
         addTrace(["Account grant revoked · Session signed out"]);
       }
       if (data.operation) {
-        replaceOperation(data.operation);
+        showOperations(data.operation);
         addTrace([
           data.code === "agent_approval_declined"
             ? "Company declined the approval on your standing instruction · waiting for you"

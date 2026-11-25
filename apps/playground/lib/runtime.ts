@@ -165,9 +165,18 @@ export type Operation = {
   summary?: string;
   terms?: Record<string, unknown>;
   expires_at: string;
-  /** `declined`: by the User, locally. `refused`: the Company declined it. */
+  /**
+   * `declined`: by the User, locally. `refused`: the Company declined it.
+   * `superseded`: the Company answered its approval with another operation.
+   */
   state:
-    "proposed" | "succeeded" | "declined" | "refused" | "expired" | "uncertain";
+    | "proposed"
+    | "succeeded"
+    | "declined"
+    | "refused"
+    | "expired"
+    | "superseded"
+    | "uncertain";
   result?: { summary: string } | null;
   /**
    * The approval as first sent (Operations v3 §6), reused for a retry: who

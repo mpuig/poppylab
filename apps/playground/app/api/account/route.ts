@@ -830,7 +830,16 @@ async function act(request: Request, started: { id?: string }) {
         try {
           // The answer to the approval itself: for a retry too, it settles
           // an unknown outcome (the same revision; nothing was performed).
-          next = recordOperation(run, error.operation, op.request!, true);
+          // Only for the operation approved: another one's approval, if it
+          // is out with an unknown outcome, isn't answered by this (§7).
+          next = recordOperation(
+            run,
+            error.operation,
+            op.request!,
+            named.operation_id === op.operation_id,
+          );
+          // That other operation offers nothing to approve: a refusal, below.
+          if (next.state === "uncertain") next = undefined;
         } catch {
           // Terms Poppy can't show or that have expired: a refusal, below.
         }
@@ -839,7 +848,8 @@ async function act(request: Request, started: { id?: string }) {
         // §8.10: terms that answer an approval sent to the User's Direct
         // Conversation were proposed there too.
         if (op.direct) next.direct = true;
-        if (next.revision === op.revision) {
+        const sameOperation = next.operation_id === op.operation_id;
+        if (sameOperation && next.revision === op.revision) {
           // §6 forbids this answer, so the approval is never sent again in
           // a loop. The Company performed nothing and the outcome is known
           // (§7): the terms wait for the User, who may approve them anew.
@@ -859,11 +869,28 @@ async function act(request: Request, started: { id?: string }) {
         // §5: new terms in answer to Iris's approval are never approved on
         // the same instruction, even when it covers them. The User decides.
         if (approver === "agent") next.agentSuperseded = true;
+        if (!sameOperation) {
+          // Operations v3 §4 keeps the ID when terms change, but a Company
+          // may answer with another one. The approved terms are then over:
+          // the Company refused their approval and offers these instead.
+          // What it told Iris about the action goes with the new terms.
+          if (op.agentDeclined) next.agentDeclined = op.agentDeclined;
+          if (op.agentSuperseded) next.agentSuperseded = true;
+          op.state = "superseded";
+          op.result = {
+            summary: `${run.company?.document.organization.name ?? "The Company"} offered new terms instead of performing these, so they can no longer be approved.`,
+          };
+          // Never sent again.
+          delete op.request;
+          delete op.approval;
+        }
         return NextResponse.json(
           {
             code: "terms_changed",
             next: "review",
             operation: next,
+            // The retired operation, for the page to show as it now is.
+            ...(sameOperation ? {} : { replaced: op }),
             error:
               "The Company returned new terms. Nothing was performed. Review the new revision and approve it separately.",
           },
