@@ -434,6 +434,16 @@ const overLimit = (tool: Tool | undefined, amount: number) => {
 
 /** What a payment is for, in the User's words: "… for November design work". */
 const MEMO = /\bfor\s+(.{1,100})$/i;
+/** Words in an account's name that any message may use for something else. */
+const GENERIC = new Set([
+  "account",
+  "accounts",
+  "and",
+  "day",
+  "for",
+  "from",
+  "the",
+]);
 
 /** Bank accounts: a transfer between two of them, or a payment to a saved recipient. */
 async function moneyChange(
@@ -450,18 +460,21 @@ async function moneyChange(
   const accounts = (await read(tools.accounts!, "accounts")).filter(
     (account) => account.status === "active",
   );
-  // Where each account is mentioned, by its type ("checking") or its name.
-  const position = (account: Record<string, unknown>) => {
-    const at = [text(account.type), ...words(text(account.name))]
-      .filter(Boolean)
-      .map((word) => lowered.indexOf(word.toLowerCase()))
+  // Where `said` mentions each account, by its type ("checking") or a word
+  // of its name, as a whole word: "day" in "Rainy day savings" is not in
+  // "Friday" or "today", and is no account's name on its own.
+  const position = (account: Record<string, unknown>, said: string) => {
+    const at = words(`${text(account.type)} ${text(account.name)}`)
+      .filter((word) => !GENERIC.has(word))
+      .map((word) => said.search(new RegExp(String.raw`\b${word}\b`)))
       .filter((index) => index >= 0);
     return at.length ? Math.min(...at) : -1;
   };
-  const named = accounts
-    .map((account) => ({ account, at: position(account) }))
-    .filter((entry) => entry.at >= 0)
-    .sort((a, b) => a.at - b.at);
+  const namedIn = (said: string) =>
+    accounts
+      .map((account) => ({ account, at: position(account, said) }))
+      .filter((entry) => entry.at >= 0)
+      .sort((a, b) => a.at - b.at);
 
   const paying = /\b(pay|send)\b/.test(lowered) && !!tools.request_payment;
   if (paying && tools.recipients) {
@@ -476,8 +489,15 @@ async function moneyChange(
       return {
         say: `Who should be paid? Your active saved recipients are ${recipients.map((item) => text(item.name)).join(" and ") || "none"}.`,
       };
+    // What the payment is for is its memo: an account's word there ("for a
+    // rainy day") is not where the money comes from, unless the memo goes
+    // on to say so ("for design work from savings").
+    const said = lowered.replace(
+      MEMO,
+      (_, what: string) => what.match(/\sfrom\s.*/)?.[0] ?? "",
+    );
     const from =
-      named[0]?.account ??
+      namedIn(said)[0]?.account ??
       accounts.find((account) => account.type === "checking") ??
       accounts[0];
     if (!from) return { say: "There is no active account to pay from." };
@@ -507,6 +527,7 @@ async function moneyChange(
   if (over) return over;
   // "from X to Y" when the words are there (the last "to": "I want to…"
   // comes earlier); otherwise the order the accounts were named in.
+  const named = namedIn(lowered);
   const toAt = lowered.lastIndexOf(" to "),
     fromAt = lowered.indexOf(" from ");
   const destination =
