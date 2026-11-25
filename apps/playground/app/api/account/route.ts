@@ -750,6 +750,24 @@ async function act(request: Request, started: { id?: string }) {
     };
     // This approval gets its own answer.
     forgetRefusal(op);
+    // The request that carries the approval, for the page's log: its method
+    // and path, as a tool's own line names it. Read now, since an answer
+    // that ends the operation forgets the request.
+    const sent = op.request?.conversation
+      ? `${op.request.conversation.endpoint}/${op.request.conversation.id}/messages`
+      : op.request?.url;
+    /**
+     * The log's line for a request the Company refused: its status and
+     * error code, never its words or a header.
+     */
+    const refusedTrace = (error: unknown) => {
+      if (!(error instanceof ProtocolError)) return [];
+      // Both are short tokens by the time they get here (`ProtocolError`).
+      const code = error.code ?? error.companyCode;
+      return [
+        `POST ${sent ? new URL(sent).pathname : "approval"} · refused by the Company · HTTP ${error.status}${code ? ` ${code}` : ""}`,
+      ];
+    };
     operationRequested = true;
     try {
       const result = (await sendApproval(run, op, approver)) as {
@@ -813,7 +831,11 @@ async function act(request: Request, started: { id?: string }) {
           `Company declined the approval; nothing was performed. ${op.result.summary}`,
         );
         return NextResponse.json(
-          { operation: op, code: "approval_declined" },
+          {
+            operation: op,
+            code: "approval_declined",
+            trace: ["Approval declined by the Company · nothing performed"],
+          },
           { headers: { "Cache-Control": "no-store" } },
         );
       }
@@ -855,6 +877,7 @@ async function act(request: Request, started: { id?: string }) {
               next: "status",
               operation: op,
               error: op.result.summary,
+              trace: ["Retry answered with new terms · outcome still unknown"],
             },
             { status: 409, headers: { "Cache-Control": "no-store" } },
           );
@@ -897,6 +920,9 @@ async function act(request: Request, started: { id?: string }) {
               next: "review",
               operation: next,
               error: again,
+              trace: [
+                "Approval answered with the same terms again · nothing performed",
+              ],
             },
             { status: 409, headers: { "Cache-Control": "no-store" } },
           );
@@ -934,6 +960,7 @@ async function act(request: Request, started: { id?: string }) {
             // The retired operation, for the page to show as it now is.
             ...(sameOperation ? {} : { replaced: op }),
             error: changed,
+            trace: ["Approval answered with new terms · nothing performed"],
           },
           { status: 409, headers: { "Cache-Control": "no-store" } },
         );
@@ -957,6 +984,7 @@ async function act(request: Request, started: { id?: string }) {
               "refused",
               "The Company says a direct conversation with you is still open, and it takes no approval in this one until that ends. Nothing was performed. Leave the direct conversation, then try again.",
             ),
+            trace: refusedTrace(error),
           },
           { status: 409, headers: { "Cache-Control": "no-store" } },
         );
@@ -981,6 +1009,7 @@ async function act(request: Request, started: { id?: string }) {
             next: "status",
             operation: op,
             error: op.result.summary,
+            trace: refusedTrace(error),
           },
           { status: 409, headers: { "Cache-Control": "no-store" } },
         );
@@ -1020,6 +1049,7 @@ async function act(request: Request, started: { id?: string }) {
               "refused",
               `${run.company?.document.organization.name ?? "The Company"} refused this request (HTTP ${error.status}${code ? `, ${code}` : ""}). Nothing was performed. The terms still wait for you: approve them again once what stopped it is sorted out, or ask for the change again to get fresh terms.`,
             ),
+            trace: refusedTrace(error),
           },
           { status: 409, headers: { "Cache-Control": "no-store" } },
         );

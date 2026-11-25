@@ -1406,6 +1406,113 @@ describe("An operation proposed in the User's Direct Conversation (§8.10)", () 
   });
 });
 
+describe("What the page's log is told when an approval isn't performed", () => {
+  const act = (action = "approve") =>
+    POST(request({ action, id: "op_test", revision: "r1" }));
+  const trace = async (r: Promise<Response>) => (await (await r).json()).trace;
+  const newTerms = (operation_id: string, revision: string) =>
+    new ProtocolError(403, "approval_required", undefined, undefined, {
+      operation_id,
+      revision,
+      summary: "Move fictional delivery",
+      terms: { to: "Saturday" },
+      expires_at: state.run.operations.op_test.expires_at,
+    });
+  afterEach(() => {
+    delete (state.run.operations as Record<string, unknown>).op_other;
+  });
+
+  it.each([
+    [409, undefined, "insufficient_funds", " insufficient_funds"],
+    [409, "request_id_conflict", undefined, " request_id_conflict"],
+    [422, undefined, undefined, ""],
+  ])(
+    "names the request the Company refused, its status and its code (%s %s %s)",
+    async (status, code, companyCode, shown) => {
+      sendThenFail(() =>
+        Object.assign(new ProtocolError(status, code), {
+          companyCode,
+          // The Company's own words and headers never reach the log.
+          body: { message: "Call us on 555-0100", authorization: "Bearer x" },
+        }),
+      );
+      const lines = await trace(act());
+      // The method and the path only: no host, query, header or body.
+      expect(lines).toEqual([
+        `POST /api/account/delivery-change · refused by the Company · HTTP ${status}${shown}`,
+      ]);
+    },
+  );
+
+  it("names the conversation's message when the conversation refuses it", async () => {
+    state.run.operations.op_test.request = {
+      conversation: {
+        endpoint: "http://juniper.localhost:4100/poppy/conversations",
+        id: "cnv_1",
+      },
+    } as never;
+    for (const [status, code] of [
+      [409, "direct_conversation_open"],
+      [409, "conversation_closed"],
+    ] as const) {
+      state.run.operations.op_test.state = "proposed";
+      state.request.mockRejectedValueOnce(new ProtocolError(status, code));
+      expect(await trace(act())).toEqual([
+        `POST /poppy/conversations/cnv_1/messages · refused by the Company · HTTP ${status} ${code}`,
+      ]);
+    }
+  });
+
+  it("says in one line each: declined, new terms, the same terms again", async () => {
+    sendThenFail(() => newTerms("op_test", "r2"));
+    expect(await trace(act())).toEqual([
+      "Approval answered with new terms · nothing performed",
+    ]);
+    state.run.operations.op_test.revision = "r1";
+    sendThenFail(() => newTerms("op_other", "r7"));
+    expect(await trace(act())).toEqual([
+      "Approval answered with new terms · nothing performed",
+    ]);
+    Object.assign(state.run.operations.op_test, {
+      state: "proposed",
+      request: { url: "http://juniper.localhost:4100/x", body: {} },
+    });
+    sendThenFail(() => newTerms("op_test", "r1"));
+    expect(await trace(act())).toEqual([
+      "Approval answered with the same terms again · nothing performed",
+    ]);
+    state.request.mockRejectedValueOnce(
+      new ProtocolError(
+        403,
+        "approval_declined",
+        undefined,
+        undefined,
+        undefined,
+        {
+          reason: "Only the account holder can do this.",
+        },
+      ),
+    );
+    expect(await trace(act())).toEqual([
+      "Approval declined by the Company · nothing performed",
+    ]);
+  });
+
+  it("says a retry got new terms, and that its outcome is still unknown", async () => {
+    sendThenFail(lost);
+    await act();
+    sendThenFail(() => newTerms("op_test", "r2"));
+    expect(await trace(act("retry"))).toEqual([
+      "Retry answered with new terms · outcome still unknown",
+    ]);
+  });
+
+  it("leaves a performed approval to the page's own line", async () => {
+    state.request.mockResolvedValueOnce({ summary: "Done" });
+    expect(await trace(act())).toBeUndefined();
+  });
+});
+
 describe("Agent approvals on a standing instruction (Operations v3 §5)", () => {
   const rule = { maxCents: 2000, currency: "USD" };
   const run = state.run as unknown as {

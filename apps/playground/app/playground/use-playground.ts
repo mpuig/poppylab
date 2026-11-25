@@ -348,6 +348,8 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
       adopt(response);
       const data = await response.json();
       answer = { status: response.status, operation: data.operation };
+      // How the Company answered an approval it didn't perform, for the log.
+      addTrace(data.trace ?? []);
       if (!response.ok) {
         if (data.code === "account_unavailable") {
           setSignedIn(false);
@@ -381,11 +383,13 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
       }
       if (data.operation) {
         showOperations(data.operation);
-        addTrace([
-          data.code === "agent_approval_declined"
-            ? "Company declined the approval on your standing instruction · waiting for you"
-            : `Operation ${data.operation.state} · revision ${data.operation.revision}`,
-        ]);
+        // The route's own line, when it sent one, says more than the state.
+        if (!data.trace?.length)
+          addTrace([
+            data.code === "agent_approval_declined"
+              ? "Company declined the approval on your standing instruction · waiting for you"
+              : `Operation ${data.operation.state} · revision ${data.operation.revision}`,
+          ]);
       }
     } catch (caught) {
       popup?.close();
@@ -758,6 +762,9 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
       adopt(response);
       const data = await response.json();
       if (!response.ok) {
+        // What Iris did before the turn failed, such as the request the
+        // Company refused: the Inspector shows it.
+        addTrace(data.trace ?? []);
         if (data.code === "account_unavailable") {
           setSignedIn(false);
           setScopes("");
