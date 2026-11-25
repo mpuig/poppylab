@@ -254,6 +254,8 @@ it("leads to sign-in signed out, and asks for a new sign-in without the scope or
   transport.mockClear();
   expect(await tools.espi_meters!.execute({})).toEqual({
     error: "insufficient_scope",
+    // Iris answered this itself: nothing was sent to the Company.
+    sent: false,
     missing: ["espi:usage"],
     instruction: expect.stringContaining("sign in again with Use ESPI on"),
   });

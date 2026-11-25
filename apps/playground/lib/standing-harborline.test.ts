@@ -164,7 +164,7 @@ describe("A standing instruction at Harborline, end to end", () => {
     const done = await callback(
       new Request(await consent((await signin.json()).url)),
     );
-    expect(done.status).toBe(200);
+    expect(done.status).toBe(303);
     const reply = await post(chat, "/api/chat", {
       url: origin,
       message: "Transfer $25 from checking to savings.",

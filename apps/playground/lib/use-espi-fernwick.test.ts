@@ -165,7 +165,7 @@ async function signIn() {
   expect(signin.status).toBe(200);
   const back = await consent((await signin.json()).url);
   expect(back.startsWith(redirect)).toBe(true);
-  expect((await callback(new Request(back))).status).toBe(200);
+  expect((await callback(new Request(back))).status).toBe(303);
 }
 
 describe("Use ESPI against Fernwick, end to end", () => {
@@ -217,7 +217,7 @@ describe("Use ESPI against Fernwick, end to end", () => {
     expect(asked).not.toContain("espi:customer");
     expect(asked).not.toContain("plan:write");
     const back = await consent((await signin.json()).url);
-    expect((await callback(new Request(back))).status).toBe(200);
+    expect((await callback(new Request(back))).status).toBe(303);
     await withRun(async (run) => {
       expect(run.espiResourceUri).toMatch(
         new RegExp(`^${base}/Batch/Subscription/[\\w-]+$`),

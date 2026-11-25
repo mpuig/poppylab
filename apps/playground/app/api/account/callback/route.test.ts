@@ -217,7 +217,7 @@ it("keeps the ESPI-shaped subscription and authorization URIs that fit the entry
       dpop: { kty: "EC" },
     };
     s.request.mockResolvedValue(success(fields));
-    expect((await GET(req())).status).toBe(200);
+    expect((await GET(req())).status).toBe(303);
   };
   run.company = {
     profile: {
@@ -519,7 +519,7 @@ describe("what the page shows of the conversation after a sign-in", () => {
     s.run.accountToken = undefined;
     s.run.history = structuredClone(publicTurns);
     run.transcript = structuredClone(before);
-    expect((await GET(req())).status).toBe(200);
+    expect((await GET(req())).status).toBe(303);
     // Company content, the answer's label, its steps and its data stay.
     expect(run.transcript).toEqual(before);
     // The model's context is the turns' words, as before.
@@ -533,7 +533,7 @@ describe("what the page shows of the conversation after a sign-in", () => {
       { role: "assistant", content: "Private order details" },
     ];
     run.transcript = structuredClone([...before, ...withAccount]);
-    expect((await GET(req())).status).toBe(200);
+    expect((await GET(req())).status).toBe(303);
     expect(run.transcript).toEqual(before);
     expect(s.run.history).toEqual(publicTurns);
     expect(JSON.stringify([run.transcript, s.run.history])).not.toContain(
@@ -547,7 +547,7 @@ describe("what the page shows of the conversation after a sign-in", () => {
       ...publicTurns,
       { role: "assistant", content: "Private order details" },
     ];
-    expect((await GET(req())).status).toBe(200);
+    expect((await GET(req())).status).toBe(303);
     // The page then shows the public history, as it did before.
     expect(run.transcript).toBeUndefined();
     expect(s.run.history).toEqual(publicTurns);
