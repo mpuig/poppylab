@@ -14,6 +14,32 @@ The runtime now generates Juniper’s account tools from its actual `/openapi.js
 
 Request-schema refs, compositions, multipart input, header/cookie parameters, parameter serialization variants, relative servers and per-operation server overrides are intentionally unsupported. Unsupported operations are omitted with sanitized Inspector trace entries. Duplicate operation IDs are removed rather than allowed to replace an existing tool. Schema strings and payload sizes are bounded. This is a conservative subset, not full OpenAPI conformance.
 
+## FDX-shaped APIs: a native adapter
+
+`packages/pap-client/src/fdx.ts` builds five read tools for the `poppylab.dev/fdx` v1 extension instead of passing an FDX-shaped OpenAPI description through `openapi.ts`. The adapter is FDX-shaped, not FDX-conformant: it uses a hand-picked set of FDX resource paths and field names, and its descriptions are our own. No FDX text or schema is in the repository, because the FDX licence forbids copying it.
+
+The generic adapter isn't a good fit for two reasons:
+
+- **Limits.** `openapi.ts` stops at 24 tools and 64 paths. A full FDX-style description has far more operations, so the generic adapter would keep an arbitrary first slice of them.
+- **`$ref`.** FDX-style schemas are built from shared `$ref` components, which `openapi.ts` deliberately doesn't follow (it resolves only one level of `#/components/parameters`). It doesn't validate responses either, and FDX responses carry personal data from a Company.
+
+| Tool                    | Request (under the entry's URLs)                                                             | Scopes                                                           |
+| ----------------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `fdx_list_accounts`     | `GET {base_url}/accounts`                                                                    | `fdx:ACCOUNT_BASIC`, plus `fdx:ACCOUNT_DETAILED` with `balances` |
+| `fdx_get_account`       | `GET {base_url}/accounts/{accountId}`                                                        | The same                                                         |
+| `fdx_list_transactions` | `GET {base_url}/accounts/{accountId}/transactions?startTime&endTime&offset&limit`, paginated | `fdx:TRANSACTIONS`                                               |
+| `fdx_get_customer`      | `GET {base_url}/customers/current`                                                           | `fdx:CUSTOMER_CONTACT`                                           |
+| `fdx_consent_status`    | `GET {consent_endpoint}/{consentId}`                                                         | None (the grant's own token)                                     |
+
+- **Input.** Closed schemas checked by the same code as `openapi.ts` (`boundedToolInput`), before any request. Ids are printable ASCII without `/`, `\`, `%`, `?` or `#`, at most 128 characters, and go percent-encoded into one path segment. Dates are calendar-valid `YYYY-MM-DD`, with the start no later than the end. Model input never supplies a URL, header, token or paging offset.
+- **URLs.** Only from the entry that discovery validated against the Company's origin (§3, §3.3). The adapter refuses an entry whose two URLs are on different origins or carry credentials, a query or a fragment.
+- **Paging.** Transactions follow `page.nextOffset`, a decimal string (or a non-negative integer) that is absent on the last page. They read 50 per page, for at most 4 pages and 100 transactions per call, and stop on a repeated or malformed offset. The first page's `page.totalElements` is passed on, and `truncated: true` tells the model to narrow the dates.
+- **Responses** are Company content (§10.1). The expected shapes: `{ accounts: [...], note }` for the list, `{ ...account, note }` for one account, `{ transactions: [...], page, note }`, `{ customerId, name: { first, middle?, last }, email: [...], note }`, and a consent with `parties` as `{ name, type }`. `accountNumberDisplay` is the last four digits, and `note` is Harborline's fiction notice. Each response is reduced to the fields the adapter knows, with bounded strings (control and line-separator characters replaced) and at most 50 accounts. Balances are kept only when the call asked for them. A response for another account or consent than the one asked for is `invalid_response`.
+- **Errors.** An FDX error body (`code`, `message`, `debugMessage`) comes back as `{ error: "fdx_error", status, code, message, debugMessage }`, each bounded; any other error body is reduced to its status.
+- **Transport.** The caller injects `request(url, scopes)`. It adds the Session header, DPoP and the token, and returns the status and parsed body, or an outcome of its own, such as "sign in first", which goes to the model as it is.
+
+The playground doesn't use these tools yet.
+
 ## Authority boundary
 
 The Poppy Lab Companies use two **local experimental OpenAPI annotations**, not standardized Poppy fields:

@@ -17,6 +17,14 @@ export { vault } from "./vault.ts";
 export * from "./headers.ts";
 export * from "./operator-signature.ts";
 export { openApiTools, InvalidToolArguments, type ApiTool } from "./openapi.ts";
+export {
+  fdxTools,
+  FDX_SCOPES,
+  FDX_LIMITS,
+  type FdxRequest,
+  type FdxResponse,
+  type FdxOutcome,
+} from "./fdx.ts";
 import { sseRpc } from "./mcp-wire.ts";
 export { mcpTools, mcpResourcePolicy } from "./mcp.ts";
 import { proof, assertion } from "./session.ts";
@@ -24,9 +32,10 @@ import type { JWK } from "jose";
 import ipaddr from "ipaddr.js";
 import {
   authorizationServerMetadataSchema,
+  companyExtensions,
   compatibleVersion,
+  FDX_EXTENSION,
   IMPLEMENTED_VERSION,
-  listsExtension,
   normalizeScopeHints,
   PapDiscoveryError,
   poppyDocumentSchema,
@@ -605,12 +614,33 @@ async function discover10(
     );
   const issuer = declared ?? authorizationServers[0];
   const scopeHints = normalizeScopeHints(document.auth?.scope_hints);
+  // §3.3: an extension entry this client can't use counts as not listed.
+  const { extensions, rejected } = companyExtensions(
+    document,
+    settings.allowedPrivateOrigins,
+  );
+  for (const r of rejected)
+    trace.push({
+      id: "extension",
+      label: `Extension ${r.name} v${r.version} ignored`,
+      detail: r.reason,
+      status: "failed",
+    });
+  const fdx = extensions[FDX_EXTENSION];
+  if (fdx)
+    trace.push({
+      id: "extension",
+      label: `Extension ${FDX_EXTENSION} v1`,
+      detail: fdx.base_url,
+      status: "passed",
+    });
   const base = {
     version: document.protocol_version,
     scopeDescriptions: document.auth?.scopes ?? {},
     scopeHints,
     ...(document.tasks ? { tasksEndpoint: document.tasks.endpoint } : {}),
-    operations: listsExtension(document, "operations", "3"),
+    operations: !!extensions.operations,
+    extensions,
   };
   if (!issuer) {
     if (

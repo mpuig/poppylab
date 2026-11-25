@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  companyExtensions,
   compatibleVersion,
+  fdxExtension,
   listsExtension,
   parseTasks,
   poppyDocumentSchema,
@@ -106,6 +108,119 @@ describe("Poppy 1.0 document boundary", () => {
     expect(
       poppyDocumentSchema.safeParse({ ...base, auth: { issuer } }).success,
     ).toBe(false);
+  });
+});
+
+describe("poppylab.dev/fdx v1 entry (§3.3)", () => {
+  const entry = {
+    version: "1",
+    fdx_version: "6.4",
+    base_url: "https://test.example/fdx/v6",
+    resources: ["customer", "accounts", "transactions"],
+    consent_endpoint: "https://test.example/fdx/v6/consents",
+  };
+  const doc = (...entries: unknown[]) =>
+    poppyDocumentSchema.parse({
+      ...base,
+      extensions: { "poppylab.dev/fdx": entries },
+    });
+  it("reads a valid entry, keeping only its known fields", () => {
+    expect(
+      fdxExtension(doc({ ...entry, base_url: entry.base_url + "/", x: 1 })),
+    ).toEqual({ entry });
+  });
+  it("is not listed without a version 1 entry", () => {
+    expect(fdxExtension(doc({ ...entry, version: "2" }))).toBeUndefined();
+    expect(fdxExtension(doc())).toBeUndefined();
+    expect(fdxExtension(poppyDocumentSchema.parse(base))).toBeUndefined();
+  });
+  it.each([
+    ["base_url", undefined, "base_url is missing"],
+    ["consent_endpoint", undefined, "consent_endpoint is missing"],
+    ["base_url", 7, "base_url is not"],
+    ["base_url", "not a url", "base_url is not"],
+    ["base_url", "http://test.example/fdx/v6", "base_url is not"],
+    ["base_url", "https://api.test.example/fdx/v6", "base_url is not"],
+    ["base_url", "https://test.example.evil/fdx", "base_url is not"],
+    ["base_url", "https://test.example:8443/fdx", "base_url is not"],
+    ["base_url", "https://user:pw@test.example/fdx", "base_url is not"],
+    ["base_url", "https://test.example/fdx?x=1", "base_url is not"],
+    ["base_url", "https://test.example/fdx?", "base_url is not"],
+    ["base_url", "https://test.example/fdx#x", "base_url is not"],
+    ["base_url", "https://test.example/fdx%2Fv6", "base_url is not"],
+    ["consent_endpoint", "https://other.example/c", "consent_endpoint is not"],
+  ])("rejects %s = %s", (field, value, reason) => {
+    const check = fdxExtension(doc({ ...entry, [field]: value }));
+    expect(check?.entry).toBeUndefined();
+    expect(check?.reason).toContain(reason);
+  });
+  it("allows plain HTTP only on a given local origin that is the domain", () => {
+    const local = "http://harbor.localhost:4300";
+    const document = poppyDocumentSchema.parse({
+      ...base,
+      organization: { name: "Harborline", domain: "harbor.localhost:4300" },
+      extensions: {
+        "poppylab.dev/fdx": [
+          {
+            ...entry,
+            base_url: `${local}/fdx/v6`,
+            consent_endpoint: `${local}/fdx/v6/consents`,
+          },
+        ],
+      },
+    });
+    expect(fdxExtension(document, [local])?.entry?.base_url).toBe(
+      `${local}/fdx/v6`,
+    );
+    expect(fdxExtension(document)?.entry).toBeUndefined();
+    // A local origin that isn't the Company's own is still another origin.
+    expect(
+      fdxExtension(
+        {
+          ...document,
+          organization: { ...document.organization, domain: "x.example" },
+        },
+        [local],
+      )?.entry,
+    ).toBeUndefined();
+  });
+  it("drops malformed informational fields instead of the entry", () => {
+    expect(
+      fdxExtension(
+        doc({
+          ...entry,
+          fdx_version: "<b>6</b>",
+          resources: ["accounts", 3, "A B"],
+        }),
+      ),
+    ).toEqual({
+      entry: {
+        version: "1",
+        base_url: entry.base_url,
+        consent_endpoint: entry.consent_endpoint,
+        resources: ["accounts"],
+      },
+    });
+  });
+  it("lists the supported extensions by name, with rejected ones apart", () => {
+    const document = poppyDocumentSchema.parse({
+      ...base,
+      extensions: {
+        operations: [{ version: "2" }, { version: "3", extra: true }],
+        "poppylab.dev/fdx": [{ ...entry, base_url: "https://x.example" }],
+        "example.com/other": [{ version: "1" }],
+      },
+    });
+    expect(companyExtensions(document)).toEqual({
+      extensions: { operations: { version: "3" } },
+      rejected: [
+        {
+          name: "poppylab.dev/fdx",
+          version: "1",
+          reason: "base_url is not an HTTPS URL on test.example",
+        },
+      ],
+    });
   });
 });
 
