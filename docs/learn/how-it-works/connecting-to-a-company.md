@@ -98,7 +98,7 @@ explains each part of a description like this one.
 
 ### 3. Pick the company
 
-![The playground with four fictional companies to choose from](../../../apps/playground/public/learn-media/how-it-works/connecting-to-a-company/03-pick-a-company.webp "Each card stands for one web address.")
+![The playground with a card for each fictional company, Juniper Market first](../../../apps/playground/public/learn-media/how-it-works/connecting-to-a-company/03-pick-a-company.webp "Each card stands for one web address.")
 
 In the lab, Elena tells Iris which company she means by picking a card. A
 card is a shortcut for a web address, and the address is all that Iris is
@@ -210,6 +210,8 @@ Elena still has not signed in, and Juniper has not been told who she is.
 
 ```text
 Started a Poppy Session, signed out
+Company Agent conversations at https://grocery-demo.poppylab.dev/poppy/conversations
+Found 19 API tools at the Company
 Read /api/delivery
 ```
 
@@ -227,32 +229,32 @@ Read /api/delivery
 
 ### 7. Ask about the account
 
-![Elena asks for her orders and the answer is: sign in required](../../../apps/playground/public/learn-media/how-it-works/connecting-to-a-company/07-orders-need-sign-in.webp "Orders belong to an account, and no account is connected yet.")
+![Elena asks for her orders. Iris answers that this needs her account at Juniper Market, that she is not signed in, and that nothing was sent to the company](../../../apps/playground/public/learn-media/how-it-works/connecting-to-a-company/07-orders-need-sign-in.webp "Orders belong to an account, and no account is connected yet.")
 
 Elena asks for her orders. This time there is no answer to give: orders
-belong to an account, and Iris has no permission to read hers. The answer
-says that signing in is required, and the green button under it is where
+belong to an account, and Iris has no permission to read hers. Iris says that
+the request needs her account at Juniper, that she is not signed in, and that
+nothing was sent to the company. The green button under the answer is where
 Elena would start.
 
 Juniper drew this line. In the description of its API, the catalogue and the
 delivery days need nothing, and everything under the account needs a
 permission that only the customer can give.
 
-The demo's wording says that the company answered with an error. In this run
-Iris stopped before asking: it had read in Juniper's API description that
+Iris stopped before asking. It had read in Juniper's API description that
 orders need Elena's permission, and it had none.
 
 <details>
 <summary>What travelled</summary>
 
-What Iris showed under Data is its own note, and no request for the orders
-reached Juniper:
+The steps under the answer end with the request that Iris did not make. The
+Inspector lists it as "Not sent · GET /api/account/orders · sign-in needed".
 
-```json
-{
-  "error": "sign_in_required",
-  "instruction": "Ask the user to use the Sign in control in the chat."
-}
+```text
+Started a Poppy Session, signed out
+Company Agent conversations at https://grocery-demo.poppylab.dev/poppy/conversations
+Found 19 API tools at the Company
+Did not ask for /api/account/orders (sign-in needed); nothing was sent
 ```
 
 The two entries in Juniper's API description that made the difference,
