@@ -124,6 +124,11 @@ export function mountPortal(app: Hono, ctx: Ctx, deps: Deps) {
 
   const stateFor = (account: string) => {
     const customer = northwindPersona(account)!;
+    // A proposal that waits. Declining one is between the customer and their
+    // agent: the protocol has the agent send an approval or nothing
+    // (Operations §5), so until the proposal ends we can't tell the two apart.
+    const waiting = (until: string) =>
+      `It waits for your approval in your agent until ${until}. If you decline it there or let it run out, nothing changes. Your agent does not tell us when you decline, so it shows as awaiting until then.`;
     // What a request that changed nothing says, when the gate gave no reason.
     const unchanged: Record<string, string> = {
       declined: "Northwind declined this approval. Nothing changed.",
@@ -132,7 +137,12 @@ export function mountPortal(app: Hono, ctx: Ctx, deps: Deps) {
     };
     const activity = ctx.activity(account).map((item) => ({
       ...item,
-      result: item.result ?? unchanged[item.state] ?? null,
+      result:
+        item.result ??
+        (item.state === "proposed"
+          ? waiting(item.when)
+          : unchanged[item.state]) ??
+        null,
     }));
     return {
       account_id: account,

@@ -256,6 +256,12 @@ describe("Fernwick conversations and portal", () => {
       applied,
     ]);
     expect(later[1]!.when).toMatch(/^[A-Z][a-z]{2} \d{1,2}, \d{2}:\d{2} UTC$/);
+    // The proposal that waits says until when, and what a decline in the
+    // agent, which the Company is not told about, means.
+    expect(later[0]!.when).toMatch(/^[A-Z][a-z]{2} \d{1,2}, \d{2}:\d{2} UTC$/);
+    expect(later[0]!.result).toBe(
+      `It waits for your approval in your agent until ${later[0]!.when}. If you decline it there or let it run out, nothing changes. Your agent does not tell us when you decline, so it shows as awaiting until then.`,
+    );
   });
 
   it("accepts the login form after a restart, and gives a form without its token a page with a way back", async () => {
