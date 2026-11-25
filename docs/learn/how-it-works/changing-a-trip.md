@@ -327,7 +327,8 @@ Northwind stays in charge of its own business throughout.
   terms. The agent names the offer, or the flight and the number of bags.
 - It makes a paid change only when the customer's approval arrives, only for
   the terms it offered, and one change at a time.
-- It keeps the record of what was asked, what was approved and what was done.
+- It shows the customer what the agent asked for recently, what was applied
+  and who approved it.
 
 ## For the technical reader
 

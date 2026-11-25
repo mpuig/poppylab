@@ -296,8 +296,8 @@ Harborline stays in charge of the money throughout.
   terms it offered.
 - It refuses what its own rules do not allow, such as a payment the balance
   does not cover or a transfer above its limit, and it gives a reason.
-- It keeps the accounts, the history of what moved, and the list of what the
-  agent asked for and who approved.
+- It keeps the accounts and the history of what moved, and it shows the
+  customer the agent's recent requests and who approved each.
 
 ## For the technical reader
 

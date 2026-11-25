@@ -259,7 +259,7 @@ leave. Lantern kept control of the rest.
   it offered.
 - It refunds an order once. A second report of the same order gets the answer
   that it was already refunded.
-- It keeps the record of what was refunded and who approved it.
+- It keeps the refund on the order and shows the customer who approved it.
 
 ## For the technical reader
 

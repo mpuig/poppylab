@@ -316,7 +316,7 @@ Juniper stays in charge of the customer's account throughout.
   change only when the customer's approval arrives.
 - It lists the connected agent for the customer and can end the access
   itself.
-- It keeps the record of what the agent asked for and what was done.
+- It shows the customer what the agent asked for recently and what was done.
 
 ## For the technical reader
 

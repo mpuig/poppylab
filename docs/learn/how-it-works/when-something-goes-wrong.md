@@ -235,8 +235,8 @@ Each company stays in charge of its own records in every one of these cases.
   for a reason of its own.
 - It changes nothing without an approval of its current terms, so a declined,
   expired or refused request leaves the order or the balance as it was.
-- It keeps the record of what was proposed, what was applied and who approved
-  it, and shows that record to the customer on its own website.
+- It shows the customer on its own website what was proposed recently, what
+  was applied and who approved it.
 
 ## For the technical reader
 
