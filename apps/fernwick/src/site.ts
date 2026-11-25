@@ -4,8 +4,12 @@
  * ruled rows of readings, plain numerals, a fern-green masthead and the
  * yellow of a meter seal for the one action that matters.
  */
+import { GRANT_MS, TOKEN_MS } from "@poppy-lab/pap-company";
 import {
+  consentSheetCss,
+  consentSheetHtml,
   labBarHtml,
+  labConsentBarHtml,
   labLineHtml,
   labPlaygroundUrl,
   specRefHtml,
@@ -47,14 +51,13 @@ const css = `
 .hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:clamp(32px,6vw,84px);align-items:start;padding:clamp(44px,7vw,88px) 0 clamp(40px,6vw,72px)}.hero h1{font:700 clamp(44px,6vw,80px)/.98 var(--head);margin:0 0 22px;max-width:12ch}.lead{font-size:clamp(18px,2vw,22px);line-height:1.45;max-width:44ch;margin:0;color:var(--soft)}.warning{margin:22px 0 0;padding:12px 0;border-block:1px solid var(--rule);font-size:14px;color:var(--soft);max-width:58ch}.warning strong{color:var(--danger)}.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:28px}.button,.account button{display:inline-flex;min-height:48px;align-items:center;justify-content:center;padding:0 20px;border:1px solid var(--fern);background:var(--fern);color:#fff;text-decoration:none;font-weight:600;cursor:pointer;border-radius:3px}.button:hover,.account button:hover{background:var(--deep)}.button.primary{background:var(--seal);border-color:var(--seal);color:var(--seal-ink)}.button.primary:hover{background:#f4d04a}.button.secondary,.account button.secondary{background:transparent;color:var(--fern);border-color:var(--rule)}.button.secondary:hover,.account button.secondary:hover{background:var(--white)}
 .card{background:var(--white);border:1px solid var(--rule);border-top:4px solid var(--fern)}.card-head{display:flex;justify-content:space-between;gap:16px;padding:18px 22px 12px;border-bottom:1px solid var(--rule)}.card-head strong{font:700 22px/1.1 var(--head)}.card-head span{font-size:13px;color:var(--muted);text-align:right}.card-body{padding:4px 22px 8px}.row{display:grid;grid-template-columns:1fr auto;gap:16px;align-items:baseline;padding:12px 0;border-bottom:1px solid var(--rule)}.row:last-child{border-bottom:0}.row small{display:block;color:var(--muted);font-size:13px}.num{font:500 15px/1.3 var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}.total{font:700 20px/1.2 var(--head)}.days{display:grid;gap:6px;padding:10px 0 14px}.day{display:grid;grid-template-columns:92px 1fr 76px;gap:10px;align-items:center;font-size:13px;color:var(--soft)}.bar{height:8px;background:#e6e4d8}.bar span{display:block;height:100%;background:var(--fern)}.card-note{padding:12px 22px;border-top:1px solid var(--rule);font-size:13px;color:var(--muted)}
 .section{padding:clamp(40px,6vw,76px) 0;border-top:1px solid var(--rule)}.section h2{font:700 clamp(32px,4.4vw,52px)/1.02 var(--head);margin:0 0 20px;max-width:18ch}.section-intro{max-width:68ch;color:var(--soft);margin:0 0 28px;font-size:18px}.ruled{border-top:2px solid var(--ink)}.ruled-row{display:grid;grid-template-columns:200px minmax(0,1fr) minmax(180px,.5fr);gap:26px;padding:20px 0;border-bottom:1px solid var(--rule);align-items:start}.ruled-row h3{font:700 21px/1.15 var(--head);margin:0}.ruled-row p{margin:0;color:var(--soft)}.ruled-row .mark{font-size:14px;font-weight:600;color:var(--fern)}code,.mono{font-family:var(--mono);font-size:.86em;overflow-wrap:anywhere}
-.table-wrap{overflow:auto;border:1px solid var(--rule);background:var(--white)}table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--rule);vertical-align:top}thead th{font:700 14px var(--head);background:#ecebe1}tbody th{white-space:nowrap}td.num{text-align:right}
+.table-wrap{overflow:auto;border:1px solid var(--rule);background:var(--white)}table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--rule);vertical-align:top}thead th{font:700 14px var(--head);background:#ecebe1}tbody th{white-space:nowrap}th.num,td.num{text-align:right}
 .personas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule)}.persona{background:var(--white);padding:22px}.persona h3{font:700 26px/1 var(--head);margin:0 0 12px}.persona dl{margin:0}.persona dl div{display:flex;justify-content:space-between;gap:20px;padding:8px 0;border-bottom:1px solid #e6e4d8}.persona dt{color:var(--muted)}.persona dd{margin:0;text-align:right}
 footer{background:var(--deep);color:#dbe5dd;padding:32px 0;font-size:14px}footer p{margin:0;max-width:88ch}footer p+p{margin-top:10px}footer a{color:#fff}.lab{border-top:1px solid rgba(255,255,255,.18);padding-top:14px;margin-top:16px}
-.consent main{width:min(860px,100% - 2*clamp(16px,5vw,48px));margin:auto;padding:clamp(36px,6vw,72px) 0}.consent h1{font:700 clamp(38px,6vw,64px)/1 var(--head);margin:0 0 16px;max-width:16ch}.intro-copy{max-width:64ch;color:var(--soft);font-size:18px}.consent form{margin-top:28px;border-top:2px solid var(--ink)}.consent fieldset{border:0;margin:0;padding:22px 0;border-bottom:1px solid var(--rule)}.consent legend{font:700 22px var(--head);padding:0 20px 0 0}.consent label.block{display:block;font-weight:600;margin-bottom:8px}.consent select,.consent input[type=password]{width:100%;min-height:48px;border:1px solid var(--rule);background:#fff;padding:10px 12px;color:var(--ink)}.permission{display:grid;grid-template-columns:24px 1fr;gap:12px;padding:11px 0}.permission input{width:20px;height:20px;margin:2px 0 0;accent-color:var(--fern)}.permission strong{display:block}.permission span{display:block;color:var(--soft);font-size:14px}.permission.readonly{grid-template-columns:12px 1fr}.permission.readonly:before{content:"";width:8px;height:8px;border-radius:50%;background:var(--fern);margin-top:8px}.consent .actions{justify-content:flex-end;padding-top:22px;margin-top:0}.consent button{min-height:48px;padding:0 22px;border:1px solid var(--fern);background:var(--fern);color:#fff;font-weight:600;cursor:pointer;border-radius:3px}.consent button.secondary{background:transparent;color:var(--fern);border-color:var(--rule)}.fine{font-size:13px;color:var(--muted)}.mast-tag{font-size:13px;line-height:1.35;text-align:right}.meter-owner{margin:8px 0 0;font-weight:600}.meter-empty{display:none;color:var(--danger);font-weight:600}
-.form-card{max-width:620px;background:var(--white);border:1px solid var(--rule);padding:24px}.form-card label{display:block;font-weight:600;margin-bottom:8px}.form-card select{width:100%;min-height:48px;margin-bottom:16px;border:1px solid var(--rule);padding:10px 12px;background:#fff}.account-head{padding:42px 0 24px}.account-head h1{font:700 clamp(40px,5.5vw,68px)/1 var(--head);margin:0 0 12px}.account-head p{margin:6px 0;color:var(--soft)}.live-row{display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap;margin-top:20px}.live{color:var(--fern);font-weight:600}.error{color:var(--danger);font-weight:600}.account-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:36px}.account .section{padding:30px 0}.account .section h2{font-size:32px;margin-bottom:16px}.data-list{border-top:2px solid var(--ink)}.data-row{padding:14px 0;border-bottom:1px solid var(--rule)}.data-row header{display:flex;justify-content:space-between;gap:16px;align-items:baseline}.data-row h3{font:700 19px/1.2 var(--head);margin:0}.data-row p{margin:6px 0 0;color:var(--soft);font-size:14px}.activity{padding:14px 0;border-bottom:1px solid var(--rule)}.activity p{margin:4px 0 0;color:var(--soft)}
+.fine{font-size:13px;color:var(--muted)}.form-card{max-width:620px;background:var(--white);border:1px solid var(--rule);padding:24px}.form-card label{display:block;font-weight:600;margin-bottom:8px}.form-card select{width:100%;min-height:48px;margin-bottom:16px;border:1px solid var(--rule);padding:10px 12px;background:#fff}.account-head{padding:42px 0 24px}.account-head h1{font:700 clamp(40px,5.5vw,68px)/1 var(--head);margin:0 0 12px}.account-head p{margin:6px 0;color:var(--soft)}.live-row{display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap;margin-top:20px}.live{color:var(--fern);font-weight:600}.error{color:var(--danger);font-weight:600}.account-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:36px}.account .section{padding:30px 0}.account .section h2{font-size:32px;margin-bottom:16px}.data-list{border-top:2px solid var(--ink)}.data-row{padding:14px 0;border-bottom:1px solid var(--rule)}.data-row header{display:flex;justify-content:space-between;gap:16px;align-items:baseline}.data-row h3{font:700 19px/1.2 var(--head);margin:0}.data-row p{margin:6px 0 0;color:var(--soft);font-size:14px}.activity{padding:14px 0;border-bottom:1px solid var(--rule)}.activity p{margin:4px 0 0;color:var(--soft)}
 .records{list-style:none;margin:0;padding:0;border-top:1px solid var(--rule)}.record{display:grid;gap:6px;padding:16px 0 18px;border-bottom:1px solid var(--rule);overflow-wrap:anywhere}.record-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 16px}.record-when{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}.record-tag{font:500 12px/1 var(--mono);padding:5px 8px;border-radius:2px;background:var(--leaf);color:var(--deep)}.record[data-tone=pending] .record-tag{background:var(--seal);color:var(--seal-ink)}.record[data-tone=info] .record-tag{background:#e3e7e9;color:var(--ink)}.record[data-tone=muted] .record-tag{background:transparent;color:var(--muted);box-shadow:inset 0 0 0 1px var(--rule)}.record-title{margin:4px 0 0;max-width:65ch;font-weight:600}.record-body{margin:0;max-width:65ch;font-size:15px;color:var(--soft)}.record-meta{margin:0;font-size:13px;color:var(--muted)}.account button:disabled{opacity:.55;cursor:wait}
 @media(max-width:900px){.mast .wrap{grid-template-columns:1fr auto}.mast nav{grid-column:1/-1;grid-row:2;justify-self:start;padding-bottom:12px}.hero{grid-template-columns:1fr}.account-grid{grid-template-columns:1fr}.ruled-row{grid-template-columns:150px 1fr}.ruled-row .mark{grid-column:2}.personas{grid-template-columns:1fr}}
-@media(max-width:560px){.mast .wrap{gap:12px}.mast nav{gap:14px;font-size:13px}.brand{font-size:21px}.hero h1{font-size:42px}.ruled-row{grid-template-columns:1fr;gap:8px}.ruled-row .mark{grid-column:auto}.day{grid-template-columns:78px 1fr 64px}.consent .actions{flex-wrap:wrap}.consent .actions button{flex:1}}
+@media(max-width:560px){.mast .wrap{gap:12px}.mast nav{gap:14px;font-size:13px}.brand{font-size:21px}.hero h1{font-size:42px}.ruled-row{grid-template-columns:1fr;gap:8px}.ruled-row .mark{grid-column:auto}.day{grid-template-columns:78px 1fr 64px}}
 `;
 
 export function shell(
@@ -111,7 +114,7 @@ export function homePage(origin: string) {
   const bands = plans["time-of-use"].bands;
   const hours = (from: number, to: number) =>
     `${String(from).padStart(2, "0")}:00–${String(to).padStart(2, "0")}:00`;
-  const body = `<main><section class="wrap hero"><div><h1>Your power, read hour by hour.</h1><p class="lead">Fernwick reads your meter every hour and bills on the 1st. See what you used yesterday evening, what last month cost, and whether time-of-use pricing would save you money. Or let your personal agent keep an eye on it.</p><div class="actions"><a class="button primary" href="/account">Open your account</a><a class="button secondary" href="#agents">Use it with your agent</a></div><p class="warning"><strong>Nothing here is real.</strong> Fernwick supplies no electricity. Never enter a real utility account number, address, password or bill.</p></div>${sampleCard(customers[0]!)}</section><section class="wrap section"><h2>Two plans, priced by the hour.</h2><p class="section-intro">Every meter is on one of two plans, and you can switch at the start of any bill cycle. Hours are Pacific time; a bill also carries a basic service charge per meter.</p><div class="table-wrap"><table><thead><tr><th>Plan</th><th>Hours</th><th>Price per kWh</th></tr></thead><tbody><tr><th>${escape(plans.flat.name)}</th><td>All hours</td><td class="num">${plans.flat.bands[0]!.perWh}¢</td></tr>${bands.map((band, i) => `<tr><th>${i === 0 ? escape(plans["time-of-use"].name) : ""}</th><td>${escape(band.name)}, ${hours(band.from, band.to)}</td><td class="num">${band.perWh}¢</td></tr>`).join("")}<tr><th>Solar credit</th><td>Energy your panels send to the grid</td><td class="num">${EXPORT_CREDIT_PER_WH}¢</td></tr></tbody></table></div></section><section class="wrap section"><h2>What your account shows.</h2><div class="ruled"><div class="ruled-row"><h3>Hourly usage</h3><p>Every hour of the last 92 days, for each meter: the house, an EV charger, and what solar panels send back.</p><span class="mark">Read every hour</span></div><div class="ruled-row"><h3>Bills</h3><p>Each month closes on the 1st. The bill lists the service charge, the energy by price band and any solar credit, worked out from the same hours.</p><span class="mark">From your readings</span></div><div class="ruled-row"><h3>Plan changes</h3><p>Switch a meter between flat and time-of-use. The change starts with the next bill cycle, and you see the estimated difference first.</p><span class="mark">Your approval</span></div></div></section><section class="wrap section" id="agents"><h2>Use Fernwick with your personal agent.</h2><p class="section-intro">Fernwick works with personal AI agents. Yours can answer “how much did the EV charger use this month?” or work out whether time-of-use suits you, and you stay in charge of every change.</p><div class="ruled"><div class="ruled-row"><h3>You choose the meters</h3><p>You sign in here, on Fernwick's own page, and pick which meters the agent may read. It never gets your password, and it sees nothing of the meters you leave out.</p><span class="mark">Your sign-in</span></div><div class="ruled-row"><h3>It proposes, you approve</h3><p>A plan change arrives as an exact proposal: the meter, the new plan, the date it starts and the estimated difference. Nothing changes until you approve it, and it happens once.</p><span class="mark">Your approval</span></div><div class="ruled-row"><h3>You can disconnect it</h3><p>Your account lists the agents connected to it and what each may see. Disconnecting one ends its access at once.</p><span class="mark">Your call</span></div></div><div class="actions"><a class="button primary" href="${labPlaygroundUrl(origin)}">Try it with Iris, the demo agent</a><a class="button secondary" href="/for-agents">Technical details for agent builders</a></div></section></main>`;
+  const body = `<main><section class="wrap hero"><div><h1>Your power, read hour by hour.</h1><p class="lead">Fernwick reads your meter every hour and bills on the 1st. See what you used yesterday evening, what last month cost, and whether time-of-use pricing would save you money. Or let your personal agent keep an eye on it.</p><div class="actions"><a class="button primary" href="/account">Open your account</a><a class="button secondary" href="#agents">Use it with your agent</a></div><p class="warning"><strong>Nothing here is real.</strong> Fernwick supplies no electricity. Never enter a real utility account number, address, password or bill.</p></div>${sampleCard(customers[0]!)}</section><section class="wrap section"><h2>Two plans, priced by the hour.</h2><p class="section-intro">Every meter is on one of two plans, and you can switch at the start of any bill cycle. Hours are Pacific time; a bill also carries a basic service charge per meter.</p><div class="table-wrap"><table><thead><tr><th>Plan</th><th>Hours</th><th class="num">Price per kWh</th></tr></thead><tbody><tr><th>${escape(plans.flat.name)}</th><td>All hours</td><td class="num">${plans.flat.bands[0]!.perWh}¢</td></tr>${bands.map((band, i) => `<tr><th>${i === 0 ? escape(plans["time-of-use"].name) : ""}</th><td>${escape(band.name)}, ${hours(band.from, band.to)}</td><td class="num">${band.perWh}¢</td></tr>`).join("")}<tr><th>Solar credit</th><td>Energy your panels send to the grid</td><td class="num">${EXPORT_CREDIT_PER_WH}¢</td></tr></tbody></table></div></section><section class="wrap section"><h2>What your account shows.</h2><div class="ruled"><div class="ruled-row"><h3>Hourly usage</h3><p>Every hour of the last 92 days, for each meter: the house, an EV charger, and what solar panels send back.</p><span class="mark">Read every hour</span></div><div class="ruled-row"><h3>Bills</h3><p>Each month closes on the 1st. The bill lists the service charge, the energy by price band and any solar credit, worked out from the same hours.</p><span class="mark">From your readings</span></div><div class="ruled-row"><h3>Plan changes</h3><p>Switch a meter between flat and time-of-use. The change starts with the next bill cycle, and you see the estimated difference first.</p><span class="mark">Your approval</span></div></div></section><section class="wrap section" id="agents"><h2>Use Fernwick with your personal agent.</h2><p class="section-intro">Fernwick works with personal AI agents. Yours can answer “how much did the EV charger use this month?” or work out whether time-of-use suits you, and you stay in charge of every change.</p><div class="ruled"><div class="ruled-row"><h3>You choose the meters</h3><p>You sign in here, on Fernwick's own page, and pick which meters the agent may read. It never gets your password, and it sees nothing of the meters you leave out.</p><span class="mark">Your sign-in</span></div><div class="ruled-row"><h3>It proposes, you approve</h3><p>A plan change arrives as an exact proposal: the meter, the new plan, the date it starts and the estimated difference. Nothing changes until you approve it, and it happens once.</p><span class="mark">Your approval</span></div><div class="ruled-row"><h3>You can disconnect it</h3><p>Your account lists the agents connected to it and what each may see. Disconnecting one ends its access at once.</p><span class="mark">Your call</span></div></div><div class="actions"><a class="button primary" href="${labPlaygroundUrl(origin)}">Try it with Iris, the demo agent</a><a class="button secondary" href="/for-agents">Technical details for agent builders</a></div></section></main>`;
   return shell("Fernwick Power & Light · Home energy", body, "/", origin);
 }
 
@@ -201,43 +204,78 @@ export function forAgentsPage(origin: string) {
   );
 }
 
+/** A length of time in whole days or hours: "7 days", "1 hour". */
+const span = (ms: number) => {
+  const [count, unit] =
+    ms % 86400000 === 0 ? [ms / 86400000, "day"] : [ms / 3600000, "hour"];
+  return `${count} ${unit}${count === 1 ? "" : "s"}`;
+};
 const permissionText: Record<FernwickScope, string> = {
   "account:read":
-    "See the service address, the meters you choose below with their rate plans, and their monthly bills.",
+    "See the service address, the meters you choose with their rate plans, and their monthly bills.",
   "plan:write":
     "Propose switching a chosen meter between flat and time-of-use from the next bill cycle. Each proposal needs separate approval.",
   "espi:usage":
-    "Through the ESPI-shaped API, see the meters you choose below, their hourly usage and its cost.",
+    "Through the ESPI-shaped API, see the meters you choose, their hourly usage and its cost.",
   "espi:summary":
     "Through the ESPI-shaped API, see the monthly bill summaries of the meters you choose.",
   "espi:customer":
     "Through the ESPI-shaped API, see the customer's name and service address.",
-  offline_access:
-    "Refresh this fictional grant after the current access token expires.",
+  // The two ends `grantLifetime` gives a grant, said as the gateway counts them.
+  offline_access: `The agent stays connected for ${span(GRANT_MS)}. Without this, it is disconnected after ${span(TOKEN_MS)}.`,
 };
 
+/** The consent sheet in Fernwick's faces and colours. */
+const sheetCss = `${consentSheetCss}.sheet{--sheet-rule:var(--rule);--sheet-accent:var(--fern)}
+.sheet h1{font:700 clamp(36px,5vw,58px)/1 var(--head)}
+.sheet-agent{color:var(--soft)}.sheet-agent strong{color:var(--ink)}
+.sheet-verified{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--fern)}
+.sheet-verified:before{content:"";width:8px;height:8px;border-radius:50%;background:var(--fern)}
+.sheet-cols{border-top:2px solid var(--ink)}
+.sheet legend,.sheet h2{font:700 26px/1.05 var(--head)}
+.sheet-person{background:var(--white)}
+.sheet-person strong,.sheet-reads strong,.sheet-option strong{font-weight:600}
+.sheet-person small,.sheet-reads span,.sheet-option span span{font-size:14px}
+.sheet-person small,.sheet-note,.sheet-reads span,.sheet-option span span,.sheet-none,.sheet-foot p{color:var(--soft)}
+.sheet-group h3{font:700 20px/1.15 var(--head)}
+.sheet-group h3 span{font:400 14px var(--body);color:var(--muted)}
+.sheet-field label{font-weight:600}
+.sheet-field input{border:1px solid var(--rule);background:#fff;color:var(--ink)}
+.sheet button{border:1px solid var(--fern);border-radius:3px;background:var(--fern);color:#fff;font-weight:600}
+.sheet button:hover{background:var(--deep)}
+.sheet button.secondary{background:transparent;color:var(--fern);border-color:var(--rule)}
+.sheet button.secondary:hover{background:var(--white)}
+.sheet-foot p{font-size:15px}
+.sheet-fine{font-size:13px;color:var(--muted)}
+.sheet-meters{margin-top:26px;padding-top:20px;border-top:1px solid var(--rule)}
+.sheet-meters h3{font:700 20px/1.15 var(--head);margin:0 0 8px}
+.meter-owner{margin:8px 0 0;font-weight:600}.meter-empty{display:none;margin:10px 0 0;color:var(--danger);font-weight:600}
+`;
+
 /**
- * The meters to share, per persona. Without scripts (the consent CSP allows
- * none), CSS `:has()` shows only the chosen persona's meters and hides
- * "Allow" until one is ticked; a browser without `:has()` shows every
- * persona's, and the server keeps only the chosen persona's
- * (`selectResources`). One field name per meter, since a form keeps only
- * the last value of a repeated name.
+ * The meters to share, per person, under the people since they are chosen
+ * with the person. They limit the whole grant: both APIs and the Company
+ * Agent. Without scripts (the consent CSP allows none), CSS `:has()` shows
+ * only the chosen person's meters and hides "Allow" until one is ticked; a
+ * browser without `:has()` shows every person's, and the server keeps only
+ * the chosen person's (`selectResources`). One field name per meter, since
+ * a form keeps only the last value of a repeated name.
  */
 const meterChoice = () =>
-  `<fieldset><legend>Meters to share</legend>${customers
+  `<div class="sheet-meters"><h3>Meters to share</h3>${customers
     .map(
       (customer) =>
         `<div class="meter-persona" data-persona="${escape(customer.id)}"><p class="meter-owner">${escape(customer.name)}</p>${customer.meters
           .map(
             (meter) =>
-              `<label class="permission" for="meter-${escape(meter.id)}"><input id="meter-${escape(meter.id)}" type="checkbox" name="espi_meter_${escape(meter.id)}" value="yes" checked><span><strong>${escape(meter.label)}</strong><span>${escape(plans[meter.plan].name)} · ${meter.readings.length > 1 ? "usage and solar export" : "usage"}</span></span></label>`,
+              `<label class="sheet-option"><input id="meter-${escape(meter.id)}" type="checkbox" name="espi_meter_${escape(meter.id)}" value="yes" checked><span><strong>${escape(meter.label)}</strong><span>${escape(plans[meter.plan].name)} · ${meter.readings.length > 1 ? "usage and solar export" : "usage"}</span></span></label>`,
           )
           .join("")}</div>`,
     )
     .join(
       "",
-    )}<p class="meter-empty">Choose at least one meter to allow this access, or don't allow it.</p><p class="fine">The agent sees and acts on these meters only, through Fernwick's own API, the ESPI-shaped API and Fernwick's automated guide alike.</p></fieldset>`;
+    )}<p class="meter-empty">Choose at least one meter to allow this access, or don't allow it.</p><p class="sheet-note">The meters you choose are the only ones the agent can see or act on, through Fernwick's own API, the ESPI-shaped one or Fernwick's automated guide.</p></div>`;
+/** The person's meters only, and no "Allow" with none ticked. */
 const meterStyle = () => {
   const when = (id: string) => `form:has(#account-${id}:checked)`;
   const none = (id: string) =>
@@ -261,15 +299,49 @@ export function consentPage(input: {
   const read = requested.filter(
     (scope) => scope !== "plan:write" && scope !== "offline_access",
   );
-  const change = requested.includes("plan:write");
-  const offline = requested.includes("offline_access");
   const meters = requested.some((scope) => meterScopes.includes(scope));
-  const agent = escape(input.client);
-  const permissions = read
-    .map(
-      (scope) =>
-        `<div class="permission readonly"><div><strong>${escape(scopePurpose[scope])}</strong><span>${escape(permissionText[scope])}</span></div></div>`,
-    )
-    .join("");
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Allow ${agent} · Fernwick Power &amp; Light</title>${fonts}<style>${css}${meters ? meterStyle() : ""}</style></head><body class="consent"><header class="mast"><div class="wrap"><span class="brand">Fernwick Power &amp; Light</span><span></span><span class="mast-tag">Connecting ${agent}<br>verified host ${escape(input.clientHost)}</span></div></header><main><h1>Choose what ${agent} may see.</h1><p class="intro-copy">This is Fernwick's own consent page. Select a test customer and the meters to share. Read access shows invented personal data; a plan change permission only lets the agent propose exact terms that you approve separately.</p><p class="warning"><strong>No real account exists.</strong> Never enter a real utility account number, password, address or bill.</p><form method="post" action="/oauth/authorize"><input type="hidden" name="nonce" value="${escape(input.nonce)}"><fieldset><legend>Fictional customer</legend>${customers.map((customer, i) => `<label class="permission" for="account-${customer.id}"><input id="account-${customer.id}" type="radio" name="account" value="${customer.id}"${i === 0 ? " checked" : ""}><span><strong>${escape(customer.name)}</strong><span>${escape(addressLine(customer.address))}</span></span></label>`).join("")}${input.passwordRequired ? '<label class="block" for="password">Dedicated demo password</label><input id="password" type="password" name="password" required maxlength="256"><p class="fine">Use only the dedicated password configured for this demo.</p>' : '<p class="fine">Persona selection is not real identity verification.</p>'}</fieldset><fieldset><legend>Read access</legend>${permissions || '<p class="fine">No read scope was requested.</p>'}</fieldset>${meters ? meterChoice() : ""}${change ? `<fieldset><legend>Change proposals</legend><label class="permission" for="allow-plan-write"><input id="allow-plan-write" type="checkbox" name="allow_plan_write" value="yes" checked><span><strong>${escape(scopePurpose["plan:write"])}</strong><span>${escape(permissionText["plan:write"])}</span></span></label><p class="fine">This permission doesn't approve a change. Your agent must show each exact proposal separately.</p></fieldset>` : ""}${offline ? `<fieldset><legend>Offline access</legend><label class="permission" for="allow-offline"><input id="allow-offline" type="checkbox" name="allow_offline" value="yes"><span><strong>Keep the fictional grant refreshable</strong><span>${escape(permissionText.offline_access)} Optional and off by default.</span></span></label></fieldset>` : ""}<div class="actions"><button class="secondary" name="decision" value="decline" formnovalidate>Don't allow</button><button name="decision" value="approve">Allow selected access</button></div></form><p class="fine">${escape(FICTION_NOTICE)} The ESPI-shaped API is ${escape(ESPI_SHAPED)}. Independent experiment; no claim of utility or Poppy conformance.</p></main></body></html>`;
+  const sheet = consentSheetHtml({
+    company: "Fernwick",
+    agent: input.client,
+    agentHost: input.clientHost,
+    nonce: input.nonce,
+    passwordRequired: input.passwordRequired,
+    people: customers.map((customer) => ({
+      id: customer.id,
+      name: customer.name,
+      note: `${addressLine(customer.address)} · ${customer.meters.length} ${customer.meters.length === 1 ? "meter" : "meters"}`,
+    })),
+    ...(meters ? { beside: meterChoice() } : {}),
+    reads: read.map((scope) => ({
+      title: scopePurpose[scope],
+      text: permissionText[scope],
+    })),
+    changes: requested.includes("plan:write")
+      ? [
+          {
+            name: "allow_plan_write",
+            title: scopePurpose["plan:write"],
+            text: permissionText["plan:write"],
+            checked: true,
+          },
+        ]
+      : [],
+    ...(requested.includes("offline_access")
+      ? {
+          extras: [
+            {
+              heading: "While you're away",
+              option: {
+                name: "allow_offline",
+                title: "Keep the agent connected",
+                text: `${permissionText.offline_access} Optional and off by default.`,
+              },
+            },
+          ],
+        }
+      : {}),
+    disconnect: "You can disconnect the agent in your Fernwick account.",
+    fine: `No real account exists. Never enter a real utility account number, password, address or bill. ${FICTION_NOTICE} The usage data API is ${ESPI_SHAPED}. Independent experiment; no claim of utility or Poppy conformance.`,
+  });
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Allow ${escape(input.client)} · Fernwick Power &amp; Light</title>${fonts}<style>${css}${sheetCss}${meters ? meterStyle() : ""}</style></head><body>${labConsentBarHtml("Fernwick Power & Light")}<header class="mast"><div class="wrap"><span class="brand">Fernwick Power &amp; Light</span></div></header>${sheet}</body></html>`;
 }

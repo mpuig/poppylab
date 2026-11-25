@@ -164,7 +164,7 @@ describe("Fernwick ESPI-shaped API", () => {
   it("asks for meters at consent, per person, and refuses none", async () => {
     const { page, consent } = await h.authorize("robin", usage, { meters: [] });
     expect(page.body).toContain(
-      'id="account-elena" type="radio" name="account"',
+      'type="radio" name="account" id="account-elena"',
     );
     expect(page.body).toContain('name="espi_meter_UP-E2" value="yes" checked');
     expect(page.body).toContain('name="espi_meter_UP-R1" value="yes" checked');
