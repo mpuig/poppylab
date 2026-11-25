@@ -5,7 +5,7 @@
  * kept under the playground's `public/` is served from there. Only our own
  * Markdown goes through this, never Company or user content.
  */
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { Marked, type Token, type Tokens } from "marked";
@@ -22,6 +22,7 @@ export const LEARN_PAGES: readonly LearnPage[] = [
     slug: "how-it-works",
     file: "how-it-works/README.md",
     label: "How it works",
+    group: "follow",
   },
   {
     slug: "how-it-works/connecting-to-a-company",
@@ -87,29 +88,90 @@ export const LEARN_PAGES: readonly LearnPage[] = [
     slug: "one-task",
     file: "one-task.md",
     label: "One task, request by request",
+    group: "follow",
   },
-  { slug: "compared", file: "compared.md", label: "Poppy compared" },
+  {
+    slug: "compared",
+    file: "compared.md",
+    label: "Poppy compared",
+    group: "understand",
+  },
   {
     slug: "conversations",
     file: "conversations.md",
     label: "Conversations",
+    group: "understand",
   },
-  { slug: "operations", file: "operations.md", label: "Approvals" },
-  { slug: "extensions", file: "extensions.md", label: "Domain extensions" },
+  {
+    slug: "operations",
+    file: "operations.md",
+    label: "Approvals",
+    group: "understand",
+  },
+  {
+    slug: "extensions",
+    file: "extensions/README.md",
+    label: "Domain extensions",
+    group: "understand",
+  },
+  {
+    slug: "extensions/fdx",
+    file: "extensions/fdx.md",
+    label: "FDX: bank data",
+    parent: "extensions",
+  },
+  {
+    slug: "extensions/espi",
+    file: "extensions/espi.md",
+    label: "ESPI: energy data",
+    parent: "extensions",
+  },
   {
     slug: "build-a-company",
     file: "build-a-company.md",
     label: "Build a Company",
+    group: "build",
   },
   {
     slug: "build-an-agent",
     file: "build-an-agent.md",
     label: "Build a Personal Agent",
+    group: "build",
   },
-  { slug: "pitfalls", file: "pitfalls.md", label: "Pitfalls and interop" },
-  { slug: "validator", file: "validator.md", label: "Validator results" },
-  { slug: "glossary", file: "glossary.md", label: "Glossary" },
+  {
+    slug: "write-an-extension",
+    file: "write-an-extension.md",
+    label: "Write a domain extension",
+    group: "build",
+  },
+  {
+    slug: "validator",
+    file: "validator.md",
+    label: "Validator results",
+    group: "look-up",
+  },
+  {
+    slug: "glossary",
+    file: "glossary.md",
+    label: "Glossary",
+    group: "look-up",
+  },
 ];
+
+/**
+ * The kinds of page, as the navigation groups them. Each is one of the four
+ * kinds of documentation (Diátaxis): a process to follow, an idea to
+ * understand, a task to build and a fact to look up. A page belongs to
+ * exactly one, so its voice and its shape stay the same from page to page.
+ */
+export const LEARN_GROUPS = [
+  { id: "follow", label: "Follow a process" },
+  { id: "understand", label: "Understand" },
+  { id: "build", label: "Build" },
+  { id: "look-up", label: "Look up" },
+] as const;
+
+export type LearnGroupId = (typeof LEARN_GROUPS)[number]["id"];
 
 export type LearnPage = {
   /** The address under `/learn`, without a leading slash. */
@@ -119,6 +181,8 @@ export type LearnPage = {
   label: string;
   /** The slug of the page this one is a subsection of. */
   parent?: string;
+  /** The kind of page, for a page with no parent; Overview has none. */
+  group?: LearnGroupId;
 };
 
 /** Where a page's own relative links start from, under `docs/learn`. */
@@ -190,6 +254,41 @@ export function imageSize(bytes: Uint8Array) {
 const escape = (s: string) =>
   s.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
 
+/** The repository root, from the playground's working directory. */
+const repoFile = (file: string) => path.join(process.cwd(), "..", "..", file);
+
+/**
+ * A drawn figure: an SVG file under the playground's public folder, put into
+ * the page itself so it takes the page's typeface. A file `name.narrow.svg`
+ * beside `name.svg` is the upright drawing for narrow screens; the figure is
+ * never hidden, only redrawn. GitHub shows `name.svg` as an ordinary image.
+ * The alt text becomes the figure's accessible name. Several figures share a
+ * page, so a drawing may not carry ids, scripts or event handlers.
+ */
+export function svgFigure(file: string, alt: string, caption?: string | null) {
+  const inline = (source: string, kind: "wide" | "narrow") => {
+    const svg = readFileSync(repoFile(source), "utf8")
+      .replace(/<\?xml[^>]*\?>\s*/, "")
+      .replace(/<!--[\s\S]*?-->/g, "")
+      .trim();
+    if (!svg.startsWith("<svg"))
+      throw new Error(`Learn figure is not an SVG: ${source}`);
+    if (/<script|<foreignObject|\son[a-z]+\s*=|\sid\s*=/i.test(svg))
+      throw new Error(
+        `Learn figure ${source} may not carry ids, scripts or handlers`,
+      );
+    return svg.replace(
+      /^<svg\b/,
+      `<svg class="${kind}" role="img" aria-label="${escape(alt)}"`,
+    );
+  };
+  const narrowFile = file.replace(/\.svg$/, ".narrow.svg");
+  const narrow = existsSync(repoFile(narrowFile))
+    ? inline(narrowFile, "narrow")
+    : "";
+  return `<figure class="learn-figure">${inline(file, "wide")}${narrow}${caption ? `<figcaption>${escape(caption)}</figcaption>` : ""}</figure>\n`;
+}
+
 const PROTOCOL_SITE = "https://personalagentprotocol.org/";
 
 /** The Markdown renderer for a page in `from` (a folder under docs/learn). */
@@ -213,18 +312,17 @@ function markdownIn(from: string) {
             : "";
         return `<a href="${escape(target)}"${title ? ` title="${escape(title)}"` : ""}${attributes}>${this.parser.parseInline(tokens)}</a>`;
       },
-      // A screenshot: a figure with the image's title as its caption. It is
-      // one of our own files under the playground's public folder, linked by
-      // its path in the repository so GitHub shows it too.
+      // A screenshot or a drawn figure: a figure with the image's title as its
+      // caption. It is one of our own files under the playground's public
+      // folder, linked by its path in the repository so GitHub shows it too.
       image({ href, title, text }) {
         const file = path.posix.normalize(
           path.posix.join("docs/learn", from, href),
         );
         if (!file.startsWith(PUBLIC))
           throw new Error(`Learn image outside ${PUBLIC}: ${href}`);
-        const size = imageSize(
-          readFileSync(path.join(process.cwd(), "..", "..", file)),
-        );
+        if (file.endsWith(".svg")) return svgFigure(file, text, title);
+        const size = imageSize(readFileSync(repoFile(file)));
         const box = size
           ? ` width="${size.width}" height="${size.height}"`
           : "";

@@ -15,7 +15,6 @@ understand the protocol or implement it.
 - [Approvals with Operations](learn/operations.md)
 - [Build a Company](learn/build-a-company.md)
 - [Build a Personal Agent](learn/build-an-agent.md)
-- [Pitfalls and interop](learn/pitfalls.md)
 - [Validator results](learn/validator.md)
 - [Glossary](learn/glossary.md)
 
@@ -44,4 +43,6 @@ code and change with it.
 [`history/`](history) keeps notes written for earlier drafts of the protocol
 (0.1 to 0.3) and for features the lab has since removed, such as the PAP
 Sandbox integration and the identity relay. They explain past decisions; don't
-use them as a description of current behaviour.
+use them as a description of current behaviour. [`history/pitfalls.md`](history/pitfalls.md)
+is the odd one out: the bugs the lab hit and fixed while it was built, kept as
+source material for write-ups rather than as documentation.

@@ -180,7 +180,7 @@ stood when Northwind made the offer.
 
 No request was made in this step. The terms were already in Northwind's answer
 in step 4, and they stay on Elena's screen until she decides.
-[Approvals with Operations](../operations.md#2-the-operation) explains each
+[Approvals with Operations](../operations.md#what-an-operation-holds) explains each
 part of that answer.
 
 </details>
@@ -202,7 +202,7 @@ card on file".
 
 The same request as in step 4, with a `Poppy-Approval` header that names the
 operation, the terms revision and who approved.
-[Approvals with Operations](../operations.md#5-sending-the-approval)
+[Approvals with Operations](../operations.md#what-an-approval-carries)
 describes the header and what the company checks.
 
 </details>

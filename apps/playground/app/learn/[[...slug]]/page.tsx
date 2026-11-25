@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowUpRight } from "lucide-react";
 import { LAB_REPOSITORY } from "@poppy-lab/pap-core";
 import {
+  LEARN_GROUPS,
   LEARN_PAGES,
   findPage,
   renderPage,
@@ -54,35 +55,55 @@ export default async function Learn({ params }: Props) {
       <main id="main" className="learn">
         <nav className="learn-nav" aria-label="Learn pages">
           <p className="learn-nav-title">Learn</p>
-          <ol>
-            {LEARN_PAGES.filter((p) => !p.parent).map((p) => {
-              const inside = p.slug === open ? subsections(p) : [];
-              return (
-                <li key={p.slug}>
-                  <a
-                    href={hrefOf(p)}
-                    aria-current={p === page ? "page" : undefined}
-                  >
-                    {p.label}
-                  </a>
-                  {inside.length > 0 && (
-                    <ol className="learn-nav-sub">
-                      {inside.map((sub) => (
-                        <li key={sub.slug}>
-                          <a
-                            href={hrefOf(sub)}
-                            aria-current={sub === page ? "page" : undefined}
-                          >
-                            {sub.label}
-                          </a>
-                        </li>
-                      ))}
-                    </ol>
-                  )}
-                </li>
-              );
-            })}
+          {/* The overview stands alone; every other page is one of four kinds. */}
+          <ol className="learn-nav-first">
+            {LEARN_PAGES.filter((p) => !p.parent && !p.group).map((p) => (
+              <li key={p.slug}>
+                <a
+                  href={hrefOf(p)}
+                  aria-current={p === page ? "page" : undefined}
+                >
+                  {p.label}
+                </a>
+              </li>
+            ))}
           </ol>
+          {LEARN_GROUPS.map((group) => (
+            <div className="learn-nav-group" key={group.id}>
+              <p className="learn-nav-group-title">{group.label}</p>
+              <ol>
+                {LEARN_PAGES.filter(
+                  (p) => !p.parent && p.group === group.id,
+                ).map((p) => {
+                  const inside = p.slug === open ? subsections(p) : [];
+                  return (
+                    <li key={p.slug}>
+                      <a
+                        href={hrefOf(p)}
+                        aria-current={p === page ? "page" : undefined}
+                      >
+                        {p.label}
+                      </a>
+                      {inside.length > 0 && (
+                        <ol className="learn-nav-sub">
+                          {inside.map((sub) => (
+                            <li key={sub.slug}>
+                              <a
+                                href={hrefOf(sub)}
+                                aria-current={sub === page ? "page" : undefined}
+                              >
+                                {sub.label}
+                              </a>
+                            </li>
+                          ))}
+                        </ol>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+            </div>
+          ))}
         </nav>
         <article className="learn-article">
           <h1>{title}</h1>

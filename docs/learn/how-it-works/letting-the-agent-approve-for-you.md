@@ -105,7 +105,7 @@ The terms in Lantern's answer, which Iris compared with the limit:
 ```
 
 Iris then sent the same request again with an approval that names the agent
-as the approver. [Approvals with Operations](../operations.md#4-who-approves)
+as the approver. [Approvals with Operations](../operations.md#who-approves)
 describes the two kinds of approval.
 
 </details>
@@ -188,7 +188,7 @@ of both accounts, which are far above 50 dollars, and no total. Iris cannot
 settle them, so the decision goes to Elena.
 
 Harborline also has a rule of its own for this case.
-[Approvals with Operations](../operations.md#7-declines) describes it: the
+[Approvals with Operations](../operations.md#declines) describes it: the
 bank declines an agent's approval for a payment or a transfer and asks for the
 customer's own. In this run Iris sent no approval of its own to Harborline, so
 that rule was not put to the test.
@@ -228,7 +228,7 @@ Each company stays in charge of what an agent's approval is worth to it.
   instruction, and it keeps that in its own record.
 - It decides whether to act on an agent's approval. Lantern did. A company
   may decline one and do nothing, and an agent that was declined does not
-  send that approval again. [Approvals with Operations](../operations.md#7-declines)
+  send that approval again. [Approvals with Operations](../operations.md#declines)
   explains declines.
 - It can still refuse a request for its own reasons, whoever approves, as
   Harborline does in [Moving money](moving-money.md).
@@ -239,6 +239,6 @@ Each company stays in charge of what an agent's approval is worth to it.
 
 The Inspector view of the playground logs each use of the instruction and
 the reason when it is not applied.
-[Approvals with Operations](../operations.md#4-who-approves) describes user
+[Approvals with Operations](../operations.md#who-approves) describes user
 and agent approvals, and how Iris checks an instruction against the exact
 terms before it approves.

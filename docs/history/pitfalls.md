@@ -367,3 +367,108 @@ The community validator found our missing `Cache-Control`; the official one
 found the token endpoint's check order and the Direct Conversation errors.
 Neither found what the other did, and our 470 tests had found none of it. Run
 both, and don't read a pass as proof that an implementation is correct.
+
+## What the official validator found on the first run
+
+The first run, before the fixes, had 97 passes, 2 failures and 8 warnings,
+the same at every Company because they share one gateway:
+
+1. **Unknown refresh tokens got the wrong error.** The validator tests client
+   assertions by sending a good assertion with a refresh token that doesn't
+   exist and expecting `invalid_grant`. Our token endpoint checked the DPoP
+   proof first and answered `invalid_dpop_proof`, so none of its eight
+   assertion checks could tell whether the assertion had been accepted. The
+   fix looks the refresh token up before the proof; a real refresh token
+   still needs the key it was bound to.
+2. **Direct Conversations had the wrong errors.** We don't offer Direct
+   Conversations yet and refused every `parent_conversation_id` with
+   `invalid_request`. The spec gives a bad parent its own errors,
+   `conversation_not_found` and `conversation_closed`
+   ([§8.10](https://personalagentprotocol.org/docs/1.0/spec#direct-conversations)),
+   and it doesn't make Direct Conversations optional. The parent is now
+   checked first, and Direct Conversations are implemented since; see
+   [Conversations](../learn/conversations.md#when-the-company-needs-to-hear-from-the-user).
+
+Neither showed up in our own 470-odd tests or in the community validator,
+because both test what we thought the rules were.
+
+## Domain extensions (FDX and ESPI)
+
+Source material from the single page "Domain extensions: bank data through
+Poppy", before it became the Learn pages
+[Domain extensions](../learn/extensions/README.md),
+[FDX: bank data through Poppy](../learn/extensions/fdx.md),
+[ESPI: energy data through Poppy](../learn/extensions/espi.md) and
+[Write a domain extension](../learn/write-an-extension.md). The rules these
+stories teach are now plain rules in the last of those pages. The stories stay
+here, as the original page told them.
+
+### Pitfalls we hit
+
+- **One consent in 32 vanished.** Grant IDs are base64url, and about one in 32
+  starts with `-` or `_`. Our ID check wanted a letter or digit first, so for
+  those Users the consent was simply "unknown". It looked like a flaky test until
+  we did the arithmetic. We fixed it in two places, the adapter and the token
+  response, and then found a third copy in the revocation path. Now there is one
+  ID rule, in the adapter, and everything uses it.
+- **The generic adapter took the wrong API.** Iris used the first OpenAPI entry
+  it found. With two listed, the FDX-shaped description could have ended up in
+  front of the model as ordinary tools.
+- **`Accept` headers merged.** Our transport's default
+  `Accept: application/json` was combined with the caller's `application/pdf`, so
+  the statement request asked for both. The defaults are now replaced, not
+  merged.
+- **Error bodies were thrown away.** The transport turned every non-2xx response
+  into an error with a code and dropped the body, which is right for Poppy errors
+  and wrong for `701`.
+- **The account choice was bypassable.** At first the choice limited only the
+  FDX-shaped routes, and the consent page said so in small print. The same
+  sign-in also granted Harborline's own read scopes, and in a test with a real
+  model the model preferred that API and told the User the balance of the
+  savings account they hadn't shared. From the User's side the choice meant
+  nothing. Now the bank applies it to the whole grant, both APIs and the Company
+  Agent, and Iris, with Use FDX on, steers the model to the FDX-shaped tools for
+  account data.
+- **The specification can't be copied.** Check a domain standard's licence
+  before you vendor its schemas. FDX's forbids it, so our shapes are written by
+  hand from public implementers' documentation.
+
+### Checking the two sides against each other
+
+From the section "A second domain: energy usage". Checking the two sides
+against each other found two mismatches the separate test suites hadn't.
+Fernwick bills UTC months, and the agent printed them in Pacific dates, so
+September seemed to start on 31 August. And the default 92-day window for bills
+crosses the November clock change, which makes it an hour longer than 92 × 24
+hours: the utility refused it.
+
+### Fragments from the original page
+
+Sentences of the original page that told the lab's own story, and that the
+Learn pages now say as plain rules or facts.
+
+- In "What each side has to get right", for the Company: "Put the extension's
+  routes behind the Session middleware too. Ours guarded only `/api/*` at first,
+  so `/fdx/v6/...` would have run with no Session check at all."
+- In the same list: "Keep the domain consent and the Poppy grant one record:
+  same ID, same end. Make the end real. Harborline's record once said `ONE_TIME`
+  while the grant refreshed for 7 days; now a grant without `offline_access` ends
+  with its first access token, and a refresh after it gets `invalid_grant`."
+- In "Why an extension, and not just an OpenAPI": "Our generic adapter stops at
+  24 tools and 64 paths and doesn't follow `$ref`, and an FDX-style description
+  goes well past both."
+- In "4. Reading": "Treating `ACCOUNT_BASIC` as descriptors without balances is
+  how implementing banks describe it, not something we could check in FDX's own
+  text."
+- In the energy section, on XML: "We wrote a strict one for the subset Atom uses,
+  which refuses document type declarations, any entity beyond the five
+  predefined ones and processing instructions, and bounds size, depth and
+  element count. Company XML is untrusted input, and an XML parser is where the
+  old attacks live."
+- On revoking: "ESPI speaks of updating or deleting the authorization without
+  settling the method, so the method is ours."
+- In "Writing your own domain extension", step 7: "Write down what it doesn't
+  cover. For us that's money movement, tax documents and data-recipient
+  registration, plus open questions about field names we couldn't verify."
+- After the seven steps: "We have now tried the pattern twice, on bank data and
+  on energy usage (below)."

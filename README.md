@@ -68,7 +68,7 @@ pnpm spec:drift
 
 ## Documentation
 
-Start with **Learn**, at [poppylab.dev/learn](https://poppylab.dev/learn) or in [`docs/learn`](docs/learn/README.md): one task request by request, Poppy compared with an API, MCP, browser automation and UCP, conversations, approvals, how to build either side, the pitfalls we hit, the official validator's results and a glossary. The site pages are built from the same Markdown.
+Start with **Learn**, at [poppylab.dev/learn](https://poppylab.dev/learn) or in [`docs/learn`](docs/learn/README.md): one task request by request, Poppy compared with an API, MCP, browser automation and UCP, conversations, approvals, how to build either side, the official validator's results and a glossary. The site pages are built from the same Markdown.
 
 [`docs/`](docs/README.md) also holds the design notes for contributors ([Poppy 1.0](docs/poppy-1.0.md), the [coverage matrix](docs/coverage.md), the [portable runtime](docs/portable-runtime.md), one note per Company) and, in [`docs/history`](docs/history), notes from earlier drafts. `DESIGN.md` records the visual systems; `PRODUCT.md` the product context.
 

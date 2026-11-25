@@ -1,5 +1,8 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  LEARN_GROUPS,
   LEARN_PAGES,
   imageSize,
   learnHref,
@@ -7,6 +10,7 @@ import {
   renderPage,
   slugify,
   subsections,
+  svgFigure,
 } from "./learn";
 
 describe("learn links", () => {
@@ -231,5 +235,67 @@ describe("learn links", () => {
     expect(first).not.toContain("<p><figure");
     // An image from anywhere else is refused at build time.
     expect(() => renderMarkdown("![x](https://example.com/x.png)")).toThrow();
+  });
+  it("sorts every page into one of the four kinds, and keeps the overview alone", () => {
+    const groups = new Set<string>(LEARN_GROUPS.map((g) => g.id));
+    for (const page of LEARN_PAGES) {
+      if (page.slug === "") {
+        expect(page.group).toBeUndefined();
+      } else if (page.parent) {
+        // A subsection takes its kind from the page it belongs to.
+        expect(page.group, page.slug).toBeUndefined();
+        expect(LEARN_PAGES.some((p) => p.slug === page.parent)).toBe(true);
+      } else {
+        expect(groups.has(page.group ?? ""), page.slug).toBe(true);
+      }
+    }
+    // Each kind has a page, and the lab's own history is not among them.
+    for (const group of LEARN_GROUPS)
+      expect(LEARN_PAGES.some((p) => p.group === group.id)).toBe(true);
+    expect(LEARN_PAGES.some((p) => p.slug === "pitfalls")).toBe(false);
+  });
+
+  it("gives Domain extensions one subsection for each worked example", () => {
+    const page = LEARN_PAGES.find((p) => p.slug === "extensions")!;
+    expect(subsections(page).map((p) => p.slug)).toEqual([
+      "extensions/fdx",
+      "extensions/espi",
+    ]);
+  });
+
+  it("draws an SVG figure in the page, with an upright drawing for narrow screens", () => {
+    const html = svgFigure(
+      "apps/playground/public/learn-media/diagrams/operation-lifecycle.svg",
+      'A "figure" described in full',
+      "One sentence.",
+    );
+    expect(html).toMatch(/^<figure class="learn-figure"><svg class="wide" /);
+    expect(html).toContain('role="img"');
+    expect(html).toContain('aria-label="A &#34;figure&#34; described in full"');
+    expect(html).toContain('<svg class="narrow" ');
+    expect(html).toContain("<figcaption>One sentence.</figcaption>");
+    // It is drawn with plain attributes, so figures on one page don't collide.
+    expect(html).not.toMatch(/\sid\s*=|<script|<style/);
+  });
+
+  it("refuses a figure that is not ours, or that could collide or run", () => {
+    expect(() => renderMarkdown("![x](https://example.com/x.svg)")).toThrow();
+    expect(() =>
+      renderMarkdown(
+        "![x](../../apps/playground/public/learn-media/diagrams/missing.svg)",
+      ),
+    ).toThrow();
+  });
+
+  it("wraps code in a Learn page instead of scrolling it sideways", () => {
+    const css = readFileSync(
+      path.join(process.cwd(), "app", "site.css"),
+      "utf8",
+    );
+    const block = /\.learn-body pre \{[^}]*\}/.exec(css)?.[0] ?? "";
+    const code = /\.learn-body pre code \{[^}]*\}/.exec(css)?.[0] ?? "";
+    expect(block).not.toMatch(/overflow-x/);
+    expect(code).toMatch(/white-space:\s*pre-wrap/);
+    expect(code).toMatch(/overflow-wrap:\s*anywhere/);
   });
 });

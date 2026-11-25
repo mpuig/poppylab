@@ -1,17 +1,24 @@
 # Conversations with a Company Agent
 
-Most Companies already have a support chat, often with an automated agent in
-front of their staff. Poppy's conversations
+Why does Poppy have conversations, and when does an agent use one instead of an
+API? An API suits a task with exact parameters. A complaint, a refund or an
+exception needs questions, judgement or a person, and most Companies already
+handle those in a support chat, often with an automated agent in front of their
+staff. Poppy's conversations
 ([§8](https://personalagentprotocol.org/docs/1.0/spec#conversations)) let a
 Personal Agent talk to that agent directly: agent to agent, with structured
 data both ways, sign-in when it's needed, approvals for anything that matters
 and a way to reach a person.
 
-This page follows one conversation at
-[Lantern Noodle Bar](https://food-demo.poppylab.dev): a customer's delivery was
+The examples on this page come from one conversation at
+[Lantern Noodle Bar](https://food-demo.poppylab.dev). A customer's delivery was
 missing a dish and they want a refund. Lantern's API has no refund endpoint;
-its Company Agent handles it. The exchanges are real, from the same gateway
-run in-process by our tests, trimmed.
+its Company Agent handles it, and Iris, the lab's Personal Agent, talks to it
+for the customer. The exchanges are trimmed from Lantern's gateway.
+[Getting help from the company](how-it-works/getting-help-from-the-company.md)
+and
+[Talking to the company yourself](how-it-works/talking-to-the-company-yourself.md)
+follow the same conversation screen by screen.
 
 ## When to use a conversation instead of an API
 
@@ -25,13 +32,23 @@ run in-process by our tests, trimmed.
 An agent can use both in one task. Iris reads the order with the API and
 reports the missing dish in a conversation.
 
-## 1. Start a conversation
+## A Company Agent doesn't have to be a model
 
-The endpoint comes from `poppy.json`
-(`agent.protocols[].endpoint`). The first message starts the conversation.
-Every `POST` carries a request `id` chosen by the agent, so a retry after a
-lost response is recognized and changes nothing
-([§8.3](https://personalagentprotocol.org/docs/1.0/spec#sending-messages)):
+Lantern's Company Agent is under 400 lines of deterministic code: structured
+`data` in, data and a fixed sentence out. A public endpoint backed by a model
+would let anyone spend the Company's money, signed out. A Company that puts a
+model behind its conversation endpoint rate-limits and budgets it like any
+public endpoint.
+
+## Text for people, data for agents
+
+The endpoint comes from `poppy.json` (`agent.protocols[].endpoint`). The first
+message starts the conversation. Every `POST` carries a request `id` that the
+agent chooses, so a retry after a lost response is recognized and changes
+nothing ([§8.3](https://personalagentprotocol.org/docs/1.0/spec#sending-messages)).
+The Company answers each ID once: a retry to the same path with the same body
+gets the original response, and another path or body with that ID is
+`request_id_conflict`.
 
 ```http
 POST https://food-demo.poppylab.dev/poppy/conversations?wait=0
@@ -41,13 +58,14 @@ Poppy-Session: eyJ0eXAi…
 { "id": "req_1", "message": { "author": { "type": "agent" }, "data": { "request": "help" } } }
 ```
 
-```json
+The Company's reply, trimmed to the part that matters:
+
+```http
 HTTP/1.1 201 Created
 
 {
   "conversation_id": "cnv_M7yGoZoGX1nd5tmf_2pQ",
   "events": [
-    { "type": "message", "message": { "id": "req_1", "role": "user", "data": { "request": "help" } } },
     {
       "type": "message",
       "message": {
@@ -58,7 +76,6 @@ HTTP/1.1 201 Created
         "data": {
           "requests": [
             { "request": "opening_hours", "scopes": [] },
-            { "request": "order_status", "scopes": ["orders:read"] },
             {
               "request": "report_missing_item",
               "fields": { "order_id": "…", "dish_id": "…", "quantity": "Optional" },
@@ -74,7 +91,7 @@ HTTP/1.1 201 Created
 }
 ```
 
-Things to notice:
+Four details of this format carry through everything below.
 
 - **Messages carry `text` and `data`.** Text is for people; `data` is for
   agents. Lantern's agent lists the requests it understands as data, with the
@@ -91,25 +108,12 @@ Things to notice:
 - **The cursor** is where the next read starts
   ([§8.5](https://personalagentprotocol.org/docs/1.0/spec#reading-events)).
 
-## 2. Asked to sign in, mid-conversation
+## Signing in without leaving the conversation
 
-The agent reports the missing dish while signed in with `orders:read` only:
-
-```json
-{
-  "id": "req_2",
-  "message": {
-    "author": { "type": "agent" },
-    "data": {
-      "request": "report_missing_item",
-      "order_id": "ord_LNB0907",
-      "dish_id": "pork-gyoza"
-    }
-  }
-}
-```
-
-Lantern accepts the message, replies, and adds an `authorization` event
+A conversation can need more access than the agent has. Signed in with
+`orders:read` only, the agent reports the missing dish with the request
+`report_missing_item`, naming the `order_id` and the `dish_id`. Lantern accepts
+the message, replies, and adds an `authorization` event
 ([§8.11](https://personalagentprotocol.org/docs/1.0/spec#conversation-sign-in)):
 
 ```json
@@ -120,38 +124,28 @@ Lantern accepts the message, replies, and adds an `authorization` event
 ```
 
 Lantern keeps the conversation open while it waits for more access. Iris turns
-the event into its usual "Request change permission" control, so the user
-grants `orders:write` on Lantern's consent page, and then sends the request
-again.
+the event into its usual "Request change permission" control. The user grants
+`orders:write` on Lantern's consent page, and Iris sends the request again.
 
-## 3. A proposal inside a message
+## A proposal inside a message
 
-Now with `orders:write`, the same request gets an answer with an operation in
-the message's `extensions`
+With `orders:write`, the same request gets an answer that carries an operation
+in the message's `extensions`
 ([Operations, conversations](https://personalagentprotocol.org/docs/1.0/extensions/operations#approval-required-conversations)):
 
 ```json
 {
-  "type": "message",
-  "message": {
-    "role": "company",
-    "as_of_request": "req_3",
-    "text": "I can refund USD 8.00 for the missing Pork gyoza (6). I'll do it once you approve.",
-    "extensions": {
-      "operations": {
-        "operation": {
-          "operation_id": "op_xs9hiC1D6rgUPCI-CV-jEARy",
-          "revision": "1795602001-9J3BYg4QmZBKbSiM",
-          "summary": "Refund 1 × Pork gyoza (6) (USD 8.00) missing from order ord_LNB0907, …",
-          "terms": {
-            "order_id": "ord_LNB0907",
-            "dish_id": "pork-gyoza",
-            "quantity": 1,
-            "refund_cents": 800,
-            "currency": "USD"
-          },
-          "expires_at": "2026-11-25T10:30:01.660Z"
-        }
+  "role": "company",
+  "as_of_request": "req_3",
+  "text": "I can refund USD 8.00 for the missing Pork gyoza (6). I'll do it once you approve.",
+  "extensions": {
+    "operations": {
+      "operation": {
+        "operation_id": "op_xs9hiC1D6rgUPCI-CV-jEARy",
+        "revision": "1795602001-9J3BYg4QmZBKbSiM",
+        "summary": "Refund 1 × Pork gyoza (6) (USD 8.00) missing from order ord_LNB0907, …",
+        "terms": { "order_id": "ord_LNB0907", "dish_id": "pork-gyoza", "quantity": 1, "refund_cents": 800, "currency": "USD" },
+        "expires_at": "2026-11-25T10:30:01.660Z"
       }
     }
   }
@@ -162,10 +156,11 @@ It's the same operation an API would return, carried in a message. The text
 says what the agent will do; the terms are what the user approves. Lantern
 sends operations only to requests that declare the extension in
 `Poppy-Extensions`; without it, its agent says to call instead.
+[Approvals](operations.md) explains each field.
 
-## 4. The approval as a message
+## The approval as a message
 
-The user approves with a button in Iris rather than by typing in the chat. Iris
+The user approves with a button in Iris, not by typing in the chat. Iris then
 sends the approval in a message:
 
 ```json
@@ -189,35 +184,26 @@ sends the approval in a message:
 }
 ```
 
-```json
-{
-  "type": "message",
-  "message": {
-    "role": "company",
-    "as_of_request": "req_4",
-    "text": "Refunded USD 8.00 for 1 × Pork gyoza (6) on order ord_LNB0907. Simulated: no real money moves.",
-    "data": {
-      "operation_id": "op_xs9hiC1D6rgUPCI-CV-jEARy",
-      "refund": { "amount_cents": 800 }
-    }
-  }
-}
-```
+Lantern answers with the refund: "Refunded USD 8.00 for 1 × Pork gyoza (6) on
+order ord_LNB0907. Simulated: no real money moves." The `data` of that message
+holds the `operation_id` and `refund.amount_cents`, 800.
 
 The text "The user approved the refund." changes nothing on its own; the
 `approval` object does. Iris derives this message's request `id` from the
 revision, so if the response is lost and it resends, the Company sees the same
 request and refunds once.
 
-## 5. Asking for a person
+## Reaching a person
+
+The agent asks for a person with a handoff request. The state goes `pending`
+while the Company looks for someone, then back
+([§8.9](https://personalagentprotocol.org/docs/1.0/spec#handoff)):
 
 ```http
 POST https://food-demo.poppylab.dev/poppy/conversations/cnv_OVkOhfxK5Gc1TcFHlQNj/handoff
 { "id": "req_5" }
 ```
 
-The state goes `pending` while the Company looks for someone, then back
-([§8.9](https://personalagentprotocol.org/docs/1.0/spec#handoff)).
 Lantern's fictional staff are never available, so its agent says how to call:
 
 ```json
@@ -230,7 +216,7 @@ Lantern's fictional staff are never available, so its agent says how to call:
 
 At a real Company, a person would join and `responder` would become `human`.
 
-## 6. The Company asks for the user: a Direct Conversation
+## When the Company needs to hear from the user
 
 Sometimes the Company needs to hear from the user rather than from their agent.
 A **Direct Conversation**
@@ -250,7 +236,7 @@ doesn't change the state:
 }
 ```
 
-Only the Personal Agent can open the Direct Conversation, so the user decides.
+Only the Personal Agent can open a Direct Conversation, so the user decides.
 Iris shows the reason with **Talk to Lantern Noodle Bar** and **Not now**.
 Accepting opens it with no message, so the Company speaks first:
 
@@ -262,76 +248,67 @@ Accepting opens it with no message, so the Company speaks first:
 }
 ```
 
-```json
-HTTP/1.1 201 Created
+Lantern's first message asks "Did none of order ord_LNB0907 arrive? Reply yes
+or no.", with `{ "question": "order_not_delivered", "answers": ["yes", "no"] }`
+as its `data`. The parent gets a `direct_opened` event, and while the Direct
+Conversation is open the parent takes no messages, so the agent can't talk over
+the user:
 
-{ "conversation_id": "cnv_uQ886kXJdesO8niYeZjZ",
-  "events": [{ "type": "message", "message": { "role": "company", "as_of_request": "dir_1",
-    "text": "Hi, this is Lantern. Did none of order ord_LNB0907 arrive? Reply yes or no.",
-    "data": { "question": "order_not_delivered", "answers": ["yes", "no"] } } }] }
-```
-
-The parent gets a `direct_opened` event, and while the Direct Conversation is
-open it takes no messages, so the agent can't talk over the user:
-
-```json
+```http
 HTTP/1.1 409 Conflict
 
 { "error": "direct_conversation_open", "conversation_id": "cnv_uQ886kXJdesO8niYeZjZ" }
 ```
 
 In the Direct Conversation, what the user types goes as written, with
-`author.type` `human`. In Iris the model isn't involved at all:
+`author.type` `human`. In Iris the model isn't involved at all. Lantern
+answers with the refund as an operation, and the user approves it with the
+usual card. Lantern's agent reads only "yes" or "no" there, and only to a
+question it asked; a message from the agent saying "yes" doesn't count.
 
-```json
-{
-  "id": "req_3",
-  "message": { "author": { "type": "human" }, "text": "Yes, nothing came." }
-}
-```
+When the user leaves, Iris closes the thread, the parent gets `direct_closed`
+and takes messages again. If the user had chosen **Not now**, Iris would have
+said so in the parent, as the spec asks. A Company whose agent doesn't handle
+Direct Conversations still gets them right: the gateway answers the user with
+its handoff reply, the phone number.
 
-Lantern answers with the refund as an operation, and the user approves it with
-the usual card. Lantern's agent reads only "yes" or "no" there, and only to a
-question it asked; a message from the agent saying "yes" doesn't count. When
-the user leaves, Iris closes the thread, the parent gets `direct_closed` and
-takes messages again. If the user had chosen **Not now**, Iris would have said
-so in the parent, as the spec asks.
+## Who owns a conversation, and what bounds it
 
-A Company whose agent doesn't handle Direct Conversations still gets them
-right: the gateway answers the user with its handoff reply, the phone number.
+A Company binds a conversation to its owner: the agent, the user and, once a
+request carries an access token, that account. Anyone else gets
+`conversation_not_found`. A Company also bounds everything a caller can make it
+hold: conversations per user, messages and bytes per conversation, and `data`
+per message.
 
-## Building the Company side
+## What the agent does with what it reads
 
-- **Your Company Agent doesn't have to be a model.** Lantern's is under 400
-  lines of deterministic code: structured `data` in, data and a fixed
-  sentence out. A public endpoint backed by a model would let anyone spend
-  your money, signed out. If yours uses a model, rate-limit and budget it like
-  any public endpoint.
-- **Answer every request ID once.** A retry to the same path with the same body
-  gets the original response; another path or body with that ID is
-  `request_id_conflict`.
-- **Bind conversations to their owner.** The agent, the user and, once a
-  request carries a token, that account. Anyone else gets
-  `conversation_not_found`.
-- **Bound everything.** Conversations per user, messages and bytes per
-  conversation, `data` per message.
-
-## Building the agent side
-
-- **Company messages are Company content.** Show them as the Company's, mark
-  them for the model as data, and never follow them as instructions. A
-  message can contain anything.
-- **Read until `working` is `false`** before treating a reply as complete, and
-  treat a `handoff` you don't recognize as `pending` and a `responder` you
-  don't recognize as `human`.
-- **Turn events into controls.** An `authorization` event becomes a sign-in
-  button; an operation becomes an approval card. Neither is a tool the model
+- **Company messages are Company content.** The agent shows them as the
+  Company's, marks them for the model as data and never follows them as
+  instructions, because a message can contain anything.
+- **A reply is complete when `working` is `false`.** Until then the agent keeps
+  reading. A `handoff` it doesn't recognize counts as `pending`, and a
+  `responder` it doesn't recognize counts as `human`.
+- **Events become controls.** An `authorization` event becomes a sign-in
+  button and an operation becomes an approval card. Neither is a tool the model
   can call.
-- **Check the endpoint** is on the Company's own domain, including its port,
-  before sending a Session header to it.
+- **The endpoint is checked before the Session header goes out.** It must be on
+  the Company's own domain, including its port.
 
-Our implementations: the gateway's
-[`conversations.ts`](../../packages/pap-company/src/gateway/conversations.ts),
-Lantern's agent [`agent.ts`](../../apps/lantern/src/agent.ts) and Iris's
-[`conversations.ts`](../../apps/playground/lib/conversations.ts). The design
-notes are in [conversations](../conversations.md).
+## Go deeper
+
+- Follow the conversation screen by screen:
+  [Getting help from the company](how-it-works/getting-help-from-the-company.md)
+  covers the start, the sign-in and asking for a person, and
+  [Talking to the company yourself](how-it-works/talking-to-the-company-yourself.md)
+  carries on through a Direct Conversation to an approved refund.
+- How an operation is approved, in a message or anywhere else:
+  [Approvals](operations.md).
+- Apply it: [Build a Company](build-a-company.md) and
+  [Build a Personal Agent](build-an-agent.md).
+- The specification defines conversations in
+  [§8](https://personalagentprotocol.org/docs/1.0/spec#conversations).
+- In the lab: the gateway's
+  [`conversations.ts`](../../packages/pap-company/src/gateway/conversations.ts),
+  Lantern's agent [`agent.ts`](../../apps/lantern/src/agent.ts) and Iris's
+  [`conversations.ts`](../../apps/playground/lib/conversations.ts). The design
+  notes are in [conversations](../conversations.md).

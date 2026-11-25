@@ -1,15 +1,16 @@
 # Poppy compared
 
-Personal Agent Protocol is an agreement around the interfaces a Company already
-has. It settles who the agent is, which user it acts for, what that user
-allowed, and when a person has to say yes. The interfaces themselves stay
-OpenAPI, MCP, a support chat or the website.
+Should a Company that already has an API, an MCP server or a website add
+Personal Agent Protocol, and what does it get for it? Poppy is an agreement
+around the interfaces a Company already has. It settles who the agent is, which
+user it acts for, what that user allowed, and when a person has to say yes. The
+interfaces themselves stay OpenAPI, MCP, a support chat or the website.
 
-"Poppy or MCP?" compares things that sit at different layers. This page asks
-what each layer gives the Company and the user, for the four options people
-usually weigh.
+"Poppy or MCP?" therefore compares things that sit at different layers. The
+useful comparison is what each layer gives the Company and the user, for the
+options people usually weigh.
 
-## The short version
+## The options side by side
 
 | Question                                                    | Public API + OAuth                        | MCP server                                    | Browser automation                         | Poppy                                                                                          |
 | ----------------------------------------------------------- | ----------------------------------------- | --------------------------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------- |
@@ -23,7 +24,7 @@ usually weigh.
 | Does the agent learn what the Company won't do through it?  | No                                        | No                                            | No                                         | Yes: excluded tasks with alternatives, and a feedback endpoint                                 |
 | Does a new agent need to register with each Company?        | Yes                                       | Depends on the server                         | No                                         | No: its `client_id` is a URL the Company fetches                                               |
 
-The rest of this page explains the rows that matter most for each option.
+The sections below explain the rows that matter most for each option.
 
 ## Against a public API with OAuth
 
@@ -39,8 +40,7 @@ Poppy keeps the API and OAuth, and changes three things around them:
   fetches it to get the agent's name and public keys
   ([§4.1](https://personalagentprotocol.org/docs/1.0/spec#agent-identity)), and
   the agent proves who it is by signing, never with a shared secret. A Company
-  can still keep an allowlist; it just doesn't need a sign-up process to have
-  one.
+  can still keep an allowlist; it doesn't need a sign-up process to have one.
 - **One discovery document.** The agent learns the issuer, the scopes and
   every interface from one well-known file, so the same agent code works at
   every Company.
@@ -50,9 +50,9 @@ Poppy keeps the API and OAuth, and changes three things around them:
   A Company can rate-limit per user, keep state per Session and serve signed-out
   traffic it can actually reason about, which a plain API can't.
 
-A plain API is enough when the only clients are ones you know and register
-yourself. Add Poppy when you want any agent your users choose to work with your
-service, under your rules.
+A plain API is enough when the only clients are ones the Company knows and
+registers itself. Poppy earns its place when the Company wants any agent its
+users choose to work with the service, under the Company's rules.
 
 ## Against MCP
 
@@ -66,7 +66,7 @@ server can stay as it is, taking ordinary OAuth access tokens issued for it;
 the [guides](https://personalagentprotocol.org/docs/1.0/guides) cover the
 details of running both.
 
-What Poppy adds on top of an MCP server:
+Poppy adds four things on top of an MCP server:
 
 - **The whole Company.** Discovery covers the Company's
   API, MCP servers, Company Agent, website and the tasks it won't do, with one
@@ -81,8 +81,10 @@ What Poppy adds on top of an MCP server:
 - **A person, when needed.** Conversations let the agent ask the Company's own
   agent and hand off to staff, which tools alone don't model.
 
-Keep MCP as the way your tools are called, and list it in `poppy.json` so that
-agents find it, sign in once and get approvals tied to exact terms.
+An MCP server on its own is enough when its tools change nothing that matters
+and the Company has no need to tell agents apart before sign-in. Otherwise the
+server can stay the way the Company's tools are called, listed in `poppy.json`
+so that agents find it, sign in once and get approvals tied to exact terms.
 
 ## Against browser automation
 
@@ -117,9 +119,10 @@ other.
 
 ## What it costs a Company
 
-It costs less than it sounds, because most of it is what you already run. The
+It costs less than it sounds, because most of it is what a Company already
+runs. The
 [kit's architecture](https://personalagentprotocol.org/kit/company#architecture)
-lists the additions; in our gateway they map to:
+lists the additions; in the lab's gateway they map to:
 
 | Addition                                   | In Poppy Lab                                                                                                                   |
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
@@ -132,3 +135,16 @@ lists the additions; in our gateway they map to:
 A Company that only wants to be found can stop at a `poppy.json` without
 `auth`. The rest can come one milestone at a time, and the official validator
 checks each one (see [Validator results](validator.md)).
+
+## Go deeper
+
+- Watch the protocol work at a Company:
+  [How it works](how-it-works/README.md) shows what a customer, their agent and
+  a company each do, one screen at a time, and
+  [One task, request by request](one-task.md) shows every request and response
+  for one change.
+- The two parts that go furthest beyond a plain API:
+  [Conversations](conversations.md) and [Approvals](operations.md).
+- To adopt it: [Build a Company](build-a-company.md) adds Poppy to an existing
+  API one milestone at a time, and [Build a Personal Agent](build-an-agent.md)
+  covers the agent's side.

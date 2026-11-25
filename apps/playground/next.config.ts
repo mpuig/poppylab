@@ -17,6 +17,13 @@ const nextConfig: NextConfig = {
   // aren't forwarded: in development Next writes them under .next/dev/logs,
   // which its watcher picks up, reloading the page in a loop.
   logging: { incomingRequests: false, browserToTerminal: false },
+  // Learn no longer has a page of pitfalls; its old address leads to the
+  // overview instead of a dead end.
+  async redirects() {
+    return [
+      { source: "/learn/pitfalls", destination: "/learn", permanent: false },
+    ];
+  },
   async headers() {
     return [
       {

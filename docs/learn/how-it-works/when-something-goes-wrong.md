@@ -189,7 +189,7 @@ revision. The part of the terms that changed:
 | `source_balance_before_cents` | 1284500           | 284500       |
 | `source_balance_after_cents`  | 1234500           | 234500       |
 
-[What the Company checks](../operations.md#6-what-the-company-checks) lists
+[What the Company checks](../operations.md#what-the-company-checks) lists
 the checks behind this answer.
 
 </details>
@@ -220,7 +220,7 @@ the original result and does not make it a second time. A company that never
 received the first one checks it as it would any approval. Iris does not ask
 for the change again to find out what happened: while the outcome is unknown
 it puts no new proposal in front of Elena.
-[Retries and at most once](../operations.md#8-retries-and-at-most-once)
+[Retries and at most once](../operations.md#retries-and-at-most-once)
 describes what each side has to do for this to hold.
 
 ## What Lantern and Harborline control

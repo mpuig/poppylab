@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 574" font-family="'Hanken Grotesk','Helvetica Neue',Arial,sans-serif">
+  <line x1="96" y1="48" x2="96" y2="570" stroke="#c9ced5" stroke-width="1.2"/>
+  <line x1="360" y1="48" x2="360" y2="570" stroke="#c9ced5" stroke-width="1.2"/>
+  <line x1="624" y1="48" x2="624" y2="570" stroke="#c9ced5" stroke-width="1.2"/>
+  <rect x="12.0" y="0.6" width="168" height="46.8" rx="6" fill="#171a1f" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="96" y="29.25" text-anchor="middle" font-size="16" font-weight="600" fill="#ffffff">The user</text>
+  <rect x="276.0" y="0.6" width="168" height="46.8" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="360" y="29.25" text-anchor="middle" font-size="16" font-weight="600" fill="#171a1f">Personal Agent</text>
+  <rect x="540.0" y="0.6" width="168" height="46.8" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="624" y="29.25" text-anchor="middle" font-size="16" font-weight="600" fill="#171a1f">Company</text>
+  <line x1="360" y1="99" x2="616" y2="99" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M624 99L616 94.5L616 103.5Z" fill="#0d5c4a"/>
+  <rect x="395.9" y="66" width="192.2" height="29" rx="4" fill="#ffffff"/>
+  <text x="492.0" y="87.0" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">1 · Request the change</text>
+  <line x1="624" y1="158" x2="368" y2="158" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M360 158L368 153.5L368 162.5Z" fill="#0d5c4a"/>
+  <rect x="274.4" y="125" width="435.2" height="29" rx="4" fill="#ffffff"/>
+  <text x="492.0" y="146.0" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">2 · approval_required, with the terms and a revision</text>
+  <rect x="12" y="186" width="696" height="46" rx="8" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <circle cx="32" cy="209.0" r="4" fill="#f2b705"/>
+  <text x="46" y="214.25" font-size="15" font-weight="600" fill="#171a1f">Waiting for approval of this revision</text>
+  <line x1="96" y1="283" x2="352" y2="283" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M360 283L352 278.5L352 287.5Z" fill="#0d5c4a"/>
+  <rect x="87.3" y="250" width="281.3" height="29" rx="4" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <text x="228.0" y="271.0" text-anchor="middle" font-size="15" font-weight="600" fill="#171a1f">3 · The user approves these terms</text>
+  <line x1="360" y1="342" x2="616" y2="342" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M624 342L616 337.5L616 346.5Z" fill="#0d5c4a"/>
+  <rect x="327.0" y="309" width="329.9" height="29" rx="4" fill="#ffffff"/>
+  <text x="492.0" y="330.0" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">4 · The same request, with the approval</text>
+  <text x="28" y="395.5" font-size="14" fill="#5b626c">If the terms still match</text>
+  <line x1="624" y1="442" x2="368" y2="442" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M360 442L368 437.5L368 446.5Z" fill="#0d5c4a"/>
+  <rect x="323.0" y="409" width="338.0" height="29" rx="4" fill="#ffffff"/>
+  <text x="492.0" y="430.0" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">5 · The change is made once, or declined</text>
+  <line x1="12" y1="472" x2="708" y2="472" stroke="#e3e6ea" stroke-width="1"/>
+  <text x="28" y="493.5" font-size="14" fill="#5b626c">If the terms have changed</text>
+  <line x1="624" y1="540" x2="368" y2="540" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M360 540L368 535.5L368 544.5Z" fill="#0d5c4a"/>
+  <rect x="266.3" y="507" width="451.4" height="29" rx="4" fill="#ffffff"/>
+  <text x="492.0" y="528.0" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">5 · A new revision; the old approval no longer applies</text>
+  <rect x="12" y="368" width="696" height="196" rx="8" fill="none" stroke="#c9ced5" stroke-width="1" stroke-dasharray="5 4"/>
+</svg>

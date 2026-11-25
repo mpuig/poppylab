@@ -137,7 +137,8 @@ The request went in Iris's session with Lantern, so Lantern knows which agent
 sent it. Elena was signed in, so it also carried her permission for Iris, and
 Lantern can file the report under her account.
 [Feedback, on the wire](../build-a-company.md#feedback-on-the-wire) lists the
-rules both sides apply.
+rules for the company, and [Feedback reports](../build-an-agent.md#feedback-reports)
+those for the agent.
 
 </details>
 

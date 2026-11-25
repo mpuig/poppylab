@@ -71,7 +71,7 @@ In demo mode the words "customer service" make Iris send this message:
 { "author": { "type": "agent" }, "data": { "request": "help" } }
 ```
 
-[Conversations with a Company Agent](../conversations.md#1-start-a-conversation)
+[Conversations with a Company Agent](../conversations.md#text-for-people-data-for-agents)
 shows the request and the response in full.
 
 </details>
@@ -95,7 +95,7 @@ status and then `order_not_delivered` for an order that "never arrived", and a
 request for a person for "talk to someone". It does not send
 `report_missing_item`, so a refund for one missing dish cannot be reached in
 demo mode.
-[Conversations with a Company Agent](../conversations.md#3-a-proposal-inside-a-message)
+[Conversations with a Company Agent](../conversations.md#a-proposal-inside-a-message)
 shows that refund, taken from the lab's tests.
 
 <details>
@@ -155,7 +155,7 @@ Conversation authorization event · scope orders:read
 { "error": "sign_in_required", "scopes": ["orders:read"] }
 ```
 
-[Asked to sign in, mid-conversation](../conversations.md#2-asked-to-sign-in-mid-conversation)
+[Asked to sign in, mid-conversation](../conversations.md#signing-in-without-leaving-the-conversation)
 describes the event.
 
 </details>
@@ -261,7 +261,7 @@ Conversation state · handoff none · responder agent
 }
 ```
 
-[Asking for a person](../conversations.md#5-asking-for-a-person) shows the
+[Asking for a person](../conversations.md#reaching-a-person) shows the
 call. The phone number is fictional.
 
 </details>

@@ -9,25 +9,11 @@ examples from Poppy Lab, and what each side has to get right.
 
 ## The life of an operation
 
-```text
-agent asks for a change ──▶ Company: approval_required + operation (terms, revision)
-                                   │
-              ┌────────────────────┴───────────────────────┐
-              ▼                                            ▼
-     user approves (or the agent,               terms change (price, stock, the
-     on the user's instruction)                 user asks for something else)
-              │                                            │
-              ▼                                            ▼
-agent resends the same request         Company returns a new revision;
-with the approval                      the old approval no longer applies
-              │
-              ▼
-Company checks it and performs the change once, or declines it
-```
+![A Personal Agent asks a Company for a change. The Company answers approval_required with an operation holding its terms and a revision. The user approves, or the agent approves on the user's instruction, and the agent resends the same request with the approval. The Company checks it and performs the change once, or declines. If the terms change, the Company returns a new revision and the old approval no longer applies.](../../apps/playground/public/learn-media/diagrams/operation-lifecycle.svg "A request, an answer that holds the terms, an approval of exactly those terms, and a change made once.")
 
 Everything else in the extension is detail on one of those arrows.
 
-## 1. Advertising it
+## Advertising the extension
 
 A Company lists the extension in `poppy.json`:
 
@@ -44,9 +30,10 @@ Poppy-Extensions: "operations";v="3"
 Only requests that declare it get operations. A change attempted without it is
 refused with `403 {"error": "extension_required", "extension": "operations"}`,
 so an agent that doesn't understand approvals can't trigger a change it
-couldn't have asked the user about.
+couldn't have asked the user about. An agent declares the extension only where
+it can show the user an approval.
 
-## 2. The operation
+## What an operation holds
 
 ```json
 {
@@ -75,7 +62,7 @@ couldn't have asked the user about.
 The Company performs only what the approved revision describes, so anything
 missing from `terms` isn't part of the deal.
 
-## 3. Where it shows up
+## The same operation in every interface
 
 The same operation travels through every interface
 ([Operations §4](https://personalagentprotocol.org/docs/1.0/extensions/operations#approval-required)):
@@ -88,10 +75,10 @@ The same operation travels through every interface
 | Website      | `403` with a `Poppy-Operation` header naming the Session and a reference    | a request to the extension's `endpoint`, never through the browser; then the browser repeats the action |
 
 [One task, request by request](one-task.md#8-propose-the-change) shows the API
-form, and [Conversations](conversations.md#3-a-proposal-inside-a-message) the
+form, and [Conversations](conversations.md#a-proposal-inside-a-message) the
 conversation form, both from Lantern.
 
-## 4. Who approves
+## Who approves
 
 There are two kinds of approval
 ([Operations §5](https://personalagentprotocol.org/docs/1.0/extensions/operations#approval)):
@@ -106,22 +93,24 @@ There are two kinds of approval
   it and asks the user when it can't tell. If the Company answers with a new
   revision, the instruction doesn't stretch to cover it: the user decides.
 
-Either way, before approving, check that `terms` agree with what was asked for
-and with the `summary`. The Company writes both, so a summary could describe
-something the terms don't.
+Either way, the agent checks before approving that `terms` agree with what was
+asked for and with the `summary`. The Company writes both, so a summary could
+describe something the terms don't.
 
 In Iris, a user approval is a button on a card that shows the Company's name,
 its verified domain and the terms. An agent approval comes from a standing
 instruction the user writes for one Company, such as "up to $20". Code checks
-it against the exact `terms`, never the model: any amount over the limit
-(fees included), a refund, another currency or a summary that disagrees with
-the terms goes to the user. The server checks again with its own copy of the
-operation and holds its own limits, five approvals an hour and three times
-the limit in total, so a tampered browser can't stretch a rule. The approval
-goes out as `approver="agent"`, without `input_type`, and its `reference` is
-an entry in a ledger the user sees next to the instruction.
+it against the exact `terms`, never the model: any amount over the limit (fees
+included), a refund, another currency or a summary that disagrees with the
+terms goes to the user.
 
-## 5. Sending the approval
+The server checks again with its own copy of the operation and holds its own
+limits, five approvals an hour and three times the limit in total, so a
+tampered browser can't stretch a rule. The approval goes out as
+`approver="agent"`, without `input_type`, and its `reference` is an entry in a
+ledger the user sees next to the instruction.
+
+## What an approval carries
 
 At an API, the approval is a header on the identical request:
 
@@ -136,10 +125,11 @@ Poppy-Approval: operation_id="op_xs9hiC1D6rgUPCI-CV-jEARy", revision="1795602001
 | `input_type`  | For a user approval, how they gave it, such as `tap`                    |
 | `reference`   | The agent's own record of the approval, for the Company's support staff |
 
-Keep the approval with the operation and send exactly the same one on every
-retry.
+The agent keeps the approval with the operation and sends exactly the same one
+on every retry. The Company records `approver`, `input_type` and `reference`
+with the change.
 
-## 6. What the Company checks
+## What the Company checks
 
 Before performing anything, after the usual Session and token checks, the
 Company checks that:
@@ -154,7 +144,7 @@ If the third check fails, it performs nothing and returns the operation with a
 revision for what the request asks now, never the one the approval named, so
 the agent can't loop on a stale approval.
 
-## 7. Declines
+## Declines
 
 A Company may refuse a valid approval for its own reasons: the approver, the
 account, its risk checks. It answers `403 {"error": "approval_declined"}` with
@@ -163,7 +153,8 @@ optional alternative, such as a page where the user can do it themselves. The
 extension deliberately has no reason codes, because an agent does the same
 whatever the reason, and codes would reveal the Company's risk rules.
 
-A decline is final for that approval. Show it to the user; don't resend it.
+A decline is final for that approval. The agent shows it to the user and
+doesn't resend it.
 
 The lab's bank, Harborline, declines every agent approval that moves money:
 "Harborline moves money only when you approve it yourself." Iris then hands the
@@ -173,19 +164,21 @@ which Harborline performs. A decline lets a Company accept agents for some
 actions and insist on the person for others, and it needs neither reason codes
 nor a new operation.
 
-## 8. Retries and at most once
+## Retries and at most once
 
 Networks fail after the work is done. The extension's answer is that the agent
 resends the identical request with the identical approval, and the Company
 answers with the original result instead of acting twice
-([Operations §7](https://personalagentprotocol.org/docs/1.0/extensions/operations#at-most-once)). For
-that to hold:
+([Operations §7](https://personalagentprotocol.org/docs/1.0/extensions/operations#at-most-once)).
+For that to hold:
 
 - the Company records the result **before** replying;
 - the agent never proposes the change again to "check" whether it happened.
 
-Our tests cut the connection after an order was saved, rebuilt the Company
-from its store and resent the approval: one order, the same response.
+It also has to hold across a failure. When the connection is cut after an
+order is saved and the Company is then rebuilt from its store, the resent
+approval still gets the original response, and the store still holds one
+order.
 
 ## What an approval proves, and what it doesn't
 
@@ -200,29 +193,23 @@ For an action where a Company must see the user confirm for itself,
 such as closing an account, it can skip operations and have the user confirm
 on its website or app, signed in.
 
-## Checklists
+## Go deeper
 
-**Company**
-
-- [ ] Every consequential change returns an operation; everything that matters
-      is in `terms`.
-- [ ] A new revision whenever the terms or the expiry change.
-- [ ] Perform only the approved revision, once; store the result before replying.
-- [ ] A mismatch returns a fresh revision, never the approval's.
-- [ ] Record `approver`, `input_type` and `reference` with the change.
-
-**Personal Agent**
-
-- [ ] Declare the extension only where you can show approvals.
-- [ ] Show the Company's name, its domain and the terms; take the answer in your
-      own interface.
-- [ ] Never let the model or Company content approve.
-- [ ] Check `terms` against the request and the summary.
-- [ ] Store the approval; resend it unchanged; never re-propose to check.
-- [ ] Treat a decline as final.
-
-Our implementations: the Company side in
-[`approvals.ts`](../../packages/pap-company/src/approvals.ts), the agent's in
-[`runtime.ts`](../../apps/playground/lib/runtime.ts) (`userApproval`,
-`sendApproval`) and the approval card in
-[`operation-review.tsx`](../../apps/playground/app/operation-review.tsx).
+- Watch approvals happen:
+  [Changing an order](how-it-works/changing-an-order.md) follows a customer's
+  approval end to end,
+  [Moving money](how-it-works/moving-money.md) does the same at a bank,
+  [Letting the agent approve for you](how-it-works/letting-the-agent-approve-for-you.md)
+  shows an agent approval within a standing limit, and
+  [When something goes wrong](how-it-works/when-something-goes-wrong.md) shows a
+  declined proposal, an expired approval and terms that change.
+  [One task, request by request](one-task.md#9-the-user-approves-the-agent-resends)
+  shows the approval as an HTTP request.
+- Apply it: [Build a Company](build-a-company.md#milestone-4-operations) for the
+  Company's side and [Build a Personal Agent](build-an-agent.md) for the
+  agent's.
+- In the lab: the Company side is
+  [`approvals.ts`](../../packages/pap-company/src/approvals.ts), the agent's is
+  [`runtime.ts`](../../apps/playground/lib/runtime.ts) (`userApproval`,
+  `sendApproval`) and the approval card is
+  [`operation-review.tsx`](../../apps/playground/app/operation-review.tsx).

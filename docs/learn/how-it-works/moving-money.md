@@ -142,7 +142,7 @@ would do, and the bank moves nothing on it.
 
 No request was made in this step. The terms were already in Harborline's
 answer in step 3, and they stay on Elena's screen until she decides.
-[Approvals with Operations](../operations.md#6-what-the-company-checks)
+[Approvals with Operations](../operations.md#what-the-company-checks)
 describes what a company checks when an approval arrives.
 
 </details>
@@ -175,7 +175,7 @@ does.
 
 The same request as in step 3, with a `Poppy-Approval` header that names the
 operation, the terms revision and who approved.
-[Approvals with Operations](../operations.md#5-sending-the-approval)
+[Approvals with Operations](../operations.md#what-an-approval-carries)
 describes the header.
 
 </details>

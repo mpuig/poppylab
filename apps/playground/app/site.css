@@ -1622,22 +1622,21 @@ body:has(.site) {
   padding: 0.1em 0.35em;
   border-radius: 4px;
 }
+/* Code wraps where the block ends, so a reader never scrolls sideways. A long
+   token (a JWT, a URL) breaks anywhere; spaces and indentation are kept. */
 .learn-body pre {
   background: var(--tint);
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 16px 18px;
-  overflow-x: auto;
   font-size: 15px;
   line-height: 1.6;
   color: var(--ink);
-  scrollbar-width: thin;
-  scrollbar-color: var(--line-strong) transparent;
 }
 .learn-body pre code {
   font-size: 14px;
-  overflow-wrap: normal;
-  white-space: pre;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .table-scroll {
   overflow-x: auto;

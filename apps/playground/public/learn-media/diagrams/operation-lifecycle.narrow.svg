@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 652" font-family="'Hanken Grotesk','Helvetica Neue',Arial,sans-serif">
+  <line x1="56" y1="44" x2="56" y2="648" stroke="#c9ced5" stroke-width="1.2"/>
+  <line x1="180" y1="44" x2="180" y2="648" stroke="#c9ced5" stroke-width="1.2"/>
+  <line x1="304" y1="44" x2="304" y2="648" stroke="#c9ced5" stroke-width="1.2"/>
+  <rect x="6.0" y="0.6" width="100" height="42.8" rx="6" fill="#171a1f" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="56" y="26.9" text-anchor="middle" font-size="15" font-weight="600" fill="#ffffff">User</text>
+  <rect x="130.0" y="0.6" width="100" height="42.8" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="180" y="26.9" text-anchor="middle" font-size="15" font-weight="600" fill="#171a1f">Agent</text>
+  <rect x="254.0" y="0.6" width="100" height="42.8" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="304" y="26.9" text-anchor="middle" font-size="15" font-weight="600" fill="#171a1f">Company</text>
+  <line x1="180" y1="94" x2="296" y2="94" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M304 94L296 89.5L296 98.5Z" fill="#0d5c4a"/>
+  <rect x="174.7" y="62" width="180.3" height="28" rx="4" fill="#ffffff"/>
+  <text x="348" y="82.0" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">1 · Request the change</text>
+  <line x1="304" y1="170" x2="188" y2="170" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M180 170L188 165.5L188 174.5Z" fill="#0d5c4a"/>
+  <rect x="136.9" y="120" width="218.1" height="46" rx="4" fill="#ffffff"/>
+  <text x="348" y="140.0" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">2 · approval_required, with</text>
+  <text x="348" y="158.0" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">the terms and a revision</text>
+  <rect x="12" y="198" width="336" height="46" rx="8" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <circle cx="32" cy="221.0" r="4" fill="#f2b705"/>
+  <text x="46" y="225.9" font-size="14" font-weight="600" fill="#171a1f">Waiting for approval of this revision</text>
+  <line x1="56" y1="312" x2="172" y2="312" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M180 312L172 307.5L172 316.5Z" fill="#0d5c4a"/>
+  <rect x="5.0" y="262" width="172.8" height="46" rx="4" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <text x="12" y="282.0" text-anchor="start" font-size="14" font-weight="600" fill="#171a1f">3 · The user approves</text>
+  <text x="12" y="300.0" text-anchor="start" font-size="14" font-weight="600" fill="#171a1f">these terms</text>
+  <line x1="180" y1="388" x2="296" y2="388" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M304 388L296 383.5L296 392.5Z" fill="#0d5c4a"/>
+  <rect x="182.2" y="338" width="172.8" height="46" rx="4" fill="#ffffff"/>
+  <text x="348" y="358.0" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">4 · The same request,</text>
+  <text x="348" y="376.0" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">with the approval</text>
+  <text x="28" y="440.6" font-size="13" fill="#5b626c">If the terms still match</text>
+  <line x1="304" y1="504" x2="188" y2="504" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M180 504L188 499.5L188 508.5Z" fill="#0d5c4a"/>
+  <rect x="174.7" y="454" width="180.3" height="46" rx="4" fill="#ffffff"/>
+  <text x="348" y="474.0" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">5 · The change is made</text>
+  <text x="348" y="492.0" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">once, or declined</text>
+  <line x1="12" y1="534" x2="348" y2="534" stroke="#e3e6ea" stroke-width="1"/>
+  <text x="28" y="554.6" font-size="13" fill="#5b626c">If the terms have changed</text>
+  <line x1="304" y1="618" x2="188" y2="618" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M180 618L188 613.5L188 622.5Z" fill="#0d5c4a"/>
+  <rect x="136.9" y="568" width="218.1" height="46" rx="4" fill="#ffffff"/>
+  <text x="348" y="588.0" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">5 · A new revision; the old</text>
+  <text x="348" y="606.0" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">approval no longer applies</text>
+  <rect x="12" y="414" width="336" height="228" rx="8" fill="none" stroke="#c9ced5" stroke-width="1" stroke-dasharray="5 4"/>
+</svg>

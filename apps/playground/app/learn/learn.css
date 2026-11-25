@@ -1,6 +1,20 @@
 /* Learn: a section's own pages, screenshots and walk-throughs. Scoped to
    .site; the tokens and the base Learn styles are in site.css. */
 
+/* The kinds of page: a small title over each group of pages on the rail. */
+.learn-nav .learn-nav-group {
+  margin-top: 22px;
+}
+.learn-nav .learn-nav-group-title {
+  margin: 0 0 6px;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+.learn-nav .learn-nav-first {
+  margin-bottom: 0;
+}
+
 /* A section's pages, listed under it on the same rail. */
 .learn-nav .learn-nav-sub {
   border-left: 0;
@@ -31,6 +45,28 @@
 }
 .site .learn-shot figcaption {
   margin-top: 10px;
+  max-width: 66ch;
+}
+
+/* A drawn figure, set into the page so it takes the page's typeface. Its
+   wide drawing is read at about its own size; under 640px an upright
+   drawing of the same facts takes its place. */
+.site .learn-figure {
+  margin-top: 28px;
+}
+.learn-figure svg {
+  display: block;
+  width: 100%;
+  max-width: 720px;
+  height: auto;
+  font-family: var(--sans);
+}
+.learn-figure .narrow {
+  display: none;
+  max-width: 400px;
+}
+.site .learn-figure figcaption {
+  margin-top: 12px;
   max-width: 66ch;
 }
 
@@ -181,6 +217,14 @@
   }
   .learn-nav .learn-nav-sub a {
     padding: 4px 0;
+  }
+}
+@media (max-width: 640px) {
+  .learn-figure:has(.narrow) .wide {
+    display: none;
+  }
+  .learn-figure .narrow {
+    display: block;
   }
 }
 @media (max-width: 520px) {

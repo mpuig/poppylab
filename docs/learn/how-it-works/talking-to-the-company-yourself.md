@@ -122,7 +122,7 @@ Direct Conversation · accepting the Company's invitation
 }
 ```
 
-[The Company asks for the user](../conversations.md#6-the-company-asks-for-the-user-a-direct-conversation)
+[The Company asks for the user](../conversations.md#when-the-company-needs-to-hear-from-the-user)
 shows the requests.
 
 </details>
@@ -190,7 +190,7 @@ conversation would not count as one, even though Elena herself is writing.
 
 A message in the Direct Conversation that carries the approval: the operation,
 the revision of its terms and who approved.
-[The approval as a message](../conversations.md#4-the-approval-as-a-message)
+[The approval as a message](../conversations.md#the-approval-as-a-message)
 shows one, and [Approvals with Operations](../operations.md) describes what
 the company checks.
 
@@ -265,6 +265,6 @@ leave. Lantern kept control of the rest.
 
 Each answer in the chat has a What Iris did disclosure with the calls behind
 it, and the Inspector view lists the calls made since the page was loaded.
-[Conversations with a Company Agent](../conversations.md#6-the-company-asks-for-the-user-a-direct-conversation)
+[Conversations with a Company Agent](../conversations.md#when-the-company-needs-to-hear-from-the-user)
 shows the invitation, the linked conversation and the customer's message with
 each request and response written out.

@@ -1,19 +1,31 @@
 # One task, request by request
 
-A user asks their Personal Agent: _"Move my Saturday noodle order to Sunday."_
-This page follows that task at
+Robin Ito has a noodle order for Saturday at
 [Lantern Noodle Bar](https://food-demo.poppylab.dev), one of Poppy Lab's
-fictional Companies, from the first fetch to the changed order. Each step
-shows the real request and response, trimmed, and links to the part of the
-[specification](https://personalagentprotocol.org/docs/1.0/spec) that
-defines it.
+fictional Companies. Robin tells Iris, a Personal Agent: _"Move my Saturday
+noodle order to Sunday."_ This page follows that task from the first fetch to
+the changed order. Each step shows the request and the response, trimmed, and
+links to the part of the
+[specification](https://personalagentprotocol.org/docs/1.0/spec) that defines
+it.
 
-The discovery documents and the tasks response come from the live site. The
-Session JWT and the signed-in steps come from the same gateway code run
-in-process by our tests, because they need a fictional customer's consent;
-URLs are shown as the live ones and tokens are redacted.
+The traffic is from 25 November 2026. The discovery documents and the tasks
+response come from the live site. The Session JWT and the signed-in steps come
+from the same gateway code, run in-process by the lab's tests, because they
+need a fictional customer's consent. URLs are shown as the live ones and tokens
+are redacted.
 
-The model sees none of the credentials. Which requests carry what:
+## Who does what
+
+| Who                  | What they do in this process                                                                                                    |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Robin, the user      | Asks the agent in plain words, signs in on Lantern's own page, and approves the change in the agent.                            |
+| Iris, the agent      | Reads what Lantern publishes, proves who it is with a signature, and asks Lantern for the change.                               |
+| Lantern, the Company | Says what an agent may do, runs sign-in and consent on its own pages, sets the terms, and makes the change once it is approved. |
+
+## Which request carries what
+
+The model sees none of the credentials.
 
 | Step | Request                        | Session header | Access token | Who decides                |
 | ---- | ------------------------------ | -------------- | ------------ | -------------------------- |
@@ -78,14 +90,14 @@ GET https://food-demo.poppylab.dev/.well-known/poppy.json
 From this one document the agent learns:
 
 - **who it's dealing with.** The name is the Company's claim; the domain is
-  what discovery proved. A good agent shows both before acting.
-- **what it may ask for.** Two scopes, each described for the person who'll
-  approve it. `scope_hints` says `orders:write` makes irreversible changes, so
-  an agent planning a read-only task should ask for `orders:read` alone.
+  what discovery proved. The agent can show both before it acts.
+- **what it may ask for.** Two scopes, each described for the person who
+  approves it. `scope_hints` says `orders:write` makes irreversible changes, so
+  an agent planning a read-only task can ask for `orders:read` alone.
 - **how it can work.** An OpenAPI description and a Company Agent it can talk
-  to. The agent picks per task; here, the API.
+  to. The agent picks one for each task; here, the API.
 - **that changes need approval.** `extensions.operations` means Lantern
-  will answer a change with the exact terms and wait for an approval
+  answers a change with the exact terms and waits for an approval
   ([Operations](https://personalagentprotocol.org/docs/1.0/extensions/operations)).
 
 The agent chooses version 1.0, the newest it shares with the Company, and
@@ -244,8 +256,9 @@ or refuses each permission. The agent never sees the password.
 
 ## 6. Get a token
 
-The authorization code comes back to the agent's redirect URI, and the agent
-exchanges it, proving again who it is and binding the token to its DPoP key
+Lantern sends the browser back to the agent's redirect URI with an
+authorization code. The agent exchanges the code, proving again who it is and
+binding the token to its DPoP key
 ([RFC 9449](https://www.rfc-editor.org/rfc/rfc9449)):
 
 ```json
@@ -368,25 +381,29 @@ the same request with the same approval again. Lantern answers with the same
 result and doesn't move the order twice
 ([Operations §7](https://personalagentprotocol.org/docs/1.0/extensions/operations#at-most-once)).
 
-## What the Company got, and the user
+## What each side got
 
-**Lantern** knew which agent was calling (step 3, verified, not a user-agent
-string), on behalf of which pseudonymous user, in which Session, before
-anyone signed in. It decided what that agent could see and do with its own
-scopes, and it never applied a change without exact terms approved for that
-revision. It used its own sign-in page, its own consent wording and its
-existing API.
+**Lantern** knows which agent is calling (step 3: verified, not a user-agent
+string), on behalf of which pseudonymous user, in which Session, before anyone
+signs in. It decides what that agent can see and do with its own scopes, and it
+never applies a change without exact terms approved for that revision. It uses
+its own sign-in page, its own consent wording and its existing API.
 
-**The user** gave the agent two permissions on Lantern's own page and never
-shared their password. They saw the exact change and its price before it
-happened. They can disconnect the agent from Lantern's website at any time,
+**The user** gives the agent two permissions on Lantern's own page and never
+shares their password. They see the exact change and its price before it
+happens. They can disconnect the agent from Lantern's website at any time,
 without logging out of anything else.
 
-## Try it
+## For the technical reader
 
-- Run the same task yourself at [poppylab.dev/playground](https://poppylab.dev/playground):
-  connect to Lantern, sign in as a test customer and ask to move an order. The
-  Inspector shows every request.
-- The Company side is [`packages/pap-company`](../../packages/pap-company)
-  (gateway) and [`apps/lantern`](../../apps/lantern) (the business routes); the
-  agent side is [`apps/playground/lib/runtime.ts`](../../apps/playground/lib/runtime.ts).
+Run the same task in the [playground](https://poppylab.dev/playground) by
+connecting to Lantern, signing in as a test customer and asking to move an
+order; the Inspector shows every request. [Poppy compared](compared.md),
+[Approvals with Operations](operations.md) and
+[Conversations with a Company Agent](conversations.md) explain the ideas behind
+it. [Build a Company](build-a-company.md) and
+[Build a Personal Agent](build-an-agent.md) give the steps for each side. The
+code is [`packages/pap-company`](../../packages/pap-company) (the gateway) and
+[`apps/lantern`](../../apps/lantern) (the business routes) for the Company, and
+[`apps/playground/lib/runtime.ts`](../../apps/playground/lib/runtime.ts) for
+the agent.
