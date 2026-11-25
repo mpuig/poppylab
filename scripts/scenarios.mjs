@@ -66,6 +66,7 @@ const groups = {
     ["example-company", ["src/operations-v2.test.ts"]],
   ],
   banking: [
+    ["pap-company", ["src/gateway/grant-lifetime.test.ts"]],
     [
       "harborline",
       [
@@ -80,7 +81,11 @@ const groups = {
   fdx: [
     [
       "pap-company",
-      ["src/gateway/account-routes.test.ts", "src/gateway/extensions.test.ts"],
+      [
+        "src/gateway/account-routes.test.ts",
+        "src/gateway/extensions.test.ts",
+        "src/gateway/grant-lifetime.test.ts",
+      ],
     ],
     [
       "harborline",

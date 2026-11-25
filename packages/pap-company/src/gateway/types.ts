@@ -412,6 +412,18 @@ export type CompanyDefinition = {
    * `refresh_token`) and of errors are never replaced.
    */
   tokenFields?: (grant: GrantView) => Record<string, string>;
+  /**
+   * How long a grant lasts, in milliseconds from the code exchange, given
+   * the scopes its consent granted. Without the hook every grant lasts
+   * `GRANT_MS` (7 days). The end is stored with the grant: a refresh after
+   * it gets `invalid_grant` (RFC 6749 §5.2), and no access token outlives
+   * it, so a refresh before it gets a token that ends with the grant. Sign-in
+   * still returns a refresh token (§4.4). For example, `TOKEN_MS` without
+   * `offline_access` ends the grant with its first access token, and
+   * `GRANT_MS` with it keeps it refreshable. A value that isn't a positive
+   * number fails the code exchange with `invalid_grant`.
+   */
+  grantLifetime?: (scopes: string[]) => number;
   consent: (input: {
     nonce: string;
     passwordRequired: boolean;

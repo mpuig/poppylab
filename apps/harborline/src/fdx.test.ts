@@ -447,12 +447,18 @@ describe("Harborline FDX-shaped API", () => {
       ],
       note: FICTION_NOTICE,
     });
+    // Refreshable for its 7 days, and it says so.
+    const lasts = (r: { createdTime: string; expirationTime: string }) =>
+      Date.parse(r.expirationTime) - Date.parse(r.createdTime);
+    expect(lasts(record.json())).toBe(7 * 86400000);
+    // Without offline_access the grant ends with its first token, in 1 hour.
     const once = await h.sign("elena", ["fdx:ACCOUNT_BASIC"]);
     const onceRecord = (
       await get(once.access_token, `/fdx/v6/consents/${once.consent_id}`)
     ).json();
     expect(onceRecord.durationType).toBe("ONE_TIME");
     expect(onceRecord).not.toHaveProperty("durationPeriod");
+    expect(lasts(onceRecord)).toBe(3600000);
     // Another grant's consent, even the same User's: not found.
     const other = await get(
       once.access_token,

@@ -2,7 +2,8 @@
  * The token endpoint (§4.4, §4.7) and revocation (§4.6, RFC 7009). Client
  * assertions may be ES256 or PS384 and last up to 5 minutes (§4.1); refresh
  * tokens are bound to the DPoP key they were issued with (§4.4). A grant
- * keeps the scopes and resources of its consent through every refresh.
+ * keeps the scopes and resources of its consent through every refresh, and
+ * ends when its lifetime does (`grantLifetime`): no access token outlives it.
  */
 import type { Hono } from "hono";
 import {
@@ -118,6 +119,12 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
           throw new Error("invalid_grant");
         if (ctx.overShare(Object.values(state.grants), id, 1000))
           throw new Error("rate_limited");
+        // The Company's lifetime for what was granted, else GRANT_MS.
+        const lifetime = def.grantLifetime
+          ? def.grantLifetime(code.scopes.split(" ").filter(Boolean))
+          : GRANT_MS;
+        if (!Number.isFinite(lifetime) || lifetime <= 0)
+          throw new Error("invalid_grant");
         refreshToken = randomId();
         grantKey = tokenHash(refreshToken);
         grant = {
@@ -126,7 +133,7 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
           client: id,
           scopes: code.scopes,
           created: now,
-          expires: now + GRANT_MS,
+          expires: now + lifetime,
           ...(code.browser ? { browser: code.browser } : {}),
           // §4.4: refreshed only with the DPoP key it was issued with.
           dpop: binding,
@@ -156,10 +163,12 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
           throw new Error("invalid_scope");
       }
       const token = randomId();
+      // No access token outlives its grant (`grantLifetime`).
+      const expires = Math.min(now + TOKEN_MS, grant.expires);
       state.tokens[tokenHash(token)] = {
         client: id,
         binding,
-        expires: now + TOKEN_MS,
+        expires,
         accountId: grant.account,
         scopes,
         grant: grantKey,
@@ -170,7 +179,7 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
           ...extra(grant),
           access_token: token,
           token_type: "DPoP",
-          expires_in: TOKEN_MS / 1000,
+          expires_in: Math.floor((expires - now) / 1000),
           ...(body.scope && body.scope === scopes ? {} : { scope: scopes }),
           ...(refreshToken ? { refresh_token: refreshToken } : {}),
         },

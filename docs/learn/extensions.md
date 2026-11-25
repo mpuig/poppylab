@@ -314,6 +314,9 @@ website, ends the consent the same way.
   account as if it didn't exist. Apply the choice to every interface the grant
   reaches, not only the extension's routes.
 - Keep the domain consent and the Poppy grant one record: same ID, same end.
+  Make the end real. Harborline's record once said `ONE_TIME` while the grant
+  refreshed for 7 days; now a grant without `offline_access` ends with its
+  first access token, and a refresh after it gets `invalid_grant`.
 - Keep writes on Operations. This extension only reads.
 
 **The Personal Agent:**

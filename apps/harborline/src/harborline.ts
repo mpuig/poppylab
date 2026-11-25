@@ -5,7 +5,12 @@
  */
 import { createHash } from "node:crypto";
 import type { Context, Hono } from "hono";
-import type { CompanyDefinition, Session } from "@poppy-lab/pap-company";
+import {
+  GRANT_MS,
+  TOKEN_MS,
+  type CompanyDefinition,
+  type Session,
+} from "@poppy-lab/pap-company";
 import {
   accountLast4,
   bankPersona,
@@ -1196,6 +1201,11 @@ export const harborline: CompanyDefinition = {
   // The consent ID of the FDX-shaped consent API is the grant's.
   tokenFields: (grant) =>
     grant.scopes.some(isFdxScope) ? { consent_id: grant.id } : {},
+  // offline_access is what keeps the grant refreshable: without it, the
+  // grant ends with its first access token, after an hour; with it, it
+  // lasts 7 days. Grants stored before this keep their stored end.
+  grantLifetime: (granted) =>
+    granted.includes("offline_access") ? GRANT_MS : TOKEN_MS,
   selectScopes: ({ requested, body }) =>
     requested.filter((scope) => {
       if (scope === "offline_access") return body.allow_offline === "yes";

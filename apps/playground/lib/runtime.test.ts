@@ -39,6 +39,7 @@ import {
   type Operation,
   type Run,
 } from "./runtime";
+import { accountRecovery, accountUnavailableNotice } from "./account-recovery";
 
 function example(host = "food", signedIn = true): Run {
   const origin = `https://${host}.papsandbox.com`;
@@ -243,6 +244,35 @@ it("marks access unavailable after invalid_token without retrying", async () => 
     papRequest(r, "https://food.papsandbox.com/poppy/orders", "GET"),
   ).rejects.toThrow();
   expect(r.accountUnavailable).toBe(true);
+});
+
+it("asks for sign-in again when the grant ended and its refresh gets invalid_grant", async () => {
+  // A grant that ends with its first access token, as at Harborline without
+  // offline_access: past it, the refresh is refused (RFC 6749 §5.2).
+  vi.useFakeTimers({ toFake: ["Date"] });
+  try {
+    const r = example();
+    r.dpop = dpop;
+    vi.setSystemTime(r.tokenExpires! + 1);
+    transport.mockRejectedValueOnce(new ProtocolError(400, "invalid_grant"));
+    const error = await papRequest(
+      r,
+      "https://food.papsandbox.com/poppy/orders",
+      "GET",
+    ).catch((e: unknown) => e);
+    expect(error).toMatchObject({ status: 400, code: "invalid_grant" });
+    // Only the refresh: nothing goes out with the expired token.
+    expect(transport).toHaveBeenCalledTimes(1);
+    const body = new URLSearchParams(
+      (transport.mock.calls[0]![1] as RequestInit).body as string,
+    );
+    expect(body.get("grant_type")).toBe("refresh_token");
+    expect(r.accountUnavailable).toBe(true);
+    expect(accountRecovery(error)).toEqual(accountUnavailableNotice);
+    expect(accountUnavailableNotice.next).toBe("signin");
+  } finally {
+    vi.useRealTimers();
+  }
 });
 
 it("refreshes within current scopes, keeps the refresh token when none is returned, and needs no Session", async () => {
