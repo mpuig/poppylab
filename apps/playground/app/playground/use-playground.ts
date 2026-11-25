@@ -14,7 +14,7 @@ import {
   useState,
   type FormEvent,
 } from "react";
-import { companyProfile } from "@poppy-lab/pap-core";
+import { companyProfile, FDX_EXTENSION } from "@poppy-lab/pap-core";
 import type {
   DiscoveredCompany,
   DiscoveryTraceStep,
@@ -24,6 +24,7 @@ import {
   canChange,
   canRequestChanges,
   consentOutcome,
+  missingFdxScopes,
 } from "@/lib/account-permissions";
 import type { ReviewOperation as Operation } from "@/lib/operation-presentation";
 import { agentStep } from "@/lib/agent-steps";
@@ -93,6 +94,8 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
   const [sending, setSending] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
   const [scopes, setScopes] = useState("");
+  /** Use FDX for this conversation (poppylab.dev/fdx v1), kept by the server. */
+  const [fdx, setFdx] = useState(false);
   const [consentVersion, setConsentVersion] = useState(0);
   const [accountBusy, setAccountBusy] = useState(false);
   const [waitingSignIn, setWaitingSignIn] = useState(false);
@@ -122,6 +125,14 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
   // Scope meaning comes from the Company's own hints (§4.7).
   const canWrite = canChange(profile, scopes);
   const moreAccess = canRequestChanges(profile, scopes);
+  /** Use FDX: the Company lists poppylab.dev/fdx v1 (profiles saved before may not say). */
+  const fdxAvailable = !!profile?.extensions?.[FDX_EXTENSION];
+  /** Use FDX is on but this sign-in has none or only some of its data clusters. */
+  const fdxSignIn =
+    fdx &&
+    fdxAvailable &&
+    signedIn &&
+    missingFdxScopes(profile, scopes).length > 0;
   const connected =
     !!result && companyUrl === result.requestedUrl.replace(/\/$/, "");
   const trace = result?.trace ?? failedTrace;
@@ -163,6 +174,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
         setCompanyUrl(data.company.requestedUrl.replace(/\/$/, ""));
         setSignedIn(!!data.signedIn);
         setScopes(data.scopes ?? "");
+        setFdx(!!data.fdx);
         if (data.recovery?.error) setError(data.recovery.error);
         setOperations(data.operations ?? []);
         // §8.10: an open Direct Conversation is still open after a reload,
@@ -307,6 +319,42 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     }
   }
 
+  /**
+   * Use FDX on or off for this conversation. The server starts a new
+   * Session, whose declarations then say so (§3.4).
+   */
+  async function chooseFdx(enabled: boolean) {
+    if (busy || ended || !fdxAvailable) return;
+    setAccountBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/account", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-PAP-Company": result?.requestedUrl ?? companyUrl,
+          ...named(),
+        },
+        body: JSON.stringify({ action: "fdx", enabled }),
+      });
+      adopt(response);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+      setFdx(!!data.fdx);
+      addTrace([
+        `Use FDX ${data.fdx ? "on" : "off"} · new Session · ${data.fdx ? `${FDX_EXTENSION} v1 declared` : `${FDX_EXTENSION} not declared`}`,
+      ]);
+    } catch (caught) {
+      setError(
+        caught instanceof Error && caught.message
+          ? caught.message
+          : "Could not change Use FDX.",
+      );
+    } finally {
+      setAccountBusy(false);
+    }
+  }
+
   // The User's standing instruction for this Company, if they wrote one.
   useEffect(() => {
     setInstruction(origin ? loadInstruction(origin) : undefined);
@@ -360,6 +408,8 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     setSignedIn(false);
     setWaitingSignIn(false);
     setOperations([]);
+    // Use FDX is off in every new conversation.
+    setFdx(false);
     // The new conversation has no Direct Conversation, whatever the last had.
     applyDirect();
     setStartingDirect(false);
@@ -540,6 +590,10 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     scopes,
     canWrite,
     moreAccess,
+    fdx,
+    fdxAvailable,
+    fdxSignIn,
+    chooseFdx,
     waitingSignIn,
     operations,
     connected,

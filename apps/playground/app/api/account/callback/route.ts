@@ -113,6 +113,9 @@ export async function GET(request: Request) {
     run.tokenType = result.tokenType;
     run.tokenExpires = result.expires;
     run.accountToken = result.refreshToken!;
+    // poppylab.dev/fdx v1: the consent id of this grant, when it has one.
+    if (result.consentId) run.fdxConsent = result.consentId;
+    else delete run.fdxConsent;
     if (dpop) run.dpop = dpop;
     // §4.7: revoke the refresh token the new sign-in replaced (best effort;
     // revoking a replaced token isn't sign-out).

@@ -1,4 +1,4 @@
-import { companyProfile } from "@poppy-lab/pap-core";
+import { companyProfile, FDX_EXTENSION } from "@poppy-lab/pap-core";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createHash } from "node:crypto";
@@ -13,6 +13,8 @@ import {
   usesDpop,
   revokeRefreshToken,
   pushAuthorizationRequest,
+  fdxEntry,
+  setFdx,
 } from "@/lib/runtime";
 import { record } from "@/lib/transcript";
 import {
@@ -59,6 +61,8 @@ export async function GET(request: Request) {
       history: run?.transcript ?? run?.history ?? [],
       url: run?.url,
       scopes: run?.scopes,
+      // Use FDX (poppylab.dev/fdx v1), a setting of this conversation.
+      fdx: !!run?.fdx,
       consentVersion: run?.consentVersion ?? 0,
       recovery: run?.accountUnavailable ? accountUnavailableNotice : undefined,
       signedIn:
@@ -162,7 +166,24 @@ async function act(request: Request, started: { id?: string }) {
       revision?: string;
       /** The User's standing instruction, for an agent approval (§5). */
       instruction?: unknown;
+      /** `fdx`: Use FDX on or off. */
+      enabled?: unknown;
     };
+    if (body.action === "fdx") {
+      // §3.3: only for a Company that lists a valid poppylab.dev/fdx v1
+      // entry. A change starts a new Session (§3.4); sign-in is kept.
+      if (typeof body.enabled !== "boolean") throw new Error();
+      if (body.enabled && !run.company?.profile?.extensions?.[FDX_EXTENSION])
+        return NextResponse.json(
+          { error: "This Company doesn't offer the FDX-shaped extension." },
+          { status: 400 },
+        );
+      setFdx(run, body.enabled);
+      return NextResponse.json(
+        { fdx: !!run.fdx, sessionId: run.sessionId },
+        { headers: { "Cache-Control": "no-store" } },
+      );
+    }
     if (body.action === "signin") {
       // §4.2: plain OAuth Direct Sign-In. It doesn't know the Session;
       // the callback starts a new Session for the signed-in account.
@@ -177,7 +198,10 @@ async function act(request: Request, started: { id?: string }) {
         );
       let scopes: string;
       try {
-        scopes = consentScopes(profile, body.access);
+        // The FDX-shaped data clusters only with Use FDX on (RFC 9700 §2.3).
+        scopes = consentScopes(profile, body.access, {
+          fdx: !!fdxEntry(candidate),
+        });
       } catch (error) {
         return NextResponse.json(
           {
@@ -252,6 +276,7 @@ async function act(request: Request, started: { id?: string }) {
       delete run.tokenType;
       delete run.tokenExpires;
       delete run.scopes;
+      delete run.fdxConsent;
       delete run.auth;
       run.operations = {};
       run.history = [];

@@ -170,6 +170,8 @@ async function fetchJsonSafely(
     protocol?: boolean;
     mcp?: boolean;
     acceptEmpty?: boolean;
+    /** Keep the body of an error that is no Poppy or OAuth error. */
+    errorBody?: boolean;
   },
 ): Promise<{ value: unknown; finalUrl: URL; durationMs: number }> {
   let currentUrl = initialUrl;
@@ -292,9 +294,11 @@ async function fetchJsonSafely(
         if (!response.ok) {
           let code: unknown,
             operation: unknown,
-            declined: { reason?: string } | undefined;
+            declined: { reason?: string } | undefined,
+            parsed: unknown;
           try {
             const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+            parsed = body;
             code = body.error;
             if (response.status === 403 && code === "approval_required")
               operation = body.operation;
@@ -307,16 +311,21 @@ async function fetchJsonSafely(
           } catch {
             /* Untrusted error bodies are never surfaced. */
           }
-          const challenge = response.headers
-            .get("www-authenticate")
-            ?.match(/error="([a-z_]+)"/);
+          const authenticate = response.headers.get("www-authenticate");
+          const challenge = authenticate?.match(/error="([a-z_]+)"/);
+          const known = errorCode(code) ?? errorCode(challenge?.[1]);
           throw new ProtocolError(
             response.status,
-            errorCode(code) ?? errorCode(challenge?.[1]),
+            known,
             retryAt,
             response.headers.get("dpop-nonce") ?? undefined,
             operation,
             declined,
+            // An API's own error body (such as an FDX-shaped one), for a
+            // caller that asked: never with a Poppy or OAuth error (§7).
+            options.errorBody && !known && authenticate === null
+              ? parsed
+              : undefined,
           );
         }
         return {
@@ -764,13 +773,21 @@ export async function protocolRequest(
     /** Re-signs per-request headers (such as Poppy-Session) for the retry. */
     resign?: () => Promise<Record<string, string>>;
   },
-  options?: { acceptEmpty?: boolean },
+  options?: {
+    acceptEmpty?: boolean;
+    /**
+     * A ProtocolError keeps the parsed body of an error that is no Poppy or
+     * OAuth error (no known `error` code, no `WWW-Authenticate`), as `body`.
+     */
+    errorBody?: boolean;
+  },
 ): Promise<unknown> {
   const send = (init: RequestInit) =>
     fetchJsonSafely(new URL(url), {
       request: init,
       protocol: true,
       acceptEmpty: options?.acceptEmpty ?? false,
+      errorBody: options?.errorBody ?? false,
       allowedPrivateOrigins,
       fetchImpl: fetch,
       timeoutMs: 15000,

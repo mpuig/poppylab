@@ -30,6 +30,7 @@ import {
   demoChangeKind,
   demoChangeReply,
 } from "@/lib/demo-changes";
+import { demoFdxAnswer, demoFdxRead, demoFdxReply } from "@/lib/demo-fdx";
 import { UserFacingError } from "@/lib/user-error";
 import { PapDiscoveryError } from "@poppy-lab/pap-core";
 import { publicMode, serving } from "@/lib/deployment";
@@ -216,6 +217,9 @@ async function reply(request: Request, started: { id?: string }) {
       provider === "demo" ? demoChangeKind(body.message, tools) : undefined;
     const aside =
       provider === "demo" ? demoAside(body.message, tools) : undefined;
+    // Use FDX on: balances and transactions through the FDX-shaped tools.
+    const fdxRead =
+      provider === "demo" ? demoFdxRead(body.message, tools) : undefined;
     if (direct) {
       // §8.10: the User, not the model. Their words go to the Company as
       // written; Iris adds only a line about what happened.
@@ -340,6 +344,8 @@ async function reply(request: Request, started: { id?: string }) {
       } else {
         text = `Protocol demo (no LLM). ${plan?.say ?? "The demo can't prepare that change here."}`;
       }
+    } else if (provider === "demo" && fdxRead) {
+      text = demoFdxReply(await demoFdxAnswer(fdxRead, tools), show);
     } else if (provider === "demo") {
       const message = lowered;
       const day = ["saturday", "tuesday", "thursday"].find((day) =>
