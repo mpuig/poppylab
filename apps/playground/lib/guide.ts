@@ -49,7 +49,7 @@ export function guideHint(state: GuideState, context: GuideContext) {
   const company = context.company ?? "the company";
   switch (guideStep(state)) {
     case 0:
-      return "Pick one of the four fictional companies, or enter any company’s address.";
+      return "Pick one of the fictional companies, or enter any company’s address.";
     case 1:
       return context.signInOffered
         ? `Sign in to ${company}${context.people ? ` as ${context.people}, its test customers` : ""}. You do it on the company’s own page; Iris never sees a password.`

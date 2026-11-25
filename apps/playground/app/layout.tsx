@@ -21,7 +21,7 @@ const mono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Poppy Lab: Personal Agent Protocol, explained and live",
   description:
-    "What Personal Agent Protocol 1.0 is, what companies and customers get from it, and a live demo: Iris, a Personal Agent, and four fictional companies it can sign in to. An independent lab.",
+    "What Personal Agent Protocol 1.0 is, what companies and customers get from it, and a live demo: Iris, a Personal Agent, and fictional companies it can sign in to. An independent lab.",
 };
 
 export default function RootLayout({
