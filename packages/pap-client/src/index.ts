@@ -17,6 +17,14 @@ export { vault } from "./vault.ts";
 export * from "./headers.ts";
 export * from "./operator-signature.ts";
 export { openApiTools, InvalidToolArguments, type ApiTool } from "./openapi.ts";
+export {
+  fdxTools,
+  FDX_SCOPES,
+  FDX_LIMITS,
+  type FdxRequest,
+  type FdxResponse,
+  type FdxOutcome,
+} from "./fdx.ts";
 import { sseRpc } from "./mcp-wire.ts";
 export { mcpTools, mcpResourcePolicy } from "./mcp.ts";
 import { proof, assertion } from "./session.ts";
