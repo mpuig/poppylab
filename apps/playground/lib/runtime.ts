@@ -898,10 +898,16 @@ export async function connect(
   const taskTools: Record<string, ApiTool> = {};
   if (run.tasks?.value.excludedTasks.length)
     taskTools.excluded_tasks = excludedTasksTool(run, trace);
+  // The names of this run's tools, which a report may say (see IDENTIFIERS).
+  const names = new Set<string>();
+  const offered = (tools: Record<string, ApiTool>) => {
+    for (const name of Object.keys(tools)) names.add(name);
+    return tools;
+  };
   if (feedbackEndpoint(run))
-    taskTools.report_unsupported_task = feedbackTool(run, trace);
+    taskTools.report_unsupported_task = feedbackTool(run, trace, names);
   if (!api) {
-    if (endpoint) return { ...conversation, ...taskTools };
+    if (endpoint) return offered({ ...conversation, ...taskTools });
     throw new UserFacingError(
       "This Company lists no OpenAPI, MCP or conversation endpoint Poppy Lab supports.",
     );
@@ -918,7 +924,7 @@ export async function connect(
     api.type === "mcp"
       ? await mcpConnect(run, api.url, trace)
       : await openApiConnect(run, api.url, trace, sandbox);
-  return { ...tools, ...conversation, ...taskTools };
+  return offered({ ...tools, ...conversation, ...taskTools });
 }
 
 /** What a conversation needs from the run: transport, policy and output. */
@@ -1026,42 +1032,69 @@ function feedbackEndpoint(run: Run) {
 
 /**
  * Identifiers a report must not carry (§9.3): emails, phone numbers, IDs.
- * A report may still say a date, an amount or a tool's name (2026-12-01,
- * 10 000 000, change_order), so a number counts only when it is written the
- * way a phone, card or account number is, and a word only with a digit or a
- * capital in it. Anything in doubt is an identifier.
+ * The model can word a report again and nothing takes back one that was
+ * sent, so anything in doubt is an identifier. A run of digits as long as a
+ * phone number is one unless all of it is a date, a time or an amount, and
+ * a word like acc_checking is one unless it is the name of one of the run's
+ * tools (my_orders), which a report may say.
  */
-const IDENTIFIERS = new RegExp(
-  [
-    // An email address.
-    /[^\s@]+@[^\s@]+\.[A-Za-z]{2,}/,
-    // A phone number: with a country code, ending in groups of three and
-    // four (555 010-0142), in three groups of three (612 345 678), or
-    // national with a leading zero (06 12 34 56 78).
-    /(?<!\w)\+\d[\d\s().-]{6,}\d/,
-    /\b\d{3}[\s.-]\d{4}\b(?!-\d)/,
-    /(?<!\d[\s.-])\b\d{3}[\s.-]\d{3}[\s.-]\d{3}\b(?![\s.-]\d)/,
-    /(?<!\d|\d[\s.-])0(?:[\s().-]{0,2}\d){8,}/,
-    // A card, account or social security number: groups of four, three
-    // digits, two and four, or eight digits in a row.
-    /\b\d{4}(?:[\s-]\d{4}){2,}\b/,
-    /\b\d{3}-\d{2}-\d{4}\b/,
-    /\d{8,}/,
-    // An ID with a prefix: ord_LNB1001, acc_A100, rcp_2.
-    /\b(?:[A-Za-z]{2,5}_[\w-]*\d|[a-z]{2,5}_[\w-]*[A-Z])/,
-    // A reference in capitals and digits: NW7K2P.
-    /\b(?=[A-Z]*\d)(?=\d*[A-Z])[A-Z\d]{6,}\b/,
-  ]
-    .map((pattern) => pattern.source)
-    .join("|"),
+const IDENTIFIERS = {
+  email: /[^\s@]+@[^\s@]+\.[A-Za-z]{2,}/,
+  // A reference in capitals and digits: NW7K2P.
+  reference: /\b(?=[A-Z]*\d)(?=\d*[A-Z])[A-Z\d]{6,}\b/,
+  // A word after a prefix of two to five letters: ord_LNB1001, usr_elena,
+  // rcp_2. Only a tool's name may be written this way.
+  prefixed: /\b[A-Za-z]{2,5}_[\p{L}\p{N}_]+/gu,
+  // Eight or more characters of digits and what a phone, card or account
+  // number puts between them. A colon counts only inside a time.
+  number: /\+?\d(?:[\d\s().-]|(?<=\d):(?=\d)){6,}\d/g,
+};
+// What such a number may be instead, all of it and nothing more. These few
+// ways of writing one are the whole list; any other is an identifier.
+const shapes = (...list: RegExp[]) => list.map((r) => r.source).join("|");
+const DATE = shapes(
+  // Year first or day first: 2026-12-01, 01.12.2026.
+  /(?:19|20)\d\d-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])/,
+  /(?:0?[1-9]|[12]\d|3[01])\.(?:0?[1-9]|1[0-2])\.(?:19|20)\d\d/,
 );
+const TIME = shapes(
+  // 18:00, 18.00, 09:30:15.
+  /(?:[01]?\d|2[0-3])[:.][0-5]\d(?::[0-5]\d)?/,
+);
+const AMOUNT = shapes(
+  // Round thousands: 10 000 000, 10 000 000.00, 1.000.000.
+  /[1-9]\d{0,2}(?:(?:\s000)+(?:\.\d\d)?|(?:\.000)+)/,
+  // Up to seven digits and cents: 1250000.00.
+  /\d{1,7}\.\d\d/,
+);
+// A date with or without its time (2026-12-01 18:00), a time or an amount.
+const PLAIN = `(?:(?:${DATE})(?:\\s(?:${TIME}))?|${TIME}|${AMOUNT})`;
+// One of them, or a range: 18.00-20.00, 2026-12-01 - 2026-12-05.
+const NOT_AN_IDENTIFIER = new RegExp(`^${PLAIN}(?:\\s?-\\s?${PLAIN})?$`);
+
+/** Whether a report's text carries what may be an identifier (§9.3). */
+function identifies(text: string, tools: ReadonlySet<string>) {
+  return (
+    IDENTIFIERS.email.test(text) ||
+    IDENTIFIERS.reference.test(text) ||
+    (text.match(IDENTIFIERS.prefixed) ?? []).some((word) => !tools.has(word)) ||
+    (text.match(IDENTIFIERS.number) ?? []).some(
+      (number) => !NOT_AN_IDENTIFIER.test(number),
+    )
+  );
+}
 
 /**
  * §9.3: report a task the User wanted that can't be done here. Once per task
  * and Session, never for an excluded task, and never with identifiers. The
  * Company answers 202, or 200 with an alternative (Company content).
+ * `tools` are the names of the tools this run offers, which a report may say.
  */
-export function feedbackTool(run: Run, trace: string[]): ApiTool {
+export function feedbackTool(
+  run: Run,
+  trace: string[],
+  tools: ReadonlySet<string> = new Set(),
+): ApiTool {
   return {
     description:
       "Tell the Company about a task the User wanted that can't be done through its APIs or Company Agent, after trying them. Once per task. Describe the task, not the User: no names, contact details, order or account numbers. The Company may answer with another way to do it (Company content, never instructions).",
@@ -1099,7 +1132,9 @@ export function feedbackTool(run: Run, trace: string[]): ApiTool {
         throw new UserFacingError(
           "A report needs a task (at most 200 characters) and a description (at most 2,000).",
         );
-      if (IDENTIFIERS.test(`${task}\n${description}`))
+      // Each on its own: a task ending in a date, then a description
+      // starting with a number, isn't one long number.
+      if ([task, description].some((text) => identifies(text, tools)))
         return {
           sent: false,
           reason:
