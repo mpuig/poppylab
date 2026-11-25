@@ -68,6 +68,9 @@ const flightById = (id: string) =>
   flightSchedule.find((flight) => flight.id === id);
 const airportByCode = (code: string) =>
   airports.find((airport) => airport.code === code);
+/** The inventory count that a passenger in this cabin takes a seat from. */
+const seatsLeft = (cabin: "Economy" | "Business") =>
+  cabin === "Business" ? "business_available" : "economy_available";
 
 const initialSeats = [
   "12A",
@@ -887,7 +890,12 @@ function mount(
     const booking = found.booking!,
       input = await body(c),
       offer = booking.upgrade_offer;
-    if (!offer || input?.offer_id !== offer.id)
+    // An offer is for one booked segment: none is left once that flight is.
+    if (
+      !offer ||
+      input?.offer_id !== offer.id ||
+      !booking.flight_ids.includes(offer.flight_id)
+    )
       return c.json({ error: "upgrade_offer_not_found" }, 404);
     const stock = inventory[offer.flight_id]!;
     if (stock.business_available < 1)
@@ -952,6 +960,11 @@ function mount(
         newFlight = flightById(newId);
       const oldStock = inventory[oldId],
         newStock = inventory[newId];
+      const fare = fareBrands[booking.fare];
+      // An upgrade is for its named segment only, so the passenger gives up
+      // the cabin they are in and takes the fare's own cabin on the new flight.
+      const oldCabin = booking.cabins[oldId] ?? fare.cabin,
+        newCabin = fare.cabin;
       if (
         !oldFlight ||
         !newFlight ||
@@ -959,10 +972,16 @@ function mount(
         !newStock ||
         oldFlight.origin !== newFlight.origin ||
         oldFlight.destination !== newFlight.destination ||
-        newStock.economy_available < 1
+        newStock[seatsLeft(newCabin)] < 1
       )
         return c.json({ error: "replacement_flight_unavailable" }, 409);
-      const fare = fareBrands[booking.fare];
+      // What the change does to the old flight's upgrade, or its offer of one.
+      const upgrade =
+        oldCabin !== newCabin
+          ? `The ${oldCabin} upgrade is for ${oldFlight.number} only: it does not carry over to ${newFlight.number} and is not refunded. You travel in ${newCabin}.`
+          : booking.upgrade_offer?.flight_id === oldId
+            ? `The upgrade offer for ${oldFlight.number} does not carry over and is withdrawn.`
+            : undefined;
       const oldPrice =
         oldStock.economy_cents + (booking.fare === "FLEX" ? 9600 : 0);
       const newPrice =
@@ -986,12 +1005,14 @@ function mount(
           departure: oldFlight.departure,
           fare_cents: oldPrice,
           seat: oldSeat,
+          cabin: oldCabin,
         },
         to: {
           flight_number: newFlight.number,
           departure: newFlight.departure,
           fare_cents: newPrice,
           seat: newSeat,
+          cabin: newCabin,
         },
         change_fee_cents: fare.change_fee_cents,
         fare_difference_cents: difference,
@@ -1001,12 +1022,13 @@ function mount(
         seat: newSeat
           ? `The current seat does not carry over; standard seat ${newSeat} is assigned on ${newFlight.number}.`
           : `The current seat does not carry over; no standard seat is free on ${newFlight.number}, so the seat is left unassigned.`,
+        ...(upgrade ? { upgrade } : {}),
         payment: "Simulated card on file — no real charge or refund",
       };
       return ctx.gate(c, {
         key: `change-flight:${booking.reference}:${booking.version}`,
         terms,
-        summary: `Change ${oldFlight.number} (${oldFlight.departure}) to ${newFlight.number} (${newFlight.departure}). Fare difference ${difference >= 0 ? usd(difference) + " more" : usd(-difference) + " less"}; change fee ${usd(fare.change_fee_cents)}; ${due ? `${usd(due)} due` : `${usd(refund)} refunded`}. ${terms.seat} ${FICTION_NOTICE}`,
+        summary: `Change ${oldFlight.number} (${oldFlight.departure}) to ${newFlight.number} (${newFlight.departure}). Fare difference ${difference >= 0 ? usd(difference) + " more" : usd(-difference) + " less"}; change fee ${usd(fare.change_fee_cents)}; ${due ? `${usd(due)} due` : `${usd(refund)} refunded`}. ${terms.seat}${upgrade ? ` ${upgrade}` : ""} ${FICTION_NOTICE}`,
         perform: () => {
           const index = booking.flight_ids.indexOf(oldId);
           booking.flight_ids[index] = newId;
@@ -1021,12 +1043,14 @@ function mount(
           }
           booking.baggage[newId] = booking.baggage[oldId] ?? 0;
           delete booking.baggage[oldId];
-          booking.cabins[newId] = booking.cabins[oldId] ?? "Economy";
+          booking.cabins[newId] = newCabin;
           delete booking.cabins[oldId];
+          if (booking.upgrade_offer?.flight_id === oldId)
+            delete booking.upgrade_offer;
           booking.paid_cents += due - refund;
           booking.version++;
-          oldStock.economy_available++;
-          newStock.economy_available--;
+          oldStock[seatsLeft(oldCabin)]++;
+          newStock[seatsLeft(newCabin)]--;
           oldStock.version++;
           newStock.version++;
           return {
@@ -1040,7 +1064,7 @@ function mount(
             booking.version !== approved.booking_version ||
             oldStock.version !== approved.old_inventory_version ||
             newStock.version !== approved.new_inventory_version ||
-            newStock.economy_available < 1 ||
+            newStock[seatsLeft(newCabin)] < 1 ||
             newStock.economy_cents + (booking.fare === "FLEX" ? 9600 : 0) !==
               to.fare_cents ||
             // Someone else took the approved seat in the meantime.

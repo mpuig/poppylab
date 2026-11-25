@@ -260,6 +260,90 @@ it("leaves the seat unassigned, and says so, when the new flight has no standard
   });
 });
 
+/** Asks for a change and approves the terms that come back. */
+async function approve(
+  x: Awaited<ReturnType<typeof setup>>,
+  access: string,
+  url: string,
+  body: Record<string, unknown>,
+) {
+  const operation = (await x.call(access, "POST", url, body)).json().operation;
+  return {
+    operation,
+    done: await x.call(access, "POST", url, body, operation),
+  };
+}
+
+it("withdraws an upgrade offer with its flight and accepts none for a flight not booked", async () => {
+  const x = await setup();
+  const robin = await x.sign("robin", true);
+  const elena = await x.sign("elena", true);
+  const change = await approve(
+    x,
+    robin.access_token,
+    "/api/account/bookings/NW4D8R/change-flight",
+    toNa278,
+  );
+  expect(change.operation.terms.upgrade).toBe(
+    "The upgrade offer for NA 274 does not carry over and is withdrawn.",
+  );
+  expect(change.operation.summary).toContain(change.operation.terms.upgrade);
+  expect(change.done.json().data.upgrade_offer).toBeNull();
+  const upgrade = await x.call(
+    robin.access_token,
+    "POST",
+    "/api/account/bookings/NW4D8R/upgrade",
+    { offer_id: "upg_robin_1" },
+  );
+  expect(upgrade.statusCode).toBe(404);
+  expect(upgrade.json().error).toBe("upgrade_offer_not_found");
+  // An offer saved before this rule may still name a flight that was changed.
+  business().bookings.elena![0]!.upgrade_offer!.flight_id =
+    "flt_na119_20270526";
+  const stray = await x.call(
+    elena.access_token,
+    "POST",
+    "/api/account/bookings/NW7K2P/upgrade",
+    { offer_id: "upg_elena_1" },
+  );
+  expect(stray.statusCode).toBe(404);
+});
+
+it("moves an upgraded passenger back to the fare's cabin, says so, and keeps both cabin counts right", async () => {
+  const x = await setup();
+  const robin = await x.sign("robin", true);
+  const base = "/api/account/bookings/NW4D8R";
+  await approve(x, robin.access_token, `${base}/upgrade`, {
+    offer_id: "upg_robin_1",
+  });
+  const change = await approve(
+    x,
+    robin.access_token,
+    `${base}/change-flight`,
+    toNa278,
+  );
+  expect(change.operation.terms).toMatchObject({
+    from: { cabin: "Business" },
+    to: { cabin: "Economy" },
+    upgrade:
+      "The Business upgrade is for NA 274 only: it does not carry over to NA 278 and is not refunded. You travel in Economy.",
+  });
+  expect(change.operation.summary).toContain(change.operation.terms.upgrade);
+  expect(change.done.json().data.itinerary[0]).toMatchObject({
+    flight_number: "NA 278",
+    cabin: "Economy",
+  });
+  const { inventory } = business();
+  expect(inventory.flt_na274_20270603).toMatchObject({
+    economy_available: 19,
+    business_available: 4,
+  });
+  expect(inventory.flt_na278_20270603).toMatchObject({
+    economy_available: 17,
+    business_available: 4,
+  });
+});
+
 it("returns exact baggage, preference, upgrade and cancellation terms", async () => {
   const x = await setup();
   const elena = await x.sign("elena", true);
