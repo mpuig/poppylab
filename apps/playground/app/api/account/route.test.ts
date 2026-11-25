@@ -141,6 +141,7 @@ vi.mock("@/lib/runtime", async () => ({
 }));
 
 import { POST, GET } from "./route";
+import { recordOperation } from "../../../lib/operation-store";
 import { seedRun } from "@/lib/runs";
 import { nextAutoApproval, usesAllowance } from "@/lib/auto-approval";
 import { createIdentity, ProtocolError } from "@poppy-lab/pap-client";
@@ -632,6 +633,65 @@ describe("Human-controlled account boundary", () => {
     });
     expect((await act("approve")).status).toBe(410);
   });
+  it.each([
+    ["a new revision", { operation_id: "op_test", revision: "r2" }],
+    ["another operation", { operation_id: "op_other", revision: "r1" }],
+  ])(
+    "doesn't offer %s for approval when it answers a Retry: the first outcome is still unknown (Operations v3 §7)",
+    async (_name, named) => {
+      sendThenFail(lost);
+      expect((await act("approve")).status).toBe(502);
+      sendThenFail(
+        () =>
+          new ProtocolError(403, "approval_required", undefined, undefined, {
+            ...named,
+            summary: "Move fictional delivery, now with a fee",
+            terms: { to: "Saturday", fee_cents: 100 },
+            expires_at: new Date(Date.now() + 60000).toISOString(),
+          }),
+      );
+      const r = await act("retry");
+      expect(r.status).toBe(409);
+      const body = await r.json();
+      expect(body.code).toBe("new_terms_after_retry");
+      expect(body.next).toBe("status");
+      // The card stays the approved revision's, and says what to check.
+      expect(body.operation).toMatchObject({
+        operation_id: "op_test",
+        revision: "r1",
+        state: "uncertain",
+        terms: { to: "Saturday" },
+        result: { summary: body.error },
+      });
+      expect(body.error).toContain("doesn't say whether");
+      expect(body.error).toContain("Juniper's own records");
+      expect(body.error).not.toContain("fee");
+      // Nothing of the new terms is kept, so nothing asks for their approval.
+      expect(Object.keys(state.run.operations)).not.toContain("op_other");
+      expect(JSON.stringify(state.run.operations)).not.toContain("fee_cents");
+      for (const revision of ["r1", "r2"])
+        expect(
+          (
+            await POST(
+              request({ action: "approve", id: named.operation_id, revision }),
+            )
+          ).status,
+        ).not.toBe(200);
+      expect(state.request).toHaveBeenCalledTimes(2);
+      // Retry still works, and still sends only the approval sent first.
+      state.request.mockResolvedValueOnce({ summary: "Done once" });
+      const again = await act("retry");
+      expect(again.status).toBe(200);
+      expect((await again.json()).operation).toMatchObject({
+        state: "succeeded",
+        result: { summary: "Done once" },
+      });
+      expect(state.request.mock.calls[2]![1]).toMatchObject({
+        revision: "r1",
+        approval: { approver: "user", reference: "a1" },
+      });
+    },
+  );
   it.each([
     [new ProtocolError(401, undefined), 401, "account_unavailable"],
     [new ProtocolError(403, "insufficient_scope"), 403, "insufficient_scope"],
@@ -1197,12 +1257,41 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
       request({ action: "retry", id: "op_rule", revision: "r1" }),
     );
     expect(retried.status).toBe(409);
+    // §7: the new terms don't say whether Iris's approval was performed, so
+    // they aren't kept: neither Iris nor the User can approve them yet.
     expect((await retried.json()).operation).toMatchObject({
-      revision: "r2",
+      revision: "r1",
+      state: "uncertain",
       agentSuperseded: true,
     });
-    expect((await approve(rule, "r2")).status).toBe(409);
+    for (const by of [rule, undefined])
+      expect((await approve(by, "r2")).status).toBe(400);
     expect(state.request).toHaveBeenCalledTimes(2);
+    // When the Company offers them again, such as for a new request once
+    // the outcome is known, the rule still doesn't approve them (§5).
+    recordOperation(run as never, newTerms().operation, {
+      url: "http://juniper.localhost:4100/api/account/checkout",
+      body: {},
+    });
+    const second = await approve(rule, "r2");
+    expect(second.status).toBe(409);
+    expect((await second.json()).error).toContain("new terms");
+    expect(state.request).toHaveBeenCalledTimes(2);
+  });
+
+  it("drops the unknown-outcome note once a later retry is declined: that outcome is known", async () => {
+    sendThenFail(lost);
+    expect((await approve(rule)).status).toBe(502);
+    sendThenFail(newTerms);
+    const retry = () =>
+      POST(request({ action: "retry", id: "op_rule", revision: "r1" }));
+    expect((await (await retry()).json()).operation.result.summary).toContain(
+      "doesn't say whether",
+    );
+    sendThenFail(() => new ProtocolError(403, "approval_declined"));
+    const declined = (await (await retry()).json()).operation;
+    expect(declined).toMatchObject({ state: "proposed", revision: "r1" });
+    expect(declined).not.toHaveProperty("result");
   });
 
   it("lets the rule look at a new revision the Company returned for the User's own approval", async () => {
@@ -1321,7 +1410,9 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
       declinedBy,
     ],
     ["the revision it names", sameTerms, "proposed", "proposed"],
-    ["new terms", newTerms, "proposed", "proposed"],
+    // §7: new terms in answer to a retry don't say what became of the
+    // approval sent first, and aren't offered until that is known.
+    ["new terms", newTerms, "proposed", "uncertain"],
     [
       "a closed conversation",
       () => new ProtocolError(409, "conversation_closed"),

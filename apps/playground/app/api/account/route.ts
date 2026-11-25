@@ -518,8 +518,10 @@ async function act(request: Request, started: { id?: string }) {
           };
           delete op.approval;
           // A declined retry is a known outcome too (§7). With no approval
-          // left to resend, it goes back to waiting for the User's Approve.
+          // left to resend, it goes back to waiting for the User's Approve,
+          // without what an earlier retry left about an unknown outcome.
           op.state = "proposed";
+          delete op.result;
           recordOutcome(
             run,
             op,
@@ -554,12 +556,46 @@ async function act(request: Request, started: { id?: string }) {
         error instanceof ProtocolError &&
         error.status === 403 &&
         error.code === "approval_required"
-      )
+      ) {
+        const named = (error.operation ?? {}) as {
+          operation_id?: unknown;
+          revision?: unknown;
+        };
+        if (
+          body.action === "retry" &&
+          (named.operation_id !== op.operation_id ||
+            named.revision !== op.revision)
+        ) {
+          // §7: a new operation or revision in answer to a retry doesn't
+          // say whether the approval sent first was performed, and until
+          // that is known nothing new is approved or put to the User. The
+          // new terms aren't kept: the operation stays uncertain, with the
+          // approval Retry resends. Only a website's operation has a status
+          // to look up (§6), so here the User checks the Company's records.
+          const company = run.company?.document.organization.name;
+          // §5: when the terms come back, Iris's rule doesn't approve them.
+          if (approver === "agent") op.agentSuperseded = true;
+          op.result = {
+            summary: `${company ?? "The Company"} answered the retry with new terms instead of a result. That doesn't say whether the approval sent first was performed, so the new terms aren't offered for approval. Check ${company ? `${company}'s` : "the Company's"} own records to see whether the change was made, such as by asking Iris to read your account. If it wasn't, ask for the change again to get terms you can approve.`,
+          };
+          return NextResponse.json(
+            {
+              // Not `outcome_unknown`, for which the page shows its own
+              // copy of the operation, without this note.
+              code: "new_terms_after_retry",
+              next: "status",
+              operation: op,
+              error: op.result.summary,
+            },
+            { status: 409, headers: { "Cache-Control": "no-store" } },
+          );
+        }
         try {
           next = recordOperation(run, error.operation, op.request!);
         } catch {
           // Terms Poppy can't show or that have expired: a refusal, below.
         }
+      }
       if (next) {
         // §8.10: terms that answer an approval sent to the User's Direct
         // Conversation were proposed there too.
