@@ -749,7 +749,9 @@ export function espiTools({
 
   /**
    * The usage point's entry, its time zone and meter readings with their
-   * reading types: what espi_usage and espi_bills both start from.
+   * reading types: what espi_usage and espi_bills both start from. For
+   * bills alone (`readings` false) the usage point and its local time are
+   * read with `espi:summary`, which the extension lets read them.
    */
   async function point(
     ctx: Context,
@@ -757,8 +759,9 @@ export function espiTools({
     up: string,
     readings: boolean,
   ) {
+    const scope = readings ? ESPI_SCOPES.usage : ESPI_SCOPES.summary;
     const got = await get(ctx, ["Subscription", sub, "UsagePoint", up], {}, [
-      ESPI_SCOPES.usage,
+      scope,
     ]);
     if ("answer" in got) return got;
     const found = entries(got, 4)
@@ -769,7 +772,7 @@ export function espiTools({
     let tzKnown = false;
     if (found.timeId) {
       const t = await get(ctx, ["LocalTimeParameters", found.timeId], {}, [
-        ESPI_SCOPES.usage,
+        scope,
       ]);
       if ("answer" in t) return t;
       const z = entries(t, 4)
@@ -1325,6 +1328,27 @@ function aggregate(
   ]);
 }
 
+/**
+ * A billing period as dates, both included. In local dates, unless the
+ * utility bills UTC days: a period that starts at UTC midnight and not at
+ * local midnight is given in UTC dates and says so, since in local dates it
+ * would seem to start the day before.
+ */
+function billingPeriod(period: { start: number; duration: number }, tz: Zone) {
+  const last = period.start + Math.max(period.duration - 1, 0);
+  const utc =
+    period.start % 86400 === 0 &&
+    (period.start + offsetAt(tz, period.start)) % 86400 !== 0;
+  const date = (t: number) =>
+    utc ? new Date(t * 1000).toISOString().slice(0, 10) : localDate(tz, t);
+  return defined([
+    ["from", date(period.start)],
+    ["to", date(last)],
+    ["days", round(period.duration / 86400, 1)],
+    ["timeZone", utc ? "UTC" : undefined],
+  ]);
+}
+
 /** One UsageSummary in kWh and currency, with its period in local dates. */
 function bill(
   id: string,
@@ -1364,14 +1388,7 @@ function bill(
   return defined([
     ["summaryId", id],
     ["title", title],
-    [
-      "period",
-      period && {
-        from: localDate(tz, period.start),
-        to: localDate(tz, period.start + Math.max(period.duration - 1, 0)),
-        days: round(period.duration / 86400, 1),
-      },
-    ],
+    ["period", period && billingPeriod(period, tz)],
     ["kWh", energy("overallConsumptionLastPeriod")],
     ["currency", currency],
     ["amount", money("billLastPeriod")],

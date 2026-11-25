@@ -738,7 +738,13 @@ describe("ESPI-shaped bills and authorization", () => {
       "/LocalTimeParameters/ltp-pacific",
       `/Subscription/${SUB}/UsagePoint/up-home/UsageSummary?published-min=2026-08-26T07%3A00%3A00Z&published-max=2026-11-26T08%3A00%3A00Z&start-index=1&max-results=31`,
     ]);
-    expect(request.mock.calls[2]![1]).toEqual(["espi:summary"]);
+    // Bills alone need espi:summary only: the usage point and its local
+    // time are read with it too, as the extension allows.
+    expect(request.mock.calls.map(([, scopes]) => scopes)).toEqual([
+      ["espi:summary"],
+      ["espi:summary"],
+      ["espi:summary"],
+    ]);
     expect(result).toEqual({
       usagePointId: "up-home",
       title: "Home",
@@ -789,6 +795,38 @@ describe("ESPI-shaped bills and authorization", () => {
     expect(urls().at(-1)).toContain(
       "published-min=2026-10-01T07%3A00%3A00Z&published-max=2026-11-01T07%3A00%3A00Z",
     );
+  });
+
+  it("gives a period the utility bills in UTC months in UTC dates", async () => {
+    // September and October as UTC months: they start at UTC midnight,
+    // which is 17:00 the day before in Pacific time.
+    const utc = (text: string) =>
+      text
+        .replace(
+          "<espi:start>1790838000</espi:start>",
+          "<espi:start>1790812800</espi:start>",
+        )
+        .replace(
+          "<espi:start>1788246000</espi:start>",
+          "<espi:start>1788220800</espi:start>",
+        );
+    const summaries = under(
+      `/Subscription/${SUB}/UsagePoint/up-home/UsageSummary`,
+    ).map(([, text]) => utc(text));
+    const { tools } = setup({
+      replies: [
+        one(byPath.get(`/Subscription/${SUB}/UsagePoint/up-home`)!),
+        one(byPath.get("/LocalTimeParameters/ltp-pacific")!),
+        feed(summaries),
+      ],
+    });
+    const result = (await tools.espi_bills!.execute({
+      usagePointId: "up-home",
+    })) as { bills: Array<{ period: unknown }> };
+    expect(result.bills.map((b) => b.period)).toEqual([
+      { from: "2026-10-01", to: "2026-10-31", days: 31, timeZone: "UTC" },
+      { from: "2026-09-01", to: "2026-09-30", days: 30, timeZone: "UTC" },
+    ]);
   });
 
   it("bounds the bills window and refuses bad input", async () => {
