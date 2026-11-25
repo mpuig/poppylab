@@ -35,17 +35,18 @@ more.
 
 ### 2. Sign in at Juniper
 
-![Juniper's own page: choose an account, and a list of what Iris may read, marked Read only](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/02-sign-in-at-juniper.webp "This page belongs to Juniper. Iris only opened it.")
+![Juniper's own page, headed Iris wants to connect to your Juniper account: a choice between two test customers, what Iris may read, and under Propose changes the word None](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/02-sign-in-at-juniper.webp "This page belongs to Juniper. Iris only opened it.")
 
 The button opens a page on Juniper's website, in Juniper's design and in its
-words. At the top it says which agent is asking: Iris, from poppylab.dev. On
-the right it lists what Iris would be allowed to read, and it states that
-proposing changes or purchases is not allowed. Elena chooses Allow access.
+words. At the top it says which agent is asking: Iris, from poppylab.dev,
+with a note that the address is verified. On the right it lists what Iris
+would be allowed to read, and under Propose changes it says "None". Elena
+chooses Allow.
 
 Elena signs in at Juniper and never in Iris, so Iris never sees a password.
 What it receives from Juniper is a permission tied to Iris itself. The lab's
 companies have test customers and no passwords, which is why the page offers
-a list of names.
+two names to choose from.
 
 <details>
 <summary>What travelled</summary>
@@ -70,9 +71,11 @@ shows these requests.
 
 ![Iris shows Elena's recurring delivery: every Thursday, oranges and coffee, 23 dollars 50](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/03-iris-reads-the-delivery.webp "With read-only access Iris can see the delivery and cannot propose a change to it.")
 
-Back in the conversation, Elena asks for her deliveries and Iris reads them
-from Juniper: one delivery every Thursday, with oranges and coffee. She asks
-for her orders too, and Juniper answers that there are none yet.
+The tab that held Juniper's page now shows a page of the lab that reads
+"Signed in." and offers to close the tab. Back in the conversation, Elena
+asks for her deliveries and Iris reads them from Juniper: one delivery every
+Thursday, with oranges and coffee. She asks for her orders too, and Juniper
+answers that there are none yet.
 
 The line under the answer states what Iris may do at this point: read-only
 access. Next to it are the two things Elena can do about that. She can ask
@@ -84,6 +87,8 @@ for change permission, or sign out.
 ```text
 Started a Poppy Session, signed in
 Read /poppy/tasks
+Company Agent conversations at https://grocery-demo.poppylab.dev/poppy/conversations
+Found 19 API tools at the Company
 Read /api/account/deliveries
 ```
 
@@ -103,6 +108,7 @@ Juniper's answer, trimmed to one of the two products:
           "name": "Cara cara oranges",
           "price": 450,
           "unit": "bag",
+          "stock": 24,
           "quantity": 1,
           "line_total_cents": 450
         }
@@ -124,38 +130,40 @@ the token allows `poppy:read` before it answered.
 
 ![Juniper's account page, section Your agent's access: one entry with the agent's address, poppy:read, an expiry date and a Disconnect button](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/04-agent-listed-at-juniper.webp "Juniper shows Elena which agent is connected and what it may do.")
 
-Elena opens Juniper's website herself and looks at her account. Under Your
-agent's access, Juniper lists the agent she connected: its address, the one
-permission it holds, and the date on which the access expires.
+Elena opens Juniper's website herself, looks at her account and presses Show
+grants. Under Your agent's access, Juniper lists the agent she connected: its
+address, the one permission it holds, and the date on which the access
+expires.
 
 The record of who may reach her account is kept by Juniper, where Elena
 would look for it. The Disconnect button ends the access from Juniper's side.
 
 ### 5. Ask for a change too early
 
-![Elena asks to move her recurring delivery to Saturday and the answer is: insufficient scope](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/05-change-not-allowed-yet.webp "Reading and changing are separate permissions, and Iris holds only the first.")
+![Elena asks to move her recurring delivery to Saturday. Iris answers that this needs the change permission, which her sign-in to Juniper Market does not include, and that nothing was sent to the company](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/05-change-not-allowed-yet.webp "Reading and changing are separate permissions, and Iris holds only the first.")
 
 Elena asks Iris to move the delivery to Saturday. Iris does not send the
 request. Juniper's API says that proposing a change needs a second
 permission, and Elena gave only the one to read. Nothing changed: Juniper's
 website still showed Thursday and no proposal from the agent.
 
-The answer in demo mode is terse. "Insufficient scope" means that the
-permission Iris holds does not cover the request, and the demo words it as
-the company's answer although Iris stopped before asking. The note under the
-buttons tells Elena what to do: request change permission, then ask again.
+The answer says what is missing and what happened: the request needs the
+change permission, Iris did not ask, and nothing was sent to Juniper. It also
+tells Elena what to do: request change permission, review Juniper's consent,
+then ask again.
 
 <details>
 <summary>What travelled</summary>
 
-What Iris showed under Data is its own note. No request for the change
-reached Juniper:
+The steps under the answer end with the request that Iris did not make. The
+Inspector lists it as
+"Not sent · POST /api/account/delivery-change · permission not granted".
 
-```json
-{
-  "error": "insufficient_scope",
-  "instruction": "Ask the user to choose Request change permission. A new Company consent is required; do not retry or propose changes until it completes. Reading remains available."
-}
+```text
+Started a Poppy Session, signed in
+Company Agent conversations at https://grocery-demo.poppylab.dev/poppy/conversations
+Found 19 API tools at the Company
+Did not ask for /api/account/delivery-change (permission not granted); nothing was sent
 ```
 
 The entry in Juniper's API description that names both permissions, trimmed:
@@ -176,15 +184,15 @@ The entry in Juniper's API description that names both permissions, trimmed:
 
 ### 6. Allow Iris to propose changes
 
-![Juniper's consent page now has a ticked box: Allow change proposals, with a note that each change needs separate approval](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/06-permission-to-propose-changes.webp "The second consent adds one permission, named in Juniper's words.")
+![Juniper's consent page with Elena still selected and, under Propose changes, a ticked box: Basket, purchases, deliveries, profile and support cases, with a note that each one waits for her approval](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/06-permission-to-propose-changes.webp "The second consent adds one permission, named in Juniper's words.")
 
-Elena presses Request change permission and Juniper's page opens again. This
-time it names one more thing Iris could do: propose changes to the basket,
-purchases, deliveries, the profile and support cases. Elena can untick the
-box and stay with read-only access.
+Elena presses Request change permission and Juniper's page opens again, with
+her account already selected. This time it names one more thing Iris could
+do: propose changes to the basket, purchases, deliveries, the profile and
+support cases. Elena can untick the box and stay with read-only access.
 
-The page also says what the permission does not do. Each change will need
-Elena's separate approval in Iris, and the permission confirms no purchase.
+The page also says what the permission does not do. Each change waits for
+Elena's own approval, and the permission confirms no purchase.
 Juniper decides how its permissions are split and how each one is described.
 A bank or an airline would draw the lines elsewhere.
 
@@ -204,7 +212,8 @@ one entry for Iris, with both permissions.
 The line under the conversation now reads "Reading and change proposals".
 Elena asks again for Saturday, and this time Iris sends the request. Iris
 does not repeat the earlier request by itself. When the access changed, the
-answers that held account data also left the conversation.
+answers that held account data left the conversation, and the answers to
+public questions stayed.
 
 Juniper does not make the change. It answers that the change needs the
 customer's approval and sends back the terms it would apply: the delivery
@@ -217,6 +226,8 @@ called Needs you.
 ```text
 Started a Poppy Session, signed in
 Read /poppy/tasks
+Company Agent conversations at https://grocery-demo.poppylab.dev/poppy/conversations
+Found 19 API tools at the Company
 Sent a request to /api/account/delivery-change
 Asked for your approval; nothing was done yet
 ```
@@ -226,7 +237,7 @@ Juniper's answer to the request, as Iris received it:
 ```json
 {
   "status": "approval_required",
-  "operation_id": "op_9xsVEJWrlypnShhBabeh3eSI",
+  "operation_id": "op_CdIqbgjum0Ju9jljvG2ftaxE",
   "summary": "Move Elena Maren’s fictional delivery delivery_001 from Thursday to Saturday, recurring weekly. No charge (USD 0.00). No real shipment is affected.",
   "terms": {
     "kind": "delivery",
@@ -237,7 +248,7 @@ Juniper's answer to the request, as Iris received it:
     "fee_cents": 0,
     "currency": "USD"
   },
-  "expires_at": "2026-11-25T15:58:03.517Z"
+  "expires_at": "2026-11-25T21:17:30.995Z"
 }
 ```
 
@@ -245,7 +256,7 @@ Juniper's answer to the request, as Iris received it:
 
 ### 8. Approve
 
-![The entry Change delivery day now reads Completed, with Juniper's confirmation that the delivery repeats weekly on Saturday](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/08-approved.webp "Juniper made the change when the approval arrived, and said so.")
+![The entry Change delivery day now reads Completed, with Juniper's confirmation that the delivery repeats weekly on Saturday and the line Approved by you](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/08-approved.webp "Juniper made the change when the approval arrived, and said so.")
 
 Elena presses Approve this change. Iris sends Juniper the same request
 again, this time with her approval attached, and Juniper confirms: the
@@ -261,25 +272,26 @@ what the terms contain, what the approval covers and when it expires.
 ![Juniper's account page shows the recurring delivery as Every Saturday](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/09-delivery-at-juniper-after.webp "The changed delivery on Juniper's website, a few seconds later.")
 
 Juniper's website shows the delivery as it now stands: every Saturday, with
-the same two products. Lower on the page, under Your agent's activity,
-Juniper records that the change was applied and that Elena approved it in
-her agent.
+the same two products. Lower on the page, Elena opens Your agent's activity.
+There Juniper records that the change was applied, at what time, and that
+Elena approved it in her agent.
 
 ### 10. See what the agent may do now
 
 ![Your agent's access now shows one entry with poppy:read and poppy:write](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/10-permissions-at-juniper.webp "One agent, two permissions, and the same Disconnect button.")
 
-Under Your agent's access, Juniper lists the same agent with both
-permissions. There is one entry, because the second consent replaced the
-first.
+Elena presses Show grants again. Under Your agent's access, Juniper lists the
+same agent with both permissions. There is one entry, because the second
+consent replaced the first.
 
 ### 11. Sign out
 
-![After signing out, the conversation is marked Public access again and a request for the deliveries is answered with: sign in required](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/11-signed-out.webp "After Sign out, Iris is back to what any visitor can ask.")
+![After signing out, the conversation is marked Public access again. A request for the deliveries is answered: this needs your account at Juniper Market, you are not signed in, and nothing was sent](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/11-signed-out.webp "After Sign out, Iris is back to what any visitor can ask.")
 
 Elena presses Sign out in the conversation. The conversation is emptied and
-marked Public access again. When she asks for her deliveries, the answer is
-the one from before she signed in: signing in is required.
+marked Public access again. When she asks for her deliveries, Iris answers as
+it would have before she signed in: the request needs her account, she is not
+signed in, and nothing was sent to Juniper.
 
 <details>
 <summary>What travelled</summary>
