@@ -469,11 +469,13 @@ function mount(app: Hono, ctx: Parameters<CompanyDefinition["mount"]>[1]) {
    * transaction outside the choice is answered as one that doesn't exist.
    */
   const reachOf = (c: Context) => {
-    const customer = customerOf(ctx.sessionFor(c));
-    return {
-      customer,
-      ...withinGrant(customer, ctx.grantFor(c)?.resources),
-    };
+    const session = ctx.sessionFor(c);
+    const customer = customerOf(session);
+    const grant = ctx.grantFor(c);
+    // Fail closed: a signed-in request whose grant can't be read sees no
+    // account, never every account. Without a choice, the grant sees all.
+    const chosen = grant ? grant.resources : session.grant ? [] : undefined;
+    return { customer, ...withinGrant(customer, chosen) };
   };
   /**
    * An idempotency key stands for one request, and the gateway's operation
