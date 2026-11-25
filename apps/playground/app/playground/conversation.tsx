@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 import { ArrowUp, LoaderCircle } from "lucide-react";
 import { companyProfile } from "@poppy-lab/pap-core";
 import { needsYou } from "@/lib/operation-presentation";
+import { leftToUser } from "@/lib/auto-approval";
 import { hideLinkSecrets } from "@/lib/link-display";
 import { OperationReview } from "../operation-review";
 import { StandingInstruction } from "./standing-instruction";
@@ -81,6 +82,15 @@ export function Conversation({
   useEffect(() => {
     if (waitingKey) setPanelOpen(true);
   }, [waitingKey]);
+  // Why the User's standing instruction left a waiting operation to them.
+  const leftOut = (op: (typeof p.operations)[number]) =>
+    leftToUser(
+      op,
+      p.instruction,
+      companyName,
+      p.heldBack[`${op.operation_id}:${op.revision}`],
+      now,
+    );
   const review = (op: (typeof p.operations)[number]) => (
     <OperationReview
       key={op.operation_id}
@@ -90,6 +100,7 @@ export function Conversation({
       busy={busy}
       signedIn={signedIn}
       onAction={(action, operation) => void p.accountAction(action, operation)}
+      notApplied={leftOut(op)}
     />
   );
   // `connected` implies a result; keep the type in step with the flag.
@@ -386,6 +397,7 @@ export function Conversation({
                   currency={p.instruction?.currency ?? currencyOf(p.operations)}
                   onChange={p.setLimit}
                   operations={p.operations}
+                  leftToUser={leftOut}
                 />
               )}
               {signedIn && p.moreAccess && (

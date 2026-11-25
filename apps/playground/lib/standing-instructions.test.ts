@@ -2,6 +2,7 @@ import { expect, it } from "vitest";
 import {
   coveredBy,
   loadApprovals,
+  notCovered,
   parseLimit,
   recordApproval,
   type Instruction,
@@ -111,6 +112,176 @@ it("refuses any refund, nested or beside a total, and amounts it cannot read", (
       op({ total_cents: 100, a: { b: { c: { d: { e: { f: 1 } } } } }, ...usd }),
       rule,
     ),
+  ).toBeNull();
+});
+
+// The Companies' terms, as their own code writes them.
+const transfer = {
+  source_account_id: "acct_checking",
+  destination_account_id: "acct_savings",
+  amount_cents: 2500,
+  idempotency_key: "demo-transfer-1",
+  source_name: "Operating checking",
+  destination_name: "Reserve savings",
+  source_version: 4,
+  destination_version: 2,
+  source_balance_before_cents: 1172000,
+  source_balance_after_cents: 1169500,
+  destination_balance_before_cents: 4350000,
+  destination_balance_after_cents: 4352500,
+  currency: "USD",
+  notice: "Fictional Harborline Bank data. No real money moves.",
+};
+const upgrade = {
+  booking_reference: "NW7K2P",
+  booking_version: 1,
+  from_cabin: "Economy",
+  to_cabin: "Business",
+  amount_due_cents: 24800,
+  currency: "USD",
+  refund_terms:
+    "The fictional upgrade is refundable only if Northwind Air cancels this segment.",
+  payment: "Simulated card on file — no real charge",
+};
+const flightChange = (amount_due_cents: number, refund_cents: number) => ({
+  booking_reference: "NW7K2P",
+  from: { flight_number: "NA 118", fare_cents: 31200 },
+  to: { flight_number: "NA 120", fare_cents: 35000 },
+  change_fee_cents: 7500,
+  fare_difference_cents: 3800,
+  amount_due_cents,
+  refund_cents,
+  currency: "USD",
+});
+const lanternOrder = {
+  order_id: "ord_LNB1001",
+  from_slot: "fri-1830",
+  to_slot: "fri-1830",
+  lines: { "shoyu-ramen": 2, "matcha-ice": 1 },
+  before_total_cents: 3700,
+  new_total_cents: 4300,
+  price_difference_cents: 600,
+  currency: "USD",
+};
+const upTo = (dollars: number): Instruction => ({
+  maxCents: dollars * 100,
+  currency: "USD",
+});
+
+it("compares the limit with the amount paid or moved, not with a balance", () => {
+  // Harborline's transfer: $25.00 moves, and each balance changes by $25.00.
+  expect(coveredBy(op(transfer), upTo(50))).toEqual({
+    cents: 2500,
+    text: "$25.00 within your limit of $50.00",
+  });
+  expect(notCovered(op(transfer), upTo(50))).toBeNull();
+  expect(notCovered(op(transfer), upTo(20))).toBe(
+    "the amount, $25.00, is over your limit of $20.00",
+  );
+  // Northwind's upgrade and its flight change: what is due is the amount.
+  expect(coveredBy(op(upgrade), upTo(300))?.cents).toBe(24800);
+  expect(notCovered(op(upgrade), upTo(50))).toBe(
+    "the amount due, $248.00, is over your limit of $50.00",
+  );
+  expect(coveredBy(op(flightChange(11300, 0)), upTo(500))).toEqual({
+    cents: 11300,
+    text: "$113.00 within your limit of $500.00",
+  });
+  // Lantern's new total, as before.
+  expect(notCovered(op(lanternOrder), upTo(20))).toBe(
+    "the new total, $43.00, is over your limit of $20.00",
+  );
+  expect(coveredBy(op(lanternOrder), upTo(50))?.cents).toBe(4300);
+});
+
+it("still holds every other amount to the limit, and each balance's change", () => {
+  // A fare over the limit, though what is due is within it.
+  expect(notCovered(op(flightChange(11300, 0)), upTo(200))).toBe(
+    "the fare, $312.00, is over your limit of $200.00",
+  );
+  // The amount says $25.00, but the account would lose $600.00.
+  expect(
+    notCovered(
+      op({ ...transfer, source_balance_after_cents: 1112000 }),
+      upTo(50),
+    ),
+  ).toBe(
+    "the change to the source balance, $600.00, is over your limit of $50.00",
+  );
+  expect(
+    coveredBy(
+      op({ ...transfer, source_balance_after_cents: 1112000 }),
+      upTo(50),
+    ),
+  ).toBeNull();
+});
+
+it("does not cover terms it does not understand, and says which", () => {
+  const usd = { currency: "USD" };
+  // A balance without its other half: nothing says how it changes.
+  const { source_balance_before_cents: _before, ...lone } = transfer;
+  void _before;
+  expect(notCovered(op(lone), upTo(50))).toBe(
+    "it can't tell from the terms how the source balance changes",
+  );
+  expect(
+    notCovered(op({ amount_cents: 100, balance_cents: 5000, ...usd }), rule),
+  ).toBe("it can't tell from the terms how the balance changes");
+  // Harborline's budget change and its category change move no money.
+  expect(
+    notCovered(
+      op({ from_limit_cents: 1000, to_limit_cents: 1500, spent_cents: 0 }),
+      rule,
+    ),
+  ).toBe("the terms name no amount to pay or move");
+  expect(
+    notCovered(
+      op({ amount_cents: -5420, from_category: "groceries", ...usd }),
+      rule,
+    ),
+  ).toBe("it can't read “Amount” in the terms");
+  expect(notCovered(op({ total_cents: 100, currency: "EUR" }), rule)).toBe(
+    "the terms are in EUR and your limit is in USD",
+  );
+  expect(notCovered(op({ total_cents: 100 }), rule)).toBe(
+    "the terms name no currency and your limit is in USD",
+  );
+  expect(
+    notCovered(
+      op({ total_cents: 100, ...usd }, { summary: "Order for $0.50." }),
+      rule,
+    ),
+  ).toBe("the Company's summary names an amount its terms don't hold");
+});
+
+it("never covers a refund, but reads a refund of zero and words about refunds", () => {
+  const refund = "the terms include a refund, which it never approves";
+  expect(notCovered(op(flightChange(0, 2500)), upTo(500))).toBe(refund);
+  expect(
+    notCovered(op({ refund_cents: 800, currency: "USD" }), upTo(500)),
+  ).toBe(refund);
+  // A refund written as anything but zero cents, or as a nested object.
+  for (const terms of [
+    { total_cents: 100, refund: 5, currency: "USD" },
+    { total_cents: 100, refund_cents: "0", currency: "USD" },
+    { total_cents: 100, refund: { amount_cents: 0 }, currency: "USD" },
+  ])
+    expect(notCovered(op(terms), upTo(500))).toBe(refund);
+  // Northwind's refund policy is text; its flight change refunds nothing.
+  expect(coveredBy(op(upgrade), upTo(300))).not.toBeNull();
+  expect(coveredBy(op(flightChange(11300, 0)), upTo(500))).not.toBeNull();
+  // A refund of zero alone names nothing to pay.
+  expect(notCovered(op({ refund_cents: 0, currency: "USD" }), upTo(500))).toBe(
+    "the terms name no amount to pay or move",
+  );
+});
+
+it("has nothing to say without an instruction or for an operation that no longer waits", () => {
+  const big = { total_cents: 9900, currency: "USD" };
+  expect(notCovered(op(big), undefined)).toBeNull();
+  expect(notCovered(op(big, { state: "succeeded" }), rule)).toBeNull();
+  expect(
+    notCovered(op(big, { expires_at: "2000-01-01T00:00:00Z" }), rule),
   ).toBeNull();
 });
 

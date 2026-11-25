@@ -121,14 +121,26 @@ in the page; the server's approval endpoint is the one it always was.
   `poppy-lab:standing-instructions`, with the hour's approvals under
   `poppy-lab:auto-approvals`), is read as a rule of the User's and sends the
   same approve action a click would. The server does not know of it.
-  - It covers an operation only when its terms show a total in the rule's
-    currency and **every** amount in them, nested ones and fees included, is
-    within the limit; it never covers a refund, an unreadable amount, a
-    proposal that has expired or a summary that disagrees with the terms.
+  - The limit is compared with the amount you pay or move, the one the card
+    leads with (`amount_due_cents`, `amount_cents`, `new_total_cents` or
+    `total_cents`), in the rule's currency. **Every** other amount in the
+    terms, nested ones and fees included, must be within the limit too.
+  - A balance is not an amount: it says what an account holds. It is read
+    only as a pair, before and after, and the change between the two must be
+    within the limit. That is what lets the rule cover a bank transfer, whose
+    terms hold the amount moved and four balances.
+  - It never covers a refund (a refund of zero, or a refund policy in words,
+    is not one), terms with no amount to pay or move, an amount or a balance
+    it can't read, a proposal that has expired or a summary that disagrees
+    with the terms.
   - It makes at most 5 approvals an hour per Company and no more than three
     times the limit in total over that hour. The most a rule can allow is
     $1,000. When the hour's allowance is the reason, the log says so and the
     operation waits for you.
+  - A waiting change the rule left to you says why in one sentence, on its
+    card and under "Standing instruction": over the limit (with both
+    amounts), terms it can't read, the hour's allowance, or that the Company
+    declined Iris's approval or answered it with new terms.
   - The log says "Applying your standing instruction" when it sends the
     approval, and the next line says how the Company answered.
   - Removing the rule, or clearing the site's storage, removes the rule and the
@@ -230,7 +242,9 @@ Never recorded: headers, bodies, tokens, Session JWTs, DPoP proofs, keys, codes 
 a Company, a covered proposal whose terms total $18.50 is approved by Iris:
 the log shows "Applying your standing instruction" and, on the next line, how
 the Company answered. One for $28.00 is not covered and waits in "Needs you"
-with "Approve $28.00" on its button.
+with "Approve $28.00" on its button and the reason on its card: "Your
+standing instruction did not apply: the total, $28.00, is over your limit of
+$20.00. It's up to you now."
 
 **A hidden link.** A Company's message with
 `https://company.example/track?token=8f3a…` is shown as

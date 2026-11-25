@@ -17,18 +17,25 @@ export function StandingInstruction({
   currency,
   onChange,
   operations = [],
+  leftToUser = () => null,
 }: {
   instruction: Instruction | undefined;
   currency: string;
   onChange: (next: Instruction | null) => void;
   /** This conversation's operations, for the ledger of what Iris approved. */
   operations?: ReviewOperation[];
+  /** Why the instruction left a waiting operation to the User, if it did. */
+  leftToUser?: (op: ReviewOperation) => string | null;
 }) {
   // The ledger (Operations v3 §6): each approval Iris sent as the agent,
-  // with the reference the Company received.
-  const ledger = operations.filter(
-    (op) => op.approvedBy?.approver === "agent" || op.agentDeclined,
-  );
+  // with the reference the Company received, and each waiting operation the
+  // instruction left to the User, with the reason.
+  const ledger = operations
+    .map((op) => ({ op, why: leftToUser(op) }))
+    .filter(
+      ({ op, why }) =>
+        op.approvedBy?.approver === "agent" || op.agentDeclined || why,
+    );
   const [value, setValue] = useState("");
   const [invalid, setInvalid] = useState(false);
   return (
@@ -40,10 +47,12 @@ export function StandingInstruction({
       {instruction ? (
         <p>
           Iris approves exchanges here up to {formatLimit(instruction)} without
-          asking, and says so in the log each time. Any amount over the limit
-          (fees included), refunds, other currencies and anything that does not
-          match its summary still come to you, and so does everything after 5
-          approvals an hour or three times the limit in total.{" "}
+          asking, and says so in the log each time. The limit is for the amount
+          you pay or move. Any other amount over it (fees included), refunds,
+          other currencies, terms Iris can&apos;t read and anything that does
+          not match its summary still come to you, and so does everything after
+          5 approvals an hour or three times the limit in total. A change left
+          to you says why, here and on its card.{" "}
           <button
             type="button"
             className="text-button"
@@ -88,15 +97,17 @@ export function StandingInstruction({
       {!!ledger.length && (
         <ol
           className="instruction-ledger"
-          aria-label="Approved on this instruction"
+          aria-label="Approved on this instruction, or left to you"
         >
-          {ledger.map((op) => (
+          {ledger.map(({ op, why }) => (
             <li key={`${op.operation_id}:${op.revision}`}>
               <span>{op.summary ?? op.operation_id}</span>
               <small>
                 {op.approvedBy?.approver === "agent"
                   ? `Approved by Iris${op.approvedBy.rule ? ` · ${op.approvedBy.rule}` : ""}${op.approvedBy.reference ? ` · ${op.approvedBy.reference}` : ""}`
-                  : "Declined by the Company · left to you"}
+                  : why
+                    ? `Left to you: ${why}.${op.agentDeclined?.reason ? ` It says: “${op.agentDeclined.reason}”` : ""}`
+                    : "Declined by the Company · left to you"}
               </small>
             </li>
           ))}

@@ -1,6 +1,8 @@
 import type { ReviewOperation } from "./operation-presentation";
 import {
   coveredBy,
+  formatLimit,
+  notCovered,
   type Approval,
   type Instruction,
 } from "./standing-instructions";
@@ -16,9 +18,9 @@ const HOUR = 3_600_000;
  * (`decided` remembers it), only while signed in and idle. It approves an
  * operation only when the fixed check covers its exact terms and the hour's
  * count and total allow it; when only the hour's allowance is the obstacle
- * it says so and leaves the operation for the User. Anything else stays for
- * the User without a word, as does an operation whose agent approval the
- * Company declined or answered with new terms.
+ * it says so, once, and leaves the operation for the User. Anything else
+ * stays for the User, as does an operation whose agent approval the Company
+ * declined or answered with new terms; `leftToUser` says why.
  */
 export type AutoDecision =
   | { kind: "approve"; op: ReviewOperation; covered: string; cents: number }
@@ -53,17 +55,47 @@ export function nextAutoApproval(input: {
       return {
         kind: "limit",
         op,
-        reason: `${MAX_PER_HOUR} automatic approvals in the last hour`,
+        reason: `it already approved ${MAX_PER_HOUR} changes in the last hour`,
       };
     if (spent + covered.cents > instruction.maxCents * BUDGET_FACTOR)
       return {
         kind: "limit",
         op,
-        reason: `more than ${BUDGET_FACTOR} times your limit in the last hour`,
+        reason: `with this change it would approve more than ${BUDGET_FACTOR} times your limit (${formatLimit({ ...instruction, maxCents: instruction.maxCents * BUDGET_FACTOR })}) within an hour`,
       };
     return { kind: "approve", op, covered: covered.text, cents: covered.cents };
   }
   return null;
+}
+
+/**
+ * Why a waiting operation was left to the User although they wrote a
+ * standing instruction, as the end of a sentence that begins "Your standing
+ * instruction did not apply:". In the order `nextAutoApproval` decides: the
+ * Company declined Iris's approval for it or answered it with new terms,
+ * the terms are not covered, or the hour's allowance was used up (`held`,
+ * the reason `nextAutoApproval` gave for this revision). Null when there is
+ * nothing to explain: no instruction, an operation that no longer waits, or
+ * one the instruction is about to approve.
+ */
+export function leftToUser(
+  op: ReviewOperation,
+  instruction: Instruction | undefined,
+  company: string,
+  held?: string,
+  now = Date.now(),
+): string | null {
+  if (
+    !instruction ||
+    op.state !== "proposed" ||
+    !(Date.parse(op.expires_at) > now)
+  )
+    return null;
+  if (op.agentDeclined)
+    return `${company} declined the approval Iris sent on it`;
+  if (op.agentSuperseded)
+    return `${company} answered the approval Iris sent on it with new terms`;
+  return notCovered(op, instruction, now) ?? held ?? null;
 }
 
 /**

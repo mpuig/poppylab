@@ -166,7 +166,7 @@ const AMOUNT_KEYS = [
   "refund_cents",
 ];
 /** A field's name as a label: `amount_due_cents` reads "Amount due". */
-const fieldLabel = (key: string) => {
+export const fieldLabel = (key: string) => {
   const words = key
     .replace(/_cents$/, "")
     .replace(/_/g, " ")
@@ -225,7 +225,7 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
 const BEFORE = /_before(?=_|$)/,
   AFTER = /_after(?=_|$)/;
 /** The two fields of a change, when a field's name says it is one of them. */
-function sides(key: string) {
+export function sides(key: string) {
   if (key === "from" || key === "to")
     return { name: "", from: "from", to: "to" };
   if (key.startsWith("from_"))

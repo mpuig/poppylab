@@ -41,6 +41,7 @@ export function OperationReview({
   busy,
   signedIn,
   onAction,
+  notApplied,
 }: {
   op: ReviewOperation;
   company: string;
@@ -49,6 +50,8 @@ export function OperationReview({
   busy: boolean;
   signedIn: boolean;
   onAction: (action: string, op: ReviewOperation) => void;
+  /** Why the User's standing instruction left this to them (`leftToUser`). */
+  notApplied?: string | null | undefined;
 }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -200,6 +203,13 @@ export function OperationReview({
             {company} answered the approval Iris sent on your standing
             instruction with new terms, and did nothing. It&apos;s up to you
             now.
+          </p>
+        )}
+        {pending && notApplied && !op.agentDeclined && !op.agentSuperseded && (
+          // The two notes above already say it for a decline and new terms.
+          <p className="operation-ledger declined" role="status">
+            Your standing instruction did not apply: {notApplied}. It&apos;s up
+            to you now.
           </p>
         )}
         <details className="operation-terms" open={!op.summary}>

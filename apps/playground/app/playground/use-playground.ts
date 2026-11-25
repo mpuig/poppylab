@@ -628,8 +628,15 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     setInstruction(next ?? undefined);
   }
 
+  /**
+   * The revisions the hour's allowance left to the User, with the reason,
+   * for their cards: a revision is looked at once, so it keeps waiting even
+   * when the hour has passed.
+   */
+  const [heldBack, setHeldBack] = useState<Record<string, string>>({});
   // A fixed check against the exact terms; each revision is tried once.
-  // Anything it does not cover stays for the User in the Needs you panel.
+  // Anything it does not cover stays for the User in the Needs you panel,
+  // where its card says why (`leftToUser`).
   useEffect(() => {
     const next = nextAutoApproval({
       operations,
@@ -641,6 +648,11 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     });
     if (!next) return;
     if (next.kind === "limit") {
+      const { op, reason } = next;
+      setHeldBack((old) => ({
+        ...old,
+        [`${op.operation_id}:${op.revision}`]: reason,
+      }));
       addTrace([
         `Standing instruction not applied · ${next.reason}; waiting for you`,
       ]);
@@ -904,6 +916,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     removeMessage,
     instruction,
     setLimit,
+    heldBack,
   };
 }
 export type Playground = ReturnType<typeof usePlayground>;

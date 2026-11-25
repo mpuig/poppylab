@@ -1,5 +1,8 @@
 import {
   approvalTotal,
+  fieldLabel,
+  money,
+  sides,
   summaryDisagreements,
   type ReviewOperation,
 } from "./operation-presentation";
@@ -11,61 +14,160 @@ const KEY = "poppy-lab:standing-instructions";
 /** The most a rule can allow per exchange: $1,000.00. */
 const MAX = 1_000_00;
 
+const wholeCents = (value: unknown): value is number =>
+  typeof value === "number" && Number.isInteger(value) && value >= 0;
+/** A field's name as it reads inside a sentence: "amount due". */
+const named = (key: string) => fieldLabel(key).toLowerCase();
+
 /**
- * Every money amount in the terms, however deeply nested. A fee or a price
- * difference commits the User as much as the headline total does, so the
- * check looks at all of them. Null when the terms hold anything it cannot
- * settle: an amount that is not whole non-negative cents, a refund, or more
- * structure than a proposal needs.
+ * Every money amount in the terms, however deeply nested, each with the name
+ * of its field. A fee or a price difference commits the User as much as the
+ * headline amount does, so the check looks at all of them.
+ *
+ * A balance is the one exception. It says what an account holds, not what
+ * the approval commits, so it is not compared with the limit; what the
+ * approval does to it is. A balance is read only as a pair, before and
+ * after, and the difference between the two counts as an amount.
+ *
+ * Instead of the amounts, the reason the terms cannot be settled: an amount
+ * that is not whole non-negative cents, a balance without both halves, a
+ * refund, or more structure than a proposal needs. Words about refunds (a
+ * refund policy) are text like any other, which this check never reads, and
+ * a refund of zero is none.
  */
-function amounts(terms: unknown): number[] | null {
-  const found: number[] = [];
-  let visited = 0;
+function amounts(
+  terms: unknown,
+): { label: string; cents: number }[] | { why: string } {
+  const found: { label: string; cents: number }[] = [];
+  let visited = 0,
+    why = "";
+  const fail = (reason: string) => {
+    why = reason;
+    return false;
+  };
   const walk = (value: unknown, depth: number): boolean => {
     if (!value || typeof value !== "object") return true;
-    if (depth > 4) return false;
-    for (const [key, v] of Object.entries(value)) {
-      if (++visited > 200 || /refund/i.test(key)) return false;
-      if (key.endsWith("_cents")) {
-        if (typeof v !== "number" || !Number.isInteger(v) || v < 0)
-          return false;
-        found.push(v);
-      } else if (!walk(v, depth + 1)) return false;
+    if (depth > 4) return fail("the terms hold more than it can check");
+    const fields = value as Record<string, unknown>;
+    for (const [key, v] of Object.entries(fields)) {
+      if (++visited > 200) return fail("the terms hold more than it can check");
+      if (/refund/i.test(key)) {
+        if (key.endsWith("_cents") ? v === 0 : typeof v === "string") continue;
+        return fail("the terms include a refund, which it never approves");
+      }
+      if (!key.endsWith("_cents")) {
+        if (!walk(v, depth + 1)) return false;
+        continue;
+      }
+      if (!wholeCents(v))
+        return fail(`it can't read “${fieldLabel(key)}” in the terms`);
+      if (!/(^|_)balance(_|$)/.test(key)) {
+        found.push({ label: `the ${named(key)}`, cents: v });
+        continue;
+      }
+      const side = sides(key);
+      const before = side?.name ? fields[side.from] : undefined,
+        after = side?.name ? fields[side.to] : undefined;
+      if (!side || !wholeCents(before) || !wholeCents(after))
+        return fail(
+          `it can't tell from the terms how the ${named(side?.name || key)} changes`,
+        );
+      // Counted once, at the first half.
+      if (key === side.from)
+        found.push({
+          label: `the change to the ${named(side.name)}`,
+          cents: Math.abs(after - before),
+        });
     }
     return true;
   };
-  return walk(terms, 0) ? found : null;
+  return walk(terms, 0) ? found : { why };
 }
 
 /**
+ * The fixed check of an operation's exact terms against a standing
+ * instruction: what it covers, or why it doesn't.
+ *
+ * The limit is compared with the amount the User pays or moves: the one the
+ * card leads with (`approvalTotal`: `amount_due_cents`, `amount_cents`,
+ * `new_total_cents`, `total_cents`, in that order). A balance after the
+ * change, a "before" value or a version is not that amount: each describes
+ * the account or the order, not what the approval commits. Every other
+ * amount in the terms must be within the limit too (a fee, a difference, a
+ * previous total, a line), and so must the change to each balance. The
+ * terms must be in the instruction's currency, hold no refund, and agree
+ * with the Company's summary.
+ *
+ * Terms the check doesn't understand are not covered: no amount to pay or
+ * move, an amount it can't read, a balance it can't follow.
+ */
+function check(
+  op: ReviewOperation,
+  instruction: Instruction,
+): { cents: number; text: string } | { why: string } {
+  const terms = op.terms ?? {};
+  const all = amounts(terms);
+  if (!Array.isArray(all)) return all;
+  const total = approvalTotal(op);
+  const cents = total ? terms[total.key] : undefined;
+  // A refund of zero is all these terms name.
+  if (!total || total.key === "refund_cents" || !wholeCents(cents))
+    return { why: "the terms name no amount to pay or move" };
+  if (terms.currency !== instruction.currency)
+    return {
+      why: `the terms ${typeof terms.currency === "string" ? `are in ${terms.currency.slice(0, 12)}` : "name no currency"} and your limit is in ${instruction.currency}`,
+    };
+  // The amount itself first, then any other.
+  const over = [{ label: `the ${named(total.key)}`, cents }, ...all].find(
+    (amount) => amount.cents > instruction.maxCents,
+  );
+  if (over)
+    return {
+      why: `${over.label}, ${money(over.cents, instruction.currency)}, is over your limit of ${formatLimit(instruction)}`,
+    };
+  if (summaryDisagreements(op).length)
+    return {
+      why: "the Company's summary names an amount its terms don't hold",
+    };
+  return {
+    cents,
+    text: `${total.label} within your limit of ${formatLimit(instruction)}`,
+  };
+}
+
+const waiting = (op: ReviewOperation, now: number) =>
+  op.state === "proposed" && Date.parse(op.expires_at) > now;
+
+/**
  * Whether a standing instruction covers an operation, decided only from its
- * exact terms. Anything the check cannot settle is not covered and comes to
- * the User: no amount, another currency, any refund, a summary that
- * disagrees with the terms, a proposal that has expired, or any amount in
- * the terms (a fee included) over the limit. Returns the total it covers
- * and what to say about it, for the record.
+ * exact terms (see `check`). Anything the check cannot settle is not covered
+ * and comes to the User, and so does a proposal that has expired. Returns
+ * the amount it covers and what to say about it, for the record.
  */
 export function coveredBy(
   op: ReviewOperation,
   instruction: Instruction | undefined,
   now = Date.now(),
 ): { cents: number; text: string } | null {
-  if (!instruction) return null;
-  if (op.state !== "proposed" || !(Date.parse(op.expires_at) > now))
-    return null;
-  const total = approvalTotal(op);
-  if (!total || total.key === "refund_cents") return null;
-  const cents = op.terms?.[total.key];
-  if (typeof cents !== "number" || !Number.isInteger(cents) || cents < 0)
-    return null;
-  if (op.terms?.currency !== instruction.currency) return null;
-  const all = amounts(op.terms);
-  if (!all || Math.max(cents, ...all) > instruction.maxCents) return null;
-  if (summaryDisagreements(op).length) return null;
-  return {
-    cents,
-    text: `${total.label} within your limit of ${formatLimit(instruction)}`,
-  };
+  if (!instruction || !waiting(op, now)) return null;
+  const result = check(op, instruction);
+  return "why" in result ? null : result;
+}
+
+/**
+ * Why a standing instruction doesn't cover a waiting operation, as the end
+ * of a sentence ("the amount due, $248.00, is over your limit of $50.00").
+ * Null when it covers it, or when there is nothing to say: no instruction,
+ * or an operation that no longer waits.
+ */
+export function notCovered(
+  op: ReviewOperation,
+  instruction: Instruction | undefined,
+  now = Date.now(),
+): string | null {
+  if (!instruction || !waiting(op, now)) return null;
+  const result = check(op, instruction);
+  return "why" in result ? result.why : null;
 }
 
 export function formatLimit({ maxCents, currency }: Instruction) {

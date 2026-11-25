@@ -110,6 +110,35 @@ it("says why new terms wait for the User after an agent approval, without callin
   expect(declined).toContain("declined the approval Iris sent");
   expect(declined).not.toContain("with new terms");
 });
+it("says why the standing instruction left a proposal to the User, in one place", () => {
+  const review = (marks: object, notApplied: string) =>
+    renderToStaticMarkup(
+      createElement(OperationReview, {
+        op: { ...op, ...marks },
+        company: "Harborline Bank",
+        busy: false,
+        signedIn: true,
+        onAction: vi.fn(),
+        notApplied,
+      }),
+    );
+  const over = "the amount, $125.00, is over your limit of $50.00";
+  expect(review({}, over)).toContain(
+    `Your standing instruction did not apply: ${over}. It`,
+  );
+  // A settled or expired proposal has nothing left to explain.
+  expect(review({ state: "succeeded" }, over)).not.toContain("did not apply");
+  expect(
+    review({ expires_at: new Date(Date.now() - 1000).toISOString() }, over),
+  ).not.toContain("did not apply");
+  // A decline already has its own note, with the Company's reason.
+  const declined = review(
+    { agentDeclined: { reason: "Approve money moves yourself." } },
+    "Harborline Bank declined the approval Iris sent on it",
+  );
+  expect(declined).toContain("It says: “Approve money moves yourself.”");
+  expect(declined).not.toContain("did not apply");
+});
 it("opens proposals with before/after and formatted money", () => {
   const html = render("proposed");
   expect(html.match(/^<details[^>]*>/)?.[0]).toContain("open=");

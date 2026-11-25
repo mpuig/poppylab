@@ -1,5 +1,10 @@
 import { expect, it } from "vitest";
-import { MAX_PER_HOUR, nextAutoApproval, usesAllowance } from "./auto-approval";
+import {
+  leftToUser,
+  MAX_PER_HOUR,
+  nextAutoApproval,
+  usesAllowance,
+} from "./auto-approval";
 
 const op = (id: string, cents: number, revision = "1") => ({
   operation_id: id,
@@ -104,7 +109,10 @@ it("stops after the hour's count and leaves the operation for the User", () => {
     recent,
     now: now,
   });
-  expect(out).toMatchObject({ kind: "limit" });
+  expect(out).toMatchObject({
+    kind: "limit",
+    reason: "it already approved 5 changes in the last hour",
+  });
   // Said once, not retried on every render.
   expect(
     nextAutoApproval({
@@ -132,7 +140,11 @@ it("stops once the hour's total passes three times the limit", () => {
       recent,
       now,
     }),
-  ).toMatchObject({ kind: "limit" });
+  ).toMatchObject({
+    kind: "limit",
+    reason:
+      "with this change it would approve more than 3 times your limit ($90.00) within an hour",
+  });
   expect(
     nextAutoApproval({
       ...base,
@@ -159,6 +171,35 @@ it("forgets approvals older than an hour", () => {
       now,
     }),
   ).toMatchObject({ kind: "approve" });
+});
+
+it("says in one clause why a waiting operation was left to the User", () => {
+  const { instruction } = base;
+  const why = (operation: object, held?: string) =>
+    leftToUser(
+      operation as ReturnType<typeof op>,
+      instruction,
+      "Harborline Bank",
+      held,
+    );
+  // The Company's own answer comes first, whatever the terms.
+  expect(why({ ...op("a", 100), agentDeclined: { reason: "Not here." } })).toBe(
+    "Harborline Bank declined the approval Iris sent on it",
+  );
+  expect(why({ ...op("a", 100), agentSuperseded: true })).toBe(
+    "Harborline Bank answered the approval Iris sent on it with new terms",
+  );
+  // Then the terms, then the hour's allowance.
+  expect(
+    why(op("a", 3001), "it already approved 5 changes in the last hour"),
+  ).toBe("the total, $30.01, is over your limit of $30.00");
+  expect(
+    why(op("a", 100), "it already approved 5 changes in the last hour"),
+  ).toBe("it already approved 5 changes in the last hour");
+  // Covered and about to be approved, settled, or no instruction at all.
+  expect(why(op("a", 100))).toBeNull();
+  expect(why({ ...op("a", 3001), state: "succeeded" })).toBeNull();
+  expect(leftToUser(op("a", 3001), undefined, "Harborline Bank")).toBeNull();
 });
 
 it("spends the allowance on what the Company performed on Iris's approval", () => {
