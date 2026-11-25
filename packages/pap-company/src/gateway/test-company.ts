@@ -37,18 +37,22 @@ const company: CompanyDefinition = {
 export async function setup(deploy: Partial<Deployment> = {}) {
   const keys = await createIdentity();
   const store = memoryStore();
+  /** A test sets `wait` to hold metadata fetches, so requests interleave. */
+  const metadata: { wait?: () => Promise<void> } = {};
   const app = createCompany(company, {
     origin,
     store,
-    fetchJson: async (url) =>
-      url === client
+    fetchJson: async (url) => {
+      await metadata.wait?.();
+      return url === client
         ? {
             client_id: client,
             client_name: "Agent",
             jwks_uri: "https://agent.test/jwks.json",
             redirect_uris: [redirect],
           }
-        : { keys: [keys.publicKey] },
+        : { keys: [keys.publicKey] };
+    },
     ...deploy,
   });
   /** The client's fields of an OAuth request, with a fresh assertion. */
@@ -92,5 +96,5 @@ export async function setup(deploy: Partial<Deployment> = {}) {
       },
       body: JSON.stringify(body),
     });
-  return { app, store, credentials, form, post };
+  return { app, store, metadata, credentials, form, post };
 }

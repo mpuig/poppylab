@@ -76,6 +76,36 @@ it("shows a pushed request's consent page again to the browser that opened it, a
   expect(Object.keys(x.store.value.codes!)).toHaveLength(1);
 });
 
+it("makes one consent page when a pushed request is opened twice at once", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  const x = await pushed();
+  // The client's metadata is cached for 60 seconds. After that both requests
+  // wait for it to be fetched again: neither goes on until both are waiting.
+  vi.setSystemTime(Date.now() + 61000);
+  let waiting = 0,
+    release!: () => void;
+  const fetched = new Promise<void>((done) => (release = done));
+  x.metadata.wait = () => {
+    if (++waiting === 2) release();
+    return fetched;
+  };
+  const pages = await Promise.all([x.open(), x.open()]);
+  const shown = pages.filter((r) => r.status === 200);
+  const refused = pages.filter((r) => r.status === 400);
+  expect(shown).toHaveLength(1);
+  expect(refused).toHaveLength(1);
+  expect(await error(refused[0]!)).toBe("invalid_request_uri");
+  expect(Object.keys(x.store.value.consents!)).toHaveLength(1);
+
+  // The browser that got the page can load it again, and gets the one code.
+  const cookies = shown[0]!.headers.getSetCookie();
+  expect(cookies).toHaveLength(1);
+  const cookie = cookies[0]!.split(";")[0]!;
+  expect((await x.open(cookie)).status).toBe(200);
+  expect((await x.answer(cookie)).status).toBe(302);
+  expect(Object.keys(x.store.value.codes!)).toHaveLength(1);
+});
+
 it("refuses a pushed request after its 90 seconds, reload or not", async () => {
   vi.useFakeTimers({ toFake: ["Date"] });
   const x = await pushed();
