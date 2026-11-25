@@ -8,7 +8,7 @@ data both ways, sign-in when it's needed, approvals for anything that matters
 and a way to reach a person.
 
 This page follows one conversation at
-[Lantern Noodle Bar](https://noodles.poppylab.dev): a customer's delivery was
+[Lantern Noodle Bar](https://food-demo.poppylab.dev): a customer's delivery was
 missing a dish and they want a refund. Lantern's API has no refund endpoint;
 its Company Agent handles it. The exchanges are real, from the same gateway
 run in-process by our tests, trimmed.
@@ -34,7 +34,7 @@ lost response is recognized and changes nothing
 ([§8.3](https://personalagentprotocol.org/docs/1.0/spec#sending-messages)):
 
 ```http
-POST https://noodles.poppylab.dev/poppy/conversations?wait=0
+POST https://food-demo.poppylab.dev/poppy/conversations?wait=0
 Poppy-Version: 1.0
 Poppy-Session: eyJ0eXAi…
 
@@ -211,7 +211,7 @@ request and refunds once.
 ## 5. Asking for a person
 
 ```http
-POST https://noodles.poppylab.dev/poppy/conversations/cnv_OVkOhfxK5Gc1TcFHlQNj/handoff
+POST https://food-demo.poppylab.dev/poppy/conversations/cnv_OVkOhfxK5Gc1TcFHlQNj/handoff
 { "id": "req_5" }
 ```
 
