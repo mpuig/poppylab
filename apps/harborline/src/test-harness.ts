@@ -156,7 +156,11 @@ export async function setup(deploy: Partial<Deployment> = {}) {
     method: "GET" | "POST",
     url: string,
     payload?: Record<string, unknown>,
-    approval?: { operation_id: string; revision: string },
+    approval?: {
+      operation_id: string;
+      revision: string;
+      approver?: "user" | "agent";
+    },
     user = "usr_harborline",
     extra: Record<string, string> = {},
   ) =>
@@ -189,10 +193,12 @@ export async function setup(deploy: Partial<Deployment> = {}) {
         ...(approval
           ? {
               "Poppy-Approval": approvalHeader({
-                ...approval,
-                approver: "user",
+                operation_id: approval.operation_id,
+                revision: approval.revision,
+                approver: approval.approver ?? "user",
                 approved_at: Math.floor(Date.now() / 1000),
-                input_type: "tap",
+                // Operations v3 §6: input_type only with a user approval.
+                ...(approval.approver === "agent" ? {} : { input_type: "tap" }),
               }),
             }
           : {}),

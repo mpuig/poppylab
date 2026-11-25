@@ -32,6 +32,8 @@ import {
   type Held,
 } from "@/lib/runs";
 import { overBudget } from "@/lib/limits";
+import { coveredBy, parseInstruction } from "@/lib/standing-instructions";
+import { BUDGET_FACTOR, MAX_PER_HOUR } from "@/lib/auto-approval";
 export const runtime = "nodejs";
 const issuer = "http://juniper.localhost:4100";
 /** One conversation, named by `?conversation=`: running, or ended and read-only. */
@@ -154,6 +156,8 @@ async function act(request: Request, started: { id?: string }) {
       access?: unknown;
       id?: string;
       revision?: string;
+      /** The User's standing instruction, for an agent approval (§5). */
+      instruction?: unknown;
     };
     if (body.action === "signin") {
       // §4.2: plain OAuth Direct Sign-In. It doesn't know the Session;
@@ -289,9 +293,42 @@ async function act(request: Request, started: { id?: string }) {
     }
     // Only an uncertain approval is resent, with the same approval (§7).
     if (body.action === "retry" && op.state !== "uncertain") throw new Error();
+    // Operations v3 §5, agent approval: only on the User's own instruction,
+    // checked here against these exact terms, never on the model's word,
+    // and never again once the Company declined one for this operation.
+    let approver: "user" | "agent" =
+      body.action === "retry" ? (op.approval?.approver ?? "user") : "user";
+    let rule: string | undefined;
+    let ruleCents = 0;
+    if (body.action === "approve" && body.instruction !== undefined) {
+      const instruction = parseInstruction(body.instruction);
+      const covered = instruction && coveredBy(op, instruction);
+      const recent = (run.agentApprovals ?? []).filter(
+        (a) => a.at > Date.now() - 3_600_000,
+      );
+      run.agentApprovals = recent;
+      const spent = recent.reduce((sum, a) => sum + a.cents, 0);
+      const refusal = op.agentDeclined
+        ? "The Company declined an approval on your standing instruction for this. Approve it yourself if you want it."
+        : !covered
+          ? "Your standing instruction doesn't cover these exact terms. Approve them yourself if you want them."
+          : recent.length >= MAX_PER_HOUR
+            ? `Your standing instruction approved ${MAX_PER_HOUR} changes in the last hour. Approve this one yourself.`
+            : spent + covered.cents > instruction!.maxCents * BUDGET_FACTOR
+              ? `Your standing instruction approved more than ${BUDGET_FACTOR} times its limit in the last hour. Approve this one yourself.`
+              : undefined;
+      if (refusal || !covered)
+        return NextResponse.json(
+          { code: "not_covered", operation: op, error: refusal },
+          { status: 409, headers: { "Cache-Control": "no-store" } },
+        );
+      approver = "agent";
+      rule = covered.text;
+      ruleCents = covered.cents;
+    }
     operationRequested = true;
     try {
-      const result = (await sendApproval(run, op)) as {
+      const result = (await sendApproval(run, op, approver)) as {
         summary?: unknown;
       } | null;
       op.state = "succeeded";
@@ -301,6 +338,16 @@ async function act(request: Request, started: { id?: string }) {
             ? result.summary.slice(0, 2000)
             : "The Company performed the approved operation.",
       };
+      op.approvedBy = {
+        approver,
+        ...(rule ? { rule } : {}),
+        ...(op.approval?.reference ? { reference: op.approval.reference } : {}),
+      };
+      if (approver === "agent")
+        run.agentApprovals = [
+          ...(run.agentApprovals ?? []),
+          { at: Date.now(), cents: ruleCents },
+        ].slice(-20);
       delete op.request;
     } catch (error) {
       if (
@@ -308,6 +355,24 @@ async function act(request: Request, started: { id?: string }) {
         error.status === 403 &&
         error.code === "approval_declined"
       ) {
+        if (approver === "agent") {
+          // §6: the Company won't take Iris's approval. Nothing was done;
+          // the User decides now, with an approval of their own.
+          op.agentDeclined = {
+            ...(error.declined?.reason
+              ? { reason: error.declined.reason.slice(0, 300) }
+              : {}),
+          };
+          delete op.approval;
+          record(run, {
+            role: "assistant",
+            content: `The Company declined the approval Iris sent on the user's standing instruction; nothing was performed, and it's waiting for the user.${error.declined?.reason ? ` Its reason: ${error.declined.reason}` : ""}`,
+          });
+          return NextResponse.json(
+            { operation: op, code: "agent_approval_declined" },
+            { headers: { "Cache-Control": "no-store" } },
+          );
+        }
         // Operations v3 §6: nothing performed; never send this approval again.
         op.state = "refused";
         op.result = {

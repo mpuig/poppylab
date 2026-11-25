@@ -5,6 +5,7 @@ import {
   parseLimit,
   type Instruction,
 } from "@/lib/standing-instructions";
+import type { ReviewOperation } from "@/lib/operation-presentation";
 
 /**
  * One rule the User can write for this Company: approve exchanges up to an
@@ -15,11 +16,19 @@ export function StandingInstruction({
   instruction,
   currency,
   onChange,
+  operations = [],
 }: {
   instruction: Instruction | undefined;
   currency: string;
   onChange: (next: Instruction | null) => void;
+  /** This conversation's operations, for the ledger of what Iris approved. */
+  operations?: ReviewOperation[];
 }) {
+  // The ledger (Operations v3 §6): each approval Iris sent as the agent,
+  // with the reference the Company received.
+  const ledger = operations.filter(
+    (op) => op.approvedBy?.approver === "agent" || op.agentDeclined,
+  );
   const [value, setValue] = useState("");
   const [invalid, setInvalid] = useState(false);
   return (
@@ -75,6 +84,23 @@ export function StandingInstruction({
             </span>
           )}
         </form>
+      )}
+      {!!ledger.length && (
+        <ol
+          className="instruction-ledger"
+          aria-label="Approved on this instruction"
+        >
+          {ledger.map((op) => (
+            <li key={`${op.operation_id}:${op.revision}`}>
+              <span>{op.summary ?? op.operation_id}</span>
+              <small>
+                {op.approvedBy?.approver === "agent"
+                  ? `Approved by Iris${op.approvedBy.rule ? ` · ${op.approvedBy.rule}` : ""}${op.approvedBy.reference ? ` · ${op.approvedBy.reference}` : ""}`
+                  : "Declined by the Company · left to you"}
+              </small>
+            </li>
+          ))}
+        </ol>
       )}
     </details>
   );

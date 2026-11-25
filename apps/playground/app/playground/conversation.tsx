@@ -284,6 +284,7 @@ export function Conversation({
                   instruction={p.instruction}
                   currency={p.instruction?.currency ?? currencyOf(p.operations)}
                   onChange={p.setLimit}
+                  operations={p.operations}
                 />
               )}
               {signedIn && p.moreAccess && (

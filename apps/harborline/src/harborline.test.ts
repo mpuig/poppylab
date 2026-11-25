@@ -166,6 +166,57 @@ describe("Harborline Bank", () => {
     expect(accounts.json().accounts[0].balance_cents).toBe(1272000);
   });
 
+  it("declines an agent's approval to move money, performs nothing, and takes the customer's own (Operations v3 §6)", async () => {
+    const { sign, call } = await setup();
+    const token = await sign("elena", all, { allowOffline: true });
+    const payload = {
+      source_account_id: "acc_HLB_A100",
+      recipient_id: "rcp_HLB_A501",
+      amount_cents: 2500,
+      memo: "Coffee for the team",
+      idempotency_key: "payment-agent-001",
+    };
+    const proposed = await call(
+      token.access_token,
+      "POST",
+      "/api/account/payments",
+      payload,
+    );
+    const op = operation(proposed);
+    const byAgent = await call(
+      token.access_token,
+      "POST",
+      "/api/account/payments",
+      payload,
+      { ...op, approver: "agent" },
+    );
+    expect(byAgent.statusCode).toBe(403);
+    expect(byAgent.json()).toMatchObject({
+      error: "approval_declined",
+      operation_id: op.operation_id,
+      revision: op.revision,
+      reason: expect.stringContaining("approve it yourself"),
+    });
+    // No reason codes, and no new operation (§6).
+    expect(byAgent.json()).not.toHaveProperty("operation");
+    const before = await call(
+      token.access_token,
+      "GET",
+      "/api/account/accounts",
+    );
+    expect(before.json().accounts[0].balance_cents).toBe(1284500);
+    // The customer's own approval of the same revision performs it.
+    const mine = await call(
+      token.access_token,
+      "POST",
+      "/api/account/payments",
+      payload,
+      op,
+    );
+    expect(mine.statusCode).toBe(200);
+    expect(mine.json().data.account.balance_cents).toBe(1282000);
+  });
+
   it("returns meaningful payment and transfer errors before creating an operation", async () => {
     const { sign, call } = await setup();
     const token = await sign("elena", all);

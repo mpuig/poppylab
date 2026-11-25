@@ -452,6 +452,8 @@ export function operations(
               (!latest || Date.parse(latest.expires_at) < Date.now());
             return {
               id,
+              // Who approved it, as the Personal Agent stated (Operations v3 §6).
+              ...(r.performed ? { approver: r.performed.approver } : {}),
               state: r.performed
                 ? "succeeded"
                 : expired

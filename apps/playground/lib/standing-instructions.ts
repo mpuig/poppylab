@@ -86,6 +86,20 @@ export function parseLimit(
   return maxCents > 0 && maxCents <= MAX ? { maxCents, currency } : null;
 }
 
+/** An instruction sent to the server, checked as strictly as a saved one. */
+export function parseInstruction(value: unknown): Instruction | null {
+  if (!value || typeof value !== "object") return null;
+  const v = value as Partial<Instruction>;
+  return typeof v.maxCents === "number" &&
+    Number.isInteger(v.maxCents) &&
+    v.maxCents > 0 &&
+    v.maxCents <= MAX &&
+    typeof v.currency === "string" &&
+    /^[A-Z]{3}$/.test(v.currency)
+    ? { maxCents: v.maxCents, currency: v.currency }
+    : null;
+}
+
 type Store = Record<string, Instruction>;
 
 function read(): Store {

@@ -36,6 +36,17 @@ function record(item, label) {
   row.append(head, node("p", item.summary || item.result, "record-title"));
   if (item.result && item.summary && item.result !== item.summary)
     row.append(node("p", item.result, "record-body"));
+  // Who approved it, as your agent told us (Operations v3 §6).
+  if (item.approver)
+    row.append(
+      node(
+        "p",
+        item.approver === "agent"
+          ? "Approved by your agent, on a standing instruction you gave it"
+          : "Approved by you, in your agent",
+        "record-meta",
+      ),
+    );
   return row;
 }
 let snapshot = null;

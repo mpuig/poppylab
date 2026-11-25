@@ -111,8 +111,15 @@ and with the `summary`. The Company writes both, so a summary could describe
 something the terms don't.
 
 In Iris, a user approval is a button on a card that shows the Company's name,
-its verified domain and the terms. Standing instructions, limited to amounts
-in one currency, are checked by code against `terms`, never by the model.
+its verified domain and the terms. An agent approval comes from a standing
+instruction the user writes for one Company, such as "up to $20". Code checks
+it against the exact `terms`, never the model: any amount over the limit
+(fees included), a refund, another currency or a summary that disagrees with
+the terms goes to the user. The server checks again with its own copy of the
+operation and holds its own limits, five approvals an hour and three times
+the limit in total, so a tampered browser can't stretch a rule. The approval
+goes out as `approver="agent"`, without `input_type`, and its `reference` is
+an entry in a ledger the user sees next to the instruction.
 
 ## 5. Sending the approval
 
@@ -156,7 +163,15 @@ optional alternative, such as a page where the user can do it themselves.
 There are no reason codes, deliberately: an agent does the same whatever the
 reason, and codes would reveal the Company's risk rules.
 
-A decline is final for that revision. Show it to the user; don't resend.
+A decline is final for that approval. Show it to the user; don't resend it.
+
+The lab's bank, Harborline, declines every agent approval that moves money:
+"Harborline moves money only when you approve it yourself." Iris then hands
+the operation back to the user, with the reason, and doesn't try the rule on
+it again. The user can approve the same revision with an approval of their
+own, which Harborline performs. That's the split a decline makes possible: a
+Company can accept agents for some actions and insist on the person for
+others, without reason codes and without a new operation.
 
 ## 8. Retries and at most once
 

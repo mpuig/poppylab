@@ -150,6 +150,8 @@ export function mountPortal(app: Hono, ctx: Ctx, deps: Deps) {
           (!latest || Date.parse(latest.expires_at) < Date.now());
         return {
           id,
+          // Who approved it, as the Personal Agent stated (Operations v3 §6).
+          ...(r.performed ? { approver: r.performed.approver } : {}),
           state: r.performed ? "succeeded" : expired ? "expired" : "proposed",
           summary:
             r.revisions.find((v) => v.revision === r.performed?.revision)

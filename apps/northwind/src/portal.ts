@@ -128,6 +128,8 @@ export function mountPortal(app: Hono, ctx: Ctx, deps: Deps) {
           (!latest || Date.parse(latest.expires_at) < Date.now());
         return {
           id,
+          // Who approved it, as the Personal Agent stated (Operations v3 §6).
+          ...(record.performed ? { approver: record.performed.approver } : {}),
           state: record.performed
             ? "succeeded"
             : expired

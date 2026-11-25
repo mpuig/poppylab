@@ -5,7 +5,9 @@
  * message) naming a returned, unexpired revision whose terms equal what the
  * request asks now is performed once (§6–7); retries get the first response.
  * Both user and agent approvals are accepted, and recorded with their
- * `approver` and `reference` (§6, §8.1).
+ * `approver` and `reference` (§6, §8.1). An action may decline an approval
+ * that passed every check, for its own reasons (§6, "Declining"): nothing
+ * is performed and no new operation is returned.
  */
 import { createHash } from "node:crypto";
 import {
@@ -52,6 +54,15 @@ export type Action = {
   stale?: (terms: Record<string, unknown>) => boolean;
   /** Fields left out when comparing approved and requested terms. */
   ignore?: string[];
+  /**
+   * §6: decline an approval that passed the checks, such as an agent
+   * approval of something the Company wants the User to approve. A short
+   * reason for the User, with no codes, and optionally an alternative.
+   */
+  decline?: (
+    approval: Approval,
+    terms: Record<string, unknown>,
+  ) => { reason?: string; alternative?: Record<string, unknown> } | undefined;
 };
 export type Outcome = {
   status: 200 | 403 | 409 | 429;
@@ -123,6 +134,22 @@ export function approvals(
         if (approved) {
           if (action.stale?.(approved.terms))
             return { status: 409, body: { error: "account_changed" } };
+          const declined = action.decline?.(approval, approved.terms);
+          if (declined)
+            return {
+              status: 403,
+              body: {
+                error: "approval_declined",
+                operation_id: id,
+                revision: approved.revision,
+                ...(declined.reason
+                  ? { reason: declined.reason.slice(0, 300) }
+                  : {}),
+                ...(declined.alternative
+                  ? { alternative: declined.alternative }
+                  : {}),
+              },
+            };
           const result = action.perform(approved.terms);
           r.performed = {
             revision: approved.revision,

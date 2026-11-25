@@ -583,7 +583,10 @@ export async function approveInConversation(
     id: requestId,
     message: {
       author: { type: "agent" },
-      text: "The user approved this operation.",
+      text:
+        approval.approver === "agent"
+          ? "Approved on the user's standing instruction."
+          : "The user approved this operation.",
       extensions: { operations: { approval } },
     },
   });

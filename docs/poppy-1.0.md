@@ -34,9 +34,10 @@ Iris, Juniper, Lantern, Harborline and Northwind implement **only** Poppy 1.0, p
 
 - An operation has **required `terms`** and an optional `summary`. Iris shows the summary as text (Markdown, links and images never render), and when there is none it opens the exact terms.
 - An approval says who approved it. Iris sends **user approvals only**: `approver="user"`, `approved_at`, `input_type="tap"`, and a `reference` to its own record, unique per approval and never shared across Companies. A retry after an unknown outcome sends the very same approval. At APIs it goes in `Poppy-Approval` (an RFC 9651 Dictionary); in a conversation, in `extensions.operations.approval`.
-- The Companies record `approver` and `reference` with a performed operation. They accept both user and agent approvals and decline none.
+- The Companies record `approver` and `reference` with a performed operation and show who approved in their portals. They accept user and agent approvals; Harborline declines agent approvals that move money.
 - **`approval_declined`:** Iris marks the card "Declined by the Company", shows the reason as Company content, and never sends that approval again.
-- Not implemented: operations on websites, and agent approvals in Iris.
+- Agent approvals in Iris: one standing instruction per Company, checked against the exact terms on the server too, sent as `approver="agent"` with a ledger reference.
+- Not implemented: operations on websites.
 
 ## Conversations (§8)
 
@@ -44,7 +45,7 @@ See [conversations](conversations.md). In short: every `POST` has a request `id`
 
 ## Not yet done
 
-Streaming, browser join (`poppy:browser-sign-in`, `web.*`), operations on websites, Device and Mediated Sign-In, signed-in MCP, approvals over MCP `_meta`, agent approvals, skills, and Agent IDs.
+Streaming, browser join (`poppy:browser-sign-in`, `web.*`), operations on websites, Device and Mediated Sign-In, signed-in MCP, approvals over MCP `_meta`, skills, and Agent IDs.
 
 ## Closed gaps (25 November 2026)
 

@@ -215,6 +215,8 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     action: string,
     op?: Operation,
     access: "read" | "write" = "read",
+    /** An agent approval: the User's standing instruction, rechecked server-side. */
+    byInstruction?: Instruction,
   ) {
     if (busy || ended) return;
     const popup =
@@ -234,6 +236,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
           ...(action === "signin" ? { access } : {}),
           id: op?.operation_id,
           revision: op?.revision,
+          ...(byInstruction ? { instruction: byInstruction } : {}),
         }),
       });
       adopt(response);
@@ -271,7 +274,9 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
       if (data.operation) {
         replaceOperation(data.operation);
         addTrace([
-          `Operation ${data.operation.state} · revision ${data.operation.revision}`,
+          data.code === "agent_approval_declined"
+            ? "Company declined the approval on your standing instruction · waiting for you"
+            : `Operation ${data.operation.state} · revision ${data.operation.revision}`,
         ]);
       }
     } catch (caught) {
@@ -315,7 +320,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     recordApproval(origin, { at: Date.now(), cents: next.cents });
     // The next line of the log says how the Company answered.
     addTrace([`Applying your standing instruction · ${next.covered}`]);
-    void accountAction("approve", next.op);
+    void accountAction("approve", next.op, "read", instruction);
     // accountAction is recreated each render and reads current state, so it
     // is deliberately not a dependency.
   }, [operations, instruction, signedIn, busy, origin]);

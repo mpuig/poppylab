@@ -153,10 +153,26 @@ export type Operation = {
     "proposed" | "succeeded" | "declined" | "refused" | "expired" | "uncertain";
   result?: { summary: string } | null;
   /**
-   * The approval as first sent (Operations v3 §6), reused for a retry:
-   * when the User approved, and the ledger reference shown to the Company.
+   * The approval as first sent (Operations v3 §6), reused for a retry: who
+   * approved (the User, or Iris on the User's standing instruction), when,
+   * and the ledger reference shown to the Company.
    */
-  approval?: { approved_at: number; reference: string };
+  approval?: {
+    approver?: "user" | "agent";
+    approved_at: number;
+    reference: string;
+  };
+  /** Who approved a performed operation, and the rule it was approved under. */
+  approvedBy?: {
+    approver: "user" | "agent";
+    rule?: string;
+    reference?: string;
+  };
+  /**
+   * The Company declined an agent approval (§6): the User decides now, with
+   * a new approval of their own. Iris never resends the declined one.
+   */
+  agentDeclined?: { reason?: string };
   /** An API request to resend, or the conversation the operation is in (§8). */
   request?:
     | { url: string; body: unknown; conversation?: undefined }
@@ -182,6 +198,8 @@ export type Run = {
   sessionId?: string;
   /** Delegated key for this User ID only (§5.2). */
   sessionKey?: SessionKey;
+  /** Approvals Iris sent on the User's standing instruction, for its limits. */
+  agentApprovals?: Array<{ at: number; cents: number }>;
   /** §9: the tasks response for the current Session only. */
   tasks?: { sid: string; value: TasksResponse };
   /** §9.3: tasks reported in this Session, so each is reported once. */
@@ -770,32 +788,44 @@ export async function renewAccount(run: Run) {
 }
 
 /**
- * Operations v3 §6: the User's approval of this revision, as first sent.
- * Iris only sends user approvals: the User clicked Approve (`tap`), and the
- * reference names this playground's record of it, never shared across
- * Companies. A retry sends the very same approval (§7).
+ * Operations v3 §6: this revision's approval, as first sent. `user`: the
+ * User clicked Approve (`tap`). `agent`: Iris approved on a standing
+ * instruction the User wrote, with no `input_type`. The reference names
+ * this playground's ledger entry, never shared across Companies. A retry
+ * sends the very same approval (§7); a different approver is a new one.
  */
-export function userApproval(op: Operation): Approval {
-  op.approval ??= {
-    approved_at: Math.floor(Date.now() / 1000),
-    reference: `apr_${newSessionId().slice(0, 24)}`,
-  };
+export function approvalFor(
+  op: Operation,
+  approver: "user" | "agent" = "user",
+): Approval {
+  if (!op.approval || (op.approval.approver ?? "user") !== approver)
+    op.approval = {
+      approver,
+      approved_at: Math.floor(Date.now() / 1000),
+      reference: `apr_${newSessionId().slice(0, 24)}`,
+    };
   return {
     operation_id: op.operation_id,
     revision: op.revision,
-    approver: "user",
+    approver,
     approved_at: op.approval.approved_at,
-    input_type: "tap",
+    ...(approver === "user" ? { input_type: "tap" } : {}),
     reference: op.approval.reference,
   };
 }
+/** The User's own approval (kept for callers that only ever send that). */
+export const userApproval = (op: Operation) => approvalFor(op, "user");
 
 /**
  * Operations v3 §6: resends the exact request with the User's approval in
  * Poppy-Approval, or sends it in a message of the operation's conversation.
  */
-export async function sendApproval(run: Run, op: Operation) {
-  const approval = userApproval(op);
+export async function sendApproval(
+  run: Run,
+  op: Operation,
+  approver: "user" | "agent" = "user",
+) {
+  const approval = approvalFor(op, approver);
   if (op.request?.conversation)
     return approveInConversation(run, op, approval, (r, url, method, body) =>
       papRequest(r, url, method, body),

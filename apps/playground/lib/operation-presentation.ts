@@ -6,6 +6,14 @@ export type ReviewOperation = {
   terms?: Record<string, unknown>;
   expires_at: string;
   result?: { summary: string } | null;
+  /** Who approved it: the User, or Iris on their standing instruction. */
+  approvedBy?: {
+    approver: "user" | "agent";
+    rule?: string;
+    reference?: string;
+  };
+  /** The Company declined an approval on the standing instruction (§6). */
+  agentDeclined?: { reason?: string };
 };
 export function money(cents: unknown, currency: unknown) {
   if (typeof cents !== "number" || !Number.isFinite(cents))

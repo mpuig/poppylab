@@ -475,3 +475,111 @@ describe("Human-controlled account boundary", () => {
     },
   );
 });
+
+describe("Agent approvals on a standing instruction (Operations v3 §5)", () => {
+  const rule = { maxCents: 2000, currency: "USD" };
+  const run = state.run as unknown as {
+    operations: Record<string, Record<string, unknown>>;
+    agentApprovals?: unknown[];
+  };
+  beforeEach(() => {
+    delete run.agentApprovals;
+    run.operations.op_rule = {
+      operation_id: "op_rule",
+      revision: "r1",
+      state: "proposed",
+      summary: "Place the basket order.",
+      terms: { total_cents: 1200, currency: "USD" },
+      expires_at: new Date(Date.now() + 60000).toISOString(),
+      request: {
+        url: "http://juniper.localhost:4100/api/account/checkout",
+        body: {},
+      },
+    };
+  });
+  const approve = (instruction?: unknown) =>
+    POST(
+      request({
+        action: "approve",
+        id: "op_rule",
+        revision: "r1",
+        ...(instruction ? { instruction } : {}),
+      }),
+    );
+
+  it("sends an agent approval only when the server's own check covers the exact terms", async () => {
+    state.request.mockResolvedValue({ summary: "Ordered." });
+    const r = await approve(rule);
+    expect(r.status).toBe(200);
+    expect(state.request).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ operation_id: "op_rule" }),
+      "agent",
+    );
+    expect((await r.json()).operation).toMatchObject({
+      state: "succeeded",
+      approvedBy: {
+        approver: "agent",
+        rule: expect.stringContaining("$20.00"),
+      },
+    });
+  });
+
+  it("leaves to the User what the rule doesn't cover, and never trusts a malformed rule", async () => {
+    for (const instruction of [
+      { maxCents: 1000, currency: "USD" },
+      { maxCents: 2000, currency: "EUR" },
+      { maxCents: -5, currency: "USD" },
+      { maxCents: 2000 },
+    ]) {
+      const r = await approve(instruction);
+      expect(r.status).toBe(409);
+      expect((await r.json()).code).toBe("not_covered");
+    }
+    expect(state.request).not.toHaveBeenCalled();
+    expect(run.operations.op_rule!.state).toBe("proposed");
+  });
+
+  it("holds its own hourly limit, whatever the browser says", async () => {
+    run.agentApprovals = Array.from({ length: 5 }, () => ({
+      at: Date.now() - 1000,
+      cents: 100,
+    }));
+    const r = await approve(rule);
+    expect(r.status).toBe(409);
+    expect((await r.json()).error).toContain("last hour");
+    expect(state.request).not.toHaveBeenCalled();
+  });
+
+  it("gives the operation back to the User when the Company declines the agent's approval", async () => {
+    state.request.mockRejectedValueOnce(
+      new ProtocolError(
+        403,
+        "approval_declined",
+        undefined,
+        undefined,
+        undefined,
+        { reason: "Approve money moves yourself." },
+      ),
+    );
+    const r = await approve(rule);
+    expect(r.status).toBe(200);
+    const body = await r.json();
+    expect(body.code).toBe("agent_approval_declined");
+    expect(body.operation).toMatchObject({
+      state: "proposed",
+      agentDeclined: { reason: "Approve money moves yourself." },
+    });
+    // Never again on the rule for this operation…
+    expect((await approve(rule)).status).toBe(409);
+    // …but the User can approve it themselves, with a new approval.
+    state.request.mockResolvedValueOnce({ summary: "Ordered." });
+    const mine = await approve();
+    expect(mine.status).toBe(200);
+    expect(state.request).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.anything(),
+      "user",
+    );
+  });
+});

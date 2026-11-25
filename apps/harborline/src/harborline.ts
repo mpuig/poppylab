@@ -33,6 +33,23 @@ import { mountPortal } from "./portal.ts";
 import { harborlineAgent } from "./agent.ts";
 import { scopes, type HarborlineScope } from "./scopes.ts";
 
+/**
+ * Harborline moves money only on the customer's own approval (Operations v3
+ * §6, "Declining"): an agent approval, even on a standing instruction the
+ * customer gave their agent, is declined with the reason and a way to do it.
+ */
+const ownApprovalForMoney = (approval: { approver: string }) =>
+  approval.approver === "agent"
+    ? {
+        reason:
+          "Harborline moves money only when you approve it yourself. Your agent's standing instruction can't approve payments or transfers here.",
+        alternative: {
+          instructions:
+            "Approve this exact payment or transfer yourself in your agent.",
+        },
+      }
+    : undefined;
+
 export { bankPersona, categories, customers } from "./data.ts";
 export { scopes, type HarborlineScope } from "./scopes.ts";
 
@@ -605,6 +622,7 @@ function mount(
     return ctx.gate(c, {
       key: `payment:${key}`,
       terms,
+      decline: ownApprovalForMoney,
       summary: `Send ${usd(amount)} from ${source.name} to ${recipient.name} (account ending ${recipient.account_last4}) for “${memo}”. Fee ${usd(0)}. Resulting fictional balance ${usd(source.balance_cents - amount)}. No real money moves.`,
       stale: (approved) =>
         source.version !== approved.source_account_version ||
@@ -711,6 +729,7 @@ function mount(
     return ctx.gate(c, {
       key: `transfer:${key}`,
       terms,
+      decline: ownApprovalForMoney,
       summary: `Transfer ${usd(amount)} from ${source.name} to ${destination.name}. New fictional balances: ${source.name} ${usd(source.balance_cents - amount)}; ${destination.name} ${usd(destination.balance_cents + amount)}. No real money moves.`,
       stale: (approved) =>
         source.version !== approved.source_version ||

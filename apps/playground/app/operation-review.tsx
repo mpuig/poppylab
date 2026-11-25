@@ -154,6 +154,30 @@ export function OperationReview({
             {op.result.summary}
           </p>
         )}
+        {op.approvedBy?.approver === "agent" && (
+          <p className="operation-ledger">
+            Approved by Iris on your standing instruction
+            {op.approvedBy.rule ? ` (${op.approvedBy.rule})` : ""}, not by a
+            tap. {company} received approver “agent”
+            {op.approvedBy.reference ? (
+              <>
+                {" "}
+                and ledger reference <code>{op.approvedBy.reference}</code>
+              </>
+            ) : null}
+            .
+          </p>
+        )}
+        {pending && op.agentDeclined && (
+          <p className="operation-ledger declined" role="status">
+            {company} declined the approval Iris sent on your standing
+            instruction, and did nothing
+            {op.agentDeclined.reason
+              ? `. It says: “${op.agentDeclined.reason}”`
+              : ""}
+            . It&apos;s up to you now.
+          </p>
+        )}
         <details className="operation-terms" open={!op.summary}>
           <summary>All exact terms</summary>
           <pre className="operation-exact">

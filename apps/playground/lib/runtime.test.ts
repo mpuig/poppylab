@@ -27,6 +27,7 @@ import {
 import {
   accountConfiguration,
   sendApproval,
+  approvalFor,
   feedbackTool,
   identity,
   operatorKey,
@@ -597,4 +598,21 @@ it("reports an unsupported task once per Session, with the token when signed in,
   delete r.sessionId;
   transport.mockResolvedValueOnce(null);
   expect(await tool.execute(report)).toEqual({ sent: true });
+});
+
+it("approves as the agent without input_type, and a different approver is a new approval (Operations v3 §6)", () => {
+  const op = {
+    operation_id: "op_1",
+    revision: "r1",
+    state: "proposed",
+    expires_at: new Date(Date.now() + 60000).toISOString(),
+  } as Parameters<typeof approvalFor>[0];
+  const agent = approvalFor(op, "agent");
+  expect(agent).toMatchObject({ approver: "agent", operation_id: "op_1" });
+  expect(agent).not.toHaveProperty("input_type");
+  // A retry sends the very same approval.
+  expect(approvalFor(op, "agent")).toEqual(agent);
+  const user = approvalFor(op, "user");
+  expect(user).toMatchObject({ approver: "user", input_type: "tap" });
+  expect(user.reference).not.toBe(agent.reference);
 });
