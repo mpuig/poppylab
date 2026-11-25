@@ -244,15 +244,6 @@ body:has(.site) {
   color: var(--muted);
   max-width: 76ch;
 }
-.site figcaption b {
-  margin-right: 2px;
-  font-family: var(--serif);
-  font-size: 15px;
-  font-style: italic;
-  font-weight: 500;
-  color: var(--ink);
-}
-
 /* Hero */
 .hero {
   display: grid;
@@ -276,14 +267,7 @@ body:has(.site) {
   flex-wrap: wrap;
   gap: 12px;
 }
-.fine {
-  font-size: 14px;
-  line-height: 1.5;
-  color: var(--muted);
-  max-width: 52ch;
-}
-
-/* Figure 1: one request as a sequence between three parties. */
+/* The sequence: one request between three parties. */
 .seq-heads {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -497,7 +481,7 @@ body:has(.site) {
   }
 }
 
-/* Figure 2: from blocked to full access. */
+/* The spectrum: from blocked to full access. */
 .spectrum ol {
   list-style: none;
   margin: 0;
@@ -562,7 +546,7 @@ body:has(.site) {
   color: var(--ink-soft);
 }
 
-/* Figure 3: who talks to whom. Geometry sits on a 4px grid. */
+/* The flow diagram: who talks to whom. Geometry sits on a 4px grid. */
 .flow svg {
   display: block;
   width: 100%;
@@ -630,33 +614,60 @@ body:has(.site) {
   font-weight: 600;
 }
 
-/* The three steps, each with what you would see. */
+/* The three steps: a rail of numbered stops, each with its screen beside it. */
 .steps {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0 clamp(24px, 4vw, 48px);
 }
 .steps > li {
+  position: relative;
   display: grid;
-  grid-row: span 3;
-  grid-template-rows: subgrid;
-  gap: 8px;
+  grid-template-columns: 44px minmax(0, 5fr) minmax(0, 6fr);
+  gap: 16px clamp(24px, 4vw, 56px);
+  align-items: start;
+  padding-bottom: 40px;
 }
-.steps h3 {
-  margin-top: 16px;
+.steps > li:last-child {
+  padding-bottom: 0;
 }
-.steps h3 span {
-  margin-right: 6px;
+/* The rail runs from one stop to the next. */
+.steps > li:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 21px;
+  top: 52px;
+  bottom: 8px;
+  width: 1.5px;
+  background: var(--line-strong);
+}
+.step-n {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1.5px solid var(--green);
+  border-radius: 50%;
+  background: var(--paper);
   color: var(--green);
-  font-variant-numeric: tabular-nums;
+  font-family: var(--serif);
+  font-size: 21px;
+  font-weight: 500;
+  font-variant-numeric: lining-nums;
 }
-.steps > li > p {
-  font-size: 16px;
+.step-text {
+  display: grid;
+  gap: 8px;
+  padding-top: 8px;
+}
+.step-text p {
+  font-size: 17px;
   color: var(--ink-soft);
-  max-width: 40ch;
+  max-width: 44ch;
+}
+.steps .mini {
+  max-width: 460px;
 }
 .mini {
   display: grid;
@@ -784,6 +795,51 @@ body:has(.site) {
   color: var(--green);
 }
 
+/* What each side gets: one sentence for today, one with the protocol. */
+.compare {
+  width: 100%;
+  border-collapse: collapse;
+}
+.compare thead th {
+  padding: 0 32px 10px 0;
+  border-bottom: 1px solid var(--line-strong);
+  font-size: 14px;
+  font-weight: 400;
+  text-align: left;
+  color: var(--muted);
+}
+.compare thead th.on {
+  padding-right: 0;
+  border-bottom-color: var(--green);
+  font-weight: 600;
+  color: var(--green);
+}
+.compare tbody th {
+  width: 22%;
+  padding: 26px 32px 26px 0;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--serif);
+  font-size: 26px;
+  line-height: 1.15;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  text-align: left;
+  vertical-align: top;
+}
+.compare td {
+  width: 39%;
+  padding: 28px 32px 28px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--muted);
+  vertical-align: top;
+}
+.compare td.with {
+  padding-right: 0;
+  font-size: 18px;
+  color: var(--ink);
+}
 .points {
   list-style: none;
   margin: 0;
@@ -800,19 +856,34 @@ body:has(.site) {
   font-weight: 600;
 }
 
-/* The four companies */
+/* The four companies: a card each, headed in that company's own colour. */
 .cases {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0 clamp(32px, 5vw, 64px);
+  gap: 24px;
 }
 .case {
   display: grid;
-  gap: 12px;
-  justify-items: start;
+  grid-template-rows: auto auto auto 1fr auto auto;
   align-content: start;
-  padding: 28px 0 40px;
-  border-top: 1px solid var(--ink);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--paper);
+  transition: border-color 160ms var(--ease);
+}
+.case:hover {
+  border-color: var(--brand);
+}
+.case-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 16px;
+  padding: 18px 24px;
+  background: var(--brand);
+  color: var(--paper);
 }
 .case h3 {
   font-family: var(--serif);
@@ -822,24 +893,22 @@ body:has(.site) {
   letter-spacing: -0.01em;
 }
 .case .sector {
-  margin-left: 10px;
-  font-family: var(--sans);
   font-size: 14px;
-  font-weight: 400;
-  letter-spacing: 0;
-  color: var(--muted);
-  white-space: nowrap;
+  color: color-mix(in srgb, var(--paper) 80%, var(--brand));
+}
+.case > :not(.case-head) {
+  margin-inline: 24px;
 }
 .case .ask {
-  font-size: 18px;
+  margin-top: 22px;
+  font-size: 19px;
+  line-height: 1.4;
   font-weight: 500;
 }
+/* The change is ruled, not boxed: it already sits inside the card. */
 .change {
-  justify-self: stretch;
-  max-width: 440px;
-  margin: 4px 0;
-  border: 1px solid var(--line-strong);
-  border-radius: 8px;
+  margin-top: 16px;
+  border-block: 1px solid var(--line);
   font-size: 15px;
 }
 .change-head {
@@ -847,14 +916,12 @@ body:has(.site) {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 9px 14px;
-  border-bottom: 1px solid var(--line);
+  padding: 10px 0 6px;
   font-size: 14px;
   color: var(--muted);
 }
 .change dl {
   margin: 0;
-  padding: 4px 14px;
 }
 .change dl > div {
   display: flex;
@@ -862,10 +929,10 @@ body:has(.site) {
   align-items: center;
   justify-content: space-between;
   gap: 2px 16px;
-  padding: 9px 0;
+  padding: 8px 0;
 }
-.change dl > div + div {
-  border-top: 1px solid var(--line);
+.change dl > div:last-child {
+  padding-bottom: 12px;
 }
 .change dt {
   color: var(--ink-soft);
@@ -878,6 +945,7 @@ body:has(.site) {
   font-size: 15px;
 }
 .case .shows {
+  margin-top: 16px;
   color: var(--ink-soft);
   font-size: 16px;
   max-width: 52ch;
@@ -887,7 +955,7 @@ body:has(.site) {
   flex-wrap: wrap;
   align-items: center;
   gap: 12px 20px;
-  margin-top: 4px;
+  margin-top: 20px;
 }
 .case-links > a:not(.button) {
   display: inline-flex;
@@ -897,6 +965,7 @@ body:has(.site) {
   font-size: 15px;
 }
 .case .people {
+  margin-block: 14px 22px;
   font-size: 14px;
   color: var(--muted);
 }
@@ -916,10 +985,6 @@ body:has(.site) {
 @media (min-width: 961px) {
   .split .points {
     margin-top: 32px;
-  }
-  /* Figure 4 carries a key above its table. */
-  .split .holds + .points {
-    margin-top: 74px;
   }
 }
 .matrix table {
@@ -962,30 +1027,6 @@ body:has(.site) {
 .matrix .dot.you {
   background: var(--amber);
   box-shadow: 0 0 0 1px var(--amber-deep);
-}
-/* Figure 4 uses two marks: a ring without a protocol, a dot with one. */
-.matrix .ring {
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  border: 1.5px solid var(--ink-soft);
-  border-radius: 50%;
-  vertical-align: middle;
-}
-.matrix td .ring + .dot {
-  margin-left: 6px;
-}
-.matrix .key {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 8px;
-  margin-bottom: 20px;
-  font-size: 14px;
-  color: var(--muted);
-}
-.matrix .key .dot {
-  margin-left: 14px;
 }
 .matrix .none {
   display: inline-block;
@@ -1202,49 +1243,48 @@ body:has(.site) {
   white-space: nowrap;
 }
 
-/* Footer */
+/* Footer: what the lab is, then three groups of links. */
 .foot {
   background: var(--tint);
   border-top: 1px solid var(--line);
   color: var(--ink-soft);
-  padding: 48px max((100% - 1120px) / 2, var(--gutter)) 40px;
+  padding: 56px max((100% - 1120px) / 2, var(--gutter)) 56px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 24px 48px;
+  grid-template-columns: minmax(0, 5fr) repeat(3, minmax(0, 2fr));
+  gap: 40px clamp(24px, 4vw, 56px);
+  align-items: start;
   font-size: 15px;
 }
-.foot p {
-  margin-top: 8px;
-  max-width: 60ch;
+.foot-about p + p {
+  margin-top: 10px;
+  max-width: 46ch;
+  line-height: 1.55;
 }
 .foot .wordmark {
   color: var(--ink);
   margin: 0;
 }
-.foot .lab-nav {
-  grid-column: 1 / -1;
-  flex-wrap: wrap;
-  padding-top: 18px;
-  border-top: 1px solid var(--line-strong);
-}
 .foot nav {
-  display: flex;
-  gap: 10px 24px;
-  align-items: flex-start;
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+.foot-title {
+  margin-bottom: 4px !important;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
 }
 .foot nav a {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  color: var(--ink);
+  color: var(--ink-soft);
+  text-decoration: none;
 }
-.foot .disclaimer {
-  grid-column: 1 / -1;
-  max-width: none;
-  padding-top: 18px;
-  border-top: 1px solid var(--line-strong);
-  color: var(--muted);
-  font-size: 14px;
+.foot nav a:hover {
+  color: var(--ink);
+  text-decoration: underline;
 }
 
 .short {
@@ -1253,13 +1293,18 @@ body:has(.site) {
 @media (max-width: 960px) {
   .hero,
   .below,
-  .steps,
   .cases,
   .split,
   .dev-hero {
     grid-template-columns: minmax(0, 1fr);
   }
-  /* The figure follows the actions; the small print drops below it. */
+  .foot {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .foot-about {
+    grid-column: 1 / -1;
+  }
+  /* The figure follows the actions. */
   .hero {
     gap: 24px;
     padding-top: clamp(32px, 6vw, 56px);
@@ -1270,31 +1315,58 @@ body:has(.site) {
   .hero .actions {
     margin-bottom: 8px;
   }
-  .hero .fine {
-    order: 1;
-  }
   .bar nav {
     display: none;
   }
   .bar .button.small {
     margin-left: auto;
   }
-  .steps {
-    max-width: 520px;
-    row-gap: 0;
+  /* The screen drops under its step's words; the rail stays at the left. */
+  .steps > li {
+    grid-template-columns: 44px minmax(0, 1fr);
   }
-  .steps > li + li {
-    margin-top: 36px;
+  .steps .mini {
+    grid-column: 2;
   }
 }
 @media (max-width: 960px) {
-  /* Figure 3 turns upright: the same parties and connectors, stacked. The
+  /* The flow diagram turns upright: the same parties and connectors, stacked. The
      wide drawing would scale its labels below a readable size. */
   .flow .wide {
     display: none;
   }
   .flow .narrow {
     display: block;
+  }
+  .compare thead {
+    display: none;
+  }
+  .compare tr,
+  .compare tbody th,
+  .compare td,
+  .compare td.with {
+    display: block;
+    width: auto;
+    padding: 0;
+    border: 0;
+  }
+  .compare tr {
+    padding: 24px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .compare tr:first-child {
+    border-top: 1px solid var(--ink);
+  }
+  .compare td::before {
+    content: attr(data-label);
+    display: block;
+    margin: 16px 0 6px;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .compare td.with::before {
+    font-weight: 600;
+    color: var(--green);
   }
   .spectrum ol {
     grid-template-columns: minmax(0, 1fr);
@@ -1409,7 +1481,7 @@ body:has(.site) {
     display: inline;
   }
   .foot {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .facts div {
     grid-template-columns: 1fr;
@@ -1424,10 +1496,6 @@ body:has(.site) {
   }
   .msg-label {
     font-size: 13px;
-  }
-  .case .sector {
-    display: block;
-    margin: 4px 0 0;
   }
 }
 @media (max-width: 380px) {

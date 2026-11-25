@@ -130,8 +130,7 @@ export function SequenceFigure() {
         ))}
       </ol>
       <figcaption>
-        <b>Figure 1.</b> A sample request. In the live demo you approve a real
-        proposal.
+        A sample request. In the live demo you approve a real proposal.
       </figcaption>
     </figure>
   );

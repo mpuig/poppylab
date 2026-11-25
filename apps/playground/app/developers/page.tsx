@@ -151,8 +151,7 @@ export default function Developers() {
               </span>
             </div>
             <figcaption>
-              <b>Figure 1.</b> Two ways to test. A dashed outline is the side
-              you bring.
+              Two ways to test. A dashed outline is the side you bring.
             </figcaption>
           </figure>
         </section>
