@@ -6,9 +6,9 @@ import { NextResponse } from "next/server";
 import { ProtocolError } from "@poppy-lab/pap-client";
 import { shoppingTarget } from "@/lib/shopping-context";
 import { cookies } from "next/headers";
-import { connect, type Run } from "@/lib/runtime";
+import { connect, directConversation, type Run } from "@/lib/runtime";
 import { record } from "@/lib/transcript";
-import type { CompanyEntry } from "@/lib/conversations";
+import type { CompanyEntry, DirectAction } from "@/lib/conversations";
 import {
   acquireRun,
   createRun,
@@ -92,7 +92,22 @@ async function reply(request: Request, started: { id?: string }) {
       provider?: unknown;
       apiKey?: unknown;
       model?: unknown;
+      /** §8.10: the User's own action on a Direct Conversation; no model. */
+      direct?: unknown;
     };
+    const directActions: readonly DirectAction[] = [
+      "accept",
+      "decline",
+      "start",
+      "say",
+      "close",
+    ];
+    if (
+      body.direct !== undefined &&
+      !directActions.includes(body.direct as DirectAction)
+    )
+      throw new UserFacingError("Unknown Direct Conversation action.");
+    const direct = body.direct as DirectAction | undefined;
     if (
       typeof body.url !== "string" ||
       body.url.length > 2048 ||
@@ -117,7 +132,13 @@ async function reply(request: Request, started: { id?: string }) {
     const localDev =
       process.env.NODE_ENV === "development" &&
       ["localhost", "127.0.0.1"].includes(new URL(request.url).hostname);
-    if (body.provider && body.provider !== "demo" && !localDev && !body.apiKey)
+    if (
+      body.provider &&
+      body.provider !== "demo" &&
+      !localDev &&
+      !body.apiKey &&
+      !direct
+    )
       return NextResponse.json(
         { error: "Add your API key in Model settings." },
         { status: 400 },
@@ -171,7 +192,81 @@ async function reply(request: Request, started: { id?: string }) {
     const provider = typeof body.provider === "string" ? body.provider : "demo";
     let text: string;
     const lowered = body.message.toLowerCase();
-    if (
+    const companyName = run.company!.document.organization.name;
+    if (direct) {
+      // §8.10: the User, not the model. Their words go to the Company as
+      // written; Iris adds only a line about what happened.
+      const result = (await directConversation(
+        run,
+        direct,
+        direct === "say" || direct === "start" ? body.message : undefined,
+        trace,
+        shown,
+      )) as { note?: string; error?: string };
+      text =
+        result.note ??
+        {
+          accept: `You're talking with ${companyName} directly. Iris doesn't read or answer here: what you type goes to ${companyName} as your own words.`,
+          start: `You're talking with ${companyName} directly. Iris doesn't read or answer here: what you type goes to ${companyName} as your own words.`,
+          say: "",
+          decline: `Iris told ${companyName} you're not available to talk directly right now.`,
+          close: `You've left the direct conversation with ${companyName}. Iris is back.`,
+        }[direct];
+      record(
+        run,
+        {
+          role: "user",
+          content:
+            direct === "say" || direct === "start"
+              ? `(Said to ${companyName} directly, without Iris) ${body.message}`
+              : `(Direct conversation with ${companyName}: ${direct})`,
+        },
+        {
+          role: "assistant",
+          content:
+            text ||
+            "(No reply from Iris: the user was talking with the Company directly.)",
+        },
+      );
+      run.history = run.history.slice(-10);
+      return NextResponse.json(
+        {
+          text,
+          trace,
+          sessionId: run.sessionId,
+          mode: "direct",
+          signedIn: !!run.accountToken && !run.accountUnavailable,
+          scopes: run.scopes,
+          operations: Object.values(run.operations ?? {}),
+          company: shown,
+          ...directState(run),
+        },
+        { headers: { "Cache-Control": "no-store" } },
+      );
+    } else if (
+      provider === "demo" &&
+      tools.company_agent_send &&
+      /never (arrived|came)|didn'?t arrive|nothing (arrived|came)|not delivered/.test(
+        lowered,
+      )
+    ) {
+      // The demo's way into a Direct Conversation (§8.10): report an order
+      // that never arrived; the Company may ask to talk with the user.
+      const status = (await tools.company_agent_send.execute({
+        data: { request: "order_status" },
+      })) as {
+        replies?: Array<{ data?: { last_delivery?: { id?: unknown } } }>;
+      };
+      const order = status.replies
+        ?.map((r) => r.data?.last_delivery?.id)
+        .find((id): id is string => typeof id === "string");
+      const result = order
+        ? await tools.company_agent_send.execute({
+            data: { request: "order_not_delivered", order_id: order },
+          })
+        : status;
+      text = `Protocol demo (no LLM). ${order ? `Told the Company's agent that order ${order} never arrived.` : "Asked the Company's agent for your orders first."} Live reply:\n\n${JSON.stringify(result, null, 2)}\n\nIf the Company asks to talk with you, accept or decline with the buttons above the message box.`;
+    } else if (
       provider === "demo" &&
       tools.company_agent_send &&
       /customer service|support|company'?s agent|talk to|speak to|a person|human|someone/.test(
@@ -309,6 +404,7 @@ async function reply(request: Request, started: { id?: string }) {
         recovery: run.accountUnavailable ? accountUnavailableNotice : undefined,
         operations: Object.values(run.operations ?? {}),
         company: shown,
+        ...directState(run),
       },
       { headers: { "Cache-Control": "no-store" } },
     );
@@ -397,4 +493,14 @@ async function reply(request: Request, started: { id?: string }) {
     if (held && visitor) await releaseRun(visitor, held).catch(() => {});
     active--;
   }
+}
+
+/** §8.10: whether the User is in a Direct Conversation, or invited to one. */
+function directState(run: Run) {
+  const c = run.conversation;
+  return {
+    direct: !!(c?.direct && !c.direct.closed),
+    conversation: !!c?.id,
+    invitation: c?.invitation?.reason ?? (c?.invitation ? "" : null),
+  };
 }

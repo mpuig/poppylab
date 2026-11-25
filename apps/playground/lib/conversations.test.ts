@@ -5,6 +5,7 @@ import {
   approvalRequestId,
   approveInConversation,
   conversationEndpoint,
+  conversationSession,
   conversationTools,
   type CompanyEntry,
 } from "./conversations";
@@ -405,5 +406,123 @@ describe("conversations (§8) in Iris", () => {
     ];
     expect(url).toContain(`${endpoint}/cnv_1/handoff/cancel?wait=10`);
     expect(Object.keys(body)).toEqual(["id"]);
+  });
+});
+
+describe("Direct Conversations (§8.10) in Iris", () => {
+  const invite = {
+    id: "evt_ur",
+    type: "user_requested",
+    created_at: "2026-11-25T12:00:00Z",
+    reason: "Lantern wants to confirm order ord_LNB0907 never arrived.",
+  };
+  function session(respond: (url: string, body: unknown) => unknown) {
+    const run = newRun();
+    const shown: CompanyEntry[] = [];
+    const trace: string[] = [];
+    const request = vi.fn(
+      async (_r: Run, url: string, _m: string, body?: unknown) =>
+        respond(url, body),
+    );
+    const s = conversationSession(run, {
+      endpoint,
+      request,
+      allowProposals: true,
+      trace: (l) => trace.push(l),
+      shown,
+    });
+    return { run, s, shown, request };
+  }
+
+  it("turns an invitation into a card, opens the User's own thread, sends their words as human, and closes it", async () => {
+    const directRead = (events: unknown[]) =>
+      read(events, { conversation_id: "cnv_d" });
+    const { run, s, shown, request } = session((url, body) => {
+      if (url.startsWith(`${endpoint}?`)) {
+        const b = body as Record<string, unknown>;
+        if (b.parent_conversation_id)
+          return directRead([
+            said("evt_d1", {
+              text: "Hi, this is Lantern. Did none of order ord_LNB0907 arrive? Reply yes or no.",
+            }),
+          ]);
+        return read([
+          said("evt_1", { text: "I've asked to talk with you." }),
+          invite,
+        ]);
+      }
+      if (url.startsWith(`${endpoint}/cnv_1/messages`))
+        throw new ProtocolError(409, "direct_conversation_open");
+      if (url.startsWith(`${endpoint}/cnv_d/messages`))
+        return directRead([said("evt_d2", { text: "Thanks." })]);
+      if (url.startsWith(`${endpoint}/cnv_d/close`))
+        return { ...directRead([]), closed: true };
+      throw new Error(`unexpected ${url}`);
+    });
+    // The model never gets a way to start, answer or close one.
+    expect(Object.keys(s.tools).some((k) => /direct/.test(k))).toBe(false);
+    const first = (await s.tools.company_agent_send!.execute({
+      data: { request: "order_not_delivered", order_id: "ord_LNB0907" },
+    })) as { user_requested?: { reason?: string; note: string } };
+    expect(first.user_requested?.reason).toContain("ord_LNB0907");
+    expect(first.user_requested?.note).toContain("you can't start");
+    expect(run.conversation?.invitation).toEqual({
+      event: "evt_ur",
+      reason: invite.reason,
+    });
+    expect(shown.at(-1)).toMatchObject({ invitation: true });
+
+    await s.direct("accept");
+    const opened = request.mock.calls.at(-1)!;
+    expect(opened[1]).toMatch(new RegExp(`^${endpoint}\\?`));
+    expect(opened[3]).toMatchObject({
+      id: expect.stringMatching(/^dir_/),
+      parent_conversation_id: "cnv_1",
+      user_requested_event_id: "evt_ur",
+    });
+    expect(opened[3]).not.toHaveProperty("message");
+    expect(run.conversation?.invitation).toBeUndefined();
+    expect(run.conversation?.direct?.id).toBe("cnv_d");
+    expect(shown.at(-1)).toMatchObject({ direct: true });
+
+    // Meanwhile the model's messages to the parent are refused, as a note.
+    const blocked = (await s.tools.company_agent_send!.execute({
+      text: "Any news?",
+    })) as { error?: string; note?: string };
+    expect(blocked.error).toBe("direct_conversation_open");
+
+    await s.direct("say", "Yes, nothing came.");
+    const words = request.mock.calls.at(-1)!;
+    expect(words[1]).toContain(`${endpoint}/cnv_d/messages`);
+    expect(words[3]).toMatchObject({
+      message: { author: { type: "human" }, text: "Yes, nothing came." },
+    });
+
+    await s.direct("close");
+    expect(request.mock.calls.at(-1)![1]).toContain(`${endpoint}/cnv_d/close`);
+    expect(run.conversation?.direct).toBeUndefined();
+  });
+
+  it("tells the Company in the parent when the User declines", async () => {
+    const { run, s, request } = session((url) =>
+      url.startsWith(`${endpoint}?`)
+        ? read([invite])
+        : read([said("evt_2", { text: "Understood." })]),
+    );
+    await s.tools.company_agent_send!.execute({ data: { request: "help" } });
+    await s.direct("decline");
+    const sent = request.mock.calls.at(-1)!;
+    expect(sent[1]).toContain(`${endpoint}/cnv_1/messages`);
+    expect(sent[3]).toMatchObject({
+      message: {
+        author: { type: "agent" },
+        data: { user_requested: "declined" },
+      },
+    });
+    expect(run.conversation?.invitation).toBeUndefined();
+    // Nothing to accept any more.
+    expect(await s.direct("accept")).toMatchObject({
+      note: expect.stringContaining("hasn't asked"),
+    });
   });
 });

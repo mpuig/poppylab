@@ -126,9 +126,19 @@ export type ConversationMessage = {
 };
 export type ConversationEvent = {
   id: string;
-  type: "message" | "state" | "authorization";
+  type:
+    | "message"
+    | "state"
+    | "authorization"
+    | "user_requested"
+    | "direct_opened"
+    | "direct_closed";
   created_at: string;
   message?: ConversationMessage;
+  /** `user_requested` (§8.10): why the Company asks for the User. */
+  reason?: string;
+  /** `direct_opened`, `direct_closed` (§8.10): the Direct Conversation. */
+  conversation_id?: string;
   /** §8.7: a state event carries all three. */
   handoff?: "none" | "pending";
   responder?: "agent";
@@ -156,6 +166,13 @@ export type Conversation = {
   /** User messages accepted. */
   messages: number;
   updated: number;
+  /** §8.10: a Direct Conversation's parent, and the event it accepted. */
+  parent?: string;
+  requested?: string;
+  /** A parent's open Direct Conversation. */
+  direct?: string;
+  /** A parent's accepted `user_requested` events → Direct Conversation. */
+  accepted?: Record<string, string>;
 };
 /** §8.3: an accepted request, so a retry gets the original response. */
 export type RequestRecord = {
@@ -176,6 +193,15 @@ export type ConversationTurn = {
   };
   /** Merged `context` of the conversation so far. */
   context: Record<string, unknown>;
+  /**
+   * §8.10: set in a Direct Conversation, where the User speaks for
+   * themselves (`author` `human`). `requested` when it accepted the
+   * Company's `user_requested` event; `parent` is the parent's memory,
+   * read-only, since the Company keeps the earlier history.
+   */
+  direct?: { requested: boolean; parent: Readonly<Record<string, unknown>> };
+  /** The Direct Conversation was opened without a message: speak first. */
+  opening?: boolean;
   /** Signed in: the token's account and scopes (none when signed out). */
   account?: string;
   scopes: string[];
@@ -198,6 +224,11 @@ export type TurnResult = {
   replies?: CompanyReply[];
   /** Sign-in or more scopes are needed: the scopes, space-separated (§8.11). */
   authorization?: string;
+  /**
+   * §8.10: ask to talk with the User, with a short reason. Adds a
+   * `user_requested` event; ignored in a Direct Conversation.
+   */
+  requestUser?: string;
 };
 /** A deterministic Company Agent: structured data in, structured data out. */
 export type ConversationHandler = (turn: ConversationTurn) => TurnResult;
@@ -300,6 +331,12 @@ export type CompanyDefinition = {
   agent?: {
     name: string;
     handoff: { text: string; data: Record<string, unknown> };
+    /**
+     * §8.10: whether the handler answers turns in Direct Conversations
+     * (`turn.direct`). Without it, the gateway answers the User there with
+     * `handoff`, since nobody else can.
+     */
+    direct?: boolean;
   };
   /** Called once per tenant with that tenant's own state. */
   mount: (

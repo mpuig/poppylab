@@ -10,7 +10,14 @@
  * operation in `extensions.operations` (Operations v3) becomes the usual
  * approval card; approving sends a message carrying the User's approval, with
  * a request ID derived from the revision, so a retry after a lost response is
- * the same request (§8.3). Direct Conversations (§8.10) aren't supported yet.
+ * the same request (§8.3).
+ *
+ * Direct Conversations (§8.10): the User talks with the Company themselves.
+ * Iris never starts one on the model's say-so. A `user_requested` event
+ * becomes a card the User accepts or declines; the User can also start one.
+ * In it, the User's words go as written with `author.type` `human`, and the
+ * model isn't involved; its tools see `direct_conversation_open` on the
+ * parent until the User closes it.
  */
 import { createHash, randomBytes } from "node:crypto";
 import {
@@ -22,8 +29,8 @@ import type { DiscoveredCompany } from "@poppy-lab/pap-core";
 import { recordOperation } from "./operation-store";
 import type { Operation, Run } from "./runtime";
 
-export type ConversationState = {
-  endpoint: string;
+/** One conversation's read position and state. */
+type Thread = {
   id?: string;
   cursor?: string;
   /** Event IDs already handled (a read after a reconnect can repeat them). */
@@ -32,6 +39,13 @@ export type ConversationState = {
   responder?: string;
   closed?: boolean;
 };
+export type ConversationState = Thread & {
+  endpoint: string;
+  /** §8.10: the Company's open invitation to talk with the User. */
+  invitation?: { event: string; reason?: string };
+  /** §8.10: the User's own Direct Conversation, while it's open. */
+  direct?: Thread & { id: string };
+};
 /** One Company message or event, as the chat shows it. */
 export type CompanyEntry = {
   author: string;
@@ -39,6 +53,10 @@ export type CompanyEntry = {
   text?: string;
   data?: string;
   note?: string;
+  /** §8.10: the Company asks to talk with the User (a card with choices). */
+  invitation?: boolean;
+  /** Said in the User's Direct Conversation. */
+  direct?: boolean;
 };
 type Request = (
   run: Run,
@@ -107,18 +125,25 @@ function parseRead(value: unknown) {
   };
 }
 
-export function conversationTools(
-  run: Run,
-  options: {
-    endpoint: string;
-    request: Request;
-    /** Approvals only for allowlisted account Companies (Operations v3). */
-    allowProposals: boolean;
-    trace: (line: string) => void;
-    /** What the chat shows this turn. */
-    shown: CompanyEntry[];
-  },
-): Record<string, ApiTool> {
+type Options = {
+  endpoint: string;
+  request: Request;
+  /** Approvals only for allowlisted account Companies (Operations v3). */
+  allowProposals: boolean;
+  trace: (line: string) => void;
+  /** What the chat shows this turn. */
+  shown: CompanyEntry[];
+};
+
+/** The model's tools for this Company's conversation endpoint. */
+export function conversationTools(run: Run, options: Options) {
+  return conversationSession(run, options).tools;
+}
+
+/** What the User can do about a Direct Conversation, outside the model. */
+export type DirectAction = "accept" | "decline" | "start" | "say" | "close";
+
+export function conversationSession(run: Run, options: Options) {
   const company = run.company!.document.organization.name;
   const state = (): ConversationState =>
     run.conversation?.endpoint === options.endpoint
@@ -126,8 +151,9 @@ export function conversationTools(
       : (run.conversation = { endpoint: options.endpoint, seen: [] });
 
   /** Handles new events; returns what the model gets. */
-  function handle(read: ReturnType<typeof parseRead>) {
-    const s = state();
+  function handle(read: ReturnType<typeof parseRead>, target?: Thread) {
+    const s = target ?? state();
+    const inDirect = !!target && target !== state();
     s.id = read.id;
     s.handoff = read.handoff;
     s.responder = read.responder;
@@ -200,6 +226,7 @@ export function conversationTools(
           ...(text ? { text } : {}),
           ...(data ? { data } : {}),
           ...(note ? { note } : {}),
+          ...(inDirect ? { direct: true } : {}),
         });
       } else if (e.type === "authorization") {
         const scope = clip(e.scope, 512) ?? "";
@@ -215,11 +242,27 @@ export function conversationTools(
           human: false,
           note: `Asked for sign-in (${scope}).`,
         });
-      } else if (e.type === "user_requested") {
-        result.user_requested = {
-          reason: clip(e.reason, 300),
-          note: "The Company asked to talk with the user directly. Poppy Lab doesn't support Direct Conversations yet: tell the user, and offer a handoff or the Company's phone number.",
+      } else if (e.type === "user_requested" && !inDirect) {
+        const reason = clip(e.reason, 300);
+        state().invitation = {
+          event: e.id as string,
+          ...(reason ? { reason } : {}),
         };
+        options.trace("Conversation · the Company asks to talk with the user");
+        options.shown.push({
+          author: company,
+          human: false,
+          note: `Asks to talk with you directly${reason ? `: ${reason}` : "."}`,
+          invitation: true,
+        });
+        result.user_requested = {
+          reason,
+          note: "The Company asked to talk with the user directly. Iris shows the user a card to accept or decline; you can't start that conversation. Tell the user what the Company asked, briefly.",
+        };
+      } else if (e.type === "direct_opened" || e.type === "direct_closed") {
+        options.trace(
+          `Conversation · Direct Conversation ${e.type === "direct_opened" ? "opened" : "closed"}`,
+        );
       } else if (e.type === "state") {
         options.trace(
           `Conversation state · handoff ${clip(e.handoff, 20)} · responder ${clip(e.responder, 20)}${e.closed === true ? " · closed" : ""}`,
@@ -245,8 +288,13 @@ export function conversationTools(
   }
 
   /** One request with `wait` and the saved cursor; a lost response is resent once. */
-  async function call(path: string, method: "GET" | "POST", body?: unknown) {
-    const s = state();
+  async function call(
+    path: string,
+    method: "GET" | "POST",
+    body?: unknown,
+    target?: Thread,
+  ) {
+    const s = target ?? state();
     const url = new URL(path);
     url.searchParams.set("wait", "10");
     if (s.cursor) url.searchParams.set("cursor", s.cursor);
@@ -265,17 +313,17 @@ export function conversationTools(
       value = await send();
     }
     let read = parseRead(value);
-    let out = handle(read);
+    let out = handle(read, target);
     // §8.5: has_more means read again right away (a few pages at most).
     for (let page = 0; read.hasMore && page < 3; page++) {
       read = parseRead(
         await options.request(
           run,
-          `${options.endpoint}/${read.id}/events?cursor=${state().cursor}`,
+          `${options.endpoint}/${read.id}/events?cursor=${s.cursor}`,
           "GET",
         ),
       );
-      const more = handle(read);
+      const more = handle(read, target);
       out = { ...out, ...more, replies: [...out.replies, ...more.replies] };
     }
     return out;
@@ -299,6 +347,11 @@ export function conversationTools(
           note: "That conversation is over. Send again to start a new one.",
         };
       }
+      if (error.code === "direct_conversation_open")
+        return {
+          error: error.code,
+          note: "The user is talking with the Company directly. Wait until they close that conversation; don't send to it yourself.",
+        };
       if (error.code === "cursor_expired") {
         delete state().cursor;
         state().seen = [];
@@ -397,7 +450,99 @@ export function conversationTools(
         control("handoff/cancel", "Conversation handoff withdrawn"),
     },
   };
-  return tools;
+
+  /**
+   * §8.10, for the User only, never a model tool: accept or decline the
+   * Company's invitation, start a Direct Conversation, say something in it
+   * in the User's own words, or close it.
+   */
+  async function direct(action: DirectAction, words?: string) {
+    const s = state();
+    if (!s.id) return { note: "There's no conversation with the Company yet." };
+    const human = (text: string) => ({
+      author: { type: "human" },
+      text: text.slice(0, 2000),
+    });
+    return guarded(async () => {
+      if (action === "decline") {
+        if (!s.invitation) return { note: "Nothing is waiting for an answer." };
+        delete s.invitation;
+        options.trace("Direct Conversation declined · told the Company");
+        // The User decides; the parent hears it from the Personal Agent.
+        return send({
+          text: "The user isn't available to talk directly right now.",
+          data: { user_requested: "declined" },
+        });
+      }
+      if (action === "accept" || action === "start") {
+        if (s.direct && !s.direct.closed)
+          return { note: "A Direct Conversation is already open." };
+        const invitation = action === "accept" ? s.invitation : undefined;
+        if (action === "accept" && !invitation)
+          return { note: "The Company hasn't asked to talk with you." };
+        const text = words?.trim();
+        if (action === "start" && !text)
+          return { error: "invalid_request", note: "Say something first." };
+        const thread: Thread & { id: string } = { id: "", seen: [] };
+        options.trace(
+          invitation
+            ? "Direct Conversation · accepting the Company's invitation"
+            : "Direct Conversation · started by the user",
+        );
+        const out = await call(
+          options.endpoint,
+          "POST",
+          {
+            // The same invitation always gets the same request ID (§8.3).
+            id: invitation
+              ? `dir_${createHash("sha256").update(`${s.id}\n${invitation.event}`).digest("base64url").slice(0, 24)}`
+              : requestId(),
+            parent_conversation_id: s.id,
+            ...(invitation
+              ? { user_requested_event_id: invitation.event }
+              : { message: human(text!) }),
+          },
+          thread,
+        );
+        delete s.invitation;
+        s.direct = thread;
+        return out;
+      }
+      const open = s.direct && !s.direct.closed ? s.direct : undefined;
+      if (!open) {
+        delete s.direct;
+        return { note: "No Direct Conversation is open." };
+      }
+      if (action === "close") {
+        options.trace("Direct Conversation · closed by the user");
+        const out = await call(
+          `${options.endpoint}/${open.id}/close`,
+          "POST",
+          { id: requestId() },
+          open,
+        );
+        delete s.direct;
+        return out;
+      }
+      const text = words?.trim();
+      if (!text)
+        return { error: "invalid_request", note: "Say something first." };
+      options.trace("Direct Conversation · the user's words, as written");
+      return call(
+        `${options.endpoint}/${open.id}/messages`,
+        "POST",
+        {
+          id: requestId(),
+          message: {
+            ...human(text),
+            ...(open.cursor ? { as_of_cursor: open.cursor } : {}),
+          },
+        },
+        open,
+      );
+    });
+  }
+  return { tools, direct };
 }
 
 /** The request ID for one approval: the same for a retry (§8.3). */

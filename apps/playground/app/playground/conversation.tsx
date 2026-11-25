@@ -30,6 +30,7 @@ export function Conversation({
   taskInput: RefObject<HTMLTextAreaElement | null>;
 }) {
   const { result, connected, busy, messages, signedIn, waitingSignIn } = p;
+  const companyName = result?.document.organization.name ?? "the Company";
   const [now, setNow] = useState(() => Date.now());
   const [panelOpen, setPanelOpen] = useState(true);
   const panel = useRef<HTMLElement>(null);
@@ -166,9 +167,14 @@ export function Conversation({
                   ? "Protocol demo"
                   : message.role === "Company"
                     ? message.author
-                    : message.role}
+                    : message.role === "You" && message.direct
+                      ? `You → ${companyName}`
+                      : message.role}
               {message.role === "Company" && (
                 <span className="company-badge">Company content</span>
+              )}
+              {message.direct && (
+                <span className="direct-badge">Direct, without Iris</span>
               )}
             </h3>
             {message.text && (
@@ -320,6 +326,91 @@ export function Conversation({
           )}
         </section>
       )}
+      {connected && !p.readOnly && p.invitation !== null && !p.direct && (
+        <div className="direct-bar" role="region" aria-label="Invitation">
+          <p>
+            <strong>{companyName}</strong> asks to talk with you directly
+            {p.invitation ? `: ${p.invitation}` : "."} Iris won&apos;t read or
+            answer there; you can leave at any time.
+          </p>
+          <div className="direct-actions">
+            <button
+              type="button"
+              className="connect-button"
+              disabled={busy}
+              onClick={() => p.directAction("accept")}
+            >
+              Talk to {companyName}
+            </button>
+            <button
+              type="button"
+              className="ghost-button"
+              disabled={busy}
+              onClick={() => p.directAction("decline")}
+            >
+              Not now
+            </button>
+          </div>
+        </div>
+      )}
+      {connected && !p.readOnly && p.direct && (
+        <div
+          className="direct-bar live"
+          role="region"
+          aria-label="Direct conversation"
+        >
+          <p>
+            You&apos;re talking with <strong>{companyName}</strong> directly.
+            What you type goes to them as your own words; Iris isn&apos;t
+            reading or answering.
+          </p>
+          <div className="direct-actions">
+            <button
+              type="button"
+              className="ghost-button"
+              disabled={busy}
+              onClick={() => p.directAction("close")}
+            >
+              Leave and go back to Iris
+            </button>
+          </div>
+        </div>
+      )}
+      {connected &&
+        !p.readOnly &&
+        !p.direct &&
+        p.invitation === null &&
+        p.canTalkDirectly && (
+          <div className="direct-bar quiet">
+            {p.startingDirect ? (
+              <>
+                <p>
+                  Your next message goes to <strong>{companyName}</strong>{" "}
+                  directly, in your own words.
+                </p>
+                <button
+                  type="button"
+                  className="text-button"
+                  onClick={() => p.setStartingDirect(false)}
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="text-button"
+                disabled={busy}
+                onClick={() => {
+                  p.setStartingDirect(true);
+                  taskInput.current?.focus();
+                }}
+              >
+                Talk to {companyName} yourself
+              </button>
+            )}
+          </div>
+        )}
       {(connected || p.readOnly) && (
         <form className="composer" onSubmit={p.send}>
           <label className="sr-only" htmlFor="task">
@@ -346,9 +437,11 @@ export function Conversation({
             placeholder={
               p.readOnly
                 ? "This conversation has ended."
-                : connected
-                  ? "Ask Iris…"
-                  : "Connect a Company first…"
+                : !connected
+                  ? "Connect a Company first…"
+                  : p.direct || p.startingDirect
+                    ? `Message ${companyName}…`
+                    : "Ask Iris…"
             }
           />
           <button

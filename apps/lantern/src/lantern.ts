@@ -374,6 +374,8 @@ export const lantern: CompanyDefinition = {
       text: `Nobody at Lantern can join this conversation right now. Call ${PHONE} (${PHONE_HOURS}).`,
       data: { handoff: "unavailable", phone: PHONE, hours: PHONE_HOURS },
     },
+    // Answers the User in Direct Conversations (§8.10), see agent.ts.
+    direct: true,
   },
   discovery: (origin, domain) => ({
     protocol_version: "1.0",

@@ -94,6 +94,14 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
   const [accountBusy, setAccountBusy] = useState(false);
   const [waitingSignIn, setWaitingSignIn] = useState(false);
   const [operations, setOperations] = useState<Operation[]>([]);
+  /** §8.10: the User is talking with the Company themselves. */
+  const [direct, setDirect] = useState(false);
+  /** The Company's invitation to talk directly, with its reason ("" for none). */
+  const [invitation, setInvitation] = useState<string | null>(null);
+  /** There's a conversation with the Company's agent to talk from. */
+  const [canTalkDirectly, setCanTalkDirectly] = useState(false);
+  /** The next message starts a Direct Conversation. */
+  const [startingDirect, setStartingDirect] = useState(false);
   const [instruction, setInstruction] = useState<Instruction | undefined>();
   const decided = useRef(new Set<string>());
   const profile = result ? companyProfile(result) : undefined;
@@ -355,8 +363,32 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     if (!task.trim() || !connected || !result || busy || ended) return;
     const message = task.trim();
     setTask("");
+    // §8.10: in a Direct Conversation, the User's words go to the Company.
+    const action = direct ? "say" : startingDirect ? "start" : undefined;
+    setMessages((old) => [
+      ...old,
+      { role: "You", text: message, ...(action ? { direct: true } : {}) },
+    ]);
+    await post(message, action);
+  }
+
+  /** §8.10: the User's own choices about a Direct Conversation. */
+  async function directAction(action: "accept" | "decline" | "close") {
+    if (!connected || !result || busy || ended) return;
+    const label = {
+      accept: "Talk to the Company directly",
+      decline: "Not now",
+      close: "Leave the direct conversation",
+    }[action];
+    await post(label, action);
+  }
+
+  async function post(
+    message: string,
+    action?: "say" | "start" | "accept" | "decline" | "close",
+  ) {
+    if (!result) return;
     setSending(true);
-    setMessages((old) => [...old, { role: "You", text: message }]);
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
@@ -365,6 +397,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
           url: result.requestedUrl,
           message,
           ...modelConfig,
+          ...(action ? { direct: action } : {}),
         }),
       });
       adopt(response);
@@ -383,6 +416,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
           text?: string;
           data?: string;
           note?: string;
+          direct?: boolean;
         }>
       ).map((entry) => ({
         role: "Company",
@@ -390,23 +424,37 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
         text: entry.text ?? "",
         ...(entry.data ? { data: entry.data } : {}),
         ...(entry.note ? { note: entry.note } : {}),
+        ...(entry.direct ? { direct: true } : {}),
       }));
       setMessages((old) => [
         ...old,
         ...company,
-        {
-          role: data.mode === "demo" ? "Demo" : "Agent",
-          text: data.text,
-          steps: ((data.trace ?? []) as string[]).map((line) =>
-            agentStep(logEntry(line)),
-          ),
-        },
+        // In a Direct Conversation Iris says nothing unless something changed.
+        ...(data.text
+          ? [
+              {
+                role: (data.mode === "demo"
+                  ? "Demo"
+                  : "Agent") as Message["role"],
+                text: data.text as string,
+                steps: ((data.trace ?? []) as string[]).map((line) =>
+                  agentStep(logEntry(line)),
+                ),
+              },
+            ]
+          : []),
       ]);
       addTrace(data.trace);
       setSignedIn(!!data.signedIn);
       setScopes(data.scopes ?? "");
       setError(data.recovery?.error ?? "");
       setOperations(data.operations ?? []);
+      setDirect(!!data.direct);
+      setInvitation(
+        typeof data.invitation === "string" ? data.invitation : null,
+      );
+      setCanTalkDirectly(!!data.conversation);
+      if (action === "start") setStartingDirect(false);
     } catch (caught) {
       setMessages((old) => [
         ...old,
@@ -468,6 +516,12 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     /** No model: the demo's keyword rules answer. */
     demo: modelConfig.provider === "demo",
     send,
+    direct,
+    invitation,
+    canTalkDirectly,
+    startingDirect,
+    setStartingDirect,
+    directAction,
     retryMessage,
     removeMessage,
     instruction,

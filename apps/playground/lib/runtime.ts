@@ -34,7 +34,9 @@ import { recordOperation } from "./operation-store";
 import {
   approveInConversation,
   conversationEndpoint,
+  conversationSession,
   conversationTools,
+  type DirectAction,
   type CompanyEntry,
   type ConversationState,
 } from "./conversations";
@@ -855,16 +857,7 @@ export async function connect(
     company.document.apis?.find((item) => item.type === "mcp");
   const endpoint = conversationEndpoint(company);
   const conversation = endpoint
-    ? conversationTools(run, {
-        endpoint,
-        request: (r, url, method, body) => papRequest(r, url, method, body),
-        allowProposals:
-          !!profile.issuer &&
-          proposalsAllowed(profile.issuer) &&
-          profile.operations,
-        trace: (line) => trace.push(line),
-        shown,
-      })
+    ? conversationTools(run, conversationOptions(run, endpoint, trace, shown))
     : {};
   if (endpoint) trace.push(`Company Agent conversations at ${endpoint}`);
   const taskTools: Record<string, ApiTool> = {};
@@ -891,6 +884,47 @@ export async function connect(
       ? await mcpConnect(run, api.url, trace)
       : await openApiConnect(run, api.url, trace, sandbox);
   return { ...tools, ...conversation, ...taskTools };
+}
+
+/** What a conversation needs from the run: transport, policy and output. */
+function conversationOptions(
+  run: Run,
+  endpoint: string,
+  trace: string[],
+  shown: CompanyEntry[],
+) {
+  const profile = companyProfile(run.company!);
+  return {
+    endpoint,
+    request: (r: Run, url: string, method: "GET" | "POST", body?: unknown) =>
+      papRequest(r, url, method, body),
+    allowProposals:
+      !!profile.issuer &&
+      proposalsAllowed(profile.issuer) &&
+      profile.operations,
+    trace: (line: string) => trace.push(line),
+    shown,
+  };
+}
+
+/**
+ * §8.10: one of the User's own actions on a Direct Conversation, never the
+ * model's. Call after `connect`, which starts the Session.
+ */
+export async function directConversation(
+  run: Run,
+  action: DirectAction,
+  words: string | undefined,
+  trace: string[],
+  shown: CompanyEntry[],
+) {
+  const endpoint = run.company ? conversationEndpoint(run.company) : undefined;
+  if (!endpoint)
+    throw new UserFacingError("This Company offers no conversations.");
+  return conversationSession(
+    run,
+    conversationOptions(run, endpoint, trace, shown),
+  ).direct(action, words);
 }
 
 /**

@@ -1735,3 +1735,48 @@ footer .lab-links a:hover {
   padding: 0 16px;
   font-size: 14px;
 }
+
+/* §8.10 Direct Conversations: the invitation, the live thread, the way in. */
+.direct-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 18px;
+  padding: 12px 22px;
+  border-top: 1px solid var(--line);
+  background: var(--soft);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.direct-bar p {
+  margin: 0;
+  max-width: 62ch;
+  color: var(--ink-soft);
+}
+.direct-bar strong {
+  color: var(--ink);
+}
+.direct-bar.live {
+  background: #fff8db;
+  border-top-color: var(--accent-hover);
+}
+.direct-bar.quiet {
+  justify-content: flex-start;
+  padding-block: 8px;
+  background: transparent;
+}
+.direct-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.direct-badge {
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #fff1b8;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+}

@@ -14,10 +14,13 @@
  * Ownership (§8.2) is the client, the User ID and, once a request carries an
  * access token, that account. A handoff (§8.9) finds nobody in this lab:
  * `handoff` goes `pending` then back to `none`, and the Company Agent says
- * how to call. Direct Conversations (§8.10) and streaming (§8.6) are not
- * offered: a `parent_conversation_id` gets `conversation_not_found` or
- * `conversation_closed` for a bad parent and `invalid_request` otherwise,
- * and a stream request gets JSON.
+ * how to call. Direct Conversations (§8.10): the Personal Agent opens one
+ * with `parent_conversation_id`, on its own or accepting the Company's
+ * `user_requested` event; the parent gets `direct_opened` and
+ * `direct_closed` and takes no messages while it's open. A Company Agent
+ * that sets `agent.direct` answers the User there; otherwise the gateway
+ * answers with the handoff reply. Streaming (§8.6) isn't offered: a stream
+ * request gets JSON.
  */
 import type { Context, Hono } from "hono";
 import { approvalFrom, randomId } from "@poppy-lab/pap-client/core";
@@ -63,6 +66,8 @@ class Refusal extends Error {
     public status: 400 | 401 | 404 | 409 | 410,
     public code: string,
     public headers: Record<string, string> = {},
+    /** More members of the error body, such as `conversation_id`. */
+    public extra: Record<string, unknown> = {},
   ) {
     super(code);
   }
@@ -241,22 +246,28 @@ export function mountConversations(app: Hono, ctx: Ctx, tenancy: Tenancy) {
       status,
     );
 
-  /** Accepts one User-side message and runs the Company Agent on it. */
+  /**
+   * Accepts one User-side message and runs the Company Agent on it. Without
+   * a message, a Direct Conversation opened on the Company's invitation:
+   * the Company speaks first (§8.10).
+   */
   function accept(
     c: Context,
     conv: Conversation,
     requestId: string,
-    message: UserMessage,
+    message: UserMessage | undefined,
   ) {
     const who = caller(c);
-    const { entry } = tenantOf(c);
-    conv.messages++;
-    add(conv, {
-      type: "message",
-      created_at: now(),
-      message: { id: requestId, role: "user", ...message },
-    });
-    if (message.context) {
+    const { entry, conversations } = tenantOf(c);
+    if (message) {
+      conv.messages++;
+      add(conv, {
+        type: "message",
+        created_at: now(),
+        message: { id: requestId, role: "user", ...message },
+      });
+    }
+    if (message?.context) {
       // Fields left out keep their values; null clears one (§8.4).
       const merged = { ...conv.context };
       for (const [k, v] of Object.entries(message.context))
@@ -266,7 +277,16 @@ export function mountConversations(app: Hono, ctx: Ctx, tenancy: Tenancy) {
       conv.context = size(bounded) <= 4096 ? bounded : {};
     }
     // Operations v3 §2: extension content only when the request declares it.
-    const approval = who.operations ? approvalOf(message) : undefined;
+    const approval =
+      who.operations && message ? approvalOf(message) : undefined;
+    // In a Direct Conversation the User speaks; a Company Agent that doesn't
+    // handle that leaves the reply to the gateway, which can only say who to
+    // call (nobody joins in this lab).
+    const parent = conv.parent ? conversations[conv.parent] : undefined;
+    if (conv.parent && !def.agent!.direct) {
+      say(conv, def.agent!.handoff, requestId);
+      return;
+    }
     const handler = entry.converse;
     const unavailable: TurnResult = {
       replies: [
@@ -282,11 +302,20 @@ export function mountConversations(app: Hono, ctx: Ctx, tenancy: Tenancy) {
         result = handler({
           conversation: conv.id,
           message: {
-            author: message.author.type === "human" ? "human" : "agent",
-            ...(message.text !== undefined ? { text: message.text } : {}),
-            ...(message.data ? { data: message.data } : {}),
+            author: message?.author.type === "human" ? "human" : "agent",
+            ...(message?.text !== undefined ? { text: message.text } : {}),
+            ...(message?.data ? { data: message.data } : {}),
           },
           context: conv.context,
+          ...(conv.parent
+            ? {
+                direct: {
+                  requested: !!conv.requested,
+                  parent: parent?.memory ?? {},
+                },
+              }
+            : {}),
+          ...(message ? {} : { opening: true }),
           ...(who.account ? { account: who.account } : {}),
           scopes: who.scopes,
           memory: conv.memory,
@@ -315,11 +344,61 @@ export function mountConversations(app: Hono, ctx: Ctx, tenancy: Tenancy) {
         error: "insufficient_scope",
         scope: result.authorization,
       });
+    // §8.10: only a parent invites the User; it changes no state.
+    if (result.requestUser && !conv.parent && !conv.direct)
+      add(conv, {
+        type: "user_requested",
+        created_at: now(),
+        reason: result.requestUser.slice(0, 300),
+      });
+  }
+
+  /** §8.10: a parent's open Direct Conversation, if it's still there. */
+  function openDirect(c: Context, conv: Conversation) {
+    const direct = conv.direct
+      ? tenantOf(c).conversations[conv.direct]
+      : undefined;
+    if (direct && !direct.closed) return direct;
+    delete conv.direct;
+    return undefined;
+  }
+  /** While a Direct Conversation is open, its parent takes no messages. */
+  function refuseWhileDirect(c: Context, conv: Conversation) {
+    const direct = openDirect(c, conv);
+    if (direct)
+      throw new Refusal(
+        409,
+        "direct_conversation_open",
+        {},
+        { conversation_id: direct.id },
+      );
+  }
+  /** Closes a conversation; a Direct one tells its parent, a parent closes its Direct one. */
+  function close(c: Context, conv: Conversation) {
+    if (conv.closed) return;
+    const direct = openDirect(c, conv);
+    if (direct) close(c, direct);
+    conv.closed = true;
+    conv.handoff = "none";
+    state(conv);
+    const parent = conv.parent
+      ? tenantOf(c).conversations[conv.parent]
+      : undefined;
+    if (parent && parent.direct === conv.id) {
+      delete parent.direct;
+      add(parent, {
+        type: "direct_closed",
+        created_at: now(),
+        conversation_id: conv.id,
+      });
+    }
   }
 
   /** Drops a conversation and the request IDs kept for it. */
   function forget(c: Context, id: string) {
     const { conversations, requests } = tenantOf(c);
+    const conv = conversations[id];
+    if (conv && !conv.closed) close(c, conv);
     delete conversations[id];
     for (const [k, r] of Object.entries(requests))
       if (r.conversation === id) delete requests[k];
@@ -366,7 +445,7 @@ export function mountConversations(app: Hono, ctx: Ctx, tenancy: Tenancy) {
         if (!(e instanceof Refusal)) throw e;
         // A sign-in challenge has no body, as at the account APIs (§7).
         if (!e.code) return c.body(null, e.status, e.headers);
-        return c.json({ error: e.code }, e.status, e.headers);
+        return c.json({ error: e.code, ...e.extra }, e.status, e.headers);
       }
     };
 
@@ -377,20 +456,45 @@ export function mountConversations(app: Hono, ctx: Ctx, tenancy: Tenancy) {
       const q = query(c);
       const { body, id, seen, remember } = await post(c, BASE);
       if (seen) return answer(c, owned(c, seen.conversation), seen.status, q);
-      // Direct Conversations (§8.10) aren't offered by this lab yet, but the
-      // parent is checked first, so its errors are the spec's: an unknown or
-      // another owner's parent is not found, a closed one is closed.
-      if (body.parent_conversation_id !== undefined) {
-        const parent = String(body.parent_conversation_id);
-        if (owned(c, parent).closed)
-          throw new Refusal(409, "conversation_closed");
-        throw new Refusal(400, "invalid_request");
-      }
-      if (body.user_requested_event_id !== undefined)
-        throw new Refusal(400, "invalid_request");
-      const message = parseMessage(body.message);
       const who = caller(c);
       const { conversations } = tenantOf(c);
+      // §8.10: a Direct Conversation names its parent, and the invitation
+      // it accepts, if any.
+      let parent: Conversation | undefined;
+      let invitation: string | undefined;
+      if (body.parent_conversation_id !== undefined) {
+        if (typeof body.parent_conversation_id !== "string")
+          throw new Refusal(400, "invalid_request");
+        parent = owned(c, body.parent_conversation_id);
+        if (body.user_requested_event_id !== undefined) {
+          const eventId = body.user_requested_event_id;
+          if (
+            typeof eventId !== "string" ||
+            !parent.events.some(
+              (e) => e.id === eventId && e.type === "user_requested",
+            )
+          )
+            throw new Refusal(400, "invalid_request");
+          invitation = eventId;
+          // Accepting the same invitation again returns the same Direct
+          // Conversation, without another message, even once it's closed.
+          const earlier = parent.accepted?.[eventId];
+          if (earlier && conversations[earlier]) {
+            const direct = owned(c, earlier);
+            remember(direct, 201);
+            return answer(c, direct, 201, q);
+          }
+        }
+        if (parent.closed) throw new Refusal(409, "conversation_closed");
+        if (parent.parent) throw new Refusal(400, "invalid_request");
+        refuseWhileDirect(c, parent);
+      } else if (body.user_requested_event_id !== undefined)
+        throw new Refusal(400, "invalid_request");
+      // Only accepting an invitation may leave the first message out.
+      const message =
+        body.message === undefined && invitation
+          ? undefined
+          : parseMessage(body.message);
       // Bounded per User and per tenant: closed, then least recently used.
       const evict = (list: Conversation[], max: number) =>
         [...list]
@@ -400,13 +504,17 @@ export function mountConversations(app: Hono, ctx: Ctx, tenancy: Tenancy) {
           )
           .slice(0, Math.max(0, list.length - max + 1))
           .forEach((v) => forget(c, v.id));
+      const others = (list: Conversation[]) =>
+        list.filter((v) => v.id !== parent?.id);
       evict(
-        Object.values(conversations).filter(
-          (v) => v.client === who.client && v.user === who.user,
+        others(
+          Object.values(conversations).filter(
+            (v) => v.client === who.client && v.user === who.user,
+          ),
         ),
-        PER_USER,
+        PER_USER - (parent ? 1 : 0),
       );
-      evict(Object.values(conversations), PER_TENANT);
+      evict(others(Object.values(conversations)), PER_TENANT);
       const conv: Conversation = {
         id: `cnv_${randomId().slice(0, 20)}`,
         tag: randomId().slice(0, 8),
@@ -421,8 +529,21 @@ export function mountConversations(app: Hono, ctx: Ctx, tenancy: Tenancy) {
         memory: {},
         messages: 0,
         updated: Date.now(),
+        ...(parent ? { parent: parent.id } : {}),
+        ...(invitation ? { requested: invitation } : {}),
       };
+      // A Direct Conversation keeps its parent's account binding (§8.2).
+      if (parent?.account) conv.account = parent.account;
       conversations[conv.id] = conv;
+      if (parent) {
+        parent.direct = conv.id;
+        if (invitation) (parent.accepted ??= {})[invitation] = conv.id;
+        add(parent, {
+          type: "direct_opened",
+          created_at: now(),
+          conversation_id: conv.id,
+        });
+      }
       accept(c, conv, id, message);
       remember(conv, 201);
       return answer(c, conv, 201, q);
@@ -440,6 +561,7 @@ export function mountConversations(app: Hono, ctx: Ctx, tenancy: Tenancy) {
       if (seen) return answer(c, conv, 202, q);
       const message = parseMessage(body.message);
       if (conv.closed) throw new Refusal(409, "conversation_closed");
+      refuseWhileDirect(c, conv);
       if (conv.messages >= MESSAGES) {
         say(
           conv,
@@ -448,9 +570,7 @@ export function mountConversations(app: Hono, ctx: Ctx, tenancy: Tenancy) {
           },
           id,
         );
-        conv.closed = true;
-        conv.handoff = "none";
-        state(conv);
+        close(c, conv);
         throw new Refusal(409, "conversation_closed");
       }
       accept(c, conv, id, message);
@@ -480,6 +600,7 @@ export function mountConversations(app: Hono, ctx: Ctx, tenancy: Tenancy) {
       );
       if (seen) return answer(c, conv, 202, q);
       if (conv.closed) throw new Refusal(409, "conversation_closed");
+      refuseWhileDirect(c, conv);
       if (conv.handoff === "none") {
         conv.handoff = "pending";
         state(conv);
@@ -504,6 +625,7 @@ export function mountConversations(app: Hono, ctx: Ctx, tenancy: Tenancy) {
       );
       if (seen) return answer(c, conv, 202, q);
       if (conv.closed) throw new Refusal(409, "conversation_closed");
+      refuseWhileDirect(c, conv);
       if (conv.handoff === "pending") {
         conv.handoff = "none";
         state(conv);
@@ -520,11 +642,7 @@ export function mountConversations(app: Hono, ctx: Ctx, tenancy: Tenancy) {
       const q = query(c);
       const conv = owned(c, idOf(c));
       const { seen, remember } = await post(c, `${BASE}/${conv.id}/close`);
-      if (!seen && !conv.closed) {
-        conv.closed = true;
-        conv.handoff = "none";
-        state(conv);
-      }
+      if (!seen) close(c, conv);
       if (!seen) remember(conv, 202);
       return answer(c, conv, 202, q);
     }),

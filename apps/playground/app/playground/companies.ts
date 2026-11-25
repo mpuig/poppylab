@@ -88,6 +88,8 @@ export type Message = {
   note?: string;
   /** What Iris did to produce this answer, for Agent and Demo messages. */
   steps?: AgentStep[];
+  /** §8.10: said in the User's Direct Conversation with the Company. */
+  direct?: boolean;
 };
 /** Server history (`user`/`assistant`) as transcript messages. */
 export const historyToMessages = (

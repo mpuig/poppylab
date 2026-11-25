@@ -218,15 +218,6 @@ it("retries by request ID, rejects reuse with another path or body, and validate
   );
   expect(cursor.statusCode).toBe(400);
   expect(cursor.json().error).toBe("invalid_cursor");
-  // Direct Conversations aren't offered yet.
-  expect(
-    (
-      await x.post("", BASE, {
-        ...msg({ text: "hi" }),
-        parent_conversation_id: id,
-      })
-    ).body.error,
-  ).toBe("invalid_request");
   // A bad parent gets the spec's errors (§8.10), as the official validator
   // checks: unknown → 404 conversation_not_found.
   const unknown = await x.post("", BASE, {
@@ -552,4 +543,215 @@ it("keeps each visitor's conversations in their own tenant (isolation)", async (
   expect((await x.call("", "GET", `${BASE}/${id}/events`)).statusCode).toBe(
     200,
   );
+});
+
+it("opens a Direct Conversation on Lantern's invitation and refunds a whole order on the customer's own yes (§8.10)", async () => {
+  const x = await lab();
+  const t = (await x.sign("elena", true)).access_token;
+  const human = (text: string, id?: string) => ({
+    id: id ?? `req_${++n}`,
+    message: { author: { type: "human" }, text },
+  });
+  // The parent: the order never arrived, so Lantern asks for the customer.
+  const started = await x.post(
+    t,
+    `${BASE}?wait=0`,
+    msg({ data: { request: "order_not_delivered", order_id: "ord_LNB0907" } }),
+  );
+  expect(started.status).toBe(201);
+  const parent = (started.body as Read).conversation_id;
+  const invite = (started.body as Read).events.find(
+    (e) => e.type === "user_requested",
+  ) as Event & { reason: string };
+  expect(invite.reason).toContain("ord_LNB0907");
+  // No state change from the invitation (§8.7).
+  expect((started.body as Read).handoff).toBe("none");
+
+  // Bad requests: an event that isn't an invitation, no message without
+  // one, and a Direct Conversation can't be a parent.
+  const firstEvent = (started.body as Read).events[0]!.id;
+  for (const body of [
+    {
+      id: `req_${++n}`,
+      parent_conversation_id: parent,
+      user_requested_event_id: firstEvent,
+    },
+    { id: `req_${++n}`, parent_conversation_id: parent },
+    { id: `req_${++n}`, user_requested_event_id: invite.id },
+  ]) {
+    const r = await x.post(t, BASE, body);
+    expect([r.status, r.body.error]).toEqual([400, "invalid_request"]);
+  }
+
+  // Accepting with no message: the Company speaks first.
+  const accept = {
+    id: "dir_accept",
+    parent_conversation_id: parent,
+    user_requested_event_id: invite.id,
+  };
+  const opened = await x.post(t, `${BASE}?wait=0`, accept);
+  expect(opened.status).toBe(201);
+  const direct = (opened.body as Read).conversation_id;
+  expect(direct).not.toBe(parent);
+  const greeting = x.company((opened.body as Read).events);
+  expect(greeting).toHaveLength(1);
+  expect(greeting[0]!.text).toContain("Did none of order ord_LNB0907 arrive?");
+  // The parent records it, and takes no messages or handoffs meanwhile.
+  expect((await x.events(t, parent)).events.at(-1)).toMatchObject({
+    type: "direct_opened",
+    conversation_id: direct,
+  });
+  for (const path of ["messages", "handoff", "handoff/cancel"]) {
+    const r = await x.post(
+      t,
+      `${BASE}/${parent}/${path}`,
+      path === "messages" ? msg({ text: "still there?" }) : req(),
+    );
+    expect([r.status, r.body]).toEqual([
+      409,
+      { error: "direct_conversation_open", conversation_id: direct },
+    ]);
+  }
+  // One open Direct Conversation per parent.
+  const second = await x.post(t, BASE, {
+    ...human("hello"),
+    parent_conversation_id: parent,
+  });
+  expect([second.status, second.body]).toEqual([
+    409,
+    { error: "direct_conversation_open", conversation_id: direct },
+  ]);
+  // Accepting the same invitation again: the same conversation, no new message.
+  const before = (await x.events(t, direct)).events.length;
+  const again = await x.post(t, `${BASE}?wait=0`, {
+    ...accept,
+    id: "dir_again",
+  });
+  expect((again.body as Read).conversation_id).toBe(direct);
+  expect((await x.events(t, direct)).events.length).toBe(before);
+  // A Direct Conversation can't be a parent itself.
+  const nested = await x.post(t, BASE, {
+    ...human("hi"),
+    parent_conversation_id: direct,
+  });
+  expect([nested.status, nested.body.error]).toEqual([400, "invalid_request"]);
+
+  // The customer's own words: anything but yes or no gets the question again.
+  const cursor = () => x.events(t, direct).then((r) => r.cursor);
+  const unclear = await x.post(
+    t,
+    `${BASE}/${direct}/messages?wait=0&cursor=${await cursor()}`,
+    human("well, mostly"),
+  );
+  expect(x.company((unclear.body as Read).events)[0]!.text).toContain(
+    "Please reply yes or no",
+  );
+  // An agent's words don't count as the customer's.
+  const agentSays = await x.post(
+    t,
+    `${BASE}/${direct}/messages?wait=0&cursor=${await cursor()}`,
+    msg({ text: "yes" }),
+  );
+  expect(
+    x.company((agentSays.body as Read).events)[0]!.extensions,
+  ).toBeUndefined();
+  const yes = await x.post(
+    t,
+    `${BASE}/${direct}/messages?wait=0&cursor=${await cursor()}`,
+    human("Yes, nothing came."),
+  );
+  const op = x.company((yes.body as Read).events)[0]!.extensions!.operations!
+    .operation!;
+  expect(op.terms).toMatchObject({
+    order_id: "ord_LNB0907",
+    refund_cents: expect.any(Number),
+  });
+  // The approval, sent in the Direct Conversation, performs it once.
+  const approve = msg(
+    {
+      extensions: {
+        operations: {
+          approval: {
+            operation_id: op.operation_id,
+            revision: op.revision,
+            approver: "user",
+            approved_at: Math.floor(Date.now() / 1000),
+            input_type: "tap",
+          },
+        },
+      },
+    },
+    "req_approve_whole",
+  );
+  const done = await x.post(
+    t,
+    `${BASE}/${direct}/messages?wait=0&cursor=${await cursor()}`,
+    approve,
+  );
+  expect(x.company((done.body as Read).events)[0]!.text).toContain("Refunded");
+  const status = await x.post(t, `${BASE}/${direct}/close`, req());
+  expect(status.status).toBe(202);
+  // Closing it tells the parent, which takes messages again.
+  expect((await x.events(t, parent)).events.at(-1)).toMatchObject({
+    type: "direct_closed",
+    conversation_id: direct,
+  });
+  const back = await x.post(
+    t,
+    `${BASE}/${parent}/messages?wait=0`,
+    msg({ data: { request: "order_status" } }),
+  );
+  expect(back.status).toBe(202);
+  const refunds = (
+    x.company((back.body as Read).events).at(-1)!.data!.last_delivery as {
+      refunds: unknown[];
+    }
+  ).refunds;
+  expect(refunds.length).toBeGreaterThan(0);
+});
+
+it("lets the customer open a Direct Conversation themselves, and closes it with its parent (§8.10)", async () => {
+  const x = await lab();
+  const parent = (
+    await x.post("", BASE, msg({ data: { request: "opening_hours" } }))
+  ).body.conversation_id as string;
+  const opened = await x.post("", `${BASE}?wait=0`, {
+    id: `req_${++n}`,
+    parent_conversation_id: parent,
+    message: { author: { type: "human" }, text: "Can I speak to someone?" },
+  });
+  expect(opened.status).toBe(201);
+  const direct = (opened.body as Read).conversation_id;
+  expect(x.company((opened.body as Read).events)[0]!.text).toContain(
+    "+1 555-0142",
+  );
+  // Closing the parent closes its Direct Conversation too.
+  expect((await x.post("", `${BASE}/${parent}/close`, req())).status).toBe(202);
+  expect((await x.events("", direct)).closed).toBe(true);
+  const parentEvents = (await x.events("", parent)).events;
+  expect(parentEvents.map((e) => e.type)).toEqual(
+    expect.arrayContaining(["direct_opened", "direct_closed"]),
+  );
+});
+
+it("hears in the parent that the customer declined, and asks nothing more (§8.10)", async () => {
+  const x = await lab();
+  const t = (await x.sign("elena", true)).access_token;
+  const started = await x.post(
+    t,
+    `${BASE}?wait=0`,
+    msg({ data: { request: "order_not_delivered", order_id: "ord_LNB0907" } }),
+  );
+  const id = (started.body as Read).conversation_id;
+  const declined = await x.post(
+    t,
+    `${BASE}/${id}/messages?wait=0&cursor=${(started.body as Read).cursor}`,
+    msg({
+      text: "The user isn't available to talk directly right now.",
+      data: { user_requested: "declined" },
+    }),
+  );
+  const reply = x.company((declined.body as Read).events)[0]!;
+  expect(reply.text).toContain("+1 555-0142");
+  expect(reply.data).toMatchObject({ user_requested: "declined" });
 });

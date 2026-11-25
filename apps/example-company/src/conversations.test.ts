@@ -128,3 +128,20 @@ it("opens a support case only with the approval, and the website shows it", asyn
     phone: "+1 555-0117",
   });
 });
+
+it("answers the customer in a Direct Conversation with how to call, since its agent doesn't handle them (§8.10)", async () => {
+  const { anonymous } = await visitors();
+  const ana = anonymous("usr_ana_direct");
+  const parent = (
+    await ana("POST", BASE, msg({ data: { request: "store_info" } }))
+  ).json() as { conversation_id: string };
+  const opened = await ana("POST", `${BASE}?wait=0`, {
+    id: `req_j${++n}`,
+    parent_conversation_id: parent.conversation_id,
+    message: { author: { type: "human" }, text: "Hello, is anyone there?" },
+  });
+  expect(opened.statusCode).toBe(201);
+  const reply = company(opened.json() as Read);
+  expect(reply).toHaveLength(1);
+  expect(reply[0]!.text).toContain("+1 555-0117");
+});
