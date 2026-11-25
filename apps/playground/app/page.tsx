@@ -101,7 +101,7 @@ export default function Home() {
             <p className="lead">
               Poppy Lab is an independent test bench for Personal Agent Protocol
               1.0. Run Iris, its Personal Agent, with your own model key, point
-              it at three fictional Companies, and watch every step it takes:
+              it at four fictional Companies, and watch every step it takes:
               discovery, sign-in, signed Sessions, conversations with each
               Company&apos;s own agent, and changes that wait for your approval.
             </p>
@@ -152,7 +152,7 @@ export default function Home() {
         </section>
 
         <section id="sites" className="sites" aria-labelledby="sites-title">
-          <h2 id="sites-title">Four sites, one lab</h2>
+          <h2 id="sites-title">Five sites, one lab</h2>
           <article className="label label-agent">
             <div className="label-main">
               <h3>The playground</h3>
