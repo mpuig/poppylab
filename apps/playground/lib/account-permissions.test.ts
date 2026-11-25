@@ -5,6 +5,7 @@ import {
   consentScopes,
   grantedSubset,
   consentOutcome,
+  missingFdxScopes,
 } from "./account-permissions";
 import type { CompanyProfile } from "@poppy-lab/pap-core";
 const profile: CompanyProfile = {
@@ -46,6 +47,36 @@ it("chooses least privilege from the Company's scopes and hints", () => {
   );
   for (const input of ["admin", "orders:write", {}, null])
     expect(() => consentScopes(profile, input)).toThrow();
+});
+it("asks for the FDX-shaped data clusters only with Use FDX on (RFC 9700 §2.3)", () => {
+  const bank: CompanyProfile = {
+    ...profile,
+    scopes: [
+      "accounts:read",
+      "transfers:request",
+      "fdx:ACCOUNT_BASIC",
+      "fdx:TRANSACTIONS",
+    ],
+    scopeHints: {
+      "accounts:read": { changes: "none", personal_data: true },
+      "transfers:request": { changes: "irreversible", personal_data: true },
+      "fdx:ACCOUNT_BASIC": { changes: "none", personal_data: true },
+      "fdx:TRANSACTIONS": { changes: "none", personal_data: true },
+    },
+  };
+  // Off: none, though the hints say they change nothing.
+  expect(consentScopes(bank)).toBe("accounts:read");
+  expect(consentScopes(bank, "write")).toBe("accounts:read transfers:request");
+  expect(consentScopes(bank, "read", { fdx: true })).toBe(
+    "accounts:read fdx:ACCOUNT_BASIC fdx:TRANSACTIONS",
+  );
+  expect(consentScopes(bank, "write", { fdx: true })).toBe(
+    "accounts:read transfers:request fdx:ACCOUNT_BASIC fdx:TRANSACTIONS",
+  );
+  expect(missingFdxScopes(bank, "accounts:read fdx:ACCOUNT_BASIC")).toEqual([
+    "fdx:TRANSACTIONS",
+  ]);
+  expect(missingFdxScopes(profile, "orders:read")).toEqual([]);
 });
 it("never treats a scope without hints as read-only", () => {
   expect(() => consentScopes({ ...profile, scopeHints: {} }, "read")).toThrow(

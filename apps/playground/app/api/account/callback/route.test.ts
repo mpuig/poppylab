@@ -154,6 +154,28 @@ it("exchanges the code with PKCE, no session_id, and starts a new Session", asyn
   expect(s.run.auth).toBeUndefined();
 });
 
+it("keeps the FDX-shaped consent id of the grant, and drops an earlier one when there is none (poppylab.dev/fdx v1)", async () => {
+  const run = s.run as typeof s.run & { fdxConsent?: string };
+  s.request.mockResolvedValue(success({ consent_id: "grant_7Hk2" }));
+  expect((await GET(req())).status).toBe(200);
+  expect(run.fdxConsent).toBe("grant_7Hk2");
+  // Not one path segment: not kept.
+  for (const consent_id of [undefined, "../grant", 7]) {
+    run.fdxConsent = "grant_old";
+    s.run.auth = {
+      state: "state_test",
+      verifier: "verifier_test",
+      issuer: "https://food.papsandbox.com",
+      scopes: "orders:read",
+      expires: Date.now() + 60000,
+      dpop: { kty: "EC" },
+    };
+    s.request.mockResolvedValue(success({ consent_id }));
+    expect((await GET(req())).status).toBe(200);
+    expect(run.fdxConsent).toBeUndefined();
+  }
+});
+
 it("uses Bearer tokens when the issuer doesn't bind DPoP", async () => {
   s.dpop = false;
   s.request.mockResolvedValue(success({ token_type: "Bearer" }));

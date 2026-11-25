@@ -957,6 +957,20 @@ main {
 .messages .permission-note {
   flex: 0 0 100%;
 }
+/* Use FDX (poppylab.dev/fdx v1): a setting of this conversation. */
+.fdx-toggle {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+}
+.fdx-toggle input {
+  margin: 3px 0 0;
+}
+.fdx-toggle small {
+  display: block;
+  font-size: 12px;
+}
 .messages .empty-state {
   min-height: 220px;
 }

@@ -1,4 +1,5 @@
 import type * as OperationStore from "../../../lib/operation-store";
+import type * as Runtime from "../../../lib/runtime";
 import { beforeEach, describe, it, expect, vi } from "vitest";
 const state = vi.hoisted(() => ({
   run: {
@@ -106,6 +107,11 @@ vi.mock("@/lib/runtime", async () => ({
   identity: vi.fn(async () => ({ privateKey: {} })),
   clientId: "http://localhost:3000/agent/client.json",
   agentOrigin: "http://localhost:3000",
+  // Use FDX (poppylab.dev/fdx v1): the runtime's own rules.
+  fdxEntry: (await vi.importActual<typeof Runtime>("../../../lib/runtime"))
+    .fdxEntry,
+  setFdx: (await vi.importActual<typeof Runtime>("../../../lib/runtime"))
+    .setFdx,
 }));
 
 import { POST, GET } from "./route";
@@ -683,5 +689,102 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
       expect.anything(),
       "user",
     );
+  });
+});
+
+describe("Use FDX (poppylab.dev/fdx v1)", () => {
+  const entry = {
+    version: "1",
+    base_url: "http://juniper.localhost:4100/fdx/v6",
+    consent_endpoint: "http://juniper.localhost:4100/fdx/v6/consents",
+  };
+  const bank = (run: Record<string, unknown>) => {
+    const company = run.company as { profile: Record<string, unknown> };
+    company.profile = {
+      ...company.profile,
+      scopes: ["poppy:read", "poppy:write", "fdx:ACCOUNT_BASIC"],
+      scopeHints: {
+        "poppy:read": { changes: "none", personal_data: true },
+        "poppy:write": { changes: "irreversible", personal_data: true },
+        "fdx:ACCOUNT_BASIC": { changes: "none", personal_data: true },
+      },
+      extensions: { "poppylab.dev/fdx": entry },
+    };
+    return run;
+  };
+  const restored = async () =>
+    (
+      await GET(
+        new Request(
+          "http://localhost:3000/api/account?conversation=run_fixture_0001",
+        ),
+      )
+    ).json();
+  const run = state.run as typeof state.run & {
+    fdx?: boolean;
+    fdxConsent?: string;
+    sessionId?: string;
+  };
+  const company = structuredClone(state.run.company);
+  const connect = state.connect.getMockImplementation()!;
+  beforeEach(() => {
+    state.run.company = structuredClone(company);
+    delete run.fdx;
+    run.sessionId = "sid-before";
+  });
+
+  it("is off by default, and a change starts a new Session the page restores (§3.4)", async () => {
+    bank(state.run);
+    expect((await restored()).fdx).toBe(false);
+    const on = await POST(request({ action: "fdx", enabled: true }));
+    expect(on.status).toBe(200);
+    const body = await on.json();
+    expect(body.fdx).toBe(true);
+    expect(run.fdx).toBe(true);
+    expect(body.sessionId).not.toBe("sid-before");
+    expect(run.sessionId).toBe(body.sessionId);
+    expect((await restored()).fdx).toBe(true);
+    // The same choice again keeps the Session.
+    await POST(request({ action: "fdx", enabled: true }));
+    expect(run.sessionId).toBe(body.sessionId);
+    await POST(request({ action: "fdx", enabled: false }));
+    expect(run.fdx).toBeUndefined();
+    expect(run.sessionId).not.toBe(body.sessionId);
+  });
+
+  it("can't be turned on where the Company lists no valid entry, or a saved profile has none", async () => {
+    const r = await POST(request({ action: "fdx", enabled: true }));
+    expect(r.status).toBe(400);
+    expect(run.fdx).toBeUndefined();
+    expect(run.sessionId).toBe("sid-before");
+    expect(
+      (await POST(request({ action: "fdx", enabled: "yes" }))).status,
+    ).toBe(400);
+  });
+
+  it("asks for the FDX-shaped data clusters only with Use FDX on", async () => {
+    state.connect.mockImplementation(async (r: Record<string, unknown>) =>
+      bank(Object.assign(r, { company: structuredClone(company) })),
+    );
+    try {
+      bank(state.run);
+      const scope = async () =>
+        new URL(
+          (await (await POST(request({ action: "signin" }))).json()).url,
+        ).searchParams.get("scope");
+      expect(await scope()).toBe("poppy:read");
+      await POST(request({ action: "fdx", enabled: true }));
+      expect(await scope()).toBe("poppy:read fdx:ACCOUNT_BASIC");
+    } finally {
+      state.connect.mockImplementation(connect);
+      delete (state.run as { auth?: unknown }).auth;
+    }
+  });
+
+  it("forgets the consent id at sign-out", async () => {
+    run.fdxConsent = "grant_1";
+    state.revoke.mockResolvedValue(undefined);
+    expect((await POST(request({ action: "signout" }))).status).toBe(200);
+    expect(run.fdxConsent).toBeUndefined();
   });
 });

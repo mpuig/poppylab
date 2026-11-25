@@ -1,5 +1,17 @@
 import { grantedSubset } from "./account-permissions";
 
+/**
+ * `poppylab.dev/fdx` v1: the consent id a bank may add to a token response
+ * (an extra field other agents ignore, RFC 6749 §5.1). Kept only when it
+ * could be one path segment of the consent endpoint.
+ */
+const consentId = (value: unknown) =>
+  typeof value === "string" &&
+  /^[A-Za-z0-9][\x21-\x7e]{0,127}$/.test(value) &&
+  !/[/\\%?#]/.test(value)
+    ? value
+    : undefined;
+
 /** Validates an OAuth token response (RFC 6749 §5.1, §4.7). */
 export function tokenResponse(
   result: Record<string, unknown>,
@@ -29,6 +41,7 @@ export function tokenResponse(
     tokenType: (dpop ? "DPoP" : "Bearer") as "DPoP" | "Bearer",
     refreshToken: result.refresh_token as string | undefined,
     scope: scope as string,
+    consentId: consentId(result.consent_id),
     expires:
       Date.now() + Math.min(Number(result.expires_in ?? 3600), 3600) * 1000,
   };

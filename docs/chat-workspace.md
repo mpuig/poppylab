@@ -6,7 +6,7 @@ The playground offers exactly two model choices: **OpenAI compatible · gpt-6-lu
 
 1. Open Model settings, choose a provider, paste an API key and Save model. The form closes automatically.
 2. Enter the Company URL and Connect.
-3. Use the conversation. Sign-in, permission expansion, sign-out, recovery and Operation approval/status widgets are inside the chat. Inspector and Identity remain optional views. Company OAuth consent still opens the Company's own tab; Poppy never collects Company credentials in chat.
+3. Use the conversation. Sign-in, permission expansion, sign-out, recovery and Operation approval/status widgets are inside the chat. So is **Use FDX**, for a Company that lists the `poppylab.dev/fdx` extension (Harborline). It is off by default, kept with the conversation, and starts a new Session when changed ([Use FDX](openapi-tools.md#in-the-playground-use-fdx)). Inspector and Identity remain optional views. Company OAuth consent still opens the Company's own tab; Poppy never collects Company credentials in chat.
 
 The API key and provider preference persist under `poppy.model.v1` in localStorage. This is **not encrypted**: scripts on the same origin and users of the browser profile can read it. Avoid shared devices; Forget saved settings removes this entry. It does not revoke the provider key or erase unrelated Poppy account grants.
 

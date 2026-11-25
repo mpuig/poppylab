@@ -5,19 +5,45 @@ export const readOnlyScopes = (profile: CompanyProfile) =>
   profile.scopes.filter((s) => profile.scopeHints[s]?.changes === "none");
 
 /**
+ * `poppylab.dev/fdx` v1: its scopes are its data clusters, `fdx:` and the
+ * cluster name. Only the FDX-shaped tools use them.
+ */
+export const isFdxScope = (scope: string) => scope.startsWith("fdx:");
+
+/**
+ * The FDX-shaped scopes the Company advertises as read-only that a grant
+ * lacks: with Use FDX on, these need a new sign-in.
+ */
+export function missingFdxScopes(
+  profile: CompanyProfile | undefined,
+  granted: string,
+) {
+  if (!profile) return [];
+  const have = granted.split(" ");
+  return readOnlyScopes(profile).filter(
+    (s) => isFdxScope(s) && !have.includes(s),
+  );
+}
+
+/**
  * Least privilege from the Company's own scopes and hints (RFC 9700 §2.3):
  * "read" asks only for scopes hinted as changing nothing; "write" asks for
  * every advertised scope. Scopes without hints are never treated as read-only.
+ * The FDX-shaped data clusters are asked for only with Use FDX on, when the
+ * tools that use them exist; never otherwise, whatever their hints.
  */
 export function consentScopes(
   profile: CompanyProfile,
   access: unknown = "read",
+  options: { fdx?: boolean } = {},
 ) {
   if (access !== "read" && access !== "write")
     throw Error("Unsupported permission request");
   if (!profile.signIn.direct)
     throw Error("The Company offers no Direct Sign-In");
-  const scopes = access === "read" ? readOnlyScopes(profile) : profile.scopes;
+  const scopes = (
+    access === "read" ? readOnlyScopes(profile) : profile.scopes
+  ).filter((s) => options.fdx || !isFdxScope(s));
   if (
     access === "write" &&
     scopes.every((s) => profile.scopeHints[s]?.changes === "none")

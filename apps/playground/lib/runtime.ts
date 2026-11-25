@@ -18,6 +18,7 @@ import {
   operatorSignatureHeaders,
   type OperatorKey,
   openApiTools,
+  fdxTools,
   mcpTools,
   mcpRequest,
   mcpResourcePolicy,
@@ -48,10 +49,12 @@ export { localOrigins };
 import type { JWK } from "jose";
 import {
   companyProfile,
+  FDX_EXTENSION,
   isLocalCompany,
   parseAlternative,
   parseTasks,
   type DiscoveredCompany,
+  type FdxExtensionEntry,
   type TasksResponse,
 } from "@poppy-lab/pap-core";
 import type { Approval } from "@poppy-lab/pap-client";
@@ -223,6 +226,14 @@ export type Run = {
   consentVersion?: number;
   accountUnavailable?: boolean;
   scopes?: string;
+  /**
+   * Use FDX: the User chose to declare `poppylab.dev/fdx` v1 and use its
+   * FDX-shaped tools in this run (off when absent). Fixed for a Session
+   * (§3.4): changing it starts a new one.
+   */
+  fdx?: boolean;
+  /** `poppylab.dev/fdx` v1: the consent id from the last token response. */
+  fdxConsent?: string;
   company?: DiscoveredCompany;
   auth?:
     | {
@@ -348,6 +359,40 @@ export function newSession(run: Run) {
   delete run.tasks;
 }
 
+/**
+ * `poppylab.dev/fdx` v1 (§3.3): the Company's validated entry, when Use FDX
+ * is on. A profile saved before profiles kept extensions has none.
+ */
+export function fdxEntry(run: Run): FdxExtensionEntry | undefined {
+  return run.fdx
+    ? run.company?.profile?.extensions?.[FDX_EXTENSION]
+    : undefined;
+}
+
+/**
+ * §3.3, §3.4: the extensions this Session declares, name → version: each
+ * one the Company lists, Operations v3 always and the FDX-shaped one only
+ * with Use FDX on.
+ */
+export function declaredExtensions(run: Run): Record<string, string> {
+  return {
+    ...(companyProfile(run.company!).operations ? { operations: "3" } : {}),
+    ...(fdxEntry(run) ? { [FDX_EXTENSION]: "1" } : {}),
+  };
+}
+
+/**
+ * Turns Use FDX on or off. A Session's declarations don't change (§3.4), so
+ * a change starts a new Session. Returns whether anything changed.
+ */
+export function setFdx(run: Run, on: boolean) {
+  if (!!run.fdx === on) return false;
+  if (on) run.fdx = true;
+  else delete run.fdx;
+  newSession(run);
+  return true;
+}
+
 async function sessionHeaders(
   run: Run,
   url: string,
@@ -369,6 +414,7 @@ async function sessionHeaders(
   const authorization = token
     ? `${token.type === "DPoP" ? "DPoP" : "Bearer"} ${token.value}`
     : undefined;
+  const extensions = extensionsHeader(declaredExtensions(run));
   return {
     "Poppy-Session": session,
     // §5.3: the operator signature, last, over the Session JWT and token.
@@ -383,9 +429,7 @@ async function sessionHeaders(
     // §3.4: the same on every request in a Session. Extensions are declared
     // only when the Company lists them (guides: Versions).
     "Poppy-Version": POPPY_VERSION,
-    ...(profile.operations
-      ? { "Poppy-Extensions": extensionsHeader({ operations: "3" }) }
-      : {}),
+    ...(extensions ? { "Poppy-Extensions": extensions } : {}),
     ...(token
       ? token.type === "DPoP"
         ? {
@@ -539,6 +583,11 @@ export async function papRequest(
     approval?: Approval;
     /** A success without a body (202 or 204) resolves to null. */
     acceptEmpty?: boolean;
+    /**
+     * An error that is no Poppy or OAuth error keeps its body (as
+     * `ProtocolError.body`), for an API with error bodies of its own.
+     */
+    errorBody?: boolean;
   } = {},
 ) {
   if (run.accountToken && !options.signedOut) await renewIfNeeded(run);
@@ -592,7 +641,12 @@ export async function papRequest(
             },
           }
         : undefined,
-      options.acceptEmpty ? { acceptEmpty: true } : undefined,
+      options.acceptEmpty || options.errorBody
+        ? {
+            ...(options.acceptEmpty ? { acceptEmpty: true } : {}),
+            ...(options.errorBody ? { errorBody: true } : {}),
+          }
+        : undefined,
     );
   };
   try {
@@ -785,6 +839,8 @@ export async function renewAccount(run: Run) {
   run.accountToken = result.refreshToken ?? refreshToken;
   run.scopes = result.scope;
   run.tokenExpires = result.expires;
+  // poppylab.dev/fdx v1: the grant's consent id comes again on refresh.
+  if (result.consentId) run.fdxConsent = result.consentId;
 }
 
 /**
@@ -878,13 +934,38 @@ export async function connect(
   run.company = company;
   const profile = companyProfile(company);
   await ensureSession(run);
+  const declared = extensionsHeader(declaredExtensions(run));
   trace.push(
-    `Poppy ${profile.version} Session ${run.accountToken ? "signed in" : "signed out"} · delegated ES256 Session header · Poppy-Version ${POPPY_VERSION}${profile.operations ? ' · Poppy-Extensions "operations";v="3"' : ""}`,
+    `Poppy ${profile.version} Session ${run.accountToken ? "signed in" : "signed out"} · delegated ES256 Session header · Poppy-Version ${POPPY_VERSION}${declared ? ` · Poppy-Extensions ${declared}` : ""}`,
   );
   await readTasks(run, trace);
-  const api =
-    company.document.apis?.find((item) => item.type === "openapi") ??
-    company.document.apis?.find((item) => item.type === "mcp");
+  // The generic adapter gets the Company's own API: the first OpenAPI
+  // description, or else MCP. An FDX-shaped description is used only through
+  // the native adapter, with Use FDX on, and never generically (§3.3).
+  const listed = profile.extensions?.[FDX_EXTENSION];
+  let api = company.document.apis?.find((item) => item.type === "openapi");
+  let spec: unknown;
+  if (listed) {
+    api = undefined;
+    for (const item of company.document.apis ?? []) {
+      if (item.type !== "openapi") continue;
+      const described = under(item.url, listed.base_url)
+        ? undefined
+        : await protocolRequest(item.url, {}, localOrigins);
+      if (described === undefined || fdxShaped(described, item.url, listed)) {
+        trace.push(
+          `Not loading ${new URL(item.url).pathname} as API tools · FDX-shaped (${FDX_EXTENSION}), native adapter only`,
+        );
+        continue;
+      }
+      api = item;
+      spec = described;
+      break;
+    }
+  }
+  api ??= company.document.apis?.find((item) => item.type === "mcp");
+  const fdx = fdxEntry(run);
+  const fdxSet = fdx ? fdxConnect(run, fdx, trace) : {};
   const endpoint = conversationEndpoint(company);
   const conversation = endpoint
     ? conversationTools(run, conversationOptions(run, endpoint, trace, shown))
@@ -896,7 +977,7 @@ export async function connect(
   if (feedbackEndpoint(run))
     taskTools.report_unsupported_task = feedbackTool(run, trace);
   if (!api) {
-    if (endpoint) return { ...conversation, ...taskTools };
+    if (endpoint || fdx) return { ...conversation, ...fdxSet, ...taskTools };
     throw new UserFacingError(
       "This Company lists no OpenAPI, MCP or conversation endpoint Poppy Lab supports.",
     );
@@ -912,8 +993,117 @@ export async function connect(
   const tools =
     api.type === "mcp"
       ? await mcpConnect(run, api.url, trace)
-      : await openApiConnect(run, api.url, trace, sandbox);
-  return { ...tools, ...conversation, ...taskTools };
+      : await openApiConnect(run, api.url, trace, sandbox, spec);
+  return { ...tools, ...fdxSet, ...conversation, ...taskTools };
+}
+
+/** A URL at or under a base URL: same origin, and the base's path segments. */
+function under(url: string, base: string) {
+  const u = new URL(url),
+    b = new URL(base);
+  const path = b.pathname.replace(/\/$/, "");
+  return (
+    u.origin === b.origin &&
+    (u.pathname === path || u.pathname.startsWith(path + "/"))
+  );
+}
+
+/**
+ * Whether an OpenAPI description is the `poppylab.dev/fdx` API: its server
+ * is at or under the entry's `base_url`, or every path it describes is. Its
+ * address says nothing (Harborline serves it at `/openapi/fdx.json`, outside
+ * the base URL, so agents without the extension can read it), and its
+ * server may be the Company's origin with `/fdx/v6/...` paths.
+ */
+function fdxShaped(spec: unknown, url: string, entry: FdxExtensionEntry) {
+  const described = spec as {
+    servers?: Array<{ url?: unknown }>;
+    paths?: unknown;
+  } | null;
+  const server = described?.servers?.[0]?.url;
+  let base: URL;
+  try {
+    base = new URL(typeof server === "string" ? server : new URL(url).origin);
+  } catch {
+    return false;
+  }
+  if (under(base.href, entry.base_url)) return true;
+  const paths =
+    described?.paths && typeof described.paths === "object"
+      ? Object.keys(described.paths)
+      : [];
+  const prefix = base.pathname.replace(/\/$/, "");
+  return (
+    paths.length > 0 &&
+    paths.every((path) =>
+      under(`${base.origin}${prefix}${path}`, entry.base_url),
+    )
+  );
+}
+
+/**
+ * `poppylab.dev/fdx` v1: the native, read-only FDX-shaped tools, with Use
+ * FDX on. They send what other API tools send: the Session header and the
+ * access token (`papRequest`). An FDX-shaped error body reaches the adapter,
+ * which bounds it; a Poppy or OAuth error keeps the runtime's handling.
+ */
+function fdxConnect(
+  run: Run,
+  entry: FdxExtensionEntry,
+  trace: string[],
+): Record<string, ApiTool> {
+  const tools = fdxTools({
+    entry,
+    trace: (line) => trace.push(line),
+    // The consent id the bank returned at sign-in: the model never names it.
+    consentId: () => run.fdxConsent,
+    request: async (url, scopes) => {
+      // Every FDX-shaped route is account data, the consent API included.
+      if (!run.accountToken)
+        return {
+          outcome: {
+            error: "sign_in_required",
+            instruction: "Ask the user to use the Sign in control in the chat.",
+          },
+        };
+      const granted = (run.scopes ?? "").split(" ");
+      const missing = scopes.filter((s) => !granted.includes(s));
+      if (missing.length)
+        return {
+          outcome: {
+            error: "insufficient_scope",
+            missing,
+            instruction:
+              "This sign-in doesn't include these FDX-shaped data clusters. Ask the user to sign in again with Use FDX on; do not retry until then.",
+          },
+        };
+      try {
+        return {
+          status: 200,
+          body: await papRequest(run, url, "GET", undefined, {
+            errorBody: true,
+          }),
+        };
+      } catch (error) {
+        // An FDX-shaped error (`701`, `703`, `consent_not_found`…): for the
+        // model, bounded by the adapter. Rate limits and server errors
+        // aren't the API's answer, and are thrown as before.
+        if (
+          error instanceof ProtocolError &&
+          error.body !== undefined &&
+          error.status >= 400 &&
+          error.status < 500 &&
+          error.status !== 429
+        )
+          return { status: error.status, body: error.body };
+        throw error;
+      }
+    },
+  });
+  trace.push(
+    `Extension ${FDX_EXTENSION} v1 · native FDX-shaped adapter · ${Object.keys(tools).length} read tools`,
+  );
+  return tools;
 }
 
 /** What a conversation needs from the run: transport, policy and output. */
@@ -1128,11 +1318,14 @@ async function openApiConnect(
   url: string,
   trace: string[],
   sandbox: boolean,
+  /** The description, when `connect` has read it already. */
+  described?: unknown,
 ): Promise<Record<string, ApiTool>> {
   const company = run.company!;
   const profile = companyProfile(company);
   const api = { url };
-  const spec = await protocolRequest(api.url, {}, localOrigins);
+  const spec = described ?? (await protocolRequest(api.url, {}, localOrigins));
+  const fdx = profile.extensions?.[FDX_EXTENSION];
   // §4.5: the service is the URL in the description's servers.
   const server = (spec as { servers?: Array<{ url?: unknown }> })?.servers?.[0]
     ?.url;
@@ -1162,6 +1355,13 @@ async function openApiConnect(
             : [],
         ),
       ),
+      // The FDX-shaped routes, should the Company's own API list them.
+      ...(fdx
+        ? [
+            new URL(fdx.base_url).pathname,
+            new URL(fdx.consent_endpoint).pathname,
+          ]
+        : []),
     ],
     trace: (message) => trace.push(message),
     request: async (target, method, body, scopes) => {

@@ -253,6 +253,41 @@ export function Conversation({
                     ? "Finish sign-in in the Company tab."
                     : "Account access is optional · only connect accounts you trust"}
               </span>
+              {p.fdxAvailable && (
+                // poppylab.dev/fdx v1, per conversation: declared from the
+                // next Session on (§3.4), with its native read tools.
+                <label className="fdx-toggle">
+                  <input
+                    type="checkbox"
+                    checked={p.fdx}
+                    disabled={busy || waitingSignIn}
+                    onChange={(event) => void p.chooseFdx(event.target.checked)}
+                  />
+                  <span>
+                    Use FDX
+                    <small>
+                      FDX-shaped read tools (poppylab.dev/fdx v1). Changing it
+                      starts a new Session.
+                    </small>
+                  </span>
+                </label>
+              )}
+              {p.fdxSignIn && (
+                <button
+                  type="button"
+                  className="ghost-button"
+                  disabled={busy || waitingSignIn}
+                  onClick={() =>
+                    void p.accountAction(
+                      "signin",
+                      undefined,
+                      p.canWrite ? "write" : "read",
+                    )
+                  }
+                >
+                  Sign in again to share accounts over FDX
+                </button>
+              )}
               {signedIn && p.moreAccess && (
                 <button
                   type="button"
