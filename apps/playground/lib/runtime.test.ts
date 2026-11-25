@@ -28,6 +28,7 @@ import {
   accountConfiguration,
   sendApproval,
   approvalFor,
+  connect,
   excludedTasksTool,
   feedbackTool,
   identity,
@@ -694,6 +695,55 @@ it("sends no report, Session header or token to a feedback endpoint outside the 
   expect(headersOf(transport.mock.calls[0]!).Authorization).toBe(
     "DPoP access-1",
   );
+});
+
+it("tells the model an API operation's terms, and its summary only when the Company sent one (Operations v3 §3)", async () => {
+  // Not a sandbox Company: an account Company whose proposals are allowed.
+  const r = example("shop", false);
+  vi.stubEnv("PAP_ACCOUNT_ORIGINS", "https://shop.papsandbox.com");
+  try {
+    rediscover.mockResolvedValueOnce(r.company!);
+    transport.mockResolvedValueOnce({
+      paths: {
+        "/orders": {
+          post: {
+            operationId: "place_order",
+            "x-poppy-proposal": true,
+            responses: { "403": {} },
+          },
+        },
+      },
+    });
+    const tools = await connect(r, []);
+    const operation = {
+      operation_id: "op_1",
+      revision: "r1",
+      terms: { item: "Tonkotsu ramen", total: "14.00 EUR" },
+      expires_at: new Date(Date.now() + 60000).toISOString(),
+    };
+    const refuse = (op: object) =>
+      transport.mockRejectedValueOnce(
+        new ProtocolError(403, "approval_required", undefined, undefined, op),
+      );
+    refuse(operation);
+    const bare = await tools.place_order!.execute({});
+    expect(bare).toEqual({
+      status: "approval_required",
+      operation_id: "op_1",
+      terms: operation.terms,
+      expires_at: operation.expires_at,
+      note: expect.stringContaining("Nothing was done"),
+    });
+    expect(bare).not.toHaveProperty("summary");
+    refuse({ ...operation, operation_id: "op_2", summary: "One ramen." });
+    expect(await tools.place_order!.execute({})).toMatchObject({
+      operation_id: "op_2",
+      summary: "One ramen.",
+      terms: operation.terms,
+    });
+  } finally {
+    vi.unstubAllEnvs();
+  }
 });
 
 it("approves as the agent without input_type, and a different approver is a new approval (Operations v3 §6)", () => {

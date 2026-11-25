@@ -1192,10 +1192,12 @@ async function openApiConnect(
           body,
         });
         trace.push("Approval required · nothing performed");
+        // The summary is optional: the terms always say what is waiting.
         return {
           status: "approval_required",
           operation_id: op.operation_id,
-          summary: op.summary,
+          ...(op.summary ? { summary: op.summary } : {}),
+          terms: op.terms,
           expires_at: op.expires_at,
           note: "Nothing was done. The user must approve these exact terms with the control in the chat; your words can't approve it.",
         };
