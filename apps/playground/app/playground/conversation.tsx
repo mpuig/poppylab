@@ -3,6 +3,7 @@ import { inlineText } from "./inline-text";
 import { type RefObject } from "react";
 import { ArrowUp, LoaderCircle } from "lucide-react";
 import { companyProfile } from "@poppy-lab/pap-core";
+import { hideLinkSecrets } from "@/lib/link-display";
 import { OperationReview } from "../operation-review";
 import { accountCompany } from "./companies";
 import type { Playground } from "./use-playground";
@@ -95,8 +96,8 @@ export function Conversation({
             {message.text && (
               <div className="message-text">
                 {message.role === "Agent"
-                  ? inlineText(message.text)
-                  : message.text}
+                  ? inlineText(hideLinkSecrets(message.text))
+                  : hideLinkSecrets(message.text)}
               </div>
             )}
             {!!message.steps?.length && (
@@ -119,6 +120,25 @@ export function Conversation({
                   ))}
                 </ol>
               </details>
+            )}
+            {message.role === "Error" && (
+              <div className="message-actions">
+                <button
+                  type="button"
+                  className="text-button"
+                  disabled={busy}
+                  onClick={() => p.retryMessage(index)}
+                >
+                  Try again
+                </button>
+                <button
+                  type="button"
+                  className="text-button"
+                  onClick={() => p.removeMessage(index)}
+                >
+                  Remove
+                </button>
+              </div>
             )}
             {message.note && <p className="company-note">{message.note}</p>}
             {message.data && (

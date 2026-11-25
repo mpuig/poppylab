@@ -318,6 +318,19 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     }
   }
 
+  /** Puts the message that failed back in the composer and drops it and the error. */
+  function retryMessage(index: number) {
+    let from = index - 1;
+    while (from >= 0 && messages[from]?.role !== "You") from--;
+    const failed = messages[from];
+    if (failed) setTask(failed.text);
+    setMessages((old) =>
+      old.filter((_, i) => i !== index && (!failed || i !== from)),
+    );
+  }
+  const removeMessage = (index: number) =>
+    setMessages((old) => old.filter((_, i) => i !== index));
+
   return {
     companyUrl,
     setCompanyUrl,
@@ -342,6 +355,8 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     accountAction,
     discover,
     send,
+    retryMessage,
+    removeMessage,
   };
 }
 export type Playground = ReturnType<typeof usePlayground>;

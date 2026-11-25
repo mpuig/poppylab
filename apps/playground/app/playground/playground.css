@@ -1379,3 +1379,9 @@ footer .lab-links a:hover {
 .agent-steps small {
   font-size: 12px;
 }
+.message-actions {
+  display: flex;
+  gap: 16px;
+  margin-top: 8px;
+  font-size: 14px;
+}
