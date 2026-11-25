@@ -9,8 +9,8 @@
  * An `authorization` event (§8.11) becomes the usual Sign in instruction. An
  * operation in `extensions.operations` (Operations v3) becomes the usual
  * approval card; approving sends a message carrying the User's approval, with
- * a request ID derived from the revision, so a retry after a lost response is
- * the same request (§8.3).
+ * a request ID derived from that approval, so a retry after a lost response
+ * is the same request (§8.3).
  *
  * Direct Conversations (§8.10): the User talks with the Company themselves.
  * Iris never starts one on the model's say-so. A `user_requested` event
@@ -523,24 +523,54 @@ export function conversationSession(run: Run, options: Options) {
             ? "Direct Conversation · accepting the Company's invitation"
             : "Direct Conversation · started by the user",
         );
-        const out = await call(
-          options.endpoint,
-          "POST",
-          {
-            // The same invitation always gets the same request ID (§8.3).
-            id: invitation
-              ? `dir_${createHash("sha256").update(`${s.id}\n${invitation.event}`).digest("base64url").slice(0, 24)}`
-              : requestId(),
-            parent_conversation_id: s.id,
-            ...(invitation
-              ? { user_requested_event_id: invitation.event }
-              : { message: human(text!) }),
-          },
-          thread,
-        );
-        delete s.invitation;
-        s.direct = thread;
-        return out;
+        try {
+          const out = await call(
+            options.endpoint,
+            "POST",
+            {
+              // The same invitation always gets the same request ID (§8.3).
+              id: invitation
+                ? `dir_${createHash("sha256").update(`${s.id}\n${invitation.event}`).digest("base64url").slice(0, 24)}`
+                : requestId(),
+              parent_conversation_id: s.id,
+              ...(invitation
+                ? { user_requested_event_id: invitation.event }
+                : { message: human(text!) }),
+            },
+            thread,
+          );
+          delete s.invitation;
+          s.direct = thread;
+          return out;
+        } catch (error) {
+          // §8.13: the Company has one open that Iris doesn't know, and
+          // names it, such as after a start whose answer was lost. Only the
+          // User asking to start one puts them back in it, never the
+          // Company's word alone (§8.10).
+          if (
+            action !== "start" ||
+            !(error instanceof ProtocolError) ||
+            error.code !== "direct_conversation_open" ||
+            !error.conversationId ||
+            error.conversationId === s.id
+          )
+            throw error;
+          thread.id = error.conversationId;
+          s.direct = thread;
+          options.trace("Direct Conversation · found the one already open");
+          // Shows what the Company said there so far. The User's earlier
+          // words may have arrived, so these aren't sent: the User decides.
+          const out = await call(
+            `${options.endpoint}/${thread.id}/events`,
+            "GET",
+            undefined,
+            thread,
+          ).catch(() => ({}));
+          return {
+            ...out,
+            note: `A direct conversation with ${company} was already open, and Iris had lost track of it. You're back in it now. This message wasn't sent: say it again if ${company} doesn't have it yet.`,
+          };
+        }
       }
       const open = s.direct && !s.direct.closed ? s.direct : undefined;
       if (!open) {
@@ -579,15 +609,32 @@ export function conversationSession(run: Run, options: Options) {
   return { tools, direct };
 }
 
-/** The request ID for one approval: the same for a retry (§8.3). */
-export const approvalRequestId = (op: Operation) =>
-  `apv_${createHash("sha256").update(`${op.operation_id}\n${op.revision}`).digest("base64url").slice(0, 24)}`;
+/**
+ * The request ID for one approval: the same for a retry of it (§8.3), and
+ * for nothing else. Another approval of the same revision, such as the
+ * User's own after the Company declined Iris's, is another message; with
+ * the same ID the Company would refuse it as a conflict.
+ */
+export const approvalRequestId = (approval: Approval) =>
+  `apv_${createHash("sha256")
+    .update(
+      [
+        approval.operation_id,
+        approval.revision,
+        approval.approver,
+        approval.approved_at,
+        approval.input_type,
+        approval.reference,
+      ].join("\n"),
+    )
+    .digest("base64url")
+    .slice(0, 24)}`;
 
 /**
  * Operations v3 in a conversation (§6): sends the User's approval in
  * `extensions.operations.approval`. Returns the Company's reply as the
- * result. New terms come back as `approval_required`, and a decline as
- * `approval_declined`, as at an API.
+ * result. New terms come back as `approval_required`, and a decline, or an
+ * error in answer to the approval, as `approval_declined`, as at an API.
  */
 export async function approveInConversation(
   run: Run,
@@ -609,7 +656,7 @@ export async function approveInConversation(
   // User's Direct Conversation (§8.10), each with its own read position.
   const thread: Thread | undefined =
     s.id === target.id ? s : s.direct?.id === target.id ? s.direct : undefined;
-  const requestId = approvalRequestId(op);
+  const requestId = approvalRequestId(approval);
   const url = new URL(`${target.endpoint}/${target.id}/messages`);
   url.searchParams.set("wait", "10");
   if (thread?.cursor) url.searchParams.set("cursor", thread.cursor);
@@ -661,6 +708,21 @@ export async function approveInConversation(
         undefined,
         next,
       );
+    // An error in `data`, as the lab's Company Agents answer a stale or
+    // missing proposal: not a result. Nothing was performed (a Company that
+    // doesn't know says so, §7), and this approval isn't sent again, as
+    // with a decline. What the Company said goes to the User as the reason.
+    if (object(m.data) && m.data.error) {
+      const reason = clip(m.text, 500);
+      throw new ProtocolError(
+        403,
+        "approval_declined",
+        undefined,
+        undefined,
+        undefined,
+        reason ? { reason } : {},
+      );
+    }
     summary = clip(m.text, 2000) ?? summary;
   }
   if (thread && read.cursor) thread.cursor = read.cursor;

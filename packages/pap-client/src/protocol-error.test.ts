@@ -59,6 +59,59 @@ it("preserves only allowlisted errors and enforces Retry-After before any new wi
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 });
+it("carries the Direct Conversation a direct_conversation_open names, only when it is an ID (1.0 §8.13)", async () => {
+  let body: Record<string, unknown> = {
+    error: "direct_conversation_open",
+    conversation_id: "cnv_8f3Kd2-x",
+  };
+  const server = createServer((_req, res) => {
+    res.writeHead(409, { "content-type": "application/json" });
+    res.end(JSON.stringify(body));
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address() as { port: number };
+  const origin = `http://127.0.0.1:${address.port}`;
+  const refused = () =>
+    protocolRequest(origin + "/poppy/conversations", { method: "POST" }, [
+      origin,
+    ]).then(
+      () => {
+        throw Error("expected error");
+      },
+      (e: ProtocolError) => e,
+    );
+  try {
+    expect(await refused()).toMatchObject({
+      status: 409,
+      code: "direct_conversation_open",
+      conversationId: "cnv_8f3Kd2-x",
+    });
+    // Company content: anything that isn't an ID (§8.2) is left out.
+    for (const bad of [
+      undefined,
+      null,
+      7,
+      "",
+      "cnv 8f3",
+      "../cnv_8f3Kd2",
+      "x".repeat(257),
+      { id: "cnv_8f3Kd2" },
+    ]) {
+      body = { error: "direct_conversation_open", conversation_id: bad };
+      const error = await refused();
+      expect(error).toMatchObject({
+        status: 409,
+        code: "direct_conversation_open",
+      });
+      expect(error.conversationId).toBeUndefined();
+    }
+    // Only this error names one.
+    body = { error: "conversation_closed", conversation_id: "cnv_8f3Kd2-x" };
+    expect((await refused()).conversationId).toBeUndefined();
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+});
 it("honors HTTP-date, ignores malformed values and never shortens an existing cooldown", () => {
   const now = Date.parse("2030-01-01T00:00:00Z"),
     origin = "https://retry-tests.invalid";

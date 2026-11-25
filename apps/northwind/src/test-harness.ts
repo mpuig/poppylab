@@ -15,7 +15,7 @@ import {
   memoryStore,
   type Deployment,
 } from "@poppy-lab/pap-company";
-import { northwind } from "./northwind.ts";
+import { northwind, type Booking, type FlightInventory } from "./northwind.ts";
 
 export const origin = "http://northwind.localhost:4400";
 export const client = "http://localhost:3000/agent/client.json";
@@ -24,6 +24,27 @@ export const lab = {} as {
   app: ReturnType<typeof createCompany>;
   store: ReturnType<typeof memoryStore>;
 };
+/** The shared tenant's bookings and inventory, once a request has used it. */
+export const business = () =>
+  lab.store.value.tenants.shared!.business as {
+    bookings: Record<string, Booking[]>;
+    inventory: Record<string, FlightInventory>;
+  };
+/**
+ * Gives Elena a second booking on Robin's NA 274. Only that route has a
+ * second flight in the schedule, so only there can two customers meet.
+ */
+export function bookElenaOnNa274(seat = "14A") {
+  const { bookings, inventory } = business();
+  const stock = inventory.flt_na274_20270603!;
+  stock.available_seats.splice(stock.available_seats.indexOf(seat), 1);
+  stock.economy_available--;
+  bookings.elena!.push({
+    ...structuredClone(bookings.robin![0]!),
+    reference: "NW2E9S",
+    seats: { flt_na274_20270603: seat },
+  });
+}
 type Inject = {
   method?: string;
   url: string;

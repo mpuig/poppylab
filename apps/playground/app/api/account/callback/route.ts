@@ -117,6 +117,9 @@ export async function GET(request: Request) {
     if (result.consentId) run.fdxConsent = result.consentId;
     else delete run.fdxConsent;
     if (dpop) run.dpop = dpop;
+    // §4.5: per-service tokens were issued to the sign-in this one replaces:
+    // its account, scopes and DPoP key. None is sent again.
+    delete run.resourceTokens;
     // §4.7: revoke the refresh token the new sign-in replaced (best effort;
     // revoking a replaced token isn't sign-out).
     if (replaced) void revokeRefreshToken(run, replaced).catch(() => undefined);

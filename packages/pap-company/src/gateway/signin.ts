@@ -8,12 +8,11 @@
 import type { Context, Hono } from "hono";
 import { scryptSync, timingSafeEqual } from "node:crypto";
 import {
-  decodeProtectedHeader,
   randomId,
   tokenHash,
   verifyAssertion,
 } from "@poppy-lab/pap-client/core";
-import type { Ctx } from "./context.ts";
+import { assertionKey, type Ctx } from "./context.ts";
 import {
   isChallenge,
   ObjectMap,
@@ -87,10 +86,7 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
       )
         return c.json({ error: "invalid_request" }, 400);
       const info = await ctx.client(id);
-      const kid = decodeProtectedHeader(
-        String(body.client_assertion ?? ""),
-      ).kid;
-      const key = info.keys.find((k) => k.kid === kid);
+      const key = assertionKey(info, String(body.client_assertion ?? ""));
       if (!key) throw Error();
       await verifyAssertion(
         body.client_assertion!,
@@ -156,54 +152,73 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
     });
   });
 
+  /** What this browser sent as the cookie of that consent page. */
+  const consentCookie = (c: Context, nonce: string) =>
+    (c.req.header("cookie") ?? "")
+      .split(/;\s*/)
+      .find((s) =>
+        s.startsWith(`${cookiePrefix}pap_consent_${nonce.slice(0, 12)}=`),
+      )
+      ?.split("=")[1];
+
   app.get("/oauth/authorize", async (c) => {
-    let q: Record<string, string | undefined> = c.req.query();
-    let dpop: string | undefined;
-    // A pushed request: only client_id and request_uri count, once.
-    if (q.request_uri) {
-      const key = tokenHash(q.request_uri);
-      const p = pushed.get(key);
-      pushed.delete(key);
-      ctx.markDirty();
-      if (!p || p.expires < Date.now() || p.client !== q.client_id)
-        return c.json({ error: "invalid_request_uri" }, 400);
-      q = p.params;
-      dpop = p.dpop;
-    }
-    return consent(c, q, dpop);
+    const q = c.req.query();
+    if (!q.request_uri) return consent(c, q);
+    // A pushed request: only client_id and request_uri count.
+    const p = pushed.get(tokenHash(q.request_uri));
+    if (!p || p.expires < Date.now() || p.client !== q.client_id)
+      return c.json({ error: "invalid_request_uri" }, 400);
+    return consent(c, p.params, p);
   });
   async function consent(
     c: Context,
     q: Record<string, string | undefined>,
-    dpop: string | undefined,
+    from?: Pushed,
   ) {
     const checked = await check(q);
     if ("error" in checked) return c.json({ error: checked.error }, 400);
     const { info, scopes, client, redirect, state, challenge } = checked;
-    for (const [id, p] of pending)
-      if (p.expires < Date.now()) pending.delete(id);
-    if (ctx.overShare(pending.values(), client, 500))
-      return c.json({ error: "rate_limited" }, 429);
-    ctx.markDirty();
-    const nonce = randomId();
-    pending.set(nonce, {
-      client,
-      redirect,
-      state,
-      scopes,
-      challenge,
-      expires: Date.now() + 300000,
-      ...(dpop ? { dpop } : {}),
-    });
-    // Isolated deployments remember which browser approved (website link).
-    if (isolated && !ctx.browserOf(c))
-      c.header("Set-Cookie", ctx.browserCookie(randomId()), { append: true });
-    // One cookie per consent page, so another tab can't replace it.
-    c.header(
-      "Set-Cookie",
-      `${cookiePrefix}pap_consent_${nonce.slice(0, 12)}=${nonce}; HttpOnly; SameSite=Lax; Path=/${secure ? "; Secure" : ""}; Max-Age=300`,
-      { append: true },
-    );
+    let nonce = from?.consent;
+    if (nonce) {
+      // A pushed request works once (RFC 9126 §7.3), except for a reload:
+      // the browser that holds its consent page's cookie gets that page
+      // again until it is answered or expires. Nothing changes, so nothing
+      // is saved.
+      const page = pending.get(nonce);
+      if (
+        !page ||
+        page.expires < Date.now() ||
+        consentCookie(c, nonce) !== nonce
+      )
+        return c.json({ error: "invalid_request_uri" }, 400);
+    } else {
+      for (const [id, p] of pending)
+        if (p.expires < Date.now()) pending.delete(id);
+      if (ctx.overShare(pending.values(), client, 500))
+        return c.json({ error: "rate_limited" }, 429);
+      ctx.markDirty();
+      nonce = randomId();
+      pending.set(nonce, {
+        client,
+        redirect,
+        state,
+        scopes,
+        challenge,
+        expires: Date.now() + 300000,
+        ...(from?.dpop ? { dpop: from.dpop } : {}),
+      });
+      // Used from here on: this is the only consent page it will make.
+      if (from) from.consent = nonce;
+      // Isolated deployments remember which browser approved (website link).
+      if (isolated && !ctx.browserOf(c))
+        c.header("Set-Cookie", ctx.browserCookie(randomId()), { append: true });
+      // One cookie per consent page, so another tab can't replace it.
+      c.header(
+        "Set-Cookie",
+        `${cookiePrefix}pap_consent_${nonce.slice(0, 12)}=${nonce}; HttpOnly; SameSite=Lax; Path=/${secure ? "; Secure" : ""}; Max-Age=300`,
+        { append: true },
+      );
+    }
     return c.html(
       def.consent({
         nonce,
@@ -224,15 +239,9 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
     const body = (await c.req.parseBody()) as Record<string, string>;
     const nonce = String(body.nonce ?? "");
     const p = pending.get(nonce);
-    const cookie = (c.req.header("cookie") ?? "")
-      .split(/;\s*/)
-      .find((s) =>
-        s.startsWith(`${cookiePrefix}pap_consent_${nonce.slice(0, 12)}=`),
-      )
-      ?.split("=")[1];
     if (
       !p ||
-      cookie !== nonce ||
+      consentCookie(c, nonce) !== nonce ||
       p.expires < Date.now() ||
       c.req.header("origin") !== origin
     )

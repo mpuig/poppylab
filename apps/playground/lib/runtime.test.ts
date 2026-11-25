@@ -602,6 +602,56 @@ it("reports an unsupported task once per Session, with the token when signed in,
   expect(await tool.execute(report)).toEqual({ sent: true });
 });
 
+it("sends a report with a date, an amount or a tool's name, and refuses one with an identifier (§9.3)", async () => {
+  const report = (description: string) => {
+    const r = example();
+    r.dpop = dpop;
+    r.tasks = {
+      sid: "",
+      value: {
+        excludedTasks: [],
+        feedbackEndpoint: "https://food.papsandbox.com/poppy/feedback",
+        skills: 0,
+      },
+    };
+    return feedbackTool(r, []).execute({ task: "Change it", description });
+  };
+  transport.mockReset().mockResolvedValue(null);
+  for (const description of [
+    "Move the order to 2026-12-01; the change_order tool has no date field.",
+    "Pay with a gift_card at check_out.",
+    "Transfer 10 000 000 in one payment, or 1 000 000 000 in ten.",
+    "Deliver between 18.00-20.00 from 2026-12-01 to 2026-12-05.",
+    "Move flight 402 on 2027-05-18 09:30 (UTC+1) to 2027-05-19.",
+  ])
+    expect(await report(description), description).toEqual({ sent: true });
+  transport.mockClear();
+  for (const description of [
+    "Email elena@example.com about it.",
+    "Call +1 555 0142 about it.",
+    "Call (555) 010-0142 about it.",
+    "Call 555.010.0142 about it.",
+    "Call 020 7946 0958 about it.",
+    "Call 06 12 34 56 78 about it.",
+    "Call 612 345 678 about it.",
+    "Card 4417 1234 5678 9010 was declined.",
+    "The form asked for 123-45-6789.",
+    "Account 12345678 can't be closed.",
+    "Order ord_LNB1001 was missing a bowl.",
+    "Order ORD_LNB1001 was missing a bowl.",
+    "Account acc_A100 can't be closed.",
+    "Recipient rcp_2 can't be edited.",
+    "Operation op_x7kq expired.",
+    "Case case_QmFzZWxpbmVkYXRh stayed open.",
+    "Booking NW7K2P can't be moved.",
+  ])
+    expect(await report(description), description).toMatchObject({
+      sent: false,
+      reason: expect.stringContaining("without identifiers"),
+    });
+  expect(transport).not.toHaveBeenCalled();
+});
+
 it("reads the tasks again when a new Session started during the turn, before listing or reporting (§9)", async () => {
   const r = example("food", false);
   const products = "https://food.papsandbox.com/poppy/products";

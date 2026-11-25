@@ -1,0 +1,103 @@
+/**
+ * A pushed authorization request (RFC 9126) makes one consent page. The
+ * browser that opened it can load it again; nobody else can, and it gives
+ * one code at most.
+ */
+import { afterEach, expect, it, vi } from "vitest";
+import { client, origin, redirect, setup } from "./test-company.ts";
+
+const request = {
+  response_type: "code",
+  redirect_uri: redirect,
+  scope: "things:read",
+  state: "s".repeat(32),
+  code_challenge: "c".repeat(43),
+  code_challenge_method: "S256",
+};
+const error = async (r: Response) =>
+  ((await r.json()) as { error?: string }).error;
+
+/** A Company with one pushed request, and the browser's view of it. */
+async function pushed() {
+  const x = await setup();
+  const par = await x.form("/oauth/par", {
+    ...request,
+    ...(await x.credentials()),
+  });
+  expect(par.status).toBe(201);
+  const { request_uri } = (await par.json()) as { request_uri: string };
+  const open = (cookie?: string) =>
+    x.app.request(
+      `/oauth/authorize?${new URLSearchParams({ client_id: client, request_uri })}`,
+      cookie ? { headers: { cookie } } : {},
+    );
+  const answer = (cookie: string) =>
+    x.form(
+      "/oauth/authorize",
+      { nonce: cookie.split("=")[1]!, decision: "approve", account: "elena" },
+      { cookie, origin },
+    );
+  return { ...x, open, answer };
+}
+
+afterEach(() => vi.useRealTimers());
+
+it("shows a pushed request's consent page again to the browser that opened it, and gives one code", async () => {
+  const x = await pushed();
+  const page = await x.open();
+  expect(page.status).toBe(200);
+  const html = await page.text();
+  const cookie = page.headers.getSetCookie()[0]!.split(";")[0]!;
+
+  // A reload: the same page, and nothing new to store.
+  const saves = x.store.saves;
+  const again = await x.open(cookie);
+  expect(again.status).toBe(200);
+  expect(await again.text()).toBe(html);
+  expect(x.store.saves).toBe(saves);
+  expect(Object.keys(x.store.value.consents!)).toHaveLength(1);
+
+  // Another browser has no cookie for that page: used, as before.
+  const other = await x.open();
+  expect(other.status).toBe(400);
+  expect(await error(other)).toBe("invalid_request_uri");
+
+  const approved = await x.answer(cookie);
+  expect(approved.status).toBe(302);
+  expect(
+    new URL(approved.headers.get("location")!).searchParams.get("code"),
+  ).toBeTruthy();
+
+  // Answered: no page and no second code, even for that browser.
+  const late = await x.open(cookie);
+  expect(late.status).toBe(400);
+  expect(await error(late)).toBe("invalid_request_uri");
+  expect((await x.answer(cookie)).status).toBe(400);
+  expect(Object.keys(x.store.value.codes!)).toHaveLength(1);
+});
+
+it("refuses a pushed request after its 90 seconds, reload or not", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  const x = await pushed();
+  const page = await x.open();
+  expect(page.status).toBe(200);
+  const cookie = page.headers.getSetCookie()[0]!.split(";")[0]!;
+  vi.setSystemTime(Date.now() + 91000);
+  const late = await x.open(cookie);
+  expect(late.status).toBe(400);
+  expect(await error(late)).toBe("invalid_request_uri");
+});
+
+it("stores nothing for a request_uri nobody pushed", async () => {
+  const x = await setup();
+  const saves = x.store.saves;
+  const unknown = await x.app.request(
+    `/oauth/authorize?${new URLSearchParams({
+      client_id: client,
+      request_uri: "urn:ietf:params:oauth:request_uri:unknown",
+    })}`,
+  );
+  expect(unknown.status).toBe(400);
+  expect(await error(unknown)).toBe("invalid_request_uri");
+  expect(x.store.saves).toBe(saves);
+});

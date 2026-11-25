@@ -379,6 +379,60 @@ it("pays a saved recipient, never one it wasn't shown", async () => {
     });
 });
 
+it("pays from the account the message names, not one a word of it resembles", async () => {
+  // As Robin's accounts at Harborline are named.
+  const robin = (): DemoTools => ({
+    ...bank(),
+    accounts: tool({
+      accounts: [
+        {
+          id: "acc_B100",
+          name: "Everyday checking",
+          type: "checking",
+          status: "active",
+        },
+        {
+          id: "acc_B200",
+          name: "Rainy day savings",
+          type: "savings",
+          status: "active",
+        },
+      ],
+    }),
+    recipients: tool({
+      recipients: [{ id: "rcp_3", name: "Morrow Workshop", status: "active" }],
+    }),
+  });
+  const source = async (message: string) =>
+    (
+      (await demoChange(message, robin(), key)) as {
+        args?: { source_account_id?: string };
+      }
+    ).args?.source_account_id;
+  // "Day" is in Friday and today, and is no account's name on its own; what
+  // the payment is for is its memo. None of them names the savings account.
+  for (const message of [
+    "Pay Morrow Workshop $120 for Friday's class",
+    "Pay Morrow Workshop $120 today",
+    "Send Morrow Workshop $120 a day early",
+    "Pay Morrow Workshop $120 for a rainy day",
+    "Pay Morrow Workshop $120 for savings advice",
+  ])
+    expect(await source(message), message).toBe("acc_B100");
+  for (const message of [
+    "Pay Morrow Workshop $120 from savings",
+    "Pay Morrow Workshop $120 from my rainy day savings for Friday's class",
+    "Pay Morrow Workshop $120 for Friday's class from savings",
+  ])
+    expect(await source(message), message).toBe("acc_B200");
+  // A transfer names its accounts the same way.
+  expect(
+    await demoChange("Move $50 today from savings to checking", robin(), key),
+  ).toMatchObject({
+    args: { source_account_id: "acc_B200", destination_account_id: "acc_B100" },
+  });
+});
+
 it("keeps a payment or transfer within what the bank's tools take", async () => {
   // As Harborline describes them: up to $10,000.00, a memo of 1 to 120 characters.
   const described = () => {

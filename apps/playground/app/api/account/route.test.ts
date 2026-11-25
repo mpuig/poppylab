@@ -116,6 +116,7 @@ vi.mock("@/lib/runtime", async () => ({
 
 import { POST, GET } from "./route";
 import { seedRun } from "@/lib/runs";
+import { nextAutoApproval } from "@/lib/auto-approval";
 import { ProtocolError } from "@poppy-lab/pap-client";
 function request(body: unknown, origin = "http://localhost:3000") {
   return new Request("http://localhost:3000/api/account", {
@@ -168,6 +169,23 @@ describe("Human-controlled account boundary", () => {
     expect(state.revoke).toHaveBeenCalledWith(state.run, "secret");
     expect(state.run.accountToken).toBeUndefined();
     expect(state.run.token).toBeUndefined();
+  });
+  it("signs out of every service: no per-service token is kept (§4.5)", async () => {
+    const run = state.run as { resourceTokens?: unknown };
+    run.resourceTokens = {
+      "http://juniper.localhost:4100/api": {
+        value: "service-token",
+        type: "DPoP",
+        expires: Date.now() + 3600000,
+      },
+    };
+    try {
+      state.revoke.mockResolvedValue(undefined);
+      expect((await POST(request({ action: "signout" }))).status).toBe(200);
+      expect(run.resourceTokens).toBeUndefined();
+    } finally {
+      delete run.resourceTokens;
+    }
   });
   it("asks for the Company's read-only scopes by default, with PKCE and a DPoP key", async () => {
     const r = await POST(request({ action: "signin" }));
@@ -558,33 +576,117 @@ describe("Human-controlled account boundary", () => {
   );
 });
 
+describe("An operation whose conversation refuses the approval (§8.10, §8.12)", () => {
+  const act = (action: string) =>
+    POST(request({ action, id: "op_test", revision: "r1" }));
+  beforeEach(() => {
+    // Proposed in a conversation: the approval goes there in a message.
+    state.run.operations.op_test.request = {
+      conversation: {
+        endpoint: "http://juniper.localhost:4100/agent",
+        id: "cnv_direct",
+      },
+    };
+  });
+
+  it.each(["conversation_closed", "conversation_not_found"])(
+    "says nothing was performed and that it can't be approved any more after %s",
+    async (code) => {
+      state.request.mockRejectedValue(
+        new ProtocolError(code === "conversation_closed" ? 409 : 404, code),
+      );
+      const r = await act("approve");
+      expect(r.status).toBe(409);
+      const body = await r.json();
+      expect(body.code).toBe(code);
+      expect(body.error).toContain("Nothing was performed");
+      // The page shows it as no longer approvable, with the reason.
+      expect(body.operation).toMatchObject({
+        state: "expired",
+        result: { summary: body.error },
+      });
+      expect(state.run.operations.op_test).not.toHaveProperty("request");
+      // Nothing is left to retry or approve, and nothing is sent again.
+      expect((await act("retry")).status).toBe(400);
+      expect((await act("approve")).status).toBe(410);
+      expect(state.request).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it("knows a retry the closed conversation refuses was never taken", async () => {
+    state.request.mockRejectedValueOnce(new Error("socket hang up"));
+    expect((await act("approve")).status).toBe(502);
+    expect(state.run.operations.op_test.state).toBe("uncertain");
+    // §8.3: had the Company accepted the message, it would answer it again.
+    state.request.mockRejectedValueOnce(
+      new ProtocolError(409, "conversation_closed"),
+    );
+    const r = await act("retry");
+    expect(r.status).toBe(409);
+    expect((await r.json()).operation).toMatchObject({ state: "expired" });
+  });
+
+  it("keeps the outcome unknown when a retry finds the conversation gone", async () => {
+    state.request.mockRejectedValueOnce(new Error("socket hang up"));
+    expect((await act("approve")).status).toBe(502);
+    state.request.mockRejectedValueOnce(
+      new ProtocolError(404, "conversation_not_found"),
+    );
+    const r = await act("retry");
+    expect(r.status).toBe(502);
+    expect((await r.json()).code).toBe("outcome_unknown");
+    expect(state.run.operations.op_test.state).toBe("uncertain");
+  });
+
+  it("leaves it waiting while the User is in a Direct Conversation", async () => {
+    state.request.mockRejectedValueOnce(
+      new ProtocolError(409, "direct_conversation_open"),
+    );
+    const r = await act("approve");
+    expect(r.status).toBe(409);
+    const body = await r.json();
+    expect(body.code).toBe("direct_conversation_open");
+    expect(body.error).toContain("Nothing was performed");
+    expect(body.error).toContain("Leave the direct conversation");
+    expect(body.operation).toMatchObject({ revision: "r1", state: "proposed" });
+    // Once the User has left it, the same tap works.
+    state.request.mockResolvedValueOnce({ summary: "Refunded." });
+    const again = await act("approve");
+    expect(again.status).toBe(200);
+    expect((await again.json()).operation.state).toBe("succeeded");
+  });
+});
+
 describe("Agent approvals on a standing instruction (Operations v3 §5)", () => {
   const rule = { maxCents: 2000, currency: "USD" };
   const run = state.run as unknown as {
     operations: Record<string, Record<string, unknown>>;
     agentApprovals?: unknown[];
   };
-  beforeEach(() => {
-    delete run.agentApprovals;
+  const propose = (cents = 1200) => {
     run.operations.op_rule = {
       operation_id: "op_rule",
       revision: "r1",
       state: "proposed",
       summary: "Place the basket order.",
-      terms: { total_cents: 1200, currency: "USD" },
+      terms: { total_cents: cents, currency: "USD" },
       expires_at: new Date(Date.now() + 60000).toISOString(),
       request: {
         url: "http://juniper.localhost:4100/api/account/checkout",
         body: {},
       },
     };
+  };
+  beforeEach(() => {
+    delete run.agentApprovals;
+    propose();
   });
-  const approve = (instruction?: unknown) =>
+  const approve = (instruction?: unknown, revision = "r1") =>
     POST(
       request({
         action: "approve",
         id: "op_rule",
-        revision: "r1",
+        revision,
         ...(instruction ? { instruction } : {}),
       }),
     );
@@ -631,6 +733,37 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
     expect(r.status).toBe(409);
     expect((await r.json()).error).toContain("last hour");
     expect(state.request).not.toHaveBeenCalled();
+  });
+
+  it("counts an approval with an unknown outcome once, at its amount, retried or not", async () => {
+    // Each is $20.00 under a $20.00 rule: three fit in the hour's total.
+    propose(2000);
+    state.request.mockImplementationOnce(
+      async (_run: unknown, op: Record<string, unknown>, approver: string) => {
+        // As sendApproval does: the approval stays with the operation.
+        op.approval = { approver, approved_at: 1791487260, reference: "a1" };
+        throw new Error("socket hang up");
+      },
+    );
+    expect((await approve(rule)).status).toBe(502);
+    // It may have been performed, so it counts before anyone retries it.
+    expect(run.agentApprovals).toMatchObject([{ cents: 2000 }]);
+    state.request.mockResolvedValue({ summary: "Ordered." });
+    const retried = await POST(
+      request({ action: "retry", id: "op_rule", revision: "r1" }),
+    );
+    expect(retried.status).toBe(200);
+    expect((await retried.json()).operation).toMatchObject({
+      state: "succeeded",
+      approvedBy: { approver: "agent" },
+    });
+    // The retry is the same approval: not zero cents, and not a second one.
+    expect(run.agentApprovals).toMatchObject([{ cents: 2000 }]);
+    for (const status of [200, 200, 409]) {
+      propose(2000);
+      expect((await approve(rule)).status).toBe(status);
+    }
+    expect(state.request).toHaveBeenCalledTimes(4);
   });
 
   it("gives the operation back to the User when the Company declines the agent's approval", async () => {
@@ -688,6 +821,86 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
       expect.anything(),
       expect.anything(),
       "user",
+    );
+  });
+
+  // $13.00 where $12.00 was approved: other terms, still under the rule.
+  const newTerms = () =>
+    new ProtocolError(403, "approval_required", undefined, undefined, {
+      operation_id: "op_rule",
+      revision: "r2",
+      summary: "Place the basket order.",
+      terms: { total_cents: 1300, currency: "USD" },
+      expires_at: new Date(Date.now() + 60000).toISOString(),
+    });
+
+  it("leaves a new revision to the User when the Company answers the agent's approval with one the rule also covers", async () => {
+    state.request.mockRejectedValueOnce(newTerms());
+    const r = await approve(rule);
+    expect(r.status).toBe(409);
+    const body = await r.json();
+    expect(body.code).toBe("terms_changed");
+    expect(body.operation).toMatchObject({ revision: "r2", state: "proposed" });
+    // The page's check, as after a reload, doesn't offer the new revision…
+    expect(
+      nextAutoApproval({
+        operations: [body.operation],
+        instruction: rule,
+        signedIn: true,
+        busy: false,
+        decided: new Set(),
+      }),
+    ).toBeNull();
+    // …and the server takes no agent approval for it, whatever the page asks.
+    const second = await approve(rule, "r2");
+    expect(second.status).toBe(409);
+    expect((await second.json()).error).toContain("new terms");
+    expect(state.request).toHaveBeenCalledTimes(1);
+    expect(body.operation).toMatchObject({ agentSuperseded: true });
+    expect(body.operation).not.toHaveProperty("agentDeclined");
+    // The User can still approve the new revision themselves.
+    state.request.mockResolvedValueOnce({ summary: "Ordered." });
+    expect((await approve(undefined, "r2")).status).toBe(200);
+    expect(state.request).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ revision: "r2" }),
+      "user",
+    );
+  });
+
+  it("leaves it to the User too when the answer is to a retry of the agent's approval", async () => {
+    state.request.mockImplementationOnce(
+      async (_run: unknown, op: Record<string, unknown>, approver: string) => {
+        // As sendApproval does: the approval stays with the operation.
+        op.approval = { approver, approved_at: 1791487260, reference: "a1" };
+        throw new Error("socket hang up");
+      },
+    );
+    expect((await approve(rule)).status).toBe(502);
+    state.request.mockRejectedValueOnce(newTerms());
+    const retried = await POST(
+      request({ action: "retry", id: "op_rule", revision: "r1" }),
+    );
+    expect(retried.status).toBe(409);
+    expect((await retried.json()).operation).toMatchObject({
+      revision: "r2",
+      agentSuperseded: true,
+    });
+    expect((await approve(rule, "r2")).status).toBe(409);
+    expect(state.request).toHaveBeenCalledTimes(2);
+  });
+
+  it("lets the rule look at a new revision the Company returned for the User's own approval", async () => {
+    state.request.mockRejectedValueOnce(newTerms());
+    const r = await approve();
+    expect(r.status).toBe(409);
+    expect((await r.json()).operation).not.toHaveProperty("agentSuperseded");
+    state.request.mockResolvedValueOnce({ summary: "Ordered." });
+    expect((await approve(rule, "r2")).status).toBe(200);
+    expect(state.request).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.anything(),
+      "agent",
     );
   });
 });

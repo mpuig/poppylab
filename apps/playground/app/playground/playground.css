@@ -1,23 +1,31 @@
 :root {
-  /* Registered post, decluttered (see DESIGN.md): the home's world, in Operate. */
-  --background: #ffffff;
+  /* Published standard (see DESIGN.md): the home's world, in Operate.
+     Green is the action and the settled state; amber is whatever waits for
+     the person. The page is tint; the header, the conversation, inputs and
+     cards are paper, so the working surfaces stand off the ground. */
+  --background: #f4f6f7;
   --surface: #ffffff;
-  --ink: #121a2b;
-  --ink-soft: #2c3548;
-  --muted: #4a5468;
-  --line: #d7dbe2;
-  --soft: #f1f3f6;
-  --accent: #f6c514;
-  --accent-hover: #e2b100;
+  --ink: #171a1f;
+  --ink-soft: #3a4049;
+  --muted: #5b626c;
+  --line: #e3e6ea;
+  --line-strong: #c9ced5;
+  --soft: #f4f6f7;
+  --accent: #0d5c4a;
+  --accent-hover: #0a4a3b;
+  --accent-wash: #eaf3f0;
+  --wait: #f2b705;
+  --wait-wash: #fff6d6;
   --danger: #b3261e;
-  --success: #1f7a4d;
-  --display: var(--font-archivo), "Helvetica Neue", sans-serif;
-  --mono: var(--font-martian), ui-monospace, monospace;
+  --success: #0d5c4a;
+  --display: var(--font-sans), "Helvetica Neue", Arial, sans-serif;
+  --serif: var(--font-serif), "STIX Two Text", Georgia, serif;
+  --mono: var(--font-mono), ui-monospace, "SF Mono", Menlo, monospace;
 }
 * {
   box-sizing: border-box;
   scrollbar-width: thin;
-  scrollbar-color: #b9c0cc var(--background);
+  scrollbar-color: var(--line-strong) transparent;
 }
 .account-row,
 .operation-actions {
@@ -107,15 +115,22 @@
 .operation-review .operation-money {
   display: grid;
   gap: 8px;
-  max-width: 340px;
   margin: 20px 0;
 }
+/* Amounts start where the After column starts: two equal columns, with the
+   same room between them as the arrow and its gaps take in the row above. */
 .operation-money > div {
   display: flex;
-  justify-content: space-between;
-  gap: 28px;
+  align-items: baseline;
+  gap: 58px;
 }
-.operation-money dd {
+.operation-review .operation-money dt {
+  flex: 1;
+  min-width: 0;
+}
+.operation-review .operation-money dd {
+  flex: 1;
+  min-width: 0;
   margin: 0;
   font-variant-numeric: tabular-nums;
 }
@@ -152,6 +167,10 @@
 .operation-review p {
   max-width: 65ch;
 }
+.operation-review p.quiet {
+  font-size: 14px;
+  line-height: 1.5;
+}
 .operation-review dl {
   display: flex;
   gap: 16px;
@@ -166,7 +185,7 @@
 }
 .operation-actions {
   justify-content: flex-start;
-  margin-bottom: 12px;
+  margin: 14px 0 12px;
 }
 body {
   margin: 0;
@@ -175,6 +194,7 @@ body {
   font-family: var(--display);
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
+  accent-color: var(--accent);
 }
 button,
 input,
@@ -203,15 +223,15 @@ a {
 }
 ::selection {
   color: var(--ink);
-  background: var(--accent);
+  background: #cfe5df;
 }
 :focus-visible {
-  outline: 3px solid var(--ink);
-  outline-offset: 3px;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 input,
 textarea {
-  caret-color: var(--ink);
+  caret-color: var(--accent);
 }
 input::placeholder,
 textarea::placeholder {
@@ -244,7 +264,7 @@ p {
   align-items: center;
   gap: 9px;
   text-decoration: none;
-  font-weight: 700;
+  font-weight: 600;
   font-size: 19px;
   letter-spacing: -0.025em;
 }
@@ -279,10 +299,10 @@ main {
   margin-bottom: 36px;
 }
 h1 {
-  font-size: clamp(30px, 4vw, 40px);
-  font-weight: 550;
+  font-size: 26px;
+  font-weight: 500;
   line-height: 1.15;
-  letter-spacing: -0.035em;
+  letter-spacing: -0.015em;
   text-wrap: balance;
 }
 .intro p {
@@ -340,15 +360,17 @@ h1 {
   justify-content: center;
   height: 44px;
   padding: 0 19px;
-  background: var(--ink);
+  background: var(--accent);
   color: var(--surface);
-  border: 1px solid var(--ink);
+  border: 1px solid var(--accent);
   border-radius: 6px;
   font-size: 14px;
   font-weight: 600;
+  transition: background 160ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 .connect-button:hover:not(:disabled) {
-  background: var(--ink-soft);
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
 }
 .connection-row {
   display: flex;
@@ -391,7 +413,7 @@ h1 {
 }
 .conversation {
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--surface);
   margin-top: 14px;
   overflow: hidden;
@@ -460,7 +482,7 @@ h2 {
 }
 .message h3 {
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--muted);
   margin-bottom: 8px;
 }
@@ -567,9 +589,9 @@ h2 {
   display: grid;
   place-items: center;
   border: 1px solid var(--accent);
-  border-radius: 8px;
+  border-radius: 6px;
   background: var(--accent);
-  color: var(--ink);
+  color: var(--surface);
 }
 .send-button:hover:not(:disabled) {
   background: var(--accent-hover);
@@ -593,9 +615,9 @@ h2 {
 .inspector h2 {
   margin: 36px 0 0;
   padding-bottom: 12px;
-  border-bottom: 2px solid var(--ink);
+  border-bottom: 1px solid var(--ink);
   font-size: 18px;
-  font-weight: 700;
+  font-weight: 600;
 }
 .inspector h2:first-child {
   margin-top: 0;
@@ -698,12 +720,33 @@ h2 {
 }
 summary {
   cursor: pointer;
+  list-style: none;
+}
+summary::-webkit-details-marker {
+  display: none;
+}
+/* The disclosure mark is a drawn chevron in the icon set's stroke. */
+summary::before {
+  content: "";
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: 6px;
+  vertical-align: -2px;
+  background: currentColor;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 18 6-6-6-6'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+details[open] > summary::before {
+  transform: rotate(90deg);
 }
 .raw-document pre {
   font: 12px/1.6 var(--mono);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  background: var(--soft);
+  background: var(--surface);
+  border: 1px solid var(--line);
   padding: 18px;
   border-radius: 6px;
 }
@@ -716,7 +759,7 @@ summary {
 }
 .identity-panel dl {
   margin: 0;
-  border-top: 2px solid var(--ink);
+  border-top: 1px solid var(--ink);
 }
 .identity-panel dl > div {
   display: grid;
@@ -864,7 +907,7 @@ main {
   margin-bottom: 24px;
 }
 .intro h1 {
-  font-size: clamp(26px, 4vw, 32px);
+  font-size: 26px;
 }
 .intro p {
   font-size: 15px;
@@ -1038,7 +1081,7 @@ main {
   display: flex;
   flex-direction: column;
   border-bottom: 0;
-  border-radius: 12px 12px 0 0;
+  border-radius: 10px 10px 0 0;
 }
 .chat-workspace .conversation-heading {
   flex-shrink: 0;
@@ -1069,9 +1112,6 @@ main {
   }
   .chat-workspace .site-header {
     width: calc(100% - 24px);
-  }
-  .chat-workspace .intro h1 {
-    font-size: 24px;
   }
   .chat-workspace .composer textarea {
     font-size: 16px;
@@ -1144,7 +1184,7 @@ main {
   font-family: var(--display);
 }
 
-/* Registered post, carried into the workspace. */
+/* Published standard, carried into the workspace. */
 body {
   font-family: var(--display);
   background: var(--background);
@@ -1159,35 +1199,32 @@ kbd,
   font-size: 12px;
 }
 h1 {
-  font-stretch: 112%;
-  font-weight: 800;
-  letter-spacing: -0.035em;
-}
-h2,
-.brand {
-  font-stretch: 112%;
+  font-family: var(--serif);
+  font-weight: 500;
+  letter-spacing: -0.015em;
 }
 .brand {
-  font-weight: 800;
-  font-stretch: 118%;
-  letter-spacing: -0.03em;
+  font-family: var(--serif);
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 .site-header {
   width: 100%;
   height: 72px;
-  padding-inline: max((100% - 1200px) / 2, clamp(20px, 4vw, 40px));
+  padding-inline: max((100% - 1120px) / 2, clamp(20px, 4vw, 40px));
   background: var(--surface);
 }
 .site-header nav {
   gap: 4px;
 }
-/* Tabs as the home's nav links: text, with an ink rule under the current one. */
+/* Tabs as the home's nav links: text, with a green rule under the current one. */
 .nav-item {
   border-radius: 0;
   padding-inline: 10px;
   font-size: 15px;
-  font-weight: 500;
-  color: var(--ink-soft);
+  font-weight: 400;
+  color: var(--muted);
 }
 .nav-item:hover {
   background: transparent;
@@ -1197,43 +1234,34 @@ h2,
 .nav-item.selected:hover {
   background: transparent;
   color: var(--ink);
-  font-weight: 650;
-  box-shadow: inset 0 -2px 0 var(--ink);
+  font-weight: 600;
+  box-shadow: inset 0 -2px 0 var(--accent);
 }
 .setup input,
 .setup select,
 .model-config input,
-.model-config select,
-.connect-button {
-  border-radius: 8px;
-}
-.connect-button {
-  font-weight: 700;
+.model-config select {
+  border-color: var(--line-strong);
 }
 .conversation {
-  border-color: var(--line);
-  border-radius: 14px;
+  border-color: var(--line-strong);
+  border-radius: 10px;
 }
 .conversation-heading h2 {
   font-size: 16px;
-  font-weight: 750;
+  font-weight: 600;
 }
 .message h3 {
   font-size: 13px;
   font-weight: 600;
 }
 .message.you h3 {
-  font-weight: 700;
+  font-weight: 600;
 }
 .suggestions button {
-  border-radius: 8px;
+  border-radius: 6px;
+  border-color: var(--line-strong);
   background: var(--surface);
-}
-.operation-review .operation-summary {
-  font-stretch: 106%;
-}
-.raw-document pre {
-  border-radius: 8px;
 }
 @media (max-width: 640px) {
   .site-header {
@@ -1285,7 +1313,7 @@ h2,
 .spec-ref {
   margin-left: 8px;
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--muted);
   white-space: nowrap;
@@ -1295,8 +1323,8 @@ h2,
   padding-bottom: max(24px, env(safe-area-inset-bottom));
 }
 .chat-workspace .conversation {
-  border-bottom: 1px solid var(--line);
-  border-radius: 14px;
+  border-bottom: 1px solid var(--line-strong);
+  border-radius: 10px;
 }
 .chat-workspace .composer {
   padding-bottom: 14px;
@@ -1309,7 +1337,7 @@ h2,
 
 /* The footer shares the header's edges. */
 footer {
-  width: min(1200px, calc(100% - 2 * clamp(20px, 4vw, 40px)));
+  width: min(1120px, calc(100% - 2 * clamp(20px, 4vw, 40px)));
 }
 .chat-workspace main {
   padding-top: 28px;
@@ -1339,8 +1367,8 @@ footer .lab-links a:hover {
   color: var(--muted);
 }
 .operation-headline strong {
-  font-family: var(--display);
-  font-size: 28px;
+  font-size: 26px;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 .company-says {
@@ -1356,9 +1384,9 @@ footer .lab-links a:hover {
   margin: 2px 0 0;
 }
 .operation-warning {
-  border: 1px solid var(--accent-hover);
-  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
-  border-radius: 8px;
+  border: 1px solid var(--wait);
+  background: var(--wait-wash);
+  border-radius: 6px;
   padding: 12px 14px;
   font-size: 14px;
 }
@@ -1419,6 +1447,7 @@ footer .lab-links a:hover {
   font-size: 14px;
   font-weight: 600;
   text-align: left;
+  color: var(--ink);
   background: none;
   border: 0;
   cursor: pointer;
@@ -1427,7 +1456,7 @@ footer .lab-links a:hover {
   min-width: 22px;
   padding: 1px 7px;
   border-radius: 999px;
-  background: var(--accent);
+  background: var(--wait);
   color: var(--ink);
   font-size: 12px;
   text-align: center;
@@ -1511,7 +1540,7 @@ footer .lab-links a:hover {
   list-style: none;
   margin: 0;
   padding: 0;
-  border-top: 2px solid var(--ink);
+  border-top: 1px solid var(--ink);
 }
 .conversations li {
   display: flex;
@@ -1531,7 +1560,7 @@ footer .lab-links a:hover {
 }
 .conversations a strong {
   font-size: 15px;
-  font-weight: 650;
+  font-weight: 600;
 }
 .conversations a span {
   font-size: 14px;
@@ -1559,9 +1588,9 @@ footer .lab-links a:hover {
 }
 .reset-demo h2 {
   padding-bottom: 12px;
-  border-bottom: 2px solid var(--ink);
+  border-bottom: 1px solid var(--ink);
   font-size: 18px;
-  font-weight: 700;
+  font-weight: 600;
 }
 .reset-demo p {
   margin: 14px 0 16px;
@@ -1574,11 +1603,11 @@ footer .lab-links a:hover {
 .reset-button {
   min-height: 44px;
   padding: 0 18px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: transparent;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface);
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
 }
 .ghost-button:hover:not(:disabled),
 .reset-button:hover {
@@ -1603,7 +1632,7 @@ footer .lab-links a:hover {
   }
   .nav-item {
     padding-inline: 5px;
-    font-size: 12.5px;
+    font-size: 12px;
   }
   .site-header nav {
     gap: 0;
@@ -1633,9 +1662,12 @@ footer .lab-links a:hover {
   font-weight: 600;
   color: var(--muted);
 }
-.guide li.done,
+.guide li.done {
+  border-top-color: var(--accent);
+  color: var(--ink);
+}
 .guide li.current {
-  border-top-color: var(--ink);
+  border-top-color: var(--wait);
   color: var(--ink);
 }
 .guide li span {
@@ -1645,18 +1677,18 @@ footer .lab-links a:hover {
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 600;
   border: 1.5px solid currentColor;
 }
 .guide li.done span {
-  background: var(--ink);
-  border-color: var(--ink);
+  background: var(--accent);
+  border-color: var(--accent);
   color: var(--surface);
 }
 .guide li.current span {
-  background: var(--accent);
-  border-color: var(--ink);
+  background: var(--wait);
+  border-color: var(--wait);
 }
 .guide p {
   margin-top: 8px;
@@ -1694,21 +1726,24 @@ footer .lab-links a:hover {
   align-content: start;
   text-align: left;
   padding: 14px 16px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
   background: var(--surface);
+  transition: border-color 160ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 .company-card:hover:not(:disabled) {
-  border-color: var(--ink);
+  border-color: var(--accent);
 }
 .company-card span {
+  margin-left: 6px;
   font-size: 12px;
+  font-weight: 400;
   color: var(--muted);
+  white-space: nowrap;
 }
 .company-card strong {
   font-size: 16px;
-  font-weight: 700;
-  font-stretch: 106%;
+  font-weight: 600;
 }
 .company-card small {
   font-size: 13px;
@@ -1772,8 +1807,8 @@ footer .lab-links a:hover {
   color: var(--ink);
 }
 .direct-bar.live {
-  background: #fff8db;
-  border-top-color: var(--accent-hover);
+  background: var(--wait-wash);
+  border-top-color: var(--wait);
 }
 .direct-bar.quiet {
   justify-content: flex-start;
@@ -1789,13 +1824,13 @@ footer .lab-links a:hover {
   margin-left: 8px;
   padding: 1px 7px;
   border-radius: 999px;
-  background: #fff1b8;
+  background: var(--wait-wash);
   color: var(--ink);
   font-size: 12px;
   font-weight: 600;
 }
 .log-note {
-  margin: -6px 0 12px;
+  margin: 10px 0 4px;
   font-size: 13px;
   color: var(--muted);
 }
@@ -1811,7 +1846,7 @@ footer .lab-links a:hover {
 .operation-ledger.declined {
   padding: 10px 12px;
   border-radius: 6px;
-  background: #fff8db;
+  background: var(--wait-wash);
   color: var(--ink);
 }
 .instruction-ledger {

@@ -29,7 +29,11 @@ import {
 import type { ReviewOperation as Operation } from "@/lib/operation-presentation";
 import { agentStep } from "@/lib/agent-steps";
 import { logEntry, type ProtocolEntry } from "@/lib/protocol-log";
-import { nextAutoApproval } from "@/lib/auto-approval";
+import {
+  nextAutoApproval,
+  usesAllowance,
+  type ApprovalAnswer,
+} from "@/lib/auto-approval";
 import { directView } from "@/lib/direct-state";
 import {
   loadApprovals,
@@ -243,12 +247,15 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     access: "read" | "write" = "read",
     /** An agent approval: the User's standing instruction, rechecked server-side. */
     byInstruction?: Instruction,
+    /** Told how the route answered, if the request was sent at all. */
+    answered?: (answer: ApprovalAnswer) => void,
   ) {
     if (busy || ended) return;
     const popup =
       action === "signin" ? window.open("about:blank", "company-signin") : null;
     setAccountBusy(true);
     setError("");
+    let answer: ApprovalAnswer = "lost";
     try {
       const response = await fetch("/api/account", {
         method: "POST",
@@ -267,6 +274,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
       });
       adopt(response);
       const data = await response.json();
+      answer = { status: response.status, operation: data.operation };
       if (!response.ok) {
         if (data.code === "account_unavailable") {
           setSignedIn(false);
@@ -315,6 +323,8 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
         caught instanceof Error ? caught.message : "Account action failed.",
       );
     } finally {
+      // Before the page is idle again, so the next decision already sees it.
+      answered?.(answer);
       setAccountBusy(false);
     }
   }
@@ -383,10 +393,15 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
       ]);
       return;
     }
-    recordApproval(origin, { at: Date.now(), cents: next.cents });
     // The next line of the log says how the Company answered.
     addTrace([`Applying your standing instruction · ${next.covered}`]);
-    void accountAction("approve", next.op, "read", instruction);
+    const { cents } = next;
+    void accountAction("approve", next.op, "read", instruction, (answer) => {
+      // Only an approval that was performed, or may have been, uses up the
+      // hour's allowance: a refusal or a Company's decline costs nothing.
+      if (usesAllowance(answer))
+        recordApproval(origin, { at: Date.now(), cents });
+    });
     // accountAction is recreated each render and reads current state, so it
     // is deliberately not a dependency.
   }, [operations, instruction, signedIn, busy, origin]);

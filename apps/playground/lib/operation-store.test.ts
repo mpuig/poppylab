@@ -70,6 +70,25 @@ it("starts a new revision without the approval but keeps the decline", () => {
   ).toMatchObject({ kind: "approve" });
 });
 
+it("keeps new terms that answered an agent approval with the User when they are proposed again", () => {
+  const { run, op } = proposed();
+  op.agentSuperseded = true;
+  // The model asks again and gets the same revision, or a later one.
+  for (const revision of ["r1", "r3"]) {
+    const again = recordOperation(run, { ...remote, revision }, request);
+    expect(again).toMatchObject({ revision, agentSuperseded: true });
+    expect(
+      nextAutoApproval({
+        operations: [again],
+        instruction: { maxCents: 3000, currency: "USD" },
+        signedIn: true,
+        busy: false,
+        decided: new Set(),
+      }),
+    ).toBeNull();
+  }
+});
+
 it("drops an approval the Company declined, so it is never sent again", () => {
   const { run, op } = proposed();
   op.approval = { ...approval, approver: "user" };

@@ -87,6 +87,29 @@ it("labels a Company's decline", () => {
   expect(html).toContain("Declined by the Company");
   expect(html).not.toContain("Approve this change");
 });
+it("says why new terms wait for the User after an agent approval, without calling it a decline", () => {
+  const review = (marks: object) =>
+    renderToStaticMarkup(
+      createElement(OperationReview, {
+        op: { ...op, ...marks },
+        company: "Juniper Market",
+        busy: false,
+        signedIn: true,
+        onAction: vi.fn(),
+      }),
+    );
+  const html = review({ agentSuperseded: true });
+  expect(html).toContain(
+    "Juniper Market answered the approval Iris sent on your standing instruction with new terms, and did nothing.",
+  );
+  expect(html).not.toContain("declined the approval");
+  // The User can still approve them.
+  expect(html).toContain("Approve this change");
+  // A decline keeps its own sentence.
+  const declined = review({ agentDeclined: { reason: "Not this way." } });
+  expect(declined).toContain("declined the approval Iris sent");
+  expect(declined).not.toContain("with new terms");
+});
 it("opens proposals with before/after and formatted money", () => {
   const html = render("proposed");
   expect(html.match(/^<details[^>]*>/)?.[0]).toContain("open=");

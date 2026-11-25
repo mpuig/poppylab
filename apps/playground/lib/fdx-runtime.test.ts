@@ -272,6 +272,7 @@ it("gives the model an FDX-shaped error body as fdx_error, bounded", async () =>
       undefined,
       undefined,
       undefined,
+      undefined,
       { code: "701", message: "Account not found", note: "Fictional." },
     );
   });
@@ -295,6 +296,7 @@ it.each([
     "a server error with a body",
     new ProtocolError(
       503,
+      undefined,
       undefined,
       undefined,
       undefined,

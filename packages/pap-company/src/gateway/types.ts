@@ -127,6 +127,8 @@ export type Pushed = {
   params: Record<string, string>;
   expires: number;
   dpop?: string;
+  /** Set on first use: the nonce of the one consent page it made. */
+  consent?: string;
 };
 export type Code = {
   client: string;

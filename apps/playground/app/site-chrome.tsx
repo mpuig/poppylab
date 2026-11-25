@@ -19,13 +19,14 @@ export const connect = (url: string) =>
   `/playground?company=${encodeURIComponent(url)}`;
 
 /**
- * The four fictional Companies. The home shows the plain-language fields;
- * `/developers` adds the host, scopes and agent-facing page.
+ * The four fictional Companies. The home shows the plain-language fields and
+ * `change`, the exact change the visitor would approve (from each Company's
+ * own data); `/developers` adds the host, scopes and agent-facing page.
  */
 export const companies = [
   {
     id: "juniper",
-    sector: "Retail · Grocery",
+    sector: "Grocery",
     name: "Juniper Market",
     url: juniper,
     blurb:
@@ -33,6 +34,9 @@ export const companies = [
     ask: "Move my recurring delivery to Saturday.",
     shows:
       "You see the day before and after, then approve. The shop's website updates within seconds.",
+    change: [
+      { what: "Recurring delivery", before: "Thursday", after: "Saturday" },
+    ],
     people: "Elena or Robin",
     scopes: "poppy:read · poppy:write",
     site: { label: "Visit the shop", href: juniper },
@@ -40,13 +44,17 @@ export const companies = [
   },
   {
     id: "lantern",
-    sector: "Restaurants · Delivery",
+    sector: "Restaurant",
     name: "Lantern Noodle Bar",
     url: lantern,
     blurb: "A noodle bar with a menu, delivery slots and scheduled orders.",
     ask: "Add a matcha ice cream and move it to Sunday lunchtime.",
     shows:
       "The approval shows the new dishes, the new slot and the price difference before anything changes.",
+    change: [
+      { what: "Order", before: "", after: "+ 1 Matcha ice cream" },
+      { what: "Delivery slot", before: "", after: "Sunday 13:00–13:30" },
+    ],
     people: "Elena or Robin",
     scopes: "orders:read · orders:write",
     site: { label: "Visit the restaurant", href: lantern },
@@ -54,7 +62,7 @@ export const companies = [
   },
   {
     id: "harborline",
-    sector: "Banking",
+    sector: "Bank",
     name: "Harborline Bank",
     url: harborline,
     blurb:
@@ -62,6 +70,10 @@ export const companies = [
     ask: "Transfer $500 from checking to savings.",
     shows:
       "Money moves only on your approval, and the bank rechecks balance and limits at that moment.",
+    change: [
+      { what: "Operating checking", before: "", after: "− $500.00" },
+      { what: "Reserve savings", before: "", after: "+ $500.00" },
+    ],
     people: "Elena or Robin",
     scopes: "Reads · reversible changes · payment requests",
     site: { label: "Visit the bank", href: harborline },
@@ -69,7 +81,7 @@ export const companies = [
   },
   {
     id: "northwind",
-    sector: "Travel · Airline",
+    sector: "Airline",
     name: "Northwind Air",
     url: northwind,
     blurb:
@@ -77,6 +89,9 @@ export const companies = [
     ask: "Upgrade my NA 118 flight to Business.",
     shows:
       "You see the exact upgrade price and approve it yourself. It is applied once.",
+    change: [
+      { what: "Flight NA 118", before: "Gale Flex", after: "Aurora Business" },
+    ],
     people: "Elena or Robin",
     scopes: "bookings:read · bookings:change",
     site: { label: "Visit the airline", href: northwind },

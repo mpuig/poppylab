@@ -1,13 +1,13 @@
 /**
  * Who talks to whom: you, your agent and the company. Three nodes and four
- * connectors on a 4px grid, with the accent only on the two things the
- * person does themselves. Hidden on narrow screens, where the three steps
- * under it carry the same facts.
+ * connectors on a 4px grid, with amber only on the two things the person
+ * does themselves. Below 720px the upright drawing takes its place.
  */
 export function FlowDiagram() {
   return (
     <figure className="flow">
       <svg
+        className="wide"
         viewBox="0 0 1120 288"
         role="img"
         aria-label="You ask your agent. Your agent sends signed requests to the company, which holds any change. You sign in on the company's own page, not through the agent, and you approve the exact change in your agent."
@@ -23,17 +23,6 @@ export function FlowDiagram() {
             orient="auto-start-reverse"
           >
             <path className="head" d="M0 0L10 5L0 10z" />
-          </marker>
-          <marker
-            id="flow-head-back"
-            viewBox="0 0 10 10"
-            refX="9"
-            refY="5"
-            markerWidth="8"
-            markerHeight="8"
-            orient="auto-start-reverse"
-          >
-            <path className="head back" d="M0 0L10 5L0 10z" />
           </marker>
         </defs>
 
@@ -56,7 +45,7 @@ export function FlowDiagram() {
         <path
           className="wire back"
           d="M880 164H684"
-          markerEnd="url(#flow-head-back)"
+          markerEnd="url(#flow-head)"
         />
 
         <rect
@@ -116,6 +105,117 @@ export function FlowDiagram() {
           3 · You approve the exact change
         </text>
       </svg>
+
+      {/* The same drawing turned upright for narrow screens. */}
+      <svg
+        className="narrow"
+        viewBox="-1 -1 362 410"
+        role="img"
+        aria-label="You ask your agent. Your agent sends signed requests to the company, which holds any change. You sign in on the company's own page, not through the agent, and you approve the exact change in your agent."
+      >
+        <defs>
+          <marker
+            id="flow-head-narrow"
+            viewBox="0 0 10 10"
+            refX="9"
+            refY="5"
+            markerWidth="8"
+            markerHeight="8"
+            orient="auto-start-reverse"
+          >
+            <path className="head" d="M0 0L10 5L0 10z" />
+          </marker>
+        </defs>
+
+        {/* 2: sign-in runs down the side, past the agent. */}
+        <path
+          className="wire"
+          d="M232 36H292a8 8 0 0 1 8 8V364a8 8 0 0 1-8 8H236"
+          markerEnd="url(#flow-head-narrow)"
+        />
+        {/* 1 and 3: the request and the approval go into your agent. */}
+        <path
+          className="wire"
+          d="M24 72V164"
+          markerEnd="url(#flow-head-narrow)"
+        />
+        <path
+          className="wire"
+          d="M124 72V164"
+          markerEnd="url(#flow-head-narrow)"
+        />
+        {/* Agent and company. */}
+        <path
+          className="wire"
+          d="M24 240V332"
+          markerEnd="url(#flow-head-narrow)"
+        />
+        <path
+          className="wire back"
+          d="M148 336V244"
+          markerEnd="url(#flow-head-narrow)"
+        />
+
+        <rect className="node you" x="0" y="0" width="232" height="72" rx="6" />
+        <text className="t-name on-ink" x="20" y="32">
+          You
+        </text>
+        <text className="t-sub on-ink" x="20" y="54">
+          the customer
+        </text>
+
+        <rect className="node" x="0" y="168" width="232" height="72" rx="6" />
+        <text className="t-name" x="20" y="200">
+          Your agent
+        </text>
+        <text className="t-sub" x="20" y="222">
+          Iris, in this lab
+        </text>
+
+        <rect
+          className="node company"
+          x="0"
+          y="336"
+          width="232"
+          height="72"
+          rx="6"
+        />
+        <text className="t-name" x="20" y="368">
+          The company
+        </text>
+        <text className="t-sub" x="20" y="390">
+          Juniper Market, in this lab
+        </text>
+
+        <text className="t-label" x="34" y="125">
+          1 · You ask
+        </text>
+        <text className="t-label" x="34" y="291">
+          signed requests
+        </text>
+        <text className="t-label" x="158" y="282">
+          changes held
+        </text>
+        <text className="t-label" x="158" y="300">
+          for approval
+        </text>
+
+        <rect className="tag" x="134" y="104" width="126" height="32" rx="4" />
+        <text className="t-tag" x="197" y="125" textAnchor="middle">
+          3 · You approve
+        </text>
+        <rect className="tag" x="240" y="180" width="120" height="48" rx="4" />
+        <text className="t-tag" x="300" y="200" textAnchor="middle">
+          2 · You sign in
+        </text>
+        <text className="t-tag" x="300" y="218" textAnchor="middle">
+          at the company
+        </text>
+      </svg>
+      <figcaption>
+        <b>Figure 3.</b> Who talks to whom. Amber marks the two things only you
+        do.
+      </figcaption>
     </figure>
   );
 }

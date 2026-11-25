@@ -1,4 +1,413 @@
-# Poppy Lab design system
+---
+name: Poppy Lab
+description: An independent lab for Personal Agent Protocol, drawn as a published standard.
+colors:
+  green: "#0d5c4a"
+  green-deep: "#0a4a3b"
+  green-mid: "#4f9484"
+  green-light: "#9cc7bb"
+  green-wash: "#eaf3f0"
+  amber: "#f2b705"
+  amber-wash: "#fff6d6"
+  amber-deep: "#c99700"
+  danger: "#b3261e"
+  paper: "#ffffff"
+  ink: "#171a1f"
+  ink-soft: "#3a4049"
+  muted: "#5b626c"
+  on-ink-muted: "#c4c9d0"
+  line: "#e3e6ea"
+  line-strong: "#c9ced5"
+  tint: "#f4f6f7"
+  selection: "#cfe5df"
+typography:
+  display:
+    fontFamily: "STIX Two Text, Georgia, serif"
+    fontSize: "clamp(38px, 4.3vw, 58px)"
+    fontWeight: 500
+    lineHeight: 1.06
+    letterSpacing: "-0.02em"
+  display-reading:
+    fontFamily: "STIX Two Text, Georgia, serif"
+    fontSize: "clamp(34px, 3.8vw, 48px)"
+    fontWeight: 500
+    lineHeight: 1.06
+    letterSpacing: "-0.02em"
+  headline:
+    fontFamily: "STIX Two Text, Georgia, serif"
+    fontSize: "clamp(28px, 2.8vw, 36px)"
+    fontWeight: 500
+    lineHeight: 1.15
+    letterSpacing: "-0.015em"
+  title-serif:
+    fontFamily: "STIX Two Text, Georgia, serif"
+    fontSize: "26px"
+    fontWeight: 500
+    lineHeight: 1.15
+    letterSpacing: "-0.01em"
+  title:
+    fontFamily: "Hanken Grotesk, Helvetica Neue, Arial, sans-serif"
+    fontSize: "19px"
+    fontWeight: 600
+    lineHeight: 1.3
+    letterSpacing: "-0.005em"
+  lead:
+    fontFamily: "Hanken Grotesk, Helvetica Neue, Arial, sans-serif"
+    fontSize: "18px"
+    fontWeight: 400
+    lineHeight: 1.6
+  body:
+    fontFamily: "Hanken Grotesk, Helvetica Neue, Arial, sans-serif"
+    fontSize: "17px"
+    fontWeight: 400
+    lineHeight: 1.6
+  body-small:
+    fontFamily: "Hanken Grotesk, Helvetica Neue, Arial, sans-serif"
+    fontSize: "16px"
+    fontWeight: 400
+    lineHeight: 1.6
+  label-large:
+    fontFamily: "Hanken Grotesk, Helvetica Neue, Arial, sans-serif"
+    fontSize: "15px"
+    fontWeight: 400
+    lineHeight: 1.45
+  label:
+    fontFamily: "Hanken Grotesk, Helvetica Neue, Arial, sans-serif"
+    fontSize: "14px"
+    fontWeight: 400
+    lineHeight: 1.5
+  caption:
+    fontFamily: "Hanken Grotesk, Helvetica Neue, Arial, sans-serif"
+    fontSize: "13px"
+    fontWeight: 400
+  micro:
+    fontFamily: "Hanken Grotesk, Helvetica Neue, Arial, sans-serif"
+    fontSize: "12px"
+    fontWeight: 400
+  figure-label:
+    fontFamily: "STIX Two Text, Georgia, serif"
+    fontSize: "15px"
+    fontWeight: 500
+  wordmark:
+    fontFamily: "STIX Two Text, Georgia, serif"
+    fontSize: "21px"
+    fontWeight: 600
+    letterSpacing: "-0.01em"
+  mono:
+    fontFamily: "Geist Mono, ui-monospace, SF Mono, Menlo, monospace"
+    fontSize: "12.5px"
+    fontWeight: 400
+  mono-small:
+    fontFamily: "Geist Mono, ui-monospace, SF Mono, Menlo, monospace"
+    fontSize: "12px"
+    fontWeight: 400
+rounded:
+  xs: "3px"
+  tag: "4px"
+  sm: "5px"
+  md: "6px"
+  lg: "8px"
+  xl: "10px"
+  full: "999px"
+spacing:
+  gutter: "clamp(20px, 4vw, 40px)"
+  container: "1120px"
+  section: "clamp(64px, 8vw, 104px)"
+  section-gap: "clamp(32px, 4vw, 48px)"
+  row: "14px"
+  panel: "16px"
+components:
+  button-primary:
+    backgroundColor: "{colors.green}"
+    textColor: "{colors.paper}"
+    rounded: "{rounded.md}"
+    padding: "0 18px"
+    height: "46px"
+  button-primary-hover:
+    backgroundColor: "{colors.green-deep}"
+  button-primary-active:
+    backgroundColor: "{colors.green-deep}"
+  button-small:
+    backgroundColor: "{colors.green}"
+    textColor: "{colors.paper}"
+    rounded: "{rounded.md}"
+    padding: "0 14px"
+    height: "40px"
+  button-ghost:
+    backgroundColor: "{colors.paper}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.md}"
+    padding: "0 18px"
+    height: "46px"
+  button-dark:
+    backgroundColor: "{colors.ink}"
+    textColor: "{colors.paper}"
+    rounded: "{rounded.md}"
+  button-dark-hover:
+    backgroundColor: "{colors.ink-soft}"
+  approval-gate:
+    backgroundColor: "{colors.amber-wash}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.lg}"
+    padding: "14px 16px"
+  approval-gate-done:
+    backgroundColor: "{colors.green-wash}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.lg}"
+  figure-node:
+    backgroundColor: "{colors.paper}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.md}"
+  figure-node-you:
+    backgroundColor: "{colors.ink}"
+    textColor: "{colors.paper}"
+    rounded: "{rounded.md}"
+  figure-node-company:
+    backgroundColor: "{colors.tint}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.md}"
+  screen-panel:
+    backgroundColor: "{colors.paper}"
+    textColor: "{colors.ink}"
+    typography: "{typography.label}"
+    rounded: "{rounded.lg}"
+    padding: "16px"
+  pill:
+    backgroundColor: "{colors.green}"
+    textColor: "{colors.paper}"
+    rounded: "{rounded.sm}"
+    padding: "0 12px"
+    height: "30px"
+  input:
+    backgroundColor: "{colors.paper}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.md}"
+    padding: "0 12px"
+    height: "44px"
+  conversation:
+    backgroundColor: "{colors.paper}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.xl}"
+---
+
+# Design System: Poppy Lab
+
+This file records two things. The canonical sections that follow (Overview to Do's and Don'ts) describe poppylab.dev itself: the home (`/`), `/developers`, `/learn` and the playground at `/playground`. The sections after them describe the four fictional Companies, each of which keeps its own visual world on purpose, and the playground's behaviour.
+
+## Overview
+
+**Creative North Star: "The Published Standard"**
+
+Poppy Lab presents Personal Agent Protocol the way a standards body presents a specification: a quiet white page whose proof is drawn. Each claim gets one precise thin-line figure with a numbered sentence caption (Figure 1 to Figure 5 on the home, a Figure 1 of its own on `/developers`), and the copy around it stays short. The first thing a visitor meets is Figure 1, a sequence between You, Iris and Juniper Market that halts on an amber row until they press Approve.
+
+The world is white paper, graphite ink, hairlines and two colours with fixed meanings. Petrol green is the action, the figure stroke and everything that exists "with Poppy". Amber marks only what waits for the person or what only the person does. Headings and the wordmark are set in STIX Two Text, the face of technical publishing; everything else is Hanken Grotesk, with Geist Mono for code. There are no cast shadows and no themed objects: PRODUCT.md commits the site to interest that comes from precise diagrams, in the register of personalagentprotocol.org without resembling it.
+
+The same tokens serve three modes. The home persuades, `/developers` and `/learn` are for reading, and the playground operates: it takes type, palette, density and state colours from this world and keeps its own structure.
+
+**Key Characteristics:**
+- White ground, graphite ink, 1px hairlines; sections separated by a rule, never by a coloured band.
+- One figure per claim, each with a caption that opens with an italic serif "Figure n."
+- Green for action and for "with Poppy"; amber only for what is the person's to do.
+- Serif for headings and the wordmark, sans for everything else, mono for code and spec references.
+- Flat: no cast shadows, no gradients, no decorative panels.
+- Every figure survives at every width, redrawn or restacked instead of hidden.
+
+## Colors
+
+A near-monochrome page with two signal colours, each tied to one meaning. The stylesheets declare the same values twice: on `.site` in `site.css` (`--green`, `--amber`, `--tint`) and on `:root` in `playground.css` (`--accent`, `--wait`, `--soft`). The petrol ramp and `amber-deep` exist only in `site.css`, where the figures are.
+
+### Primary
+- **Petrol Green** (`green`): the primary button, the Approve control, figure connectors and arrowheads, step numbers, the "With Poppy" dot of Figure 4, the 2px rule under the current nav item, links inside `/learn` prose, and the "done" state in the playground. Hover and pressed are **Deep Petrol** (`green-deep`).
+- **Petrol ramp** (`green-light`, `green-mid`, `green`): the three "With Poppy" steps of Figure 2, lightest for browsing and deepest for a change that needs approval. `green-light` is also the border of a settled approval and the underline of `/learn` links.
+- **Petrol Wash** (`green-wash`): the ground of the approval row once approved.
+
+### Secondary
+- **Signal Amber** (`amber`): a thin rule or border, a small dot or a small count mark, never the fill of a panel. It marks the waiting approval in Figure 1, the two actions only the person takes in Figure 3, "Waiting for you" on proposals, the "You" column of Figure 5, and in the playground the current guide step and the count of items that need the person.
+- **Amber Wash** (`amber-wash`): the ground behind an amber-bordered element.
+- **Deep Amber** (`amber-deep`): one job, the 1px ring that holds the edge of an amber dot on white in Figure 5. Never a fill or a text colour.
+
+### Tertiary
+- **Error Red** (`danger`): playground only, for error text and failed checks. It does not appear on the home, `/developers` or `/learn`.
+
+### Neutral
+- **Paper** (`paper`): the ground of the home, `/developers` and `/learn`, and every working surface. In the playground paper is the header, the conversation, inputs, cards and quiet buttons, which stand off a tint ground.
+- **Graphite Ink** (`ink`): text, the solid "You" node, the 1px rule that opens a list or table, the dark button.
+- **Soft Ink** (`ink-soft`): supporting paragraphs and list text.
+- **Muted** (`muted`): captions, notes, table column heads, inactive nav.
+- **On-ink Muted** (`on-ink-muted`): secondary text inside the solid ink node.
+- **Hairline** (`line`): section rules and row dividers.
+- **Strong Hairline** (`line-strong`): borders of controls and panels, sequence lifelines, pending connectors, link underlines at rest.
+- **Tint** (`tint`): the company party in figures, code blocks and inline code on `/learn`, the footer, the hatched "Without a protocol" swatch, the playground's page ground (`--background`) and its quiet bars inside the conversation.
+- **Selection** (`selection`): text selection on every surface.
+
+### Named Rules
+**The Amber Is Yours Rule.** Amber appears only where something waits for the person or where only the person can act. It is never a brand accent, a highlight or a warning about the product.
+
+**The Green Means Poppy Rule.** Green is the action and the protocol's side of any comparison. A column, step or mark that describes life without a protocol stays in the neutrals: ink, soft ink, muted and hairline.
+
+## Typography
+
+**Display Font:** STIX Two Text (with Georgia, serif), roman and italic
+**Body Font:** Hanken Grotesk (with Helvetica Neue, Arial, sans-serif)
+**Label/Mono Font:** Geist Mono (with ui-monospace, SF Mono, Menlo)
+
+**Character:** A publishing serif at medium weight over a plain, slightly warm grotesque. The serif carries authority without ornament; the sans does all the work of reading and of the interface. All three load through `next/font/google` in `layout.tsx`.
+
+### Hierarchy
+The ramp is a closed set of sizes in whole pixels: 58 to 38 and 48 to 34 (fluid), 36 to 28 (fluid), 26, 21, 19, 18, 17, 16, 15, 14, 13 and 12, plus 12.5 for mono on the site. Every literal in both stylesheets is one of these steps.
+
+- **Display** (500, clamp(38px, 4.3vw, 58px), 1.06, -0.02em): the one h1 of the home and `/developers`.
+- **Reading display** (500, clamp(34px, 3.8vw, 48px), 1.06, -0.02em): the page title on `/learn`, a step down so it sits over long prose.
+- **Headline** (500, clamp(28px, 2.8vw, 36px), 1.15, -0.015em): section h2.
+- **Serif title** (500, 26px, 1.15, -0.01em): a Company's name on the home, the h2 inside `/learn` prose and the playground's h1. The same 26px in sans 600 with tabular figures is the headline value of a proposal in the playground.
+- **Wordmark** (serif 600, 21px, -0.01em): "Poppy Lab" in the bar, the footer and the playground header.
+- **Title** (sans 600, 19px, 1.3): h3, step titles, the bold line of a Figure 2 step.
+- **Lead** (400, 18px, 1.6, max 54 to 62ch): the paragraph under an h1 or h2, in soft ink; also the sentence to ask on a Company (500) and party names in Figure 3 (600). The hero lead reaches 19px on wide screens.
+- **Body** (400, 17px, 1.6): prose at 66ch on `/learn`, 40 to 56ch beside figures; the bold line of the approval row and a change's new value (600).
+- **Small body** (400 to 600, 16px): button text, the paragraph under a step, the statements beside Figures 4 and 5, ruled list rows on `/developers`, and the base size below 520px and in the playground.
+- **Large label** (400 to 600, 15px, 1.4 to 1.45): nav links, small buttons, sequence labels and party heads, tables and matrices, notes, the footer, playground message text.
+- **Label** (400 to 600, 14px, 1.4 to 1.5): captions, column heads, panel text, the fine print, a matrix key, most playground interface text. Sentence case, no tracking, no capitals.
+- **Caption** (400 to 600, 13px): the second line of a party head, and in the playground field labels, message labels, helper notes and guide steps. Sequence labels drop to it at 520px and below.
+- **Micro** (400 to 600, 12px): playground only, apart from narrow screens: the count in a pill, the guide's step number, state marks, the footer, tabs at 520px and below. Sequence labels drop to it at 380px and below. Nothing is set smaller.
+- **Figure label** (serif italic 500, 15px, ink): the "Figure n." that opens a caption.
+- **Mono** (12.5px for spec references and codes on the site, 14px for endpoint links and code blocks, 0.86em inline): paths, endpoints, scopes, spec sections.
+- **Small mono** (12px, 1.5 to 1.9): the playground's timings, request log, scopes and raw documents.
+
+Weights in use are 400, 500 and 600. Numbers that line up (step numbers, amounts, timings) use tabular figures.
+
+### Named Rules
+**The One Serif Job Rule.** STIX Two Text sets h1, h2, the wordmark, a Company's name and the italic "Figure n." Nothing else. Buttons, labels, figure text, table heads and h3 are Hanken Grotesk.
+
+**The Whole Step Rule.** A new size is one of the recorded steps. Half-pixel sizes are gone except mono's 12.5px on the site; a value between two steps is a stray, not a new step.
+
+**The Sentence Caption Rule.** A figure's caption is a full sentence in muted 14px that says what the figure shows, opened by its number. There are no uppercase labels and no letter-spaced small type anywhere in the system.
+
+## Layout
+
+A single centred column, 1120px wide at most, with a gutter of clamp(20px, 4vw, 40px). The bar and the footer share those edges. Sections are stacked with clamp(64px, 8vw, 104px) of padding above and below and a 1px hairline between them; inside a section the head, the figure and any note sit clamp(32px, 4vw, 48px) apart. A section head is an h2 over one lead paragraph, left-aligned and held to 68ch.
+
+Two-part compositions are unequal: the home hero is 5fr text to 6fr figure, the `/developers` hero 6fr to 5fr, and the ruled two-column sections on `/developers` 0.85fr to 1.15fr. Repeating content sits on a real grid: five columns for Figure 2, three for the steps (aligned across columns with subgrid), two for the four Companies.
+
+Where each surface sits:
+- **Home (`/`):** hero with Figure 1; "Today it is all or nothing" with Figure 2; "How it works" with Figure 3 above three illustrated steps; "What each side gets" as Figure 4 (who holds what) beside three one-sentence statements; "Try it in four industries" as four Companies, each showing the exact change the visitor would approve; "What the AI can never do" as four points beside Figure 5; a closing row with both actions; the footer with the independence disclaimer.
+- **`/developers`:** a hero with its own Figure 1 (two ways to test, drawn as two pairs of parties); "Test a Company with Iris" as a paragraph beside a ruled fact list; the four test Companies and "Bring your own agent" as ruled tables; "What the lab implements" as a ruled list with spec references.
+- **`/learn`:** a 220px sticky list of pages beside an article held to 72ch, prose at 66ch, tables and code at the article's width.
+- **Playground:** a full-width header on the home's edges, then a 780px working column. The workspace fills the viewport and only the transcript scrolls; the conversation closes 24px above the window edge (12px on phones, plus the safe area).
+
+Responsive behaviour:
+- **960px:** two- and three-column compositions become one column. In the hero the figure follows the actions and the small print drops below it. The bar keeps the wordmark and the demo button and drops its links.
+- **900px:** the `/learn` page list becomes a wrapped row above the article.
+- **720px:** Figure 3 swaps to an upright drawing of the same parties and connectors; Figure 2 becomes rows with a 44px swatch at the left. Figures 4 and 5 stay tables at every width; from 960px down their statements move below them.
+- **640px:** the `/developers` tables become stacked rows with their column names as labels.
+- **520px:** body drops to 16px, the bar button shortens to "Live demo", the footer becomes one column, Figure 1's party heads tighten to 14px and its labels to 13px, and the playground header becomes one 56px row.
+- **380px:** Figure 1's labels drop to 12px so each still fits on one line.
+
+### Named Rules
+**The Same Drawing Rule.** A figure is never hidden on a small screen. It is redrawn upright or restacked with its labels, and carries the same facts at every width.
+
+## Elevation & Depth
+
+Flat. No surface casts a shadow, on the site or in the playground. Depth is carried by the hairline, by the single solid ink node, and by the two washes that mark state. `box-shadow` appears only as a drawn line: a 2px inset rule under the current nav item or tab, and a 1px ring on a quiet pill and on the amber dot of Figure 5. The sticky bar separates from the page with a 1px bottom rule.
+
+### Named Rules
+**The Flat Rule.** If a surface needs to stand apart, give it a 1px border in `line-strong`. A blur, an offset or a glow is never the answer here.
+
+## Shapes
+
+Small, consistent corners and thin strokes. Controls, inputs and figure nodes take 6px. Panels that stand for something on a screen (the three step illustrations, the proposal on each Company, the approval row, code blocks, the playground's Company cards) take 8px; the playground conversation takes 10px. Small marks take 3 to 5px (the focus ring, a checkbox, a pill, an SVG tag). Circles are reserved for state: the waiting dot, the tick, the marks of Figures 4 and 5, the guide's step number. The count of items that need the person and the "Direct, without Iris" mark are full pills.
+
+Strokes are 1px for rules and borders, 1.2px for node outlines and 1.5px for connectors, for the hollow ring of Figure 4 and for the dash that means "neither". A request is a solid line and a reply is a dashed one (5 on, 4 off in the SVG). Arrowheads are small solid triangles in the connector's colour. Figure 3 is drawn on a 4px grid with 8px elbows. A dashed node outline means "the side you bring" on `/developers`. Diagonal hatching in tint is used once, for the two steps without a protocol in Figure 2.
+
+### Named Rules
+**The Ink Opens, Hairline Divides Rule.** A list, table or column of rows opens with a 1px rule in ink and separates its rows with 1px hairlines. Column heads sit above a `line-strong` rule, which turns green over the "With Poppy" column.
+
+## Components
+
+### Buttons
+- **Shape:** gently squared (6px), 46px tall, 18px side padding, 16px semibold; the small size is 40px tall with 14px padding and 15px type.
+- **Primary:** petrol green with paper text and a matching 1px border. Hover deepens to `green-deep` over 160ms on the system's one easing curve (cubic-bezier(0.16, 1, 0.3, 1)); pressed keeps `green-deep` and moves down 1px. Often carries a trailing 18px arrow.
+- **Ghost:** paper with ink text and a `line-strong` border; hover turns the border ink.
+- **Dark:** ink with paper text; hover lightens to `ink-soft`.
+- **Focus:** every focusable element takes a 2px green outline, offset 3px on the site and 2px in the playground.
+- **Playground:** Connect, sign-in, approval and send use the same green at 44px (send is a 34px square with an icon). Secondary actions use the ghost treatment at 44px. A disabled send button is tint with muted ink.
+
+### Navigation
+- **Bar:** sticky, paper, at least 64px tall, 1px hairline beneath. The wordmark "Poppy Lab" in serif 600 at 21px on the left, six text links in muted 15px on the right, then a small primary button. Hover turns a link ink; the current page is ink, semibold, with a 2px green rule beneath.
+- **Playground header:** 72px, the same wordmark, and four views (Playground, Inspector, Identity, History) as text tabs with the same current-item treatment. One 56px row with compact 12px tabs at 520px and below.
+- **Learn pages:** a vertical list on a 1px left hairline; the current page is ink, semibold, with a green left rule. In the wrapped row below 900px the current page takes a 2px green underline.
+- **Footer:** tint ground with a hairline above, the wordmark and a one-paragraph statement of independence, two rows of links separated by `line-strong` rules, and the disclaimer in muted 14px.
+
+### Figures
+Every figure is a `figure` with a `figcaption`, drawn in ink, hairline and green, with amber only under the Amber Is Yours Rule. Parties keep one look everywhere: You is the solid ink node, the agent is outlined on paper, the company is outlined on tint.
+
+- **Sequence (Figure 1, `sequence-figure.tsx`):** three party heads over three `line-strong` lifelines. Each message is a 52px row: a numbered label on a paper ground above a 1.5px green line with an arrowhead, dashed for replies. The fifth row is the approval gate: an amber-bordered, amber-wash row with "Waiting for your approval" and a working Approve button. Messages 6 and 7 are drawn in `line-strong` and muted until approval. Approving turns the gate to green wash with a tick and "Approved by you", draws the last two messages, and replaces the button with a quiet "Show it again".
+- **Motion:** the only authored motion in the system. Each message line draws from its sender over 520ms and its label settles from 35% opacity, staggered 150ms apart, once. It runs only when the visitor has not asked for reduced motion; otherwise everything is shown at rest.
+- **Spectrum (Figure 2):** five columns under two group labels. "Without a protocol" steps are a hatched tint swatch with soft-ink titles; the three "With Poppy" steps share one green rule and step through the petrol ramp.
+- **Flow (Figure 3, `flow-diagram.tsx`):** inline SVG, three nodes and orthogonal connectors. The two things only the person does sit on amber tags (amber wash, 1px amber border, 4px corners) placed on the connector. A wide drawing above 720px and an upright one below, where the sign-in tag takes two lines ("2 · You sign in" over "at the company").
+- **Matrix (Figures 4 and 5):** one table grammar for both. Column heads are semibold 14px, centred, over a 1px ink rule; row heads are soft-ink sans at 15px on hairlines; each cell holds a 12px mark. Short statements sit beside the table as points: three for Figure 4, in the order of its columns, and four for Figure 5.
+- **Figure 4, who holds what:** five things as rows, the three parties as columns. A hollow ring (1.5px soft ink) where a thing sits without a protocol, a green dot where it sits with Poppy, both side by side when both apply, a short `line-strong` dash where neither does. A two-item key in muted 14px sits above the table, and each mark carries its meaning as screen-reader text.
+- **Figure 5, who does what:** jobs by actor. A green dot for the model's and the code's jobs, an amber dot with a 1px `amber-deep` ring for the person's, the same dash for none.
+- **Pairs (`/developers` Figure 1):** two rows of party, green arrow, party.
+
+### Screen panels
+A bordered panel (1px `line-strong`, 8px corners, 16px padding, 14px type) is used only for something the person would see on a screen: a discovery file, a Company's sign-in page, a proposal waiting for approval. Its head is a semibold line over a hairline. Inside it, a small pill (30px, 5px corners) stands for a button and is not interactive, and a 16px checkbox mark is green when ticked.
+
+- **Waiting mark:** an 8px amber dot before "Waiting for you" in ink, weight 500.
+- **Change line:** the old value struck through in muted, a 14px green arrow, the new value in semibold ink. When there is no old value the new one stands alone.
+- **Company entry (home):** a 1px ink rule, the name in serif with its sector in muted sans beside it, the sentence to ask in 18px medium, the proposal panel, one line on what it shows, a small primary button and a text link, then the test customers in muted 14px.
+
+### Ruled lists and tables
+- **Points:** 16px rows on hairlines with a semibold ink lead-in and soft-ink text, one sentence or two each.
+- **Fact list:** a 120px muted term beside a medium-weight value; links to endpoints are mono.
+- **Tables (`/developers`, `/learn`):** muted 14px column heads, semibold row heads, 13px vertical padding, hairline rows, mono for codes and spec sections. Wide tables scroll sideways inside a thin scrollbar or stack below 640px.
+- **Code (`/learn`):** inline code on tint with 4px corners; blocks on tint with a hairline border and 8px corners.
+
+### Inputs (playground)
+- **Style:** 44px, paper, 1px `line-strong` border, 6px corners, 14px type, a 13px semibold label above.
+- **Focus:** the border turns ink and the green outline appears.
+- **Composer:** a borderless textarea inside the conversation, above a hairline, with the green send button.
+
+### Playground workspace
+The same world in Operate mode. `playground.css` restates the tokens on `:root`. The page ground is tint and the working surfaces are paper, so the conversation reads as the place where the work happens; the discovery document in the Inspector is a paper block with a hairline border for the same reason.
+
+- **Conversation:** the one bordered object (1px `line-strong`, 10px corners, no shadow), with a hairline under its heading and above the composer. Messages are separated by hairlines and headed by a 13px semibold label, muted for Iris and ink for the person.
+- **Guide:** four steps above the conversation (Pick a company, Sign in, Ask for a change, Approve it), each under a 2px rule with its number in a 20px circle. A finished step is green, the current step is amber, the rest are hairline and muted; one sentence below says what to do now.
+- **Company cards:** a new conversation opens on four cards (the name with its sector beside it, a request to try), 8px corners and a `line-strong` border that turns green on hover.
+- **Needs you:** a tint bar at the foot of the conversation with the count in an amber pill; a live Direct Conversation bar turns amber wash with an amber rule above.
+- **Inspector, Identity, History:** ruled lists. Section headings are 18px semibold over a 1px ink rule, rows on hairlines, timings and spec references in muted mono, passed checks in green and failed ones in red.
+- **Operation review:** a proposal's headline value at 26px. Money rows are two equal columns 58px apart, so each amount starts where the After column of the change above starts, in tabular figures with a hairline above the total; what the Company said sits behind a 2px hairline at the left.
+- **Disclosures:** every `summary` opens with the same drawn 14px chevron in the text's colour, in place of the browser's marker; it turns a quarter when open.
+- **Motion:** 160ms colour transitions, the chevron's turn and a spinner while work is in flight. Reduced motion removes all animation.
+- **First visit:** the playground starts in demo mode with no model or key, and the model row offers "Use your own model". The address form appears only for another Company's address or to change Company. Each conversation has its own address; its heading carries its state and a "New conversation" link, and an ended one shows a ruled note and a disabled composer. History lists the visitor's conversations (Company, first request, start time, Open or Read-only) above "Start the demo over", whose reset asks once more before acting.
+
+### Content and vocabulary
+- The protocol is "Personal Agent Protocol" or "Poppy", never its three-letter abbreviation. The agent is Iris, introduced once per page as the lab's personal agent; general explanation says "your agent".
+- The home writes "personal agent" and "company" in lower case; `/developers` and the playground capitalise the specification's defined terms.
+- `site-chrome.tsx` holds the bar, the footer and the Company data that the home and `/developers` both render, including the exact change each Company shows. Company addresses come from `NEXT_PUBLIC_*_URL`; a link to `/playground?company=…` connects straight away when it names one of the lab's own Companies, and any other address only fills the form.
+
+## Do's and Don'ts
+
+### Do:
+- **Do** give each claim one figure with a caption that opens with an italic serif "Figure n." and continues as a sentence.
+- **Do** keep amber for what waits for the person or what only the person does, as a thin rule or border on amber wash, a small dot or a count mark.
+- **Do** use green for the primary action, for connectors, and for the protocol's side of a comparison.
+- **Do** open a list or table with a 1px ink rule and divide its rows with hairlines.
+- **Do** draw You as the solid ink node, the agent as an outline on paper and the company as an outline on tint, in every figure.
+- **Do** draw requests solid and replies dashed, with solid triangular arrowheads.
+- **Do** keep a bordered 8px panel for something the person would see on a screen, and show in it the exact change they would approve.
+- **Do** redraw or restack a figure for narrow screens so it carries the same facts.
+- **Do** keep a 2px green focus outline on every focusable element and show everything at rest under reduced motion.
+
+### Don't:
+- **Don't** cast a shadow, blur a surface or use a gradient; `box-shadow` is only ever an inset 2px rule or a 1px ring.
+- **Don't** use amber as decoration, emphasis or a general warning colour.
+- **Don't** set buttons, labels, figure text or h3 in the serif, and don't set a heading in the sans above h3.
+- **Don't** use uppercase or letter-spaced labels; small type is sentence case at 14px in muted.
+- **Don't** wrap prose in a bordered or tinted panel to group it; rules and whitespace do that.
+- **Don't** fill a section with a colour band; tint belongs to the company party, code, the footer, the playground's ground and its quiet bars.
+- **Don't** add motion beyond the sequence drawing itself once and 160ms state transitions.
+- **Don't** hide a figure on small screens.
+- **Don't** resemble personalagentprotocol.org closely enough to imply affiliation, and don't drop the independence disclaimer from the footer.
 
 ## The four fictional Companies: what they share
 
@@ -50,52 +459,15 @@ Harborline's public site, consent page and customer portal (`apps/harborline/src
 - **Responsive/accessibility:** the hero and account grid become one column below 900px; manifest metadata moves under its description; controls retain 48px targets, visible orange focus rings and explicit loading/error status text. Selection, links and tabular figures are themed.
 - **Honesty:** every surface says no real money moves and no real banking data or credentials should be entered. No real institution, payment rail or identity verification is implied.
 
-## poppylab.dev home (`/`) and `/developers`: registered post, decluttered
-
-The public home is a Persuade surface for readers with no protocol vocabulary; `/developers` holds everything technical. The playground at `/playground` keeps the system below.
-
-- **World:** the registered-post identity reduced to type, rules and one accent. White ground `#ffffff`, navy ink `#121a2b` (soft `#2c3548`, muted `#4a5468`), rules `#d7dbe2`, mist `#f1f3f6`. Postal yellow `#f6c514` (pressed `#e2b100`) appears only on the primary button, the waiting step of the sample request and the two user actions in the diagram. No barcodes, perforations, dashed borders, offset shadows or boxed mono tags.
-- **Type:** Archivo, variable width, 112–118% for headings and the wordmark, weights 650–800, tracking −0.025 to −0.035em. Martian Mono only on `/developers`, for codes, paths and spec sections.
-- **Structure:** sections are separated by a 1px rule and built from ruled columns rather than cards: a 2px ink rule above a column, 1px rules between rows. Section heads pair the h2 with a short paragraph on the right. The only bordered object on the home is the sample request in the hero.
-- **Home order:** hero (eyebrow, headline, one-sentence definition, "Try the live demo" and "Why it exists", with the interactive sample request on the right); "Today it is all or nothing" as a five-column ladder from Blocked to Full access, the three middle steps ruled in ink; "How it works" as the three-party diagram above three numbered steps; "What each side gets" for people, companies and agent builders; "Try it in four industries" as a two-column ruled list led by the sentence to ask; "What the AI can never do"; a closing row with both calls to action. The footer is navy with the independence disclaimer.
-- **Diagram (`flow-diagram.tsx`):** inline SVG, three nodes and four orthogonal connectors on a 4px grid with 8px elbows, labels on opaque yellow tags only for the two things the person does (sign in, approve). The person is the solid ink node, the agent is outlined, the company is mist. It is hidden below 720px, where the three steps carry the same facts.
-- **`/developers`:** a compact hero; "Test a Company with Iris" as a paragraph beside a ruled fact list; the four Companies as a ruled table (host, scopes, customers, links; it scrolls sideways on phones); "Bring your own agent" as the endpoint legend (code, what, where, spec; stacked on narrow screens); "What the lab implements" as a ruled list with spec references.
-- **Vocabulary:** the protocol is "Personal Agent Protocol" or "Poppy", never "PAP". The home writes "personal agent" and "company" in lower case, as the protocol's own home does; `/developers` and the playground capitalise the spec's defined terms. Iris is introduced once per page as the lab's personal agent; generic explanation says "your agent".
-- **Buttons:** 52px (44px small), 8px radius; yellow primary, navy dark, ghost with a rule. Focus rings are 3px ink (yellow on the footer); selection is yellow.
-- **Motion:** one entrance, the sample request's steps arriving with a short stagger from an already-visible state. Reduced motion shows everything at rest.
-- **Shared chrome:** `site-chrome.tsx` holds the bar, the footer and the Company data both pages render.
-- **Playground (`/playground`):** the same decluttered world in Operate mode. White ground and working surfaces, the same navy and yellow tokens, Archivo for UI and Martian Mono only for code, timings and the Inspector's spec references. The header matches the home's bar (same edges, 72px, wordmark with no tag); the three views are text tabs with a 2px ink rule under the current one. The conversation is the one bordered object (1px rule, 14px radius, no shadow). Inspector sections and the Identity list are ruled: a 2px ink rule under the heading, 1px rules between rows. Message labels, the "Company content" mark and spec references are plain text, without boxes. The send button is the only yellow; Connect and approvals use the navy button; errors use `#b3261e`. On phones the header is one row (wordmark and three compact tabs). The layout and behaviour below are unchanged. A first visit is guided: the playground starts in demo mode (no model or key; the model row offers "Use your own model"), a new conversation opens on four Company cards (sector, name, a request to try) inside the conversation, and a four-step guide sits above it (Pick a company, Sign in, Ask for a change, Approve it) as ruled columns with the current step's number on yellow and one sentence on what to do now, including the step people miss (requesting change permission) and where demo mode can only read. The address form appears only for another Company's address or to change Company; sign-in is a navy button and the change-permission request a ghost button. Suggestions fit the Company and the access held. A fourth tab, History, lists the visitor's conversations as a ruled list (Company, first request, start time, Open or Read-only) above a ruled "Start the demo over" section whose reset asks once more before acting. Each conversation has its own address; the conversation heading carries its state and a "New conversation" link, and an ended one shows a ruled note and a disabled composer.
-- **Content:** URLs for the Companies come from `NEXT_PUBLIC_JUNIPER_URL`/`NEXT_PUBLIC_LANTERN_URL`; links to `/playground?company=…` connect straight away when they name one of the lab's own Companies; any other address only fills the form.
-
-## Direction
-
-A minimal, form-first playground inspired by the clarity of papplayground.com. This direction replaces the earlier Protocol Tracing Table at the user's request. Developer visibility remains available through progressive disclosure rather than a prominent topology drawing.
-
-## Layout
-
-- A quiet, 1080px-wide header contains the wordmark and three working views: Playground, Inspector, and Identity.
-- Main content has a 780px maximum width with a simple title and one-sentence explanation.
-- The Playground begins with a collapsible Model settings form, Company URL, and a single Connect action. Only OpenAI compatible (gpt-6-luna, low) and Anthropic (sonnet-5) are offered; model names are fixed. Saving settings closes the form.
-- Chat is the primary working surface. The workspace occupies the visible viewport; the conversation box closes 24px above the window edge (12px on phones, plus the safe area) while the transcript scrolls independently. Setup has bounded overflow when expanded, and the introductory heading recedes after messages arrive.
-- Discovery checks, timing, API events, and the raw document live in the Inspector.
-- Public client metadata and JWKS links live in Identity.
-- Changing views preserves the current connection, conversation, provider, and draft message.
-
-## Visual system
-
-One self-hosted Source Sans 3 family, restrained weights, and a compact type scale. The background is off-white `#f8f8f5`; working surfaces are `#fefefd`; primary text is charcoal `#272923`. Muted text is `#696d64`, rules are `#dddfd6`, and a subdued red `#a43e31` marks the send action and errors. Verified connection states use green `#41624d` with a check symbol and text.
-
-Inputs have 6px corners; the single conversation surface has 12px corners and a border, without shadows. No drawing grids, decorative coordinates, topology nodes, or oversized headings remain.
-
 ## Company messages in the chat
 
-What the Company's own agent says (§8) appears as separate transcript entries before Iris's answer. They are indented behind a 2px rule in `--line`, headed with the Company's name and "automated agent" (or the person's name) in the mono label style, and marked with a small "Company content" badge so they never read as Iris speaking. Structured `data` stays collapsed under a native "Data" disclosure with a bounded, scrollable mono block. A short muted note marks what the entry asked for: sign-in, or an operation to approve in the usual card below.
+What the Company's own agent says (§8) appears as separate transcript entries before Iris's answer. They are indented behind a 2px rule in `--line`, headed with the Company's name and "automated agent" (or the person's name) in the message label style (13px sans, semibold, muted), and marked with a small plain-text "Company content" note so they never read as Iris speaking. Structured `data` stays collapsed under a native "Data" disclosure with a bounded, scrollable mono block. A short muted note marks what the entry asked for: sign-in, or an operation to approve in the usual card below.
 
 ## Interaction and accessibility
 
 Visible labels, keyboard focus rings, explicit loading/disabled/error states, and polite live updates remain. Enter submits a message; Shift+Enter inserts a line break. Composition events are respected for IME users. Empty-state suggestions fill the composer but never trigger paid requests automatically. Reduced-motion preferences disable activity animation.
 
-Model settings sits above Company URL and Connect. Its provider/key fields stack on mobile. Account access, permission expansion, sign-out, errors and Operation widgets live inside the conversation, not above it. All views and provider choices remain accessible; long URLs and responses wrap without horizontal page overflow.
+Model settings sits above the connection row. A new conversation starts from the four Company cards, and the Company address form appears only on request. The provider and key fields stack on mobile. Account access, permission expansion, sign-out, errors and Operation widgets live inside the conversation, not above it. All views and provider choices remain accessible; long URLs and responses wrap without horizontal page overflow.
 
 ## Juniper customer website
 

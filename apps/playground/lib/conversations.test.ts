@@ -296,7 +296,7 @@ describe("conversations (§8) in Iris", () => {
     });
   });
 
-  it("approves in a message with a request ID derived from the revision, and reports new terms or a decline", async () => {
+  it("approves in a message with a request ID derived from the approval, and reports new terms or a decline", async () => {
     const run = newRun();
     const op = {
       ...operation,
@@ -317,14 +317,16 @@ describe("conversations (§8) in Iris", () => {
     ];
     expect(url).toBe(`${endpoint}/cnv_1/messages?wait=10`);
     expect(body).toEqual({
-      id: approvalRequestId(op),
+      id: approvalRequestId(approval),
       message: {
         author: { type: "agent" },
         text: "The user approved this operation.",
         extensions: { operations: { approval } },
       },
     });
-    expect(approvalRequestId(op)).toBe(approvalRequestId({ ...op }));
+    expect(approvalRequestId(approval)).toBe(
+      approvalRequestId({ ...approval }),
+    );
     // A repeated approval adds no reply: already performed.
     const quiet = vi.fn(async () => read([]));
     expect(
@@ -368,6 +370,135 @@ describe("conversations (§8) in Iris", () => {
       code: "approval_declined",
       declined: { reason: "Refunds over $5 need a person." },
     });
+  });
+
+  it("sends the User's own approval as a new request after the Company declined Iris's, and a retry as the same one", async () => {
+    const op = {
+      ...operation,
+      state: "proposed" as const,
+      request: { conversation: { endpoint, id: "cnv_1" } },
+    };
+    const byIris = {
+      operation_id: "op_refund",
+      revision: "1793800000-abc",
+      approver: "agent" as const,
+      approved_at: 1793800090,
+      reference: "apr_iris",
+    };
+    // The Company, as §8.3 has it: an ID it accepted is good for that body only.
+    const accepted = new Map<string, string>();
+    const request = vi.fn(
+      async (_r: Run, _url: string, _m: string, body?: unknown) => {
+        const { id, message } = body as {
+          id: string;
+          message: {
+            extensions: { operations: { approval: { approver: string } } };
+          };
+        };
+        const sent = JSON.stringify(body);
+        if (accepted.has(id) && accepted.get(id) !== sent)
+          throw new ProtocolError(409, "request_id_conflict");
+        accepted.set(id, sent);
+        return read([
+          message.extensions.operations.approval.approver === "agent"
+            ? said("e11", {
+                as_of_request: id,
+                text: "I need the customer's own approval for a refund.",
+                extensions: {
+                  operations: {
+                    declined: {
+                      operation_id: "op_refund",
+                      revision: "1793800000-abc",
+                    },
+                  },
+                },
+              })
+            : said("e12", { as_of_request: id, text: "Refunded USD 8.00." }),
+        ]);
+      },
+    );
+    const ids = () =>
+      request.mock.calls.map((call) => (call[3] as { id: string }).id);
+    await expect(
+      approveInConversation(newRun(), op, byIris, request),
+    ).rejects.toMatchObject({ code: "approval_declined" });
+    // A lost response (Operations v3 §7): the same approval, the same request.
+    await expect(
+      approveInConversation(newRun(), op, byIris, request),
+    ).rejects.toMatchObject({ code: "approval_declined" });
+    expect(ids()[1]).toBe(ids()[0]);
+    // The User's approval of the same revision is another message.
+    await expect(
+      approveInConversation(newRun(), op, approval, request),
+    ).resolves.toEqual({ summary: "Refunded USD 8.00." });
+    expect(ids()[2]).not.toBe(ids()[0]);
+    // So is a second approval by the User, after one the Company didn't take.
+    await expect(
+      approveInConversation(
+        newRun(),
+        op,
+        { ...approval, approved_at: 1793800200, reference: "apr_again" },
+        request,
+      ),
+    ).resolves.toEqual({ summary: "Refunded USD 8.00." });
+    expect(new Set(ids()).size).toBe(3);
+  });
+
+  it("reports an error in answer to an approval as nothing performed, never as the result", async () => {
+    const op = {
+      ...operation,
+      state: "proposed" as const,
+      request: { conversation: { endpoint, id: "cnv_1" } },
+    };
+    const answer = (message: Record<string, unknown>) =>
+      vi.fn(async (_r: Run, _url: string, _m: string, body?: unknown) =>
+        read([
+          said("e13", {
+            as_of_request: (body as { id: string }).id,
+            ...message,
+          }),
+        ]),
+      );
+    // What the lab's Company Agents say when the terms went stale.
+    await expect(
+      approveInConversation(
+        newRun(),
+        op,
+        approval,
+        answer({
+          text: "The order changed since I proposed that. Ask again for fresh terms.",
+          data: { error: "account_changed" },
+        }),
+      ),
+    ).rejects.toMatchObject({
+      status: 403,
+      code: "approval_declined",
+      declined: {
+        reason:
+          "The order changed since I proposed that. Ask again for fresh terms.",
+      },
+    });
+    // An error without words is still not a result.
+    await expect(
+      approveInConversation(
+        newRun(),
+        op,
+        approval,
+        answer({ data: { error: "no_pending_operation" } }),
+      ),
+    ).rejects.toMatchObject({ code: "approval_declined", declined: {} });
+    // Other data comes with the result.
+    await expect(
+      approveInConversation(
+        newRun(),
+        op,
+        approval,
+        answer({
+          text: "Refunded USD 8.00.",
+          data: { operation_id: "op_refund", refund: { amount_cents: 800 } },
+        }),
+      ),
+    ).resolves.toEqual({ summary: "Refunded USD 8.00." });
   });
 
   it("reads the four state fields, treats unknown values safely, and withdraws a handoff", async () => {
@@ -530,7 +661,7 @@ describe("Direct Conversations (§8.10) in Iris", () => {
         [
           proposal,
           said("evt_d4", {
-            as_of_request: approvalRequestId(op),
+            as_of_request: approvalRequestId(approval),
             text: "Refunded USD 37.00.",
           }),
         ],
@@ -699,6 +830,110 @@ describe("Direct Conversations (§8.10) in Iris", () => {
       seen: [],
       direct: both().direct,
     });
+  });
+
+  // §8.13: the refusal names the Direct Conversation that is open.
+  const alreadyOpen = (id: string) =>
+    new ProtocolError(
+      409,
+      "direct_conversation_open",
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      id,
+    );
+
+  it("puts the User back in the Direct Conversation a lost start left open, without sending their words twice", async () => {
+    // The Company opened cnv_d on the first start; its answer never arrived.
+    let lost = true;
+    const { run, s, shown, request } = session((url, body) => {
+      if (url.startsWith(`${endpoint}?`)) {
+        if (lost) throw new Error("socket hang up");
+        expect(body).toMatchObject({ parent_conversation_id: "cnv_1" });
+        throw alreadyOpen("cnv_d");
+      }
+      if (url.startsWith(`${endpoint}/cnv_d/events`))
+        return read(
+          [said("evt_d1", { text: "Hi, this is Lantern. How can I help?" })],
+          { conversation_id: "cnv_d" },
+        );
+      if (url.startsWith(`${endpoint}/cnv_d/messages`))
+        return read([said("evt_d2", { text: "On its way." })], {
+          conversation_id: "cnv_d",
+        });
+      throw new Error(`unexpected ${url}`);
+    });
+    run.conversation = { ...parentOnly };
+    await expect(s.direct("start", "Where is my order?")).rejects.toThrow();
+    expect(run.conversation).toEqual(parentOnly);
+
+    lost = false;
+    const result = (await s.direct("start", "Where is my order?")) as {
+      note?: string;
+    };
+    expect(result.note).toContain("wasn't sent");
+    // The thread is the one the Company named, read from its start.
+    expect(run.conversation.direct).toMatchObject({
+      id: "cnv_d",
+      cursor: "evt_d1",
+    });
+    expect(shown).toEqual([
+      {
+        author: "Lantern Noodle Bar · automated agent",
+        human: false,
+        text: "Hi, this is Lantern. How can I help?",
+        direct: true,
+      },
+    ]);
+    const [, url, method] = request.mock.calls.at(-1)!;
+    expect(url).toBe(`${endpoint}/cnv_d/events?wait=10`);
+    expect(method).toBe("GET");
+    // The parent keeps its place, and the User can talk and leave again.
+    expect(run.conversation).toMatchObject(parentOnly);
+    await s.direct("say", "Thanks.");
+    expect(request.mock.calls.at(-1)![1]).toBe(
+      `${endpoint}/cnv_d/messages?wait=10&cursor=evt_d1`,
+    );
+  });
+
+  it("joins an open Direct Conversation only when the User starts one", async () => {
+    // The model's message to the parent gets the same refusal: no joining.
+    const sending = session(() => {
+      throw alreadyOpen("cnv_d");
+    });
+    sending.run.conversation = { ...parentOnly };
+    expect(
+      await sending.s.tools.company_agent_send!.execute({ text: "Any news?" }),
+    ).toMatchObject({ error: "direct_conversation_open" });
+    expect(sending.run.conversation).toEqual(parentOnly);
+    // An invitation is for another thread than the one that is open.
+    const accepting = session(() => {
+      throw alreadyOpen("cnv_d");
+    });
+    accepting.run.conversation = {
+      ...parentOnly,
+      invitation: { event: "evt_ur" },
+    };
+    expect(await accepting.s.direct("accept")).toMatchObject({
+      error: "direct_conversation_open",
+    });
+    expect(accepting.run.conversation.direct).toBeUndefined();
+    // A refusal that names no thread, or the parent itself, opens nothing.
+    for (const error of [
+      new ProtocolError(409, "direct_conversation_open"),
+      alreadyOpen("cnv_1"),
+    ]) {
+      const unnamed = session(() => {
+        throw error;
+      });
+      unnamed.run.conversation = { ...parentOnly };
+      expect(await unnamed.s.direct("start", "Hello")).toMatchObject({
+        error: "direct_conversation_open",
+      });
+      expect(unnamed.run.conversation).toEqual(parentOnly);
+      expect(unnamed.request).toHaveBeenCalledTimes(1);
+    }
   });
 
   it("tells the Company in the parent when the User declines", async () => {

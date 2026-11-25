@@ -275,6 +275,8 @@ async function act(request: Request, started: { id?: string }) {
       delete run.token;
       delete run.tokenType;
       delete run.tokenExpires;
+      // §4.5: the tokens for single services go with the account's.
+      delete run.resourceTokens;
       delete run.scopes;
       delete run.fdxConsent;
       delete run.auth;
@@ -324,7 +326,8 @@ async function act(request: Request, started: { id?: string }) {
     if (body.action === "retry" && op.state !== "uncertain") throw new Error();
     // Operations v3 §5, agent approval: only on the User's own instruction,
     // checked here against these exact terms, never on the model's word,
-    // and never again once the Company declined one for this operation.
+    // and never again once the Company declined one for this operation or
+    // answered one with new terms.
     let approver: "user" | "agent" =
       body.action === "retry" ? (op.approval?.approver ?? "user") : "user";
     let rule: string | undefined;
@@ -339,13 +342,15 @@ async function act(request: Request, started: { id?: string }) {
       const spent = recent.reduce((sum, a) => sum + a.cents, 0);
       const refusal = op.agentDeclined
         ? "The Company declined an approval on your standing instruction for this. Approve it yourself if you want it."
-        : !covered
-          ? "Your standing instruction doesn't cover these exact terms. Approve them yourself if you want them."
-          : recent.length >= MAX_PER_HOUR
-            ? `Your standing instruction approved ${MAX_PER_HOUR} changes in the last hour. Approve this one yourself.`
-            : spent + covered.cents > instruction!.maxCents * BUDGET_FACTOR
-              ? `Your standing instruction approved more than ${BUDGET_FACTOR} times its limit in the last hour. Approve this one yourself.`
-              : undefined;
+        : op.agentSuperseded
+          ? "The Company answered an approval on your standing instruction with new terms. Approve them yourself if you want them."
+          : !covered
+            ? "Your standing instruction doesn't cover these exact terms. Approve them yourself if you want them."
+            : recent.length >= MAX_PER_HOUR
+              ? `Your standing instruction approved ${MAX_PER_HOUR} changes in the last hour. Approve this one yourself.`
+              : spent + covered.cents > instruction!.maxCents * BUDGET_FACTOR
+                ? `Your standing instruction approved more than ${BUDGET_FACTOR} times its limit in the last hour. Approve this one yourself.`
+                : undefined;
       if (refusal || !covered)
         return NextResponse.json(
           { code: "not_covered", operation: op, error: refusal },
@@ -355,6 +360,16 @@ async function act(request: Request, started: { id?: string }) {
       rule = covered.text;
       ruleCents = covered.cents;
     }
+    // An agent approval counts toward the hour's limits once, when it is
+    // first sent and performed or possibly performed. Its retry is the same
+    // approval (§7), not another one, and has no amount of its own.
+    const countAgentApproval = () => {
+      if (approver === "agent" && body.action === "approve")
+        run.agentApprovals = [
+          ...(run.agentApprovals ?? []),
+          { at: Date.now(), cents: ruleCents },
+        ].slice(-20);
+    };
     operationRequested = true;
     try {
       const result = (await sendApproval(run, op, approver)) as {
@@ -372,11 +387,7 @@ async function act(request: Request, started: { id?: string }) {
         ...(rule ? { rule } : {}),
         ...(op.approval?.reference ? { reference: op.approval.reference } : {}),
       };
-      if (approver === "agent")
-        run.agentApprovals = [
-          ...(run.agentApprovals ?? []),
-          { at: Date.now(), cents: ruleCents },
-        ].slice(-20);
+      countAgentApproval();
       delete op.request;
     } catch (error) {
       if (
@@ -441,6 +452,9 @@ async function act(request: Request, started: { id?: string }) {
             { status: 409, headers: { "Cache-Control": "no-store" } },
           );
         }
+        // §5: new terms in answer to Iris's approval are never approved on
+        // the same instruction, even when it covers them. The User decides.
+        if (approver === "agent") next.agentSuperseded = true;
         return NextResponse.json(
           {
             code: "terms_changed",
@@ -452,13 +466,60 @@ async function act(request: Request, started: { id?: string }) {
           { status: 409, headers: { "Cache-Control": "no-store" } },
         );
       }
+      // The operation's conversation refused the message that carried the
+      // approval: nothing was performed. That outcome is known, not lost.
+      const refusal =
+        error instanceof ProtocolError && op.request?.conversation
+          ? error.code
+          : undefined;
+      if (refusal === "direct_conversation_open")
+        // §8.10: the conversation takes messages again once the User leaves
+        // the Direct Conversation, so the operation waits as it was.
+        return NextResponse.json(
+          {
+            code: refusal,
+            next: "review",
+            operation: op,
+            error:
+              "The Company says a direct conversation with you is still open, and it takes no approval in this one until that ends. Nothing was performed. Leave the direct conversation, then try again.",
+          },
+          { status: 409, headers: { "Cache-Control": "no-store" } },
+        );
+      if (
+        // §8.12, §8.3: closed for good, and a message the Company had
+        // accepted would have got its first answer again.
+        refusal === "conversation_closed" ||
+        // The Company no longer has it. Only a first send is known then.
+        (refusal === "conversation_not_found" && body.action === "approve")
+      ) {
+        op.state = "expired";
+        op.result = {
+          summary:
+            "The conversation this was proposed in has ended, so it can't be approved any more. Nothing was performed. Ask for the change again to get fresh terms.",
+        };
+        // Never sent again: new terms get a new approval.
+        delete op.request;
+        delete op.approval;
+        return NextResponse.json(
+          {
+            code: refusal,
+            next: "status",
+            operation: op,
+            error: op.result.summary,
+          },
+          { status: 409, headers: { "Cache-Control": "no-store" } },
+        );
+      }
       if (
         !(error instanceof ProtocolError) ||
         error.status >= 500 ||
         error.status === 429
-      )
+      ) {
         // Lost response, timeout, 503 in progress: the outcome is unknown.
         op.state = "uncertain";
+        // It may have been performed, so it uses the allowance now.
+        countAgentApproval();
+      }
       throw error;
     }
     record(run, {

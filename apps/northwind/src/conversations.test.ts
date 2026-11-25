@@ -45,6 +45,38 @@ it("advertises and answers deterministic signed-out travel desk requests", async
   expect(reply.data?.flight).toMatchObject({ status: "delayed", gate: "E04" });
 });
 
+it("refuses a travel information topic that is only an inherited object key", async () => {
+  const x = await setup();
+  for (const topic of ["constructor", "toString", "__proto__"]) {
+    const read = (
+      await x.call(
+        "",
+        "POST",
+        `${BASE}?wait=0`,
+        message({ request: "travel_information", topic }),
+      )
+    ).json() as Read;
+    const reply = read.events.find(
+      (event) => event.message?.role === "company",
+    )?.message;
+    expect(reply).toMatchObject({
+      text: "Choose baggage, check_in or fares.",
+      data: { error: "unknown_topic" },
+    });
+  }
+  const known = (
+    await x.call(
+      "",
+      "POST",
+      `${BASE}?wait=0`,
+      message({ request: "travel_information", topic: "check_in" }),
+    )
+  ).json() as Read;
+  expect(
+    known.events.find((event) => event.message?.role === "company")?.message,
+  ).toMatchObject({ text: "Check-in", data: { topic: "check_in" } });
+});
+
 it("uses authorization events for booking and loyalty scopes", async () => {
   const x = await setup();
   const started = (

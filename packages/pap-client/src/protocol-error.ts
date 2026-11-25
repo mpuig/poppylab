@@ -41,6 +41,8 @@ export class ProtocolError extends Error {
     public operation?: unknown,
     /** Operations v3: an approval_declined body (Company content). */
     public declined?: { reason?: string },
+    /** §8.13: the Direct Conversation a direct_conversation_open names. */
+    public conversationId?: string,
     /**
      * The parsed error body, only when the caller asked for it and the error
      * is no Poppy or OAuth error: no known `error` code and no

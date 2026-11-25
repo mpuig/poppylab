@@ -18,7 +18,7 @@ const HOUR = 3_600_000;
  * count and total allow it; when only the hour's allowance is the obstacle
  * it says so and leaves the operation for the User. Anything else stays for
  * the User without a word, as does an operation whose agent approval the
- * Company declined.
+ * Company declined or answered with new terms.
  */
 export type AutoDecision =
   | { kind: "approve"; op: ReviewOperation; covered: string; cents: number }
@@ -41,9 +41,10 @@ export function nextAutoApproval(input: {
   for (const op of operations) {
     const key = `${op.operation_id}:${op.revision}`;
     if (decided.has(key)) continue;
-    // The Company declined an agent approval for it: the User decides now.
-    // `decided` is lost on a reload; this is not.
-    if (op.agentDeclined) continue;
+    // The Company declined an agent approval for it, or answered one with
+    // new terms (§5): the User decides now. `decided` is lost on a reload;
+    // this is not.
+    if (op.agentDeclined || op.agentSuperseded) continue;
     const covered = coveredBy(op, instruction, now);
     if (!covered) continue;
     decided.add(key);
@@ -63,4 +64,28 @@ export function nextAutoApproval(input: {
     return { kind: "approve", op, covered: covered.text, cents: covered.cents };
   }
   return null;
+}
+
+/**
+ * How the account route answered an approval sent on a standing
+ * instruction: its status and the operation it returned, or `lost` when no
+ * answer came back (the approval may still have reached the Company).
+ */
+export type ApprovalAnswer =
+  { status: number; operation?: ReviewOperation | undefined } | "lost";
+
+/**
+ * Whether that approval uses up the hour's allowance. One the Company
+ * performed on Iris's approval does. So does one whose outcome is unknown,
+ * because it may have been performed and the allowance bounds what is: no
+ * answer, the route's 502 for a lost Company response, or its 429 while the
+ * Company is still performing (the page can't tell that from Poppy's own
+ * rate limit). An answer that says nothing was performed doesn't: not
+ * covered, declined by the Company, new terms, expired.
+ */
+export function usesAllowance(answer: ApprovalAnswer) {
+  if (answer === "lost") return true;
+  if (answer.operation?.state === "succeeded")
+    return answer.operation.approvedBy?.approver === "agent";
+  return answer.status === 429 || answer.status >= 500;
 }
