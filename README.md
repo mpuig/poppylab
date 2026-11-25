@@ -65,6 +65,8 @@ pnpm spec:drift
 
 ## Documentation
 
+Start with [Learn Poppy by running it](docs/learn/README.md): one task request by request, Poppy compared with an API, MCP, browser automation and UCP, and the official validator's results.
+
 `docs/` holds the design notes: [Poppy 1.0 notes](docs/pap-10.md), [coverage matrix](docs/pap-coverage.md), [portable runtime and deployment](docs/portable-runtime.md), [security review](docs/security-review.md), [community demos and interop](docs/community-demos.md), [Lantern](docs/lantern-noodles.md), [Harborline](docs/harborline-bank.md), [Northwind Air](docs/northwind-air.md), and the Juniper website and service notes. `DESIGN.md` records the visual systems; `PRODUCT.md` the product context.
 
 ## Deploy
