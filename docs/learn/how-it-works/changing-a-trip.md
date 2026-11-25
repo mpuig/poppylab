@@ -34,19 +34,20 @@ from Northwind each time it needs it and asks Northwind to change it.
 
 ### 2. Let Iris propose changes
 
-![Northwind's consent page lists five permissions for Iris, with a ticked box that reads: allow change proposals](../../../apps/playground/public/learn-media/how-it-works/changing-a-trip/02-permission-to-propose-changes.webp "Northwind's own page says what Iris may do, in Northwind's words.")
+![Northwind's consent page has Elena selected and lists what Iris may do: read flights and fares, her trips and her profile, and, with a ticked box, propose changes to her trips and preferences](../../../apps/playground/public/learn-media/how-it-works/changing-a-trip/02-permission-to-propose-changes.webp "Northwind's own page says what Iris may do, in Northwind's words.")
 
 Elena signs in on Northwind's own page and sees what Iris would be allowed to
-do. Northwind lists five permissions. Three are for reading: flight search,
-her trips, and her loyalty account and preferences. Two are for proposing
-changes, and Northwind keeps them apart: one covers a seat, a meal or
-assistance, which can be changed back, and the other covers paid baggage,
+do. Under Read, Northwind lists three things: flight search, her trips, and
+her profile with its loyalty points and preferences. Under Propose changes it
+lists one, with a ticked box: her trips and preferences. Northwind's
+description says what that covers, from a seat or a meal to paid baggage,
 cancellation, upgrades and flight changes.
 
-The ticked box says what proposing means. Iris may ask for a change, and every
-change still needs a separate approval with exact terms. In the lab Elena
-reaches this page in two visits, first for read-only access and then for the
-permission to propose changes.
+The line beside Propose changes says what proposing means: each one waits for
+her approval. Iris may ask for a change, and every change still needs a
+separate approval with exact terms. In the lab Elena reaches this page in two
+visits, first for read-only access and then for the permission to propose
+changes.
 [Changing an order](changing-an-order.md#3-sign-in-at-lantern) follows the
 sign-in and both consents one screen at a time.
 
@@ -60,9 +61,19 @@ the conversation showed them under each answer:
 Reading and change proposals · flights:search, bookings:read, profile:read, preferences:write, bookings:change
 ```
 
+The ticked box stands for the last two. Northwind describes
+`preferences:write` as changes that can be undone and `bookings:change` as
+changes that can cost money or cannot be undone.
+
 Before the second consent, with read-only access, the same request for an
 upgrade got this answer from Iris: nothing was sent to the company, because
-Elena's access did not include the permission the change needs.
+Elena's access did not include the permission the change needs. The steps
+under that answer said so too:
+
+```text
+Read /api/account/bookings
+Did not ask for /api/account/bookings/NW7K2P/upgrade (permission not granted); nothing was sent
+```
 
 </details>
 
@@ -135,7 +146,7 @@ answer, as Iris received it:
 ```json
 {
   "status": "approval_required",
-  "operation_id": "op_nzHUJlKtnTs2WU_KrjzV90Vm",
+  "operation_id": "op_aAlzftB53KD09ggOO1h4FImT",
   "summary": "Upgrade NA 118 to Business for USD 248.00. The fictional upgrade is refundable only if Northwind Air cancels this segment.",
   "terms": {
     "booking_reference": "NW7K2P",
@@ -150,7 +161,7 @@ answer, as Iris received it:
     "refund_terms": "The fictional upgrade is refundable only if Northwind Air cancels this segment.",
     "payment": "Simulated card on file — no real charge"
   },
-  "expires_at": "2026-11-25T15:53:20.055Z"
+  "expires_at": "2026-11-25T20:53:49.029Z"
 }
 ```
 
@@ -158,22 +169,24 @@ answer, as Iris received it:
 
 ### 5. Read the price and the conditions
 
-![The approval panel with Northwind's description of the upgrade and, under All exact terms, the booking, the flight, the cabin before and after, the amount due and the refund rule](../../../apps/playground/public/learn-media/how-it-works/changing-a-trip/05-terms-of-the-upgrade.webp "The price and the conditions come from Northwind. Iris shows them as it received them.")
+![The approval panel: amount due 248 dollars, Northwind's description of the upgrade, the cabin from Economy to Business, the booking reference, the refund terms, the payment, and a button that reads Approve 248 dollars](../../../apps/playground/public/learn-media/how-it-works/changing-a-trip/05-terms-of-the-upgrade.webp "The price and the conditions come from Northwind. Iris shows them as it received them.")
 
-The panel shows what Northwind will do if Elena approves. The sentence that
-begins "Northwind Air says" is the airline's own description: flight NA 118,
-Business, 248 dollars, refundable only if Northwind cancels the flight. Opened
-here, All exact terms holds the same facts as data: the booking, the flight,
-the cabin she has and the cabin she gets, the amount due in cents and the
-refund rule.
+The panel shows what Northwind will do if Elena approves. The amount due
+comes first, 248 dollars, and the button repeats it: "Approve $248.00". The
+sentence that begins "Northwind Air says" is the airline's own description:
+flight NA 118, Business, refundable only if Northwind cancels the flight.
 
-Northwind wrote every one of these values. Iris named the booking and the
-offer, and its request had no field for a price.
+Below it the terms are set out as rows: the cabin she has and the cabin she
+gets, the booking reference, the amount due, the refund terms and the
+payment. All exact terms, one click away, holds everything Northwind sent,
+including the flight, the offer and the version of the booking the terms were
+worked out for. Northwind wrote every one of these values. Iris named the
+booking and the offer, and its request had no field for a price.
 
 An approval covers this revision of the terms and no other, and it expires.
-This one was good for ten minutes. The terms also name the version of the
-booking they were worked out for, so the approval is for the booking as it
-stood when Northwind made the offer.
+This one was good for ten minutes. Because the terms name the version of the
+booking, the approval is for the booking as it stood when Northwind made the
+offer.
 
 <details>
 <summary>What travelled</summary>
@@ -187,12 +200,13 @@ part of that answer.
 
 ### 6. Approve the upgrade
 
-![The proposal now reads Completed, with Northwind's confirmation in green: upgrade accepted for 248 dollars](../../../apps/playground/public/learn-media/how-it-works/changing-a-trip/06-upgrade-approved.webp "Northwind upgraded the flight when the approval arrived, and said so.")
+![The proposal is now a finished entry in the conversation. It reads Completed, with Northwind's confirmation, upgrade accepted for 248 dollars, and the line Approved by you](../../../apps/playground/public/learn-media/how-it-works/changing-a-trip/06-upgrade-approved.webp "Northwind upgraded the flight when the approval arrived, and said so.")
 
-Elena presses Approve this change. Iris sends Northwind the same request
+Elena presses the Approve button. Iris sends Northwind the same request
 again, this time with her approval attached. Northwind checks that the
 approval matches the terms it offered, upgrades the flight and confirms it:
-upgrade accepted for 248 dollars.
+upgrade accepted for 248 dollars. The proposal stays in the conversation as a
+finished entry, with that confirmation and the line "Approved by you."
 
 The lab charges nothing. The terms say so themselves, in the line "Simulated
 card on file".
@@ -230,11 +244,11 @@ Read /api/account/bookings
 Three more requests were tried at this point in the run. None of them reached
 Northwind as a request for a change.
 
-| Elena wrote                      | Iris answered                                                          |
-| -------------------------------- | ---------------------------------------------------------------------- |
-| add 3 bags to NA 402             | The demo adds 1 or 2 checked bags at a time; you asked for 3.          |
-| Add a bag to my flight on 18 May | Which flight should the bag go on? Your flights are NA 402 and NA 118. |
-| upgrade NA 999                   | NA 999 isn't in your bookings. Your flights are NA 402 and NA 118.     |
+| Elena wrote                      | Iris answered                                                                                              |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| add 3 bags to NA 402             | The demo adds 1 or 2 checked bags at a time; you asked for 3.                                              |
+| Add a bag to my flight on 18 May | Which flight should the bag go on? Your flights are NA 402 and NA 118. For example: “Add a bag to NA 402.” |
+| upgrade NA 999                   | NA 999 isn't in your bookings. Your flights are NA 402 and NA 118.                                         |
 
 </details>
 
@@ -246,9 +260,10 @@ Elena answers: "Add a bag to NA 402." Iris asks Northwind for one more checked
 bag on that flight, and Northwind answers with new terms: 45 dollars,
 refundable until 24 hours before departure.
 
-This is a second proposal, separate from the first. The upgrade Elena approved
-is listed above it as Completed, and that approval does not extend to the bag.
-Each paid change waits for an approval of its own.
+This is a second proposal, separate from the first, with its own amount due
+and its own Approve button. The upgrade Elena approved is listed above it as
+Completed, and that approval does not extend to the bag. Each paid change
+waits for an approval of its own.
 
 <details>
 <summary>What travelled</summary>
@@ -264,7 +279,7 @@ Iris sent the flight and the number of bags. Northwind's answer:
 ```json
 {
   "status": "approval_required",
-  "operation_id": "op_ysBZpiEwhGow2n5xYSMsIlCr",
+  "operation_id": "op_KhCre0Gwd4OxhMHb_RAzHF6M",
   "summary": "Add 1 checked bag to NA 402 for USD 45.00. The fictional bag fee is refundable until 24 hours before departure; no real payment is taken.",
   "terms": {
     "booking_reference": "NW7K2P",
@@ -278,7 +293,7 @@ Iris sent the flight and the number of bags. Northwind's answer:
     "refund_terms": "The fictional bag fee is refundable until 24 hours before departure; no real payment is taken.",
     "payment": "Simulated card on file — no real charge"
   },
-  "expires_at": "2026-11-25T15:58:13.636Z"
+  "expires_at": "2026-11-25T20:55:58.013Z"
 }
 ```
 
@@ -292,11 +307,12 @@ Iris sent the flight and the number of bags. Northwind's answer:
 
 Elena approves, and Northwind confirms that it added one checked bag for 45
 dollars. The conversation now holds two finished proposals. Each one shows the
-terms Northwind set and the confirmation Northwind sent after Elena approved
-them.
+confirmation Northwind sent and the line "Approved by you", and opens to the
+terms Northwind set.
 
 While the bag was waiting for her decision, Northwind's website listed it as
-awaiting approval and the booking still had one bag on that flight.
+awaiting approval, said until when it would wait, and still showed one bag on
+that flight.
 
 ### 10. The trip at Northwind afterwards
 
@@ -309,19 +325,21 @@ shown, because Elena took it.
 
 ### 11. Northwind's record of the agent
 
-![Northwind's list of agent activity: the bag and the upgrade, both marked Applied, each with the line Approved by you, in your agent](../../../apps/playground/public/learn-media/how-it-works/changing-a-trip/11-agent-activity-at-northwind.webp "Northwind keeps its own record of what the agent asked for and who approved it.")
+![Northwind's list of agent activity: the bag and the upgrade, both marked Applied, each with its time and the line Approved by you, in your agent](../../../apps/playground/public/learn-media/how-it-works/changing-a-trip/11-agent-activity-at-northwind.webp "Northwind keeps its own record of what the agent asked for and who approved it.")
 
 Lower on the same page, Northwind lists what Elena's agent has done on her
-behalf. Each entry carries the terms as Northwind wrote them, what Northwind
-did, and who approved it. A traveller who wonders why a booking costs more
-than it did finds the answer on the airline's site.
+behalf. Each entry carries Northwind's description of the change, what
+Northwind did, at what time, and who approved it. A traveller who wonders why
+a booking costs more than it did finds the answer on the airline's site.
+Northwind keeps the entries: the screenshot is from twelve minutes after the
+bag was added, after Iris had read the booking once more.
 
 ## What Northwind controls
 
 Northwind stays in charge of its own business throughout.
 
-- It decides which permissions an agent can be given, and it keeps reading,
-  changes that can be undone and paid changes apart.
+- It decides which permissions an agent can be given, and it keeps reading
+  apart from proposing changes.
 - The sign-in and the consents happen on its own pages, with its own wording.
 - It sets the price and the conditions of every change and puts them in the
   terms. The agent names the offer, or the flight and the number of bags.
