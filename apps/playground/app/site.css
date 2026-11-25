@@ -844,3 +844,181 @@ body:has(.site) {
     gap: 2px;
   }
 }
+
+/* Learn: long-form reading built from docs/learn. */
+.learn {
+  width: var(--wrap);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: clamp(32px, 5vw, 72px);
+  padding: clamp(40px, 6vw, 72px) 0 var(--band);
+}
+.learn-nav {
+  position: sticky;
+  top: 88px;
+  align-self: start;
+  font-size: 15px;
+}
+.learn-nav-title {
+  font-weight: 700;
+  margin-bottom: 12px !important;
+}
+.learn-nav ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-left: 1px solid var(--line);
+}
+.learn-nav a {
+  display: block;
+  padding: 7px 0 7px 14px;
+  margin-left: -1px;
+  border-left: 1px solid transparent;
+  color: var(--ink-soft);
+  text-decoration: none;
+}
+.learn-nav a:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}
+.learn-nav a[aria-current="page"] {
+  color: var(--ink);
+  font-weight: 650;
+  border-left-color: var(--ink);
+}
+.learn-article {
+  min-width: 0;
+  max-width: 72ch;
+}
+.learn-article > h1 {
+  font-size: clamp(34px, 4vw, 50px);
+  margin-bottom: 28px;
+}
+.learn-body {
+  color: var(--ink-soft);
+}
+/* Prose at a reading measure; tables and code use the article's width. */
+.learn-body p,
+.learn-body ul,
+.learn-body ol,
+.learn-body h2,
+.learn-body h3 {
+  max-width: 62ch;
+}
+.site .learn-body > * + * {
+  margin-top: 18px;
+}
+.site .learn-body h2 {
+  color: var(--ink);
+  font-size: clamp(26px, 2.6vw, 32px);
+  margin-top: 56px;
+  scroll-margin-top: 88px;
+}
+.site .learn-body h3 {
+  color: var(--ink);
+  font-size: 21px;
+  margin-top: 40px;
+  scroll-margin-top: 88px;
+}
+.site .learn-body h2 + *,
+.site .learn-body h3 + * {
+  margin-top: 14px;
+}
+.learn-body strong {
+  color: var(--ink);
+}
+.learn-body ul,
+.learn-body ol {
+  padding-left: 1.3em;
+}
+.learn-body li + li {
+  margin-top: 8px;
+}
+.learn-body :not(pre) > code {
+  background: var(--mist);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+}
+.learn-body pre {
+  background: var(--mist);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px 18px;
+  overflow-x: auto;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--ink);
+}
+.learn-body pre code {
+  font-size: 13px;
+  overflow-wrap: normal;
+  white-space: pre;
+}
+.table-scroll {
+  overflow-x: auto;
+  border-top: 2px solid var(--ink);
+}
+.learn-body table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 15px;
+  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
+}
+.learn-body th,
+.learn-body td {
+  text-align: left;
+  vertical-align: top;
+  padding: 11px 14px 11px 0;
+  border-bottom: 1px solid var(--line);
+}
+.learn-body th {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 14px;
+}
+.learn-body td code {
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+.learn-body td:first-child {
+  color: var(--ink);
+}
+.learn-foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 64px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+  font-size: 15px;
+}
+.learn-next {
+  font-weight: 650;
+}
+@media (max-width: 900px) {
+  .learn {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+  .learn-nav {
+    position: static;
+  }
+  .learn-nav ol {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 18px;
+    border-left: 0;
+  }
+  .learn-nav a {
+    padding: 4px 0;
+    border-left: 0;
+    margin-left: 0;
+  }
+  .learn-nav a[aria-current="page"] {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+  }
+}

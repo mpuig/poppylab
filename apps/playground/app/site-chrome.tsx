@@ -84,7 +84,7 @@ export const companies = [
   },
 ] as const;
 
-export function SiteBar({ current }: { current?: "developers" }) {
+export function SiteBar({ current }: { current?: "developers" | "learn" }) {
   return (
     <header className="bar">
       <a className="wordmark" href="/">
@@ -95,6 +95,12 @@ export function SiteBar({ current }: { current?: "developers" }) {
         <a href="/#how">How it works</a>
         <a href="/#who">Who it&apos;s for</a>
         <a href="/#try">Try it</a>
+        <a
+          href="/learn"
+          aria-current={current === "learn" ? "page" : undefined}
+        >
+          Learn
+        </a>
         <a
           href="/developers"
           aria-current={current === "developers" ? "page" : undefined}
@@ -129,6 +135,7 @@ export function SiteFoot() {
               {s.label}
             </a>
           ))}
+        <a href="/learn">Learn</a>
         <a href="/developers">Developers</a>
         <a href={LAB_REPOSITORY}>
           Source on GitHub <ArrowUpRight size={14} aria-hidden="true" />
