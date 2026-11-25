@@ -169,11 +169,13 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
   /**
    * At the token and revocation endpoints a nonce challenge comes before the
    * client assertion or grant is consumed, so the agent can retry the same
-   * request (RFC 9449 §8).
+   * request (RFC 9449 §8). Without a proof there is nothing to challenge: a
+   * pushed request and a revocation go on without one, and the token
+   * endpoint refuses it when it verifies the proof.
    */
   const challengeBeforeConsuming = async (c: Context) => {
-    if (!deploy.dpopNonces) return;
-    const header = c.req.header("dpop") ?? "";
+    const header = c.req.header("dpop");
+    if (!deploy.dpopNonces || !header) return;
     const jwk = (decodeProtectedHeader(header) as { jwk?: JWK }).jwk;
     const payload = JSON.parse(
       Buffer.from(header.split(".")[1] ?? "", "base64url").toString() || "{}",
