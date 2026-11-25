@@ -30,18 +30,22 @@ export function mountPersistence(app: Hono, ctx: Ctx) {
    * Save only when state may have changed: any non-GET, any request with a
    * Session header (sessions, replays), or a path that marked itself dirty
    * (consent pages, tenant creation and eviction, grant links). Website polls
-   * and discovery reads then cost no storage write.
+   * and discovery reads then cost no storage write. Each request answers for
+   * itself: requests overlap while one awaits, and a change is saved by the
+   * end of the request that made it.
    */
   app.use("*", async (c, next) => {
     if (flags.failed)
       return c.json({ error: "storage_unavailable_restart_required" }, 503, {
         "Retry-After": "60",
       });
-    flags.dirty = c.req.method !== "GET" || !!c.req.header("poppy-session");
+    const request = c.req.raw;
+    if (c.req.method !== "GET" || c.req.header("poppy-session"))
+      ctx.markDirty(request);
     await next();
-    if (flags.dirty || ctx.removed.length) {
+    if (ctx.dirty.has(request) || ctx.removed.length) {
       state.replays = replay.snapshot();
-      const touched = ctx.tenantsTouched.get(c.req.raw);
+      const touched = ctx.tenantsTouched.get(request);
       const changes: Changes = {
         tenants: touched ? [touched] : [],
         removed: ctx.removed.splice(0),

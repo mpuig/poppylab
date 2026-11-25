@@ -103,9 +103,9 @@ export function createTenancy(ctx: Ctx) {
   function enter(request: Request) {
     const key = ctx.tenantKeys.get(request) ?? SHARED_TENANT;
     ctx.tenantsTouched.set(request, key);
-    return tenantApp(key);
+    return tenantApp(key, request);
   }
-  function tenantApp(key: string) {
+  function tenantApp(key: string, request: Request) {
     const now = Date.now();
     let tenant = state.tenants[key];
     if (
@@ -133,10 +133,10 @@ export function createTenancy(ctx: Ctx) {
         }
       }
       tenant = state.tenants[key] = { business: {}, operations: {}, used: now };
-      ctx.markDirty();
+      ctx.markDirty(request);
     }
     // Persist the idle clock hourly, not on every read.
-    if (now - tenant.used > 3600000) ctx.markDirty();
+    if (now - tenant.used > 3600000) ctx.markDirty(request);
     tenant.used = now;
     tenant.operations ??= {};
     let entry = apps.get(key);

@@ -143,10 +143,10 @@ export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
         return c.json({ error: "invalid_token" }, 401, {
           "WWW-Authenticate": 'DPoP error="invalid_token"',
         });
-      if (grant.holder !== holder) ctx.markDirty();
+      if (grant.holder !== holder) ctx.markDirty(c.req.raw);
       grant.holder = holder;
       // The browser that approved this consent now sees this user's copy.
-      if (isolated && grant.browser) ctx.link(grant.browser, holder);
+      if (isolated && grant.browser) ctx.link(c.req.raw, grant.browser, holder);
     }
     if (!session) {
       for (const [k, v] of Object.entries(state.sessions))
