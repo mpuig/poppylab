@@ -174,6 +174,8 @@ export async function setup(
       extensions?: string;
       user?: string;
       session?: string;
+      /** A JSON body for a POST or PUT (default `{}`). */
+      body?: Record<string, unknown>;
     } = {},
   ) => {
     const method = options.method ?? "GET";
@@ -203,7 +205,7 @@ export async function setup(
           : {}),
         ...(method !== "GET" ? { "content-type": "application/json" } : {}),
       },
-      ...(method !== "GET" ? { body: "{}" } : {}),
+      ...(method !== "GET" ? { body: JSON.stringify(options.body ?? {}) } : {}),
     });
   };
   return { app, store, metadata, credentials, form, post, token, signIn, call };

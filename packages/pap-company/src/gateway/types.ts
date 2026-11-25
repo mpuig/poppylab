@@ -269,6 +269,11 @@ export type ConversationTurn = {
   /** Signed in: the token's account and scopes (none when signed out). */
   account?: string;
   scopes: string[];
+  /**
+   * The grant's resources (`selectResources`), such as the accounts the
+   * User chose at consent. Absent signed out and for a grant without them.
+   */
+  resources?: string[];
   /** Notes kept for this conversation; the Company Agent may change them. */
   memory: Record<string, unknown>;
   /** `extensions.operations.approval`, only when the request declares v3. */

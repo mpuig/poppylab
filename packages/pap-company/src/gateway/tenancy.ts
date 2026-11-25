@@ -191,6 +191,9 @@ export function createTenancy(ctx: Ctx) {
       return copy;
     });
   }
-  return { enter, gate, mountDispatch };
+  /** The grant behind a request's token, in the request's own tenant. */
+  const grantOf = (c: Context) =>
+    grantFor(ctx.tenantKeys.get(c.req.raw) ?? SHARED_TENANT)(c);
+  return { enter, gate, grantOf, mountDispatch };
 }
 export type Tenancy = ReturnType<typeof createTenancy>;

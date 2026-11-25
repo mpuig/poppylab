@@ -38,6 +38,10 @@ function company(): Partial<CompanyDefinition> {
             .map((r) => `${persona}:${r}`),
     mount: (app, ctx) => {
       mounts.push(ctx);
+      // The Company Agent says which resources its turn carried.
+      ctx.converse((turn) => ({
+        replies: [{ data: { resources: turn.resources ?? null } }],
+      }));
       const view = (c: Context) => {
         const s = ctx.sessionFor(c);
         return c.json({
@@ -267,6 +271,41 @@ it("keeps grants without resources working: from before them, and at Companies w
   expect(Object.values(y.store.value.grants)[0]).not.toHaveProperty(
     "resources",
   );
+});
+
+it("gives the Company Agent's turn the grant's resources, and none signed out or for a grant without them", async () => {
+  const x = await lab({ isolation: "visitor" });
+  let n = 0;
+  /** The resources the Company Agent saw for one new conversation. */
+  const seen = async (access?: string) => {
+    const r = await x.call("/poppy/conversations?wait=0", {
+      method: "POST",
+      ...(access ? { access } : {}),
+      session: newSessionId(),
+      body: {
+        id: `req_resources_${++n}`,
+        message: { author: { type: "agent" }, text: "hello" },
+      },
+    });
+    expect(r.status).toBe(201);
+    const { events } = (await r.json()) as {
+      events: Array<{
+        type: string;
+        message?: { role: string; data?: { resources?: unknown } };
+      }>;
+    };
+    return events.find((e) => e.message?.role === "company")?.message?.data
+      ?.resources;
+  };
+  const tokens = signedIn(
+    await x.signIn("things:read", { resources: "acc_1" }),
+  );
+  expect(await seen(tokens.access_token)).toEqual(["elena:acc_1"]);
+  expect(await seen()).toBeNull();
+  // A grant persisted before `resources` existed: none on the turn either.
+  const [stored] = Object.values(x.store.value.grants);
+  delete stored!.resources;
+  expect(await seen(tokens.access_token)).toBeNull();
 });
 
 it("shows a request only its own grant: not signed out, not on the website, not to another tenant", async () => {
