@@ -1315,6 +1315,7 @@ footer .lab-links a:hover {
   text-decoration: underline;
 }
 .operation-headline {
+  margin: 10px 0 6px;
   display: flex;
   align-items: baseline;
   gap: 10px;
@@ -1329,7 +1330,7 @@ footer .lab-links a:hover {
   font-variant-numeric: tabular-nums;
 }
 .company-says {
-  margin: 0;
+  margin: 8px 0;
   padding-left: 12px;
   border-left: 2px solid var(--line);
 }
@@ -1386,10 +1387,15 @@ footer .lab-links a:hover {
   font-size: 14px;
 }
 .needs-you {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  min-height: 0;
   border-top: 1px solid var(--line);
   background: var(--soft);
 }
 .needs-you-toggle {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1419,7 +1425,8 @@ footer .lab-links a:hover {
   color: var(--muted);
 }
 .needs-you-body {
-  max-height: 46vh;
+  min-height: 0;
+  max-height: 36vh;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 0 22px 14px;
@@ -1447,4 +1454,8 @@ footer .lab-links a:hover {
 }
 .standing-instruction [role="alert"] {
   color: var(--danger);
+}
+/* With a proposal waiting, the chat above it keeps room to read. */
+.chat-workspace .conversation:has(.needs-you) .messages {
+  min-height: 7.5rem;
 }
