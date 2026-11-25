@@ -346,6 +346,18 @@ async function orderChange(
     return {
       say: `The demo adds 1 to 5 of a dish at a time; you asked for ${tooMany.quantity} × ${tooMany.name}.`,
     };
+  // A dish comes off only an order that has it: the Company refuses any
+  // other. An order that doesn't list its dishes can't say, so it is asked.
+  const has = list(order, "items").filter((item) => text(item.dish_id));
+  const absent = has.length
+    ? remove.filter(
+        ({ dish_id }) => !has.some((item) => item.dish_id === dish_id),
+      )
+    : [];
+  if (absent.length)
+    return {
+      say: `${absent.map(({ name }) => name).join(" and ")} ${absent.length === 1 ? "isn't" : "aren't"} in your order. Your order has ${has.map((item) => `${typeof item.quantity === "number" ? `${item.quantity} × ` : ""}${text(item.name) || text(item.dish_id)}`).join(" and ")}.`,
+    };
   return {
     call: "change_order",
     args: {

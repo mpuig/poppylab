@@ -224,6 +224,61 @@ it("adds and removes dishes in one message, each by its own verb", async () => {
   });
 });
 
+it("removes only a dish the order has, when the order lists its dishes", async () => {
+  // As Lantern answers my_orders: the order with its items.
+  const listed = () => {
+    const tools = restaurant();
+    tools.my_orders = tool({
+      orders: [
+        {
+          id: "ord_LNB1001",
+          status: "scheduled",
+          slot: { id: "fri-1830" },
+          items: [
+            { dish_id: "shoyu-ramen", name: "Shoyu ramen", quantity: 2 },
+            { dish_id: "edamame", name: "Salted edamame", quantity: 1 },
+          ],
+        },
+      ],
+    });
+    return tools;
+  };
+  // On the menu, not in the order: the Company would refuse the request.
+  expect(
+    await demoChange("Remove the matcha ice cream", listed(), key),
+  ).toEqual({
+    say: "Matcha ice cream isn't in your order. Your order has 2 × Shoyu ramen and 1 × Salted edamame.",
+  });
+  // Nothing is sent for the rest of the message either.
+  expect(
+    await demoChange(
+      "remove the pork gyoza and the matcha ice cream, and add edamame",
+      listed(),
+      key,
+    ),
+  ).toEqual({
+    say: "Pork gyoza (6) and Matcha ice cream aren't in your order. Your order has 2 × Shoyu ramen and 1 × Salted edamame.",
+  });
+  // A dish it has is removed, and one it lacks can still be added.
+  expect(
+    await demoChange(
+      "remove the edamame and add a matcha ice cream",
+      listed(),
+      key,
+    ),
+  ).toMatchObject({
+    call: "change_order",
+    args: {
+      add: [{ dish_id: "matcha-ice", quantity: 1 }],
+      remove: ["edamame"],
+    },
+  });
+  // An order that doesn't list its dishes can't say: the Company decides.
+  expect(
+    await demoChange("Remove the matcha ice cream", restaurant(), key),
+  ).toMatchObject({ call: "change_order", args: { remove: ["matcha-ice"] } });
+});
+
 it("asks instead of guessing a dish, a day or an order", async () => {
   expect(await demoChange("change my order", restaurant(), key)).toHaveProperty(
     "say",
