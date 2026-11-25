@@ -1,4 +1,4 @@
-import { beforeEach, it, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 const s = vi.hoisted(() => ({
   run: {
     protocol: "1.0",
@@ -31,6 +31,8 @@ const s = vi.hoisted(() => ({
         },
   },
   request: vi.fn(),
+  /** The Company's answer to a request Iris sends as the run. */
+  pap: vi.fn(),
   revoke: vi.fn(async () => undefined),
   set: vi.fn(),
   remove: vi.fn(),
@@ -60,6 +62,7 @@ vi.mock("@/lib/runtime", () => {
       run.sessionId = `new_${Math.random()}`;
     },
     revokeRefreshToken: s.revoke,
+    papRequest: s.pap,
   };
 });
 vi.mock("@poppy-lab/pap-client", async (original) => ({
@@ -87,6 +90,8 @@ vi.mock("@/lib/deployment", () => ({
 }));
 import { GET } from "./route";
 import { seedRun } from "@/lib/runs";
+import { directState } from "@/lib/direct-state";
+import { ProtocolError } from "@poppy-lab/pap-client";
 beforeEach(async () => {
   vi.stubEnv("NODE_ENV", "development");
   s.run.busy = false;
@@ -275,6 +280,91 @@ it("retains only pre-account turns on later consent, never another account's con
   s.request.mockResolvedValue(success());
   expect((await GET(req())).status).toBe(200);
   expect(JSON.stringify(s.run.history)).not.toContain("Private order");
+});
+
+describe("the conversation with the Company's agent across a sign-in (§8.2)", () => {
+  const endpoint = "https://food.papsandbox.com/poppy/conversations";
+  const run = s.run as typeof s.run & { conversation?: unknown };
+  // The User is in a Direct Conversation, and the Company had asked again.
+  const open = () => ({
+    endpoint,
+    id: "cnv_1",
+    cursor: "evt_9",
+    seen: ["evt_9"],
+    invitation: { event: "evt_ur", reason: "About order ord_LNB0907" },
+    direct: { id: "cnv_d", cursor: "evt_d3", seen: ["evt_d3"] },
+  });
+  beforeEach(() => {
+    s.pap.mockReset();
+    run.conversation = open();
+    s.request.mockResolvedValue(success());
+  });
+  afterEach(() => {
+    delete run.conversation;
+  });
+
+  it("keeps it for the same account: the Company still takes the new sign-in on both threads", async () => {
+    const tokens: unknown[] = [];
+    s.pap.mockImplementation(async (r: { token?: string }) => {
+      tokens.push(r.token);
+      return { conversation_id: "cnv_1", events: [] };
+    });
+    expect((await GET(req())).status).toBe(200);
+    expect(run.conversation).toEqual(open());
+    // Asked with the new sign-in, as reads that change nothing here.
+    expect(tokens).toEqual(["new-access", "new-access"]);
+    expect(s.pap.mock.calls.map((call) => call.slice(1))).toEqual([
+      [`${endpoint}/cnv_1/events?cursor=evt_9`, "GET"],
+      [`${endpoint}/cnv_d/events?cursor=evt_d3`, "GET"],
+    ]);
+    expect(directState(s.run as never).direct).toBe(true);
+  });
+
+  it.each([
+    [
+      "says it belongs to another account",
+      new ProtocolError(404, "conversation_not_found"),
+    ],
+    ["doesn't answer", new Error("socket hang up")],
+  ])(
+    "forgets it, and the Direct Conversation with it, when the Company %s",
+    async (_name, error) => {
+      s.pap.mockRejectedValue(error);
+      expect((await GET(req())).status).toBe(200);
+      expect(s.run.accountToken).toBe("new-refresh");
+      expect(run.conversation).toBeUndefined();
+      // What a reloaded page is told: no Direct Conversation, no invitation.
+      expect(directState(s.run as never)).toEqual({
+        direct: false,
+        conversation: false,
+        invitation: null,
+      });
+    },
+  );
+
+  it("forgets it when only the User's own thread belongs to another account", async () => {
+    s.pap.mockImplementation(async (_run: unknown, url: string) => {
+      if (url.includes("/cnv_d/"))
+        throw new ProtocolError(404, "conversation_not_found");
+      return { conversation_id: "cnv_1", events: [] };
+    });
+    expect((await GET(req())).status).toBe(200);
+    expect(run.conversation).toBeUndefined();
+  });
+
+  it("keeps a signed-out conversation on first sign-in without asking: no account has used it (§8.11)", async () => {
+    s.run.accountToken = undefined;
+    expect((await GET(req())).status).toBe(200);
+    expect(run.conversation).toEqual(open());
+    expect(s.pap).not.toHaveBeenCalled();
+  });
+
+  it("leaves it alone when the sign-in fails", async () => {
+    s.request.mockResolvedValue(success({ refresh_token: undefined }));
+    expect((await GET(req())).status).toBe(400);
+    expect(run.conversation).toEqual(open());
+    expect(s.pap).not.toHaveBeenCalled();
+  });
 });
 
 it("rejects wrong issuer or state without exchanging the code", async () => {
