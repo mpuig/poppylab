@@ -152,7 +152,7 @@ A UsageSummary has `billingPeriod`, `billLastPeriod`, a `costAdditionalDetailLas
 
 ## Website
 
-A landing page with the last week and the last bill of a sample meter and the plans, `/for-agents` with endpoints, ESPI routes, customers and scopes, and the customer portal (`/account`): meters and this month, the last seven days, bills, agent activity, feedback reports and connected agents, refreshed every two seconds. It has no "how it works" page yet.
+A landing page with the last week and the last bill of a sample meter and the plans, `/for-agents` with endpoints, ESPI routes, customers and scopes, and the customer portal (`/account`): meters and this month, the last seven days, bills, agent activity, feedback reports and connected agents, refreshed every two seconds. `/how-it-works` shows, with the shared generator in `pap-core` (`how-it-works.ts`), the three steps as the site serves them: the discovery document, the own API's operations, and Elena's EV charger switching to the flat rate, priced on the last closed bill as the switch's terms price it; its questions say what the ESPI shape is and what is excluded. `src/how-it-works.test.ts` checks it against the served objects.
 
 ## Tests and scenarios
 

@@ -24,7 +24,7 @@ import {
   type PlanId,
 } from "./data.ts";
 import { billsFor, type Bill } from "./billing.ts";
-import { nowSeconds } from "./time.ts";
+import { isoDay, nextMonthStart, nowSeconds } from "./time.ts";
 import {
   customerStore,
   planStatus,
@@ -32,7 +32,8 @@ import {
   type Meter,
   type State,
 } from "./state.ts";
-import { cannotSwitch, switchAction } from "./plans.ts";
+import { cannotSwitch, estimate, switchAction } from "./plans.ts";
+import { howItWorksPage, type AgentGuide } from "./how-it-works.ts";
 import { ESPI, ESPI_BASE, mountEspi } from "./espi.ts";
 import {
   isEspiScope,
@@ -478,6 +479,52 @@ export const fernwick: CompanyDefinition = {
     },
   ],
   landing: homePage,
-  pages: { "/for-agents": forAgentsPage },
+  pages: {
+    "/for-agents": forAgentsPage,
+    "/how-it-works": (origin) => howItWorksPage(origin, agentGuide(origin)),
+  },
   pageHeaders,
 };
+
+/**
+ * What "How it works" shows, from what the endpoints serve: the discovery
+ * document, the own API's operations, the excluded tasks, and Elena's EV
+ * charger switching to the flat rate, priced as the switch's terms are.
+ */
+function agentGuide(origin: string): AgentGuide {
+  const elena = energyPersona("elena")!;
+  const seed = elena.meters.find((m) => m.id === "UP-E2")!;
+  const history = [{ plan: seed.plan, from: 0 }];
+  const meter: Meter = {
+    seed,
+    state: { plans: history, version: 1 },
+    history,
+  };
+  const now = nowSeconds();
+  const { basis, difference } = estimate(meter, "flat", now);
+  return {
+    discovery: fernwick.discovery(origin, new URL(origin).host),
+    paths: accountPaths as unknown as AgentGuide["paths"],
+    excluded: (fernwick.excludedTasks?.(origin) ?? []).map((task) =>
+      String(task.task),
+    ),
+    espi: `${origin}${ESPI_BASE}`,
+    example: {
+      ask: "Switch my EV charger to the flat rate.",
+      customer: elena.name,
+      meter: seed.label,
+      from: plans[seed.plan].name,
+      to: plans.flat.name,
+      effective: isoDay(nextMonthStart(now)),
+      basis: {
+        month: new Date(basis.start * 1000).toLocaleDateString("en-US", {
+          month: "long",
+          timeZone: "UTC",
+        }),
+        kwh: (basis.deliveredWh / 1000).toFixed(1),
+        billed: basis.total,
+        onNewPlan: basis.total + difference,
+      },
+    },
+  };
+}
