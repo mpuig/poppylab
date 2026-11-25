@@ -1,14 +1,20 @@
 import type { Metadata } from "next";
-import { Archivo, Martian_Mono } from "next/font/google";
+import { Geist_Mono, Hanken_Grotesk, STIX_Two_Text } from "next/font/google";
 
-const display = Archivo({
-  variable: "--font-archivo",
+// Headings and the wordmark; the face of technical and scientific publishing.
+const serif = STIX_Two_Text({
+  variable: "--font-serif",
   subsets: ["latin"],
-  axes: ["wdth"],
+  style: ["normal", "italic"],
   display: "swap",
 });
-const mono = Martian_Mono({
-  variable: "--font-martian",
+const sans = Hanken_Grotesk({
+  variable: "--font-sans",
+  subsets: ["latin"],
+  display: "swap",
+});
+const mono = Geist_Mono({
+  variable: "--font-mono",
   subsets: ["latin"],
   display: "swap",
 });
@@ -23,7 +29,10 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${display.variable} ${mono.variable}`}>
+    <html
+      lang="en"
+      className={`${serif.variable} ${sans.variable} ${mono.variable}`}
+    >
       <body>{children}</body>
     </html>
   );

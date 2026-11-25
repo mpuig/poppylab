@@ -125,8 +125,9 @@ export function Conversation({
                   disabled={busy}
                   onClick={() => void p.connectTo(item.url)}
                 >
-                  <span>{item.sector}</span>
-                  <strong>{item.name}</strong>
+                  <strong>
+                    {item.name} <span>{item.sector}</span>
+                  </strong>
                   <small>“{item.ask}”</small>
                 </button>
               ))}

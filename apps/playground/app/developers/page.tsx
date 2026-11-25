@@ -101,29 +101,59 @@ export default function Developers() {
 
       <main id="main">
         <section className="dev-hero" aria-labelledby="dev-title">
-          <p className="eyebrow">Developer guide</p>
-          <h1 id="dev-title">
-            Test your agent or your Company against the lab
-          </h1>
-          <p className="lead">
-            Poppy Lab runs both sides of Personal Agent Protocol 1.0 with
-            Operations v3. Point Iris at your own Company, or point your own
-            Personal Agent at the four fictional ones.
-          </p>
-          <div className="actions">
-            <a className="button" href="/playground">
-              Open the playground <ArrowRight size={18} aria-hidden="true" />
-            </a>
-            <a className="button ghost" href="/learn">
-              Learn how it works
-            </a>
-            <a className="button ghost" href={SPEC_URL}>
-              Specification <ArrowUpRight size={16} aria-hidden="true" />
-            </a>
-            <a className="button ghost" href={LAB_REPOSITORY}>
-              Source on GitHub <ArrowUpRight size={16} aria-hidden="true" />
-            </a>
+          <div className="dev-copy">
+            <h1 id="dev-title">
+              Test your agent or your Company against the lab
+            </h1>
+            <p className="lead">
+              Poppy Lab runs both sides of Personal Agent Protocol 1.0 with
+              Operations v3. Point Iris at your own Company, or point your own
+              Personal Agent at the four fictional ones.
+            </p>
+            <div className="actions">
+              <a className="button" href="/playground">
+                Open the playground <ArrowRight size={18} aria-hidden="true" />
+              </a>
+              <a className="button ghost" href="/learn">
+                Learn how it works
+              </a>
+              <a className="button ghost" href={SPEC_URL}>
+                Specification <ArrowUpRight size={16} aria-hidden="true" />
+              </a>
+              <a className="button ghost" href={LAB_REPOSITORY}>
+                Source on GitHub <ArrowUpRight size={16} aria-hidden="true" />
+              </a>
+            </div>
           </div>
+          <figure
+            className="pairs"
+            role="img"
+            aria-label="Two ways to test: Iris, the lab's agent, against your Company; or your Personal Agent against the lab's four Companies"
+          >
+            <div className="pair">
+              <span className="party">
+                Iris<small>the lab&apos;s Personal Agent</small>
+              </span>
+              <span className="reach" />
+              <span className="party company yours">
+                Your Company<small>any address you enter</small>
+              </span>
+            </div>
+            <div className="pair">
+              <span className="party yours">
+                Your Personal Agent<small>an HTTPS client_id</small>
+              </span>
+              <span className="reach" />
+              <span className="party company">
+                The four test Companies
+                <small>grocery, restaurant, bank, airline</small>
+              </span>
+            </div>
+            <figcaption>
+              <b>Figure 1.</b> Two ways to test. A dashed outline is the side
+              you bring.
+            </figcaption>
+          </figure>
         </section>
 
         <section className="below" aria-labelledby="iris-title">
@@ -137,7 +167,7 @@ export default function Developers() {
               every API call, each labelled with its spec section. Approval
               cards show exact terms; the model can&apos;t press them.
             </p>
-            <a className="button dark" href="/playground">
+            <a className="button ghost" href="/playground">
               Open the playground <ArrowRight size={18} aria-hidden="true" />
             </a>
           </div>
@@ -175,10 +205,9 @@ export default function Developers() {
             </p>
           </div>
           <div
-            className="legend scroll"
+            className="legend stack"
             role="region"
             aria-label="Test Companies"
-            tabIndex={0}
           >
             <table>
               <thead>
@@ -194,15 +223,21 @@ export default function Developers() {
                 {companies.map((c) => (
                   <tr key={c.id}>
                     <th scope="row">{c.name}</th>
-                    <td>
+                    <td data-label="Host">
                       <code>{host(c.url)}</code>
                     </td>
-                    <td>{c.scopes}</td>
-                    <td>{c.people.replace(" or ", ", ")}</td>
-                    <td className="row-links">
-                      <a href={connect(c.url)}>Connect</a>
-                      <a href={`${c.url}${c.agents.path}`}>{c.agents.label}</a>
-                      <a href={c.site.href}>{c.site.label}</a>
+                    <td data-label="Scopes">{c.scopes}</td>
+                    <td data-label="Customers">
+                      {c.people.replace(" or ", ", ")}
+                    </td>
+                    <td className="row-links" data-label="Links">
+                      <span>
+                        <a href={connect(c.url)}>Connect</a>
+                        <a href={`${c.url}${c.agents.path}`}>
+                          {c.agents.label}
+                        </a>
+                        <a href={c.site.href}>{c.site.label}</a>
+                      </span>
                     </td>
                   </tr>
                 ))}
