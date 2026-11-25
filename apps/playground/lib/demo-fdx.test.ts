@@ -1,5 +1,10 @@
 import { it, expect, vi } from "vitest";
-import { demoFdxAnswer, demoFdxRead, demoFdxReply } from "./demo-fdx";
+import {
+  demoFdxAnswer,
+  demoFdxRead,
+  demoFdxReply,
+  formatFdx,
+} from "./demo-fdx";
 
 const fdx = (accounts: unknown) => ({
   fdx_list_accounts: { execute: vi.fn(async () => accounts) },
@@ -47,4 +52,73 @@ it("passes an error answer on, with what to do next", async () => {
   expect(demoFdxReply(answer, () => "error: sign_in_required")).toContain(
     "Sign in first",
   );
+});
+
+it("words FDX-shaped balances and transactions for the User, with the account's currency and direction", async () => {
+  const account = {
+    accountId: "acc_HLB_A100",
+    productName: "Operating checking",
+    accountNumberDisplay: "0479",
+    accountType: "CHECKING",
+    status: "OPEN",
+    currency: { currencyCode: "USD" },
+  };
+  expect(
+    formatFdx({
+      accounts: [
+        {
+          ...account,
+          currentBalance: 12845,
+          availableBalance: 12800.5,
+          balanceAsOf: "2026-11-25T13:55:00Z",
+        },
+      ],
+    }),
+  ).toBe(
+    "- Operating checking ···0479 · checking · open\n  Balance $12,845.00 · available $12,800.50 · as of 2026-11-25 13:55 UTC",
+  );
+  const tools = {
+    fdx_list_accounts: {
+      execute: vi.fn(async () => ({ accounts: [account] })),
+    },
+    fdx_list_transactions: {
+      execute: vi.fn(async () => ({
+        accountId: "acc_HLB_A100",
+        transactions: [
+          {
+            transactionId: "txn_1",
+            transactionTimestamp: "2026-11-17T09:10:00Z",
+            description: "Cloudline Software",
+            amount: 24,
+            debitCreditMemo: "DEBIT",
+            status: "POSTED",
+            category: "software",
+          },
+          {
+            transactionId: "txn_2",
+            transactionTimestamp: "2026-11-15T12:00:00Z",
+            description: "Payroll",
+            amount: 3250,
+            debitCreditMemo: "CREDIT",
+            status: "PENDING",
+            category: "income",
+          },
+        ],
+      })),
+    },
+  };
+  expect(formatFdx(await demoFdxAnswer("transactions", tools))).toBe(
+    [
+      "Operating checking ···0479:",
+      "  - 2026-11-17 09:10 · Cloudline Software · −$24.00 · posted · software",
+      "  - 2026-11-15 12:00 · Payroll · $3,250.00 · pending · income",
+    ].join("\n"),
+  );
+  // Balances left out (no fdx:ACCOUNT_DETAILED): no balance line.
+  expect(formatFdx({ accounts: [account] })).toBe(
+    "- Operating checking ···0479 · checking · open",
+  );
+  // Anything else is shown as it is by the caller.
+  expect(formatFdx({ error: "fdx_error" })).toBeUndefined();
+  expect(formatFdx({ something: 1 })).toBeUndefined();
 });
