@@ -31,6 +31,9 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
   const pushed = new ObjectMap<Pushed>((state.pushed ??= {}));
   let failures = 0,
     windowStart = Date.now();
+  /** Whether that consent page is still open: not answered, not expired. */
+  const live = (nonce: string) =>
+    (pending.get(nonce)?.expires ?? 0) >= Date.now();
 
   /** The authorization request's checks, for a query or a pushed request. */
   async function check(q: Record<string, string | undefined>) {
@@ -122,7 +125,11 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
           });
         return c.json({ error: "invalid_dpop_proof" }, 400);
       }
-    for (const [k, p] of pushed) if (p.expires < Date.now()) pushed.delete(k);
+    // Requests past their 90 seconds go, except one whose consent page is
+    // still open: that page's browser may load it again.
+    for (const [k, p] of pushed)
+      if (p.expires < Date.now() && !(p.consent && live(p.consent)))
+        pushed.delete(k);
     if (ctx.overShare(pushed.values(), id, 500))
       return c.json({ error: "rate_limited" }, 429);
     const uri = `${REQUEST_URI}${randomId()}`;
@@ -161,9 +168,14 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
   app.get("/oauth/authorize", async (c) => {
     const q = c.req.query();
     if (!q.request_uri) return consent(c, q);
-    // A pushed request: only client_id and request_uri count.
+    // A pushed request: only client_id and request_uri count. Its 90 seconds
+    // are for opening it; once used, its consent page decides (below).
     const p = pushed.get(tokenHash(q.request_uri));
-    if (!p || p.expires < Date.now() || p.client !== q.client_id)
+    if (
+      !p ||
+      p.client !== q.client_id ||
+      (!p.consent && p.expires < Date.now())
+    )
       return c.json({ error: "invalid_request_uri" }, 400);
     return consent(c, p.params, p);
   });
@@ -181,12 +193,7 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
       // the browser that holds its consent page's cookie gets that page
       // again until it is answered or expires. Nothing changes, so nothing
       // is saved.
-      const page = pending.get(nonce);
-      if (
-        !page ||
-        page.expires < Date.now() ||
-        consentCookie(c, nonce) !== nonce
-      )
+      if (!live(nonce) || consentCookie(c, nonce) !== nonce)
         return c.json({ error: "invalid_request_uri" }, 400);
     } else {
       for (const [id, p] of pending)

@@ -72,6 +72,7 @@ export type Consent = {
 export type Pushed = {
   client: string;
   params: Record<string, string>;
+  /** Until when it can be opened; once used, its consent page decides. */
   expires: number;
   dpop?: string;
   /** Set on first use: the nonce of the one consent page it made. */
