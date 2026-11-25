@@ -552,8 +552,10 @@ describe("FDX-shaped tools (poppylab.dev/fdx v1)", () => {
       document(pdf.slice(0, 8)),
       ok({ statementId: "stmt_1" }),
       { status: 204, body: null },
+      // A transport that lost the document's shape.
+      { status: 200, contentType: undefined, bytes: "%PDF-1.4" } as never,
     );
-    for (let i = 0; i < 6; i++)
+    for (let i = 0; i < 7; i++)
       expect(
         await bad.tools.fdx_get_statement!.execute({
           accountId: "a",

@@ -378,7 +378,12 @@ export async function fdxStatementPdf(
   );
   if (isOutcome(r)) return r.outcome;
   if (!ok(r)) return failure(r.status, "body" in r ? r.body : undefined);
-  if (!isDocument(r)) return invalid;
+  if (
+    !isDocument(r) ||
+    !(r.bytes instanceof Uint8Array) ||
+    typeof r.contentType !== "string"
+  )
+    return invalid;
   const type = r.contentType.split(";")[0]!.trim().toLowerCase();
   if (
     type !== "application/pdf" ||
