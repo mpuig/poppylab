@@ -11,11 +11,12 @@ import { Conversation } from "./conversation";
 import { Inspector } from "./inspector";
 import { IdentityPanel } from "./identity-panel";
 import { ConversationList } from "./conversation-list";
+import { Guide } from "./guide";
 
 const copy: Record<View, { title: string; lead: string; tab: string }> = {
   run: {
     title: "Meet Iris, your agent.",
-    lead: "Choose a model, connect a company, and tell Iris what you need.",
+    lead: "Pick a company, sign in as a test customer, and tell Iris what you need.",
     tab: "Playground",
   },
   inspect: {
@@ -84,7 +85,7 @@ export function Workspace() {
 
   return (
     <div
-      className={`app ${view === "run" ? "chat-workspace" : ""} ${p.messages.length ? "has-conversation" : ""}`}
+      className={`app ${view === "run" ? "chat-workspace" : ""} ${p.messages.length || p.connected ? "has-conversation" : ""}`}
     >
       <header className="site-header">
         <a href="/" className="brand">
@@ -129,6 +130,7 @@ export function Workspace() {
               </p>
             )}
             <ConnectionSetup p={p} onInspect={() => setView("inspect")} />
+            {!p.readOnly && !p.missing && <Guide p={p} />}
             <Conversation p={p} transcript={transcript} taskInput={taskInput} />
             <p className="composer-note">
               {p.instruction

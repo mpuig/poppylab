@@ -16,7 +16,7 @@ export function ModelSettings({
   disabled: boolean;
 }) {
   const [config, setConfig] = useState(initialModel),
-    [open, setOpen] = useState(true),
+    [open, setOpen] = useState(needsKey(initialModel.provider)),
     [notice, setNotice] = useState("");
   const [defaults, setDefaults] = useState<
     Record<string, { configured: boolean }>
@@ -88,10 +88,16 @@ export function ModelSettings({
       >
         <span>
           {definition.id === "demo"
-            ? "Protocol demo · no model, no key"
+            ? "Demo mode · no AI model or key needed"
             : `${definition.label} · ${definition.model}${definition.detail ? " · low" : ""}`}
         </span>
-        <span>{open ? "Close" : "Model settings"}</span>
+        <span>
+          {open
+            ? "Close"
+            : definition.id === "demo"
+              ? "Use your own model"
+              : "Model settings"}
+        </span>
       </button>
       {open && (
         <form onSubmit={save} className="model-config">
@@ -178,10 +184,8 @@ export function ModelSettings({
                 }
                 setConfig(initialModel);
                 onChange(initialModel);
-                setOpen(true);
-                setNotice(
-                  "Saved key removed. Add a key or use the local environment configuration.",
-                );
+                setOpen(false);
+                setNotice("Saved settings removed. Back to demo mode.");
               }}
             >
               Forget saved settings

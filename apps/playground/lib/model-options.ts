@@ -15,10 +15,14 @@ export type ModelConfig = {
   apiKey: string;
   model: string;
 };
+/**
+ * A first visit starts in demo mode, so the chat works with no key. A saved
+ * choice, or a key configured on the server, takes its place.
+ */
 export const initialModel: ModelConfig = {
-  provider: "openai-compatible",
+  provider: "demo",
   apiKey: "",
-  model: "gpt-6-luna",
+  model: "none",
 };
 export function restoreModel(value: unknown): ModelConfig | null {
   if (!value || typeof value !== "object") return null;

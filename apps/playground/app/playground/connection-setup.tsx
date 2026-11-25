@@ -1,15 +1,15 @@
 "use client";
+import { useEffect, useState } from "react";
 import { ArrowUpRight, LoaderCircle } from "lucide-react";
 import { ModelSettings } from "../model-settings";
-import {
-  exampleUrl,
-  harborlineUrl,
-  lanternUrl,
-  northwindUrl,
-} from "./companies";
+import { labCompany } from "./companies";
 import type { Playground } from "./use-playground";
 
-/** Model settings, the Company URL form and the connection status row. */
+/**
+ * Model settings and the connection: one status row, and the address form
+ * only when it is needed (another Company's address, or changing Company).
+ * The lab's own Companies are picked from the cards in the conversation.
+ */
 export function ConnectionSetup({
   p,
   onInspect,
@@ -20,40 +20,47 @@ export function ConnectionSetup({
   const { result, busy, discovering } = p;
   // `connected` implies a result; keep the type in step with the flag.
   const company = p.connected ? result : null;
-  const suggest = (url: string) => {
-    p.setCompanyUrl(url);
-    document.getElementById("company-url")?.focus();
-  };
+  const [editing, setEditing] = useState(false);
+  // An address that isn't one of the cards has to be seen to be sent.
+  const form = editing || (!company && !labCompany(p.companyUrl));
+  useEffect(() => {
+    if (company) setEditing(false);
+  }, [company]);
+  useEffect(() => {
+    if (editing) document.getElementById("company-url")?.focus();
+  }, [editing]);
   return (
     <div className="workspace-setup">
       <ModelSettings onChange={p.configureModel} disabled={busy} />
-      <form
-        className="setup company-setup"
-        onSubmit={p.discover}
-        aria-label="Connect to a Company"
-      >
-        <div className="company-field">
-          <label htmlFor="company-url">Company URL</label>
-          <input
-            id="company-url"
-            type="url"
-            required
-            value={p.companyUrl}
-            disabled={busy}
-            onChange={(event) => p.setCompanyUrl(event.target.value)}
-            placeholder="https://company.example"
-          />
-        </div>
-        <button className="connect-button" type="submit" disabled={busy}>
-          {discovering ? (
-            <>
-              <LoaderCircle className="spin" size={15} /> Connecting
-            </>
-          ) : (
-            "Connect"
-          )}
-        </button>
-      </form>
+      {form && (
+        <form
+          className="setup company-setup"
+          onSubmit={p.discover}
+          aria-label="Connect to a Company"
+        >
+          <div className="company-field">
+            <label htmlFor="company-url">Company address</label>
+            <input
+              id="company-url"
+              type="url"
+              required
+              value={p.companyUrl}
+              disabled={busy}
+              onChange={(event) => p.setCompanyUrl(event.target.value)}
+              placeholder="https://company.example"
+            />
+          </div>
+          <button className="connect-button" type="submit" disabled={busy}>
+            {discovering ? (
+              <>
+                <LoaderCircle className="spin" size={15} /> Connecting
+              </>
+            ) : (
+              "Connect"
+            )}
+          </button>
+        </form>
+      )}
       <div className="connection-row">
         {company ? (
           // What discovery proved: a valid poppy.json at this domain. Account
@@ -72,56 +79,35 @@ export function ConnectionSetup({
               Poppy {company.document.protocol_version}
             </span>
           </span>
-        ) : (
+        ) : discovering ? (
           <span className="quiet">
-            Try{" "}
-            <button
-              className="text-button"
-              type="button"
-              disabled={busy}
-              onClick={() => suggest(exampleUrl)}
-            >
-              Juniper Market
-            </button>
-            ,{" "}
-            <button
-              className="text-button"
-              type="button"
-              disabled={busy}
-              onClick={() => suggest(lanternUrl)}
-            >
-              Lantern Noodle Bar
-            </button>{" "}
-            or{" "}
-            <button
-              className="text-button"
-              type="button"
-              disabled={busy}
-              onClick={() => suggest(harborlineUrl)}
-            >
-              Harborline Bank
-            </button>
-            , or{" "}
-            <button
-              className="text-button"
-              type="button"
-              disabled={busy}
-              onClick={() => suggest(northwindUrl)}
-            >
-              Northwind Air
-            </button>
-            . They are our fictional test companies.
+            <LoaderCircle className="spin" size={13} /> Connecting to{" "}
+            {labCompany(p.companyUrl)?.name ?? "the company"}…
           </span>
+        ) : (
+          <span className="quiet">Not connected yet.</span>
         )}
-        {result && (
-          <button
-            type="button"
-            className="text-button inspect-link"
-            onClick={onInspect}
-          >
-            Inspect connection <ArrowUpRight size={13} />
-          </button>
-        )}
+        <span className="connection-actions">
+          {!form && (
+            <button
+              type="button"
+              className="text-button inspect-link"
+              disabled={busy}
+              onClick={() => setEditing(true)}
+            >
+              {company ? "Change company" : "Use another address"}
+            </button>
+          )}
+          {result && (
+            <button
+              type="button"
+              className="text-button inspect-link"
+              onClick={onInspect}
+            >
+              Inspect connection <ArrowUpRight size={13} />
+            </button>
+          )}
+        </span>
       </div>
     </div>
   );

@@ -34,7 +34,12 @@ import {
   saveInstruction,
   type Instruction,
 } from "@/lib/standing-instructions";
-import { exampleUrl, historyToMessages, type Message } from "./companies";
+import {
+  exampleUrl,
+  historyToMessages,
+  labCompany,
+  type Message,
+} from "./companies";
 
 /** The conversation the address names, if it names one. */
 const conversationInAddress = () =>
@@ -48,6 +53,8 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
   // The conversation this page shows. The ref serves requests in flight.
   const [conversation, setConversation] = useState<string | undefined>();
   const current = useRef<string | undefined>(undefined);
+  /** The `?company=` link was followed once (effects run twice in development). */
+  const arrived = useRef(false);
   /** Ended conversations are read-only; `keptUntil` is when they go. */
   const [ended, setEnded] = useState<{ keptUntil?: number } | undefined>();
   /** The address names a conversation this browser can't open. */
@@ -106,8 +113,16 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     const id = conversationInAddress();
     if (!id) {
       const wanted = new URLSearchParams(window.location.search).get("company");
-      if (wanted && /^https?:\/\/[^\s]{1,280}$/.test(wanted))
-        setCompanyUrl(wanted.replace(/\/$/, ""));
+      if (wanted && /^https?:\/\/[^\s]{1,280}$/.test(wanted)) {
+        const url = wanted.replace(/\/$/, "");
+        setCompanyUrl(url);
+        // A link to one of the lab's own Companies connects straight away;
+        // any other address only fills the form, for the visitor to send.
+        if (labCompany(url) && !arrived.current) {
+          arrived.current = true;
+          void connectTo(url);
+        }
+      }
       return;
     }
     current.current = id;
@@ -286,9 +301,14 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [operations, instruction, signedIn, busy]);
 
-  async function discover(event: FormEvent<HTMLFormElement>) {
+  const discover = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    return connectTo(companyUrl);
+  };
+  /** Connects to a Company: the form's address, or a card's. */
+  async function connectTo(url: string) {
     if (busy) return;
+    setCompanyUrl(url);
     setDiscovering(true);
     setError("");
     setResult(null);
@@ -303,7 +323,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
       const response = await fetch("/api/discover", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: companyUrl.trim() }),
+        body: JSON.stringify({ url: url.trim() }),
       });
       if (response.ok) {
         current.current = undefined;
@@ -444,6 +464,9 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     busy,
     accountAction,
     discover,
+    connectTo,
+    /** No model: the demo's keyword rules answer. */
+    demo: modelConfig.provider === "demo",
     send,
     retryMessage,
     removeMessage,

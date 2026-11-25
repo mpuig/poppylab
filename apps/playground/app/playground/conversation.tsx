@@ -7,7 +7,7 @@ import { needsYou } from "@/lib/operation-presentation";
 import { hideLinkSecrets } from "@/lib/link-display";
 import { OperationReview } from "../operation-review";
 import { StandingInstruction } from "./standing-instruction";
-import { accountCompany } from "./companies";
+import { accountCompany, labCompanies, labCompany } from "./companies";
 import type { Playground } from "./use-playground";
 
 /** A Company message's data, indented for reading (it arrives compact). */
@@ -61,6 +61,22 @@ export function Conversation({
   );
   // `connected` implies a result; keep the type in step with the flag.
   const company = connected ? result : null;
+  // Requests that work here and now: public ones signed out, account ones
+  // signed in, and the change once Iris may propose it (in demo mode, only
+  // where the demo's rules can).
+  const known = labCompany(company?.requestedUrl);
+  const suggestions: string[] = !company
+    ? []
+    : known
+      ? signedIn
+        ? [
+            ...known.account,
+            ...(p.canWrite && (!p.demo || known.demoChange) ? [known.ask] : []),
+          ]
+        : [...known.open]
+      : p.demo
+        ? []
+        : ["What can you help me with?"];
   return (
     <section className="conversation" aria-label="Chat">
       <div className="conversation-heading">
@@ -88,34 +104,52 @@ export function Conversation({
         aria-live="polite"
         aria-relevant="additions"
       >
-        {!messages.length && (
+        {!messages.length && !connected && !p.readOnly && (
+          <div className="company-picker">
+            <p>Pick a company to start</p>
+            <div className="company-cards">
+              {labCompanies.map((item) => (
+                <button
+                  type="button"
+                  key={item.url}
+                  className="company-card"
+                  disabled={busy}
+                  onClick={() => void p.connectTo(item.url)}
+                >
+                  <span>{item.sector}</span>
+                  <strong>{item.name}</strong>
+                  <small>“{item.ask}”</small>
+                </button>
+              ))}
+            </div>
+            <span>
+              They are fictional. Nothing is charged, shipped or moved.
+            </span>
+          </div>
+        )}
+        {!messages.length && connected && !p.readOnly && (
           <div className="empty-state">
             <p>
-              {connected
-                ? "What would you like to know?"
-                : "Your conversation starts here."}
+              {suggestions.length
+                ? "What would you like to ask?"
+                : signedIn
+                  ? "Ask Iris about your account."
+                  : "Sign in to ask about your account."}
             </p>
-            <span>
-              {connected
-                ? "Ask about products, your basket, orders, or delivery."
-                : "Connect to a Company to get started."}
-            </span>
-            {connected && (
+            {!!suggestions.length && (
               <div className="suggestions">
-                {["What are your products?", "When do you deliver?"].map(
-                  (question) => (
-                    <button
-                      type="button"
-                      key={question}
-                      onClick={() => {
-                        p.setTask(question);
-                        taskInput.current?.focus();
-                      }}
-                    >
-                      {question}
-                    </button>
-                  ),
-                )}
+                {suggestions.map((question) => (
+                  <button
+                    type="button"
+                    key={question}
+                    onClick={() => {
+                      p.setTask(question);
+                      taskInput.current?.focus();
+                    }}
+                  >
+                    {question}
+                  </button>
+                ))}
               </div>
             )}
           </div>
@@ -208,7 +242,7 @@ export function Conversation({
               {signedIn && p.moreAccess && (
                 <button
                   type="button"
-                  className="text-button"
+                  className="ghost-button"
                   disabled={busy || waitingSignIn}
                   onClick={() =>
                     void p.accountAction("signin", undefined, "write")
@@ -219,7 +253,7 @@ export function Conversation({
               )}
               <button
                 type="button"
-                className="text-button"
+                className={signedIn ? "text-button" : "connect-button"}
                 disabled={busy}
                 onClick={() =>
                   void p.accountAction(signedIn ? "signout" : "signin")
@@ -286,45 +320,47 @@ export function Conversation({
           )}
         </section>
       )}
-      <form className="composer" onSubmit={p.send}>
-        <label className="sr-only" htmlFor="task">
-          Message
-        </label>
-        <textarea
-          ref={taskInput}
-          id="task"
-          value={p.task}
-          maxLength={2000}
-          rows={2}
-          disabled={!connected || busy || p.readOnly}
-          onChange={(event) => p.setTask(event.target.value)}
-          onKeyDown={(event) => {
-            if (
-              event.key === "Enter" &&
-              !event.shiftKey &&
-              !event.nativeEvent.isComposing
-            ) {
-              event.preventDefault();
-              event.currentTarget.form?.requestSubmit();
+      {(connected || p.readOnly) && (
+        <form className="composer" onSubmit={p.send}>
+          <label className="sr-only" htmlFor="task">
+            Message
+          </label>
+          <textarea
+            ref={taskInput}
+            id="task"
+            value={p.task}
+            maxLength={2000}
+            rows={2}
+            disabled={!connected || busy || p.readOnly}
+            onChange={(event) => p.setTask(event.target.value)}
+            onKeyDown={(event) => {
+              if (
+                event.key === "Enter" &&
+                !event.shiftKey &&
+                !event.nativeEvent.isComposing
+              ) {
+                event.preventDefault();
+                event.currentTarget.form?.requestSubmit();
+              }
+            }}
+            placeholder={
+              p.readOnly
+                ? "This conversation has ended."
+                : connected
+                  ? "Ask Iris…"
+                  : "Connect a Company first…"
             }
-          }}
-          placeholder={
-            p.readOnly
-              ? "This conversation has ended."
-              : connected
-                ? "Ask Iris…"
-                : "Connect a Company first…"
-          }
-        />
-        <button
-          type="submit"
-          className="send-button"
-          disabled={!connected || busy || p.readOnly || !p.task.trim()}
-          aria-label="Send message"
-        >
-          <ArrowUp size={19} />
-        </button>
-      </form>
+          />
+          <button
+            type="submit"
+            className="send-button"
+            disabled={!connected || busy || p.readOnly || !p.task.trim()}
+            aria-label="Send message"
+          >
+            <ArrowUp size={19} />
+          </button>
+        </form>
+      )}
     </section>
   );
 }
