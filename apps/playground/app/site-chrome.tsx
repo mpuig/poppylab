@@ -1,5 +1,6 @@
 import { ArrowUpRight } from "lucide-react";
 import { LAB_REPOSITORY, SPEC_URL, labSites } from "@poppy-lab/pap-core";
+import { BarNav } from "./bar-nav";
 import { specLink } from "./spec-ref";
 
 // Inlined at build time: local Companies in development, poppylab.dev when deployed.
@@ -111,24 +112,7 @@ export function SiteBar({ current }: { current?: "developers" | "learn" }) {
       <a className="wordmark" href="/">
         Poppy Lab
       </a>
-      <nav aria-label="Sections">
-        <a href="/#why">Why it exists</a>
-        <a href="/#how">How it works</a>
-        <a href="/#who">Who it&apos;s for</a>
-        <a href="/#try">Try it</a>
-        <a
-          href="/learn"
-          aria-current={current === "learn" ? "page" : undefined}
-        >
-          Learn
-        </a>
-        <a
-          href="/developers"
-          aria-current={current === "developers" ? "page" : undefined}
-        >
-          Developers
-        </a>
-      </nav>
+      <BarNav current={current} />
       <a className="button small" href="/playground">
         <span className="long">Try the live demo</span>
         <span className="short">Live demo</span>

@@ -372,7 +372,6 @@ export default function Home() {
                     {c.site.label} <ArrowUpRight size={15} aria-hidden="true" />
                   </a>
                 </div>
-                <p className="people">Test customers: {c.people}</p>
               </article>
             ))}
           </div>
