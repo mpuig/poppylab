@@ -102,7 +102,7 @@ describe("Direct Sign-In (0.3 §4.2)", () => {
       write: "yes",
     });
     if (scope === "poppy:read") {
-      expect(page.body).toContain("Read only.");
+      expect(page.body).toContain("None. If you want a change later");
       expect(page.body).not.toContain('name="write"');
     }
     const granted = (await x.exchange(x.codeOf(response)!)).json();

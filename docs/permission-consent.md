@@ -10,6 +10,10 @@ Juniper accepts any non-empty subset of its two independent scopes, including wr
 
 Poppy offers the two choices above, not a general picker of custom scopes. It rejects a token response that grants permissions beyond what was requested. Renewal also asks explicitly for the current scopes and rejects a wider response: an expiring Session can't turn read into write.
 
+## The consent page
+
+The four Companies' consent pages are one sheet in each Company's own look (`packages/pap-core/src/consent-sheet.ts`): the agent's name with its verified host; "Sign in as", the two test customers as a choice of one; "What Iris may do", as what it may read without asking again and the changes it may propose, each of which waits for a separate approval; one sentence on where to take the permission away; and the same two buttons, "Don't allow" and "Allow". The page names no scope and uses no protocol term. It posts the same fields as before (`nonce`, `account`, `password`, `decision`, and each Company's own, such as `write` or Harborline's `allow_<scope>`), so what the server binds and checks is unchanged.
+
 ## Widening is not acting
 
 Each consent uses a new candidate Session. Until it completes successfully, the previous access, its conversation and its proposals stay in place. A counter of completed consents avoids mistaking a refusal for success just because the previous account was still connected.

@@ -300,7 +300,10 @@ describe("Harborline FDX-shaped API", () => {
 
   it("shows an account choice per persona on the consent page only for FDX scopes, without scripts", async () => {
     const { page } = await h.authorize("elena", ["accounts:read", ...fdx]);
-    expect(page.body).toContain("Accounts for the FDX-shaped API");
+    // Under the people, since the accounts are chosen with the person.
+    expect(page.body).toContain(
+      '<div class="sheet-accounts"><h3>Accounts to share</h3>',
+    );
     // The choice limits the whole grant, and the page says so.
     expect(page.body).toContain(
       "The accounts you choose are the only ones the agent can see or act on, through Harborline's own API or the FDX-shaped one.",
@@ -315,7 +318,7 @@ describe("Harborline FDX-shaped API", () => {
       expect(page.body).toContain(`name="fdx_account_${id}" value="yes"`);
     expect(page.body).toContain('data-persona="robin"');
     expect(page.body).toContain(
-      'form:has(#account option[value="elena"]:checked) .fdx-persona[data-persona="elena"]{display:block}',
+      'form:has(#account-elena:checked) .fdx-persona[data-persona="elena"]{display:block}',
     );
     expect(page.body).not.toContain("<script");
     expect(page.headers["content-security-policy"]).toContain(

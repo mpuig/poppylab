@@ -8,9 +8,12 @@ import {
   annotatedJsonHtml,
   approvalSequenceSvg,
   breakablePath,
+  consentSheetCss,
+  consentSheetHtml,
   guideOperations,
   howItWorksLayoutCss,
   labBarHtml,
+  labConsentBarHtml,
   labLineHtml,
   labPlaygroundUrl,
   specRefHtml,
@@ -111,19 +114,6 @@ footer p{margin:0;max-width:78ch}
 footer a{color:#fff}
 footer .lab{margin-top:6px;padding-top:12px;border-top:1px solid rgba(255,255,255,.14);color:#b9c0cc;font-size:13px}
 footer .lab [aria-current]{color:#fff}
-.consent main{max-width:720px;margin:auto;padding:clamp(28px,5vw,56px) clamp(16px,4vw,32px)}
-.consent h1{font:900 clamp(34px,6vw,56px)/1 var(--display);text-transform:uppercase;margin:0 0 12px}
-.consent p{margin:0 0 14px;color:var(--ink-soft)}
-.consent label{display:block;font:800 18px var(--display);text-transform:uppercase;letter-spacing:.02em;margin:22px 0 8px}
-.consent select,.consent input[type=password]{width:100%;min-height:48px;border:1px solid var(--rule);border-radius:8px;padding:10px 12px;font:inherit;background:#fff;color:var(--ink)}
-.consent .check{display:flex;gap:12px;align-items:flex-start;margin-top:18px;font:800 18px var(--display);text-transform:uppercase}
-.consent .check input{width:22px;height:22px;margin-top:2px;accent-color:var(--amber)}
-.consent .actions{display:flex;gap:12px;justify-content:flex-end;margin-top:32px;border-top:1px solid var(--rule);padding-top:24px}
-.consent button{min-height:48px;padding:12px 22px;border-radius:8px;border:1px solid var(--ink);background:var(--ink);color:#fff;font:800 17px var(--display);letter-spacing:.04em;text-transform:uppercase;cursor:pointer}
-.consent button:hover{background:var(--ink-soft)}
-.consent .secondary{background:transparent;color:var(--ink);border-color:var(--rule)}
-.consent .secondary:hover{background:#fff}
-.consent small{display:block;margin-top:28px;color:var(--muted)}
 .notice{font-size:14px;color:var(--muted)}
 .card.form{background:#fff;border:1px solid var(--rule);border-radius:12px;padding:clamp(18px,3vw,28px);max-width:560px}
 .card.form label,.editor label{display:block;font:800 16px var(--display);text-transform:uppercase;letter-spacing:.02em;margin:0 0 8px}
@@ -204,8 +194,28 @@ article.activity p{margin:0;color:var(--ink-soft);font-size:15px}.records{list-s
 .faq dd{color:var(--ink-soft);font-size:15px}
 @media(max-width:640px){.sq-head{font-size:15px}.ops{grid-template-columns:minmax(0,1fr)}.zone{--n:1!important;grid-row:auto;grid-template-rows:none}.zone .cap{margin-top:22px}.zone:first-child .cap{margin-top:0}}
 @media(max-width:900px){.buttons{grid-template-columns:repeat(2,minmax(0,1fr))}.buttons.slots{grid-template-columns:repeat(2,minmax(0,1fr))}.cols{grid-template-columns:1fr}.tray{grid-template-columns:1fr}.tray .cta{justify-self:start}}
-@media(max-width:560px){.strip .wrap{flex-wrap:wrap;row-gap:8px}.strip nav{width:100%;gap:14px;font-size:12px;white-space:nowrap}.quantities{grid-template-columns:1fr}.strip .tag{display:none}.btn{min-height:104px;padding:14px}.customers{grid-template-columns:1fr}.consent .actions{flex-wrap:wrap}.consent .actions button{flex:1}}
-${howItWorksLayoutCss}`;
+@media(max-width:560px){.strip .wrap{flex-wrap:wrap;row-gap:8px}.strip nav{width:100%;gap:14px;font-size:12px;white-space:nowrap}.quantities{grid-template-columns:1fr}.strip .tag{display:none}.btn{min-height:104px;padding:14px}.customers{grid-template-columns:1fr}}
+${howItWorksLayoutCss}${consentSheetCss}.sheet{--sheet-rule:var(--rule);--sheet-accent:var(--ink)}
+.sheet h1{font:900 clamp(34px,5vw,56px)/1 var(--display);text-transform:uppercase;letter-spacing:.01em}
+.sheet-agent{color:var(--ink-soft)}.sheet-agent strong{color:var(--ink)}
+.sheet-verified{font:700 12px/1 var(--mono);padding:5px 8px;border-radius:3px;background:var(--ink);color:#fff}
+.sheet legend,.sheet h2{font:900 26px/1 var(--display);text-transform:uppercase;letter-spacing:.02em}
+.sheet-person{border-radius:10px;background:var(--tile);border-color:var(--tile-edge)}
+.sheet-person:has(input:checked){border-color:var(--amber);box-shadow:0 0 0 3px var(--amber-glow)}
+.sheet-person strong{font:800 20px/1.1 var(--display);text-transform:uppercase;letter-spacing:.01em}
+.sheet-person small{font:400 13px var(--mono);margin-top:4px}
+.sheet-person small,.sheet-note,.sheet-reads span,.sheet-option span span,.sheet-none,.sheet-foot p{color:var(--ink-soft)}
+.sheet-group h3{font:800 19px/1.1 var(--display);text-transform:uppercase;letter-spacing:.02em}
+.sheet-group h3 span{font:400 14px var(--body);text-transform:none;letter-spacing:0;color:var(--ink-soft)}
+.sheet-reads strong,.sheet-option strong{font-weight:700}
+.sheet-field label{font:800 18px var(--display);text-transform:uppercase;letter-spacing:.02em}
+.sheet-field input{border:1px solid var(--rule);border-radius:8px;background:#fff;color:var(--ink)}
+.sheet button{border-radius:8px;border:1px solid var(--ink);background:var(--ink);color:#fff;font:800 17px var(--display);letter-spacing:.04em;text-transform:uppercase}
+.sheet button:hover{background:var(--ink-soft)}
+.sheet button.secondary{background:transparent;color:var(--ink);border-color:var(--rule)}
+.sheet button.secondary:hover{background:#fff}
+.sheet-fine{font-size:13px;color:var(--muted)}
+`;
 
 export function shell(
   title: string,
@@ -495,9 +505,40 @@ export function consentPage(input: {
   client: string;
   clientHost: string;
 }) {
-  const { nonce, passwordRequired, scopes, client, clientHost } = input;
-  const read = scopes.split(" ").includes("orders:read"),
-    write = scopes.split(" ").includes("orders:write");
-  const agent = escape(client);
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Allow ${agent} · Lantern Noodle Bar</title>${fonts}<style>${css}</style></head><body class="consent"><header class="strip"><div class="wrap"><span class="brand">Lantern Noodle Bar</span><span class="tag">Connecting ${agent} from ${escape(clientHost)}</span></div></header><main><h1>Let ${agent} help with your orders.</h1><p>Lantern Noodle Bar is a fictional test restaurant. Choose a test customer and what the agent may do.</p><form method="post" action="/oauth/authorize"><input type="hidden" name="nonce" value="${escape(nonce)}"><label for="account">Test customer</label><select id="account" name="account">${customers.map((c) => `<option value="${c.id}">${escape(c.name)}</option>`).join("")}</select>${passwordRequired ? '<label for="password">Demo password</label><input id="password" type="password" name="password" required maxlength="256">' : ""}${read ? "<p><strong>See your scheduled orders</strong>: dishes, delivery slot, address and price.</p>" : ""}${write ? `<label class="check" for="write"><input id="write" type="checkbox" name="write" value="yes" checked ${read ? "" : "required"}><span>Propose changes to scheduled orders</span></label><p>Move the slot or add or remove dishes. A change can cost more. You approve every change separately in your agent.</p>` : "<p>Read only: no changes can be proposed.</p>"}<div class="actions"><button class="secondary" name="decision" value="decline" formnovalidate>Don't allow</button><button name="decision" value="approve">Allow</button></div></form><small>Fictional: no food, charges or deliveries. Independent experiment, not affiliated with or endorsed by the authors of the Personal Agent Protocol.</small></main></body></html>`;
+  const read = input.scopes.split(" ").includes("orders:read"),
+    write = input.scopes.split(" ").includes("orders:write");
+  const sheet = consentSheetHtml({
+    company: "Lantern",
+    agent: input.client,
+    agentHost: input.clientHost,
+    nonce: input.nonce,
+    passwordRequired: input.passwordRequired,
+    people: customers.map((customer) => ({
+      id: customer.id,
+      name: customer.name,
+      note: `Order for ${slots.find((slot) => slot.id === customer.order.slot)?.label ?? customer.order.slot}`,
+    })),
+    reads: read
+      ? [
+          {
+            title: "Your scheduled orders",
+            text: "Dishes, delivery slot, address and price.",
+          },
+        ]
+      : [],
+    changes: write
+      ? [
+          {
+            name: "write",
+            title: "Your scheduled orders",
+            text: "Move the slot, or add or remove dishes. A change can cost more.",
+            checked: true,
+            required: !read,
+          },
+        ]
+      : [],
+    disconnect: "You can take the permission away under Your account.",
+    fine: "Lantern Noodle Bar is a fictional restaurant: no food, charges or deliveries. Independent experiment, not affiliated with or endorsed by the authors of the Personal Agent Protocol.",
+  });
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Allow ${escape(input.client)} · Lantern Noodle Bar</title>${fonts}<style>${css}</style></head><body>${labConsentBarHtml("Lantern Noodle Bar")}<header class="strip"><div class="wrap"><span class="brand">Lantern Noodle Bar</span></div></header>${sheet}</body></html>`;
 }
