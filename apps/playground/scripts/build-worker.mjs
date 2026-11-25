@@ -12,6 +12,7 @@
  */
 import { spawnSync } from "node:child_process";
 import {
+  cpSync,
   existsSync,
   readdirSync,
   readFileSync,
@@ -113,3 +114,12 @@ if (found.size) {
 console.log(
   `Worker bundle checked: none of ${secrets.size} local values present.`,
 );
+
+// The static-assets incremental cache's "populate" step (open-next.config):
+// prerendered pages, already scanned above, become static assets.
+cpSync(
+  path.join(out, "cache"),
+  path.join(out, "assets", "cdn-cgi", "_next_cache"),
+  { recursive: true },
+);
+console.log("Prerendered pages copied to static assets.");
