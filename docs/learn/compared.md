@@ -46,7 +46,7 @@ Poppy keeps the API and OAuth, and changes three things around them:
   every Company.
 - **Every request is attributed.** The Session header names the agent, a
   pseudonymous user ID and the Session, signed for that one request
-  ([§5.2](https://personalagentprotocol.org/docs/1.0/spec#the-session-header)).
+  ([§5.2](https://personalagentprotocol.org/docs/1.0/spec#session-header)).
   A Company can rate-limit per user, keep state per Session and serve signed-out
   traffic it can actually reason about, which a plain API can't.
 

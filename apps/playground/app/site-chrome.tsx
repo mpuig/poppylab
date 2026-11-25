@@ -1,5 +1,6 @@
 import { ArrowUpRight } from "lucide-react";
-import { LAB_REPOSITORY, labSites } from "@poppy-lab/pap-core";
+import { LAB_REPOSITORY, SPEC_URL, labSites } from "@poppy-lab/pap-core";
+import { specLink } from "./spec-ref";
 
 // Inlined at build time: local Companies in development, poppylab.dev when deployed.
 const juniper =
@@ -11,7 +12,7 @@ const harborline =
 const northwind =
   process.env.NEXT_PUBLIC_NORTHWIND_URL ?? "http://northwind.localhost:4400";
 
-export const SPEC_URL = "https://personalagentprotocol.org/docs/1.0/spec";
+export { SPEC_URL };
 export const DEMOS_URL = "https://personalagentprotocol.org/docs/demos";
 
 export const host = (url: string) => new URL(url).host;
@@ -157,7 +158,7 @@ export function SiteFoot() {
         </a>
       </nav>
       <nav aria-label="Elsewhere">
-        <a href={SPEC_URL}>
+        <a href={SPEC_URL} {...specLink}>
           Specification <ArrowUpRight size={14} aria-hidden="true" />
         </a>
         <a href={DEMOS_URL}>

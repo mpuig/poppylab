@@ -202,7 +202,7 @@ the kit's `checklist.md`.
 ## Milestone 4: Operations
 
 If agents may change anything that matters, such as an order or a payment,
-add the [Operations extension](https://personalagentprotocol.org/docs/1.0/extensions).
+add the [Operations extension](https://personalagentprotocol.org/docs/1.0/extensions/operations).
 Instead of performing a change, your API answers with its exact terms and waits
 for an approval of those terms. The pattern, for a request that declares the
 extension:

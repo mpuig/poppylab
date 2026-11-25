@@ -1,4 +1,5 @@
 import { companyProfile, type DiscoveredCompany } from "@poppy-lab/pap-core";
+import { SpecRef } from "./spec-ref";
 
 const changeLabel = {
   none: "No changes",
@@ -35,7 +36,9 @@ export function CompanyProfileView({
             <small className="privacy-note">
               {" "}
               Discovery proves this domain published the document, not that it
-              belongs to “{company.document.organization.name}” (§10.3).
+              belongs to “{company.document.organization.name}” (
+              <SpecRef reference="§10.3" />
+              ).
             </small>
           </dd>
         </div>
@@ -61,8 +64,9 @@ export function CompanyProfileView({
         <>
           <h3>Tasks not offered</h3>
           <p className="privacy-note">
-            Read at the start of each Session, with the Session header (§9):{" "}
-            {profile.tasksEndpoint}
+            Read at the start of each Session, with the Session header (
+            <SpecRef reference="§9" />
+            ): {profile.tasksEndpoint}
           </p>
         </>
       )}

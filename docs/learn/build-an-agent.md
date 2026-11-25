@@ -51,7 +51,7 @@ Companies fetch it instead of asking you to register:
   secret store and rarely be touched. ES256 and PS384 are the two algorithms
   every Company must accept.
 - **Operator signatures use a third key.** If you sign requests with Web Bot
-  Auth ([guides](https://personalagentprotocol.org/docs/1.0/guides#operator-signatures-and-bot-defenses), [spec](https://personalagentprotocol.org/docs/1.0/spec#operator-signatures)),
+  Auth ([guides](https://personalagentprotocol.org/docs/1.0/guides#both-operator-signatures), [spec](https://personalagentprotocol.org/docs/1.0/spec#operator-signatures)),
   publish that key at `/.well-known/http-message-signatures-directory`, apart
   from `jwks_uri`. Iris derives it from the identity secret with HKDF.
 
@@ -62,13 +62,13 @@ _Rotating keys_ in the [guides](https://personalagentprotocol.org/docs/1.0/guide
 ## 2. Users and Sessions
 
 Every request to a Company carries a Session header naming the user and the
-Session ([§5.2](https://personalagentprotocol.org/docs/1.0/spec#the-session-header)),
+Session ([§5.2](https://personalagentprotocol.org/docs/1.0/spec#session-header)),
 so the agent needs both before its first request.
 
 **A user ID per Company, derived rather than stored.** The ID must be stable,
 opaque, different at each Company and not derived from personal data, even with
 a keyed hash
-([§5.1](https://personalagentprotocol.org/docs/1.0/spec#user-ids-and-agent-ids)).
+([§5.1](https://personalagentprotocol.org/docs/1.0/spec#user-ids)).
 Iris computes it from its own internal visitor ID and the Company's identifier
 with a secret only it has:
 
@@ -187,7 +187,7 @@ with exact `terms` and a `revision`. What Iris does with it:
 4. **Code resends the identical request** with that approval in
    `Poppy-Approval`. If the result is uncertain, a retry sends the same
    approval again, so the Company can perform the change at most once
-   ([Operations §7](https://personalagentprotocol.org/docs/1.0/extensions)).
+   ([Operations §7](https://personalagentprotocol.org/docs/1.0/extensions/operations#at-most-once)).
 5. **A decline is final.** `approval_declined` shows as declined by the
    Company; a new revision needs a new approval.
 
@@ -225,14 +225,14 @@ and response, with tokens, codes and signatures redacted.
 | Area            | Requirement                                                                | Spec                                                                             |
 | --------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | Identity        | `client_id` URL with `jwks_uri`, `private_key_jwt`, ES256 or PS384         | [§4.1](https://personalagentprotocol.org/docs/1.0/spec#agent-identity)           |
-| Users           | Stable, pairwise, opaque user IDs, not derived from personal data          | [§5.1](https://personalagentprotocol.org/docs/1.0/spec#user-ids-and-agent-ids)   |
-| Sessions        | Session JWT on every request, delegated key per user, `ath` when signed in | [§5.2](https://personalagentprotocol.org/docs/1.0/spec#the-session-header)       |
+| Users           | Stable, pairwise, opaque user IDs, not derived from personal data          | [§5.1](https://personalagentprotocol.org/docs/1.0/spec#user-ids)   |
+| Sessions        | Session JWT on every request, delegated key per user, `ath` when signed in | [§5.2](https://personalagentprotocol.org/docs/1.0/spec#session-header)       |
 | Versions        | `Poppy-Version` on every request; choose again after `version_unsupported` | [§3.4](https://personalagentprotocol.org/docs/1.0/spec#versions)                 |
 | Transport       | HTTPS, no private addresses, no secrets across redirects                   | [§3](https://personalagentprotocol.org/docs/1.0/spec#discovery)                  |
 | Tasks           | Read the tasks endpoint per Session; don't report excluded tasks           | [§9](https://personalagentprotocol.org/docs/1.0/spec#task-coverage)              |
-| Sign-in         | Least privilege, PKCE, PAR when offered, DPoP key per user                 | [§4.2–4.4](https://personalagentprotocol.org/docs/1.0/spec#signing-in)           |
-| Approvals       | Exact terms shown, explicit user approval, identical resend, retries       | [Operations §5–7](https://personalagentprotocol.org/docs/1.0/extensions)         |
-| Company content | Shown as the Company's, never followed as instructions                     | [§10.1](https://personalagentprotocol.org/docs/1.0/spec#security-considerations) |
+| Sign-in         | Least privilege, PKCE, PAR when offered, DPoP key per user                 | [§4.2–4.4](https://personalagentprotocol.org/docs/1.0/spec#sign-in)           |
+| Approvals       | Exact terms shown, explicit user approval, identical resend, retries       | [Operations §5–7](https://personalagentprotocol.org/docs/1.0/extensions/operations#approval)         |
+| Company content | Shown as the Company's, never followed as instructions                     | [§10.1](https://personalagentprotocol.org/docs/1.0/spec#security) |
 
 ## Try it
 

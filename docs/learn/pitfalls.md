@@ -43,7 +43,7 @@ _Cause:_ none; this is the failure Operations is designed for.
 _Fix:_ keep the approval with the operation and resend the identical request
 with the identical approval. The Company returns the original result instead of
 ordering twice
-([Operations §7](https://personalagentprotocol.org/docs/1.0/extensions)).
+([Operations §7](https://personalagentprotocol.org/docs/1.0/extensions/operations#at-most-once)).
 Never propose the purchase again to "check".
 
 **Rate limits across origins.**
@@ -120,7 +120,7 @@ it's not a property of the token.
 
 **A second account in the same Session.**
 _Fix:_ a Session belongs to one account
-([§5.4](https://personalagentprotocol.org/docs/1.0/spec#signing-in)). A token
+([§5.4](https://personalagentprotocol.org/docs/1.0/spec#sign-in)). A token
 for another account ends it with `session_ended`; the agent starts a new
 Session. Don't silently rebind it.
 

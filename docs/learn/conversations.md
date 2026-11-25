@@ -110,7 +110,7 @@ The agent reports the missing dish while signed in with `orders:read` only:
 ```
 
 Lantern accepts the message, replies, and adds an `authorization` event
-([§8.11](https://personalagentprotocol.org/docs/1.0/spec#sign-in-during-a-conversation)):
+([§8.11](https://personalagentprotocol.org/docs/1.0/spec#conversation-sign-in)):
 
 ```json
 { "type": "message", "message": { "role": "company", "as_of_request": "req_2",
@@ -128,7 +128,7 @@ again.
 
 Now with `orders:write`, the same request gets an answer with an operation in
 the message's `extensions`
-([Operations, conversations](https://personalagentprotocol.org/docs/1.0/extensions)):
+([Operations, conversations](https://personalagentprotocol.org/docs/1.0/extensions/operations#approval-required-conversations)):
 
 ```json
 {
@@ -217,7 +217,7 @@ POST https://food-demo.poppylab.dev/poppy/conversations/cnv_OVkOhfxK5Gc1TcFHlQNj
 ```
 
 The state goes `pending` while the Company looks for someone, then back
-([§8.9](https://personalagentprotocol.org/docs/1.0/spec#handoff-to-a-person)).
+([§8.9](https://personalagentprotocol.org/docs/1.0/spec#handoff)).
 Lantern's fictional staff are never available, so its agent says how to call:
 
 ```json

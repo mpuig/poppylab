@@ -2,6 +2,7 @@ import { ArrowRight, ArrowUpRight, Check } from "lucide-react";
 import { FlowDiagram } from "./flow-diagram";
 import { SequenceFigure } from "./sequence-figure";
 import { SPEC_URL, SiteBar, SiteFoot, companies, connect } from "./site-chrome";
+import { specLink } from "./spec-ref";
 import "./site.css";
 
 /** From "no agents" to "the agent is you": Poppy is the three steps between. */
@@ -478,7 +479,10 @@ export default function Home() {
             <p>
               You don&apos;t need an account or a model key. If you are building
               an agent or a company, the developer guide has the endpoints and
-              the spec sections, and the <a href={SPEC_URL}>specification</a>{" "}
+              the spec sections, and the{" "}
+              <a href={SPEC_URL} {...specLink}>
+                specification
+              </a>{" "}
               has the rest.
             </p>
           </div>

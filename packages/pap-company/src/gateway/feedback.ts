@@ -13,6 +13,14 @@ import type { Ctx } from "./context.ts";
 import type { Tenancy } from "./tenancy.ts";
 import type { FeedbackReport } from "./types.ts";
 
+/**
+ * §9.3 as a link into the published text, opening in a new tab. Written out
+ * here because this package does not depend on pap-core, where the other
+ * section links live; a test in the playground checks the heading exists.
+ */
+const FEEDBACK_SECTION =
+  '<a href="https://personalagentprotocol.org/docs/1.0/spec#feedback" target="_blank" rel="noopener noreferrer">§9.3</a>';
+
 export const FEEDBACK_PATH = "/poppy/feedback";
 const KEEP = 50;
 const text = (v: unknown, max: number) =>
@@ -88,5 +96,5 @@ export function feedbackSection(
       return `<li class="record" data-tone="${offered ? "info" : "muted"}"><div class="record-head"><span class="record-tag">${offered ? "Alternative offered" : "Received"}</span><time class="record-when" datetime="${escapeHtml(r.at)}">${escapeHtml(when(r.at))}</time></div><p class="record-title">${escapeHtml(r.task)}</p><p class="record-body">${escapeHtml(r.description)}</p><p class="record-meta">From ${escapeHtml(agentHost(r.client))}</p></li>`;
     })
     .join("");
-  return `<section${classes.section ? ` class="${classes.section}"` : ""} id="agent-feedback"><h2>Feedback from agents</h2><p${notice}>Tasks your agent couldn't do here and reported to us (Poppy §9.3). Reports describe the task, not you; their text is shown as written. Reload the page to see new ones.</p>${items ? `<ol class="records">${items}</ol>` : `<p${notice}>No reports yet. Ask your agent for something we don't offer through Poppy, such as ${escapeHtml(classes.example ?? "a task this Company doesn't handle")}.</p>`}</section>`;
+  return `<section${classes.section ? ` class="${classes.section}"` : ""} id="agent-feedback"><h2>Feedback from agents</h2><p${notice}>Tasks your agent couldn't do here and reported to us (Poppy ${FEEDBACK_SECTION}). Reports describe the task, not you; their text is shown as written. Reload the page to see new ones.</p>${items ? `<ol class="records">${items}</ol>` : `<p${notice}>No reports yet. Ask your agent for something we don't offer through Poppy, such as ${escapeHtml(classes.example ?? "a task this Company doesn't handle")}.</p>`}</section>`;
 }

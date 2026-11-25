@@ -6,6 +6,7 @@ import type {
   DiscoveryTraceStep,
 } from "@poppy-lab/pap-core";
 import { discoverySection, traceReport } from "@/lib/spec-sections";
+import { SpecRef } from "../spec-ref";
 import {
   clock,
   outcomeLabel,
@@ -99,11 +100,10 @@ export function Inspector({
                 <div>
                   <strong>
                     {step.label}
-                    {discoverySection(step.id) && (
-                      <span className="spec-ref">
-                        {discoverySection(step.id)}
-                      </span>
-                    )}
+                    <SpecRef
+                      className="spec-ref"
+                      reference={discoverySection(step.id)}
+                    />
                   </strong>
                   <p>{step.detail}</p>
                 </div>
@@ -134,9 +134,10 @@ export function Inspector({
                 <div>
                   <p>
                     {entry.text}
-                    {entry.section && (
-                      <span className="spec-ref">{entry.section}</span>
-                    )}
+                    <SpecRef
+                      className="spec-ref"
+                      reference={entry.section ?? ""}
+                    />
                   </p>
                   {entry.url &&
                     !entry.text.startsWith(`${entry.method} ${entry.url}`) && (

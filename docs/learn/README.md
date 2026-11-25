@@ -8,7 +8,7 @@ The official site already has the normative text and the advice. This section
 links to them rather than repeating them. Use it next to:
 
 - the [specification](https://personalagentprotocol.org/docs/1.0/spec) and the
-  [Operations extension](https://personalagentprotocol.org/docs/1.0/extensions),
+  [Operations extension](https://personalagentprotocol.org/docs/1.0/extensions/operations),
   which define the protocol;
 - the [guides](https://personalagentprotocol.org/docs/1.0/guides), which give
   advice topic by topic;
