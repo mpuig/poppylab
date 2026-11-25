@@ -569,6 +569,87 @@ describe("Human-controlled account boundary", () => {
   );
 });
 
+describe("An operation whose conversation refuses the approval (§8.10, §8.12)", () => {
+  const act = (action: string) =>
+    POST(request({ action, id: "op_test", revision: "r1" }));
+  beforeEach(() => {
+    // Proposed in a conversation: the approval goes there in a message.
+    state.run.operations.op_test.request = {
+      conversation: {
+        endpoint: "http://juniper.localhost:4100/agent",
+        id: "cnv_direct",
+      },
+    };
+  });
+
+  it.each(["conversation_closed", "conversation_not_found"])(
+    "says nothing was performed and that it can't be approved any more after %s",
+    async (code) => {
+      state.request.mockRejectedValue(
+        new ProtocolError(code === "conversation_closed" ? 409 : 404, code),
+      );
+      const r = await act("approve");
+      expect(r.status).toBe(409);
+      const body = await r.json();
+      expect(body.code).toBe(code);
+      expect(body.error).toContain("Nothing was performed");
+      // The page shows it as no longer approvable, with the reason.
+      expect(body.operation).toMatchObject({
+        state: "expired",
+        result: { summary: body.error },
+      });
+      expect(state.run.operations.op_test).not.toHaveProperty("request");
+      // Nothing is left to retry or approve, and nothing is sent again.
+      expect((await act("retry")).status).toBe(400);
+      expect((await act("approve")).status).toBe(410);
+      expect(state.request).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it("knows a retry the closed conversation refuses was never taken", async () => {
+    state.request.mockRejectedValueOnce(new Error("socket hang up"));
+    expect((await act("approve")).status).toBe(502);
+    expect(state.run.operations.op_test.state).toBe("uncertain");
+    // §8.3: had the Company accepted the message, it would answer it again.
+    state.request.mockRejectedValueOnce(
+      new ProtocolError(409, "conversation_closed"),
+    );
+    const r = await act("retry");
+    expect(r.status).toBe(409);
+    expect((await r.json()).operation).toMatchObject({ state: "expired" });
+  });
+
+  it("keeps the outcome unknown when a retry finds the conversation gone", async () => {
+    state.request.mockRejectedValueOnce(new Error("socket hang up"));
+    expect((await act("approve")).status).toBe(502);
+    state.request.mockRejectedValueOnce(
+      new ProtocolError(404, "conversation_not_found"),
+    );
+    const r = await act("retry");
+    expect(r.status).toBe(502);
+    expect((await r.json()).code).toBe("outcome_unknown");
+    expect(state.run.operations.op_test.state).toBe("uncertain");
+  });
+
+  it("leaves it waiting while the User is in a Direct Conversation", async () => {
+    state.request.mockRejectedValueOnce(
+      new ProtocolError(409, "direct_conversation_open"),
+    );
+    const r = await act("approve");
+    expect(r.status).toBe(409);
+    const body = await r.json();
+    expect(body.code).toBe("direct_conversation_open");
+    expect(body.error).toContain("Nothing was performed");
+    expect(body.error).toContain("Leave the direct conversation");
+    expect(body.operation).toMatchObject({ revision: "r1", state: "proposed" });
+    // Once the User has left it, the same tap works.
+    state.request.mockResolvedValueOnce({ summary: "Refunded." });
+    const again = await act("approve");
+    expect(again.status).toBe(200);
+    expect((await again.json()).operation.state).toBe("succeeded");
+  });
+});
+
 describe("Agent approvals on a standing instruction (Operations v3 §5)", () => {
   const rule = { maxCents: 2000, currency: "USD" };
   const run = state.run as unknown as {

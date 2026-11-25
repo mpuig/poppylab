@@ -429,6 +429,50 @@ async function act(request: Request, started: { id?: string }) {
           { status: 409, headers: { "Cache-Control": "no-store" } },
         );
       }
+      // The operation's conversation refused the message that carried the
+      // approval: nothing was performed. That outcome is known, not lost.
+      const refusal =
+        error instanceof ProtocolError && op.request?.conversation
+          ? error.code
+          : undefined;
+      if (refusal === "direct_conversation_open")
+        // §8.10: the conversation takes messages again once the User leaves
+        // the Direct Conversation, so the operation waits as it was.
+        return NextResponse.json(
+          {
+            code: refusal,
+            next: "review",
+            operation: op,
+            error:
+              "The Company says a direct conversation with you is still open, and it takes no approval in this one until that ends. Nothing was performed. Leave the direct conversation, then try again.",
+          },
+          { status: 409, headers: { "Cache-Control": "no-store" } },
+        );
+      if (
+        // §8.12, §8.3: closed for good, and a message the Company had
+        // accepted would have got its first answer again.
+        refusal === "conversation_closed" ||
+        // The Company no longer has it. Only a first send is known then.
+        (refusal === "conversation_not_found" && body.action === "approve")
+      ) {
+        op.state = "expired";
+        op.result = {
+          summary:
+            "The conversation this was proposed in has ended, so it can't be approved any more. Nothing was performed. Ask for the change again to get fresh terms.",
+        };
+        // Never sent again: new terms get a new approval.
+        delete op.request;
+        delete op.approval;
+        return NextResponse.json(
+          {
+            code: refusal,
+            next: "status",
+            operation: op,
+            error: op.result.summary,
+          },
+          { status: 409, headers: { "Cache-Control": "no-store" } },
+        );
+      }
       if (
         !(error instanceof ProtocolError) ||
         error.status >= 500 ||
