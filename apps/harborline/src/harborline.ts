@@ -27,7 +27,13 @@ import {
   type Recipient,
   type Transaction,
 } from "./data.ts";
-import { consentPage, forAgentsPage, homePage, pageHeaders } from "./site.ts";
+import {
+  consentPage,
+  fontSources,
+  forAgentsPage,
+  homePage,
+  pageHeaders,
+} from "./site.ts";
 import { howItWorksPage, type AgentGuide } from "./how-it-works.ts";
 import { mountPortal } from "./portal.ts";
 import { harborlineAgent } from "./agent.ts";
@@ -1323,4 +1329,6 @@ export const harborline: CompanyDefinition = {
     "/how-it-works": (origin) => howItWorksPage(origin, agentGuide(origin)),
   },
   pageHeaders,
+  // The consent page loads the same faces: without this its policy blocks them.
+  fontSources,
 };
