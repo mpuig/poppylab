@@ -1,3 +1,5 @@
+import { readable } from "./demo-text";
+
 export type ReviewOperation = {
   operation_id: string;
   revision: string;
@@ -129,7 +131,9 @@ export function operationTitle(op: ReviewOperation) {
       ? "Open support request"
       : t.kind === "support_resolution"
         ? "Close support case"
-        : typeof t.refund_cents === "number"
+        : // Only where the refund is the amount the card leads with: a flight
+          // change that charges also carries a refund of zero.
+          approvalTotal(op)?.key === "refund_cents"
           ? "Review refund"
           : t.booking_id
             ? "Review booking change"
@@ -145,18 +149,167 @@ export function operationTitle(op: ReviewOperation) {
                       ? "Update recurring delivery"
                       : "Review Company proposal";
 }
-/** The amount an approval commits the User to, from the Company's own terms. */
+/**
+ * The fields that can hold the amount an approval is about, most specific
+ * first. `amount_due_cents` is what this approval charges, even beside a
+ * total. `amount_cents` is what a payment or a transfer moves. The totals
+ * are what an order comes to. A refund comes last: it leads only where
+ * nothing is paid. No other field is ever the amount: a balance says what
+ * an account holds, a "before" value what was already so, and a fee or a
+ * difference is part of the price.
+ */
+const AMOUNT_KEYS = [
+  "amount_due_cents",
+  "amount_cents",
+  "new_total_cents",
+  "total_cents",
+  "refund_cents",
+];
+/** A field's name as a label: `amount_due_cents` reads "Amount due". */
+const fieldLabel = (key: string) => {
+  const words = key
+    .replace(/_cents$/, "")
+    .replace(/_/g, " ")
+    .trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+};
+/**
+ * The amount an approval commits the User to, from the Company's own terms:
+ * the first of `AMOUNT_KEYS` that holds one, labelled by its field. A zero
+ * gives way to a later field that holds an amount (a flight change with
+ * nothing due and a refund), and a negative number is not an amount paid.
+ */
 export function approvalTotal(op: ReviewOperation) {
   const t = op.terms ?? {};
-  for (const key of ["new_total_cents", "total_cents", "refund_cents"]) {
-    if (typeof t[key] === "number" && Number.isFinite(t[key]))
-      return {
+  const held = AMOUNT_KEYS.filter((key) => {
+    const value = t[key];
+    return typeof value === "number" && Number.isFinite(value) && value >= 0;
+  });
+  const key = held.find((name) => t[name] !== 0) ?? held[0];
+  if (!key) return null;
+  return {
+    key,
+    label: money(t[key], t.currency),
+    // Lantern's new total has always led its card as "Total".
+    text: key === "new_total_cents" ? "Total" : fieldLabel(key),
+  };
+}
+/** Juniper's kinds of change, each with its own layout on the card. */
+const KINDS = new Set([
+  "profile_change",
+  "support_case",
+  "support_resolution",
+  "delivery",
+  "basket",
+  "delivery_items",
+  "checkout",
+]);
+/**
+ * Whether the card lays these terms out itself: Juniper's kinds, and
+ * Lantern's order change and refund. Any other terms are read from their
+ * shape, by `termRows`.
+ */
+export function ownLayout(op: ReviewOperation) {
+  const t = op.terms ?? {};
+  return (
+    (typeof t.kind === "string" && KINDS.has(t.kind)) ||
+    (typeof t.from_slot === "string" && typeof t.to_slot === "string") ||
+    (typeof t.order_id === "string" && typeof t.refund_cents === "number")
+  );
+}
+/** Bookkeeping a reader doesn't need, as in `demo-text`, and request keys. */
+const HIDDEN =
+  /^(note|currency|image|images|version|revision|operation_id|expires_at|terms_url)$|_version$|_url$|_id$|(^|_)key$/;
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  !!value && typeof value === "object" && !Array.isArray(value);
+const BEFORE = /_before(?=_|$)/,
+  AFTER = /_after(?=_|$)/;
+/** The two fields of a change, when a field's name says it is one of them. */
+function sides(key: string) {
+  if (key === "from" || key === "to")
+    return { name: "", from: "from", to: "to" };
+  if (key.startsWith("from_"))
+    return { name: key.slice(5), from: key, to: `to_${key.slice(5)}` };
+  if (key.startsWith("to_"))
+    return { name: key.slice(3), from: `from_${key.slice(3)}`, to: key };
+  if (BEFORE.test(key))
+    return {
+      name: key.replace(BEFORE, ""),
+      from: key,
+      to: key.replace(BEFORE, "_after"),
+    };
+  if (AFTER.test(key))
+    return {
+      name: key.replace(AFTER, ""),
+      from: key.replace(AFTER, "_before"),
+      to: key,
+    };
+  return undefined;
+}
+/**
+ * Any Company's terms as rows, read from their shape alone. A field's name
+ * is its label and `*_cents` is money. Two fields named as a pair (`from_x`
+ * and `to_x`, `x_before` and `x_after`, or `from` and `to` holding the same
+ * fields) are one change, before and after. Bookkeeping is left to the
+ * exact terms. Lists and nested fields are put into lines by the reader the
+ * protocol demo uses for a Company's answers. Nothing here says what a field
+ * means beyond its name.
+ */
+export function termRows(op: ReviewOperation) {
+  const t = op.terms ?? {};
+  const changes: { label: string; before: string; after: string }[] = [];
+  const rows: { key: string; label: string; value: string }[] = [];
+  for (const [key, value] of Object.entries(t)) {
+    const side = sides(key);
+    if (side && side.from in t && side.to in t && !HIDDEN.test(side.name)) {
+      const before = t[side.from],
+        after = t[side.to];
+      if (side.name) {
+        // Shown once, where the terms name its first half.
+        if (key === side.from)
+          changes.push({
+            label: fieldLabel(side.name),
+            before: termValue(side.from, before, t),
+            after: termValue(side.to, after, t),
+          });
+        continue;
+      }
+      if (isObject(before) && isObject(after)) {
+        // `from` and `to` hold the same fields: each field is one change.
+        if (key === side.from)
+          for (const field of new Set([
+            ...Object.keys(before),
+            ...Object.keys(after),
+          ]))
+            if (!HIDDEN.test(field))
+              changes.push({
+                label: fieldLabel(field),
+                before: termValue(field, before[field], t),
+                after: termValue(field, after[field], t),
+              });
+        continue;
+      }
+    }
+    if (HIDDEN.test(key) || value === null || value === "") continue;
+    if (typeof value !== "object") {
+      rows.push({
         key,
-        label: money(t[key], t.currency),
-        text: key === "refund_cents" ? "Refund" : "Total",
-      };
+        label: fieldLabel(key),
+        value: termValue(key, value, t),
+      });
+      continue;
+    }
+    // A list or nested fields: the demo's reader writes "Label: …" and any
+    // further lines. An unknown currency is left out, not taken for dollars.
+    const currency =
+      typeof t.currency === "string" && /^[A-Z]{3}$/.test(t.currency)
+        ? t.currency
+        : "";
+    const text = readable({ [key]: value, currency });
+    const lines = text.slice(text.indexOf(":") + 1).trim();
+    if (lines) rows.push({ key, label: fieldLabel(key), value: lines });
   }
-  return null;
+  return { changes, rows };
 }
 /**
  * Where a summary names an amount the terms do not contain. The summary is

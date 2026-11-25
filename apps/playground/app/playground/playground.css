@@ -139,6 +139,10 @@
   padding-top: 8px;
   font-weight: 600;
 }
+/* A row read from the terms' shape can hold a list, one item to a line. */
+.operation-fields dd {
+  white-space: pre-wrap;
+}
 .operation-result {
   color: var(--success);
 }

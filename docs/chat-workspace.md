@@ -105,6 +105,16 @@ in the page; the server's approval endpoint is the one it always was.
   Company's own words, as text only. It warns when the summary names an amount
   the exact terms do not hold. That check reads amounts written with `$`, `€`
   or `£` and does not compare ones written "USD 9.99".
+  - The amount is the first of `amount_due_cents`, `amount_cents`,
+    `new_total_cents`, `total_cents` and `refund_cents` that the terms hold
+    (a zero gives way to a later one), labelled by its field: "Amount due",
+    "Amount", "Total", "Refund". A balance, a fee or a "before" value is
+    never it.
+  - Juniper's and Lantern's terms have their own layout. Any other Company's
+    terms are read from their shape: a field's name is its label, `*_cents`
+    is money, `from_x` and `to_x` (or `x_before` and `x_after`) are one
+    change shown before and after, and versions, IDs and keys stay under
+    "All exact terms".
 - **A standing instruction.** One rule per Company, set under the account row
   once change permission is granted: approve exchanges up to an amount without
   asking. It is kept in the browser (`localStorage`, under

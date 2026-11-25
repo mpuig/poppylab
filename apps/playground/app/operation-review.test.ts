@@ -225,3 +225,101 @@ it("quotes the summary as the Company's and warns when its amount is not in the 
   expect(html).toContain("$9.99");
   expect(html).toContain("Approve $14.50");
 });
+
+// Two Companies' terms, as their own code writes them.
+const northwindUpgrade = {
+  booking_reference: "NW7K2P",
+  booking_version: 1,
+  offer_id: "upg_elena_1",
+  flight_id: "flt_na118_20270518",
+  inventory_version: 1,
+  from_cabin: "Economy",
+  to_cabin: "Business",
+  amount_due_cents: 24800,
+  currency: "USD",
+  refund_terms:
+    "The fictional upgrade is refundable only if Northwind Air cancels this segment.",
+  payment: "Simulated card on file — no real charge",
+};
+const harborlineTransfer = {
+  source_account_id: "acct_checking",
+  destination_account_id: "acct_savings",
+  amount_cents: 2500,
+  idempotency_key: "demo-transfer-1",
+  source_name: "Operating checking",
+  destination_name: "Reserve savings",
+  source_version: 4,
+  destination_version: 2,
+  source_balance_before_cents: 1172000,
+  source_balance_after_cents: 1169500,
+  destination_balance_before_cents: 4350000,
+  destination_balance_after_cents: 4352500,
+  currency: "USD",
+  notice:
+    "Fictional Harborline Bank data. No real money moves; never enter real banking data or credentials.",
+};
+const card = (terms: Record<string, unknown>, company: string) =>
+  renderToStaticMarkup(
+    createElement(OperationReview, {
+      op: { ...op, summary: "The Company's own summary.", terms },
+      company,
+      busy: false,
+      signedIn: true,
+      onAction: vi.fn(),
+    }),
+  );
+/** The card without the exact terms, which hold every field name anyway. */
+const readableCard = (terms: Record<string, unknown>, company: string) =>
+  card(terms, company).replace(/<pre[\s\S]*?<\/pre>/, "");
+it("presents an airline's terms as rows, with what is due as the headline", () => {
+  const html = readableCard(northwindUpgrade, "Northwind Air");
+  expect(html).toMatch(/data-total[^>]*><span>Amount due<\/span>/);
+  expect(html).toContain("Approve $248.00");
+  expect(html).toContain("<strong>Cabin</strong>");
+  expect(html).toContain("Economy");
+  expect(html).toContain("Business");
+  expect(html).toContain("<dt>Booking reference</dt><dd>NW7K2P</dd>");
+  expect(html).toContain("<dt>Amount due</dt><dd>$248.00</dd>");
+  expect(html).toContain("<dt>Refund terms</dt>");
+  expect(html).toContain("<dt>Payment</dt>");
+  // Bookkeeping stays in the exact terms, one click away and closed.
+  expect(html).not.toContain("version");
+  expect(html).not.toContain("upg_elena_1");
+  expect(card(northwindUpgrade, "Northwind Air")).toMatch(
+    /<details class="operation-terms"><summary>All exact terms/,
+  );
+});
+it("presents a bank's transfer: the amount moved, and each balance before and after", () => {
+  const html = readableCard(harborlineTransfer, "Harborline Bank");
+  expect(html).toMatch(/data-total[^>]*><span>Amount<\/span>/);
+  expect(html).toContain("Approve $25.00");
+  expect(html).toContain("<strong>Source balance</strong>");
+  expect(html).toContain("$11,720.00");
+  expect(html).toContain("$11,695.00");
+  expect(html).toContain("<strong>Destination balance</strong>");
+  expect(html).toContain("<dt>Source name</dt><dd>Operating checking</dd>");
+  expect(html).toContain("<dt>Amount</dt><dd>$25.00</dd>");
+  expect(html).not.toContain("demo-transfer-1");
+});
+it("labels a fee by its field, not as a change fee", () => {
+  // Harborline's payment and Northwind's seat change both carry a zero fee.
+  const html = readableCard(
+    { amount_cents: 12500, fee_cents: 0, currency: "USD" },
+    "Harborline Bank",
+  );
+  expect(html).toContain("<dt>Fee</dt><dd>$0.00</dd>");
+  expect(html).not.toContain("Change fee");
+  // Juniper's delivery-day change keeps its own label.
+  expect(
+    readableCard(
+      {
+        kind: "delivery",
+        from: "Thursday",
+        to: "Saturday",
+        fee_cents: 0,
+        currency: "USD",
+      },
+      "Juniper Market",
+    ),
+  ).toContain("<dt>Change fee</dt>");
+});

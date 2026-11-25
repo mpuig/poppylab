@@ -7,9 +7,12 @@ import {
   money,
   summaryDisagreements,
   operationTitle,
+  ownLayout,
+  termRows,
   termValue,
   type ReviewOperation,
 } from "../lib/operation-presentation";
+/** The amounts of Juniper's and Lantern's terms, as their cards name them. */
 const moneyRows = [
   ["subtotal_cents", "Products"],
   ["delivery_fee_cents", "Delivery"],
@@ -61,7 +64,10 @@ export function OperationReview({
   }, [op.state, op.expires_at, now]);
   const pending = op.state === "proposed" && Date.parse(op.expires_at) > now,
     state = op.state === "proposed" && !pending ? "expired" : op.state;
-  const diff = changes(op),
+  // Terms the card has no layout for are read from their shape.
+  const own = ownLayout(op),
+    read = own ? undefined : termRows(op);
+  const diff = read ? read.changes : changes(op),
     t = op.terms ?? {};
   const active = pending || state === "uncertain";
   const total = approvalTotal(op);
@@ -124,13 +130,23 @@ export function OperationReview({
             </div>
           </div>
         ))}
-        {(t.items !== undefined || t.next_items !== undefined) && (
+        {!!read?.rows.length && (
+          <dl className="operation-money operation-fields">
+            {read.rows.map((row) => (
+              <div key={row.key}>
+                <dt>{row.label}</dt>
+                <dd>{row.value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+        {own && (t.items !== undefined || t.next_items !== undefined) && (
           <div className="operation-items">
             <h3>{t.next_items ? "Resulting delivery" : "Order items"}</h3>
             <p>{termValue("items", t.next_items ?? t.items, t)}</p>
           </div>
         )}
-        {moneyRows.some(([k]) => typeof t[k] === "number") && (
+        {own && moneyRows.some(([k]) => typeof t[k] === "number") && (
           <dl className="operation-money">
             {moneyRows
               .filter(([key]) => typeof t[key] === "number")
