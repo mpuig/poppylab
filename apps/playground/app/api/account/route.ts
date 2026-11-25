@@ -661,13 +661,15 @@ async function act(request: Request, started: { id?: string }) {
         // first send is known this way: a refused retry doesn't say what
         // became of the approval sent before it. Sign-in and permission
         // errors keep their own answers.
+        const code = error.code ?? error.companyCode;
         return NextResponse.json(
           {
             code: "not_performed",
             next: "review",
             operation: op,
-            // The Company's status and error code, never its own words.
-            error: `${run.company?.document.organization.name ?? "The Company"} refused this request (HTTP ${error.status}${error.code ? `, ${error.code}` : ""}). Nothing was performed. The terms still wait for you: approve them again once what stopped it is sorted out, or ask for the change again to get fresh terms.`,
+            // The Company's status and error code, never its own words. A
+            // code of its own, such as insufficient_funds, says what to fix.
+            error: `${run.company?.document.organization.name ?? "The Company"} refused this request (HTTP ${error.status}${code ? `, ${code}` : ""}). Nothing was performed. The terms still wait for you: approve them again once what stopped it is sorted out, or ask for the change again to get fresh terms.`,
           },
           { status: 409, headers: { "Cache-Control": "no-store" } },
         );

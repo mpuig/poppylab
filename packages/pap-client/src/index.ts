@@ -1,6 +1,7 @@
 import {
   ProtocolError,
   errorCode,
+  companyErrorCode,
   checkCooldown,
   recordCooldown,
 } from "./protocol-error.ts";
@@ -336,6 +337,8 @@ async function fetchJsonSafely(
             options.errorBody && !known && authenticate === null
               ? parsed
               : undefined,
+            // The body's own code, to show: a token, never its free text.
+            companyErrorCode(code),
           );
         }
         return {

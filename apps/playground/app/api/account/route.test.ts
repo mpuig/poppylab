@@ -520,8 +520,7 @@ describe("Human-controlled account boundary", () => {
   const act = (action: string) =>
     POST(request({ action, id: "op_test", revision: "r1" }));
   it.each([
-    // A code this client doesn't know, such as Harborline's
-    // insufficient_funds, arrives without one.
+    // No code at all: not the protocol's, and none of the Company's own.
     [409, undefined],
     [409, "request_id_conflict"],
     [400, "invalid_request"],
@@ -560,6 +559,28 @@ describe("Human-controlled account boundary", () => {
       expect(state.request.mock.calls[1]![1]).toMatchObject({
         approval: { approver: "user", reference: "a1" },
       });
+    },
+  );
+  it.each([
+    // As Harborline's: a code of its own, which isn't one of the protocol's.
+    [undefined, "insufficient_funds", "insufficient_funds"],
+    [undefined, "account_changed", "account_changed"],
+    // The protocol's code comes first when the answer has both.
+    ["request_id_conflict", "request_id_conflict", "request_id_conflict"],
+    ["invalid_dpop_proof", "card_locked", "invalid_dpop_proof"],
+  ])(
+    "tells the User why the Company refused: its own error code (%s, %s)",
+    async (code, companyCode, shown) => {
+      sendThenFail(() =>
+        Object.assign(new ProtocolError(409, code), { companyCode }),
+      );
+      const r = await act("approve");
+      expect(r.status).toBe(409);
+      const body = await r.json();
+      expect(body.code).toBe("not_performed");
+      expect(body.error).toContain(
+        `Juniper refused this request (HTTP 409, ${shown}). Nothing was performed.`,
+      );
     },
   );
   it("says nothing was performed when the Company answers an approval with terms it can't use", async () => {
