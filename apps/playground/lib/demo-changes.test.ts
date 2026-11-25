@@ -101,6 +101,40 @@ it("changes a scheduled order from what the menu, the slots and the order say", 
   ).toMatchObject({ args: { slot_id: "sat-1900" } });
 });
 
+it("moves an order to the day it should go to, not the day it is on", async () => {
+  // The order is on Friday 18:30.
+  for (const message of [
+    "Move my order from Friday to Sunday",
+    "Move my order to Sunday from Friday",
+    "I want to move my Friday order to Sunday",
+    "Sunday instead of Friday, please move it",
+  ])
+    expect(await demoChange(message, restaurant(), key)).toMatchObject({
+      call: "change_order",
+      args: { order_id: "ord_LNB1001", slot_id: "sun-1300" },
+      because: expect.stringContaining("move to Sunday 13:00–13:30"),
+    });
+  // Where it already is: nothing to ask the Company for.
+  expect(
+    await demoChange("move my order to Friday", restaurant(), key),
+  ).toMatchObject({
+    say: expect.stringContaining("already scheduled for Friday 18:30–19:00"),
+  });
+  expect(
+    await demoChange("move it from Friday", restaurant(), key),
+  ).toMatchObject({ say: expect.stringContaining("which day") });
+  // A dish and the day it is already on: only the dish changes.
+  const kept = await demoChange(
+    "add edamame to my Friday order",
+    restaurant(),
+    key,
+  );
+  expect(kept).toMatchObject({
+    args: { add: [{ dish_id: "edamame", quantity: 1 }] },
+  });
+  expect(kept).not.toHaveProperty("args.slot_id");
+});
+
 it("asks instead of guessing a dish, a day or an order", async () => {
   expect(await demoChange("change my order", restaurant(), key)).toHaveProperty(
     "say",

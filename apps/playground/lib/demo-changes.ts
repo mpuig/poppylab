@@ -77,6 +77,32 @@ const DAYS = [
   "saturday",
   "sunday",
 ];
+/** The weekdays a message names, in the order it names them. */
+const daysIn = (message: string) =>
+  DAYS.map((name) => ({ name, at: message.indexOf(name) }))
+    .filter((day) => day.at >= 0)
+    .sort((a, b) => a.at - b.at);
+/**
+ * The day an order should move to. "From Friday to Sunday" names two days:
+ * the one after "from" and the one the order is on now are where it is, not
+ * where it goes. Of the rest, the destination follows the last " to ";
+ * without one, it is the last day named.
+ */
+function destinationDay(
+  message: string,
+  days: ReturnType<typeof daysIn>,
+  current: string,
+) {
+  const origin = message.match(
+    /\bfrom\s+(?:(?:this|next|the)\s+)?([a-z]+day)\b/,
+  )?.[1];
+  let left = days.filter((day) => day.name !== origin);
+  // Naming only the day it is on already is answered as such, not ignored.
+  if (left.length > 1)
+    left = left.filter((day) => !current.startsWith(day.name));
+  const toAt = message.lastIndexOf(" to ");
+  return (left.find((day) => toAt >= 0 && day.at > toAt) ?? left.at(-1))?.name;
+}
 
 /** Scheduled orders: add or remove dishes, move the delivery slot. */
 async function orderChange(
@@ -87,29 +113,43 @@ async function orderChange(
   const dishes = list(await tools.menu!.execute(), "dishes");
   const named = mentioned(lowered, dishes, (dish) => text(dish.name));
   const removing = /\b(remove|without|drop|take off|cancel)\b/.test(lowered);
-  const day = DAYS.find((name) => lowered.includes(name));
-  let slot: Record<string, unknown> | undefined;
-  if (day) {
-    const sameDay = list(await tools.delivery_slots!.execute(), "slots").filter(
-      (item) => text(item.label).toLowerCase().startsWith(day),
-    );
-    // Slots come in time order: lunch is the first of the day, dinner the last.
-    slot = /dinner|evening|night|tonight/.test(lowered)
-      ? sameDay.at(-1)
-      : sameDay[0];
-    if (!slot)
-      return {
-        say: `There is no delivery slot on ${day[0]!.toUpperCase()}${day.slice(1)}. Ask “Which delivery slots are there?” to see them.`,
-      };
-  }
-  if (!named.length && !slot)
-    return {
-      say: "Which dish should be added or removed, or which day should the order move to? For example: “Add a matcha ice cream and move it to Sunday lunchtime.”",
-    };
+  const days = daysIn(lowered);
+  const unclear = {
+    say: "Which dish should be added or removed, or which day should the order move to? For example: “Add a matcha ice cream and move it to Sunday lunchtime.”",
+  };
+  if (!named.length && !days.length) return unclear;
   const order = list(await tools.my_orders!.execute(), "orders").find(
     (item) => item.status === "scheduled",
   );
   if (!order) return { say: "There is no scheduled order to change." };
+  let slot: Record<string, unknown> | undefined;
+  if (days.length) {
+    const slots = list(await tools.delivery_slots!.execute(), "slots");
+    const now = (order.slot ?? {}) as Record<string, unknown>;
+    const nowLabel =
+      text(now.label) || text(slots.find((item) => item.id === now.id)?.label);
+    const day = destinationDay(lowered, days, nowLabel.toLowerCase());
+    const sameDay = day
+      ? slots.filter((item) => text(item.label).toLowerCase().startsWith(day))
+      : [];
+    // Slots come in time order: lunch is the first of the day, dinner the last.
+    slot = /dinner|evening|night|tonight/.test(lowered)
+      ? sameDay.at(-1)
+      : sameDay[0];
+    if (day && !slot)
+      return {
+        say: `There is no delivery slot on ${day[0]!.toUpperCase()}${day.slice(1)}. Ask “Which delivery slots are there?” to see them.`,
+      };
+    // Moving it to where it already is changes nothing: the Company would refuse.
+    if (slot && slot.id === now.id) {
+      if (!named.length)
+        return {
+          say: `Your order is already scheduled for ${text(slot.label)}. Name another day to move it.`,
+        };
+      slot = undefined;
+    }
+  }
+  if (!named.length && !slot) return unclear;
   const ids = named.map((dish) => text(dish.id));
   const quantity = count(lowered, 5);
   return {
