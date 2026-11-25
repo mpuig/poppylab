@@ -27,6 +27,30 @@ const list = (value: unknown, key: string): Array<Record<string, unknown>> => {
     : [];
 };
 const text = (value: unknown) => (typeof value === "string" ? value : "");
+/** The error a tool answered with instead of data, if it did. */
+const refusal = (value: unknown) => {
+  const error = (value as Record<string, unknown> | null | undefined)?.error;
+  return typeof error === "string" ? error : undefined;
+};
+/** A read that was answered with an error: there is nothing to plan from. */
+class Unread extends Error {}
+/**
+ * Reads a list from the account. Signed in without the permission a read
+ * needs, the answer is an error, not data: that is never an empty list.
+ */
+const read = async (tool: Tool, key: string) => {
+  const value = await tool.execute();
+  const error = refusal(value);
+  if (error) throw new Unread(error);
+  return list(value, key);
+};
+/** Says why nothing was sent, from an error code that is safe to show. */
+const unsent = (error: string) =>
+  error === "insufficient_scope"
+    ? "your access to this Company doesn't include the permission it needs"
+    : error === "sign_in_required"
+      ? "you're not signed in"
+      : `the answer was an error${/^[a-z_]{1,40}$/.test(error) ? ` (${error})` : ""}`;
 const words = (value: string) =>
   value
     .toLowerCase()
@@ -225,20 +249,20 @@ async function orderChange(
   tools: DemoTools,
 ): Promise<DemoPlan> {
   const lowered = message.toLowerCase();
-  const dishes = list(await tools.menu!.execute(), "dishes");
+  const dishes = await read(tools.menu!, "dishes");
   const named = mentioned(lowered, dishes, (dish) => text(dish.name));
   const days = daysIn(lowered);
   const unclear = {
     say: "Which dish should be added or removed, or which day should the order move to? For example: “Add a matcha ice cream and move it to Sunday lunchtime.”",
   };
   if (!named.length && !days.length) return unclear;
-  const order = list(await tools.my_orders!.execute(), "orders").find(
+  const order = (await read(tools.my_orders!, "orders")).find(
     (item) => item.status === "scheduled",
   );
   if (!order) return { say: "There is no scheduled order to change." };
   let slot: Record<string, unknown> | undefined;
   if (days.length) {
-    const slots = list(await tools.delivery_slots!.execute(), "slots");
+    const slots = await read(tools.delivery_slots!, "slots");
     const now = (order.slot ?? {}) as Record<string, unknown>;
     const nowLabel =
       text(now.label) || text(slots.find((item) => item.id === now.id)?.label);
@@ -349,7 +373,7 @@ async function moneyChange(
     return {
       say: "How much? Write the amount with a dollar sign, for example: “Transfer $500 from checking to savings.”",
     };
-  const accounts = list(await tools.accounts!.execute(), "accounts").filter(
+  const accounts = (await read(tools.accounts!, "accounts")).filter(
     (account) => account.status === "active",
   );
   // Where each account is mentioned, by its type ("checking") or its name.
@@ -369,10 +393,9 @@ async function moneyChange(
   if (paying && tools.recipients) {
     // Only a recipient the bank would pay: an inactive one is not offered,
     // and a word of its name ("old") is not taken for it.
-    const recipients = list(
-      await tools.recipients.execute(),
-      "recipients",
-    ).filter((item) => item.status === "active");
+    const recipients = (await read(tools.recipients, "recipients")).filter(
+      (item) => item.status === "active",
+    );
     const to = mentioned(lowered, recipients, (item) => text(item.name))[0]
       ?.item;
     if (!to)
@@ -440,7 +463,7 @@ async function tripChange(
   tools: DemoTools,
 ): Promise<DemoPlan> {
   const lowered = message.toLowerCase();
-  const trips = list(await tools.upcoming_trips!.execute(), "trips");
+  const trips = await read(tools.upcoming_trips!, "trips");
   if (!trips.length) return { say: "There is no upcoming trip to change." };
   const wanted = flightNumber(message);
   const segments = (trip: Record<string, unknown>) => list(trip, "itinerary");
@@ -508,16 +531,40 @@ export async function demoChange(
   /** A fresh idempotency key for a payment or transfer. */
   key: () => string,
 ): Promise<DemoPlan | undefined> {
-  switch (demoChangeKind(message, tools)) {
-    case "order":
-      return orderChange(message, tools);
-    case "money":
-      return moneyChange(message, tools, key);
-    case "trip":
-      return tripChange(message, tools);
-    default:
-      return undefined;
+  try {
+    switch (demoChangeKind(message, tools)) {
+      case "order":
+        return await orderChange(message, tools);
+      case "money":
+        return await moneyChange(message, tools, key);
+      case "trip":
+        return await tripChange(message, tools);
+      default:
+        return undefined;
+    }
+  } catch (error) {
+    if (!(error instanceof Unread)) throw error;
+    return {
+      say: `The demo couldn't read your account to prepare this change: ${unsent(error.message)}. Nothing was sent to the Company. Sign in again and keep every permission ticked on the Company's consent page.`,
+    };
   }
+}
+
+/**
+ * What the demo says after asking the Company for the change in `plan`;
+ * `show` puts the Company's answer into lines. Signed in to read only, the
+ * request is never sent: the answer is an error, there is nothing of the
+ * Company's to show, and saying it holds a change for approval would be false.
+ */
+export function demoChangeReply(
+  plan: Extract<DemoPlan, { call: string }>,
+  result: unknown,
+  show: (answer: unknown) => string,
+) {
+  const error = refusal(result);
+  if (error)
+    return `The demo read your account and prepared this change, but nothing was sent to the Company: ${unsent(error)}.${error === "insufficient_scope" ? " Press “Request change permission”, review the Company's consent, and ask again." : ""}`;
+  return `${plan.because}\n\nThe company answered:\n\n${show(result)}\n\nThe Company holds a change until you click Approve. For natural-language reasoning, select a model.`;
 }
 
 /**

@@ -19,7 +19,11 @@ import {
 import { overBudget } from "@/lib/limits";
 import { pickDemoTool } from "@/lib/demo-tool";
 import { readable } from "@/lib/demo-text";
-import { demoChange, demoChangeKind } from "@/lib/demo-changes";
+import {
+  demoChange,
+  demoChangeKind,
+  demoChangeReply,
+} from "@/lib/demo-changes";
 import { UserFacingError } from "@/lib/user-error";
 import { PapDiscoveryError } from "@poppy-lab/pap-core";
 import { publicMode, serving } from "@/lib/deployment";
@@ -317,7 +321,7 @@ async function reply(request: Request, started: { id?: string }) {
           text = `Protocol demo (no LLM). ${plan?.say ?? "The demo can't prepare that change here."}`;
         } else {
           const result = await tools[plan.call]!.execute(plan.args);
-          text = `Protocol demo (no LLM). ${plan.because}\n\nThe company answered:\n\n${show(result)}\n\nThe Company holds a change until you click Approve. For natural-language reasoning, select a model.`;
+          text = `Protocol demo (no LLM). ${demoChangeReply(plan, result, show)}`;
         }
       }
     } else if (provider === "demo") {

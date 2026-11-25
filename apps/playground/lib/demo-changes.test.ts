@@ -1,5 +1,10 @@
 import { expect, it, vi } from "vitest";
-import { demoChange, demoChangeKind, type DemoTools } from "./demo-changes";
+import {
+  demoChange,
+  demoChangeKind,
+  demoChangeReply,
+  type DemoTools,
+} from "./demo-changes";
 
 const tool = (value: unknown) => ({ execute: vi.fn(async () => value) });
 const key = () => "key_fixture_0001";
@@ -375,6 +380,64 @@ it("answers a question about a change by reading, never by asking for the change
   expect(
     await demoChange("Please move my order to Sunday?", restaurant(), key),
   ).toMatchObject({ call: "change_order" });
+});
+
+it("says so when the account can't be read, instead of planning from nothing", async () => {
+  // Signed in without recipients:read, the read is answered with an error.
+  const unread = bank();
+  unread.recipients = tool({ error: "insufficient_scope" });
+  const plan = await demoChange("Send Beacon Studio $5", unread, key);
+  expect(plan).toMatchObject({
+    say: expect.stringContaining("couldn't read your account"),
+  });
+  expect((plan as { say: string }).say).not.toContain("recipients are none");
+  expect(unread.request_payment!.execute).not.toHaveBeenCalled();
+  for (const [tools, name, message] of [
+    [bank(), "accounts", "Transfer $500 from checking to savings"],
+    [restaurant(), "menu", "add edamame"],
+    [restaurant(), "my_orders", "add edamame"],
+    [restaurant(), "delivery_slots", "move my order to Sunday"],
+    [airline(), "upcoming_trips", "add a bag to NA 402"],
+  ] as const) {
+    tools[name] = tool({ error: "insufficient_scope" });
+    expect(await demoChange(message, tools, key)).toMatchObject({
+      say: expect.stringContaining("Nothing was sent to the Company"),
+    });
+  }
+});
+
+it("never says a change is held for approval when it wasn't sent", () => {
+  const plan = {
+    call: "transfer_between_accounts",
+    args: {},
+    because: "The demo read your accounts and asked to transfer $500.00.",
+  };
+  const show = vi.fn((answer: unknown) => JSON.stringify(answer, null, 2));
+  // Signed in to read only: the request stops before the Company.
+  const refused = demoChangeReply(
+    plan,
+    {
+      error: "insufficient_scope",
+      instruction: "Ask the user to choose Request change permission.",
+    },
+    show,
+  );
+  // Nothing of the Company's to show, in lines or as data.
+  expect(show).not.toHaveBeenCalled();
+  expect(refused).toContain("nothing was sent to the Company");
+  expect(refused).toContain("Request change permission");
+  expect(refused).not.toContain("asked to transfer");
+  expect(refused).not.toContain("until you click Approve");
+  expect(refused).not.toContain("Ask the user");
+  // Sent and held: the Company's answer, and what happens next.
+  const held = demoChangeReply(
+    plan,
+    { status: "approval_required", operation_id: "op_1" },
+    show,
+  );
+  expect(held).toContain("asked to transfer $500.00");
+  expect(held).toContain('"operation_id": "op_1"');
+  expect(held).toContain("until you click Approve");
 });
 
 it("leaves reading questions and unknown Companies to the other rules", async () => {
