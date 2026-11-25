@@ -1,4 +1,5 @@
 "use client";
+import { inlineText } from "./inline-text";
 import { type RefObject } from "react";
 import { ArrowUp, LoaderCircle } from "lucide-react";
 import { companyProfile } from "@poppy-lab/pap-core";
@@ -91,7 +92,13 @@ export function Conversation({
                 <span className="company-badge">Company content</span>
               )}
             </h3>
-            {message.text && <div className="message-text">{message.text}</div>}
+            {message.text && (
+              <div className="message-text">
+                {message.role === "Agent"
+                  ? inlineText(message.text)
+                  : message.text}
+              </div>
+            )}
             {message.note && <p className="company-note">{message.note}</p>}
             {message.data && (
               <details className="company-data">
