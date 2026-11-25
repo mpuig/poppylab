@@ -8,6 +8,7 @@ import {
   labPlaygroundUrl,
   specRefHtml,
 } from "@poppy-lab/pap-core";
+import { GRANT_MS, TOKEN_MS } from "@poppy-lab/pap-company";
 import {
   accountLast4,
   customers,
@@ -24,6 +25,12 @@ const money = (cents: number) =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
+/** A length of time in whole days or hours: "7 days", "1 hour". */
+const span = (ms: number) => {
+  const [count, unit] =
+    ms % 86400000 === 0 ? [ms / 86400000, "day"] : [ms / 3600000, "hour"];
+  return `${count} ${unit}${count === 1 ? "" : "s"}`;
+};
 const fontSources = {
   style: "https://fonts.googleapis.com",
   font: "https://fonts.gstatic.com",
@@ -195,8 +202,8 @@ const permissionText: Record<HarborlineScope, string> = {
     "Through the FDX-shaped API, list and download monthly PDF statements of the accounts you choose: balances and posted transactions.",
   "fdx:CUSTOMER_CONTACT":
     "Through the FDX-shaped API, see the customer's name and email.",
-  offline_access:
-    "The agent stays connected for 7 days. Without this, it is disconnected after 1 hour.",
+  // The two ends `grantLifetime` gives a grant, said as the gateway counts them.
+  offline_access: `The agent stays connected for ${span(GRANT_MS)}. Without this, it is disconnected after ${span(TOKEN_MS)}.`,
 };
 
 /**
