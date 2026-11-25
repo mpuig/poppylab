@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { nextAutoApproval } from "./auto-approval";
+import { MAX_PER_HOUR, nextAutoApproval } from "./auto-approval";
 
 const op = (id: string, cents: number, revision = "1") => ({
   operation_id: id,
@@ -18,8 +18,12 @@ it("offers the first covered operation and only once per revision", () => {
   const decided = new Set<string>();
   const operations = [op("a", 5000), op("b", 2800)];
   const first = nextAutoApproval({ ...base, operations, decided });
+  expect(first).toMatchObject({
+    kind: "approve",
+    covered: "$28.00 within your limit of $30.00",
+    cents: 2800,
+  });
   expect(first?.op.operation_id).toBe("b");
-  expect(first?.covered).toBe("$28.00 within your limit of $30.00");
   expect(nextAutoApproval({ ...base, operations, decided })).toBeNull();
   // New terms under a new revision are a new decision.
   const again = [op("b", 2800, "2")];
@@ -52,4 +56,75 @@ it("leaves an over-limit operation for the User", () => {
       decided: new Set(),
     }),
   ).toBeNull();
+});
+
+it("stops after the hour's count and leaves the operation for the User", () => {
+  const now = 1_000_000_000;
+  const recent = Array.from({ length: MAX_PER_HOUR }, (_, i) => ({
+    at: now - 1000 * (i + 1),
+    cents: 100,
+  }));
+  const decided = new Set<string>();
+  const out = nextAutoApproval({
+    ...base,
+    operations: [op("a", 100)],
+    decided,
+    recent,
+    now: now,
+  });
+  expect(out).toMatchObject({ kind: "limit" });
+  // Said once, not retried on every render.
+  expect(
+    nextAutoApproval({
+      ...base,
+      operations: [op("a", 100)],
+      decided,
+      recent,
+      now,
+    }),
+  ).toBeNull();
+});
+
+it("stops once the hour's total passes three times the limit", () => {
+  const now = 1_000_000_000;
+  const recent = [
+    { at: now - 1000, cents: 3000 },
+    { at: now - 2000, cents: 3000 },
+    { at: now - 3000, cents: 2900 },
+  ];
+  expect(
+    nextAutoApproval({
+      ...base,
+      operations: [op("a", 200)],
+      decided: new Set(),
+      recent,
+      now,
+    }),
+  ).toMatchObject({ kind: "limit" });
+  expect(
+    nextAutoApproval({
+      ...base,
+      operations: [op("a", 100)],
+      decided: new Set(),
+      recent,
+      now,
+    }),
+  ).toMatchObject({ kind: "approve" });
+});
+
+it("forgets approvals older than an hour", () => {
+  const now = 1_000_000_000;
+  const old = Array.from({ length: 9 }, () => ({
+    at: now - 4_000_000,
+    cents: 3000,
+  }));
+  expect(
+    nextAutoApproval({
+      ...base,
+      operations: [op("a", 100)],
+      decided: new Set(),
+      recent: old,
+      now,
+    }),
+  ).toMatchObject({ kind: "approve" });
 });

@@ -31,9 +31,10 @@ export function StandingInstruction({
       {instruction ? (
         <p>
           Iris approves exchanges here up to {formatLimit(instruction)} without
-          asking, and says so in the log each time. Refunds, other currencies,
-          larger totals and anything that does not match its summary still come
-          to you.{" "}
+          asking, and says so in the log each time. Any amount over the limit
+          (fees included), refunds, other currencies and anything that does not
+          match its summary still come to you, and so does everything after 5
+          approvals an hour or three times the limit in total.{" "}
           <button
             type="button"
             className="text-button"

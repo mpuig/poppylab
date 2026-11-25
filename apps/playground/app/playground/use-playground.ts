@@ -30,7 +30,9 @@ import { agentStep } from "@/lib/agent-steps";
 import { logEntry, type ProtocolEntry } from "@/lib/protocol-log";
 import { nextAutoApproval } from "@/lib/auto-approval";
 import {
+  loadApprovals,
   loadInstruction,
+  recordApproval,
   saveInstruction,
   type Instruction,
 } from "@/lib/standing-instructions";
@@ -301,13 +303,22 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
       signedIn,
       busy,
       decided: decided.current,
+      recent: loadApprovals(origin),
     });
     if (!next) return;
-    addTrace([`Approved by your standing instruction · ${next.covered}`]);
+    if (next.kind === "limit") {
+      addTrace([
+        `Standing instruction not applied · ${next.reason}; waiting for you`,
+      ]);
+      return;
+    }
+    recordApproval(origin, { at: Date.now(), cents: next.cents });
+    // The next line of the log says how the Company answered.
+    addTrace([`Applying your standing instruction · ${next.covered}`]);
     void accountAction("approve", next.op);
     // accountAction is recreated each render and reads current state, so it
     // is deliberately not a dependency.
-  }, [operations, instruction, signedIn, busy]);
+  }, [operations, instruction, signedIn, busy, origin]);
 
   const discover = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
