@@ -31,7 +31,8 @@ const span = (ms: number) => {
     ms % 86400000 === 0 ? [ms / 86400000, "day"] : [ms / 3600000, "hour"];
   return `${count} ${unit}${count === 1 ? "" : "s"}`;
 };
-const fontSources = {
+/** Where the site's faces load from; the consent page's policy must allow them too. */
+export const fontSources = {
   style: "https://fonts.googleapis.com",
   font: "https://fonts.gstatic.com",
 };

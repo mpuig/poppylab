@@ -1,6 +1,7 @@
 import { expect, it } from "vitest";
 import { GRANT_MS, TOKEN_MS } from "@poppy-lab/pap-company";
 import { consentPage } from "./site.ts";
+import { setup } from "./test-harness.ts";
 
 const page = (scopes: string) =>
   consentPage({
@@ -24,6 +25,18 @@ it("says how long the agent stays connected, in the gateway's own two lengths", 
     '<h3>While you&#39;re away</h3><label class="sheet-option"><input type="checkbox" name="allow_offline" value="yes">',
   );
   expect(page("accounts:read")).not.toContain("allow_offline");
+});
+
+it("lets the consent page load the bank's own faces", async () => {
+  const h = await setup();
+  const { page } = await h.authorize("elena", ["accounts:read"]);
+  const policy = String(page.headers["content-security-policy"]);
+  expect(policy).toContain(
+    "style-src 'unsafe-inline' https://fonts.googleapis.com",
+  );
+  expect(policy).toContain("font-src https://fonts.gstatic.com");
+  expect(policy).not.toContain("script-src");
+  expect(page.body).toContain("family=Barlow+Condensed");
 });
 
 it("lists each requested permission in words, each change as its own ticked option, and no scope name", () => {
