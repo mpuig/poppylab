@@ -102,8 +102,10 @@ const invalid = (c: Context, description: string) =>
  * IntervalBlock or a bill summary is in it when its interval (the UTC day,
  * the billing month) overlaps it, so every hour inside the window comes
  * with its block, and one starting at `max` is out. By default the 31 UTC
- * days up to now (today and the 30 before), at most 92 days apart. `max-results` (at most 1000) and
- * `start-index` (from 1) page any feed's entries.
+ * days up to now (today and the 30 before), at most 92 days apart: 92
+ * local days, which are an hour longer when clocks go back in November.
+ * `max-results` (at most 1000) and `start-index` (from 1) page any feed's
+ * entries.
  */
 export function parseQuery(c: Context, now: number): Query | Response {
   const q = c.req.query();
@@ -126,7 +128,7 @@ export function parseQuery(c: Context, now: number): Query | Response {
   const from = min ?? dayStart(to) - (DEFAULT_WINDOW_DAYS - 1) * DAY;
   if (from > to)
     return invalid(c, "published-min must not be after published-max");
-  if (to - from > MAX_WINDOW_DAYS * DAY)
+  if (to - from > MAX_WINDOW_DAYS * DAY + PACIFIC.dstOffset)
     return invalid(
       c,
       `published-min and published-max must be at most ${MAX_WINDOW_DAYS} days apart`,

@@ -536,6 +536,12 @@ describe("Fernwick ESPI-shaped API", () => {
       ),
     ).toEqual(["2026-11-24", "2026-11-25"]);
     expect(await count("start-index=40")).toEqual([]);
+    // 92 Pacific days across the November change: 92 × 24 hours and one.
+    expect(
+      await count(
+        "published-min=2026-08-26T00:00:00-07:00&published-max=2026-11-26T00:00:00-08:00",
+      ),
+    ).toHaveLength(92);
     for (const [query, words] of [
       ["published-min=yesterday", "published-min must be an RFC 3339"],
       ["published-max=2026-02-30T00:00:00Z", "published-max must be"],
@@ -545,6 +551,10 @@ describe("Fernwick ESPI-shaped API", () => {
       ],
       [
         "published-min=2026-08-01T00:00:00Z&published-max=2026-11-25T00:00:00Z",
+        "at most 92 days",
+      ],
+      [
+        "published-min=2026-08-26T00:00:00-07:00&published-max=2026-11-26T00:00:01-08:00",
         "at most 92 days",
       ],
       ["max-results=0", "max-results"],
