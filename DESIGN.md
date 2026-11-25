@@ -227,7 +227,7 @@ A near-monochrome page with two signal colours, each tied to one meaning. The st
 - **Deep Amber** (`amber-deep`): one job, the 1px ring that holds the edge of an amber dot on white in Figure 5. Never a fill or a text colour.
 
 ### Tertiary
-- **Error Red** (`danger`): playground only, for error text and failed checks. It does not appear on the home, `/developers` or `/learn`.
+- **Error Red** (`danger`): playground only, for failed checks and for the error block, where it is the icon, a 35% rule and a 5% wash over paper with the message in ink. It does not appear on the home, `/developers` or `/learn`.
 
 ### Neutral
 - **Paper** (`paper`): the ground of the home, `/developers` and `/learn`, and every working surface. In the playground paper is the header, the conversation, inputs, cards and quiet buttons, which stand off a tint ground.
@@ -295,10 +295,10 @@ Where each surface sits:
 - **Playground:** a full-width header on the home's edges, then a 780px working column. The workspace fills the viewport and only the transcript scrolls; the conversation closes 24px above the window edge (12px on phones, plus the safe area).
 
 Responsive behaviour:
-- **960px:** two- and three-column compositions become one column. In the hero the figure follows the actions and the small print drops below it. The bar keeps the wordmark and the demo button and drops its links.
+- **960px:** two- and three-column compositions become one column. In the hero the figure follows the actions and the small print drops below it. The bar keeps the wordmark and the demo button and drops its links. Figure 3 swaps to an upright drawing of the same parties and connectors, because the wide one would scale its labels below a readable size; Figure 2 becomes rows with a 44px swatch at the left. Figures 4 and 5 stay tables at every width, with their statements below them.
 - **900px:** the `/learn` page list becomes a wrapped row above the article.
-- **720px:** Figure 3 swaps to an upright drawing of the same parties and connectors; Figure 2 becomes rows with a 44px swatch at the left. Figures 4 and 5 stay tables at every width; from 960px down their statements move below them.
-- **640px:** the `/developers` tables become stacked rows with their column names as labels.
+- **860px:** the Companies table on `/developers` becomes stacked rows with its column names as labels.
+- **640px:** the endpoint table on `/developers` becomes stacked rows.
 - **520px:** body drops to 16px, the bar button shortens to "Live demo", the footer becomes one column, Figure 1's party heads tighten to 14px and its labels to 13px, and the playground header becomes one 56px row.
 - **380px:** Figure 1's labels drop to 12px so each still fits on one line.
 
@@ -343,7 +343,7 @@ Every figure is a `figure` with a `figcaption`, drawn in ink, hairline and green
 - **Sequence (Figure 1, `sequence-figure.tsx`):** three party heads over three `line-strong` lifelines. Each message is a 52px row: a numbered label on a paper ground above a 1.5px green line with an arrowhead, dashed for replies. The fifth row is the approval gate: an amber-bordered, amber-wash row with "Waiting for your approval" and a working Approve button. Messages 6 and 7 are drawn in `line-strong` and muted until approval. Approving turns the gate to green wash with a tick and "Approved by you", draws the last two messages, and replaces the button with a quiet "Show it again".
 - **Motion:** the only authored motion in the system. Each message line draws from its sender over 520ms and its label settles from 35% opacity, staggered 150ms apart, once. It runs only when the visitor has not asked for reduced motion; otherwise everything is shown at rest.
 - **Spectrum (Figure 2):** five columns under two group labels. "Without a protocol" steps are a hatched tint swatch with soft-ink titles; the three "With Poppy" steps share one green rule and step through the petrol ramp.
-- **Flow (Figure 3, `flow-diagram.tsx`):** inline SVG, three nodes and orthogonal connectors. The two things only the person does sit on amber tags (amber wash, 1px amber border, 4px corners) placed on the connector. A wide drawing above 720px and an upright one below, where the sign-in tag takes two lines ("2 · You sign in" over "at the company").
+- **Flow (Figure 3, `flow-diagram.tsx`):** inline SVG, three nodes and orthogonal connectors. The two things only the person does sit on amber tags (amber wash, 1px amber border, 4px corners) placed on the connector. A wide drawing above 960px, with 15px labels, and an upright one below, where the sign-in tag takes two lines ("2 · You sign in" over "at the company").
 - **Matrix (Figures 4 and 5):** one table grammar for both. Column heads are semibold 14px, centred, over a 1px ink rule; row heads are soft-ink sans at 15px on hairlines; each cell holds a 12px mark. Short statements sit beside the table as points: three for Figure 4, in the order of its columns, and four for Figure 5.
 - **Figure 4, who holds what:** five things as rows, the three parties as columns. A hollow ring (1.5px soft ink) where a thing sits without a protocol, a green dot where it sits with Poppy, both side by side when both apply, a short `line-strong` dash where neither does. A two-item key in muted 14px sits above the table, and each mark carries its meaning as screen-reader text.
 - **Figure 5, who does what:** jobs by actor. A green dot for the model's and the code's jobs, an amber dot with a 1px `amber-deep` ring for the person's, the same dash for none.
@@ -359,7 +359,7 @@ A bordered panel (1px `line-strong`, 8px corners, 16px padding, 14px type) is us
 ### Ruled lists and tables
 - **Points:** 16px rows on hairlines with a semibold ink lead-in and soft-ink text, one sentence or two each.
 - **Fact list:** a 120px muted term beside a medium-weight value; links to endpoints are mono.
-- **Tables (`/developers`, `/learn`):** muted 14px column heads, semibold row heads, 13px vertical padding, hairline rows, mono for codes and spec sections. Wide tables scroll sideways inside a thin scrollbar or stack below 640px.
+- **Tables (`/developers`, `/learn`):** muted 14px column heads, semibold row heads, 13px vertical padding, hairline rows, mono for codes and spec sections. Wide tables scroll sideways inside a thin scrollbar or stack: the Companies table below 860px, the endpoint table below 640px.
 - **Code (`/learn`):** inline code on tint with 4px corners; blocks on tint with a hairline border and 8px corners.
 
 ### Inputs (playground)
@@ -376,6 +376,8 @@ The same world in Operate mode. `playground.css` restates the tokens on `:root`.
 - **Needs you:** a tint bar at the foot of the conversation with the count in an amber pill; a live Direct Conversation bar turns amber wash with an amber rule above.
 - **Inspector, Identity, History:** ruled lists. Section headings are 18px semibold over a 1px ink rule, rows on hairlines, timings and spec references in muted mono, passed checks in green and failed ones in red.
 - **Operation review:** a proposal's headline value at 26px. Money rows are two equal columns 58px apart, so each amount starts where the After column of the change above starts, in tabular figures with a hairline above the total; what the Company said sits behind a 2px hairline at the left.
+- **Errors:** an error is a block with a drawn alert icon in error red, a rule and a wash mixed from the same red, and the message in ink at 14px. In a running conversation it closes the transcript, next to the composer; before a Company is picked it sits above the Company cards, next to the address form that caused it.
+- **Exact terms and raw documents:** mono text in a paper block with a hairline border and 6px corners, so it reads as a document on the tint ground.
 - **Disclosures:** every `summary` opens with the same drawn 14px chevron in the text's colour, in place of the browser's marker; it turns a quarter when open.
 - **Motion:** 160ms colour transitions, the chevron's turn and a spinner while work is in flight. Reduced motion removes all animation.
 - **First visit:** the playground starts in demo mode with no model or key, and the model row offers "Use your own model". The address form appears only for another Company's address or to change Company. Each conversation has its own address; its heading carries its state and a "New conversation" link, and an ended one shows a ruled note and a disabled composer. History lists the visitor's conversations (Company, first request, start time, Open or Read-only) above "Start the demo over", whose reset asks once more before acting.
