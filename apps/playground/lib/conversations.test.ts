@@ -593,6 +593,60 @@ describe("Direct Conversations (§8.10) in Iris", () => {
     },
   );
 
+  it("shows the Company's last words when the Direct Conversation it closed refuses the User's message", async () => {
+    const { run, s, shown, request } = session((url) => {
+      if (url.startsWith(`${endpoint}/cnv_d/messages`))
+        throw new ProtocolError(409, "conversation_closed");
+      // §8.12: a closed conversation's events stay readable.
+      return read(
+        [
+          said("evt_d3", { text: "Anything else?" }),
+          said("evt_d4", {
+            text: "This conversation reached its length limit and is now closed.",
+          }),
+        ],
+        { conversation_id: "cnv_d", closed: true },
+      );
+    });
+    run.conversation = both();
+    const result = (await s.direct("say", "One more thing")) as {
+      error?: string;
+      note?: string;
+    };
+    expect(result).toMatchObject({
+      error: "conversation_closed",
+      note: expect.stringContaining("Iris is back"),
+    });
+    // Only what the User hadn't seen, as said in their own thread.
+    expect(shown).toEqual([
+      {
+        author: "Lantern Noodle Bar · automated agent",
+        human: false,
+        text: "This conversation reached its length limit and is now closed.",
+        direct: true,
+      },
+    ]);
+    // A read from where the thread was, and nothing sent.
+    const [, url, method, body] = request.mock.calls.at(-1)!;
+    expect(url).toBe(`${endpoint}/cnv_d/events?wait=10&cursor=evt_d3`);
+    expect(method).toBe("GET");
+    expect(body).toBeUndefined();
+    expect(run.conversation).toEqual(parentOnly);
+  });
+
+  it("asks the User to sign in when their Direct Conversation needs the account, and keeps it open", async () => {
+    const { run, s } = session(() => {
+      throw new ProtocolError(401, undefined);
+    });
+    run.conversation = both();
+    // The User reads this, not the model: Iris's line is never empty.
+    expect(await s.direct("say", "Are you there?")).toMatchObject({
+      error: "sign_in_required",
+      note: expect.stringContaining("Sign in control"),
+    });
+    expect(run.conversation).toEqual(both());
+  });
+
   it("forgets only the Direct Conversation's read position when its cursor expired", async () => {
     const { run, s } = session(() => {
       throw new ProtocolError(410, "cursor_expired");

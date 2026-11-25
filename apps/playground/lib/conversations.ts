@@ -346,6 +346,15 @@ export function conversationSession(run: Run, options: Options) {
         ].includes(error.code ?? "")
       ) {
         if (own) {
+          // §8.12: a closed thread can still be read. What the Company said
+          // last, such as why it closed, is shown before the thread goes.
+          if (error.code === "conversation_closed" && own.id)
+            await call(
+              `${options.endpoint}/${own.id}/events`,
+              "GET",
+              undefined,
+              own,
+            ).catch(() => {});
           // Only that thread is over: the parent keeps its ID and its place.
           delete state().direct;
           return {
@@ -381,6 +390,12 @@ export function conversationSession(run: Run, options: Options) {
           error: "sign_in_required",
           instruction:
             "This conversation used the user's account. Ask the user to use the Sign in control in the chat.",
+          // In their own thread the User reads the answer, not the model.
+          ...(own
+            ? {
+                note: "This direct conversation needs you signed in, so nothing was sent. Use the Sign in control in the chat, then try again.",
+              }
+            : {}),
         };
       throw error;
     }
