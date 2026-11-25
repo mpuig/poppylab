@@ -127,6 +127,7 @@ The same Next.js app runs with `next dev`/`next start` on Node and on Cloudflare
   - OpenNext copies `.env*` values into `next-env.mjs`; the first build contained the local model keys and was deleted before any deployment.
   - The script now empties that file and scans the whole bundle for every local secret-like value and the local identity. If it finds one, it deletes the artifact and fails, printing names only.
   - `NEXT_PUBLIC_JUNIPER_URL`, `NEXT_PUBLIC_LANTERN_URL`, `NEXT_PUBLIC_HARBORLINE_URL` and `NEXT_PUBLIC_NORTHWIND_URL` point the suggestions to poppylab.dev.
+  - **Prerendered pages.** The Learn pages are prerendered (`generateStaticParams`), and OpenNext serves such pages only through an incremental cache; without one every `/learn` page was a 404 in production. `open-next.config.ts` uses the read-only static-assets cache, and the script copies `.open-next/cache` into `.open-next/assets/cdn-cgi/_next_cache` after the secret check, so the pages ship as Workers static assets. The build ends with "Prerendered pages copied to static assets." Dynamic routes are unaffected. A new Learn page needs nothing more than a build and a deploy.
 - **Verified in production** (version deployed 2 Nov 2026):
   - JWKS without a private part; `client.json` with `https://poppylab.dev` and Operations v3.
   - Discovery of Juniper and Lantern; private, HTTP and metadata URLs refused.

@@ -53,6 +53,24 @@ origin the Company is configured with, never from the request's `Host`
 header, and has no query string. The OpenAPI summary of each endpoint says so.
 The field is an addition, so agents that ignore it are unaffected.
 
+Lantern's menu, with one dish shown:
+
+```json
+{
+  "currency": "USD",
+  "dishes": [
+    {
+      "id": "matcha-ice",
+      "name": "Matcha ice cream",
+      "price_cents": 600,
+      "image": "https://food-demo.poppylab.dev/img/matcha-ice.webp"
+    }
+  ],
+  "delivery_cents": 300,
+  "note": "Fictional menu."
+}
+```
+
 A test in each Company checks that every item's `image` is well formed, on the
 Company's own origin and points at a file that exists, so an item added
 without a photo fails the tests.

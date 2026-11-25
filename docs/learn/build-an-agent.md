@@ -55,6 +55,47 @@ Companies fetch it instead of asking you to register:
   publish that key at `/.well-known/http-message-signatures-directory`, apart
   from `jwks_uri`. Iris derives it from the identity secret with HKDF.
 
+A request Iris signs this way carries three more headers. This is a signed-out
+read of Lantern's tasks; the key ID and signature here come from a test key,
+not from Iris's:
+
+```http
+GET https://food-demo.poppylab.dev/poppy/tasks
+Poppy-Version: 1.0
+Poppy-Session: eyJ0eXAiOiJwb3BweS1zZXNzaW9uK2p3dCIs…
+Signature-Agent: sig1="https://poppylab.dev/.well-known/http-message-signatures-directory"
+Signature-Input: sig1=("@authority" "@method" "@path" "signature-agent";key="sig1" "poppy-session");created=1795597200;expires=1795597500;keyid="NZ26DAePNX3uItLapeBswY0LueqOKWZ4CNGEPdCv1-A";alg="ed25519";nonce="c2FtcGxlLW5vbmNlLTAwMDE";tag="web-bot-auth"
+Signature: sig1=:xHZUsAsD98qnjJZVD4v/es9TQY4avsccEZGI8HQsWKBPmdOwv2AsMgDf1c56lQTjboSygUUO4pPCzIlKU6SRAg==:
+```
+
+The signature covers the host, the method, the path, the `Signature-Agent`
+member and the Session header, and the `Authorization` header too when the
+request is signed in. It is valid for five minutes. It adds nothing to
+authorization: a Company still verifies the Session JWT, and bot defenses in
+front of it can tell which operator is calling. `Signature-Agent` names where
+the key is published, which for Iris answers:
+
+```http
+HTTP/2 200
+Content-Type: application/http-message-signatures-directory+json
+Cache-Control: public, max-age=86400
+
+{
+  "keys": [
+    {
+      "kty": "OKP",
+      "crv": "Ed25519",
+      "x": "91M73e8SDa_Ahhp7MQ9eesF-jNWxprxetBKtlos8wHs",
+      "kid": "R1pKzSbRnRFT3Ylg-cr5OG6Xr50_LmkESQ_p8cQW5qA",
+      "use": "sig"
+    }
+  ]
+}
+```
+
+That response is itself signed with the same key, so a reader knows whoever
+serves the directory holds the key it lists.
+
 Serve these documents without redirects and with short cache lifetimes: a
 Company that cached your old keys can't verify you after a rotation (see
 _Rotating keys_ in the [guides](https://personalagentprotocol.org/docs/1.0/guides)).
@@ -164,6 +205,40 @@ conversation endpoint, it also reads that service's protected resource
 metadata: a service that names its own resource gets its own token
 ([§4.5](https://personalagentprotocol.org/docs/1.0/spec#access-tokens)). On
 sign-out, it revokes the refresh token.
+
+None of the lab's Companies needs a token of its own for a service, so this
+example uses a made-up one. For an API at `https://api.company.example/orders`,
+Iris first asks what that service calls itself:
+
+```http
+GET https://api.company.example/.well-known/oauth-protected-resource/orders
+```
+
+```json
+{ "resource": "https://api.company.example/orders" }
+```
+
+The answer counts only when `resource` is the service's own URL. When it is,
+and it differs from the Company's default resource, Iris gets a token for it
+from the refresh token it already holds, with no new sign-in and with the same
+DPoP key:
+
+```http
+POST https://company.example/oauth/token
+Content-Type: application/x-www-form-urlencoded
+DPoP: eyJ0eXAiOiJkcG9wK2p3dCIs…
+
+grant_type=refresh_token
+&refresh_token=…
+&resource=https%3A%2F%2Fapi.company.example%2Forders
+&client_assertion_type=urn%3Aietf%3Aparams%3Aoauth%3Aclient-assertion-type%3Ajwt-bearer
+&client_assertion=eyJhbGciOiJFUzI1NiIs…
+```
+
+An answer of `invalid_target` means the Company doesn't offer that service
+signed in, and Iris uses it signed out for the next hour. A service with no
+metadata takes the default token. Tokens for services are dropped when the
+sign-in they came from ends.
 
 **The line:** the sign-in control is a button in the interface, not a tool.
 When a tool needs a scope the agent doesn't have, it returns

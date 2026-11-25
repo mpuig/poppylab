@@ -131,6 +131,88 @@ in the page; the server's approval endpoint is the one it always was.
   or signature in its query or fragment is shown with "…" in its place; a
   secret inside the path itself cannot be recognised and is not hidden.
 
+### What each of these looks like
+
+The examples below are from the run in [A first run](#a-first-run): Elena
+asks Juniper Market to move her recurring delivery to Saturday.
+
+**The approval card**, in the "Needs you" panel:
+
+```text
+Change delivery day                                   Approval required
+Juniper Market · grocery-demo.poppylab.dev · terms revision 1795610120-n19JJxSZnvGF54sY
+
+Juniper Market says:
+  Move Elena Maren's fictional delivery delivery_001 from Thursday to
+  Saturday, recurring weekly. No charge (USD 0.00). No real shipment is
+  affected.
+
+Recurring delivery day
+  Before  Thursday    →    After  Saturday
+Change fee                 $0.00
+
+› All exact terms
+
+Approval covers only revision 1795610120-n19JJxSZnvGF54sY. Expires 25/11/2026, 13:45:20.
+[ Approve this change ]   Decline
+```
+
+The domain sits beside the name because discovery proves the domain, not who
+owns it. "All exact terms" opens the terms as the Company sent them. Once
+approved, the card moves to the transcript as "Change delivery day ·
+Completed" with the Company's result: "Fictional delivery delivery_001 now
+repeats weekly on Saturday. USD 0.00 charged. No real shipment affected."
+
+**What Iris did**, under the answer that proposed the change:
+
+```text
+Company Agent conversations at https://grocery-demo.poppylab.dev/poppy/conversations    setup
+Found 19 API tools at the Company                                                       setup
+Sent a request to /api/account/delivery-change                                          API · view and change
+Asked for your approval; nothing was done yet                                           API · view and change · waiting for you
+```
+
+**The log**, in the Inspector, for the same turn:
+
+```text
+13:22:03.971  Poppy 1.0 Session signed in · delegated ES256 Session header · Poppy-Version 1.0 · Poppy-Extensions "operations";v="3"   §5.2              OK
+13:22:03.971  GET /poppy/tasks · tasks for this Session · 3 excluded                                                                    §9                Note
+13:22:03.971  Loaded 19 API tools; confirmation is never a model tool                                                                   §7                OK
+13:22:03.971  POST /api/account/delivery-change · Poppy Session                                                                         §7                Note
+13:22:03.971  Approval required · nothing performed                                                                                     Operations §4–6   Needs you
+```
+
+Each section number is a link to that section of the published text. The times are the same because one turn's events reach the page together.
+
+**The downloaded trace** has the same events as text, oldest first, in UTC:
+
+```text
+Poppy Lab trace · Poppy 1.0 · Juniper Market
+Recorded 2026-11-25T12:22:10.000Z
+
+Discovery
+- [passed] Company URL: https://grocery-demo.poppylab.dev
+- [passed] Discovery document · Poppy 1.0 (§3): https://grocery-demo.poppylab.dev/.well-known/poppy.json · 10 ms
+
+Session and API calls
+- 2026-11-25T12:22:03.971Z (§7) POST /api/account/delivery-change · Poppy Session [info]
+- 2026-11-25T12:22:03.971Z (Operations §4–6) Approval required · nothing performed [waiting]
+
+Recorded: time, spec section, method, address without its query, and the event's own words.
+Times are when this page received each event; one turn's events arrive together.
+Never recorded: headers, bodies, tokens, Session JWTs, DPoP proofs, keys, codes or sign-in values.
+```
+
+**A standing instruction.** With "Approve exchanges up to (USD) 20" saved for
+a Company, a covered proposal whose terms total $18.50 is approved by Iris:
+the log shows "Applying your standing instruction" and, on the next line, how
+the Company answered. One for $28.00 is not covered and waits in "Needs you"
+with "Approve $28.00" on its button.
+
+**A hidden link.** A Company's message with
+`https://company.example/track?token=8f3a…` is shown as
+`https://company.example/track?…`. The page prints the address as text, not as a link, and leaves the secret out.
+
 The code is in `apps/playground/lib/` (`standing-instructions.ts`,
 `auto-approval.ts`, `operation-presentation.ts`, `protocol-log.ts`,
 `agent-steps.ts`, `link-display.ts`), each with its tests, and in
