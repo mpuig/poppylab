@@ -323,6 +323,40 @@ it("pays a saved recipient, never one it wasn't shown", async () => {
     });
 });
 
+it("keeps a payment or transfer within what the bank's tools take", async () => {
+  // As Harborline describes them: up to $10,000.00, a memo of 1 to 120 characters.
+  const described = () => {
+    const tools = bank();
+    const amount_cents = { type: "integer", minimum: 1, maximum: 1000000 };
+    tools.transfer_between_accounts!.schema = { properties: { amount_cents } };
+    tools.request_payment!.schema = {
+      properties: {
+        amount_cents,
+        memo: { type: "string", minLength: 1, maxLength: 120 },
+      },
+    };
+    return tools;
+  };
+  const tools = described();
+  for (const message of [
+    "Transfer $20000 from checking to savings",
+    "Send Beacon Studio $20,000 for the retainer",
+  ])
+    expect(await demoChange(message, tools, key)).toEqual({
+      say: "$20000.00 is more than this bank takes in one request: $10000.00 at most. Nothing was sent; ask for a smaller amount.",
+    });
+  expect(
+    await demoChange("Transfer $10,000 from checking to savings", tools, key),
+  ).toMatchObject({ args: { amount_cents: 1000000 } });
+  // A memo of nothing but punctuation is no memo: the demo's own stands in.
+  expect(
+    await demoChange("Pay Beacon Studio $125 for .", tools, key),
+  ).toMatchObject({ args: { memo: "Payment asked for in the demo" } });
+  expect(
+    await demoChange("Pay Beacon Studio $125 for   ", bank(), key),
+  ).toMatchObject({ args: { memo: "Payment asked for in the demo" } });
+});
+
 it("accepts the upgrade offer on the flight named, and adds bags", async () => {
   expect(
     await demoChange("Upgrade my NA 118 flight to Business.", airline(), key),

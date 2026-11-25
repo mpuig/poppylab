@@ -16,7 +16,7 @@ export {
 export { vault } from "./vault.ts";
 export * from "./headers.ts";
 export * from "./operator-signature.ts";
-export { openApiTools, type ApiTool } from "./openapi.ts";
+export { openApiTools, InvalidToolArguments, type ApiTool } from "./openapi.ts";
 import { sseRpc } from "./mcp-wire.ts";
 export { mcpTools, mcpResourcePolicy } from "./mcp.ts";
 import { proof, assertion } from "./session.ts";

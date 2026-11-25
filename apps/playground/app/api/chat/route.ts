@@ -3,7 +3,11 @@ import {
   accountUnavailableNotice,
 } from "@/lib/account-recovery";
 import { NextResponse } from "next/server";
-import { ProtocolError, randomId } from "@poppy-lab/pap-client";
+import {
+  InvalidToolArguments,
+  ProtocolError,
+  randomId,
+} from "@poppy-lab/pap-client";
 import { shoppingTarget } from "@/lib/shopping-context";
 import { cookies } from "next/headers";
 import { connect, directConversation, type Run } from "@/lib/runtime";
@@ -320,8 +324,16 @@ async function reply(request: Request, started: { id?: string }) {
         if (!plan || "say" in plan) {
           text = `Protocol demo (no LLM). ${plan?.say ?? "The demo can't prepare that change here."}`;
         } else {
-          const result = await tools[plan.call]!.execute(plan.args);
-          text = `Protocol demo (no LLM). ${demoChangeReply(plan, result, show)}`;
+          try {
+            const result = await tools[plan.call]!.execute(plan.args);
+            text = `Protocol demo (no LLM). ${demoChangeReply(plan, result, show)}`;
+          } catch (error) {
+            // The demo chose the arguments; when the Company's description
+            // of the tool rejects them, nothing was sent. Say that, not
+            // "check the Company is running".
+            if (!(error instanceof InvalidToolArguments)) throw error;
+            text = `Protocol demo (no LLM). The demo prepared a request for ${plan.call} that this Company's description of the tool doesn't accept, so nothing was sent. Ask for it in other words or with other values, or select a model.`;
+          }
         }
       }
     } else if (provider === "demo") {

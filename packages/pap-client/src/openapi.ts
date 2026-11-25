@@ -17,6 +17,16 @@ export type ApiTool = {
   schema: Record<string, unknown>;
   execute: (input?: Record<string, unknown>) => Promise<unknown>;
 };
+/**
+ * A call whose arguments the tool's own schema rejects. Nothing was sent to
+ * the Company: a caller that built the arguments itself can say so.
+ */
+export class InvalidToolArguments extends Error {
+  constructor() {
+    super("Invalid tool arguments");
+    this.name = "InvalidToolArguments";
+  }
+}
 const obj = (v: unknown): v is Record<string, unknown> =>
   !!v && typeof v === "object" && !Array.isArray(v);
 const name = (v: string) =>
@@ -443,7 +453,7 @@ export function openApiTools(
               required.some((k) => !Object.hasOwn(input, k)) ||
               Object.entries(input).some(([k, v]) => !valid(v, properties[k]!))
             )
-              throw Error("Invalid tool arguments");
+              throw new InvalidToolArguments();
             let route = path;
             for (const p of params.filter((p) => p.in === "path")) {
               const v = String(input[p.name]);

@@ -9,7 +9,11 @@
  * Company still answers `approval_required` and holds the change for the
  * User. When the message doesn't say enough, the demo asks instead of guessing.
  */
-type Tool = { execute: (input?: Record<string, unknown>) => Promise<unknown> };
+type Tool = {
+  execute: (input?: Record<string, unknown>) => Promise<unknown>;
+  /** The Company's own description of the arguments, when it gave one. */
+  schema?: Record<string, unknown>;
+};
 export type DemoTools = Record<string, Tool | undefined>;
 export type DemoPlan =
   /** The tool to call, its exact arguments, and how they were chosen. */
@@ -392,6 +396,29 @@ const cents = (message: string) => {
     : undefined;
 };
 const usd = (amount: number) => `$${(amount / 100).toFixed(2)}`;
+/**
+ * A limit the Company's description of a tool puts on one argument, such as
+ * the most a bank takes in one request. Undefined when it states none.
+ */
+const limit = (
+  tool: Tool | undefined,
+  argument: string,
+  name: "maximum" | "maxLength",
+) => {
+  const properties = tool?.schema?.properties as
+    Record<string, Record<string, unknown> | undefined> | undefined;
+  const value = properties?.[argument]?.[name];
+  return typeof value === "number" ? value : undefined;
+};
+/** Says an amount is over what the tool takes, if it is. */
+const overLimit = (tool: Tool | undefined, amount: number) => {
+  const most = limit(tool, "amount_cents", "maximum");
+  return most !== undefined && amount > most
+    ? {
+        say: `${usd(amount)} is more than this bank takes in one request: ${usd(most)} at most. Nothing was sent; ask for a smaller amount.`,
+      }
+    : undefined;
+};
 
 /** Bank accounts: a transfer between two of them, or a payment to a saved recipient. */
 async function moneyChange(
@@ -439,9 +466,13 @@ async function moneyChange(
       accounts.find((account) => account.type === "checking") ??
       accounts[0];
     if (!from) return { say: "There is no active account to pay from." };
-    const memo =
-      message.match(/\bfor\s+(.{1,100})$/i)?.[1]?.replace(/[.!?]+$/, "") ??
-      "Payment asked for in the demo";
+    const over = overLimit(tools.request_payment, amount);
+    if (over) return over;
+    // What the payment is for; a memo of nothing but punctuation is none.
+    const memo = (
+      message.match(/\bfor\s+(.{1,100})$/i)?.[1]?.replace(/[\s.!?]+$/, "") ||
+      "Payment asked for in the demo"
+    ).slice(0, limit(tools.request_payment, "memo", "maxLength") ?? 100);
     return {
       call: "request_payment",
       args: {
@@ -457,6 +488,8 @@ async function moneyChange(
 
   if (!tools.transfer_between_accounts)
     return { say: "This bank doesn't offer transfers to agents." };
+  const over = overLimit(tools.transfer_between_accounts, amount);
+  if (over) return over;
   // "from X to Y" when the words are there (the last "to": "I want to…"
   // comes earlier); otherwise the order the accounts were named in.
   const toAt = lowered.lastIndexOf(" to "),
