@@ -30,7 +30,7 @@ import { domainExtension } from "@/lib/domain-extension";
 import type { FdxConsentRecord } from "./fdx-consent";
 import type { EspiAuthorizationRecord } from "./espi-authorization";
 import type { FdxStatementAccount } from "./fdx-statements";
-import type { ReviewOperation as Operation } from "@/lib/operation-presentation";
+import type { ReviewOperation } from "@/lib/operation-presentation";
 import { agentStep } from "@/lib/agent-steps";
 import { logEntry, type ProtocolEntry } from "@/lib/protocol-log";
 import {
@@ -40,6 +40,7 @@ import {
 } from "@/lib/auto-approval";
 import { directView } from "@/lib/direct-state";
 import { withOperations } from "@/lib/operation-list";
+import type { GuideOperation } from "@/lib/guide";
 import {
   loadApprovals,
   loadInstruction,
@@ -53,6 +54,12 @@ import {
   labCompany,
   type Message,
 } from "./companies";
+
+/**
+ * A proposal as the page holds it: what its card shows, and why its terms
+ * wait again after an approval, which the guide tells the visitor.
+ */
+type Operation = ReviewOperation & GuideOperation;
 
 /** The conversation the address names, if it names one. */
 const conversationInAddress = () =>
@@ -351,6 +358,10 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
         showOperations(data.replaced, data.operation);
         if (data.code === "outcome_unknown" && op)
           showOperations({ ...op, state: "uncertain" });
+        // A refusal the operation carries is on its card, where it stays
+        // until the operation changes: not above the transcript as well.
+        if (data.error && data.operation?.result?.summary === data.error)
+          return;
         throw new Error(data.error);
       }
       if (data.url) {

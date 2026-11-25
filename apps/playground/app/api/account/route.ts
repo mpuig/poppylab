@@ -8,6 +8,7 @@ import {
   recordOperation,
   clientFor,
   agentFor,
+  type Operation,
   type Run,
   accountConfiguration,
   usesDpop,
@@ -141,6 +142,28 @@ function fdxStatementsAnswer(
     { accounts, trace },
     { headers: { "Cache-Control": "no-store" } },
   );
+}
+
+/**
+ * An approval was sent and nothing was performed, and the terms wait for
+ * the User. The sentence stays with the operation, where its card shows it
+ * until the operation changes, and not in a message above the transcript
+ * that the next action clears.
+ */
+function notPerformed(
+  op: Operation,
+  why: NonNullable<Operation["notPerformed"]>,
+  summary: string,
+) {
+  op.notPerformed = why;
+  op.result = { summary };
+  return summary;
+}
+/** Drops that sentence: the terms no longer wait, or a new approval is out. */
+function forgetRefusal(op: Operation) {
+  if (!op.notPerformed) return;
+  delete op.notPerformed;
+  delete op.result;
 }
 
 /** The Company says this access is gone: a dead token or refresh token. */
@@ -642,6 +665,7 @@ async function act(request: Request, started: { id?: string }) {
       if (op.state !== "proposed") throw new Error();
       op.state = "declined";
       op.result = { summary: "Declined. Nothing was sent to the Company." };
+      delete op.notPerformed;
       delete op.request;
       return NextResponse.json(
         { operation: op },
@@ -656,7 +680,10 @@ async function act(request: Request, started: { id?: string }) {
       body.action === "approve" &&
       (op.state !== "proposed" || Date.parse(op.expires_at) <= Date.now())
     ) {
-      if (op.state === "proposed") op.state = "expired";
+      if (op.state === "proposed") {
+        op.state = "expired";
+        forgetRefusal(op);
+      }
       return NextResponse.json(
         {
           code: "proposal_expired",
@@ -718,6 +745,8 @@ async function act(request: Request, started: { id?: string }) {
           { at: Date.now(), cents: ruleCents },
         ].slice(-20);
     };
+    // This approval gets its own answer.
+    forgetRefusal(op);
     operationRequested = true;
     try {
       const result = (await sendApproval(run, op, approver)) as {
@@ -854,18 +883,23 @@ async function act(request: Request, started: { id?: string }) {
           // a loop. The Company performed nothing and the outcome is known
           // (§7): the terms wait for the User, who may approve them anew.
           delete next.approval;
+          const again =
+            "The Company asked for approval of the same terms again instead of performing them. Nothing was performed. Approve them again yourself if you still want this, or decline.";
+          // After Iris's approval the card has its own note for this.
           if (approver === "agent") next.agentDeclined = {};
+          else notPerformed(next, "refused", again);
           return NextResponse.json(
             {
               code: "approval_not_accepted",
               next: "review",
               operation: next,
-              error:
-                "The Company asked for approval of the same terms again instead of performing them. Nothing was performed. Approve them again yourself if you still want this, or decline.",
+              error: again,
             },
             { status: 409, headers: { "Cache-Control": "no-store" } },
           );
         }
+        const company =
+          run.company?.document.organization.name ?? "The Company";
         // §5: new terms in answer to Iris's approval are never approved on
         // the same instruction, even when it covers them. The User decides.
         if (approver === "agent") next.agentSuperseded = true;
@@ -878,12 +912,17 @@ async function act(request: Request, started: { id?: string }) {
           if (op.agentSuperseded) next.agentSuperseded = true;
           op.state = "superseded";
           op.result = {
-            summary: `${run.company?.document.organization.name ?? "The Company"} offered new terms instead of performing these, so they can no longer be approved.`,
+            summary: `${company} offered new terms instead of performing these, so they can no longer be approved.`,
           };
           // Never sent again.
           delete op.request;
           delete op.approval;
         }
+        // The new terms say what they answer. After Iris's approval the
+        // card has its own note for that, so only the reason is kept.
+        const changed = `${company} returned these new terms instead of performing the ones ${approver === "agent" ? "Iris approved on your standing instruction" : "you approved"}. Nothing was performed. Approve them if you still want this, or decline.`;
+        if (approver === "agent") next.notPerformed = "new_terms";
+        else notPerformed(next, "new_terms", changed);
         return NextResponse.json(
           {
             code: "terms_changed",
@@ -891,8 +930,7 @@ async function act(request: Request, started: { id?: string }) {
             operation: next,
             // The retired operation, for the page to show as it now is.
             ...(sameOperation ? {} : { replaced: op }),
-            error:
-              "The Company returned new terms. Nothing was performed. Review the new revision and approve it separately.",
+            error: changed,
           },
           { status: 409, headers: { "Cache-Control": "no-store" } },
         );
@@ -911,8 +949,11 @@ async function act(request: Request, started: { id?: string }) {
             code: refusal,
             next: "review",
             operation: op,
-            error:
+            error: notPerformed(
+              op,
+              "refused",
               "The Company says a direct conversation with you is still open, and it takes no approval in this one until that ends. Nothing was performed. Leave the direct conversation, then try again.",
+            ),
           },
           { status: 409, headers: { "Cache-Control": "no-store" } },
         );
@@ -971,7 +1012,11 @@ async function act(request: Request, started: { id?: string }) {
             operation: op,
             // The Company's status and error code, never its own words. A
             // code of its own, such as insufficient_funds, says what to fix.
-            error: `${run.company?.document.organization.name ?? "The Company"} refused this request (HTTP ${error.status}${code ? `, ${code}` : ""}). Nothing was performed. The terms still wait for you: approve them again once what stopped it is sorted out, or ask for the change again to get fresh terms.`,
+            error: notPerformed(
+              op,
+              "refused",
+              `${run.company?.document.organization.name ?? "The Company"} refused this request (HTTP ${error.status}${code ? `, ${code}` : ""}). Nothing was performed. The terms still wait for you: approve them again once what stopped it is sorted out, or ask for the change again to get fresh terms.`,
+            ),
           },
           { status: 409, headers: { "Cache-Control": "no-store" } },
         );

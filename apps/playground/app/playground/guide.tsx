@@ -1,8 +1,7 @@
 "use client";
 import { Check } from "lucide-react";
 import { companyProfile } from "@poppy-lab/pap-core";
-import { guideHint, guideStep, guideSteps } from "@/lib/guide";
-import { needsYou } from "@/lib/operation-presentation";
+import { guideHint, guideProposals, guideStep, guideSteps } from "@/lib/guide";
 import { accountCompany, labCompany } from "./companies";
 import type { Playground } from "./use-playground";
 
@@ -14,10 +13,7 @@ export function Guide({ p }: { p: Playground }) {
     connected: p.connected,
     signedIn: p.signedIn,
     canWrite: p.canWrite,
-    waiting: p.operations.filter((op) => needsYou(op)).length,
-    proposals: p.operations.length,
-    // "succeeded" is the state the page labels Completed.
-    completed: p.operations.filter((op) => op.state === "succeeded").length,
+    ...guideProposals(p.operations),
   };
   const step = guideStep(state);
   return (

@@ -179,6 +179,12 @@ export type Operation = {
     | "uncertain";
   result?: { summary: string } | null;
   /**
+   * An approval was sent, nothing was performed, and terms wait for the
+   * User: the Company `refused` the request, or answered it with these
+   * `new_terms`. Gone once the operation changes or another approval is sent.
+   */
+  notPerformed?: "refused" | "new_terms";
+  /**
    * The approval as first sent (Operations v3 §6), reused for a retry: who
    * approved (the User, or Iris on the User's standing instruction), when,
    * and the ledger reference shown to the Company.

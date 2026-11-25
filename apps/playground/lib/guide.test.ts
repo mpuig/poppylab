@@ -1,8 +1,10 @@
 import { expect, it } from "vitest";
 import {
   guideHint,
+  guideProposals,
   guideStep,
   type GuideContext,
+  type GuideOperation,
   type GuideState,
 } from "./guide";
 
@@ -78,6 +80,83 @@ it("keeps the visitor on approve until a change goes through", () => {
     "Ask for the change again",
   );
   expect(guideHint({ ...held, waiting: 0, completed: 1 }, juniper)).toContain(
+    "performed the change once",
+  );
+});
+
+const asked = {
+  ...start,
+  connected: true,
+  signedIn: true,
+  canWrite: true,
+};
+const later = new Date(Date.now() + 60000).toISOString();
+const proposal = (
+  state: string,
+  more: Partial<GuideOperation> = {},
+): GuideOperation => ({
+  operation_id: `op_${state}`,
+  revision: "r1",
+  state,
+  expires_at: later,
+  ...more,
+});
+const hintFor = (...operations: GuideOperation[]) =>
+  guideHint({ ...asked, ...guideProposals(operations) }, juniper);
+
+it("tells apart how the last proposal ended, and says what to do", () => {
+  // The visitor's own choice isn't a failure.
+  expect(hintFor(proposal("declined"))).toBe(
+    "You declined the last proposal, so nothing was sent to Juniper Market. Ask for the change again if you still want it.",
+  );
+  expect(hintFor(proposal("expired"))).toBe(
+    "The last proposal expired before it was approved, so nothing was performed. Ask for the change again to get fresh terms.",
+  );
+  // Still `proposed` for the server, but past its time.
+  expect(
+    hintFor(
+      proposal("proposed", {
+        expires_at: new Date(Date.now() - 1).toISOString(),
+      }),
+    ),
+  ).toContain("expired before it was approved");
+  expect(hintFor(proposal("refused"))).toBe(
+    "Juniper Market declined the approval and performed nothing; the proposal shows its reason, if it gave one. You can ask for a different change.",
+  );
+  expect(hintFor(proposal("superseded"))).toBe(
+    "Juniper Market offered new terms instead of performing the last proposal. Ask for the change again to see the terms it offers now.",
+  );
+  // It is the newest proposal that counts.
+  expect(hintFor(proposal("expired"), proposal("declined"))).toContain(
+    "You declined the last proposal",
+  );
+});
+
+it("agrees with the card of a proposal whose approval wasn't performed", () => {
+  const done = proposal("succeeded");
+  const refused = proposal("proposed", { notPerformed: "refused" });
+  const hint = hintFor(done, refused);
+  // An earlier change that went through doesn't make this one done.
+  expect(hint).not.toContain("Done");
+  expect(hint).toBe(
+    "Juniper Market refused the approval and performed nothing; the proposal says why. Approve it again once that is sorted out, or ask for the change again.",
+  );
+  expect(guideStep({ ...asked, ...guideProposals([done, refused]) })).toBe(3);
+  expect(
+    hintFor(done, proposal("proposed", { notPerformed: "new_terms" })),
+  ).toBe(
+    "Juniper Market answered the approval with new terms and performed nothing. Check the new terms, then approve them yourself or decline.",
+  );
+  // New terms under another ID: the retired proposal is not the news.
+  expect(
+    hintFor(
+      proposal("superseded"),
+      proposal("proposed", { notPerformed: "new_terms" }),
+    ),
+  ).toContain("answered the approval with new terms");
+  // A proposal that simply waits, and one that went through since.
+  expect(hintFor(done, proposal("proposed"))).toContain("approve it yourself");
+  expect(hintFor(proposal("declined"), done)).toContain(
     "performed the change once",
   );
 });

@@ -538,6 +538,129 @@ describe("Human-controlled account boundary", () => {
       expect(run.operations.op_other).toEqual(out);
     });
   });
+  describe("an approval that wasn't performed, with the terms still waiting", () => {
+    const stored = () =>
+      state.run.operations.op_test as Record<string, unknown>;
+    const reloaded = async () =>
+      (
+        (
+          await (
+            await GET(
+              new Request(
+                "http://localhost:3000/api/account?conversation=run_fixture_0001",
+              ),
+            )
+          ).json()
+        ).operations as Array<Record<string, unknown>>
+      ).find((o) => o.operation_id === "op_test");
+    const refuse = () =>
+      sendThenFail(() =>
+        Object.assign(new ProtocolError(409, undefined), {
+          companyCode: "insufficient_funds",
+        }),
+      );
+
+    it("keeps the Company's refusal on the proposal, where its card shows it", async () => {
+      refuse();
+      const body = await (await act("approve")).json();
+      expect(body.code).toBe("not_performed");
+      // The card shows `result`; the guide reads why the terms wait again.
+      expect(body.operation).toMatchObject({
+        state: "proposed",
+        notPerformed: "refused",
+        result: { summary: body.error },
+      });
+      // It is there after a reload, and whatever else the User does next.
+      expect(await reloaded()).toMatchObject({
+        notPerformed: "refused",
+        result: { summary: body.error },
+      });
+    });
+
+    it.each([
+      [
+        "performed",
+        () => state.request.mockResolvedValueOnce({ summary: "Done" }),
+      ],
+      ["lost", () => sendThenFail(lost)],
+    ])(
+      "drops the refusal once another approval is sent and %s",
+      async (outcome, answer) => {
+        refuse();
+        const refusal = (await (await act("approve")).json()).error;
+        answer();
+        await act("approve");
+        expect(stored()).not.toHaveProperty("notPerformed");
+        expect(JSON.stringify(stored())).not.toContain(refusal);
+        expect(stored().state).toBe(
+          outcome === "lost" ? "uncertain" : "succeeded",
+        );
+      },
+    );
+
+    it("drops it when the User declines, or the terms expire", async () => {
+      refuse();
+      await act("approve");
+      await act("decline");
+      expect(stored()).toMatchObject({
+        state: "declined",
+        result: { summary: "Declined. Nothing was sent to the Company." },
+      });
+      expect(stored()).not.toHaveProperty("notPerformed");
+
+      Object.assign(stored(), { state: "proposed", request: {} });
+      refuse();
+      await act("approve");
+      stored().expires_at = new Date(Date.now() - 1).toISOString();
+      expect((await act("approve")).status).toBe(410);
+      expect(stored().state).toBe("expired");
+      expect(stored()).not.toHaveProperty("notPerformed");
+      expect(stored()).not.toHaveProperty("result");
+    });
+
+    it("says on the new terms that they answer an approval", async () => {
+      sendThenFail(
+        () =>
+          new ProtocolError(403, "approval_required", undefined, undefined, {
+            operation_id: "op_test",
+            revision: "r2",
+            terms: { to: "Saturday", fee_cents: 100 },
+            expires_at: new Date(Date.now() + 60000).toISOString(),
+          }),
+      );
+      const body = await (await act("approve")).json();
+      expect(body.code).toBe("terms_changed");
+      expect(body.error).toBe(
+        "Juniper returned these new terms instead of performing the ones you approved. Nothing was performed. Approve them if you still want this, or decline.",
+      );
+      expect(body.operation).toMatchObject({
+        revision: "r2",
+        state: "proposed",
+        notPerformed: "new_terms",
+        result: { summary: body.error },
+      });
+    });
+
+    it("says on the same terms that the Company asked for them again", async () => {
+      sendThenFail(
+        () =>
+          new ProtocolError(403, "approval_required", undefined, undefined, {
+            operation_id: "op_test",
+            revision: "r1",
+            summary: "Move fictional delivery",
+            terms: { to: "Saturday" },
+            expires_at: stored().expires_at,
+          }),
+      );
+      const body = await (await act("approve")).json();
+      expect(body.code).toBe("approval_not_accepted");
+      expect(body.operation).toMatchObject({
+        state: "proposed",
+        notPerformed: "refused",
+        result: { summary: body.error },
+      });
+    });
+  });
   it("records a Company's decline: nothing performed, never sent again (Operations v3 §6)", async () => {
     state.request.mockRejectedValue(
       new ProtocolError(
@@ -1104,7 +1227,13 @@ describe("An operation whose conversation refuses the approval (§8.10, §8.12)"
     expect(body.code).toBe("direct_conversation_open");
     expect(body.error).toContain("Nothing was performed");
     expect(body.error).toContain("Leave the direct conversation");
-    expect(body.operation).toMatchObject({ revision: "r1", state: "proposed" });
+    // Said on the proposal's card, which is where the User pressed Approve.
+    expect(body.operation).toMatchObject({
+      revision: "r1",
+      state: "proposed",
+      notPerformed: "refused",
+      result: { summary: body.error },
+    });
     // Once the User has left it, the same tap works.
     state.request.mockResolvedValueOnce({ summary: "Refunded." });
     const again = await act("approve");
@@ -1439,6 +1568,10 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
     expect(state.request).toHaveBeenCalledTimes(1);
     expect(body.operation).toMatchObject({ agentSuperseded: true });
     expect(body.operation).not.toHaveProperty("agentDeclined");
+    // The card's note about Iris's approval says it; no second sentence.
+    expect(body.operation.notPerformed).toBe("new_terms");
+    expect(body.operation).not.toHaveProperty("result");
+    expect(body.error).toContain("Iris approved on your standing instruction");
     // The User can still approve the new revision themselves.
     state.request.mockResolvedValueOnce({ summary: "Ordered." });
     expect((await approve(undefined, "r2")).status).toBe(200);
