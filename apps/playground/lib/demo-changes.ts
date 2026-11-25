@@ -115,11 +115,43 @@ function howMany(said: string[], start: number, end: number) {
   if (times) return Number(times);
   return after === "x" || after === "×" ? numeral(said[end + 2]) : undefined;
 }
-/** A flight number as people write it: "NA 118", "na118". */
-const flightNumber = (message: string) => {
-  const match = message.match(/\b([a-z]{2})\s?(\d{2,4})\b/i);
-  return match ? `${match[1]!.toUpperCase()} ${match[2]}` : undefined;
-};
+/**
+ * The flight a message names, judged against the flights that are `booked`
+ * and never by its shape alone: "on 18", "to 118" and "my 13:10" look like
+ * a flight number and are not one. A booked flight is named by its number as
+ * people write it ("NA 118", "na118") or by its digits ("118", when only one
+ * booked flight has them). `unknown` is a flight of a booked airline that
+ * isn't booked ("NA 999"): named, but not the User's.
+ */
+function flightNamed(message: string, booked: string[]) {
+  const lowered = message.toLowerCase();
+  // Not the tail of a word or number, nor the hour of a time or a decimal.
+  const ends = String.raw`(?![a-z0-9]|[:.,]\d)`;
+  const parts = booked.flatMap((number) => {
+    const match = number.toLowerCase().match(/^([a-z0-9]{2,3}?)\s?(\d{1,4})$/);
+    return match ? [{ number, code: match[1]!, digits: match[2]! }] : [];
+  });
+  const whole = parts.find(({ code, digits }) =>
+    new RegExp(String.raw`(?<![a-z0-9])${code}\s?${digits}${ends}`).test(
+      lowered,
+    ),
+  );
+  if (whole) return { booked: whole.number };
+  const bare = parts.filter(
+    ({ digits }) =>
+      digits.length > 2 &&
+      new RegExp(String.raw`(?<![a-z0-9:.,$])${digits}${ends}`).test(lowered),
+  );
+  if (new Set(bare.map(({ number }) => number)).size === 1)
+    return { booked: bare[0]!.number };
+  for (const code of new Set(parts.map((part) => part.code))) {
+    const other = lowered.match(
+      new RegExp(String.raw`(?<![a-z0-9])${code}\s?(\d{1,4})${ends}`),
+    );
+    if (other) return { unknown: `${code.toUpperCase()} ${other[1]}` };
+  }
+  return {};
+}
 
 /**
  * Names the User mentioned among `items`: a word only that item has, or
@@ -465,10 +497,17 @@ async function tripChange(
   const lowered = message.toLowerCase();
   const trips = await read(tools.upcoming_trips!, "trips");
   if (!trips.length) return { say: "There is no upcoming trip to change." };
-  const wanted = flightNumber(message);
   const segments = (trip: Record<string, unknown>) => list(trip, "itinerary");
+  const booked = trips
+    .flatMap((trip) => segments(trip).map((item) => text(item.flight_number)))
+    .filter(Boolean);
+  const yours = `Your flights are ${booked.join(" and ") || "none"}.`;
+  const flight = flightNamed(message, booked);
+  if (flight.unknown)
+    return { say: `${flight.unknown} isn't in your bookings. ${yours}` };
+  const wanted = flight.booked;
   const onFlight = (segment: Record<string, unknown>) =>
-    !wanted || text(segment.flight_number).toUpperCase() === wanted;
+    !wanted || text(segment.flight_number) === wanted;
 
   if (/upgrad/.test(lowered) && tools.accept_upgrade) {
     for (const trip of trips) {
@@ -500,6 +539,11 @@ async function tripChange(
       return {
         say: `The demo adds 1 or 2 checked bags at a time; you asked for ${pieces}.`,
       };
+    // A bag goes on one flight: with several and none named, the demo asks.
+    if (!wanted && booked.length > 1)
+      return {
+        say: `Which flight should the ${pieces === 1 ? "bag" : "bags"} go on? ${yours} For example: “Add a bag to ${booked[0]}.”`,
+      };
     for (const trip of trips) {
       const segment = segments(trip).find(onFlight);
       if (!segment) continue;
@@ -513,7 +557,7 @@ async function tripChange(
         because: `The demo read your trips and asked to add ${pieces} checked ${pieces === 1 ? "bag" : "bags"} to ${text(segment.flight_number)} in booking ${text(trip.booking_reference)}.`,
       };
     }
-    return { say: `${wanted ?? "That flight"} isn't in your bookings.` };
+    return { say: "There is no flight in your bookings to add a bag to." };
   }
   return {
     say: "The demo can accept an upgrade offer or add a checked bag here. For example: “Upgrade my NA 118 flight to Business.”",

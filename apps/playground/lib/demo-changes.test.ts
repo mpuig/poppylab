@@ -355,6 +355,48 @@ it("accepts the upgrade offer on the flight named, and adds bags", async () => {
   });
 });
 
+it("takes a flight number only from the flights that are booked", async () => {
+  // "to 118" and "my 13" have the shape of a flight number and are not one.
+  expect(await demoChange("add 2 bags to 118", airline(), key)).toMatchObject({
+    call: "add_baggage",
+    args: { flight_id: "flt_na118", additional_pieces: 2 },
+  });
+  expect(
+    await demoChange("upgrade my 13:10 flight", airline(), key),
+  ).toMatchObject({
+    call: "accept_upgrade",
+    args: { offer_id: "upg_elena_1" },
+  });
+  expect(
+    await demoChange("Upgrade me on na118 to Business", airline(), key),
+  ).toMatchObject({ call: "accept_upgrade" });
+  // A date is not a flight: with two flights and none named, it asks which.
+  expect(
+    await demoChange("Add a bag to my flight on 18 May", airline(), key),
+  ).toEqual({
+    say: "Which flight should the bag go on? Your flights are NA 402 and NA 118. For example: “Add a bag to NA 402.”",
+  });
+  // With one flight there is nothing to ask.
+  const one = airline();
+  one.upcoming_trips = tool({
+    trips: [
+      {
+        booking_reference: "NW1ONE",
+        itinerary: [{ id: "flt_na402", flight_number: "NA 402" }],
+        upgrade_offer: null,
+      },
+    ],
+  });
+  expect(
+    await demoChange("Add a bag to my flight on 18 May", one, key),
+  ).toMatchObject({ args: { flight_id: "flt_na402", additional_pieces: 1 } });
+  // A flight of the same airline that isn't booked is named, and refused.
+  for (const message of ["upgrade NA 999", "add a bag to NA 999"])
+    expect(await demoChange(message, airline(), key)).toEqual({
+      say: "NA 999 isn't in your bookings. Your flights are NA 402 and NA 118.",
+    });
+});
+
 it("answers a question about a change by reading, never by asking for the change", async () => {
   const called = async (message: string, tools: DemoTools) => {
     expect(demoChangeKind(message, tools)).toBeUndefined();
