@@ -34,8 +34,14 @@ export type ConsentSheet = {
   agentHost: string;
   nonce: string;
   passwordRequired: boolean;
-  /** Who the visitor can sign in as; the first is chosen when the page opens. */
+  /** Who the visitor can sign in as. */
   people: ReadonlyArray<{ id: string; name: string; note: string }>;
+  /**
+   * The `id` of the person chosen when the page opens: the one this browser
+   * allowed this agent before, so asking for more keeps the same account.
+   * The first person when absent or not one of `people`.
+   */
+  chosen?: string | undefined;
   /** "customer" unless the Company has another word for it. */
   personKind?: string;
   /** Trusted HTML under the people: what else is chosen with the person. */
@@ -63,10 +69,13 @@ const option = (o: ConsentOption) =>
 export function consentSheetHtml(sheet: ConsentSheet) {
   const agent = escape(sheet.agent);
   const kind = escape(sheet.personKind ?? "customer");
+  const chosen = (
+    sheet.people.find((person) => person.id === sheet.chosen) ?? sheet.people[0]
+  )?.id;
   const people = sheet.people
     .map(
-      (person, i) =>
-        `<label class="sheet-person"><input type="radio" name="account" id="account-${escape(person.id)}" value="${escape(person.id)}"${i === 0 ? " checked" : ""}><span><strong>${escape(person.name)}</strong><small>${escape(person.note)}</small></span></label>`,
+      (person) =>
+        `<label class="sheet-person"><input type="radio" name="account" id="account-${escape(person.id)}" value="${escape(person.id)}"${person.id === chosen ? " checked" : ""}><span><strong>${escape(person.name)}</strong><small>${escape(person.note)}</small></span></label>`,
     )
     .join("");
   const password = sheet.passwordRequired

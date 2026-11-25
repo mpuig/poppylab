@@ -1,6 +1,7 @@
 import { expect, it } from "vitest";
 import { GRANT_MS, TOKEN_MS } from "@poppy-lab/pap-company";
 import { consentPage } from "./site.ts";
+import { harborline } from "./harborline.ts";
 import { setup } from "./test-harness.ts";
 
 const page = (scopes: string) =>
@@ -53,4 +54,19 @@ it("lists each requested permission in words, each change as its own ticked opti
   for (const scope of ["accounts:read", "transfers:request", "cards:write"])
     expect(html).not.toContain(scope);
   expect(html).not.toContain("<script");
+});
+
+it("opens the consent page on the customer the gateway names, else on the first", () => {
+  const page = (account?: string) =>
+    harborline.consent({
+      nonce: "n",
+      passwordRequired: false,
+      scopes: "accounts:read",
+      client: "Iris",
+      clientHost: "poppylab.dev",
+      ...(account ? { account } : {}),
+    });
+  expect(page("robin")).toContain('id="account-robin" value="robin" checked>');
+  expect(page("robin")).not.toContain('value="elena" checked');
+  expect(page()).toContain('id="account-elena" value="elena" checked>');
 });

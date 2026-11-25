@@ -37,6 +37,7 @@ export function consentPage(
   scopes = "poppy:read poppy:write",
   client = "Iris",
   clientHost = "poppylab.dev",
+  account?: string,
 ) {
   const read = scopes.split(" ").includes("poppy:read"),
     write = scopes.split(" ").includes("poppy:write");
@@ -46,6 +47,7 @@ export function consentPage(
     agentHost: clientHost,
     nonce,
     passwordRequired,
+    chosen: account,
     people: personas.map((person) => ({
       id: person.id,
       name: person.name,

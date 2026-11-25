@@ -241,6 +241,7 @@ export function consentPage(input: {
   scopes: string;
   client: string;
   clientHost: string;
+  account?: string;
 }) {
   const requested = input.scopes.split(" ").filter(Boolean);
   const reads: Record<string, { title: string; text: string }> = {
@@ -270,6 +271,7 @@ export function consentPage(input: {
     agentHost: input.clientHost,
     nonce: input.nonce,
     passwordRequired: input.passwordRequired,
+    chosen: input.account,
     personKind: "passenger",
     people: customers.map((customer) => ({
       id: customer.id,

@@ -18,6 +18,7 @@ import {
   ObjectMap,
   type Code,
   type Consent,
+  type Grant,
   type Pushed,
 } from "./types.ts";
 
@@ -168,6 +169,29 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
       )
       ?.split("=")[1];
 
+  /**
+   * The account this browser last allowed this client to reach, if the
+   * client still holds that permission. The page opens on it, so asking for
+   * more permission keeps the same customer unless the User chooses another.
+   * It comes from the Company's own records (the grant and the cookie of
+   * the browser that approved it), never from what the request says.
+   */
+  const allowedBefore = (c: Context, client: string) => {
+    const browser = ctx.browserOf(c);
+    if (!browser) return undefined;
+    // The newest; of two approved in the same millisecond, the later one.
+    let held: Grant | undefined;
+    for (const g of Object.values(state.grants))
+      if (
+        g.client === client &&
+        g.browser === browser &&
+        g.expires > Date.now() &&
+        (g.created ?? 0) >= (held?.created ?? 0)
+      )
+        held = g;
+    return def.persona(held?.account)?.id;
+  };
+
   app.get("/oauth/authorize", async (c) => {
     const q = c.req.query();
     if (!q.request_uri) return consent(c, q);
@@ -226,6 +250,7 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
         { append: true },
       );
     }
+    const account = allowedBefore(c, client);
     return c.html(
       def.consent({
         nonce,
@@ -233,6 +258,7 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
         scopes,
         client: info.name,
         clientHost: new URL(client).host,
+        ...(account ? { account } : {}),
       }),
       200,
       {

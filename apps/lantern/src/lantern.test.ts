@@ -405,6 +405,21 @@ it("keeps two consent pages open at once (another tab can't replace a consent)",
   expect(swapped.statusCode).toBe(400);
 });
 
+it("opens the consent page on the customer the gateway names, else on the first", () => {
+  const page = (account?: string) =>
+    lantern.consent({
+      nonce: "n",
+      passwordRequired: false,
+      scopes: "orders:read",
+      client: "Iris",
+      clientHost: "poppylab.dev",
+      ...(account ? { account } : {}),
+    });
+  expect(page("robin")).toContain('id="account-robin" value="robin" checked>');
+  expect(page("robin")).not.toContain('value="elena" checked');
+  expect(page()).toContain('id="account-elena" value="elena" checked>');
+});
+
 it("serves the website pages with their own headers and fonts allowed on consent", async () => {
   await setup();
   const home = await lab.app.request("/");

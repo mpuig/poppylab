@@ -433,6 +433,13 @@ export type CompanyDefinition = {
     client: string;
     /** Host of the verified `client_id`. */
     clientHost: string;
+    /**
+     * The account this browser last allowed this client to reach, while the
+     * client holds that permission: the one to choose when the page opens.
+     * Absent when there is none, and where browsers aren't told apart
+     * (without `isolation: "visitor"`).
+     */
+    account?: string;
   }) => string;
   persona: (id: unknown) => { id: string } | undefined;
   defaultAccount: string;

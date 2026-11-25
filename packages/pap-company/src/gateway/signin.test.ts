@@ -1,8 +1,9 @@
 /**
  * A pushed authorization request (RFC 9126) makes one consent page. The
  * browser that opened it can load it again; nobody else can, and it gives
- * one code at most.
+ * one code at most. Last, which customer a consent page opens on.
  */
+import { createHash } from "node:crypto";
 import { afterEach, expect, it, vi } from "vitest";
 import { client, origin, redirect, setup } from "./test-company.ts";
 
@@ -195,4 +196,91 @@ it("stores nothing for a request_uri nobody pushed", async () => {
   expect(unknown.status).toBe(400);
   expect(await error(unknown)).toBe("invalid_request_uri");
   expect(x.store.saves).toBe(saves);
+});
+
+it("opens a second consent on the customer this browser allowed this agent before", async () => {
+  // Two customers, and a page that says which one it opens on.
+  const x = await setup(
+    { isolation: "visitor" },
+    {
+      persona: (id) =>
+        id === "elena" || id === "robin" ? { id: String(id) } : undefined,
+      consent: ({ nonce, account }) => `<p>${nonce} opens on ${account}</p>`,
+    },
+  );
+  const verifier = "v".repeat(64);
+  const authorize = (scope: string, cookie?: string) =>
+    x.app.request(
+      `/oauth/authorize?${new URLSearchParams({
+        ...request,
+        client_id: client,
+        scope,
+        code_challenge: createHash("sha256")
+          .update(verifier)
+          .digest("base64url"),
+      })}`,
+      cookie ? { headers: { cookie } } : {},
+    );
+  /** What the page says when that browser, or a new one, opens it. */
+  const open = async (cookie?: string) =>
+    (await authorize("things:read", cookie)).text();
+  const cookieOf = (page: Response, name: string) =>
+    page.headers
+      .getSetCookie()
+      .find((c) => c.includes(name))
+      ?.split(";")[0];
+  /** Allows the page as that customer; the agent then takes its tokens. */
+  const allow = async (page: Response, browser: string, account: string) => {
+    const consent = cookieOf(page, "pap_consent_")!;
+    const approved = await x.form(
+      "/oauth/authorize",
+      { nonce: consent.split("=")[1]!, decision: "approve", account },
+      { cookie: `${browser}; ${consent}`, origin },
+    );
+    expect(approved.status).toBe(302);
+    return x.token({
+      grant_type: "authorization_code",
+      code: new URL(approved.headers.get("location")!).searchParams.get(
+        "code",
+      )!,
+      code_verifier: verifier,
+      redirect_uri: redirect,
+    });
+  };
+
+  // The first consent: nothing is known, so the page chooses nobody.
+  const first = await authorize("things:read");
+  expect(await first.clone().text()).toContain("opens on undefined");
+  const browser = cookieOf(first, "pap_browser")!;
+  await allow(first, browser, "robin");
+
+  // The agent asks for more: the page opens on Robin, not on the first.
+  const second = await authorize("things:read things:write", browser);
+  expect(await second.clone().text()).toContain("opens on robin");
+  const more = await allow(second, browser, "robin");
+  expect(await open(browser)).toContain("opens on robin");
+
+  // Another browser has allowed nothing, whatever the agent holds.
+  expect(await open()).toContain("opens on undefined");
+
+  // The customer can still choose another: the newest permission counts.
+  await allow(await authorize("things:read", browser), browser, "elena");
+  expect(await open(browser)).toContain("opens on elena");
+
+  // Only a permission this agent still holds counts.
+  const grants = Object.values(x.store.value.grants);
+  expect(grants.map((g) => g.account)).toEqual(["robin", "robin", "elena"]);
+  grants[2]!.client = "https://other.test/client.json";
+  expect(await open(browser)).toContain("opens on robin");
+  grants[2]!.expires = 0;
+  grants[0]!.expires = 0;
+  expect(
+    (
+      await x.form("/oauth/revoke", {
+        token: more.refresh_token,
+        ...(await x.credentials()),
+      })
+    ).status,
+  ).toBe(200);
+  expect(await open(browser)).toContain("opens on undefined");
 });

@@ -298,6 +298,7 @@ export function consentPage(input: {
   scopes: string;
   client: string;
   clientHost: string;
+  account?: string;
 }) {
   const requested = input.scopes.split(" ") as FernwickScope[];
   const read = requested.filter(
@@ -310,6 +311,7 @@ export function consentPage(input: {
     agentHost: input.clientHost,
     nonce: input.nonce,
     passwordRequired: input.passwordRequired,
+    chosen: input.account,
     people: customers.map((customer) => ({
       id: customer.id,
       name: customer.name,

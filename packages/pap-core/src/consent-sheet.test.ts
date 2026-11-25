@@ -62,6 +62,22 @@ describe("the consent sheet the Companies share", () => {
     );
   });
 
+  it("opens on the person named, and on the first when nobody or a stranger is named", () => {
+    const robin = consentSheetHtml({ ...sheet, chosen: "robin" });
+    expect(robin).toContain(
+      '<input type="radio" name="account" id="account-robin" value="robin" checked>',
+    );
+    expect(robin).toContain(
+      '<input type="radio" name="account" id="account-elena" value="elena">',
+    );
+    expect(robin.match(/type="radio"[^>]* checked/g)).toHaveLength(1);
+    for (const chosen of [undefined, "nobody"]) {
+      const first = consentSheetHtml({ ...sheet, chosen });
+      expect(first).toContain('id="account-elena" value="elena" checked>');
+      expect(first.match(/type="radio"[^>]* checked/g)).toHaveLength(1);
+    }
+  });
+
   it("says so when nothing is read, nothing can be proposed, or a password is needed", () => {
     const html = consentSheetHtml({
       ...sheet,

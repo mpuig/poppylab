@@ -67,3 +67,10 @@ it("shows the agent's self-asserted name with its verified host, escaped", () =>
   );
   expect(html).not.toContain("<b>Iris");
 });
+it("opens the consent page on the customer the gateway names, else on the first", () => {
+  const page = (account?: string) =>
+    consentPage("n", false, "poppy:read", "Iris", "poppylab.dev", account);
+  expect(page("robin")).toContain('id="account-robin" value="robin" checked>');
+  expect(page("robin")).not.toContain('value="elena" checked');
+  expect(page()).toContain('id="account-elena" value="elena" checked>');
+});

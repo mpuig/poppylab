@@ -14,6 +14,8 @@ Poppy offers the two choices above, not a general picker of custom scopes. It re
 
 The five Companies' consent pages are one sheet in each Company's own look (`packages/pap-core/src/consent-sheet.ts`): the agent's name with its verified host; "Sign in as", the two test customers as a choice of one; "What Iris may do", as what it may read without asking again and the changes it may propose, each of which waits for a separate approval; one sentence on where to take the permission away; and the same two buttons, "Don't allow" and "Allow". The page names no scope and uses no protocol term. It posts the same fields as before (`nonce`, `account`, `password`, `decision`, and each Company's own, such as `write` or Harborline's `allow_<scope>`), so what the server binds and checks is unchanged.
 
+The page opens on the first test customer, unless this browser already allowed the same agent to reach a customer and the agent still holds that permission: then it opens on that customer, so a request for more permission stays with the account the agent is signed in to unless the customer chooses the other. The gateway reads this from its own records, the grant and the `pap_browser` cookie of the browser that approved it (`allowedBefore` in `packages/pap-company/src/gateway/signin.ts`), and from nothing the agent sends. It needs `isolation: "visitor"`, the only mode in which the gateway tells browsers apart.
+
 ## Widening is not acting
 
 Each consent uses a new candidate Session. Until it completes successfully, the previous access, its conversation and its proposals stay in place. A counter of completed consents avoids mistaking a refusal for success just because the previous account was still connected.

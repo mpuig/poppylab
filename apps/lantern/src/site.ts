@@ -504,6 +504,7 @@ export function consentPage(input: {
   scopes: string;
   client: string;
   clientHost: string;
+  account?: string;
 }) {
   const read = input.scopes.split(" ").includes("orders:read"),
     write = input.scopes.split(" ").includes("orders:write");
@@ -513,6 +514,7 @@ export function consentPage(input: {
     agentHost: input.clientHost,
     nonce: input.nonce,
     passwordRequired: input.passwordRequired,
+    chosen: input.account,
     people: customers.map((customer) => ({
       id: customer.id,
       name: customer.name,

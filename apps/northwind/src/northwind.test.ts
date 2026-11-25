@@ -1,5 +1,6 @@
 import { expect, it, vi } from "vitest";
 import { openApiTools } from "@poppy-lab/pap-client";
+import { northwind } from "./northwind.ts";
 import {
   bookElenaOnNa274,
   business,
@@ -622,6 +623,21 @@ it("customer portal uses the same booking and loyalty state as the APIs and revo
     (await x.call(elena.access_token, "GET", "/api/account/bookings"))
       .statusCode,
   ).toBe(401);
+});
+
+it("opens the consent page on the passenger the gateway names, else on the first", () => {
+  const page = (account?: string) =>
+    northwind.consent({
+      nonce: "n",
+      passwordRequired: false,
+      scopes: "bookings:read",
+      client: "Iris",
+      clientHost: "poppylab.dev",
+      ...(account ? { account } : {}),
+    });
+  expect(page("robin")).toContain('id="account-robin" value="robin" checked>');
+  expect(page("robin")).not.toContain('value="elena" checked');
+  expect(page()).toContain('id="account-elena" value="elena" checked>');
 });
 
 it("serves responsive website, consent and account scripts with honest notices", async () => {
