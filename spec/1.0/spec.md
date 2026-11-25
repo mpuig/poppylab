@@ -4,7 +4,7 @@
 
 Personal Agent Protocol (Poppy for short) defines how a Personal Agent, acting for one User, works with a Company on that User's behalf. It covers discovery, identity, account access, and interactions across APIs, web browsing, and conversations with the Company Agent.
 
-This is draft version 0.3. Any part of it can change before a stable version, including in ways that aren't backward compatible. Areas it doesn't cover yet are listed in [Path to 1.0](/docs/path-to-1#open-topics).
+This is version 1.0. It's [0.4](/docs/0.4/spec) with the fixes implementers needed, which the [changelog](/docs/changelog#v1-0) lists. Areas it doesn't cover yet are on the [roadmap](/docs/introduction#open-topics).
 
 The examples use `example.com` for the Company and `agent.example` for the Personal Agent. Tokens, keys, and codes in the examples are shortened placeholders, not real values.
 
@@ -21,13 +21,13 @@ Poppy separates request identity, Session continuity, and account access. Compan
 | Sessions | Identifies the Personal Agent and a pseudonymous User, and connects activity across channels. | The Personal Agent sends a Session JWT. The Company verifies it before relying on its identity or connecting state (section 5). |
 | Account access | Acts on a Company account with the User's authorization. | Standard OAuth, with Poppy's choices listed in 4.8. Signed-out interactions need no OAuth server (section 4). |
 | Interaction channels | Uses APIs, browses the website, or talks to the Company Agent, including handoff to a person. | The Company exposes the channels it supports. Browser join connects website activity to the Session (sections 6, 7, and 8). |
-| Task coverage and extensions | Communicates unsupported tasks, collects feedback, and adds capabilities such as operation approvals. | The Company advertises the capabilities it implements (section 9 and [Extensions](/docs/0.3/extensions)). |
+| Task coverage and extensions | Communicates unsupported tasks, collects feedback, and adds capabilities such as operation approvals. | The Company advertises the capabilities it implements (section 9 and [Extensions](/docs/1.0/extensions)). |
 
-Sessions and account access are independent. A Session identifies activity through a Personal Agent; OAuth authorizes access to a Company account. On APIs and protocol endpoints, a signed-out request carries the Session header, and a signed-in request also carries an access token. OAuth endpoints use their own client authentication. Website pages use the Company's cookies, with browser join when supported (5.2 and section 6).
+Sessions and account access are independent. A Session identifies activity through a Personal Agent; OAuth authorizes access to a Company account. On APIs and protocol endpoints, a signed-out request carries the Session header, and a signed-in request also carries an access token. OAuth endpoints use their own client authentication. A browser on the website uses the Company's cookies, with browser join when supported. A website page the Personal Agent fetches without a browser carries the Session header, and is always signed out (5.2 and section 6).
 
 A Company can expose signed-out APIs without running an OAuth server. An endpoint that uses no Session claims can handle requests without verifying the Session header. Relying on Session identity, ownership, continuity, or state requires verification (5.3). The Personal Agent still sends the header even when the Company ignores it. Operator recognition alone does not verify Session claims, authorize account access, or decide whether the Company accepts the request.
 
-The [Company adoption guide](/docs/0.3/guides#company-adoption) describes how to choose these capabilities for an implementation.
+The [Company adoption guide](/docs/1.0/guides#company-adoption) describes how to choose these capabilities for an implementation.
 
 ## 2. Terms
 
@@ -73,7 +73,7 @@ A Company MUST publish its `poppy.json` document at `https://{domain}/.well-know
 
 **HTTPS.** Every URL this protocol defines or exchanges MUST be an HTTPS URL: in `poppy.json`, in authorization server and protected resource metadata, in client metadata documents (4.1), in extensions, and in assertions, Session JWTs, and responses. Personal Agents MUST NOT use a URL from a Company that has another scheme, and Companies MUST reject one from a Personal Agent. This doesn't cover the pages of a Company's website, which Personal Agents browse as any visitor would (section 6), or loopback redirect URIs (4.2). Skill artifact URL references (9.4) are resolved before this rule applies.
 
-**Redirects and addresses.** Outside discovery, a redirect never carries the protocol's secrets. If the token, revocation, or device authorization endpoint, an API, `{browser_session_endpoint}/authorize`, or a conversation, feedback, or extension endpoint answers with a redirect, the Personal Agent MUST NOT send a token, Session JWT, assertion, or credentials to the new URL. Personal Agents and Companies MUST NOT connect to a loopback, private, or link-local address for a URL the other party gave them, unless they were configured to on purpose. Otherwise a Company could aim Personal Agents at another Company's servers or at internal ones.
+**Redirects and addresses.** Outside discovery, a redirect never carries the protocol's secrets. If the token, revocation, or device authorization endpoint, an API, `{browser_session_endpoint}/authorize`, or a conversation, tasks, feedback, or extension endpoint answers with a redirect, the Personal Agent MUST NOT send a token, Session JWT, assertion, or credentials to the new URL. Personal Agents and Companies MUST NOT connect to a loopback, private, or link-local address for a URL the other party gave them, unless they were configured to on purpose. Otherwise a Company could aim Personal Agents at another Company's servers or at internal ones.
 
 An example document:
 
@@ -81,7 +81,7 @@ An example document:
 
 ```
 {
-  "protocol_version": "0.3",
+  "protocol_version": "1.0",
   "organization": {
     "name": "Example Company",
     "domain": "example.com",
@@ -89,9 +89,10 @@ An example document:
   },
   "auth": {
     "scopes": {
-      "orders:read": "See your orders, returns, and bookings",
-      "orders:write": "Exchange or return items, and change bookings",
-      "addresses": "See and change your saved shipping addresses"
+      "orders:read": "See your orders, returns, and bookings. Needed to track an order or find one to change",
+      "orders:write": "Exchange or return items, and change bookings. Needed for any change to an order",
+      "addresses": "See and change your saved shipping addresses. Not needed to enter an address at checkout",
+      "poppy:browser-sign-in": "Use the website signed in, with the other access you approve"
     },
     "scope_hints": {
       "orders:read": { "changes": "none", "personal_data": true },
@@ -103,18 +104,16 @@ An example document:
     "protocols": [
       {
         "type": "poppy",
-        "endpoint": "https://api.example.com/poppy/conversations"
+        "endpoint": "https://api.example.com/poppy/conversations",
+        "description": "Anything about your orders, returns, account, and our products"
       }
     ]
   },
   "web": {
     "browser_session_endpoint": "https://example.com/poppy/browser-session"
   },
-  "feedback": {
-    "endpoint": "https://api.example.com/poppy/feedback"
-  },
-  "excluded_tasks": {
-    "url": "https://example.com/poppy/excluded-tasks.json"
+  "tasks": {
+    "endpoint": "https://api.example.com/poppy/tasks"
   },
   "apis": [
     {
@@ -135,20 +134,21 @@ An example document:
 
 | Field | Req. | Description |
 | --- | --- | --- |
-| `protocol_version` | Yes | The protocol version the document follows, as `major.minor`. This draft is `0.3`. Before 1.0, each version can change the protocol in ways that aren't backward compatible, so a Personal Agent MUST NOT use a document whose `major.minor` version it doesn't support. From 1.0, a newer minor version won't break older Personal Agents, which use the document and ignore fields they don't recognize. |
-| `organization` | Yes | The Company's display `name`, its `domain`, and an optional `logo_uri`, an HTTPS URL of the Company's logo, named as in client metadata (4.1). `domain` MUST be the host that serves the document, after any redirects. Domains are compared ignoring case, with no other normalization. |
+| `protocol_version` | Yes | The protocol version the document follows, as `major.minor`. This version is `1.0`. A Personal Agent uses the document only if the version is compatible with one it implements (3.4). From 1.0, a newer minor version won't break older Personal Agents, which use the document and ignore fields they don't recognize. |
+| `supported_versions` | No | The other protocol versions the Company serves, each mapped to the URL of that version's document (3.4). |
+| `organization` | Yes | The Company's display `name`, its `domain`, and an optional `logo_uri`, an HTTPS URL of the Company's logo, named as in client metadata (4.1). `domain` MUST be the host that serves the document, after any redirects, with its port when that isn't 443. Personal Agents use a Company on another port only when configured to on purpose, such as for testing (section 3). Domains are compared ignoring case, with no other normalization. |
 | `auth` | No | The Company's sign-in details: `issuer`, `disabled`, `scopes`, and `scope_hints`, below. |
 | `auth.issuer` | If the domain's protected resource metadata lists more than one authorization server | The Company's OAuth issuer identifier, naming the one Personal Agents use (3.2). It MUST be in that list. With one authorization server, the Company MAY leave it out, and if it includes it, it MUST name that server. |
 | `auth.disabled` | No | `true` if the Company offers Personal Agents no sign-in, even though it has an issuer (3.2). Defaults to `false`. |
-| `auth.scopes` | No | Scope descriptions, keyed by scope name, in the same form as the `scopes` of an OAuth 2.0 security scheme in OpenAPI. Recommended for scopes no OpenAPI description the Company lists describes (4.7). |
+| `auth.scopes` | No | Scope descriptions, keyed by scope name, in the same form as the `scopes` of an OAuth 2.0 security scheme in OpenAPI. Recommended for scopes no OpenAPI description the Company lists describes, and used over an OpenAPI description of the same scope (4.7). |
 | `auth.scope_hints` | No | Hints about what each scope allows, keyed by scope name: `changes` and `personal_data` (4.7). They apply wherever the scope is described. |
-| `agent` | At least one of `agent`, `apis`, or `web` | The Company Agent. `protocols` lists its supported conversation protocols, each with a `type` and HTTPS `endpoint` (section 8). A `poppy` entry may include an `access` hint (3.2). |
+| `agent` | At least one of `agent`, `apis`, or `web` | The Company Agent. `protocols` lists its supported conversation protocols, each with a `type`, an HTTPS `endpoint`, and a `description` of what the agent there can help with (section 8). A `poppy` entry may include an `access` hint (3.2). |
 | `apis` | At least one of `agent`, `apis`, or `web` | A list of APIs. Each has a `type`, such as those in section 7, a `url`, and a short `description` that helps the Personal Agent pick the right one. |
-| `web` | At least one of `agent`, `apis`, or `web` | The Company's website. The optional `browser_session_endpoint` is where the Personal Agent's browser joins a Session (section 6). Without it, Personal Agents browse the site as ordinary signed-out visitors. |
-| `feedback` | No | `endpoint` is an HTTPS URL where Personal Agents report a User's task that can't be done through this protocol (9.3). |
-| `excluded_tasks` | No | `url` is an HTTPS URL of the document that lists the tasks the Company chose not to offer through this protocol (9.1). |
-| `extensions` | No | The extensions the Company supports, keyed by name (below). |
-| `skill_index` | No | An Agent Skills discovery index for Personal Agents acting for the User at this Company (9.4). |
+| `web` | At least one of `agent`, `apis`, or `web` | The Company's website. The optional `browser_session_endpoint` is where the Personal Agent's browser joins a Session (section 6). Without it, Personal Agents browse the site as ordinary signed-out visitors, unless `web.disabled` is set. |
+| `web.disabled` | No | `true` if the Company asks Personal Agents not to browse its website in a browser, and to use its Company Agent and APIs instead (section 6). Defaults to `false`. |
+| `web.unscoped` | No | `true` if the website doesn't apply the Company's other scopes, so `poppy:browser-sign-in` gives the account's full access there (section 6). Defaults to `false`. |
+| `tasks` | No | `endpoint` is an HTTPS URL where Personal Agents get, for a Session, the tasks the Company chose not to offer through this protocol, the skills it publishes, and where to send feedback (section 9). |
+| `extensions` | No | The extensions the Company supports, keyed by name, with an entry for each version (3.3). |
 
 ### 3.2 OAuth server
 
@@ -163,14 +163,19 @@ The Personal Agent finds the issuer from the protected resource metadata ([RFC 9
 - If it lists one authorization server, that is the Company's issuer. `auth.issuer` is optional, and if present MUST name that server (3.1).
 - If it lists more than one, such as one for the Company's employees, `auth.issuer` in `poppy.json` names the one Personal Agents use (3.1). RFC 9728 leaves the choice among them to the client, but User IDs and refresh tokens belong to one issuer (5.1), so every Personal Agent has to choose the same one.
 
-**Turning off sign-in.** A Company whose issuer serves other clients, but that doesn't yet offer sign-in to Personal Agents, sets `auth.disabled` to `true` in `poppy.json`. Its identifier is still its issuer. A Personal Agent MUST NOT start Direct, Device, or Mediated Sign-In with a Company that sets it. Refresh tokens the Company issued earlier keep working until it revokes them (4.4). A Company that sets `auth.disabled` MUST NOT list the [Mediated Sign-In extension](/docs/0.3/extensions/mediated-sign-in) or `signed_in` access (below).
+The protected resource metadata can also list the scopes a Personal Agent can request in `scopes_supported` ([RFC 9728](https://www.rfc-editor.org/rfc/rfc9728) §2), instead of or as well as the issuer's metadata (below, 4.7). This suits a Company whose issuer also serves other resources or clients, since the issuer's metadata has one list for all of them.
+
+**Turning off sign-in.** A Company that has an issuer but offers Personal Agents no sign-in sets `auth.disabled` to `true` in `poppy.json`, such as while its issuer serves only other clients, or to keep one identifier across hostname changes before it offers sign-in. Its identifier is still its issuer. A Personal Agent MUST NOT start Direct, Device, or Mediated Sign-In with a Company that sets it. Refresh tokens the Company issued earlier keep working until it revokes them (4.4). A Company that sets `auth.disabled` MUST NOT list the [Mediated Sign-In extension](/docs/1.0/extensions/mediated-sign-in) or `signed_in` access (below).
+
+A Company that sets `auth.disabled` and has never issued a refresh token to a Personal Agent has no tokens to protect: it answers every refresh with `invalid_grant` ([RFC 6749 §5.2](https://www.rfc-editor.org/rfc/rfc6749#section-5.2)) and every revocation with success ([RFC 7009 §2.2](https://www.rfc-editor.org/rfc/rfc7009#section-2.2)). It MAY do so without verifying the client assertion (4.1). Once it has issued one, or turns sign-in on, it verifies client assertions as usual.
 
 *GET https://example.com/.well-known/oauth-protected-resource*
 
 ```
 {
   "resource": "https://example.com",
-  "authorization_servers": ["https://auth.example.com"]
+  "authorization_servers": ["https://auth.example.com"],
+  "scopes_supported": ["orders:read", "orders:write", "addresses", "poppy:browser-sign-in"]
 }
 ```
 
@@ -180,7 +185,7 @@ Several domains MAY have the same issuer, such as a Company with a domain for ea
 
 An issuer MUST represent exactly one Company. A provider that hosts several Companies MUST give each its own issuer, such as `https://auth.provider.example/shop-a`, even when they share servers. Otherwise the Companies would be one Company under this protocol: Personal Agents would send each of them the same User IDs, and a refresh token from one would be valid at the others.
 
-The issuer MUST publish OAuth Authorization Server Metadata ([RFC 8414](https://www.rfc-editor.org/rfc/rfc8414)), at the URL RFC 8414 §3.1 defines. Its `protected_resources` ([RFC 9728](https://www.rfc-editor.org/rfc/rfc9728) §4) MUST list `https://{domain}` for every domain whose issuer it is, with no path, port, or trailing slash. It MAY list other resources too, such as the Company's MCP servers. Before using a Company's `poppy.json`, the Personal Agent fetches the metadata and MUST check that its `issuer` exactly matches the issuer it found, character for character. It MUST also check that `protected_resources` includes `https://{organization.domain}`, compared as RFC 9728 §3.3 describes after lowercasing the host, as [RFC 3986 §6.2.2.1](https://www.rfc-editor.org/rfc/rfc3986#section-6.2.2.1) allows (3.1). Otherwise any domain could claim another Company's issuer and receive its tokens.
+The issuer MUST publish OAuth Authorization Server Metadata ([RFC 8414](https://www.rfc-editor.org/rfc/rfc8414)), at the URL RFC 8414 §3.1 defines. Its `protected_resources` ([RFC 9728](https://www.rfc-editor.org/rfc/rfc9728) §4) MUST list `https://{domain}` for every domain whose issuer it is, with no path or trailing slash. It MAY list other resources too, such as the Company's MCP servers. Before using a Company's `poppy.json`, the Personal Agent fetches the metadata and MUST check that its `issuer` exactly matches the issuer it found, character for character. It MUST also check that `protected_resources` includes `https://{organization.domain}`, compared as RFC 9728 §3.3 describes after lowercasing the host, as [RFC 3986 §6.2.2.1](https://www.rfc-editor.org/rfc/rfc3986#section-6.2.2.1) allows (3.1). Otherwise any domain could claim another Company's issuer and receive its tokens.
 
 *GET https://auth.example.com/.well-known/oauth-authorization-server*
 
@@ -196,7 +201,7 @@ The issuer MUST publish OAuth Authorization Server Metadata ([RFC 8414](https://
     "authorization_code",
     "urn:ietf:params:oauth:grant-type:device_code"
   ],
-  "scopes_supported": ["orders:read", "orders:write", "addresses"],
+  "scopes_supported": ["orders:read", "orders:write", "addresses", "poppy:browser-sign-in"],
   "protected_resources": [
     "https://example.com",
     "https://example.co.uk",
@@ -213,7 +218,8 @@ The Personal Agent uses these fields of the metadata:
 - `grant_types_supported` lists the grant types the token endpoint accepts. Required, and it MUST include `refresh_token` (4.4). It also says which of Direct and Device Sign-In the Company offers (4): `authorization_code` for Direct Sign-In and `urn:ietf:params:oauth:grant-type:device_code` for Device Sign-In.
 - `authorization_endpoint` starts Direct Sign-In (4.2). Required if `grant_types_supported` includes `authorization_code`.
 - `device_authorization_endpoint` starts Device Sign-In (4.3). Required if `grant_types_supported` includes `urn:ietf:params:oauth:grant-type:device_code`.
-- `scopes_supported` lists the scopes the issuer supports, as RFC 8414 §2 defines. A Company that offers sign-in SHOULD publish it and include every scope a Personal Agent can request (4.7).
+- `pushed_authorization_request_endpoint` accepts Pushed Authorization Requests, and `require_pushed_authorization_requests` set to `true` says Direct Sign-In needs them ([RFC 9126](https://www.rfc-editor.org/rfc/rfc9126) §5). Optional (4.2).
+- `scopes_supported` lists the scopes the issuer supports, as RFC 8414 §2 defines. A Company that offers sign-in SHOULD list every scope a Personal Agent can request here, in `scopes_supported` of its protected resource metadata (above), or in both (4.7).
 - `token_endpoint_auth_signing_alg_values_supported` lists the signing algorithms the token endpoint accepts for client assertions, as RFC 8414 §2 defines (4.1). It does not describe support for delegation signatures at resource endpoints (5.2).
 
 The metadata MAY have other fields, which Personal Agents ignore.
@@ -222,25 +228,25 @@ The metadata MAY have other fields, which Personal Agents ignore.
 
 ### 3.3 Extensions
 
-Extensions add optional features on top of this protocol. A Company lists the ones it supports in `extensions`:
+Extensions add optional features on top of this protocol. A Company lists the ones it supports in `extensions`, with an entry for each major version it supports:
 
 *Excerpt from poppy.json*
 
 ```
 "extensions": {
-  "example.com/gift-wrap": {
-    "version": "1",
-    "endpoint": "https://api.example.com/poppy/gift-wrap"
-  }
+  "example.com/gift-wrap": [
+    { "version": "2", "endpoint": "https://api.example.com/poppy/gift-wrap/v2" },
+    { "version": "1", "endpoint": "https://api.example.com/poppy/gift-wrap" }
+  ]
 }
 ```
 
 - Plain names, without a domain, are reserved for extensions defined with this protocol. Anyone else MUST start an extension's name with a domain they control, such as `example.com/gift-wrap`.
-- Each entry has a `version`, the extension's major version. Changes that implementations can safely ignore keep the version, and incompatible changes get a new one. Each extension defines its other fields.
-- A Personal Agent lists the extensions it supports the same way, in `extensions` in its client metadata document (4.1). It doesn't need to list an extension that the Company recognizes from the request itself, such as one that defines its own grant type.
-- Personal Agents and Companies MUST ignore extensions they don't support and fields they don't recognize, so either side can work with the other under this specification alone.
+- Each entry has a `version`, the extension's major version. Changes that implementations can safely ignore keep the version, and incompatible changes get a new one. Each extension defines the entry's other fields for each of its versions.
+- A Personal Agent declares the extensions it uses with a Company, one version of each, in the `Poppy-Extensions` header (3.4). It doesn't need to declare an extension that the Company recognizes from the request itself, such as one that defines its own grant type.
+- Personal Agents and Companies MUST ignore extensions and versions they don't support and fields they don't recognize, so either side can work with the other under this specification alone.
 - An extension can define content for conversation messages, which they carry in `extensions` (8.4). The extension MUST publish a [JSON Schema](https://json-schema.org/draft/2020-12) for that content.
-- A Company MAY refuse a request it handles only with an extension the Personal Agent doesn't list, unless the request itself uses the extension. It returns `extension_required` (HTTP 403) with the extension's name in `extension`. At the token endpoint and at endpoints this protocol or an extension defines, such as conversations, the error is a JSON body, like other errors there. At APIs, it goes in the `WWW-Authenticate` header, like the errors in section 7.
+- A Company MAY refuse a request it handles only with an extension that the request doesn't declare, in a version the Company lists, unless the request itself uses the extension. It returns `extension_required` (HTTP 403) with the extension's name in `extension`, in a JSON body, both at APIs and at endpoints this protocol or an extension defines. It isn't an access token error, so it doesn't go in `WWW-Authenticate` (section 7).
 
 *Response body: Company → Personal Agent*
 
@@ -248,13 +254,58 @@ Extensions add optional features on top of this protocol. A Company lists the on
 { "error": "extension_required", "extension": "example.com/gift-wrap" }
 ```
 
+### 3.4 Versions
+
+A Company can serve several protocol versions at once, so Personal Agents can move to a new version at their own pace. Its `poppy.json` is the document for the version it prefers, and `supported_versions` maps each other version it serves to the URL of that version's document, as UCP's [version selection](https://ucp.dev/latest/specification/overview/#version-selection) does:
+
+*Excerpt from poppy.json*
+
+```
+"protocol_version": "1.0",
+"supported_versions": {
+  "0.3": "https://example.com/poppy/0.3.json"
+}
+```
+
+- Each URL in `supported_versions` MUST be an HTTPS URL on the host that served `poppy.json`, after any redirects. The Personal Agent MUST NOT use a document whose URL is on another host, and MUST NOT follow a redirect from it. Otherwise any domain's `poppy.json` could link to a file someone uploaded to a Company's domain and have it speak for that Company. The document there has the `protocol_version` it is listed under, and no `supported_versions`. The Personal Agent MUST NOT use it if its `protocol_version` is another one. Its path can be anything, unlike `poppy.json`'s (section 3), because `poppy.json` names it.
+- Every document a Company serves at the same time MUST have the same `organization.domain` and select the same issuer (3.2), so that a new version doesn't change the Company's identifier, and with it User IDs and refresh tokens. Other fields MAY differ by version.
+- Two versions are compatible when they have the same major version and, before 1.0, the same minor version. The Personal Agent chooses the newest version, among `protocol_version` and the versions in `supported_versions`, that is compatible with one it implements, and uses that version's document. If none is, it MUST NOT use any of them.
+
+**Declaring versions.** On every request with the Session header (5.2), the Personal Agent sends the protocol version it implements, compatible with the chosen one, in `Poppy-Version`, as `major.minor`. When it uses extensions with the Company, it also sends `Poppy-Extensions`: an [RFC 9651](https://www.rfc-editor.org/rfc/rfc9651) List of Strings, each the name of an extension in the chosen document, with the version it uses as a String in the `v` parameter. Without `Poppy-Extensions`, or when it fails to parse (RFC 9651 §4.2), the request declares no extensions. The Personal Agent MUST send the same values on every request in a Session, and starts a new Session to change them.
+
+*Request headers: Personal Agent → Company*
+
+```
+Poppy-Session: eyJ0eXAiOiJwb3BweS1zZXNzaW9uK2p3dCIs…
+Poppy-Version: 1.0
+Poppy-Extensions: "operations";v="3", "links";v="1"
+```
+
+Requests without the Session header, such as discovery and OAuth requests, don't carry these headers. A browser joins a Session at the `browser_session_endpoint` of the chosen version's document (section 6).
+
+**Checking the version.** An endpoint that verifies the Session header (5.3) MUST also check `Poppy-Version`. It rejects a request without it, or with a version that isn't compatible with one the Company serves, with `version_unsupported` (HTTP 400, JSON body), and MUST NOT handle the request under another version. The Personal Agent then fetches `poppy.json` again, without using a cached copy, and chooses again. If it chooses another version, it starts a new Session and sends the request again, once. Otherwise it stops sending the request.
+
+*Response body: Company → Personal Agent*
+
+```
+{ "error": "version_unsupported" }
+```
+
+**Minor versions.** From 1.0, each side sends only what the other side's version defines. The Company MUST NOT send the Personal Agent a field, value, or event that only a minor version later than the request's `Poppy-Version` defines. The Personal Agent MUST NOT send the Company one that only a version later than the chosen document's `protocol_version` defines. A Company that adds a 1.1 feature therefore offers it only to Personal Agents that send `1.1` or later, and handles requests from 1.0 Personal Agents as 1.0 defines.
+
+A Company that plans to stop serving a version MAY say so in its responses to requests in that version, with the `Deprecation` ([RFC 9745](https://www.rfc-editor.org/rfc/rfc9745)) and `Sunset` ([RFC 8594](https://www.rfc-editor.org/rfc/rfc8594)) headers.
+
+From 1.0, the location of `poppy.json` and how it is fetched (section 3), `protocol_version`, `supported_versions`, `Poppy-Version`, and `version_unsupported` keep their meaning in every version, so a Personal Agent and a Company that implement different major versions can find one they share, or tell that there is none.
+
 ## 4. OAuth
 
 Poppy uses standard OAuth for account access. When obtaining account access, a Personal Agent is a confidential OAuth client. Sign-in, refresh, and revocation use standard OAuth parameters and grants, and the authorization server issues ordinary access and refresh tokens. Signed-out requests need nothing from it: they carry only the Session header, which the Personal Agent signs (section 5). Section 5 also describes how Sessions tie a User's activity together across APIs, conversations, and web browsing, and 4.8 lists everything Poppy adds to OAuth.
 
 The flows below follow OAuth 2.0 ([RFC 6749](https://www.rfc-editor.org/rfc/rfc6749)) and the OAuth Security Best Current Practice ([RFC 9700](https://www.rfc-editor.org/rfc/rfc9700)). A Company can use an existing authorization server that supports the standards it needs. Some servers support them and some don't.
 
-The Company's `grant_types_supported` advertises Direct and Device Sign-In (3.2). Personal Agents read it from the same metadata as every other client, so it can list a grant the Company doesn't offer them. A Company can turn off sign-in for every Personal Agent (3.2), or refuse sign-in, or one sign-in type, by `client_id` (4.1). The [guides](/docs/0.3/guides#company-agent-issuer) describe these choices.
+The Company's `grant_types_supported` advertises Direct and Device Sign-In (3.2). Personal Agents read it from the same metadata as every other client, so it can list a grant the Company doesn't offer them. A Company can turn off sign-in for every Personal Agent (3.2), or refuse sign-in, or one sign-in type, by `client_id` (4.1). The [guides](/docs/1.0/guides#company-agent-issuer) describe these choices.
+
+Direct Sign-In (4.2) is the preferred sign-in type. A Company that offers sign-in SHOULD offer Direct Sign-In. A Personal Agent SHOULD use Direct Sign-In when the Company offers it.
 
 ### 4.1 Agent identity
 
@@ -276,13 +327,14 @@ A Personal Agent's `client_id` MUST be an HTTPS URL that returns its metadata do
 - `client_id` MUST equal the URL the document was fetched from.
 - `jwks_uri` MUST be an HTTPS URL on the same domain as `client_id`. The key set contains only public keys. They sign client assertions, and the delegations that vouch for the keys that sign Session JWTs (5.2).
 - `redirect_uris` lists where Direct Sign-In may send the User back to (4.2). Each entry MUST be an HTTPS URL on the same domain as `client_id`, or a loopback redirect URI for an app on the User's computer, as [RFC 8252](https://www.rfc-editor.org/rfc/rfc8252) §7.3 defines.
-- `extensions` lists the extensions the Personal Agent supports, keyed by name, each with its `version` (3.3). It is optional.
 - The Personal Agent authenticates at the token endpoint with a client assertion signed by a key from `jwks_uri` (`private_key_jwt`, [RFC 7523](https://www.rfc-editor.org/rfc/rfc7523)). Its Session JWTs are signed with delegated keys instead (5.2).
 - The client assertion's `aud` MUST be the Company's issuer, as a single string. Companies MUST reject a client assertion with any other `aud`, compared character for character, including their token endpoint URL. This follows [draft-ietf-oauth-rfc7523bis](https://datatracker.ietf.org/doc/draft-ietf-oauth-rfc7523bis/). The endpoints in a Company's metadata aren't checked (3.2), so an `aud` set to an endpoint could name another Company's endpoint, and that Company would accept the assertion.
-- Client assertions follow RFC 7523 §3. The Personal Agent MUST make them short-lived, and MUST include `iat` and a unique, unguessable `jti`. The Company MAY reject a reused `jti`, as RFC 7523 §3 allows.
-- Companies MUST accept client assertions signed with `ES256`, and SHOULD accept ones signed with `PS384`. `PS384` lets a Personal Agent have its client assertions signed blindly (10.7).
+- Client assertions follow RFC 7523 §3. The Personal Agent MUST include `iat` and a unique, unguessable `jti`, and MUST set `exp` at most 5 minutes after `iat`. A Company MAY reject a client assertion that lasts longer than 5 minutes, and MUST NOT reject one for lasting 5 minutes or less. The Company MAY reject a reused `jti`, as RFC 7523 §3 allows.
+- Companies MUST accept client assertions signed with `ES256` and with `PS384`. `PS384` lets a Personal Agent have its client assertions signed blindly (10.7).
 
 A Company decides which Personal Agents it accepts, and how it approves them is outside this specification. A refused Personal Agent gets the OAuth `invalid_client` error at the authorization server, or `invalid_session` at a resource (5.3). A Company can also accept a Personal Agent for signed-out Sessions but refuse it sign-in, or one sign-in type, with the OAuth `unauthorized_client` error from the grant's endpoint. The Personal Agent then continues signed out.
+
+Likewise, a Personal Agent decides which Companies it uses the protocol with. Implementing Poppy doesn't require using it with every Company that publishes `poppy.json`. The requirements on Personal Agents apply when it does.
 
 ### 4.2 Direct Sign-In
 
@@ -306,6 +358,13 @@ Poppy adds these rules to the grant:
 - `redirect_uri` MUST exactly match an entry in the Personal Agent's `redirect_uris` (4.1), except for the port of a loopback redirect URI, as [RFC 8252](https://www.rfc-editor.org/rfc/rfc8252) §7.3 describes.
 - The redirect back carries the Company's issuer in `iss` ([RFC 9207](https://www.rfc-editor.org/rfc/rfc9207)), including on `error=access_denied`. The Personal Agent MUST check that `iss` exactly matches the issuer of the Company it started sign-in with. This stops a response from another Company's sign-in being swapped in.
 - The token request carries the Personal Agent's client assertion (4.1).
+- Unless the Personal Agent receives the redirect only on the device that opened the authorization URL, as below, the authorization request MUST include `prompt=consent` ([OpenID Connect Core](https://openid.net/specs/openid-connect-core-1_0.html#AuthRequest) §3.1.2.1). The Company SHOULD support `prompt=consent`, whether or not it supports OpenID Connect, and show its consent page for a request that includes it, even when the account already granted every requested scope to the `client_id` (10.8). A Company that doesn't support it ignores it, as RFC 6749 §3.1 requires for unknown parameters.
+
+**Pushed Authorization Requests.** A Company MAY require Pushed Authorization Requests (PAR, [RFC 9126](https://www.rfc-editor.org/rfc/rfc9126)) by setting `require_pushed_authorization_requests` to `true` in its issuer's metadata (3.2). The Personal Agent then MUST send the authorization request's parameters to the `pushed_authorization_request_endpoint` with its client assertion, and open the `authorization_endpoint` with only `client_id` and the `request_uri` it gets back. A Personal Agent SHOULD use PAR whenever the metadata lists the endpoint. The Company then knows which Personal Agent asked before the User sees its page, and nothing in the browser can change the request. A Personal Agent that sends DPoP proofs (4.5) sends one with the pushed request too, so the Company can bind the code to the key ([RFC 9449](https://www.rfc-editor.org/rfc/rfc9449) §10.1).
+
+A `request_uri` expires quickly, after the `expires_in` the Company returns with it. When the Personal Agent sends the User a link to open later, such as on their phone, it SHOULD link to a page of its own that pushes the request when the User opens it and then redirects to the `authorization_endpoint`.
+
+Nothing in the redirect says who approved the sign-in. Opened on another device, such as from a link sent to the User's phone, Direct Sign-In is a cross-device flow like Device Sign-In: someone can start a sign-in, send the link to another person, and get tokens for that person's account if they approve it (10.8). Companies that offer Direct Sign-In, and Personal Agents that open the authorization URL on a device other than the one the User is using, MUST follow the best practices in [RFC 10027](https://www.rfc-editor.org/rfc/rfc10027) (BCP 247) §2, as for Device Sign-In (4.3). A Personal Agent SHOULD receive the redirect only on the device that opened the authorization URL when it can, at a loopback redirect URI or in its own app signed in as the User who started the sign-in ([RFC 8252](https://www.rfc-editor.org/rfc/rfc8252)). A forwarded link then fails.
 
 ### 4.3 Device Sign-In
 
@@ -324,35 +383,41 @@ Device Sign-In is the OAuth 2.0 device authorization grant ([RFC 8628](https://w
 }
 ```
 
-Device Sign-In is a cross-device flow, and it is easier to use for phishing than Direct Sign-In: whoever holds the `device_code` gets the tokens, so an attacker can start a request and persuade the User to approve it ([RFC 10027](https://www.rfc-editor.org/rfc/rfc10027) §4.1.1). Companies that offer Device Sign-In and Personal Agents that use it MUST follow the best practices in RFC 10027 (BCP 247) §2. They include its protocol selection guidance, which says to use the device authorization grant only when other cross-device flows aren't viable (§6.2.1.5), so a Personal Agent uses Direct Sign-In when it can.
+Device Sign-In is always a cross-device flow, and it is easier to use for phishing than Direct Sign-In on the User's own device: whoever holds the `device_code` gets the tokens, so an attacker can start a request and persuade the User to approve it ([RFC 10027](https://www.rfc-editor.org/rfc/rfc10027) §4.1.1). Companies that offer Device Sign-In and Personal Agents that use it MUST follow the best practices in RFC 10027 (BCP 247) §2. They include its guidance on when to use the device authorization grant (§6.2.1.5).
 
 Poppy adds these rules to the grant:
 
-- The Personal Agent shows the User `verification_uri` and `user_code`, or `verification_uri_complete` as a link or QR code. It keeps `device_code` private. Before showing them, the Personal Agent MUST check that the link's host is the host of the Company's issuer or of a URL in the issuer's `protected_resources` (3.2), or a subdomain of either, and MUST show the Company's `organization.name` and domain with them. Otherwise a Company could pass off another Company's sign-in page as its own, and the User would approve a sign-in there for the Company that asked.
+- The Personal Agent shows the User `verification_uri` and `user_code`, or `verification_uri_complete` as a link or QR code. It keeps `device_code` private. Before showing them, the Personal Agent MUST check that the link's host is the host of the Company's issuer or `organization.domain` (3.1), or a subdomain of either, and MUST show the Company's `organization.name` and domain with them. Otherwise a Company could pass off another Company's sign-in page as its own, and the User would approve a sign-in there for the Company that asked.
 - Opening the link MUST NOT approve the request by itself.
+- The Company SHOULD show its consent page for every request, even when the account already granted every requested scope to the `client_id` (10.8).
 - Each poll carries the client assertion. Once the User approves, the poll returns the tokens in 4.7.
 
 ### 4.4 Refresh tokens
 
 Sign-in returns a refresh token ([RFC 6749, section 6](https://www.rfc-editor.org/rfc/rfc6749#section-6)), so the Personal Agent can get access tokens later without asking the User to sign in again. It sends the refresh token to the `token_endpoint` with `grant_type=refresh_token` and its client assertion. It MAY send `scope` to ask for fewer scopes than the refresh token has, for example read-only access for a task that only looks things up, and `resource` for a token for one service (4.5). The response has the token fields in 4.7.
 
-- Using a refresh token doesn't extend its lifetime. Refresh token rotation follows RFC 6749 §6: the Personal Agent uses a new refresh token if the response has one, and keeps the old one otherwise.
+- Refresh token rotation follows RFC 6749 §6: the Personal Agent uses a new refresh token if the response has one, and keeps the old one otherwise.
 - A refresh token isn't tied to a Session. Any of the User's Sessions can use access tokens from it (5.4).
-- A copied refresh token is useless without a client assertion from the Personal Agent. If the Personal Agent signs blindly, its other Users can get client assertions too, so it protects refresh tokens in other ways (10.7).
+- A copied refresh token is useless without a client assertion from the Personal Agent, and without the DPoP key when the Company binds it to one (below). If the Personal Agent signs blindly, its other Users can get client assertions too, so it protects refresh tokens in other ways (10.7).
+
+**DPoP keys at refresh.** A Personal Agent that sends a DPoP proof when it gets a refresh token (4.5) MUST send a proof from the same key with every refresh of that refresh token, and of the refresh tokens that replace it. It keeps the key unless the User signs in again, or an extension the Company requires (3.3) defines how to replace it, for example when the Personal Agent moves its keys to a new signer. A Company MAY bind a refresh token to the key of the DPoP proof in the request that issued it, along with the refresh tokens that replace it. It then rejects a refresh whose proof is missing or from another key with `invalid_grant`, and issues nothing bound to that key, except through such an extension's replacement procedure. [RFC 9449](https://www.rfc-editor.org/rfc/rfc9449) §5 leaves a confidential client's refresh tokens unbound, because client authentication already limits who can use them. Here, client assertions can be available to every User of a Personal Agent (10.7), and without the binding, a copied refresh token could be used with any new DPoP key.
 
 ### 4.5 Access tokens
 
-A signed-in request carries an access token in the `Authorization` header, with the scheme the token response's `token_type` names, as [RFC 6750](https://www.rfc-editor.org/rfc/rfc6750) or, for DPoP-bound tokens, [RFC 9449](https://www.rfc-editor.org/rfc/rfc9449) describes. Whether a Company binds its access tokens with DPoP is its choice, as in OAuth. Personal Agents SHOULD support DPoP, because a Personal Agent that doesn't can't sign in at a Company that requires it. A Personal Agent that supports it sends a DPoP proof with its token requests when the issuer's metadata lists `dpop_signing_alg_values_supported` ([RFC 9449](https://www.rfc-editor.org/rfc/rfc9449) §5.1), so the Company can bind the tokens. The Company decides for each token whether to bind it, and returns `token_type` `Bearer` for one it doesn't bind, as RFC 9449 §5 allows, such as a token for a service that doesn't accept DPoP. A signed-in request also carries the Session header (5.2), whose `ath` covers the access token.
+A signed-in request carries an access token in the `Authorization` header, with the scheme the token response's `token_type` names, as [RFC 6750](https://www.rfc-editor.org/rfc/rfc6750) or, for DPoP-bound tokens, [RFC 9449](https://www.rfc-editor.org/rfc/rfc9449) describes. Whether a Company binds its access tokens with DPoP is its choice, as in OAuth. Personal Agents SHOULD support DPoP, because a Personal Agent that doesn't can't sign in at a Company that requires it. A Personal Agent that supports it sends a DPoP proof with its token requests when the issuer's metadata lists `dpop_signing_alg_values_supported` ([RFC 9449](https://www.rfc-editor.org/rfc/rfc9449) §5.1), so the Company can bind the tokens. The Personal Agent MUST use each DPoP key for one User ID only, for the same reason as delegated keys (5.2), and keeps it for every refresh of the refresh tokens it got with it (4.4). The Company decides for each token whether to bind it, and returns `token_type` `Bearer` for one it doesn't bind, as RFC 9449 §5 allows, such as a token for a service that doesn't accept DPoP. A signed-in request also carries the Session header (5.2), whose `ath` covers the access token.
 
 **Tokens for one service.** By default, one access token works at all of a Company's services. A service that accepts only tokens issued for it says so in its protected resource metadata ([RFC 9728](https://www.rfc-editor.org/rfc/rfc9728)), with a `resource` other than `https://{organization.domain}`, as MCP servers do (section 7). The domain's own metadata (3.2) is for finding the issuer, and doesn't make any service need its own tokens.
 
-- Before its first signed-in call to an API or a conversation `endpoint`, the Personal Agent fetches the metadata at the URL RFC 9728 §3.1 defines from the service's URL (an MCP server's `url`, the URL in an OpenAPI description's `servers`, or the `endpoint`). If the metadata exists and its `resource` isn't `https://{organization.domain}`, the Personal Agent requests a token with `resource` set to it ([RFC 8707](https://www.rfc-editor.org/rfc/rfc8707)), at sign-in or refresh, and uses that token only there. Otherwise the default token works there, as it does at the other endpoints this protocol defines.
-- The Company accepts a token issued for a `resource` only at that service, and returns `invalid_target` for a `resource` it doesn't serve.
+- Before its first signed-in call to an API or a conversation `endpoint`, the Personal Agent fetches the metadata at the URL RFC 9728 §3.1 defines from the service's URL (an MCP server's `url`, the URL in an OpenAPI description's `servers`, or the `endpoint`). It uses the metadata only if its `resource` is the URL it derived the metadata URL from, as RFC 9728 §3.3 requires, and otherwise treats it as absent. If the metadata exists and its `resource` isn't `https://{organization.domain}`, the Personal Agent requests a token with `resource` set to it ([RFC 8707](https://www.rfc-editor.org/rfc/rfc8707)) and uses that token only there. Otherwise the default token works there, as it does at the other endpoints this protocol defines.
+- The User signs in once for all of a Company's services, and approves scopes, which describe the access, not the services that provide it. So a sign-in without `resource` grants every resource the Company offers Personal Agents when each token is requested, including services it adds after the sign-in. RFC 8707 §2 leaves this choice to the issuer. The Personal Agent SHOULD NOT include `resource` in the request that starts sign-in: if it does, the Company MAY limit the grant to the resources it names, as RFC 8707 §2.2 allows.
+- Each later token request, the one that completes sign-in or a refresh (4.4), names one `resource` to get a token for that service, or none to get the default token. After a sign-in that named resources, only one that named `https://{organization.domain}` can get the default token.
+- After a sign-in without `resource`, the Company MUST issue a token for any resource it offers Personal Agents, at refresh too. The token MAY have fewer scopes than the refresh token, such as only the ones its service uses, and the response's `scope` says which (4.7). The Company MAY leave a service out, for every Personal Agent or by `client_id`, as it can limit scopes (4.7). It returns `invalid_target` for a `resource` it doesn't serve or doesn't offer the Personal Agent, which then doesn't use that service signed in.
+- The Company accepts a token issued for a `resource` only at that service.
 - A service that gets a token not issued for it returns `invalid_token` with `resource_metadata` in its challenge (RFC 9728 §5.1), so a Personal Agent with stale metadata learns about it.
 
-These rules also apply when a provider runs the conversation endpoint on another host. The [guides](/docs/0.3/guides#company-conversation-provider) show how its resource metadata and the Company's issuer work together.
+These rules also apply when a provider runs the conversation endpoint on another host. The [guides](/docs/1.0/guides#company-conversation-provider) show how its resource metadata and the Company's issuer work together.
 
-The [guides](/docs/0.3/guides#company-lifetimes) suggest how long access tokens last.
+The [guides](/docs/1.0/guides#company-lifetimes) suggest how long access tokens last.
 
 ### 4.6 Revocation
 
@@ -360,11 +425,11 @@ The Personal Agent revokes a refresh token at the Company's `revocation_endpoint
 
 ### 4.7 Scopes and token responses
 
-Scopes say what account access a sign-in grants. Each Company defines its own scopes, such as `orders:read`, `orders:write`, and `addresses`, usually the OAuth scopes it already has. The protocol defines none.
+Scopes say what account access a sign-in grants. Each Company defines its own scopes, such as `orders:read`, `orders:write`, and `addresses`, usually the OAuth scopes it already has. The protocol defines one, `poppy:browser-sign-in`, which lets the Personal Agent sign its browser in to the Company's website (section 6).
 
-- `scopes_supported` in the OAuth server metadata lists the scopes the Company supports (3.2). A Personal Agent MAY also request scopes documented by the Company's APIs or sign-in extensions, even when absent from that list. The list MAY leave out scopes the Company offers only to its other clients, and the Company MAY limit the scopes it grants by client, as [RFC 6749](https://www.rfc-editor.org/rfc/rfc6749#section-3.3) §3.3 allows.
+- `scopes_supported` in the OAuth server metadata, in the protected resource metadata of the domain the Personal Agent is working with, or in both, lists the scopes the Company supports (3.2). The Personal Agent uses the scopes in either list. It MAY also request scopes documented by the Company's APIs or sign-in extensions, even when absent from both. Either list MAY leave out scopes the Company offers only to its other clients, and the Company MAY limit the scopes it grants by client, as [RFC 6749](https://www.rfc-editor.org/rfc/rfc6749#section-3.3) §3.3 allows.
 
-- The Company SHOULD describe each scope it offers Personal Agents, so the Personal Agent can choose the ones a task needs: in the scopes of an OAuth 2.0 security scheme in an OpenAPI description it lists (section 7), or otherwise in `auth.scopes`.
+- The Company SHOULD describe each scope it offers Personal Agents, so the Personal Agent can choose the ones a task needs: in the scopes of an OAuth 2.0 security scheme in an OpenAPI description it lists (section 7), or otherwise in `auth.scopes`. When both describe a scope, the Personal Agent uses the description in `auth.scopes`. A description is most useful when it says what the scope unlocks, which tasks need it, and whether a task can be completed without it, such as a scope that only personalizes search results. The [guides](/docs/1.0/guides#company-scope-descriptions) give examples.
 
 - A Company MAY give hints about any scope in `auth.scope_hints`, so a Personal Agent can tell how consequential a scope is before requesting it. Each entry is keyed by scope name and describes the most consequential of the actions that require the scope, in two fields:
 
@@ -373,7 +438,7 @@ Scopes say what account access a sign-in grants. Each Company defines its own sc
 
   A Company MUST include both fields in each entry. A scope with no entry has no hints, and a Personal Agent can't tell what it allows. A Personal Agent MUST ignore fields it doesn't recognize, and treat a `changes` value it doesn't recognize as `irreversible`, so later versions can add both. The hints follow the `readOnlyHint` and `destructiveHint` annotations of [MCP tools](https://modelcontextprotocol.io/specification/2025-06-18/server/tools), applied to a scope rather than one tool. They don't replace descriptions, and like other content from a Company (10.1), they are its claims, not the User's approval.
 
-- Companies decide which actions require each scope and enforce them across web browsing, APIs, and actions performed by the Company Agent.
+- Companies decide which actions require each scope and enforce them across APIs and actions performed by the Company Agent. A website may not be able to apply them. It can then give a signed-in browser the account's full access, and the Company and the User accept that through `poppy:browser-sign-in` (section 6).
 
 - The Company MUST NOT grant scopes beyond those requested. This is stricter than OAuth, which lets a server grant other scopes ([RFC 6749](https://www.rfc-editor.org/rfc/rfc6749#section-3.3) §3.3), because the User approved only the scopes the Personal Agent asked for.
 
@@ -381,7 +446,7 @@ Scopes say what account access a sign-in grants. Each Company defines its own sc
 
 - A Personal Agent SHOULD request only the scopes the User's tasks need, following [RFC 9700](https://www.rfc-editor.org/rfc/rfc9700#section-2.3) §2.3.
 
-- If a task needs more access than the refresh token allows, the User signs in again, and the Personal Agent requests every scope it still needs, including previously granted scopes it wants to keep, following [RFC 6749 §3.3](https://www.rfc-editor.org/rfc/rfc6749#section-3.3). It does not request only the missing scopes. The new refresh token replaces the old one, which the Personal Agent SHOULD revoke (4.6). Revoking a replaced refresh token isn't sign-out (5.5). A pending or failed sign-in leaves existing tokens unchanged.
+- If a task needs more access than the refresh token allows, the User signs in again, and the Personal Agent requests every scope it still needs, including previously granted scopes it wants to keep, following [RFC 6749 §3.3](https://www.rfc-editor.org/rfc/rfc6749#section-3.3). It does not request only the missing scopes. Like the first, the new sign-in leaves out `resource` (4.5). The new refresh token replaces the old one, which the Personal Agent SHOULD revoke (4.6). Revoking a replaced refresh token isn't sign-out (5.5). A pending or failed sign-in leaves existing tokens unchanged.
 
 Sign-in returns an access token (4.5) and a refresh token. Refresh (4.4) returns an access token and MAY return a replacement refresh token, as RFC 6749 §6 describes. The User may have approved fewer scopes than requested, so the Personal Agent checks `scope` before continuing. As [RFC 6749](https://www.rfc-editor.org/rfc/rfc6749) §5.1 describes, the response leaves `scope` out only when the Company granted exactly the scopes requested. A Poppy sign-in grants at least one scope: if the User approves none, it ends as a decline.
 
@@ -401,17 +466,18 @@ OAuth errors follow the relevant grant's RFC, including `invalid_client`, `inval
 
 ### 4.8 What Poppy adds to OAuth
 
-- **Choices stricter than OAuth:** a `client_id` that is the URL of a client metadata document, authenticated with `private_key_jwt` and an assertion addressed to the issuer, with its `jwks_uri` and `redirect_uris` on the `client_id`'s domain (4.1); `revocation_endpoint` and `grant_types_supported`, including `refresh_token`, in the issuer's metadata (3.2); `iss` in every authorization response, and exact matching of `redirect_uri` as RFC 9700 requires (4.2); RFC 10027's best practices for Device Sign-In, and a check of the sign-in link's host (4.3); a refresh token from every sign-in, whose use doesn't extend its lifetime (4.4); and `scope` on every sign-in request, with at least one scope granted and none beyond those requested (4.7).
-- **Discovery and descriptions:** `poppy.json`, including `auth.disabled` to offer no sign-in, client extensions, described scopes, and scope hints (section 3, 4.7).
+- **Choices stricter than OAuth:** a `client_id` that is the URL of a client metadata document, authenticated with `private_key_jwt` and an assertion addressed to the issuer, with its `jwks_uri` and `redirect_uris` on the `client_id`'s domain (4.1); `revocation_endpoint` and `grant_types_supported`, including `refresh_token`, in the issuer's metadata (3.2); `iss` in every authorization response, exact matching of `redirect_uri` as RFC 9700 requires, and PAR when the Company requires it (4.2); RFC 10027's best practices for Device Sign-In, and a check of the sign-in link's host (4.3); a refresh token from every sign-in, refreshed with the DPoP key it was issued with (4.4); and `scope` on every sign-in request, with at least one scope granted and none beyond those requested (4.7).
+- **A choice RFC 8707 leaves open:** a sign-in without `resource` covers every resource the Company offers Personal Agents (4.5).
+- **Discovery and descriptions:** `poppy.json`, including `auth.disabled` to offer no sign-in and `web.disabled` to ask Personal Agents not to browse, supported versions, described scopes, and scope hints (section 3, 4.7).
 - **Sessions:** the Session header, which names the Personal Agent, the User, and the Session on every request, signed in or out, without an authorization-server grant (section 5). It is signed with a delegated key, which a key in the Personal Agent's `jwks_uri` vouches for in a delegation carried in the JWT's `poppy_dlg` header (5.2).
-- **Interactions above OAuth:** browser join (section 6), APIs (section 7), conversations (section 8), excluded tasks and feedback (section 9), and extensions (3.3), including [Operations](/docs/0.3/extensions/operations).
-- **An extension grant:** the [Mediated Sign-In extension](/docs/0.3/extensions/mediated-sign-in) adds a grant type at the token endpoint, as RFC 6749 §4.5 allows.
+- **Interactions above OAuth:** browser join, with its `poppy:browser-sign-in` scope (section 6), APIs (section 7), conversations (section 8), excluded tasks, skills, and feedback (section 9), and extensions (3.3), including [Operations](/docs/1.0/extensions/operations).
+- **An extension grant:** the [Mediated Sign-In extension](/docs/1.0/extensions/mediated-sign-in) adds a grant type at the token endpoint, as RFC 6749 §4.5 allows.
 
 ## 5. Sessions
 
 A Session belongs to one User, at one Company, through one Personal Agent. It can tie together activity such as a cart and an open conversation, whether signed in or out. A Personal Agent can run several Sessions for the same User, for example for tasks running in parallel.
 
-The Personal Agent declares its Session with a `Poppy-Session` header on requests to the Company's APIs, conversations, and other protocol and extension endpoints (5.2). The Company verifies the header before using Session claims or state; endpoints that use neither can ignore it (5.3). There's no separate step to start a Session: the first request with a new `sid` starts it. Account access is separate, and is plain OAuth (section 4):
+The Personal Agent declares its Session with a `Poppy-Session` header on requests to the Company's APIs, conversations, and other protocol and extension endpoints, and on website pages it fetches without a browser (5.2). The Company verifies the header before using Session claims or state; endpoints that use neither can ignore it (5.3). There's no separate step to start a Session: the first request with a new `sid` starts it. Account access is separate, and is plain OAuth (section 4):
 
 | Request | Carries |
 | --- | --- |
@@ -432,14 +498,15 @@ The Personal Agent holds the User IDs and Agent IDs of each of its Users at ever
 
 ### 5.2 The Session header
 
-The Personal Agent MUST send a `Poppy-Session` header on every request to a Company's APIs, conversations, and other resource endpoints this protocol or an extension defines. The destinations come from the Company's `poppy.json`: the request URLs its listed APIs describe (section 7), and protocol endpoints listed there or derived as the protocol or extension defines. For example, conversation requests use the selected `agent.protocols[].endpoint` and the routes in 8.2, and browser authorization uses `{browser_session_endpoint}/authorize` (section 6). Sharing a hostname with one of these URLs doesn't make another URL a Session destination.
+The Personal Agent MUST send a `Poppy-Session` header on every request to a Company's APIs, conversations, and other resource endpoints this protocol or an extension defines. The destinations come from the Company's `poppy.json`: the request URLs its listed APIs describe (section 7), and protocol endpoints listed there or derived as the protocol or extension defines. For example, conversation requests use the selected `agent.protocols[].endpoint` and the routes in 8.2, browser authorization uses `{browser_session_endpoint}/authorize` (section 6), and feedback uses the `feedback.endpoint` that the response from `tasks.endpoint` lists (section 9). Sharing a hostname with one of these URLs doesn't make another URL a Session destination.
 
-The Personal Agent MUST NOT send a Company's Session JWT to any other destination. Discovery and description documents, OAuth endpoints, and website pages don't carry this header. The header holds a JWT that the Personal Agent signs for that one request, with a delegated key that a key from its `jwks_uri` vouches for (Delegated keys, below):
+The Personal Agent MUST NOT send a Company's Session JWT to any other destination, except the website pages below. Discovery and description documents and OAuth endpoints don't carry this header. Requests that carry it also carry `Poppy-Version`, and `Poppy-Extensions` when the Personal Agent uses extensions with the Company (3.4). The header holds a JWT that the Personal Agent signs for that one request, with a delegated key that a key from its `jwks_uri` vouches for (Delegated keys, below):
 
 *Request headers: Personal Agent → Company*
 
 ```
 Poppy-Session: eyJ0eXAiOiJwb3BweS1zZXNzaW9uK2p3dCIs…
+Poppy-Version: 1.0
 Authorization: Bearer eyJhbGciOi…Qp4w
 ```
 
@@ -450,7 +517,7 @@ Authorization: Bearer eyJhbGciOi…Qp4w
   "typ": "poppy-session+jwt",
   "alg": "ES256",
   "kid": "9E421cSqd5UfAq5slDKYxXQd8Zmm8B3CIsT9cDxRHx8",
-  "poppy_dlg": "eyJhbGciOiJFUzI1NiIsInR5cCI6InBhcC1kZWxlZ2F0aW9uK2p3dCIs…"
+  "poppy_dlg": "eyJhbGciOiJFUzI1NiIsInR5cCI6InBvcHB5LWRlbGVnYXRpb24rand0Iiw…"
 }
 .
 {
@@ -479,7 +546,9 @@ Authorization: Bearer eyJhbGciOi…Qp4w
 
 The Personal Agent MUST include every claim except `agent_id`, and `ath` when there's no access token. It MUST send the same `sub` and `agent_id`, or no `agent_id`, in every Session JWT for a Session.
 
-A Session JWT is fresh for each request, so a copied one works only for the same method and URL, and only briefly. Its `ath` ties it to the access token, and the access token was issued to the same `client_id`, so a copied access token is useless without the Personal Agent's key (5.3). If the access token is also DPoP-bound (4.5), the request carries both the Session JWT and a DPoP proof, each signed with its own key. The Session JWT doesn't replace DPoP: it names the Session and User, which a DPoP proof doesn't, and it covers signed-out requests, which have no token for a DPoP proof to bind to.
+A Session JWT is fresh for each request, so a copied one works only for the same method and URL, and only briefly. Its `ath` ties it to the access token, and the access token was issued to the same `client_id`, so a copied access token is useless without the Personal Agent's key (5.3). If the access token is also DPoP-bound (4.5), the request carries both the Session JWT and a DPoP proof, each signed with its own key. Both carry `ath`, so a Session header can be verified without DPoP, for example at a gateway. The Session JWT doesn't replace DPoP: it names the Session and User, which a DPoP proof doesn't, and it covers signed-out requests, which have no token for a DPoP proof to bind to.
+
+**Website pages.** A Personal Agent that fetches a page of the Company's website with its own HTTP client, rather than a browser, SHOULD send the Session header with it, so the Company can tell which Personal Agent and Session the request is from. This covers only HTTPS URLs whose host is exactly `organization.domain`, the host that served `poppy.json` (section 3), and not the documents above or other hosts on the Company's domain. The Personal Agent MUST NOT send an access token with these requests, so the JWT has no `ath` and the request is signed out (5.4), even when a browser joined to the Session is signed in. An access token is for the Company's APIs (4.5), and signed-in browsing goes through browser join with `poppy:browser-sign-in` (section 6). A headless browser is a browser: it joins the Session as section 6 describes, and doesn't send the header. When a page redirects, the Personal Agent signs a new Session JWT for the new URL only if its host is still `organization.domain`, and otherwise follows the redirect without the header. A page that verifies the header rejects a failed check with `invalid_session`, as any endpoint does (5.3), so the Personal Agent learns of a mistake in its header. The Personal Agent MAY then fetch the page again without the header.
 
 #### Delegated keys
 
@@ -512,7 +581,7 @@ A Personal Agent signs a Session JWT for every request. Delegations keep those s
 }
 ```
 
-- `alg` is `ES256` or `PS384`. Companies MUST accept delegations signed with `ES256`, and SHOULD accept delegations signed with `PS384`. `PS384` lets a Personal Agent have its delegations signed blindly (10.7).
+- `alg` is `ES256` or `PS384`. Companies MUST accept delegations signed with `ES256` and with `PS384`. `PS384` lets a Personal Agent have its delegations signed blindly (10.7).
 - `typ` MUST be `poppy-delegation+jwt`, so a delegation can't be used as a Session JWT.
 - `kid` names the key in `jwks_uri` that signed the delegation.
 - `iss` is the Personal Agent's `client_id`.
@@ -532,7 +601,7 @@ A Session JWT carries its delegation in its header:
   "typ": "poppy-session+jwt",
   "alg": "ES256",
   "kid": "9E421cSqd5UfAq5slDKYxXQd8Zmm8B3CIsT9cDxRHx8",
-  "poppy_dlg": "eyJhbGciOiJFUzI1NiIsInR5cCI6InBhcC1kZWxlZ2F0aW9uK2p3dCIs…"
+  "poppy_dlg": "eyJhbGciOiJFUzI1NiIsInR5cCI6InBvcHB5LWRlbGVnYXRpb24rand0Iiw…"
 }
 ```
 
@@ -548,9 +617,11 @@ The resource verifies a Session JWT's delegation and signature in this order:
 
 When verifying a Session header (5.3), the Company MUST reject, with `invalid_session`, a Session JWT without a delegation, including one signed directly with a key from `jwks_uri`, and a Session JWT whose delegation fails any of these checks. A resource sees many Session JWTs with the same delegation, so it MAY cache a verified delegation until it expires.
 
-The Personal Agent decides when to create a new delegated key and get a new delegation for it, as long as each Session JWT carries a delegation that is valid when the Company checks it. Nothing the Company stores depends on a delegated key: Sessions are named by `sid` (5.2), and refresh tokens are tied to the `client_id`, not a key (4.4). So a Company MUST NOT expect a User's delegated key to stay the same between requests or Sessions, or treat a new one as a reason to reject a request.
+The Personal Agent decides when to create a new delegated key and get a new delegation for it, as long as each Session JWT carries a delegation that is valid when the Company checks it. Nothing the Company needs to store depends on a delegated key: Sessions are named by `sid` (5.2), and refresh tokens are tied to the `client_id`, not a key (4.4). So a Company MUST NOT expect a User's delegated key to stay the same between requests or Sessions, or treat a new one as a reason to reject a request.
 
 The Personal Agent MUST use each delegated key, and its delegation, for one User ID only: it signs with it only that User ID's Session JWTs. Each User ID is for one Company (5.1), so this gives every Company its own delegated keys. Otherwise Companies could match a User across Companies by the key's thumbprint or the delegation's `jti`, and a Company could match a User's anonymous User IDs with their regular one. User IDs stay the same while delegated keys change (5.1).
+
+A Company MAY reject, with `invalid_session`, a Session JWT whose delegated key has already signed for a different User ID while a delegation for the key lasts. This limits a leaked delegated key to one User (10.7).
 
 ### 5.3 Verifying the Session header
 
@@ -559,7 +630,7 @@ Companies SHOULD verify the Session header on every request that carries it. The
 1. Fetches the client metadata from `iss` without following redirects, as the CIMD draft (§5) requires, and the public keys from its `jwks_uri` (4.1), following the address checks in section 3.
 2. Verifies the JWT's delegation and signature, as Delegated keys (5.2) describes, then `typ` and the claims above: `aud` is its Company's identifier, compared character for character; `htm` and `htu` match the request as RFC 9449 §4.3 describes for DPoP proofs; and `iat` is within an acceptance window it chooses, such as one minute. The JWT never grants account access, whatever else it contains.
 3. If the request carries an access token, checks that `ath` matches it, and that the token was issued to the same `client_id` as `iss`. Without an access token, `ath` MUST be absent.
-4. Looks up the Session by `client_id` and `sid`. An unknown `sid` starts a signed-out Session with the verified `client_id`, User ID, and optional Agent ID. A known `sid` continues its Session, and the JWT MUST have that Session's User ID and Agent ID. It checks ended Sessions at this point too (5.5).
+4. Looks up the Session by `client_id`, `sid`, and User ID. An unknown combination starts a signed-out Session with the verified `client_id`, User ID, and optional Agent ID, and a known one continues its Session. It checks ended Sessions at this point too (5.5).
 
 An endpoint that uses no Session claims MAY handle a request without verifying the header or requiring one. The Company MUST NOT use unverified Session claims to attribute a request to a Personal Agent, User, or Session, or to look up their state. Access token validation, scope enforcement, and any required DPoP checks still apply. A failed Session check returns HTTP 400 with `{"error": "invalid_session"}`, and an ended Session returns `{"error": "session_ended"}` (5.5). Either MAY include an `error_description` for the developer, as in [RFC 6749](https://www.rfc-editor.org/rfc/rfc6749) §5.2. Access token errors follow OAuth (section 7). Session errors use 400 rather than 401 so that OAuth libraries, which treat a 401 as a problem with the access token, don't discard a valid token.
 
@@ -573,7 +644,7 @@ A Personal Agent SHOULD also sign requests carrying the Session header with an H
 
 The Personal Agent's operator signature MUST cover `poppy-session`, and `authorization` when present, so it binds to the Session JWT and access token. Operator keys and delegated Session keys have different roles. Verifying an operator signature authenticates its key source, not an arbitrary `client_id` named in the request. Before trusting any Session claim, the Company MUST verify the Session JWT independently (5.3). The Company decides whether to accept the client and request. A shared origin alone does not establish that two client metadata URLs name the same client.
 
-An edge that verifies delegated Session JWTs can authenticate the client without this extra signature. Company acceptance, Session ownership, and account authorization still apply. The [guides](/docs/0.3/guides#both-operator-signatures) describe deployment and privacy considerations.
+An edge that verifies delegated Session JWTs can authenticate the client without this extra signature. Company acceptance, Session ownership, and account authorization still apply. The [guides](/docs/1.0/guides#both-operator-signatures) describe deployment and privacy considerations.
 
 ### 5.4 Signing in
 
@@ -589,24 +660,24 @@ A request without an access token is signed out, so an account action without on
 
 ### 5.5 Ending Sessions and signing out
 
-The Company decides how long a Session lasts, and keeps its record, with the User ID and Agent ID that 5.3 checks, only that long. To end a Session without signing out, the Personal Agent stops using its `sid`. Its refresh tokens are unaffected.
+The Company decides how long a Session lasts, and keeps its record, which 5.3 finds by `client_id`, `sid`, and User ID, only that long. To end a Session without signing out, the Personal Agent stops using its `sid`. Its refresh tokens are unaffected.
 
 An endpoint that uses Session claims checks whether the Session has ended. A Company MAY remember the `sid`s of Sessions it ended, for as long as it chooses, so an ended Session doesn't silently start again. A request for a remembered ended Session gets `session_ended` (HTTP 400, JSON body), and the Personal Agent MUST then start a new Session with a new `sid` and send the request again in it. The old Session's state, such as a cart or a browser's cookie, doesn't carry over. Conversations do, as 8.11 describes. If the new Session gets `session_ended` too, the Personal Agent stops sending the request. A Company can forget an ended Session, so a request with its `sid` can start a new Session instead.
 
-**Sign-out.** The Personal Agent signs out of an account by revoking every refresh token it holds for it (4.6). The account is signed out once no refresh token the Company issued to that `client_id` for the account is still valid. The Sessions that used them continue signed out: the Personal Agent sends the Session header without an access token. What happens to access tokens issued under a revoked refresh token, including one that a new sign-in replaced (4.7), follows [RFC 7009](https://www.rfc-editor.org/rfc/rfc7009) §2.1, and the [guides](/docs/0.3/guides#company-lifetimes) suggest lifetimes.
+**Sign-out.** The Personal Agent signs out of an account by revoking every refresh token it holds for it (4.6). The account is signed out once no refresh token the Company issued to that `client_id` for the account is still valid. The Sessions that used them continue signed out: the Personal Agent sends the Session header without an access token. What happens to access tokens issued under a revoked refresh token, including one that a new sign-in replaced (4.7), follows [RFC 7009](https://www.rfc-editor.org/rfc/rfc7009) §2.1, and the [guides](/docs/1.0/guides#company-lifetimes) suggest lifetimes.
 
 The User can also disconnect the Personal Agent in the Company's account settings. That revokes its refresh tokens for the account. The Personal Agent finds out when a request fails with `invalid_token`, or refresh returns `invalid_grant`, and then continues signed out.
 
 When a Session continues signed out:
 
 - What doesn't need the account carries on, such as a cart or a conversation that hasn't used it.
-- Anything that used the account, such as a conversation (8.11) or an operation ([Operations extension](/docs/0.3/extensions/operations#operation-object)), stays as it is, but a request on it without an access token for that account gets a challenge (section 7). A conversation stays open, so the User can sign in again and continue it.
+- Anything that used the account, such as a conversation (8.11) or an operation ([Operations extension](/docs/1.0/extensions/operations#operation-object)), stays as it is, but a request on it without an access token for that account gets a challenge (section 7). A conversation stays open, so the User can sign in again and continue it.
 - The Personal Agent SHOULD NOT sign in to that account again unless the User asks.
 
 ### 5.6 Sending requests
 
-- Companies MUST accept the Session header and access token without requiring cookies. Web pages carry a cookie instead (section 6).
-- Personal Agents MUST NOT leave out the Session header to appear to the Company as a person on their own. Web browsing follows section 6.
+- Companies MUST accept the Session header and access token at their APIs, conversations, and other protocol and extension endpoints without requiring cookies. A browser on the website carries a cookie instead (section 6).
+- Personal Agents MUST NOT leave out the Session header to appear to the Company as a person on their own, including on website pages they fetch without a browser, other than fetching a page again after `invalid_session` (5.2). A browser follows section 6.
 - Personal Agents MUST NOT send tokens or Session JWTs in a URL, and Companies MUST NOT accept them from one.
 
 **Rate limits.** A Company that limits how often a Personal Agent can make requests returns HTTP 429 ([RFC 6585 §4](https://www.rfc-editor.org/rfc/rfc6585#section-4)) with a `Retry-After` header ([RFC 9110 §10.2.3](https://www.rfc-editor.org/rfc/rfc9110#section-10.2.3)) when a request goes over the limit, on any of its endpoints, APIs, conversations, or website. The Personal Agent MUST wait at least that long before sending the request again.
@@ -615,7 +686,13 @@ When a Session continues signed out:
 
 A Personal Agent can browse the Company's website in the same Session it uses for APIs and conversations, so the Company sees one Session for the User, whether or not the User is signed in. The Personal Agent's browser loads the Company's browser-session page, which gives it a one-time code. The Personal Agent authorizes that code in a request of its own, with the Session header and, if signed in, its access token. The browser then submits the code, and the Company answers with a cookie for the Session. The access token never passes through the browser. Only the browser that loaded the page can submit its code, and only the Personal Agent can authorize it, so no one else can make a browser join the Session (10.6).
 
-This is optional. A Company that supports it lists `web.browser_session_endpoint` in its `poppy.json` (section 3). When it does, the Personal Agent MUST join its browser to a Session before browsing the Company's website. On a website without the endpoint, the Personal Agent browses as an ordinary signed-out visitor.
+A Personal Agent can also fetch the website's pages with its own HTTP client, without a browser, for example to read a help article. It doesn't join a Session for that, and sends the Session header instead, always signed out (5.2). The rest of this section is about browsers, including headless ones.
+
+Browser join is optional. A Company that supports it lists `web.browser_session_endpoint` in its `poppy.json` (section 3). When it does, the Personal Agent MUST join its browser to a Session before browsing the Company's website. On a website without the endpoint, the Personal Agent browses as an ordinary signed-out visitor.
+
+**Where the endpoint can be.** Like the other endpoints in `poppy.json`, the endpoint can be on any host the Company chooses, such as `accounts.example.com` for `example.com`. The join works only where the cookie the Company sets in step 3 reaches the pages the Personal Agent browses.
+
+**Asking Personal Agents not to browse.** A Company that wants Personal Agents to use only its Company Agent and APIs sets `web.disabled` to `true` in `poppy.json`. A Personal Agent SHOULD NOT use a browser on the website of a Company that sets it, and uses the interfaces the Company lists instead. `web.disabled` doesn't cover pages the Personal Agent fetches without a browser (5.2). A Company that sets `web.disabled` MUST NOT list `browser_session_endpoint`, and MUST list `agent` or `apis`. The protocol can't enforce `web.disabled`, because a Company can't always tell a Personal Agent's browser from a person's. It says what the Company prefers, and isn't a promise that Personal Agents won't browse.
 
 The Personal Agent MUST join only a browser it controls to a Session, never the User's own browser. Otherwise, the Company would treat the User's own visits as the Personal Agent's.
 
@@ -651,7 +728,7 @@ Set-Cookie: __Host-poppy_join=Jq7mW2…; Path=/; Max-Age=60; Secure; HttpOnly; S
 - The page MUST NOT be stored by caches, framed by other pages, or kept as a window reference by the page that opened it.
 - Loading the page MUST NOT start, end, or change any Session, or change the browser's other cookies.
 
-The [guides](/docs/0.3/guides#company-browsing) suggest values that meet these requirements, such as those in the example. The Personal Agent completes steps 2 and 3 right away, before the code expires.
+The [guides](/docs/1.0/guides#company-browsing) suggest values that meet these requirements, such as those in the example. The Personal Agent completes steps 2 and 3 right away, before the code expires.
 
 **2. The Personal Agent authorizes the code.** The Personal Agent reads the code from the page in its browser and sends it to `{browser_session_endpoint}/authorize`, with the Session header of the Session the browser joins (5.2) and, if signed in, the access token the website should act with:
 
@@ -660,6 +737,7 @@ The [guides](/docs/0.3/guides#company-browsing) suggest values that meet these r
 ```
 POST https://example.com/poppy/browser-session/authorize
 Poppy-Session: eyJ0eXAiOiJwb3BweS1zZXNzaW9uK2p3dCIs…
+Poppy-Version: 1.0
 Authorization: Bearer eyJhbGciOi…Qp4w
 Content-Type: application/json
 
@@ -667,6 +745,8 @@ Content-Type: application/json
 ```
 
 The Company checks the Session header as at any resource (5.3), which starts the Session if its `sid` is new, and the access token, if any. It checks that the code is one it issued, hasn't expired, and hasn't been authorized before. It then records the code as authorized for that Session and, if signed in, for the token's account and scopes, and responds with HTTP 204. A code that fails these checks gets HTTP 400 with `{"error": "invalid_request"}`.
+
+**Signing in needs `poppy:browser-sign-in`.** The Company MUST reject an access token in step 2 that doesn't have the `poppy:browser-sign-in` scope, with `insufficient_scope` as at an API (section 7). The Personal Agent then either authorizes the same code again without an access token, or gets the scope as for any other request (5.4) and starts again at step 1. A Company that lists `browser_session_endpoint` and offers sign-in MUST support `poppy:browser-sign-in` (4.7), though it MAY grant it to fewer clients or Users, as for any scope. A Personal Agent requests `poppy:browser-sign-in` only from a Company that lists `browser_session_endpoint`.
 
 The Personal Agent MUST take the code only from the page its own browser loaded from the endpoint in step 1, and MUST NOT authorize a code from anywhere else, such as a message, a conversation, or another page. A code from anywhere else may come from someone else's browser, which would then join the User's Session (10.6). The Personal Agent reads the code and sends the request in software its model can't read (10.2).
 
@@ -715,7 +795,11 @@ Cookie: __Host-sb_session=Pz81kQ…
 - MUST act for the account and scopes authorized in step 2, if any, and MUST stop acting for the account when the User signs out or disconnects the Personal Agent (5.5).
 - MUST NOT outlive the Session.
 
-The website applies the cookie's scopes, as the Company's APIs apply an access token's. While the browser carries the Session's cookie, its requests belong to that Session. After a signed-in join, the Company handles them with the Session's account and scopes, whatever other cookies the browser holds from earlier visits. When the website refuses an action because the Session lacks a scope, it SHOULD show a visible error message that names the missing scopes, so the Personal Agent can request them (5.4).
+**What `poppy:browser-sign-in` allows.** After a signed-in join, the Company's website MUST either apply the cookie's scopes, as the Company's APIs apply an access token's, or treat `poppy:browser-sign-in` as access to everything the account can do on the website. When the website applies the cookie's scopes, `poppy:browser-sign-in` allows nothing beyond the token's other scopes, and the Company MAY grant it without asking the User. When `poppy:browser-sign-in` gives the account's full access on the website, the Company MUST describe it that way (4.7), such as "Browse the website, and see and do anything your account can do there," and in Direct and Device Sign-In MUST ask the User to approve it like any other scope. In Mediated Sign-In, which has no consent page, the Company decides whether to grant it. This lets a website that can't tell the Company's scopes apart still offer signed-in browsing, with the User's informed approval.
+
+A Company whose website treats `poppy:browser-sign-in` as the account's full access MUST set `web.unscoped` to `true` in `poppy.json`, so the Personal Agent knows what the scope allows before requesting it. A Company that sets `web.unscoped` MUST list `browser_session_endpoint`. Domains with the same issuer give the scope the same meaning (3.2), so if any of their websites is unscoped, each of them sets `web.unscoped`.
+
+While the browser carries the Session's cookie, its requests belong to that Session. After a signed-in join, the Company handles them with the Session's account and scopes, whatever other cookies the browser holds from earlier visits. When the website refuses an action because the Session lacks a scope, it SHOULD show a visible error message that names the missing scopes, so the Personal Agent can request them (5.4).
 
 The Personal Agent MAY join again at any time, for example to sign the website in after signing in, to change its scopes, or when the website no longer recognizes the Session. Each time, step 3 replaces the cookie the Company set before, and the new join's step 2 decides whether the browser is signed in.
 
@@ -732,7 +816,7 @@ Personal Agents SHOULD skip API types they don't recognize, so later versions ca
 
 **MCP servers.** Poppy Sessions are independent of MCP's transport lifecycle. MCP [2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28) uses per-request metadata instead of an initialization handshake or `Mcp-Session-Id`; earlier supported versions keep their own lifecycle. Both carry the Poppy Session header as above.
 
-- **Signed in.** The Personal Agent uses the token as its `token_type` names (4.5). A Company whose MCP server doesn't accept DPoP returns Bearer tokens for it. The Personal Agent MUST request a token with `resource` set to the MCP server's `url` from `poppy.json`, as MCP authorization requires (4.5). The `resource` in the server's protected resource metadata MUST equal that `url`. Each such token works only at the MCP server whose `url` equals its `resource`, including when other endpoints share its host. The Company MUST reject it elsewhere.
+- **Signed in.** The Personal Agent uses the token as its `token_type` names (4.5). A Company whose MCP server doesn't accept DPoP returns Bearer tokens for it. The Personal Agent MUST request a token with `resource` set to the MCP server's `url` from `poppy.json`, as MCP authorization requires for token requests (4.5). Unlike an ordinary MCP client, it leaves the server out of sign-in (4.5). The `resource` in the server's protected resource metadata MUST equal that `url`. Each such token works only at the MCP server whose `url` equals its `resource`, including when other endpoints share its host. The Company MUST reject it elsewhere.
 - **Signed out.** An MCP server that accepts the Session header can take signed-out calls with the Session header only, if it allows them.
 - **Without Session verification.** An MCP server that ignores the Session header can identify the client and account through a validated access token, or serve signed-out requests that use no Session claims. Its calls don't join the Session's cart, conversations, or website. A Company that wants those connections has the server verify the Session header (5.3).
 - **Other MCP clients.** When it offers account access, the server's protected resource metadata tells MCP clients where to get a token. It names the Company's issuer, not the Personal Agent: an MCP server that offers account access MUST include the Company's issuer in its `authorization_servers`. MCP clients that don't implement this protocol sign in with MCP's own authorization flow, outside this protocol, and their requests belong to no Session.
@@ -744,6 +828,7 @@ The Personal Agent calls a Company API the way that API's type describes:
 ```
 POST https://api.example.com/orders/ord_7Hk2/exchanges
 Poppy-Session: eyJ0eXAiOiJwb3BweS1zZXNzaW9uK2p3dCIs…
+Poppy-Version: 1.0
 Authorization: Bearer eyJhbGciOi…Qp4w
 Content-Type: application/json
 Idempotency-Key: 4f1c2e8a-9b7d-4c3e-a5f6-0d8b1e2c3a4f
@@ -760,7 +845,8 @@ Access token errors follow OAuth: they are in the `WWW-Authenticate` header ([RF
 | `insufficient_scope` | 403 | The access token lacks the scopes the request needs, which the response names in the `scope` attribute. The Personal Agent uses a refresh token that covers them (4.4), or signs in (5.4), and retries, unless the User signed out or disconnected it (5.5). |
 | `invalid_session` | 400 | In a JSON body. A required Session header is missing or Session verification fails (5.3), or the Company refuses the `client_id` (4.1). A new Session doesn't fix it: the Personal Agent stops sending the request until it fixes the cause, such as an expired delegation or a wrong `htu`. |
 | `session_ended` | 400 | In a JSON body. The Session has ended, or the Company refuses an account change in it (5.4, 5.5). The Personal Agent starts a new Session and sends the request again, once. |
-| `extension_required` | 403 | In the `WWW-Authenticate` header. The request needs an extension the Personal Agent doesn't list, named in the `extension` attribute (3.3). An MCP server returns it only to refuse the Personal Agent entirely, not for one tool. |
+| `version_unsupported` | 400 | In a JSON body. `Poppy-Version` is missing, or the Company doesn't serve a compatible version (3.4). The Personal Agent fetches `poppy.json` again, and if it chooses another version, starts a new Session and sends the request again, once. |
+| `extension_required` | 403 | In a JSON body. The request needs an extension it doesn't declare, named in `extension` (3.3). An MCP server returns it only to refuse the Personal Agent entirely, not for one tool. |
 
 Verifying a Session header identifies the Personal Agent and User. An unverified header does not establish either identity.
 
@@ -779,7 +865,11 @@ When the User wants to talk with the Company themselves, or the Company asks for
 
 ### 8.1 Conversation protocols
 
-A Company lists one or more conversation protocols in `agent.protocols`. Each entry has a `type` and an `endpoint`. The Personal Agent chooses a protocol it supports and uses that entry's endpoint for the conversation. It skips unfamiliar types. The currently defined protocol is:
+A Company lists one or more conversation protocols in `agent.protocols`. Each entry has a `type`, an `endpoint`, and a `description`. The Personal Agent chooses a protocol it supports and uses that entry's endpoint for the conversation. It skips unfamiliar types.
+
+An entry's `description` says, in plain language, what the agent at that endpoint can help with, so the Personal Agent can decide whether a conversation can serve the task at hand, and choose between the entries and the Company's APIs. Entries can reach different agents with different abilities, such as a UCP Ask endpoint for product questions and a support agent run by another provider. The Company MUST include a `description` in every entry, and MAY say the agent can help with anything.
+
+The currently defined protocol is:
 
 | Type | Protocol | Reference |
 | --- | --- | --- |
@@ -795,7 +885,10 @@ Personal Agent Protocol conversations use JSON over HTTPS. Below, `{endpoint}` i
 | `POST {endpoint}/{id}/messages` | Send another message (8.3). |
 | `GET {endpoint}/{id}/events` | Read messages and other events, or stream them (8.5, 8.6). |
 | `POST {endpoint}/{id}/handoff` | Ask for a person at the Company (8.9). |
+| `POST {endpoint}/{id}/handoff/cancel` | Withdraw a request for a person (8.9). |
 | `POST {endpoint}/{id}/close` | Close the conversation (8.12). |
+
+Every `POST` has a JSON body with a request `id` (8.3), so retries are safe.
 
 A conversation belongs to the Personal Agent's `client_id` and the User ID that started it, and, once it uses the User's account, to that account too. A request continues it only when all of them match, so any Session that matches can continue it, and a conversation can outlast the Session that started it. Agent IDs aren't part of ownership. The Company MUST reject any other request, as the table shows:
 
@@ -807,7 +900,17 @@ A conversation belongs to the Personal Agent's `client_id` and the User ID that 
 | Same Personal Agent, another User ID | Rejected with `conversation_not_found` (8.13) | Rejected with `conversation_not_found` (8.13) |
 | Another Personal Agent | Rejected with `conversation_not_found` (8.13) | Rejected with `conversation_not_found` (8.13) |
 
-**IDs.** Conversation IDs, message IDs, and event IDs are strings of 1 to 256 characters from the URL-safe base64 alphabet ([RFC 4648, section 5](https://www.rfc-editor.org/rfc/rfc4648#section-5)): letters, digits, `-`, and `_`. The Company chooses Conversation IDs and event IDs, and the Personal Agent chooses message IDs for its own messages. Beyond these rules, the side that chooses an ID decides its format, and the other side MUST NOT depend on it.
+**Versions.** A request on a conversation can come from a Session that uses a different protocol version, or different extension versions, from the Session that started it (3.4). Versions don't always carry a conversation over, so the Company MAY reject such requests, all of them or only some, such as new messages but not reads. It rejects them with `version_mismatch` (HTTP 409), giving the protocol version the conversation started in as `protocol_version`:
+
+*Response body: Company → Personal Agent*
+
+```
+{ "error": "version_mismatch", "protocol_version": "1.0" }
+```
+
+The Personal Agent can then continue the conversation in a Session that uses the versions it started with, if the Company still serves them, or start a new conversation.
+
+**IDs.** Conversation IDs, request IDs, message IDs, and event IDs are strings of 1 to 256 characters from the URL-safe base64 alphabet ([RFC 4648, section 5](https://www.rfc-editor.org/rfc/rfc4648#section-5)): letters, digits, `-`, and `_`. The Company chooses Conversation IDs, event IDs, and the IDs of its own messages. The Personal Agent chooses request IDs, and each of its messages has its request's ID. Beyond these rules, the side that chooses an ID decides its format, and the other side MUST NOT depend on it.
 
 ### 8.3 Sending messages
 
@@ -818,12 +921,13 @@ A new conversation starts with its first message, except when accepting a `user_
 ```
 POST https://api.example.com/poppy/conversations
 Poppy-Session: eyJ0eXAiOiJwb3BweS1zZXNzaW9uK2p3dCIs…
+Poppy-Version: 1.0
 Authorization: Bearer eyJhbGciOi…Qp4w
 Content-Type: application/json
 
 {
+  "id": "msg_Yq3v8LrT0aWc5NkE",
   "message": {
-    "id": "msg_Yq3v8LrT0aWc5NkE",
     "author": { "type": "agent" },
     "text": "The jacket from order #1042 isn't warm enough. The user wants to return it.",
     "context": { "locale": "en-US", "time_zone": "America/Los_Angeles", "user_available": true }
@@ -840,41 +944,47 @@ HTTP/1.1 201 Created
 Content-Type: application/json
 
 {
-  "conversation_id": "cnv_8f3Kd2",
-  "status": "working",
-  "responder": "agent"
+  "conversation_id": "cnv_8f3Kd2"
 }
 ```
 
-Later messages go to the conversation's `messages` URL, which returns HTTP 202 with the same fields:
+Later messages go to the conversation's `messages` URL, which returns HTTP 202 with the same body:
 
 *Request: Personal Agent → Company*
 
 ```
 POST https://api.example.com/poppy/conversations/cnv_8f3Kd2/messages
 Poppy-Session: eyJ0eXAiOiJwb3BweS1zZXNzaW9uK2p3dCIs…
+Poppy-Version: 1.0
 Authorization: Bearer eyJhbGciOi…Qp4w
 Content-Type: application/json
 
 {
-  "message": { "id": "msg_Hc72PwZn4eKs1QxB", "author": { "type": "agent" }, "text": "Does the insulated version come in medium?" }
+  "id": "msg_Hc72PwZn4eKs1QxB",
+  "message": { "author": { "type": "agent" }, "text": "Does the insulated version come in medium?" }
 }
 ```
 
-**Message IDs.** The Personal Agent chooses each message's `id`, and MUST make it unique for the User. To retry a message, it sends it again with the same ID. If the Company has already accepted a message with that ID and the same content, it returns the original response and doesn't add the message again. Because the ID is unique for the User rather than for one conversation, the Company can recognize a retried first message and return the conversation it already started. If the content is different, the Company returns `message_id_conflict`. The Company keeps this check for as long as it keeps the conversation.
+**Request IDs.** Every `POST` body has an `id`, chosen by the Personal Agent, which MUST make it unique for the User across all its requests. A message's ID is its request's ID, so the message itself has no `id`. To retry a request, the Personal Agent sends it again to the same path with the same ID. If the Company has already accepted a request with that ID, path, and body, it returns the original response and doesn't act on the request again. Query parameters, such as `cursor` and `wait`, aren't part of the path, so a retry can change them. Because the ID is unique for the User rather than for one conversation, the Company can recognize a retried first message and return the conversation it already started. If the path or body is different, the Company returns `request_id_conflict`. The Company keeps this check for as long as it keeps the conversation.
 
-**Replies in the response.** To get the Company's reply in the same request, the Personal Agent adds the `wait` query parameter to either `POST`, and `cursor` if it has one. The Company accepts the conversation or message, then responds as a read of the conversation's events from that cursor would (8.5), holding the request for up to `wait` seconds. Without a cursor, it reads from the start of the conversation. The status code stays 201 or 202:
+**Order.** The Company acts on a conversation's messages, handoff requests, and handoff cancels in the order it accepts them, whatever their URL. A close is the exception (8.12). Requests sent at the same time have no order, so the Personal Agent waits for one to be accepted before sending the next when the order matters.
+
+**Responses.** A successful `POST` means the Company accepted the request, not that it has acted on it. The response has only `conversation_id`. The Personal Agent reads what happened from the conversation's events and state (8.5, 8.7).
+
+**Replies in the response.** To get the Company's reply in the same request, the Personal Agent adds the `wait` query parameter to any `POST`, and `cursor` if it has one. The Company accepts the request, then responds as a read of the conversation's events from that cursor would (8.5), with the conversation's state, holding the request for up to `wait` seconds. Without a cursor, it reads from the start of the conversation. The status code stays 201 or 202:
 
 *Request: Personal Agent → Company*
 
 ```
 POST https://api.example.com/poppy/conversations/cnv_8f3Kd2/messages?cursor=evt_c2&wait=10
 Poppy-Session: eyJ0eXAiOiJwb3BweS1zZXNzaW9uK2p3dCIs…
+Poppy-Version: 1.0
 Authorization: Bearer eyJhbGciOi…Qp4w
 Content-Type: application/json
 
 {
-  "message": { "id": "msg_Tb5nRw8Ke2Lp0VsD", "author": { "type": "agent" }, "text": "Medium, please." }
+  "id": "msg_Tb5nRw8Ke2Lp0VsD",
+  "message": { "author": { "type": "agent" }, "as_of_cursor": "evt_c2", "text": "Medium, please." }
 }
 ```
 
@@ -882,15 +992,24 @@ Content-Type: application/json
 
 | Field | Req. | Description |
 | --- | --- | --- |
-| `id` | Yes | The message's ID, chosen by the Personal Agent and unique for the User (8.3). |
-| `role` | No | `user` or `company`, the side the message came from. The Company sets it when it records the message as an event (8.5). The Personal Agent doesn't send it, and the Company ignores it if sent. |
+| `id` | No | The message's ID. The Company sets it when it records the message as an event (8.5): the request's ID for the Personal Agent's messages (8.3), or an ID it chooses for its own. |
+| `role` | No | `user` or `company`, the side the message came from. The Company sets it when it records the message as an event (8.5). |
+| `as_of_request` | No | On a message from the Company Agent, the ID of the latest request it took into account (below). |
+| `as_of_cursor` | No | On a message the Personal Agent wrote, the last cursor it had read (below). |
 | `author` | Yes | Who wrote the message. `type` is `agent` if the Personal Agent wrote it, `human` if the User wrote it (8.8). Company messages can also name the writer (below). |
 | `text` | No | The message in natural language. |
 | `data` | No | A JSON object for structured details that would need markup, like a list or a table, to fit in a sentence. The protocol doesn't define its keys. |
 | `context` | No | Facts about the User's situation, such as `locale`, `time_zone`, and `user_available` (below). |
 | `extensions` | No | Content defined by extensions, keyed by extension name (below). |
 
-A message MUST have at least one of `text`, `data`, `context`, or `extensions`.
+The Personal Agent doesn't send `id` or `role`, and the Company ignores them if sent. A message MUST have at least one of `text`, `data`, `context`, or `extensions`.
+
+**What a message took into account.** Messages cross: either side can write while the other side's latest message is still on its way. Two optional fields say what the writer had seen. They are hints for sequencing and interpreting replies, so a short message such as "Done" or "Medium" can be matched to what it answers. Only messages written by an AI carry them. A person types while messages arrive, so which messages they had read when they sent one isn't known.
+
+- `as_of_request`: a message from the Company Agent, with `author.type` `agent`, MAY include the ID of the latest message, handoff request, or handoff cancel from the Personal Agent that it took into account. Because the Company acts on requests in the order it accepts them (8.3), it also took into account every request accepted before that one. A Personal Agent can use it to tell whether a reply covers its latest message without waiting for `working` to be `false`. Taking a request into account doesn't mean the Company acted on it, because a close can drop requests (8.12).
+- `as_of_cursor`: a message the Personal Agent wrote, with `author.type` `agent`, MAY include the cursor of the last read it had handled when it wrote the message (8.5), if it has one. The Company can then tell which of its messages the Personal Agent had seen.
+
+A message the Company Agent sends before taking any request into account has no `as_of_request`. A message from a person at the Company, or written by the User, with `author.type` `human`, MUST NOT include either field. The Company and the Personal Agent MUST NOT depend on either field being present, and treat each only as a hint for interpreting the message.
 
 Use `text` for the message itself, including simple values like an email address or an order number. Use `data` for structured details that would otherwise need markup to fit in a sentence. The Company Agent's replies use `data` the same way.
 
@@ -900,7 +1019,6 @@ For example, choosing seats for a family of six, with their loyalty and security
 
 ```
 {
-  "id": "msg_Ns8dXo1Gv6JpUa3C",
   "author": { "type": "agent" },
   "text": "The user would like seats together for their family of six on flight SB 482.",
   "data": {
@@ -926,13 +1044,12 @@ The Personal Agent decides how much of the User's situation to share, and sharin
 
 `context` MAY include other fields, such as accessibility needs or preferred units. The Company Agent interprets them as it sees fit, and a Company MAY ignore them. Details of the request itself belong in `text` or `data`, not `context`.
 
-Any message can carry `context`, and fields it leaves out keep their previous values. A message with only `context` updates it without saying anything else, for example when the User steps away:
+Any message can carry `context`, and fields it leaves out keep their previous values. A field set to `null` clears it, as if the Personal Agent had never shared it. A message with only `context` updates it without saying anything else, for example when the User steps away:
 
 *Message: Personal Agent → Company*
 
 ```
 {
-  "id": "msg_Lw0eFj7Tc2RbVy5H",
   "author": { "type": "agent" },
   "context": { "user_available": false }
 }
@@ -947,9 +1064,11 @@ Company messages have `id`, `role`, `author`, `text`, `data`, and `extensions`, 
 - `name` is the author's display name, such as `Alex`.
 - `image` is the URL of the author's picture, for the Personal Agent to show next to the name.
 
-Only Company messages have `id`, `name`, and `image`, and each is optional. A Company whose messages come from several people or AI personas MAY use them to say which one wrote each message. Like `text`, the author's name and picture are content from the Company (10.1).
+Only Company messages have `id`, `name`, and `image`, and each is optional. A Company ignores them on the Personal Agent's messages, so a later version can define them there. A Company whose messages come from several people or AI personas MAY use them to say which one wrote each message. Like `text`, the author's name and picture are content from the Company (10.1).
 
-**Extensions.** `extensions` holds content defined by extensions (3.3), keyed by extension name, as in `poppy.json`. Each value is a JSON object in the format its extension defines. For example, a Company message with a link from the [Links extension](/docs/0.3/extensions/links):
+Later versions may add values of `role` and `author.type`. A Personal Agent treats a message with a `role` it doesn't recognize as content from the Company (10.1). Either side treats an `author.type` it doesn't recognize as `agent`, so a message is never taken to be a person's own words unless it says so.
+
+**Extensions.** `extensions` holds content defined by extensions (3.3), keyed by extension name, as in `poppy.json`. Each value is a JSON object in the format its extension defines. For example, a Company message with a link from the [Links extension](/docs/1.0/extensions/links):
 
 *Message: Company → Personal Agent*
 
@@ -965,7 +1084,7 @@ Only Company messages have `id`, `name`, and `image`, and each is optional. A Co
 }
 ```
 
-A side MUST NOT send an extension's content unless the other side lists that extension with the same version: the Company checks the Personal Agent's client metadata document (4.1), and the Personal Agent checks the Company's `poppy.json` (3.1). Like other fields, extension content the receiver doesn't support is ignored (3.3), so `text` and `data` carry what the message says.
+A side MUST NOT send an extension's content unless the other side uses that extension with the same version: the Company checks the request's `Poppy-Extensions` (3.4), and the Personal Agent checks the Company's document for the version it chose (3.1). Like other fields, extension content the receiver doesn't support is ignored (3.3), so `text` and `data` carry what the message says.
 
 ### 8.5 Reading events
 
@@ -976,6 +1095,7 @@ The Company records each conversation as an ordered list of events: the messages
 ```
 GET https://api.example.com/poppy/conversations/cnv_8f3Kd2/events?cursor=evt_c1&wait=30
 Poppy-Session: eyJ0eXAiOiJwb3BweS1zZXNzaW9uK2p3dCIs…
+Poppy-Version: 1.0
 Authorization: Bearer eyJhbGciOi…Qp4w
 ```
 
@@ -993,6 +1113,7 @@ Authorization: Bearer eyJhbGciOi…Qp4w
         "id": "msg_r2Kq",
         "role": "company",
         "author": { "type": "agent" },
+        "as_of_request": "msg_Hc72PwZn4eKs1QxB",
         "text": "I can do that. The insulated version would be warmer. Want to exchange instead for $70 more?",
         "data": { "replacement_sku": "stormline-insulated-m", "price_difference": 70 }
       }
@@ -1000,8 +1121,10 @@ Authorization: Bearer eyJhbGciOi…Qp4w
   ],
   "cursor": "evt_c2",
   "has_more": false,
-  "status": "idle",
-  "responder": "agent"
+  "working": false,
+  "handoff": "none",
+  "responder": "agent",
+  "closed": false
 }
 ```
 
@@ -1010,7 +1133,7 @@ Every event has an `id`, a `type`, and a `created_at` time ([RFC 3339](https://w
 | Type | Fields |
 | --- | --- |
 | `message` | `message`: a message from either side, as it was sent, with `role` set by the Company to `user` or `company` for the side it came from. Every message the Company accepts is recorded, including one with only `context`. |
-| `state` | `status` and `responder`, after either one changes. See 8.7 for their values. |
+| `state` | `handoff`, `responder`, and `closed`, after any of them changes. See 8.7 for their values. |
 | `authorization` | `error` and `scope`: the Company needs sign-in or more scopes (8.11). |
 | `user_requested` | `reason`: the Company asks to talk with the User directly (8.10). |
 | `direct_opened`, `direct_closed` | `conversation_id`: a Direct Conversation linked to this one opened or closed (8.10). |
@@ -1019,8 +1142,9 @@ Personal Agents MUST skip event types they don't recognize, so later versions an
 
 - `cursor` and `wait` are query parameters, here and on the `POST` requests in 8.3.
 - Each event's `id` is also a cursor. Without a `cursor`, the read starts at the beginning of the conversation. Cursors are opaque, so the Personal Agent MUST NOT compare or sort them.
-- `wait` is a whole number of seconds, 0 or more. The Company holds the request for up to `wait` seconds until there is an event to return. It MAY return sooner, or cap `wait`: a larger `wait` is held only as long as the cap, not rejected. Without `wait`, it returns right away. A read that times out returns an empty `events` list.
-- Every successful read MUST include `conversation_id`, `events`, `cursor`, `has_more`, `status`, and `responder`, with `events` empty when there are none. `cursor` is the last event returned, or the request's cursor if there were none. When `has_more` is `true`, the Personal Agent reads again right away.
+- `wait` is a whole number of seconds, 0 or more. The Company holds the request for up to `wait` seconds until there is an event to return, or until `working` changes from `true` to `false` (8.7). It MAY return sooner, or cap `wait`: a larger `wait` is held only as long as the cap, not rejected. Without `wait`, it returns right away. A read that times out returns an empty `events` list.
+- Every successful read MUST include `conversation_id`, `events`, `cursor`, `has_more`, and the state fields `working`, `handoff`, `responder`, and `closed` (8.7), with `events` empty when there are none. `cursor` is the last event returned, or the request's cursor if there were none. When `has_more` is `true`, the Personal Agent reads again right away.
+- The state fields are the state when the Company responds, so while `has_more` is `true` they can be newer than the events returned. The Personal Agent applies events in order, and relies on the state fields once `has_more` is `false`.
 - The Personal Agent handles events in order and saves the cursor after them. A read after a reconnect can return events again, so it skips event IDs it has already handled.
 - The Company keeps events for as long as it chooses. A cursor for events it no longer has returns `cursor_expired`. The Personal Agent then reads from the beginning.
 
@@ -1035,7 +1159,16 @@ id: evt_c2
 data: {"id":"evt_c2","type":"message","created_at":"2026-10-08T19:03:00Z","message":{…}}
 ```
 
-Changes to `status` and `responder` arrive as `state` events. The Company MAY close a stream at any time, for example when the access token expires. The Personal Agent reconnects with `Last-Event-ID` set to the last event it handled, in place of `cursor`. If a request has both, `Last-Event-ID` wins, because SSE clients add it to the URL the stream was first opened with.
+Changes to `handoff`, `responder`, and `closed` arrive as `state` events. `working` isn't an event: the Company sends it as a `working` event with no SSE `id`, when the stream opens and each time it changes:
+
+*Stream: Company → Personal Agent*
+
+```
+event: working
+data: {"working":false}
+```
+
+The Company MAY close a stream at any time, for example when the access token expires. The Personal Agent reconnects with `Last-Event-ID` set to the last event it handled, in place of `cursor`. If a request has both, `Last-Event-ID` wins, because SSE clients add it to the URL the stream was first opened with.
 
 While the Company Agent writes a message, the Company MAY send pieces of its text as `text-delta` events, with no SSE `id`:
 
@@ -1048,25 +1181,28 @@ data: {"message_id":"msg_r2Kq","text":"I can do that. "}
 
 The Personal Agent can show the pieces as they arrive, then replaces them with the complete `message` event. After a reconnect, it drops any pieces of a message it didn't receive in full.
 
-### 8.7 Status and responder
+Personal Agents MUST skip stream events with an SSE `event` name they don't recognize, so later versions and extensions can add them.
 
-| Status | Meaning |
-| --- | --- |
-| `working` | The Company is still working. Read again with the cursor. |
-| `idle` | The Company has no work in progress and is waiting for the User's side. |
-| `queued` | Waiting for a person at the Company to join (8.9). |
-| `closed` | The conversation takes no more messages (8.12). |
+### 8.7 State
 
-`responder` tells the Personal Agent who is currently handling the Company side of the conversation. It is independent of `status`:
+Every read reports the conversation's state in four fields, each independent of the others:
 
-| Responder | Meaning |
-| --- | --- |
-| `agent` | An automated Company Agent is handling the conversation. |
-| `human` | A live person at the Company is handling the conversation. |
+| Field | Values | Meaning |
+| --- | --- | --- |
+| `working` | `true` or `false` | The Company is still replying: a request it accepted but hasn't acted on (8.3), or a reply being written. Read again until it's `false`. |
+| `handoff` | `none` or `pending` | `pending` while the Company is looking for a person to join (8.9). |
+| `responder` | `agent` or `human` | Who is handling the Company side: an automated Company Agent, or a live person at the Company. |
+| `closed` | `true` or `false` | The conversation takes no more messages (8.12). |
 
-Later versions may add values. A Personal Agent treats a `status` it doesn't recognize as `working`, and a `responder` it doesn't recognize as `human`.
+For example, a conversation can be `working` with `handoff` `pending`, when the Company Agent keeps answering while the Company looks for a person. A Personal Agent that wants the Company's whole reply reads until `working` is `false`. Because `working` includes requests not yet acted on, it's `true` from the moment the Company accepts a request.
 
-Every successful response to a `POST` or a read MUST include `status` and `responder`. Every change to either one adds a `state` event with both, even if there is no new text. `human` means a person has joined. While the conversation is `queued`, `responder` stays `agent`. In a closed conversation, `responder` is whoever handled it last.
+`working` covers only replying. Work the Company will finish later, such as a refund that takes days, isn't `working`: the Company says in a message that the work is under way, and adds another message when it's done.
+
+A new conversation starts with `handoff` `none`, `responder` `agent`, and `closed` `false`.
+
+Later versions may add values. A Personal Agent treats a `handoff` it doesn't recognize as `pending`, and a `responder` it doesn't recognize as `human`.
+
+Every change to `handoff`, `responder`, or `closed` adds a `state` event with all three, even if there is no new text. Changes to `working` add no event: the Personal Agent sees them in reads, and in streams as `working` events (8.6). `human` means a person has joined. While `handoff` is `pending`, `responder` stays `agent`. In a closed conversation, `working` is `false`, `handoff` is `none`, and `responder` is whoever handled it last.
 
 Each Company message MUST also include `author.type`, with `agent` or `human`, to identify who wrote it. This distinguishes earlier automated replies from human replies when both arrive in one response. The `role` stays `company` in either case.
 
@@ -1080,8 +1216,9 @@ Each Company message MUST also include `author.type`, with `agent` or `human`, t
       "id": "evt_c4",
       "type": "state",
       "created_at": "2026-10-08T19:05:10Z",
-      "status": "idle",
-      "responder": "human"
+      "handoff": "none",
+      "responder": "human",
+      "closed": false
     },
     {
       "id": "evt_c5",
@@ -1097,8 +1234,10 @@ Each Company message MUST also include `author.type`, with `agent` or `human`, t
   ],
   "cursor": "evt_c5",
   "has_more": false,
-  "status": "idle",
-  "responder": "human"
+  "working": false,
+  "handoff": "none",
+  "responder": "human",
+  "closed": false
 }
 ```
 
@@ -1113,32 +1252,39 @@ When the User steps in, the Personal Agent sends their words with `author.type` 
 ```
 POST https://api.example.com/poppy/conversations/cnv_8f3Kd2/messages
 Poppy-Session: eyJ0eXAiOiJwb3BweS1zZXNzaW9uK2p3dCIs…
+Poppy-Version: 1.0
 Authorization: Bearer eyJhbGciOi…Qp4w
 Content-Type: application/json
 
 {
-  "message": { "id": "msg_Fz4kQa9Ue1YoBs6R", "author": { "type": "human" }, "text": "Medium, please." }
+  "id": "msg_Fz4kQa9Ue1YoBs6R",
+  "message": { "author": { "type": "human" }, "text": "Medium, please." }
 }
 ```
 
 ### 8.9 Handoff to a person
 
-The Personal Agent asks for a person at the Company with an empty JSON object:
+The Personal Agent asks for a person at the Company with a request ID:
 
 *Request: Personal Agent → Company*
 
 ```
 POST https://api.example.com/poppy/conversations/cnv_8f3Kd2/handoff
 Poppy-Session: eyJ0eXAiOiJwb3BweS1zZXNzaW9uK2p3dCIs…
+Poppy-Version: 1.0
 Authorization: Bearer eyJhbGciOi…Qp4w
 Content-Type: application/json
 
-{}
+{ "id": "hnd_Rk4wQz8Lm2VbXe7T" }
 ```
 
-The Company returns HTTP 202 with `status` and `responder`, and the status becomes `queued` while it finds someone. It's 202 rather than 200, as for closing (8.12), because the handoff finishes after the response. When a person joins, `responder` becomes `human`. If no one is available, the status goes back to `idle` with `responder` still `agent`, and the Company Agent says why in a message. The Company Agent can also hand off to a person on its own. If the conversation is already `queued`, or a person is already handling it, the Company returns HTTP 202 with the current `status` and `responder` and changes nothing.
+The Company returns HTTP 202 (8.3). When it acts on the request, `handoff` becomes `pending` while it finds someone (8.7). When a person joins, `handoff` becomes `none` and `responder` becomes `human`. If no one is available, `handoff` goes back to `none` with `responder` still `agent`, and the Company Agent says why in a message. The Company Agent can also hand off to a person on its own. If `handoff` is already `pending`, or a person is already handling the conversation, the request changes nothing.
 
-The Personal Agent can keep sending messages while it waits, for example to explain the problem for the person who joins or to update `user_available`. Closing the conversation cancels a pending handoff.
+The Personal Agent can keep sending messages while it waits, for example to explain the problem for the person who joins or to update `user_available`. The Company Agent can keep answering them.
+
+**Withdrawing.** If the Personal Agent no longer needs a person, for example because the Company Agent solved the problem, it sends a request ID to `{endpoint}/{id}/handoff/cancel` the same way. The Company returns HTTP 202. It MAY stop looking for a person, and `handoff` then becomes `none`. It MAY also keep looking, for example when its help desk can't withdraw a request already routed to someone. A person can also join before the Company acts on the cancel. The Personal Agent learns which happened from `handoff` and `responder`, and MUST NOT depend on the cancel taking effect. A cancel when `handoff` isn't `pending` changes nothing.
+
+Closing the conversation also stops a pending handoff (8.12).
 
 ### 8.10 Direct Conversations
 
@@ -1153,12 +1299,14 @@ The Personal Agent may observe every message in a Direct Conversation. The Compa
 ```
 POST https://api.example.com/poppy/conversations
 Poppy-Session: eyJ0eXAiOiJwb3BweS1zZXNzaW9uK2p3dCIs…
+Poppy-Version: 1.0
 Authorization: Bearer eyJhbGciOi…Qp4w
 Content-Type: application/json
 
 {
+  "id": "msg_Pe6jWm3Kd0RtXc8V",
   "parent_conversation_id": "cnv_8f3Kd2",
-  "message": { "id": "msg_Pe6jWm3Kd0RtXc8V", "author": { "type": "human" }, "text": "Hi, I have a question about the exchange." }
+  "message": { "author": { "type": "human" }, "text": "Hi, I have a question about the exchange." }
 }
 ```
 
@@ -1177,7 +1325,7 @@ The parent conversation MUST be open, belong to the same owner (8.2), and not be
 }
 ```
 
-The event doesn't change `status` or `responder`.
+The event doesn't change the conversation's state (8.7).
 
 The Personal Agent asks the User. If they agree, it starts a Direct Conversation with the parent ID and `user_requested_event_id`, naming that event. It can omit `message` so the Company speaks first:
 
@@ -1186,22 +1334,24 @@ The Personal Agent asks the User. If they agree, it starts a Direct Conversation
 ```
 POST https://api.example.com/poppy/conversations?wait=10
 Poppy-Session: eyJ0eXAiOiJwb3BweS1zZXNzaW9uK2p3dCIs…
+Poppy-Version: 1.0
 Authorization: Bearer eyJhbGciOi…Qp4w
 Content-Type: application/json
 
 {
+  "id": "dir_Ua8mXc3Nq6TrZp1K",
   "parent_conversation_id": "cnv_8f3Kd2",
   "user_requested_event_id": "evt_c6"
 }
 ```
 
-The Company MUST reject a `user_requested_event_id` that doesn't name a `user_requested` event in that parent with `invalid_request`. A request without `message` is valid only when starting a Direct Conversation with both IDs. The Company records its first message as a `message` event in the Direct Conversation. While preparing it, the conversation is `working`, or `queued` if waiting for a person (8.7). The Personal Agent reads it with `wait` on the opening request (8.3), or by reading or streaming events (8.5, 8.6). The `reason` in the parent remains an invitation, not the first message.
+The Company MUST reject a `user_requested_event_id` that doesn't name a `user_requested` event in that parent with `invalid_request`. A request without `message` is valid only when starting a Direct Conversation with both IDs. The Company records its first message as a `message` event in the Direct Conversation. While preparing it, the conversation is `working`, with `handoff` `pending` if waiting for a person (8.7). The Personal Agent reads it with `wait` on the opening request (8.3), or by reading or streaming events (8.5, 8.6). The `reason` in the parent remains an invitation, not the first message.
 
 The Company checks the parent's ownership (8.2) before accepting this request, and the Direct Conversation's ownership too before returning it on a retry. Repeating the same parent ID and event ID returns the same Direct Conversation without adding another message, even after it closes. The Company keeps this association for as long as it keeps the Direct Conversation. An acceptance that hasn't already started a Direct Conversation follows the parent rules above.
 
 If the User declines or isn't available, the Personal Agent says so in the parent conversation. Only the Personal Agent starts Direct Conversations, so the User decides when they're brought in.
 
-**The parent conversation meanwhile.** When a Direct Conversation opens, the Company adds a `direct_opened` event to the parent, with the Direct Conversation's ID in `conversation_id`. While it is open, the parent can still be read, but messages and handoff requests to the parent return `direct_conversation_open`, with the Direct Conversation's ID in `conversation_id`. When the Direct Conversation closes, the Company adds a `direct_closed` event to the parent, and the parent takes messages again. Either party can close the Direct Conversation as in 8.12, including the Company after inactivity. Closing the parent also closes its open Direct Conversation.
+**The parent conversation meanwhile.** When a Direct Conversation opens, the Company adds a `direct_opened` event to the parent, with the Direct Conversation's ID in `conversation_id`. While it is open, the parent can still be read, but messages, handoff requests, and handoff cancels to the parent return `direct_conversation_open`, with the Direct Conversation's ID in `conversation_id`. When the Direct Conversation closes, the Company adds a `direct_closed` event to the parent, and the parent takes messages again. Either party can close the Direct Conversation as in 8.12, including the Company after inactivity. Closing the parent also closes its open Direct Conversation.
 
 ### 8.11 Sign-in during a conversation
 
@@ -1219,7 +1369,7 @@ Signed out, the Company Agent can answer general questions. When the Company Age
 }
 ```
 
-`error` is `insufficient_scope` whether or not the request had an access token, and `scope` names the scopes needed. The Personal Agent responds as it would to a request that needs the account (section 7), with a refresh token (4.4) or by signing in (5.4). It then continues the same conversation with the access token. The conversation stays open meanwhile.
+`error` is `insufficient_scope` whether or not the request had an access token, and `scope` names the scopes needed. Later versions may add other `error` values. A Personal Agent that doesn't recognize `error` signs in again (5.4) for the scopes in `scope`. The Personal Agent responds as it would to a request that needs the account (section 7), with a refresh token (4.4) or by signing in (5.4). It then continues the same conversation with the access token. The conversation stays open meanwhile.
 
 When a response carrying an `authorization` event has not yet sent its headers, the Company MAY also include the matching `WWW-Authenticate` challenge on the successful response, as [RFC 9110](https://www.rfc-editor.org/rfc/rfc9110#section-11.6.1) §11.6.1 allows. The event remains sufficient, including in a stream whose headers have already been sent. The successful status means the message was accepted. The Personal Agent MUST handle the event and matching challenge as one authorization need, and MUST NOT resubmit an accepted message because it received the challenge.
 
@@ -1231,24 +1381,29 @@ Once a conversation has used the User's account, a request on it for the same Us
 
 ### 8.12 Closing
 
-The Personal Agent closes a conversation it's done with by sending an empty JSON object to its `close` URL. The Company adds a `state` event with `status: "closed"`, cancels any pending handoff, and returns HTTP 200 with `status` and `responder`. Closing a conversation that is already closed returns the same response and adds no event. The Company can also close a conversation, for example after a period of inactivity.
+The Personal Agent closes a conversation it's done with by sending a request ID to its `close` URL, as in 8.9. The Company returns HTTP 202 (8.3). When it acts on the close, it sets `closed` to `true`, stops looking for a person, and adds a `state` event. The Company can also close a conversation, for example after a period of inactivity.
 
-A closed conversation takes no more messages, and its events stay readable for as long as the Company keeps them. Closing a conversation doesn't cancel anything it started, such as an order or a return.
+A close doesn't wait its turn (8.3). The Company MAY act on any request it hasn't acted on yet, or MAY drop it, whether it accepted the request before or after the close. Which one happens can depend on timing, so the Personal Agent MUST NOT depend on either. To make sure the Company has acted on everything it sent, the Personal Agent reads until `working` is `false` before closing.
+
+A closed conversation takes no more messages, handoff requests, or handoff cancels: they return `conversation_closed`. A close sent to a conversation that is already closed returns HTTP 202 and changes nothing. Its events stay readable for as long as the Company keeps them, and the Company adds no more `message` events. Closing a conversation doesn't cancel anything it started, such as an order or a return.
 
 ### 8.13 Errors
 
-Token errors, `invalid_session`, and `session_ended` are the ones in section 7, and rate limits follow 5.6. Other errors have a JSON body with an `error` code, like OAuth error responses:
+Token errors, `invalid_session`, `session_ended`, and `version_unsupported` are the ones in section 7, and rate limits follow 5.6. Other errors have a JSON body with an `error` code, like OAuth error responses:
 
 | Error | Status | Meaning |
 | --- | --- | --- |
 | `conversation_not_found` | 404 | The Conversation ID is unknown or belongs to a different Personal Agent, User, or account (8.2). All return the same error. |
-| `conversation_closed` | 409 | A message or handoff was sent to a closed conversation. |
+| `conversation_closed` | 409 | A message, handoff request, or handoff cancel was sent to a closed conversation (8.12). |
 | `direct_conversation_open` | 409 | The conversation has an open Direct Conversation, named in `conversation_id` (8.10). |
-| `message_id_conflict` | 409 | A message reused an ID that the Company accepted with different content (8.3). |
+| `request_id_conflict` | 409 | A request reused an ID that the Company accepted with a different path or body (8.3). |
 | `invalid_cursor` | 400 | The cursor is unknown or doesn't belong to this conversation. |
 | `cursor_expired` | 410 | The Company no longer has the events at this cursor (8.5). |
-| `invalid_request` | 400 | The request is malformed, such as a message with no content (8.4), an ID with characters not allowed (8.2), or a `wait` that isn't a whole number of seconds. |
-| `extension_required` | 403 | The request needs an extension the Personal Agent doesn't list, named in `extension` (3.3). |
+| `invalid_request` | 400 | The request is malformed, such as a missing request `id` (8.3), a message with no content (8.4), an ID with characters not allowed (8.2), or a `wait` that isn't a whole number of seconds. |
+| `extension_required` | 403 | The request needs an extension it doesn't declare, named in `extension` (3.3). |
+| `version_mismatch` | 409 | The conversation started in other versions, and the Company doesn't continue it in these. The protocol version it started in is in `protocol_version` (8.2). |
+
+Later versions and extensions may add error codes. A Personal Agent handles an `error` it doesn't recognize by the response's HTTP status ([RFC 9110, section 15](https://www.rfc-editor.org/rfc/rfc9110#section-15)), as it would an error with no code.
 
 ## 9. Task coverage
 
@@ -1258,15 +1413,13 @@ Neither is for errors. A Company already returns errors in its responses (sectio
 
 A Company can also publish agent context as skills that help Personal Agents carry out supported tasks (9.4).
 
-### 9.1 Excluded tasks
+A Company that lists excluded tasks, publishes skills, or takes feedback lists `tasks.endpoint` in `poppy.json` (3.1). The Personal Agent sends `GET {tasks.endpoint}` with the Session header (5.2) and no access token, and the Company responds with HTTP 200 and a JSON object:
 
-A Company that lists tasks it doesn't offer lists `excluded_tasks.url` in `poppy.json` (3.1). The URL points to a JSON document:
-
-*Excluded tasks, published by the Company*
+*Response body: Company → Personal Agent*
 
 ```
 {
-  "tasks": [
+  "excluded_tasks": [
     {
       "task": "Send a wire transfer",
       "alternative": {
@@ -1275,13 +1428,40 @@ A Company that lists tasks it doesn't offer lists `excluded_tasks.url` in `poppy
       }
     },
     { "task": "Close an account" }
-  ]
+  ],
+  "skill_index": {
+    "$schema": "https://schemas.agentskills.io/discovery/0.2.0/schema.json",
+    "skills": [
+      {
+        "name": "manage-bookings",
+        "description": "Manage the User's bookings with this Company.",
+        "type": "skill-md",
+        "url": "https://cdn.example.com/skills/manage-bookings/SKILL.md",
+        "digest": "sha256:1b2a8cde934e632f7e14fa080a627ad7191e29d412d2b8a7aa07d9c9ab2f475e"
+      }
+    ]
+  },
+  "feedback": {
+    "endpoint": "https://api.example.com/poppy/feedback"
+  }
 }
 ```
 
 | Field | Req. | Description |
 | --- | --- | --- |
-| `tasks` | Yes | The tasks the Company chose not to offer through this protocol. Each has the fields below. |
+| `excluded_tasks` | No | The tasks the Company chose not to offer through this protocol (9.1). Defaults to none. |
+| `skill_index` | No | An Agent Skills discovery index of the skills the Company publishes (9.4). |
+| `feedback` | No | `endpoint` is an HTTPS URL where Personal Agents report a User's task that can't be done (9.3). |
+
+- The response describes what the Company offers, not the User's account, so the request carries no access token, even in a signed-in Session.
+- A Company MAY give different Sessions different responses, based on the Session, User ID, or Agent ID, for example to try a new skill with some Users. It verifies the Session header before it does (5.3). A Company that gives every Session the same response can serve it without verifying the header.
+- A Company that gives different Sessions different responses MUST mark them `private` or `no-store` in `Cache-Control` ([RFC 9111](https://www.rfc-editor.org/rfc/rfc9111) §5.2.2), so that a shared cache doesn't give one Session's response to another.
+- A Personal Agent SHOULD get the response before it starts on a task in a Session. It MAY reuse it for the rest of the Session, as its caching headers allow, and MUST NOT use it in another Session.
+- Session errors are `invalid_session` and `session_ended` (5.3), and version errors `version_unsupported` (3.4). Rate limits follow 5.6. When it gets no response, the Personal Agent carries on as if the Company listed no excluded tasks, published no skills, and took no feedback.
+
+### 9.1 Excluded tasks
+
+A Company lists the tasks it chose not to offer in `excluded_tasks` in its tasks response (section 9), each with the fields below:
 
 | Field | Req. | Description |
 | --- | --- | --- |
@@ -1289,9 +1469,8 @@ A Company that lists tasks it doesn't offer lists `excluded_tasks.url` in `poppy
 | `alternative` | No | Another way to do the task, such as in the Company's app or on its website, or a different task that serves the same need (9.2). |
 
 - A listed task isn't offered through any of the Company's interfaces: its Company Agent, its APIs, or its website in a browser session.
-- The document is the same for every User. The Personal Agent fetches it with a GET and no token.
-- A Personal Agent SHOULD read the document before it starts on a task at the Company. Whether the User's task is one listed is the Personal Agent's judgment, since each `task` is a phrase.
-- A limit that depends on the User or their account, such as a transfer limit, isn't an excluded task. The Company returns an error for it, as for any request it refuses.
+- Whether the User's task is one listed is the Personal Agent's judgment, since each `task` is a phrase.
+- A limit that depends on the User's account, such as a transfer limit, isn't an excluded task. The Company returns an error for it, as for any request it refuses.
 
 ### 9.2 Alternatives
 
@@ -1331,7 +1510,7 @@ An alternative MUST have at least one of `instructions` or `references`. Each re
 
 A Company can ask Personal Agents to tell it when a User's task can't be done through this protocol.
 
-A Company that wants feedback lists `feedback.endpoint` in `poppy.json` (3.1). When a User's task can't be done, the Personal Agent MAY send `POST {feedback.endpoint}` with the Session header (5.2), and a JSON body:
+A Company that wants feedback lists `feedback.endpoint` in its tasks response (section 9). When a User's task can't be done, the Personal Agent MAY send `POST {feedback.endpoint}` with the Session header (5.2), and a JSON body:
 
 *Request body: Personal Agent → Company*
 
@@ -1357,36 +1536,19 @@ The Company responds with HTTP 202 and no body. When the task can be done after 
 
 ### 9.4 Agent context
 
-A Company MAY include `skill_index` in `poppy.json` to publish skills for Personal Agents acting on the User's behalf at that Company. A skill describes how to perform a task, such as changing a booking through the Company's APIs. This index is for those Personal Agents, not for developers implementing Poppy or for the Company's own agents.
+A Company MAY include `skill_index` in its tasks response (section 9) to publish skills for Personal Agents acting on the User's behalf at that Company. A skill describes how to perform a task, such as changing a booking through the Company's APIs. This index is for those Personal Agents, not for developers implementing Poppy or for the Company's own agents.
 
-APIs describe available operations. A skill can explain how to combine them into a task: the prerequisites, the order of calls, and how to handle common outcomes. Publishing the index in `poppy.json` lets a Personal Agent find these workflows during Company discovery and identify relevant skills from their descriptions before fetching their contents. Using the Agent Skills format lets Companies reuse existing skills and tooling.
+APIs describe available operations. A skill can explain how to combine them into a task: the prerequisites, the order of calls, and how to handle common outcomes. Publishing the index in the tasks response lets a Personal Agent find these workflows before it starts on a task, and identify relevant skills from their descriptions before fetching their contents. It also lets the Company publish different skills to different Sessions. Using the Agent Skills format lets Companies reuse existing skills and tooling.
 
-`skill_index` contains a complete index from the [Agent Skills discovery proposal](https://github.com/jonathanhefner/agentskills/blob/ab2ff8db3d5c9597985b06f94ea3caf1996ce82e/docs/well-known-uri.mdx), using its `0.2.0` schema identifier. That proposal is a draft, not an adopted Agent Skills standard; this specification refers to the linked revision. Companies that publish `skill_index` MUST follow that revision's index format, artifact distribution, integrity, and HTTP requirements, with the index embedded here instead of fetched separately. Its HTTP requirements for `index.json` apply to the enclosing `poppy.json` document. Skills use the [Agent Skills format](https://agentskills.io/specification).
-
-*Excerpt from poppy.json*
-
-```
-"skill_index": {
-  "$schema": "https://schemas.agentskills.io/discovery/0.2.0/schema.json",
-  "skills": [
-    {
-      "name": "manage-bookings",
-      "description": "Manage the User's bookings with this Company.",
-      "type": "skill-md",
-      "url": "https://cdn.example.com/skills/manage-bookings/SKILL.md",
-      "digest": "sha256:1b2a8cde934e632f7e14fa080a627ad7191e29d412d2b8a7aa07d9c9ab2f475e"
-    }
-  ]
-}
-```
+`skill_index` contains a complete index from the [Agent Skills discovery proposal](https://github.com/jonathanhefner/agentskills/blob/ab2ff8db3d5c9597985b06f94ea3caf1996ce82e/docs/well-known-uri.mdx), using its `0.2.0` schema identifier. That proposal is a draft, not an adopted Agent Skills standard; this specification refers to the linked revision. Companies that publish `skill_index` MUST follow that revision's index format, artifact distribution, integrity, and HTTP requirements for artifacts, with the index in the tasks response instead of fetched from its own URL. The tasks response follows section 9, not the proposal's HTTP requirements for `index.json`. Skills use the [Agent Skills format](https://agentskills.io/specification). The example in section 9 shows an index with one skill.
 
 Every entry has `name`, `description`, `type`, `url`, and `digest`. `type` is `skill-md` for a single `SKILL.md` file or `archive` for a skill with supporting files. `digest` is the SHA-256 of the artifact's raw bytes, prefixed with `sha256:` and written as 64 lowercase hex characters. The proposal defines the archive formats, layout, and extraction checks. Personal Agents that use the index MUST follow its verification and archive safety requirements before using a skill.
 
 **Using a skill.** A Personal Agent can match the User's task against entry names and descriptions, fetch a relevant artifact from its resolved `url`, verify its `digest`, and load the skill's contents as needed. The Personal Agent then uses the workflow through the Company's advertised channels, following the usual Session, account access, and approval requirements. Personal Agents MAY ignore `skill_index` and use those channels directly; a Company does not need to publish skills to support Poppy.
 
-**URLs.** Personal Agents MUST resolve an entry's `url` against the final `poppy.json` URL after redirects, using [RFC 3986 §5](https://www.rfc-editor.org/rfc/rfc3986#section-5). Relative references such as `skills/manage-bookings/SKILL.md`, origin-relative references such as `/skills/manage-bookings/SKILL.md`, and full URLs on other domains are all allowed. Resolved URLs and redirects still follow section 3's HTTPS and address rules. Listing an artifact on another domain does not make that domain an API endpoint or authorize sending it credentials or Session headers.
+**URLs.** Personal Agents MUST resolve an entry's `url` against `tasks.endpoint`, using [RFC 3986 §5](https://www.rfc-editor.org/rfc/rfc3986#section-5). Relative references such as `skills/manage-bookings/SKILL.md`, origin-relative references such as `/skills/manage-bookings/SKILL.md`, and full URLs on other domains are all allowed. Resolved URLs and redirects still follow section 3's HTTPS and address rules. Listing an artifact on another domain does not make that domain an API endpoint or authorize sending it credentials or Session headers.
 
-**Compatibility.** Personal Agents SHOULD ignore unknown index fields, and SHOULD skip entries with an unknown `type`. Personal Agents SHOULD ignore the index when `$schema` is absent or unknown; the rest of `poppy.json` remains usable. The [guides](/docs/0.3/guides#agent-excluded-tasks) suggest what to tell the User. `$schema` is an opaque version identifier, not a URL Personal Agents need to fetch. A Company MAY also publish the same index at `/.well-known/agent-skills/index.json` for other clients. Absolute URLs let it reuse entries unchanged at either location; relative references use each document's URL as their base. Poppy does not require that separate index or require other skill clients to discover `poppy.json`.
+**Compatibility.** Personal Agents SHOULD ignore unknown index fields, and SHOULD skip entries with an unknown `type`. Personal Agents SHOULD ignore the index when `$schema` is absent or unknown; the rest of the tasks response remains usable. The [guides](/docs/1.0/guides#agent-excluded-tasks) suggest what to tell the User. `$schema` is an opaque version identifier, not a URL Personal Agents need to fetch. A Company MAY also publish the same index at `/.well-known/agent-skills/index.json` for other clients. Absolute URLs let it reuse entries unchanged at either location; relative references use `tasks.endpoint` or the index's URL as their base. Poppy does not require that separate index or require other skill clients to discover `poppy.json`.
 
 **Authority.** A skill is Company content (10.1). Personal Agents MAY use its descriptions and workflows to carry out the User's task. A skill grants no account access, changes no OAuth scopes, and supplies no User approval. It does not authorize another task or override the Personal Agent's policies. Personal Agents MUST NOT execute scripts from a skill unless the User or the Personal Agent's configuration explicitly allows it.
 
@@ -1405,11 +1567,13 @@ A Personal Agent passes what a Company returns to its model: conversation messag
 
 ### 10.2 Secrets and the model
 
-A model can be led to repeat what is in its context, so a secret in context can leak through any message the Personal Agent sends. Following [draft-ietf-wimse-aims](https://datatracker.ietf.org/doc/draft-ietf-wimse-aims/) §8, which keeps an agent's credentials out of the model's reach, Personal Agents MUST keep these out of model context: access tokens (4.5), refresh tokens (4.4), Session JWTs (5.2), private keys, authorization codes and PKCE code verifiers (4.2), and device codes (4.3). Personal Agents SHOULD keep every other secret out of model context too, such as one-time codes, and sign and send requests in code the model can't read. The [guides](/docs/0.3/guides#both-secrets) list these secrets and how to handle them.
+A model can be led to repeat what is in its context, so a secret in context can leak through any message the Personal Agent sends. Following [draft-ietf-wimse-aims](https://datatracker.ietf.org/doc/draft-ietf-wimse-aims/) §8, which keeps an agent's credentials out of the model's reach, Personal Agents MUST keep these out of model context: access tokens (4.5), refresh tokens (4.4), Session JWTs (5.2), private keys, authorization codes and PKCE code verifiers (4.2), and device codes (4.3). Personal Agents SHOULD keep every other secret out of model context too, such as one-time codes, and sign and send requests in code the model can't read. The [guides](/docs/1.0/guides#both-secrets) list these secrets and how to handle them.
 
 ### 10.3 What a domain vouches for
 
 A Company's `poppy.json` and its domain's protected resource metadata are where the Personal Agent learns about the Company: its issuer when present, and through it the Company's sign-in types and scopes, its APIs, and its Company Agent. Whoever controls that document speaks for the Company at the host that serves it at `/.well-known/poppy.json`, as whoever controls its website does today. The document's endpoints can be on any host. The checks in section 3 cover both directions of the link between domain and issuer, which stops a domain from claiming another Company's issuer and receiving its tokens. They don't make the issuer metadata more trustworthy than the domain, because the domain chooses the issuer.
+
+Nothing in the document confirms that the domain belongs to the company in `organization.name`, any more than a website's title does. A lookalike domain can use another Company's name and logo and pass every check in section 3. The domain is the Company's identity, and the name and logo are what the domain says about itself. Choosing the right domain for the User, and showing it where the User might rely on the name, is up to the Personal Agent ([guides](/docs/1.0/guides#agent-discovery)).
 
 ### 10.4 Token and assertion audiences
 
@@ -1419,7 +1583,7 @@ A separate Session for each account (5.4) keeps a cart, browser cookie, or paral
 
 ### 10.5 Signing in with the User's credentials
 
-Direct and Device Sign-In delegate access: the User approves scopes on the Company's own page, and the Company knows which Personal Agent acts and can limit or revoke it without affecting the User. A Personal Agent that signs in on the Company's website with the User's credentials, outside this protocol, looks like the User: the Company can't limit what it does, and can only stop it by blocking it entirely. A Company that offers no Direct or Device Sign-In, or whose scopes and APIs don't cover what Users need, can expect Personal Agents to sign in that way, as the [guides](/docs/0.3/guides#company-api-descriptions) point out. The [Mediated Sign-In extension](/docs/0.3/extensions/mediated-sign-in) is a transitional step for Companies that can't offer them yet.
+Direct and Device Sign-In delegate access: the User approves scopes on the Company's own page, and the Company knows which Personal Agent acts and can limit or revoke it without affecting the User. A Personal Agent that signs in on the Company's website with the User's credentials, outside this protocol, looks like the User: the Company can't limit what it does, and can only stop it by blocking it entirely. A Company that offers no Direct or Device Sign-In, or whose scopes and APIs don't cover what Users need, can expect Personal Agents to sign in that way, as the [guides](/docs/1.0/guides#company-api-descriptions) point out. The [Mediated Sign-In extension](/docs/1.0/extensions/mediated-sign-in) is a transitional step for Companies that can't offer them yet.
 
 ### 10.6 Joining a browser to a Session
 
@@ -1437,15 +1601,30 @@ A delegation can't be withdrawn before it expires, so its lifetime limits what a
 
 Delegations keep the keys in `jwks_uri` from signing anything that names a User or the Company they use. They keep a Personal Agent's own systems from learning which Companies a User works with only if those systems never see the delegated keys or the requests they sign, for example when delegated keys stay on the User's device. Client assertions are still signed with the keys in `jwks_uri` and name the Company in `aud` (4.1), so sign-in, refreshes, and revocation (section 4) stay visible to whatever signs them. And the Personal Agent knows which delegations it issued for a User, while a Company knows which delegated keys signed for each User ID, so the two together could match a User to a Company. Blind signing, below, closes both gaps.
 
-**Blind signing.** A Personal Agent SHOULD have the keys in its `jwks_uri` sign client assertions and delegations blindly, unless its own systems need to see which Companies a User works with. It uses RSA blind signatures ([RFC 9474](https://www.rfc-editor.org/rfc/rfc9474)). The User's device writes the JWT, blinds it, and sends it to be signed. The key signs it without seeing it, and the device unblinds the result into an ordinary signature. With the RSABSSA-SHA384-PSS-Deterministic variant, that signature is a `PS384` signature, which Companies that support it (4.1, 5.2) verify like any other. The variants RFC 9474 recommends add a random prefix to the message, so their signatures don't verify as a JWT's. The PSS-Deterministic variant adds nothing, so it is safe only when the message has a value the signer can't guess (RFC 9474 §7.3). The `jti` of a client assertion or delegation is that value, so the Personal Agent MUST generate it on the User's device. The Personal Agent's systems then never see which Company a client assertion names, and can't recognize a delegation they signed when a Company shows it to them. They still see when a User asks for a signature.
+**Blind signing.** A Personal Agent SHOULD have the keys in its `jwks_uri` sign client assertions and delegations blindly, unless its own systems need to see which Companies a User works with. It uses RSA blind signatures ([RFC 9474](https://www.rfc-editor.org/rfc/rfc9474)). The User's device writes the JWT, blinds it, and sends it to be signed. The key signs it without seeing it, and the device unblinds the result into an ordinary signature. With the RSABSSA-SHA384-PSS-Deterministic variant, that signature is a `PS384` signature, which Companies verify like any other (4.1, 5.2). The variants RFC 9474 recommends add a random prefix to the message, so their signatures don't verify as a JWT's. The PSS-Deterministic variant adds nothing, so it is safe only when the message has a value the signer can't guess (RFC 9474 §7.3). The `jti` of a client assertion or delegation is that value, so the Personal Agent MUST generate it on the User's device. The Personal Agent's systems then never see which Company a client assertion names, and can't recognize a delegation they signed when a Company shows it to them. They still see when a User asks for a signature.
 
 A key that signs blindly signs whatever a User's device sends it. A Company accepts any client assertion or delegation that verifies with a key in `jwks_uri`, so a device that can get blind signatures from one key can get any client assertion or delegation the Personal Agent could issue. A Personal Agent that signs blindly MUST therefore sign both its client assertions and its delegations blindly, and MUST NOT rely on a signature by a key in its `jwks_uri` to mean its own systems approved what it signed, for example to limit delegation lifetimes or to stop a User.
 
-Blind signing also means any of the Personal Agent's Users can authenticate as the Personal Agent. A refresh token works only with a client assertion from the client it was issued to (4.4), so a refresh token stolen from one User could then be used by any other User of the same Personal Agent. The same goes for an access token: another User can make the Session JWT that has to go with it (5.3). The same holds whenever Users' devices can get client assertions, blindly or not. A Personal Agent that signs blindly, or otherwise lets devices get client assertions, keeps refresh and access tokens on the User's device, protected as its other secrets are (10.2), and limits how many signatures each User can get.
+Blind signing also means any of the Personal Agent's Users can authenticate as the Personal Agent. A refresh token works only with a client assertion from the client it was issued to (4.4), so a refresh token stolen from one User could then be used by any other User of the same Personal Agent. The same goes for an access token: another User can make the Session JWT that has to go with it (5.3). The same holds whenever Users' devices can get client assertions, blindly or not. A Personal Agent that signs blindly, or otherwise lets devices get client assertions, keeps refresh and access tokens on the User's device, protected as its other secrets are (10.2), and limits how many signatures each User can get. A Company that binds refresh tokens and access tokens to DPoP keys (4.4, 4.5) narrows the gap: a token copied from one User is useless without that User's DPoP key, which the Personal Agent uses for that User only. That holds only while other Users can't get proofs signed with the key, so a Personal Agent whose servers hold DPoP keys signs with a User's key only for that User.
+
+### 10.8 Sign-ins someone else started
+
+Direct and Device Sign-In give the tokens to whoever started the request: the User the Personal Agent recorded for `state` (4.2), or the holder of `device_code` (4.3). Neither says who approved it. Another User of the same Personal Agent can start a sign-in, send the link to someone else, and get tokens for that person's account, with the scopes they approve, if they sign in and approve. The Company sees a genuine request from the Personal Agent, and the Personal Agent sees a valid redirect or poll, so neither can tell. This is the consent phishing that [RFC 10027](https://www.rfc-editor.org/rfc/rfc10027) describes for cross-device flows.
+
+The protocol accepts this risk, as OAuth does for cross-device flows, and limits it:
+
+- A Personal Agent that receives the redirect only on the device that opened the authorization URL ties the tokens to that device, so a forwarded link fails (4.2). One that can tell which of its Users is in the browser at `redirect_uri`, such as by its own sign-in there, can check that it's the User who started the request. Neither is possible for every Personal Agent, such as one whose link opens in a new browser on another device.
+- The Company's sign-in and consent pages name the Personal Agent that wants to connect, and tell the User to continue only if they just asked it to ([guides](/docs/1.0/guides#company-consent)). A person who doesn't use that Personal Agent, or didn't ask, can decline. This doesn't help when the person tricked uses the same Personal Agent.
+- Both sign-in types follow the best practices in RFC 10027 §2 (4.2, 4.3), such as short-lived requests and limited scopes.
+
+Every User of a Personal Agent shares one `client_id`, so a Company that decides what to show by what the account already granted to that `client_id` can show the person approving less than another User's request gets:
+
+- In Direct and Device Sign-In, the Company's consent page MUST list every scope it will grant, except a `poppy:browser-sign-in` it MAY grant without asking (section 6). It MAY mark the ones the User already granted. A Personal Agent that needs more access requests every scope again (4.7), so the page lists earlier scopes too.
+- A Company that skips the page because the account already granted every requested scope lets a forwarded link get tokens with no page at all. So a Personal Agent sends `prompt=consent` unless the redirect comes back to the device that opened the authorization URL, where a forwarded link fails, and 4.2 and 4.3 ask Companies to show the page for it and in Device Sign-In. A Company that doesn't leaves its Users open to this.
 
 ## 11. References
 
-This draft uses these standards and versions:
+This version uses these standards and versions:
 
 | Subject | References |
 | --- | --- |
@@ -1453,14 +1632,14 @@ This draft uses these standards and versions:
 | Skills | [Agent Skills format](https://agentskills.io/specification), [Agent Skills discovery proposal, pinned revision](https://github.com/jonathanhefner/agentskills/blob/ab2ff8db3d5c9597985b06f94ea3caf1996ce82e/docs/well-known-uri.mdx), [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986) |
 | OAuth | [RFC 6749](https://www.rfc-editor.org/rfc/rfc6749), [RFC 6750](https://www.rfc-editor.org/rfc/rfc6750), [RFC 7009](https://www.rfc-editor.org/rfc/rfc7009), [RFC 8414](https://www.rfc-editor.org/rfc/rfc8414), [RFC 9728](https://www.rfc-editor.org/rfc/rfc9728) |
 | Sign-in | [RFC 7636](https://www.rfc-editor.org/rfc/rfc7636), [RFC 8252](https://www.rfc-editor.org/rfc/rfc8252), [RFC 8628](https://www.rfc-editor.org/rfc/rfc8628), [RFC 9207](https://www.rfc-editor.org/rfc/rfc9207) |
-| User IDs | [OpenID Connect Core 1.0](https://openid.net/specs/openid-connect-core-1_0.html) |
+| User IDs and `prompt` | [OpenID Connect Core 1.0](https://openid.net/specs/openid-connect-core-1_0.html) |
 | Agent identity and client authentication | [OAuth Client ID Metadata Document](https://datatracker.ietf.org/doc/draft-ietf-oauth-client-id-metadata-document/), [RFC 7523](https://www.rfc-editor.org/rfc/rfc7523), [draft-ietf-oauth-rfc7523bis](https://datatracker.ietf.org/doc/draft-ietf-oauth-rfc7523bis/), [RFC 7638](https://www.rfc-editor.org/rfc/rfc7638), [RFC 7800](https://www.rfc-editor.org/rfc/rfc7800), [RFC 9474](https://www.rfc-editor.org/rfc/rfc9474) |
 | Token binding and audience | [RFC 9449](https://www.rfc-editor.org/rfc/rfc9449), [RFC 8707](https://www.rfc-editor.org/rfc/rfc8707), [RFC 8725](https://www.rfc-editor.org/rfc/rfc8725) |
 | Web browsing | [RFC 9111](https://www.rfc-editor.org/rfc/rfc9111), [RFC 6265bis](https://datatracker.ietf.org/doc/draft-ietf-httpbis-rfc6265bis/) |
 | Security | [RFC 9700](https://www.rfc-editor.org/rfc/rfc9700), [RFC 10027](https://www.rfc-editor.org/rfc/rfc10027), [draft-ietf-wimse-aims](https://datatracker.ietf.org/doc/draft-ietf-wimse-aims/) |
 | Extension content | [JSON Schema 2020-12](https://json-schema.org/draft/2020-12) |
 | APIs | [OpenAPI Specification 3.1](https://spec.openapis.org/oas/v3.1.1.html), [Model Context Protocol 2025-06-18](https://modelcontextprotocol.io/specification/2025-06-18), [Model Context Protocol 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28), [RFC 9728](https://www.rfc-editor.org/rfc/rfc9728), [draft-ietf-httpapi-idempotency-key-header](https://datatracker.ietf.org/doc/draft-ietf-httpapi-idempotency-key-header/) |
-| HTTP and formats | [RFC 9110](https://www.rfc-editor.org/rfc/rfc9110), [RFC 6585](https://www.rfc-editor.org/rfc/rfc6585), [RFC 3339](https://www.rfc-editor.org/rfc/rfc3339), [RFC 4648](https://www.rfc-editor.org/rfc/rfc4648), [RFC 5646](https://www.rfc-editor.org/rfc/rfc5646) |
+| HTTP and formats | [RFC 9110](https://www.rfc-editor.org/rfc/rfc9110), [RFC 6585](https://www.rfc-editor.org/rfc/rfc6585), [RFC 3339](https://www.rfc-editor.org/rfc/rfc3339), [RFC 4648](https://www.rfc-editor.org/rfc/rfc4648), [RFC 5646](https://www.rfc-editor.org/rfc/rfc5646), [RFC 9651](https://www.rfc-editor.org/rfc/rfc9651), [RFC 9745](https://www.rfc-editor.org/rfc/rfc9745), [RFC 8594](https://www.rfc-editor.org/rfc/rfc8594) |
 | Operator signatures | [RFC 9421](https://www.rfc-editor.org/rfc/rfc9421), [Web Bot Auth](https://datatracker.ietf.org/doc/draft-ietf-webbotauth-httpsig-protocol/) |
 | Streaming | [Server-sent events (HTML Living Standard)](https://html.spec.whatwg.org/multipage/server-sent-events.html) |
 

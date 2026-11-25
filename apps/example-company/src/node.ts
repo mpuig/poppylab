@@ -23,7 +23,6 @@ if (passwordHash && !/^[a-f0-9]{32}:[a-f0-9]{128}$/.test(passwordHash))
   throw new Error("Invalid JUNIPER_PASSWORD_HASH");
 const app = createCompany(juniperCompany({ portal: local }), {
   origin,
-  domain,
   store: vault("juniper", emptyState),
   // Pinned DNS, private-address blocking, no redirects, bounded bodies.
   // A public VPS should set COMPANY_ISOLATION=visitor (see portable-runtime.md).
@@ -41,4 +40,4 @@ const app = createCompany(juniperCompany({ portal: local }), {
     : {}),
 });
 serve({ fetch: app.fetch, port, hostname: process.env.HOST ?? "127.0.0.1" });
-console.log(`Juniper Market (PAP 0.3) on ${origin}`);
+console.log(`Juniper Market (PAP 1.0) on ${origin}`);

@@ -16,7 +16,7 @@ The primary users are protocol implementers and developers evaluating Personal A
 
 ## Product Purpose
 
-Provide a practical environment for learning, implementing, and testing Personal Agent Protocol draft 0.3 (the text as retrieved on 3 November 2026; `pnpm spec:drift` reports changes). The product combines a Personal Agent playground, reusable client and server libraries, protocol inspection, and an example Company. Success means a developer can enter a Company URL, understand its advertised capabilities, run a task through a selected LLM, and inspect every safe, sanitized protocol step.
+Provide a practical environment for learning, implementing, and testing Personal Agent Protocol 1.0 (published 14 November 2026; `pnpm spec:drift` reports changes to the pinned text). The product combines a Personal Agent playground, reusable client and server libraries, protocol inspection, and an example Company. Success means a developer can enter a Company URL, understand its advertised capabilities, run a task through a selected LLM, and inspect every safe, sanitized protocol step.
 
 ## Positioning
 
@@ -28,7 +28,7 @@ Developers use the product locally while implementing or evaluating PAP Companie
 
 ## Capabilities and Constraints
 
-- Target Personal Agent Protocol draft 0.3 only; protocol boundaries must be versioned because the specification is pre-1.0 and changes often.
+- Target Personal Agent Protocol 1.0 only, with the Operations extension version 3. Later 1.x versions promise not to break 1.0; earlier versions are not supported.
 - Accept a Company URL and validate `/.well-known/poppy.json` plus OAuth issuer metadata.
 - Support provider-neutral LLM integration, beginning with OpenAI-compatible, Anthropic, Google, and local/Ollama adapters.
 - Keep credentials, private keys, Session Tokens, Account Tokens, one-time codes, OAuth state, and DPoP material out of model context and user-visible traces.
@@ -43,7 +43,7 @@ The working product name is “Poppy Lab.” Its voice is precise and developer-
 
 ## Evidence on Hand
 
-The authoritative protocol specification and Company implementation kit are published at personalagentprotocol.org. The community demos page lists other implementations; PAP Sandbox publishes 0.3 discovery but still uses 0.2 Session Tokens. No testimonials, customers, benchmarks, proprietary logos, or performance claims exist and none should be fabricated.
+The authoritative protocol specification and Company implementation kit are published at personalagentprotocol.org. The community demos page lists other implementations and the protocol version each follows. No testimonials, customers, benchmarks, proprietary logos, or performance claims exist and none should be fabricated.
 
 ## Product Principles
 

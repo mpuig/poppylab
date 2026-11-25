@@ -4,13 +4,13 @@ Goal: run the same code on **Cloudflare Workers + Durable Objects** (`poppylab.d
 
 ## Pattern
 
-The gateway (`packages/pap-company/src/gateway.ts`) is a 50-line composition of modules under `src/gateway/`: `types` (state, definition and deployment types), `context` (the shared state, replay cache, dirty flag, cookie and client-metadata helpers, DPoP helpers, per-request carriers), `persistence` (body limit, save-when-dirty, security headers), `discovery`, `signin` (Direct Sign-In), `tokens` (token and revocation endpoints), `sessions` (the `Poppy-Session` middleware for `/api/*`) and `tenancy` (one business app per tenant, the Operations v2 gate, grant access, website dispatch). Middleware order is fixed in `createCompany`: body limit and persistence first, the Session middleware before the business dispatch.
+The gateway (`packages/pap-company/src/gateway.ts`) is a 50-line composition of modules under `src/gateway/`: `types` (state, definition and deployment types), `context` (the shared state, replay cache, dirty flag, cookie and client-metadata helpers, DPoP helpers, per-request carriers), `persistence` (body limit, save-when-dirty, security headers), `discovery`, `signin` (Direct Sign-In), `tokens` (token and revocation endpoints), `sessions` (the `Poppy-Session` middleware for `/api/*`) and `tenancy` (one business app per tenant, the Operations v3 gate, grant access, website dispatch). Middleware order is fixed in `createCompany`: body limit and persistence first, the Session middleware before the business dispatch.
 
 - **`@poppy-lab/pap-client/core`** is the runtime-portable subset of the client library: Session header and delegations, DPoP proofs and assertions, the `Poppy-Approval` header. It uses Web APIs, `jose` and the parts of `node:crypto` that Workers provides with `nodejs_compat`. The DNS-pinned network client (undici) stays in the Node entry point.
-- **`@poppy-lab/pap-company`** is a PAP 0.3 Company gateway on **Hono**:
+- **`@poppy-lab/pap-company`** is a PAP 1.0 Company gateway on **Hono**:
   - discovery metadata (RFC 8414/9728), Direct Sign-In and DPoP access tokens, refresh and RFC 7009 revocation;
   - verification of the delegated `Poppy-Session` header and one account per Session;
-  - Operations v2 through a pure engine (`approvals.ts`).
+  - Operations v3 through a pure engine (`approvals.ts`).
 
   A Company supplies a `CompanyDefinition`: its scopes, consent page, test customers, `poppy.json`, excluded tasks, OpenAPI contract and Hono routes.
 
@@ -51,7 +51,7 @@ The gateway (`packages/pap-company/src/gateway.ts`) is a 50-line composition of 
 
 **Juniper Market** is migrated too (`apps/example-company`). Fastify is gone from the repository.
 
-- `src/juniper.ts` is its `CompanyDefinition`. The business modules (shopping, customer services, profiles, shopping edits, website/portal, Operations v2) are unchanged. They are written against `src/router.ts`, a small `(req, reply)` facade over Hono.
+- `src/juniper.ts` is its `CompanyDefinition`. The business modules (shopping, customer services, profiles, shopping edits, website/portal, Operations v3) are unchanged. They are written against `src/router.ts`, a small `(req, reply)` facade over Hono.
 - `src/node.ts` (vault `juniper`, `protocolRequest`) and `src/worker.ts` (Durable Object `JuniperCompany`) are the entry points. `wrangler.toml` targets `juniper.poppylab.dev`.
 - The gateway gained what Juniper needed: optional RFC 9449 DPoP nonces (`deploy.dpopNonces`; the token endpoint challenges before the client assertion or grant is consumed, the API answers 401 `use_dpop_nonce`), grant listing/revocation for the website, and a 16 KiB body limit.
 - The browser portal (`/site/*`, `/account`) only runs on the local origin. On Workers it answers 403 `local_demo_only`: all visitors would share the same fictional personas, so it waits for per-visitor isolation.
@@ -63,7 +63,7 @@ The gateway (`packages/pap-company/src/gateway.ts`) is a 50-line composition of 
 With `isolation: "visitor"` (both Workers), the gateway gives every agent user its own copy of the Company's business data:
 
 - **Tenant** = SHA-256 of `client_id` + user id from the signed `Poppy-Session` header. It is verified before routing.
-- Each tenant gets its own mounted business app, seeded with the same fictional customers, and its own Operations v2 records (their terms and first responses contain business data).
+- Each tenant gets its own mounted business app, seeded with the same fictional customers, and its own Operations v3 records (their terms and first responses contain business data).
 - **Grant holder:** a grant serves only the (client, user) that first used it. Another user of the same client gets `invalid_token`.
 - Eviction: at most `maxTenants` (500), least recently used first, and a tenant idle for `tenantIdleMs` (24 h) starts again from the seed data.
 - Non-API routes (landing, discovery, consent) use the `shared` tenant. The Company website lists only grants held by the tenant itself.
@@ -100,7 +100,7 @@ The same Next.js app runs with `next dev`/`next start` on Node and on Cloudflare
   - The script now empties that file and scans the whole bundle for every local secret-like value and the local identity. If it finds one, it deletes the artifact and fails, printing names only.
   - `NEXT_PUBLIC_JUNIPER_URL`/`NEXT_PUBLIC_LANTERN_URL` point the suggestions to poppylab.dev.
 - **Verified in production** (version deployed 2 Nov 2026):
-  - JWKS without a private part; `client.json` with `https://poppylab.dev` and Operations v2.
+  - JWKS without a private part; `client.json` with `https://poppylab.dev` and Operations v3.
   - Discovery of Juniper and Lantern; private, HTTP and metadata URLs refused.
   - Protocol demo signed out: Juniper fetched `client.json` across Workers and verified the Session header.
   - Browser: read-only sign-in as Alex, read of deliveries, **Request change permission**, Thursday→Saturday proposed, approved and `succeeded`.
@@ -118,4 +118,4 @@ The same Next.js app runs with `next dev`/`next start` on Node and on Cloudflare
 3. `pnpm --filter @poppy-lab/lantern deploy` / `pnpm --filter @poppy-lab/example-company deploy`; Poppy: `pnpm --filter @poppy-lab/playground build:worker` then `deploy:worker`.
 4. Optional secrets: `wrangler secret put JUNIPER_PASSWORD_HASH` (or `LANTERN_PASSWORD_HASH`).
 
-Lantern can go live on its own, as a public PAP 0.3 test Company that any agent with an HTTPS `client_id` can use. Poppy still needs its own port before `poppylab.dev` hosts the playground.
+Lantern can go live on its own, as a public PAP 1.0 test Company that any agent with an HTTPS `client_id` can use. Poppy still needs its own port before `poppylab.dev` hosts the playground.

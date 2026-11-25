@@ -68,7 +68,7 @@ export async function GET(request: Request) {
     const keys = await identity();
     const dpop = usesDpop(run) ? pending.dpop : undefined;
     if (usesDpop(run) && !dpop) throw Error("Missing DPoP key");
-    // 0.3 §4.2: authorization_code with PKCE and private_key_jwt; no session_id.
+    // §4.2: authorization_code with PKCE and private_key_jwt; no session_id.
     const raw = (await protocolRequest(
       endpoint,
       {

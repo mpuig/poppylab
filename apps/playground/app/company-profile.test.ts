@@ -11,50 +11,42 @@ const base = {
   discoveredAt: "2026-10-30T00:00:00Z",
 };
 
-it("shows 0.3 scopes with descriptions, hints and the hint-free warning", () => {
+it("shows 1.0 scopes with descriptions, hints, PAR, extensions and the tasks endpoint", () => {
   const company: DiscoveredCompany = {
     ...base,
     document: {
-      protocol_version: "0.3",
+      protocol_version: "1.0",
       organization: { name: "Company", domain: "company.example" },
       web: {},
     },
     profile: {
-      version: "0.3",
+      version: "1.0",
       identifier: "https://auth.company.example",
       issuer: "https://auth.company.example",
       signIn: { direct: true, device: false },
+      pushedAuthorization: {
+        endpoint: "https://auth.company.example/par",
+        required: false,
+      },
       scopes: ["orders:read", "orders:write"],
       scopeDescriptions: { "orders:read": "See <b>orders</b>" },
       scopeHints: {
         "orders:read": { changes: "none", personal_data: true },
       },
-      excludedTasksUrl: "https://company.example/excluded.json",
+      tasksEndpoint: "https://company.example/poppy/tasks",
+      operations: true,
     },
-    excludedTasks: [
-      {
-        task: "Cancel an order",
-        alternative: {
-          instructions: "Phone the kitchen.",
-          references: [
-            { type: "web", url: "https://company.example/policies" },
-          ],
-        },
-      },
-    ],
   };
   const html = renderToStaticMarkup(
     createElement(CompanyProfileView, { company }),
   );
-  expect(html).toContain("PAP 0.3");
-  expect(html).toContain("Direct");
+  expect(html).toContain("PAP 1.0");
+  expect(html).toContain("Direct · PAR offered");
+  expect(html).toContain("Operations v3");
   expect(html).toContain("No changes · personal data");
   // A scope with no hint is never presented as safe.
   expect(html).toContain("No hints: treat as consequential");
-  expect(html).toContain("https://company.example/excluded.json");
+  expect(html).toContain("https://company.example/poppy/tasks");
   expect(html).toContain("See &lt;b&gt;orders&lt;/b&gt;");
   expect(html).not.toContain("<b>orders</b>");
-  expect(html).toContain("Not offered through PAP");
-  expect(html).toContain("Cancel an order");
-  expect(html).toContain("Phone the kitchen.");
 });

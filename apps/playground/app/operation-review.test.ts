@@ -32,23 +32,45 @@ function render(state: string, expiry = op.expires_at) {
   expect(onAction).not.toHaveBeenCalled();
   return html;
 }
-it("renders summary-only proposals honestly without invented prices or changes", () => {
-  const { terms: _terms, ...summaryOnly } = op;
-  void _terms;
+it("renders a proposal without a summary from its exact terms (Operations v3 §3)", () => {
+  const { summary: _summary, ...termsOnly } = op;
+  void _summary;
   const html = renderToStaticMarkup(
     createElement(OperationReview, {
-      op: summaryOnly,
+      op: termsOnly,
       company: "Juniper Market",
       busy: false,
       signedIn: true,
       onAction: vi.fn(),
     }),
   );
-  expect(html).toContain(op.summary);
-  expect(html).toContain("No structured terms supplied");
+  expect(html).toContain("Juniper Market sent no summary");
+  // The exact terms open by default, and approval stays possible.
+  expect(html).toMatch(/<details class="operation-terms" open/);
   expect(html).toContain("Approve this change");
-  expect(html).not.toContain("$4.50");
-  expect(html).not.toContain("Before</small>");
+});
+it("shows a summary as text: its Markdown, links and images never render", () => {
+  const html = renderToStaticMarkup(
+    createElement(OperationReview, {
+      op: {
+        ...op,
+        summary:
+          "**Move** it. [Click](https://evil.example) ![x](https://evil.example/x.png)",
+      },
+      company: "Juniper Market",
+      busy: false,
+      signedIn: true,
+      onAction: vi.fn(),
+    }),
+  );
+  expect(html).not.toContain("<a ");
+  expect(html).not.toContain("<img");
+  expect(html).toContain("[Click](https://evil.example)");
+});
+it("labels a Company's decline", () => {
+  const html = render("refused");
+  expect(html).toContain("Declined by the Company");
+  expect(html).not.toContain("Approve this change");
 });
 it("opens proposals with before/after and formatted money", () => {
   const html = render("proposed");

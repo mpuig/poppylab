@@ -28,7 +28,7 @@ const state = vi.hoisted(() => ({
     company: {
       document: {},
       profile: {
-        version: "0.3",
+        version: "1.0",
         identifier: "http://juniper.localhost:4100",
         issuer: "http://juniper.localhost:4100",
         signIn: { direct: true, device: false },
@@ -43,15 +43,20 @@ const state = vi.hoisted(() => ({
   },
   request: vi.fn(),
   revoke: vi.fn(),
+  push: vi.fn(async () => "urn:ietf:params:oauth:request_uri:pushed-1"),
+  config: {
+    issuer: "http://juniper.localhost:4100",
+    authorization_endpoint: "http://juniper.localhost:4100/oauth/authorize",
+  } as Record<string, string>,
   connect: vi.fn(async (run: Record<string, unknown>): Promise<unknown> =>
     Object.assign(run, {
       company: {
         document: {
-          protocol_version: "0.3",
+          protocol_version: "1.0",
           organization: { name: "Juniper", domain: "juniper.localhost" },
         },
         profile: {
-          version: "0.3",
+          version: "1.0",
           identifier: "http://juniper.localhost:4100",
           issuer: "http://juniper.localhost:4100",
           signIn: { direct: true, device: false },
@@ -94,12 +99,10 @@ vi.mock("@/lib/runtime", async () => ({
   connect: state.connect,
   clientFor: () => "http://localhost:3000/agent/client.json",
   agentFor: () => "http://localhost:3000",
-  accountConfiguration: () => ({
-    issuer: "http://juniper.localhost:4100",
-    authorization_endpoint: "http://juniper.localhost:4100/oauth/authorize",
-  }),
+  accountConfiguration: () => state.config,
   usesDpop: () => true,
   revokeRefreshToken: state.revoke,
+  pushAuthorizationRequest: state.push,
   identity: vi.fn(async () => ({ privateKey: {} })),
   clientId: "http://localhost:3000/agent/client.json",
   agentOrigin: "http://localhost:3000",
@@ -117,7 +120,7 @@ function request(body: unknown, origin = "http://localhost:3000") {
 }
 beforeEach(async () => {
   vi.stubEnv("NODE_ENV", "development");
-  Object.assign(state.run, { protocol: "0.3", busy: false });
+  Object.assign(state.run, { protocol: "1.0", busy: false });
   await seedRun("v".repeat(43), "run_fixture_0001", state.run as never);
   state.run.operations.op_test = {
     operation_id: "op_test",
@@ -163,7 +166,44 @@ describe("Human-controlled account boundary", () => {
     expect(url.searchParams.get("scope")).toBe("poppy:read");
     expect(url.searchParams.get("code_challenge_method")).toBe("S256");
     expect(url.searchParams.has("session_id")).toBe(false);
+    // §4.2: consent is shown even for scopes granted before.
+    expect(url.searchParams.get("prompt")).toBe("consent");
     expect(state.run).toHaveProperty("auth.dpop");
+  });
+  it("pushes the request when the Company offers PAR, opening only client_id and request_uri (§4.2)", async () => {
+    state.config = {
+      ...state.config,
+      pushed_authorization_request_endpoint:
+        "http://juniper.localhost:4100/oauth/par",
+    };
+    try {
+      const r = await POST(request({ action: "signin" }));
+      expect(r.status).toBe(200);
+      const url = new URL((await r.json()).url);
+      expect([...url.searchParams.keys()].sort()).toEqual([
+        "client_id",
+        "request_uri",
+      ]);
+      expect(url.searchParams.get("request_uri")).toBe(
+        "urn:ietf:params:oauth:request_uri:pushed-1",
+      );
+      const [, params, dpop] = state.push.mock.calls.at(-1)! as unknown as [
+        unknown,
+        Record<string, string>,
+        unknown,
+      ];
+      expect(params).toMatchObject({
+        scope: "poppy:read",
+        prompt: "consent",
+        code_challenge_method: "S256",
+      });
+      // The code is bound to the sign-in's DPoP key.
+      expect(dpop).toBe(
+        (state.run as { auth?: { dpop?: unknown } }).auth?.dpop,
+      );
+    } finally {
+      delete state.config.pushed_authorization_request_endpoint;
+    }
   });
   it("starts consent with a separate candidate without destroying the current account", async () => {
     const history = state.run.history,
@@ -191,7 +231,7 @@ describe("Human-controlled account boundary", () => {
         company: {
           document: {},
           profile: {
-            version: "0.3",
+            version: "1.0",
             identifier: "http://juniper.localhost:4100",
             signIn: { direct: true, device: false },
             scopes: ["poppy:read"],
@@ -298,6 +338,36 @@ describe("Human-controlled account boundary", () => {
         )
       ).status,
     ).toBe(400);
+  });
+  it("records a Company's decline: nothing performed, never sent again (Operations v3 §6)", async () => {
+    state.request.mockRejectedValue(
+      new ProtocolError(
+        403,
+        "approval_declined",
+        undefined,
+        undefined,
+        undefined,
+        {
+          reason: "Only the account holder can do this.",
+        },
+      ),
+    );
+    const r = await POST(
+      request({ action: "approve", id: "op_test", revision: "r1" }),
+    );
+    expect(r.status).toBe(200);
+    const body = await r.json();
+    expect(body.code).toBe("approval_declined");
+    expect(body.operation).toMatchObject({ state: "refused" });
+    expect(body.operation.result.summary).toContain(
+      "Only the account holder can do this.",
+    );
+    // Neither approve nor retry sends it again.
+    for (const action of ["approve", "retry"])
+      expect(
+        (await POST(request({ action, id: "op_test", revision: "r1" }))).status,
+      ).not.toBe(200);
+    expect(state.request).toHaveBeenCalledTimes(1);
   });
   it("refuses a Company that answers an approval with the same revision", async () => {
     state.request.mockRejectedValue(

@@ -21,7 +21,6 @@ const local = origin === "http://noodles.localhost:4200";
 const allowed = local ? ["http://localhost:3000"] : [];
 const app = createCompany(lantern, {
   origin,
-  domain,
   store: vault("lantern", emptyState),
   // Pinned DNS, private-address blocking, no redirects, bounded bodies.
   // A public VPS should set COMPANY_ISOLATION=visitor (see portable-runtime.md).
@@ -37,4 +36,4 @@ const app = createCompany(lantern, {
     : {}),
 });
 serve({ fetch: app.fetch, port, hostname: process.env.HOST ?? "127.0.0.1" });
-console.log(`Lantern Noodle Bar (PAP 0.3) on ${origin}`);
+console.log(`Lantern Noodle Bar (PAP 1.0) on ${origin}`);

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ProtocolError } from "@poppy-lab/pap-client";
 import type { DiscoveredCompany } from "@poppy-lab/pap-core";
 import {
-  approvalMessageId,
+  approvalRequestId,
   approveInConversation,
   conversationEndpoint,
   conversationTools,
@@ -15,7 +15,7 @@ const company = (protocols: Array<{ type: string; endpoint: string }>) =>
   ({
     requestedUrl: "https://noodles.poppylab.dev",
     document: {
-      protocol_version: "0.3",
+      protocol_version: "1.0",
       organization: {
         name: "Lantern Noodle Bar",
         domain: "noodles.poppylab.dev",
@@ -38,8 +38,10 @@ const read = (events: unknown[], extra: Record<string, unknown> = {}) => ({
   events,
   cursor: (events.at(-1) as { id?: string } | undefined)?.id ?? null,
   has_more: false,
-  status: "idle",
+  working: false,
+  handoff: "none",
   responder: "agent",
+  closed: false,
   ...extra,
 });
 const said = (id: string, message: Record<string, unknown>) => ({
@@ -57,7 +59,16 @@ const operation = {
   operation_id: "op_refund",
   revision: "1793800000-abc",
   summary: "Refund 1 × Pork gyoza (6) (USD 8.00).",
+  terms: { order_id: "ord_LNB0907", refund_cents: 800, currency: "USD" },
   expires_at: new Date(Date.now() + 600000).toISOString(),
+};
+const approval = {
+  operation_id: "op_refund",
+  revision: "1793800000-abc",
+  approver: "user" as const,
+  approved_at: 1793800100,
+  input_type: "tap",
+  reference: "apr_test",
 };
 function tools(
   run: Run,
@@ -97,6 +108,21 @@ describe("conversations (§8) in Iris", () => {
     ).toBeUndefined();
     expect(
       conversationEndpoint(company([{ type: "a2a", endpoint }])),
+    ).toBeUndefined();
+    // A domain with a port matches the endpoint's host with that port only.
+    const local = (endpoint: string) =>
+      conversationEndpoint({
+        ...company([{ type: "poppy", endpoint }]),
+        document: {
+          ...company([{ type: "poppy", endpoint }]).document,
+          organization: { name: "L", domain: "noodles.localhost:4200" },
+        },
+      } as DiscoveredCompany);
+    expect(local("http://noodles.localhost:4200/poppy/conversations")).toBe(
+      "http://noodles.localhost:4200/poppy/conversations",
+    );
+    expect(
+      local("http://noodles.localhost:4300/poppy/conversations"),
     ).toBeUndefined();
   });
 
@@ -153,10 +179,16 @@ describe("conversations (§8) in Iris", () => {
     const [url, , body] = request.mock.calls[1]!.slice(1) as [
       string,
       string,
-      { message: { id: string } },
+      { id: string; message: Record<string, unknown> },
     ];
     expect(url).toBe(`${endpoint}/cnv_1/messages?wait=10&cursor=e2`);
-    expect(body.message.id).toMatch(/^msg_[A-Za-z0-9_-]+$/);
+    // §8.3: the request carries the ID; the message says what it had read.
+    expect(body.id).toMatch(/^req_[A-Za-z0-9_-]+$/);
+    expect(body.message).toEqual({
+      author: { type: "agent" },
+      as_of_cursor: "e2",
+      data: { request: "opening_hours" },
+    });
     expect(shown.map((s) => s.author)).toEqual([
       "Lantern Noodle Bar · automated agent",
       "Lantern Noodle Bar · automated agent",
@@ -228,14 +260,12 @@ describe("conversations (§8) in Iris", () => {
       return read([said("e2", { text: "ok" })]);
     });
     await t.company_agent_send!.execute({ text: "hello" });
-    const ids = request.mock.calls.map(
-      (c) => (c[3] as { message: { id: string } }).message.id,
-    );
+    const ids = request.mock.calls.map((c) => (c[3] as { id: string }).id);
     expect(ids).toHaveLength(2);
     expect(ids[0]).toBe(ids[1]);
     // A refusal is never resent.
     const refused = tools(newRun(), () => {
-      throw new ProtocolError(409, "message_id_conflict");
+      throw new ProtocolError(409, "request_id_conflict");
     });
     await expect(
       refused.t.company_agent_send!.execute({ text: "x" }),
@@ -265,7 +295,7 @@ describe("conversations (§8) in Iris", () => {
     });
   });
 
-  it("approves in a message with an ID derived from the revision, and reports new terms", async () => {
+  it("approves in a message with a request ID derived from the revision, and reports new terms or a decline", async () => {
     const run = newRun();
     const op = {
       ...operation,
@@ -275,31 +305,29 @@ describe("conversations (§8) in Iris", () => {
     const request = vi.fn(async () =>
       read([said("e9", { text: "Refunded USD 8.00." })]),
     );
-    expect(await approveInConversation(run, op, request)).toEqual({
+    expect(await approveInConversation(run, op, approval, request)).toEqual({
       summary: "Refunded USD 8.00.",
     });
     const [, url, , body] = request.mock.calls[0]! as unknown as [
       Run,
       string,
       string,
-      { message: Record<string, unknown> },
+      Record<string, unknown>,
     ];
     expect(url).toBe(`${endpoint}/cnv_1/messages?wait=10`);
-    expect(body.message).toEqual({
-      id: approvalMessageId(op),
-      author: { type: "agent" },
-      text: "The user approved this operation.",
-      extensions: {
-        operations: {
-          approval: { operation_id: "op_refund", revision: "1793800000-abc" },
-        },
+    expect(body).toEqual({
+      id: approvalRequestId(op),
+      message: {
+        author: { type: "agent" },
+        text: "The user approved this operation.",
+        extensions: { operations: { approval } },
       },
     });
-    expect(approvalMessageId(op)).toBe(approvalMessageId({ ...op }));
+    expect(approvalRequestId(op)).toBe(approvalRequestId({ ...op }));
     // A repeated approval adds no reply: already performed.
     const quiet = vi.fn(async () => read([]));
     expect(
-      (await approveInConversation(newRun(), op, quiet)).summary,
+      (await approveInConversation(newRun(), op, approval, quiet)).summary,
     ).toContain("already performed");
     // New terms come back as approval_required, never approved for the user.
     const terms = vi.fn(async () =>
@@ -313,10 +341,69 @@ describe("conversations (§8) in Iris", () => {
       ]),
     );
     await expect(
-      approveInConversation(newRun(), op, terms),
+      approveInConversation(newRun(), op, approval, terms),
+    ).rejects.toMatchObject({ status: 403, code: "approval_required" });
+    // A decline (Operations v3 §6): nothing performed, with the reason.
+    const declined = vi.fn(async () =>
+      read([
+        said("e11", {
+          text: "We can't do that.",
+          extensions: {
+            operations: {
+              declined: {
+                operation_id: "op_refund",
+                revision: "1793800000-abc",
+                reason: "Refunds over $5 need a person.",
+              },
+            },
+          },
+        }),
+      ]),
+    );
+    await expect(
+      approveInConversation(newRun(), op, approval, declined),
     ).rejects.toMatchObject({
       status: 403,
-      code: "approval_required",
+      code: "approval_declined",
+      declined: { reason: "Refunds over $5 need a person." },
     });
+  });
+
+  it("reads the four state fields, treats unknown values safely, and withdraws a handoff", async () => {
+    const run = newRun();
+    run.conversation = { endpoint, id: "cnv_1", seen: [] };
+    const { t, request } = tools(run, () =>
+      read(
+        [
+          said("e5", {
+            role: "future-role",
+            text: "From a new kind of sender.",
+          }),
+        ],
+        { working: true, handoff: "searching", responder: "bot" },
+      ),
+    );
+    const result = (await t.company_agent_handoff!.execute()) as Record<
+      string,
+      unknown
+    >;
+    // §8.4, §8.7: unknown role is Company content; unknown handoff is
+    // pending; unknown responder is a person.
+    expect(result).toMatchObject({
+      working: true,
+      handoff: "pending",
+      responder: "human",
+      replies: [{ text: "From a new kind of sender." }],
+      note: expect.stringContaining("company_agent_read"),
+    });
+    await t.company_agent_cancel_handoff!.execute();
+    const [, url, , body] = request.mock.calls[1]! as unknown as [
+      Run,
+      string,
+      string,
+      Record<string, unknown>,
+    ];
+    expect(url).toContain(`${endpoint}/cnv_1/handoff/cancel?wait=10`);
+    expect(Object.keys(body)).toEqual(["id"]);
   });
 });

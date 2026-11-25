@@ -15,7 +15,7 @@ export type Req<B = any, P = any, Q = any> = {
   headers: Record<string, string | undefined>;
   url: string;
   method: string;
-  /** The Hono context, for the gateway (Session, Operations v2 gate). */
+  /** The Hono context, for the gateway (Session, Operations v3 gate). */
   ctx: Context;
 };
 export type Generic = {

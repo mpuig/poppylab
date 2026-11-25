@@ -2,7 +2,7 @@ export type ReviewOperation = {
   operation_id: string;
   revision: string;
   state: string;
-  summary: string;
+  summary?: string;
   terms?: Record<string, unknown>;
   expires_at: string;
   result?: { summary: string } | null;

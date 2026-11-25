@@ -11,7 +11,6 @@ import { juniperCompany } from "./juniper.js";
 type Env = {
   JUNIPER: DurableObjectNamespace<JuniperCompany>;
   PUBLIC_ORIGIN: string;
-  PUBLIC_DOMAIN: string;
   JUNIPER_PASSWORD_HASH?: string;
   /** `wrangler dev` only: accept the local Poppy over plain HTTP. */
   DEV_HTTP_CLIENT?: string;
@@ -62,7 +61,6 @@ export class JuniperCompany extends DurableObject<Env> {
         : undefined;
     this.app = createCompany(juniperCompany({ portal: true }), {
       origin: this.env.PUBLIC_ORIGIN,
-      domain: this.env.PUBLIC_DOMAIN,
       store,
       // Public: every agent user gets a fresh copy of the fictional customers.
       isolation: "visitor",

@@ -11,7 +11,8 @@ import {
   ProtocolError,
   approvalHeader,
   discoverCompany,
-  fetchExcludedTasks,
+  extensionsHeader,
+  POPPY_VERSION,
   openApiTools,
   mcpTools,
   mcpRequest,
@@ -42,8 +43,11 @@ import type { JWK } from "jose";
 import {
   companyProfile,
   isLocalCompany,
+  parseTasks,
   type DiscoveredCompany,
+  type TasksResponse,
 } from "@poppy-lab/pap-core";
+import type { Approval } from "@poppy-lab/pap-client";
 
 export const agentOrigin = (
   process.env.AGENT_PUBLIC_ORIGIN ?? "http://localhost:3000"
@@ -66,7 +70,7 @@ export function clientFor(run: Run) {
 }
 let identityPromise: Promise<{ publicKey: JWK; privateKey: JWK }> | undefined;
 /**
- * The jwks_uri key: signs only delegations and client assertions (0.3 §4.1,
+ * The jwks_uri key: signs only delegations and client assertions (§4.1,
  * §5.2). A deployment sets `POPPY_IDENTITY` (a Worker secret); otherwise a
  * local key file is created once.
  */
@@ -114,30 +118,39 @@ export function identity() {
 }
 
 /**
- * An Operations v2 operation (§3) plus this playground's local state. The
+ * An Operations v3 operation (§3) plus this playground's local state. The
  * Company keeps no state for us: `state` records only what Poppy observed,
  * and `request` is the exact request to resend with the User's approval.
  */
 export type Operation = {
   operation_id: string;
   revision: string;
-  summary: string;
+  /** Optional in Operations v3; `terms` are always there. */
+  summary?: string;
   terms?: Record<string, unknown>;
   expires_at: string;
-  state: "proposed" | "succeeded" | "declined" | "expired" | "uncertain";
+  /** `declined`: by the User, locally. `refused`: the Company declined it. */
+  state:
+    "proposed" | "succeeded" | "declined" | "refused" | "expired" | "uncertain";
   result?: { summary: string } | null;
+  /**
+   * The approval as first sent (Operations v3 §6), reused for a retry:
+   * when the User approved, and the ledger reference shown to the Company.
+   */
+  approval?: { approved_at: number; reference: string };
   /** An API request to resend, or the conversation the operation is in (§8). */
   request?:
     | { url: string; body: unknown; conversation?: undefined }
     | { conversation: { endpoint: string; id: string }; url?: undefined };
 };
 /**
- * One conversation with one Company over PAP 0.3. `sessionId` is the
+ * One conversation with one Company over PAP 1.0. `sessionId` is the
  * client-chosen `sid`; `user` the User ID for the Company's identifier. The
  * access/refresh tokens are plain OAuth and independent of the Session.
  */
 export type Run = {
-  protocol?: "0.3";
+  /** Runs of an earlier protocol version are discarded, not migrated. */
+  protocol?: "1.0";
   /** SHA-256 of the visitor cookie: the owner of this run. */
   visitor?: string;
   /** While `busy`, the lock lapses after this time (a crashed request). */
@@ -150,11 +163,8 @@ export type Run = {
   sessionId?: string;
   /** Delegated key for this User ID only (§5.2). */
   sessionKey?: SessionKey;
-  /**
-   * `earlier`: this Company accepts only the earlier 0.3 delegation form
-   * (`pap_dlg`). Set after a repeated invalid_session, never chosen up front.
-   */
-  sessionDialect?: "earlier";
+  /** §9: the tasks response for the current Session only. */
+  tasks?: { sid: string; value: TasksResponse };
   /** DPoP key for access tokens, when the issuer binds them. */
   dpop?: JWK;
   token?: string;
@@ -196,7 +206,7 @@ if (!onWorkers() && process.env.NODE_ENV !== "test" && !process.env.VITEST)
 
 /**
  * The visitor's User ID for one Company identifier: stable for that visitor,
- * unlinkable across Companies and visitors (0.3 §3.2), and kept nowhere.
+ * unlinkable across Companies and visitors (§3.2), and kept nowhere.
  */
 export async function userFor(visitor: string, identifier: string) {
   const secret = createHmac("sha256", "poppy-user-ids")
@@ -223,22 +233,18 @@ export function accountConfiguration(run: Run) {
     company.metadata.issuer !== origin
   )
     throw Error("Unsupported account connection");
-  // Operations v2 has no endpoint (§2); proposals need version "2".
-  const operations = company.document.extensions?.operations;
+  // Operations v3 needs no endpoint at APIs and conversations (§2).
   const endpoints = {
     ...company.metadata,
-    operationsVersion:
-      operations &&
-      typeof operations === "object" &&
-      "version" in operations &&
-      typeof operations.version === "string"
-        ? operations.version
-        : undefined,
+    operations: companyProfile(company).operations,
   };
   for (const value of [
     endpoints.token_endpoint,
     endpoints.revocation_endpoint,
     endpoints.authorization_endpoint,
+    ...(endpoints.pushed_authorization_request_endpoint
+      ? [endpoints.pushed_authorization_request_endpoint]
+      : []),
   ])
     if (!value || new URL(value).origin !== origin)
       throw Error("Unsupported account endpoints");
@@ -257,22 +263,17 @@ export async function ensureSession(run: Run) {
     delete run.sessionKey;
   }
   run.sessionId ??= newSessionId();
-  const dialect = run.sessionDialect ?? "current";
-  if (
-    !sessionKeyUsable(run.sessionKey) ||
-    (run.sessionKey?.dialect ?? "current") !== dialect
-  )
+  if (!sessionKeyUsable(run.sessionKey))
     run.sessionKey = await createSessionKey(
       (await identity()).privateKey,
       clientFor(run),
-      undefined,
-      dialect,
     );
 }
 
-/** Starts a new Session with a fresh `sid` (after `invalid_session`, §5.5). */
+/** Starts a new Session with a fresh `sid` (after `session_ended`, §5.5). */
 export function newSession(run: Run) {
   run.sessionId = newSessionId();
+  delete run.tasks;
 }
 
 async function sessionHeaders(
@@ -294,6 +295,12 @@ async function sessionHeaders(
       url,
       ...(token ? { accessToken: token.value } : {}),
     }),
+    // §3.4: the same on every request in a Session. Extensions are declared
+    // only when the Company lists them (guides: Versions).
+    "Poppy-Version": POPPY_VERSION,
+    ...(profile.operations
+      ? { "Poppy-Extensions": extensionsHeader({ operations: "3" }) }
+      : {}),
     ...(token
       ? token.type === "DPoP"
         ? {
@@ -316,9 +323,10 @@ function markAccountFailure(run: Run, error: unknown) {
 
 /**
  * Sends one request to a Company API or protocol endpoint with the Session
- * header and, when signed in, the access token. An explicit
- * `invalid_session` starts one new Session and retries once; nothing else
- * is retried, so an uncertain write is never repeated.
+ * header, `Poppy-Version` and, when signed in, the access token. Only
+ * `session_ended` starts a new Session and resends, once (§5.5).
+ * `invalid_session` isn't retried: a new Session would fail the same way.
+ * `version_unsupported` stops: this client implements 1.0 only (§3.4).
  */
 export async function papRequest(
   run: Run,
@@ -327,7 +335,7 @@ export async function papRequest(
   body?: unknown,
   options: {
     signedOut?: boolean;
-    approval?: { operation_id: string; revision: string };
+    approval?: Approval;
   } = {},
 ) {
   if (run.accountToken && !options.signedOut) await renewIfNeeded(run);
@@ -365,39 +373,28 @@ export async function papRequest(
     );
   };
   try {
-    return await send();
+    try {
+      return await send();
+    } catch (error) {
+      if (
+        error instanceof ProtocolError &&
+        error.status === 400 &&
+        error.code === "session_ended"
+      ) {
+        newSession(run);
+        return await send();
+      }
+      throw error;
+    }
   } catch (error) {
     if (
       error instanceof ProtocolError &&
       error.status === 400 &&
-      error.code === "invalid_session"
-    ) {
-      newSession(run);
-      try {
-        return await send();
-      } catch (again) {
-        // Still refused with a fresh Session: the Company may follow the
-        // earlier 0.3 text (pap_dlg). Try that form once and remember it.
-        if (
-          !run.sessionDialect &&
-          again instanceof ProtocolError &&
-          again.status === 400 &&
-          again.code === "invalid_session"
-        ) {
-          run.sessionDialect = "earlier";
-          newSession(run);
-          try {
-            return await send();
-          } catch (last) {
-            delete run.sessionDialect;
-            markAccountFailure(run, last);
-            throw last;
-          }
-        }
-        markAccountFailure(run, again);
-        throw again;
-      }
-    }
+      error.code === "version_unsupported"
+    )
+      throw new UserFacingError(
+        "This Company no longer serves PAP 1.0, the version Poppy Lab implements. Connect again to check what it serves now.",
+      );
     markAccountFailure(run, error);
     throw error;
   }
@@ -444,6 +441,58 @@ async function tokenRequest(
   )) as Record<string, unknown>;
 }
 
+/**
+ * RFC 9126 (§4.2): pushes the authorization request with the client
+ * assertion, and a DPoP proof when tokens are DPoP-bound, so the Company can
+ * bind the code to that key. Returns the `request_uri` to open.
+ */
+export async function pushAuthorizationRequest(
+  run: Run,
+  params: Record<string, string>,
+  dpop?: JWK,
+) {
+  const config = accountConfiguration(run);
+  const endpoint = config.pushed_authorization_request_endpoint!;
+  const keys = await identity();
+  const client = clientFor(run);
+  const result = (await protocolRequest(
+    endpoint,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        ...(dpop ? { DPoP: await proof(dpop, endpoint, "POST") } : {}),
+      },
+      body: new URLSearchParams({
+        ...params,
+        client_assertion_type:
+          "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+        client_assertion: await assertion(
+          keys.privateKey,
+          client,
+          client,
+          config.issuer,
+        ),
+      }).toString(),
+    },
+    localOrigins,
+    dpop
+      ? {
+          key: dpop,
+          assertions: { key: keys.privateKey, client, issuer: config.issuer },
+        }
+      : undefined,
+  )) as { request_uri?: unknown };
+  if (
+    typeof result?.request_uri !== "string" ||
+    result.request_uri.length > 512 ||
+    // RFC 9126 §2.2: its format is the server's choice; a printable URI.
+    !/^[A-Za-z][A-Za-z0-9+.-]*:[\x21-\x7e]+$/.test(result.request_uri)
+  )
+    throw new Error("Invalid pushed authorization response");
+  return result.request_uri;
+}
+
 /** Whether the issuer binds access tokens with DPoP (RFC 9449 §5.1). */
 export const usesDpop = (run: Run) =>
   !!run.company?.metadata?.dpop_signing_alg_values_supported?.includes("ES256");
@@ -457,14 +506,14 @@ async function renewIfNeeded(run: Run) {
 }
 
 /**
- * refresh_token grant (0.3 §4.4) within the current scopes. A refresh that
+ * refresh_token grant (§4.4) within the current scopes. A refresh that
  * omits refresh_token keeps the existing one. No Session is involved.
  */
 export async function renewAccount(run: Run) {
   if (!run.accountToken || !run.scopes) throw new Error("Sign in required");
-  const dpop = usesDpop(run)
-    ? (run.dpop ??= (await createIdentity()).privateKey)
-    : undefined;
+  // §4.4: refresh with the DPoP key the refresh token was issued with.
+  if (usesDpop(run) && !run.dpop) throw new Error("Sign in required");
+  const dpop = usesDpop(run) ? run.dpop : undefined;
   const scopes = run.scopes;
   const refreshToken = run.accountToken;
   let result;
@@ -497,31 +546,44 @@ export async function renewAccount(run: Run) {
   run.tokenExpires = result.expires;
 }
 
-function operationsVersion(run: Run) {
-  try {
-    return accountConfiguration(run).operationsVersion;
-  } catch {
-    return undefined;
-  }
+/**
+ * Operations v3 §6: the User's approval of this revision, as first sent.
+ * Iris only sends user approvals: the User clicked Approve (`tap`), and the
+ * reference names this playground's record of it, never shared across
+ * Companies. A retry sends the very same approval (§7).
+ */
+export function userApproval(op: Operation): Approval {
+  op.approval ??= {
+    approved_at: Math.floor(Date.now() / 1000),
+    reference: `apr_${newSessionId().slice(0, 24)}`,
+  };
+  return {
+    operation_id: op.operation_id,
+    revision: op.revision,
+    approver: "user",
+    approved_at: op.approval.approved_at,
+    input_type: "tap",
+    reference: op.approval.reference,
+  };
 }
 
 /**
- * Operations v2 §6: resends the exact request with the User's approval in
- * Poppy-Approval. The same approval may be resent after an uncertain result;
- * the Company performs the operation at most once (§7).
+ * Operations v3 §6: resends the exact request with the User's approval in
+ * Poppy-Approval, or sends it in a message of the operation's conversation.
  */
 export async function sendApproval(run: Run, op: Operation) {
+  const approval = userApproval(op);
   if (op.request?.conversation)
-    return approveInConversation(run, op, (r, url, method, body) =>
+    return approveInConversation(run, op, approval, (r, url, method, body) =>
       papRequest(r, url, method, body),
     );
   if (!op.request) throw new Error("Operation request unavailable");
   return papRequest(run, op.request.url, "POST", op.request.body, {
-    approval: { operation_id: op.operation_id, revision: op.revision },
+    approval,
   });
 }
 
-/** RFC 7009 revocation of one refresh token (0.3 §4.6). */
+/** RFC 7009 revocation of one refresh token (§4.6). */
 export async function revokeRefreshToken(run: Run, token: string) {
   const config = accountConfiguration(run);
   const client = clientFor(run);
@@ -564,8 +626,9 @@ export async function connect(
   const profile = companyProfile(company);
   await ensureSession(run);
   trace.push(
-    `PAP 0.3 Session ${run.accountToken ? "signed in" : "signed out"} · delegated ES256 Session header${run.sessionDialect ? " · earlier 0.3 delegation form (pap_dlg), which this Company requires" : ""}`,
+    `PAP ${profile.version} Session ${run.accountToken ? "signed in" : "signed out"} · delegated ES256 Session header · Poppy-Version ${POPPY_VERSION}${profile.operations ? ' · Poppy-Extensions "operations";v="3"' : ""}`,
   );
+  await readTasks(run, trace);
   const api =
     company.document.apis?.find((item) => item.type === "openapi") ??
     company.document.apis?.find((item) => item.type === "mcp");
@@ -577,7 +640,7 @@ export async function connect(
         allowProposals:
           !!profile.issuer &&
           proposalsAllowed(profile.issuer) &&
-          operationsVersion(run) === "2",
+          profile.operations,
         trace: (line) => trace.push(line),
         shown,
       })
@@ -601,11 +664,40 @@ export async function connect(
     api.type === "mcp"
       ? await mcpConnect(run, api.url, trace)
       : await openApiConnect(run, api.url, trace, sandbox);
-  if (profile.excludedTasksUrl) tools.excluded_tasks = excludedTasksTool(run);
+  if (run.tasks?.value.excludedTasks.length)
+    tools.excluded_tasks = excludedTasksTool(run);
   return { ...tools, ...conversation };
 }
 
-/** 0.3 §9.1: a read-only, token-free view of tasks the Company doesn't offer. */
+/**
+ * §9: the tasks response, early in each Session, with the Session header and
+ * no access token, used only in that Session. Without a response, Iris
+ * carries on as if the Company listed nothing.
+ */
+async function readTasks(run: Run, trace: string[]) {
+  const endpoint = companyProfile(run.company!).tasksEndpoint;
+  if (!endpoint || run.tasks?.sid === run.sessionId) return;
+  try {
+    const value = await papRequest(run, endpoint, "GET", undefined, {
+      signedOut: true,
+    });
+    run.tasks = {
+      sid: run.sessionId!,
+      value: parseTasks(value, run.company!.document, localOrigins),
+    };
+    trace.push(
+      `GET ${new URL(endpoint).pathname} · tasks for this Session · ${run.tasks.value.excludedTasks.length} excluded`,
+    );
+  } catch {
+    run.tasks = {
+      sid: run.sessionId!,
+      value: { excludedTasks: [], skills: 0 },
+    };
+    trace.push("Tasks unavailable · carrying on as if none are excluded");
+  }
+}
+
+/** §9.1: the tasks this Company doesn't offer, read for this Session. */
 function excludedTasksTool(run: Run): ApiTool {
   return {
     description:
@@ -613,9 +705,7 @@ function excludedTasksTool(run: Run): ApiTool {
     schema: { type: "object", properties: {}, additionalProperties: false },
     execute: async () => ({
       untrusted_company_content: true,
-      tasks: await fetchExcludedTasks(run.company!, {
-        allowedPrivateOrigins: localOrigins,
-      }),
+      tasks: run.tasks?.value.excludedTasks ?? [],
     }),
   };
 }
@@ -631,23 +721,27 @@ async function openApiConnect(
   const api = { url };
   const spec = await protocolRequest(api.url, {}, localOrigins);
   const tools = openApiTools(spec, api.url, {
-    // Proposals need an allowlisted account Company speaking Operations v2.
+    // Proposals need an allowlisted account Company listing Operations v3.
     allowProposals:
       (sandbox ||
         (!!profile.issuer &&
           new URL(api.url).origin === profile.issuer &&
           proposalsAllowed(profile.issuer))) &&
-      operationsVersion(run) === "2",
+      profile.operations,
+    // Protocol and extension endpoints are never model tools (§3.3).
     blockedPaths: [
       "/oauth",
       "/agent",
-      ...Object.values(company.document.extensions ?? {}).flatMap((v) =>
-        v &&
-        typeof v === "object" &&
-        "endpoint" in v &&
-        typeof v.endpoint === "string"
-          ? [new URL(v.endpoint).pathname]
-          : [],
+      "/poppy",
+      ...Object.values(company.document.extensions ?? {}).flatMap((entries) =>
+        entries.flatMap((v) =>
+          v &&
+          typeof v === "object" &&
+          "endpoint" in v &&
+          typeof v.endpoint === "string"
+            ? [new URL(v.endpoint).pathname]
+            : [],
+        ),
       ),
     ],
     trace: (message) => trace.push(message),
@@ -667,7 +761,7 @@ async function openApiConnect(
       try {
         return await papRequest(run, target, method, body);
       } catch (error) {
-        // Operations v2 §4: refused, nothing performed, operation attached.
+        // Operations v3 §4: refused, nothing performed, operation attached.
         if (
           !(error instanceof ProtocolError) ||
           error.status !== 403 ||
@@ -724,7 +818,7 @@ async function mcpConnect(run: Run, url: string, trace: string[]) {
     );
   if (run.accountToken)
     throw new UserFacingError(
-      "Signed-in MCP needs a resource token, not yet implemented for 0.3. Sign out to use read-only MCP tools.",
+      "Signed-in MCP needs a token for its resource, which Poppy Lab doesn't request yet. Sign out to use read-only MCP tools.",
     );
   if (profile.issuer) {
     // Validate the server's own resource metadata before calling it.

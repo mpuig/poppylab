@@ -7,11 +7,14 @@ import {
 export {
   ProtocolError,
   approvalHeader,
+  approvalFrom,
   parseApprovalHeader,
+  type Approval,
   configureRetryStore,
   type RetryState,
 } from "./protocol-error.ts";
 export { vault } from "./vault.ts";
+export * from "./headers.ts";
 export { openApiTools, type ApiTool } from "./openapi.ts";
 import { sseRpc } from "./mcp-wire.ts";
 export { mcpTools, mcpResourcePolicy } from "./mcp.ts";
@@ -20,14 +23,16 @@ import type { JWK } from "jose";
 import ipaddr from "ipaddr.js";
 import {
   authorizationServerMetadataSchema,
+  compatibleVersion,
+  IMPLEMENTED_VERSION,
+  listsExtension,
   normalizeScopeHints,
   PapDiscoveryError,
-  poppyDocument03Schema,
+  poppyDocumentSchema,
   protectedResourceMetadataSchema,
   type AuthorizationServerMetadata,
   type CompanyProfile,
-  parseExcludedTasks,
-  type PoppyDocument03,
+  type PoppyDocument,
   type DiscoveredCompany,
   type DiscoveryTraceStep,
 } from "@poppy-lab/pap-core";
@@ -272,12 +277,20 @@ async function fetchJsonSafely(
           await reader.cancel();
         }
         if (!response.ok) {
-          let code: unknown, operation: unknown;
+          let code: unknown,
+            operation: unknown,
+            declined: { reason?: string } | undefined;
           try {
             const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
             code = body.error;
             if (response.status === 403 && code === "approval_required")
               operation = body.operation;
+            // Operations v3 §6: a decline's reason is for the User, bounded.
+            if (response.status === 403 && code === "approval_declined")
+              declined =
+                typeof body.reason === "string"
+                  ? { reason: body.reason.slice(0, 500) }
+                  : {};
           } catch {
             /* Untrusted error bodies are never surfaced. */
           }
@@ -290,6 +303,7 @@ async function fetchJsonSafely(
             retryAt,
             response.headers.get("dpop-nonce") ?? undefined,
             operation,
+            declined,
           );
         }
         return {
@@ -369,37 +383,45 @@ export async function discoverCompany(
       throw new Error(
         "poppy.json redirect did not end at /.well-known/poppy.json",
       );
-    const parsed = poppyDocument03Schema.safeParse(discovery.value);
+    const chosen = await chooseVersion(
+      discovery.value,
+      discovery.finalUrl,
+      settings,
+    );
+    const parsed = poppyDocumentSchema.safeParse(chosen.value);
     if (!parsed.success) {
-      const version =
-        discovery.value &&
-        typeof discovery.value === "object" &&
-        "protocol_version" in discovery.value
-          ? String(
-              (discovery.value as { protocol_version: unknown })
-                .protocol_version,
-            ).slice(0, 16)
-          : "unknown";
+      const issue = parsed.error.issues[0];
       throw new Error(
-        version === "0.3"
-          ? `Invalid poppy.json: ${parsed.error.issues[0]?.message ?? "schema error"}`
-          : `Unsupported PAP version ${version}: this client implements draft 0.3 only`,
+        `Invalid poppy.json (${chosen.version}): ${issue?.path.join(".") || "document"}: ${issue?.message ?? "schema error"}`,
       );
     }
+    if (parsed.data.protocol_version !== chosen.version)
+      throw new Error(
+        `The document listed for ${chosen.version} says protocol_version ${parsed.data.protocol_version}`,
+      );
     trace.push({
       id: "poppy",
-      label: "Discovery document · PAP 0.3",
-      detail: discovery.finalUrl.toString(),
+      label: `Discovery document · PAP ${chosen.version}`,
+      detail: chosen.url.toString(),
       status: "passed",
       durationMs: discovery.durationMs,
     });
 
-    const servedHost = discovery.finalUrl.hostname.toLowerCase();
+    // §3.1: organization.domain is the host that served poppy.json, with its
+    // port when that isn't 443; another port only when configured on purpose.
+    const servedHost = discovery.finalUrl.host.toLowerCase();
     if (parsed.data.organization.domain.toLowerCase() !== servedHost) {
       throw new Error(
         "organization.domain does not match the host serving poppy.json",
       );
     }
+    if (
+      discovery.finalUrl.port &&
+      !settings.allowedPrivateOrigins.includes(discovery.finalUrl.origin)
+    )
+      throw new Error(
+        "This Company is on a non-standard port, which Poppy Lab uses only for its local test Companies",
+      );
     trace.push({
       id: "domain",
       label: "Domain binding",
@@ -411,7 +433,7 @@ export async function discoverCompany(
       discoveryUrl: discovery.finalUrl.toString(),
       trace,
       discoveredAt: new Date().toISOString(),
-      ...(await discover03(
+      ...(await discover10(
         parsed.data,
         discovery.finalUrl,
         servedHost,
@@ -438,6 +460,66 @@ export async function discoverCompany(
 
 type FetchSettings = Parameters<typeof fetchJsonSafely>[1];
 
+/**
+ * §3.4: the newest version, among `protocol_version` and `supported_versions`,
+ * compatible with 1.0. A linked document must be on the host that served
+ * poppy.json, is fetched without redirects, and has no supported_versions.
+ */
+async function chooseVersion(
+  value: unknown,
+  servedUrl: URL,
+  settings: FetchSettings,
+): Promise<{ version: string; value: unknown; url: URL }> {
+  const raw =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+  const own =
+    typeof raw.protocol_version === "string" ? raw.protocol_version : "";
+  const listed =
+    raw.supported_versions &&
+    typeof raw.supported_versions === "object" &&
+    !Array.isArray(raw.supported_versions)
+      ? Object.entries(raw.supported_versions as Record<string, unknown>)
+      : [];
+  const minor = (v: string) => Number(v.split(".")[1]);
+  const candidates = [
+    ...(compatibleVersion(own) ? [{ version: own, url: servedUrl }] : []),
+    ...listed.flatMap(([version, url]) => {
+      if (!compatibleVersion(version) || typeof url !== "string") return [];
+      try {
+        const target = new URL(url);
+        return target.host.toLowerCase() === servedUrl.host.toLowerCase() &&
+          (target.protocol === "https:" ||
+            settings.allowedPrivateOrigins.includes(target.origin))
+          ? [{ version, url: target }]
+          : [];
+      } catch {
+        return [];
+      }
+    }),
+  ].sort((a, b) => minor(b.version) - minor(a.version));
+  const best = candidates[0];
+  if (!best)
+    throw new Error(
+      `Unsupported PAP version ${own.slice(0, 16) || "unknown"}: Poppy Lab implements ${IMPLEMENTED_VERSION}, and the Company lists no compatible version`,
+    );
+  if (best.url === servedUrl) return { ...best, value };
+  const linked = await fetchJsonSafely(best.url, {
+    ...settings,
+    protocol: true,
+  });
+  if (
+    linked.value &&
+    typeof linked.value === "object" &&
+    "supported_versions" in linked.value
+  )
+    throw new Error(
+      "A linked version document must not list supported_versions",
+    );
+  return { ...best, value: linked.value };
+}
+
 async function fetchMetadata(issuer: string, settings: FetchSettings) {
   const response = await fetchJsonSafely(
     metadataUrlForIssuer(issuer),
@@ -455,7 +537,7 @@ async function fetchMetadata(issuer: string, settings: FetchSettings) {
   return { metadata: parsed.data, response };
 }
 
-/** RFC 9728 §3.3 comparison, except the host ignores case (PAP 0.3 §3.2). */
+/** RFC 9728 §3.3 comparison, except the host ignores case (PAP 1.0 §3.2). */
 function sameResource(a: string, b: string) {
   try {
     const x = new URL(a),
@@ -471,14 +553,14 @@ function sameResource(a: string, b: string) {
   }
 }
 
-async function discover03(
-  document: PoppyDocument03,
+async function discover10(
+  document: PoppyDocument,
   servedUrl: URL,
   servedHost: string,
   settings: FetchSettings,
   trace: DiscoveryTraceStep[],
 ): Promise<{
-  document: PoppyDocument03;
+  document: PoppyDocument;
   metadata?: AuthorizationServerMetadata;
   profile: CompanyProfile;
 }> {
@@ -493,6 +575,7 @@ async function discover03(
     domainResource,
   );
   let authorizationServers: string[] = [];
+  let resourceScopes: string[] = [];
   try {
     const response = await fetchJsonSafely(resourceUrl, {
       ...settings,
@@ -504,6 +587,7 @@ async function discover03(
     if (!sameResource(parsed.data.resource, domainResource))
       throw new Error("Protected resource metadata names a different resource");
     authorizationServers = parsed.data.authorization_servers ?? [];
+    resourceScopes = parsed.data.scopes_supported ?? [];
   } catch (error) {
     // Only an explicit 404 establishes "no issuer"; any other failure stops.
     if (!(error instanceof ProtocolError && error.status === 404)) throw error;
@@ -518,11 +602,11 @@ async function discover03(
   const issuer = declared ?? authorizationServers[0];
   const scopeHints = normalizeScopeHints(document.auth?.scope_hints);
   const base = {
+    version: document.protocol_version,
     scopeDescriptions: document.auth?.scopes ?? {},
     scopeHints,
-    ...(document.excluded_tasks
-      ? { excludedTasksUrl: document.excluded_tasks.url }
-      : {}),
+    ...(document.tasks ? { tasksEndpoint: document.tasks.endpoint } : {}),
+    operations: listsExtension(document, "operations", "3"),
   };
   if (!issuer) {
     if (
@@ -542,7 +626,6 @@ async function discover03(
     return {
       document,
       profile: {
-        version: "0.3",
         identifier: domainResource,
         signIn: { direct: false, device: false },
         scopes: [],
@@ -574,6 +657,13 @@ async function discover03(
     throw new Error("Direct Sign-In requires authorization_endpoint");
   if (device && !metadata.device_authorization_endpoint)
     throw new Error("Device Sign-In requires device_authorization_endpoint");
+  if (
+    metadata.require_pushed_authorization_requests &&
+    !metadata.pushed_authorization_request_endpoint
+  )
+    throw new Error(
+      "require_pushed_authorization_requests needs pushed_authorization_request_endpoint",
+    );
   trace.push({
     id: "metadata",
     label: "OAuth metadata",
@@ -597,7 +687,6 @@ async function discover03(
     document,
     metadata,
     profile: {
-      version: "0.3",
       identifier: issuer,
       issuer,
       // §3.2: with auth.disabled, never start any sign-in; identifier stays the issuer.
@@ -605,31 +694,27 @@ async function discover03(
         document.auth?.disabled === true
           ? { direct: false, device: false }
           : { direct, device },
+      ...(metadata.pushed_authorization_request_endpoint
+        ? {
+            pushedAuthorization: {
+              endpoint: metadata.pushed_authorization_request_endpoint,
+              required: metadata.require_pushed_authorization_requests === true,
+            },
+          }
+        : {}),
+      // §4.7: the scopes in either list; the auth.scopes keys otherwise.
       scopes:
-        metadata.scopes_supported ?? Object.keys(document.auth?.scopes ?? {}),
+        metadata.scopes_supported || resourceScopes.length
+          ? [
+              ...new Set([
+                ...(metadata.scopes_supported ?? []),
+                ...resourceScopes,
+              ]),
+            ]
+          : Object.keys(document.auth?.scopes ?? {}),
       ...base,
     },
   };
-}
-
-/** Fetch a 0.3 Company's excluded tasks: public GET, no token, no redirects. */
-export async function fetchExcludedTasks(
-  company: DiscoveredCompany,
-  options: DiscoveryOptions = {},
-) {
-  const url = company.profile?.excludedTasksUrl;
-  if (!url || company.document.protocol_version !== "0.3") return [];
-  const response = await fetchJsonSafely(new URL(url), {
-    allowedPrivateOrigins: options.allowedPrivateOrigins ?? [],
-    fetchImpl: options.fetchImpl ?? fetch,
-    timeoutMs: options.timeoutMs ?? 8_000,
-    protocol: true,
-  });
-  return parseExcludedTasks(
-    response.value,
-    company.document as PoppyDocument03,
-    options.allowedPrivateOrigins ?? [],
-  );
 }
 
 export { metadataUrlForIssuer };

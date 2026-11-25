@@ -18,7 +18,7 @@ The runner (`scripts/scenarios.mjs`) runs deterministic regression tests, not mo
 | nonce      | Token and API challenges; invalid, expired, other-key or other-server nonces; bounded retry; missing or oversized header; uncertain response |
 | operations | Omitted terms, rendering without invented data, mutated revisions, a new revision and a new approval                                         |
 | recovery   | Retry-After, vault and restart, a response lost after commit with a real socket and writer                                                   |
-| pap-0.3    | Discovery, Session header, delegated keys, plain OAuth and Operations v2                                                                     |
+| pap-1.0    | Discovery and versions, Poppy-Version and Poppy-Extensions, Session header, delegated keys (ES256, PS384), PAR, Operations v3 approvals      |
 | noodles    | Lantern Noodle Bar end to end on the portable gateway                                                                                        |
 
 The `mcp` group covers client and transport tests and the runtime: reads with the local policy, metadata, DPoP and Bearer resource tokens, SSE, nonces and the absence of uncertain retries. See [MCP read-only](mcp-readonly.md).

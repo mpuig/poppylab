@@ -1,7 +1,7 @@
 import type { Operation } from "./runtime";
 import { validateOperation } from "./operation-validation";
 
-/** Validates and stores an operation from approval_required (Operations v2). */
+/** Validates and stores an operation from approval_required (Operations v3). */
 export function recordOperation(
   run: { operations?: Record<string, Operation> },
   raw: unknown,

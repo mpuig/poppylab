@@ -11,8 +11,10 @@ const nextConfig: NextConfig = {
       "../example-company/.env*",
     ],
   },
-  // OAuth callback query strings contain one-time credentials.
-  logging: { incomingRequests: false },
+  // OAuth callback query strings contain one-time credentials. Browser logs
+  // aren't forwarded: in development Next writes them under .next/dev/logs,
+  // which its watcher picks up, reloading the page in a loop.
+  logging: { incomingRequests: false, browserToTerminal: false },
   async headers() {
     return [
       {

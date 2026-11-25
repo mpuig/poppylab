@@ -68,7 +68,7 @@ export type Commerce = {
   customers: Record<string, Customer>;
   records: Record<string, OperationRecord>;
 };
-/** Operations v2 from the gateway; standalone (tests) builds its own. */
+/** Operations v3 from the gateway; standalone (tests) builds its own. */
 export type Approve = (req: Req, action: Action) => Response;
 export function operations(
   app: Router,
@@ -211,7 +211,7 @@ export function operations(
         return `case:${(c.cases ?? []).length}:${createHash("sha256").update(comparable(t)).digest("base64url").slice(0, 16)}`;
     }
   }
-  /** Juniper's proposals, through the shared Operations v2 gate. */
+  /** Juniper's proposals, through the shared Operations v3 gate. */
   function gate(
     req: Req,
     reply: Reply,

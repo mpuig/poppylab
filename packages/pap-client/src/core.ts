@@ -5,9 +5,12 @@
  */
 export * from "./session.ts";
 export * from "./session-header.ts";
+export * from "./headers.ts";
 export {
   ProtocolError,
   approvalHeader,
+  approvalFrom,
   parseApprovalHeader,
+  type Approval,
 } from "./protocol-error.ts";
 export { decodeProtectedHeader, type JWK } from "jose";

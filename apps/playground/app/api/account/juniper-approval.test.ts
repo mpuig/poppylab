@@ -1,7 +1,11 @@
 import { it, expect, vi } from "vitest";
 import type * as OperationStore from "../../../lib/operation-store";
 import { testApp } from "../../../../example-company/src/test-app";
-import { openApiTools, ProtocolError } from "@poppy-lab/pap-client";
+import {
+  approvalHeader,
+  openApiTools,
+  ProtocolError,
+} from "@poppy-lab/pap-client";
 import { operations } from "../../../../example-company/src/operations";
 import { accountPaths } from "../../../../example-company/src/openapi";
 import type { Operation } from "@/lib/runtime";
@@ -18,7 +22,7 @@ const state = vi.hoisted(() => ({
     company: {
       document: {},
       profile: {
-        version: "0.3",
+        version: "1.0",
         identifier: "http://juniper.localhost:4100",
         signIn: { direct: true, device: false },
         scopes: ["poppy:read", "poppy:write"],
@@ -68,7 +72,7 @@ import { POST } from "./route";
 import { seedRun } from "@/lib/runs";
 
 it("model tool → real Juniper 403 operation → human approval → Poppy-Approval retry → exactly one order", async () => {
-  Object.assign(state.run, { protocol: "0.3" });
+  Object.assign(state.run, { protocol: "1.0" });
   await seedRun("v".repeat(43), "run_fixture_0001", state.run as never);
   // The verified Session is injected; Session headers and DPoP are covered
   // by Juniper's authority-regression tests against the real gateway.
@@ -94,7 +98,11 @@ it("model tool → real Juniper 403 operation → human approval → Poppy-Appro
           : { "Content-Type": "application/json" }),
         ...(approval
           ? {
-              "Poppy-Approval": `operation_id="${approval.operation_id}", revision="${approval.revision}"`,
+              "Poppy-Approval": approvalHeader({
+                ...approval,
+                approver: "user",
+                input_type: "tap",
+              }),
             }
           : {}),
       },

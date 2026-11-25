@@ -9,6 +9,9 @@ it("keeps Juniper localhost registration unchanged when a public identity is con
   expect(data.redirect_uris).toEqual([
     "http://localhost:3000/api/account/callback",
   ]);
+  // §3.4: extensions are declared per request, never in client metadata.
+  expect(data).not.toHaveProperty("extensions");
+  expect(data.client_name).toBe("Iris");
 });
 it("serves a separate public identity to the relay", async () => {
   const data = await GET(

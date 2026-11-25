@@ -34,38 +34,25 @@ export function CompanyProfileView({
         </div>
         <div>
           <dt>Sign-in</dt>
-          <dd>{signIn.length ? signIn.join(" · ") : "Signed-out only"}</dd>
+          <dd>
+            {signIn.length ? signIn.join(" · ") : "Signed-out only"}
+            {profile.pushedAuthorization
+              ? ` · PAR ${profile.pushedAuthorization.required ? "required" : "offered"}`
+              : ""}
+          </dd>
+        </div>
+        <div>
+          <dt>Extensions</dt>
+          <dd>{profile.operations ? "Operations v3" : "None used"}</dd>
         </div>
       </dl>
-      {profile.excludedTasksUrl && (
+      {profile.tasksEndpoint && (
         <>
-          <h3>Not offered through PAP</h3>
-          {company.excludedTasksError ? (
-            <p className="privacy-note">{company.excludedTasksError}</p>
-          ) : company.excludedTasks?.length ? (
-            <ul className="scope-list">
-              {company.excludedTasks.map((item, index) => (
-                <li key={index}>
-                  <strong>{item.task}</strong>
-                  {item.alternative?.instructions && (
-                    <span>{item.alternative.instructions}</span>
-                  )}
-                  {item.alternative?.references.map((ref, i) => (
-                    <small key={i}>
-                      {ref.type === "web"
-                        ? ref.url
-                        : ref.type === "openapi"
-                          ? `OpenAPI · ${ref.operation_id}`
-                          : `MCP tool · ${ref.tool}`}
-                    </small>
-                  ))}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="privacy-note">The Company lists no excluded tasks.</p>
-          )}
-          <p className="privacy-note">Source: {profile.excludedTasksUrl}</p>
+          <h3>Tasks not offered</h3>
+          <p className="privacy-note">
+            Read at the start of each Session, with the Session header (§9):{" "}
+            {profile.tasksEndpoint}
+          </p>
         </>
       )}
       {!!scopes.length && (

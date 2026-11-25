@@ -1,6 +1,6 @@
 import type { CompanyProfile } from "@poppy-lab/pap-core";
 
-/** Scopes the Company marks as changing nothing (0.3 §4.7 hints). */
+/** Scopes the Company marks as changing nothing (§4.7 hints). */
 export const readOnlyScopes = (profile: CompanyProfile) =>
   profile.scopes.filter((s) => profile.scopeHints[s]?.changes === "none");
 

@@ -126,7 +126,6 @@ export function juniperApp(
     juniperCompany({ portal: options.portal ?? true }),
     {
       origin,
-      domain: new URL(origin).hostname,
       store: options.store ?? memory(),
       // Test fixtures may omit redirect_uris: default to the local Poppy's.
       fetchJson: async (url) => {
@@ -142,7 +141,18 @@ export function juniperApp(
     },
   );
   // Requests come for the Company's own origin (Hosts aren't checked).
-  return { ...lifecycle((r) => app.fetch(r), options.drop), app };
+  // TEST ONLY: a request with a Session header that doesn't set the 1.0
+  // headers itself gets them (§3.4), so tests focus on their own subject.
+  const versioned = (r: Request) => {
+    if (!r.headers.has("poppy-session") || r.headers.has("poppy-version"))
+      return app.fetch(r);
+    const headers = new Headers(r.headers);
+    headers.set("poppy-version", "1.0");
+    if (!headers.has("poppy-extensions"))
+      headers.set("poppy-extensions", '"operations";v="3"');
+    return app.fetch(new Request(r, { headers }));
+  };
+  return { ...lifecycle(versioned, options.drop), app };
 }
 export const memory = (value: GatewayState = emptyState()): Store => ({
   value,

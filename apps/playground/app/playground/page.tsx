@@ -71,7 +71,7 @@ export default function PlaygroundPage() {
     >
       <header className="site-header">
         <a href="/" className="brand">
-          Poppy Lab<span className="version">PAP 0.3</span>
+          Poppy Lab<span className="version">PAP 1.0</span>
         </a>
         <nav aria-label="Playground views">
           {(Object.keys(copy) as View[]).map((item) => (
@@ -116,7 +116,7 @@ export default function PlaygroundPage() {
       </main>
       <footer>
         <span>
-          An independent PAP 0.3 experiment. The shops are fictional; nothing is
+          An independent PAP 1.0 experiment. The shops are fictional; nothing is
           charged or shipped.
         </span>
         <nav aria-label="Poppy Lab sites" className="lab-links">
@@ -131,7 +131,7 @@ export default function PlaygroundPage() {
             Source on GitHub <ArrowUpRight size={13} />
           </a>
           <a
-            href="https://personalagentprotocol.org/docs/0.3/spec"
+            href="https://personalagentprotocol.org/docs/1.0/spec"
             target="_blank"
             rel="noreferrer"
           >

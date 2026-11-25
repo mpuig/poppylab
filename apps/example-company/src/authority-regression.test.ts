@@ -38,8 +38,8 @@ const newStore = () => vault("juniper", emptyState);
 const origin = "http://juniper.localhost:4100",
   client = "http://localhost:3000/agent/client.json",
   redirect = "http://localhost:3000/api/account/callback";
-it.each([false, "1"])(
-  "requires Operations v2 before returning operations (%s)",
+it.each([false, "2"])(
+  "returns operations only to a request that declares Operations v3 (%s)",
   async (supported) => {
     const x = await setup(supported);
     try {
@@ -61,9 +61,8 @@ it.each([false, "1"])(
           error: "extension_required",
           extension: "operations",
         });
-        expect(r.headers["www-authenticate"]).toContain(
-          'extension="operations"',
-        );
+        // A JSON body only: it isn't a token error (§3.3).
+        expect(r.headers["www-authenticate"]).toBeUndefined();
       }
     } finally {
       await x.app.close();
@@ -78,10 +77,10 @@ it("keeps one account per Session, continues signed out after revocation, and ne
       (await x.call(alex, "GET", "/api/account/profile")).json().profile.name,
     ).not.toBe("Maya Sol");
     const maya = await x.sign("maya");
-    // Sign-in doesn't know Sessions (0.3 §5.4): no session_id or signed_in.
+    // Sign-in doesn't know Sessions (§5.4): no session_id or signed_in.
     expect(maya).not.toHaveProperty("session_id");
     expect(maya).not.toHaveProperty("signed_in");
-    // Reusing Alex's Session for Maya's token is refused.
+    // A second account in Alex's Session ends it (§5.4).
     const mixed = await x.call(
       maya.access_token,
       "GET",
@@ -91,7 +90,7 @@ it("keeps one account per Session, continues signed out after revocation, and ne
       x.sidFor(alex),
     );
     expect(mixed.statusCode).toBe(400);
-    expect(mixed.json()).toEqual({ error: "invalid_session" });
+    expect(mixed.json()).toEqual({ error: "session_ended" });
     expect(
       (await x.call(maya.access_token, "GET", "/api/account/profile")).json()
         .profile.name,
@@ -398,19 +397,16 @@ async function setup(
       ? {
           client_id: client,
           jwks_uri: "http://localhost:3000/agent/jwks.json",
-          extensions: supportsOperations
-            ? {
-                operations: {
-                  version:
-                    typeof supportsOperations === "string"
-                      ? supportsOperations
-                      : "2",
-                },
-              }
-            : {},
         }
       : { keys: [keys.publicKey] },
   );
+  // §3.4: extensions are declared per request, not in client metadata.
+  const extensions = {
+    "Poppy-Version": "1.0",
+    "Poppy-Extensions": supportsOperations
+      ? `"operations";v="${typeof supportsOperations === "string" ? supportsOperations : "3"}"`
+      : "",
+  };
   const app = juniperApp({
     fetchJson,
     store: newStore(),
@@ -510,9 +506,10 @@ async function setup(
       method,
       url,
       headers: {
+        ...extensions,
         ...(approval
           ? {
-              "Poppy-Approval": `operation_id="${approval.operation_id}", revision="${approval.revision}"`,
+              "Poppy-Approval": `operation_id="${approval.operation_id}", revision="${approval.revision}", approver="user"`,
             }
           : {}),
         "Poppy-Session": await signSessionHeader({
@@ -547,6 +544,7 @@ async function setup(
       fetch(address + "/api/account/checkout", {
         method: "POST",
         headers: {
+          ...extensions,
           "Poppy-Session": await signSessionHeader({
             key: sessionKey,
             clientId: client,
@@ -564,7 +562,7 @@ async function setup(
             "POST",
             signed.access_token,
           ),
-          "Poppy-Approval": `operation_id="${op.operation_id}", revision="${op.revision}"`,
+          "Poppy-Approval": `operation_id="${op.operation_id}", revision="${op.revision}", approver="user"`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({}),

@@ -1,10 +1,10 @@
 /**
- * Lantern's Company Agent (PAP 0.3 §8): deterministic, with no model. The
+ * Lantern's Company Agent (PAP 1.0 §8): deterministic, with no model. The
  * Personal Agent sends a structured request in `data.request`; Lantern
  * answers with data and a short fixed sentence. Anything else gets the list
  * of requests it handles. Account requests answer with an `authorization`
  * event until the token has the scopes (§8.11). A refund for a missing item
- * is an Operations v2 operation in the reply, performed only when a later
+ * is an Operations v3 operation in the reply, performed only when a later
  * message carries the User's approval.
  */
 import type {
@@ -128,7 +128,7 @@ export function lanternAgent(deps: Deps): ConversationHandler {
     ],
   });
 
-  /** A refund for missing dishes, as an Operations v2 action. */
+  /** A refund for missing dishes, as an Operations v3 action. */
   function refund(
     turn: ConversationTurn,
     want: { order_id: string; dish_id: string; quantity?: number },
@@ -179,7 +179,7 @@ export function lanternAgent(deps: Deps): ConversationHandler {
         ],
       };
     if (!turn.operations)
-      // Operations v2 §2: no operations for an agent without the extension.
+      // Operations v3 §2: no operations for an agent without the extension.
       return {
         replies: [
           {
@@ -241,7 +241,7 @@ export function lanternAgent(deps: Deps): ConversationHandler {
       operation_id?: string;
       error?: string;
     };
-    // A repeated approval of a performed refund adds nothing (Operations v2 §7).
+    // A repeated approval of a performed refund adds nothing (Operations v3 §7).
     if (outcome.replayed) return {};
     if (outcome.status === 403 && body.operation)
       return {
@@ -279,7 +279,7 @@ export function lanternAgent(deps: Deps): ConversationHandler {
 
   return (turn) => {
     const data = turn.message.data ?? {};
-    // The User's approval of the pending refund (Operations v2 §6).
+    // The User's approval of the pending refund (Operations v3 §6).
     if (turn.approval) {
       const pending = turn.memory.pending;
       const missing = needs(turn, ["orders:read", "orders:write"]);

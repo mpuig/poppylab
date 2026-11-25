@@ -11,7 +11,6 @@ import { lantern } from "./lantern.ts";
 type Env = {
   LANTERN: DurableObjectNamespace<LanternCompany>;
   PUBLIC_ORIGIN: string;
-  PUBLIC_DOMAIN: string;
   LANTERN_PASSWORD_HASH?: string;
   /** `wrangler dev` only: accept the local Poppy over plain HTTP. */
   DEV_HTTP_CLIENT?: string;
@@ -62,7 +61,6 @@ export class LanternCompany extends DurableObject<Env> {
         : undefined;
     this.app = createCompany(lantern, {
       origin: this.env.PUBLIC_ORIGIN,
-      domain: this.env.PUBLIC_DOMAIN,
       store,
       // Public: every agent user gets a fresh copy of the fictional customers.
       isolation: "visitor",

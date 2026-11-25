@@ -1,5 +1,5 @@
 /**
- * The PAP 0.3 section each inspector step meets, so a trace reads against
+ * The PAP 1.0 section each inspector step meets, so a trace reads against
  * the spec. Labels, never claims of conformance.
  */
 const discovery: Record<string, string> = {
@@ -20,7 +20,7 @@ const api: Array<[RegExp, string]> = [
   [/Conversation state/i, "§8.7"],
   [/Company Agent conversations/i, "§8.1"],
   [/Conversation (started|message)/i, "§8.3"],
-  [/excluded tasks/i, "§9.1"],
+  [/tasks for this Session|Tasks unavailable|excluded tasks/i, "§9"],
   [/^(GET|POST|PUT|PATCH|DELETE) |API tools|OpenAPI/i, "§7"],
   [/MCP/, "§7"],
   [/Session header|Poppy Session|Session (signed|started)/i, "§5.2"],
@@ -44,7 +44,7 @@ export function traceReport(input: {
   at?: Date;
 }) {
   const lines = [
-    `Poppy Lab trace · PAP draft 0.3 · ${input.company}`,
+    `Poppy Lab trace · PAP 1.0 · ${input.company}`,
     `Recorded ${(input.at ?? new Date()).toISOString()}`,
     "",
     "Discovery",

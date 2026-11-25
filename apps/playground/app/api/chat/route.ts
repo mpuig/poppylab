@@ -307,7 +307,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            "The Company refused this signed-out PAP 0.3 Session. It may implement a different draft of the protocol; check its discovery in the Inspector.",
+            "The Company refused this signed-out PAP 1.0 Session. It may implement another version of the protocol; check its discovery in the Inspector.",
           code: "session_refused",
           stage,
         },

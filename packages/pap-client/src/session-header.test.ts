@@ -211,17 +211,12 @@ describe("Poppy-Session header", () => {
   });
 });
 
-describe("earlier 0.3 delegation form", () => {
-  it("signs and verifies pap_dlg with pap-delegation+jwt, and rejects mixed forms", async () => {
+describe("delegation algorithms (§5.2)", () => {
+  it("refuses the earlier pap_dlg form", async () => {
     const { root, verify } = await setup();
-    const earlier = await createSessionKey(
-      root.privateKey,
-      client,
-      3600,
-      "earlier",
-    );
+    const key = await createSessionKey(root.privateKey, client);
     const jwt = await signSessionHeader({
-      key: earlier,
+      key,
       clientId: client,
       audience,
       sessionId: newSessionId(),
@@ -229,24 +224,65 @@ describe("earlier 0.3 delegation form", () => {
       method: "GET",
       url,
     });
-    const header = decodeProtectedHeader(jwt);
-    expect(header).toHaveProperty("pap_dlg");
-    expect(header).not.toHaveProperty("poppy_dlg");
-    expect(decodeProtectedHeader(String(header.pap_dlg)).typ).toBe(
-      "pap-delegation+jwt",
-    );
-    expect((await verify(jwt)).userId).toBe("usr_test");
-    // A current delegation under the earlier field name is refused.
-    const current = await createSessionKey(root.privateKey, client);
-    const mixed = await signSessionHeader({
-      key: { ...current, dialect: "earlier" },
-      clientId: client,
-      audience,
-      sessionId: newSessionId(),
-      userId: "usr_test",
-      method: "GET",
-      url,
-    });
-    await expect(verify(mixed)).rejects.toThrow("invalid_session");
+    const [h, p, sig] = jwt.split(".");
+    const header = JSON.parse(Buffer.from(h!, "base64url").toString());
+    header.pap_dlg = header.poppy_dlg;
+    delete header.poppy_dlg;
+    const renamed = [
+      Buffer.from(JSON.stringify(header)).toString("base64url"),
+      p,
+      sig,
+    ].join(".");
+    await expect(verify(renamed)).rejects.toThrow("invalid_session");
+  });
+  it("accepts PS384 delegations from an RSA key of 2048 to 4096 bits", async () => {
+    const { generateKeyPair, exportJWK, calculateJwkThumbprint } =
+      await import("jose");
+    const { generateKeyPairSync } = await import("node:crypto");
+    const rsa = async (modulusLength: number) => {
+      // jose refuses to generate short keys; node:crypto makes the bad one.
+      const pair =
+        modulusLength >= 2048
+          ? await generateKeyPair("PS384", { modulusLength, extractable: true })
+          : generateKeyPairSync("rsa", { modulusLength });
+      const publicKey = await exportJWK(pair.publicKey);
+      const kid = await calculateJwkThumbprint(publicKey);
+      return {
+        publicKey: { ...publicKey, kid },
+        privateKey: { ...(await exportJWK(pair.privateKey)), kid },
+      };
+    };
+    for (const [bits, ok] of [
+      [3072, true],
+      [1024, false],
+    ] as const) {
+      const root = await rsa(bits);
+      const sign = async () =>
+        signSessionHeader({
+          key: await createSessionKey(root.privateKey, client),
+          clientId: client,
+          audience,
+          sessionId: newSessionId(),
+          userId: "usr_rsa",
+          method: "GET",
+          url,
+        });
+      if (!ok) {
+        await expect(sign()).rejects.toThrow("Unsupported root key");
+        continue;
+      }
+      const jwt = await sign();
+      const delegation = decodeProtectedHeader(
+        String(decodeProtectedHeader(jwt).poppy_dlg),
+      );
+      expect(delegation.alg).toBe("PS384");
+      const verified = await verifySessionHeader(jwt, {
+        audience,
+        method: "GET",
+        url,
+        keysFor: async () => [root.publicKey],
+      });
+      expect(verified.userId).toBe("usr_rsa");
+    }
   });
 });

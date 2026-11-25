@@ -16,7 +16,7 @@ export function accountRecovery(error: unknown) {
       error:
         "This access does not include the required permission. Choose Request change permission and review the new Company consent. Each change still needs separate approval.",
     };
-  // 0.3 §7: a 401 challenge without an error code asks for sign-in.
+  // §7: a 401 challenge without an error code asks for sign-in.
   if (
     ["invalid_grant", "sign_in_required", "invalid_token"].includes(
       error.code ?? "",

@@ -94,7 +94,7 @@ function nodeBackend() {
   const backend = memoryBackend(persist);
   // Runs from 0.2 used Session Tokens: never restore them.
   for (const [visitor, key, run] of storage.value)
-    if (run.expires > Date.now() && run.protocol === "0.3") {
+    if (run.expires > Date.now() && run.protocol === "1.0") {
       if (!backend.data.has(visitor)) backend.data.set(visitor, new Map());
       backend.data
         .get(visitor)!
@@ -215,7 +215,7 @@ export async function loadRun(visitor: string, id: string | undefined) {
   if (!id || !/^[A-Za-z0-9_-]{16,64}$/.test(id)) return undefined;
   const entry = await backend().get(visitor, `run:${id}`);
   const run = entry?.value as Run | undefined;
-  return run && run.expires > Date.now() && run.protocol === "0.3"
+  return run && run.expires > Date.now() && run.protocol === "1.0"
     ? { id, run, version: entry!.version }
     : undefined;
 }
@@ -280,7 +280,7 @@ export async function createRun(visitor: string, url: string): Promise<Held> {
   }
   const id = randomId();
   const run: Run = {
-    protocol: "0.3",
+    protocol: "1.0",
     url,
     user: "",
     expires: Date.now() + RUN_MS,

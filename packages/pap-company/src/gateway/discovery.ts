@@ -1,22 +1,36 @@
-/** Discovery documents (§3, RFC 8414, RFC 9728), the OpenAPI contract and health. */
+/**
+ * Discovery documents (§3, RFC 8414, RFC 9728), the tasks response (§9),
+ * the OpenAPI contract and health.
+ */
 import type { Hono } from "hono";
 import type { Ctx } from "./context.ts";
 
 export function mountDiscovery(app: Hono, ctx: Ctx) {
-  const { def, deploy, origin, both } = ctx;
+  const { def, origin, both } = ctx;
   // Metadata is public and changes only with a deployment.
   const cached = { "Cache-Control": "public, max-age=300" };
   app.get("/.well-known/poppy.json", (c) =>
-    c.json(def.discovery(origin, deploy.domain), 200, cached),
+    c.json(def.discovery(origin, new URL(origin).host), 200, cached),
   );
   app.get("/.well-known/oauth-protected-resource", (c) =>
-    c.json({ resource: origin, authorization_servers: [origin] }, 200, cached),
+    c.json(
+      {
+        resource: origin,
+        authorization_servers: [origin],
+        scopes_supported: both,
+      },
+      200,
+      cached,
+    ),
   );
   app.get("/.well-known/oauth-authorization-server", (c) =>
     c.json(
       {
         issuer: origin,
         authorization_endpoint: `${origin}/oauth/authorize`,
+        // RFC 9126: offered, not required (§4.2).
+        pushed_authorization_request_endpoint: `${origin}/oauth/par`,
+        require_pushed_authorization_requests: false,
         token_endpoint: `${origin}/oauth/token`,
         revocation_endpoint: `${origin}/oauth/revoke`,
         protected_resources: [origin],
@@ -24,7 +38,7 @@ export function mountDiscovery(app: Hono, ctx: Ctx) {
         response_types_supported: ["code"],
         code_challenge_methods_supported: ["S256"],
         token_endpoint_auth_methods_supported: ["private_key_jwt"],
-        token_endpoint_auth_signing_alg_values_supported: ["ES256"],
+        token_endpoint_auth_signing_alg_values_supported: ["ES256", "PS384"],
         revocation_endpoint_auth_methods_supported: ["private_key_jwt"],
         authorization_response_iss_parameter_supported: true,
         client_id_metadata_document_supported: true,
@@ -47,14 +61,15 @@ export function mountDiscovery(app: Hono, ctx: Ctx) {
       paths: def.paths,
     }),
   );
-  if (def.excludedTasks)
-    app.get("/poppy/excluded-tasks.json", (c) =>
-      c.json(def.excludedTasks!(origin), 200, cached),
-    );
+  // §9: the same for every Session, so it's served without verifying the
+  // Session header and may be cached; this lab takes no feedback.
+  app.get("/poppy/tasks", (c) =>
+    c.json({ excluded_tasks: def.excludedTasks?.(origin) ?? [] }, 200, cached),
+  );
   const pageHeaders = def.pageHeaders ?? {};
   if (def.landing)
     app.get("/", (c) => c.html(def.landing!(origin), 200, pageHeaders));
   for (const [path, page] of Object.entries(def.pages ?? {}))
     app.get(path, (c) => c.html(page(origin), 200, pageHeaders));
-  app.get("/health", (c) => c.json({ status: "ok", protocol: "0.3" }));
+  app.get("/health", (c) => c.json({ status: "ok", protocol: "1.0" }));
 }

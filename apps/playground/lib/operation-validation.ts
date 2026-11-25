@@ -13,9 +13,10 @@ export type RemoteOperation = Pick<
   "operation_id" | "revision" | "summary" | "terms" | "expires_at"
 >;
 /**
- * Operations v2 §3. Validates an untrusted operation from approval_required
- * and returns only its defined fields. A revision's terms never change: the
- * same revision with other content is refused (§3 "New terms").
+ * Operations v3 §3. Validates an untrusted operation from approval_required
+ * and returns only its defined fields: `terms` is required, `summary`
+ * optional. A revision's terms never change: the same revision with other
+ * terms or expiry is refused (§3 "New terms"); a reworded summary may keep it.
  */
 export function validateOperation(
   value: unknown,
@@ -29,11 +30,12 @@ export function validateOperation(
     !ID.test(op.operation_id) ||
     typeof op.revision !== "string" ||
     !ID.test(op.revision) ||
-    typeof op.summary !== "string" ||
-    !op.summary.trim() ||
-    op.summary.length > 10000 ||
-    (op.terms !== undefined &&
-      (!op.terms || typeof op.terms !== "object" || Array.isArray(op.terms))) ||
+    (op.summary !== undefined &&
+      (typeof op.summary !== "string" || op.summary.length > 10000)) ||
+    !op.terms ||
+    typeof op.terms !== "object" ||
+    Array.isArray(op.terms) ||
+    JSON.stringify(op.terms).length > 20000 ||
     typeof op.expires_at !== "string" ||
     !Number.isFinite(Date.parse(op.expires_at))
   )
@@ -41,15 +43,16 @@ export function validateOperation(
   const clean: RemoteOperation = {
     operation_id: op.operation_id,
     revision: op.revision,
-    summary: op.summary,
-    ...(op.terms ? { terms: op.terms as Record<string, unknown> } : {}),
+    ...(typeof op.summary === "string" && op.summary.trim()
+      ? { summary: op.summary }
+      : {}),
+    terms: op.terms as Record<string, unknown>,
     expires_at: op.expires_at,
   };
   if (!previous) return clean;
   if (clean.operation_id !== previous.operation_id)
     throw Error("Operation identity mismatch");
   const fixed = (o: RemoteOperation) => ({
-    summary: o.summary,
     terms: o.terms,
     expires_at: o.expires_at,
   });

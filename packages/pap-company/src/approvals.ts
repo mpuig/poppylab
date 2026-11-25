@@ -1,12 +1,19 @@
 /**
- * Operations extension version 2 (PAP 0.3), runtime-portable. A request that
- * needs approval is refused with the operation (§4). The same request with
- * `Poppy-Approval` naming a returned, unexpired revision whose terms equal
- * what the request asks now is performed once (§6–7); retries get the first
- * response.
+ * Operations extension version 3 (PAP 1.0), runtime-portable. A request that
+ * needs approval is refused with the operation and its terms (§3–4). The
+ * same request with an approval (`Poppy-Approval`, or a conversation
+ * message) naming a returned, unexpired revision whose terms equal what the
+ * request asks now is performed once (§6–7); retries get the first response.
+ * Both user and agent approvals are accepted, and recorded with their
+ * `approver` and `reference` (§6, §8.1).
  */
 import { createHash } from "node:crypto";
-import { parseApprovalHeader, randomId } from "@poppy-lab/pap-client/core";
+import {
+  parseApprovalHeader,
+  randomId,
+  type Approval,
+} from "@poppy-lab/pap-client/core";
+export type { Approval } from "@poppy-lab/pap-client/core";
 
 export type Revision = {
   revision: string;
@@ -25,6 +32,9 @@ export type OperationRecord = {
     at: string;
     until: number;
     body: { operation_id: string; summary: string; data?: unknown };
+    /** Who approved it, as the Personal Agent stated (§6, §8.1). */
+    approver: "user" | "agent";
+    reference?: string;
   };
 };
 export type Owner = { client: string; user: string; account: string };
@@ -49,8 +59,6 @@ export type Outcome = {
   /** The operation was performed before: this is its first response (§7). */
   replayed?: boolean;
 };
-/** An approval from `Poppy-Approval` or from a conversation message. */
-export type Approval = { operation_id: string; revision: string };
 
 const same = (a: Owner, r: OperationRecord) =>
   r.client === a.client && r.user === a.user && r.account === a.account;
@@ -121,6 +129,8 @@ export function approvals(
             at: new Date(at).toISOString(),
             until: Date.parse(approved.expires_at),
             body: { operation_id: id, ...result },
+            approver: approval.approver,
+            ...(approval.reference ? { reference: approval.reference } : {}),
           };
           return { status: 200, body: r.performed.body };
         }

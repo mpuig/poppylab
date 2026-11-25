@@ -1,5 +1,5 @@
 /**
- * Juniper Market: the first fictional PAP 0.3 example Company — a grocery
+ * Juniper Market: the first fictional PAP 1.0 example Company — a grocery
  * with a basket, recurring delivery, orders, simulated invoices, support
  * cases, a profile and a customer website. Runs on the portable gateway
  * (`@poppy-lab/pap-company`) in Node and in Cloudflare Workers.
@@ -133,11 +133,11 @@ export function juniperCompany(options: {
     },
     discovery: (publicOrigin, publicDomain) => {
       return {
-        protocol_version: "0.3",
+        protocol_version: "1.0",
         organization: { name: "Juniper Market", domain: publicDomain },
         auth: {
           issuer: publicOrigin,
-          // Juniper's own scope names; PAP 0.3 defines none.
+          // Juniper's own scope names; PAP 1.0 defines only poppy:browser-sign-in.
           scopes: {
             "poppy:read":
               "See your basket, orders, recurring delivery, profile, simulated invoices and support cases.",
@@ -150,12 +150,15 @@ export function juniperCompany(options: {
             "poppy:write": { changes: "irreversible", personal_data: true },
           },
         },
-        extensions: {
-          operations: { version: "2" },
-        },
+        extensions: { operations: [{ version: "3" }] },
         agent: {
           protocols: [
-            { type: "poppy", endpoint: `${publicOrigin}/poppy/conversations` },
+            {
+              type: "poppy",
+              endpoint: `${publicOrigin}/poppy/conversations`,
+              description:
+                'Juniper\'s automated agent: store hours and policies, the status of your deliveries, and reporting a problem with an order, which opens a support case. It answers structured requests; send {"request":"help"} for the list.',
+            },
           ],
         },
         apis: [
@@ -167,30 +170,28 @@ export function juniperCompany(options: {
           },
         ],
         web: {},
-        excluded_tasks: { url: `${publicOrigin}/poppy/excluded-tasks.json` },
+        tasks: { endpoint: `${publicOrigin}/poppy/tasks` },
       };
     },
     excludedTasks: (publicOrigin) => {
-      return {
-        tasks: [
-          {
-            task: "Get a refund",
-            alternative: {
-              instructions:
-                "Refunds are reviewed by a person. Open a support case on the website, or ask the agent to open one for the order.",
-              references: [{ type: "web", url: `${publicOrigin}/help` }],
-            },
+      return [
+        {
+          task: "Get a refund",
+          alternative: {
+            instructions:
+              "Refunds are reviewed by a person. Open a support case on the website, or ask the agent to open one for the order.",
+            references: [{ type: "web", url: `${publicOrigin}/help` }],
           },
-          {
-            task: "Cancel a placed order",
-            alternative: {
-              instructions:
-                "Placed orders can't be cancelled. The recurring delivery can be moved or changed instead.",
-            },
+        },
+        {
+          task: "Cancel a placed order",
+          alternative: {
+            instructions:
+              "Placed orders can't be cancelled. The recurring delivery can be moved or changed instead.",
           },
-          { task: "Delete my account" },
-        ],
-      };
+        },
+        { task: "Delete my account" },
+      ];
     },
     landing: (publicOrigin) => {
       return `<!doctype html>

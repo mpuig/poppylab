@@ -14,7 +14,7 @@ function setup() {
     perform: () => ({ summary: `done ${++performed}` }),
   });
   const header = (op: { operation_id: string; revision: string }) =>
-    `operation_id="${op.operation_id}", revision="${op.revision}"`;
+    `operation_id="${op.operation_id}", revision="${op.revision}", approver="user", reference="apr_test"`;
   return {
     records,
     ops,
@@ -43,6 +43,23 @@ it("refuses with a stable operation, performs an approved revision once, then re
     summary: "done 1",
   });
   expect(x.performed()).toBe(1);
+  // Operations v3 §8.1: who approved it, as the Personal Agent stated.
+  expect(Object.values(x.records)[0]!.performed).toMatchObject({
+    approver: "user",
+    reference: "apr_test",
+  });
+});
+
+it("doesn't take an approval without approver (Operations v3 §6)", () => {
+  const x = setup();
+  const op = (
+    x.ops.gate(owner, undefined, x.action({ a: 1 })).body as {
+      operation: { operation_id: string; revision: string };
+    }
+  ).operation;
+  const bare = `operation_id="${op.operation_id}", revision="${op.revision}"`;
+  expect(x.ops.gate(owner, bare, x.action({ a: 1 })).status).toBe(403);
+  expect(x.performed()).toBe(0);
 });
 
 it("ignores approvals from another owner and never repeats the refused revision", () => {

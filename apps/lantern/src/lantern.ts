@@ -1,9 +1,9 @@
 /**
- * Lantern Noodle Bar: a second, fictional PAP 0.3 example Company for local
+ * Lantern Noodle Bar: a second, fictional PAP 1.0 example Company for local
  * testing. It speaks the same protocol as Juniper through the shared gateway
  * but has its own issuer, scopes, contract and business: scheduled delivery
  * orders that can be moved or changed, each change approved through
- * Operations v2. Independent experiment, not affiliated with the authors of
+ * Operations v3. Independent experiment, not affiliated with the authors of
  * the Personal Agent Protocol or with any sandbox.
  */
 import type { Hono } from "hono";
@@ -370,7 +370,7 @@ export const lantern: CompanyDefinition = {
     },
   },
   discovery: (origin, domain) => ({
-    protocol_version: "0.3",
+    protocol_version: "1.0",
     organization: { name: "Lantern Noodle Bar", domain },
     auth: {
       issuer: origin,
@@ -394,31 +394,36 @@ export const lantern: CompanyDefinition = {
       },
     ],
     agent: {
-      protocols: [{ type: "poppy", endpoint: `${origin}/poppy/conversations` }],
+      protocols: [
+        {
+          type: "poppy",
+          endpoint: `${origin}/poppy/conversations`,
+          description:
+            'Lantern\'s automated agent: opening hours, delivery, the status of your orders, and a refund for a dish missing from a delivery. It answers structured requests; send {"request":"help"} for the list.',
+        },
+      ],
     },
     web: {},
-    excluded_tasks: { url: `${origin}/poppy/excluded-tasks.json` },
-    extensions: { operations: { version: "2" } },
+    tasks: { endpoint: `${origin}/poppy/tasks` },
+    extensions: { operations: [{ version: "3" }] },
   }),
-  excludedTasks: (origin) => ({
-    tasks: [
-      {
-        task: "Cancel an order",
-        alternative: {
-          instructions:
-            "Scheduled orders can't be cancelled through the protocol. They can be moved to another slot instead.",
-          references: [
-            {
-              type: "openapi",
-              url: `${origin}/openapi.json`,
-              operation_id: "change_order",
-            },
-          ],
-        },
+  excludedTasks: (origin) => [
+    {
+      task: "Cancel an order",
+      alternative: {
+        instructions:
+          "Scheduled orders can't be cancelled through the protocol. They can be moved to another slot instead.",
+        references: [
+          {
+            type: "openapi",
+            url: `${origin}/openapi.json`,
+            operation_id: "change_order",
+          },
+        ],
       },
-      { task: "Change the delivery address of an order" },
-    ],
-  }),
+    },
+    { task: "Change the delivery address of an order" },
+  ],
   landing: homePage,
   pages: { "/for-agents": forAgentsPage },
   pageHeaders,

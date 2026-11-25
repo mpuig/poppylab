@@ -31,15 +31,18 @@ export async function assertion(
   subject: string,
   audience: string,
 ) {
+  const alg = signingAlgorithm(key);
+  if (!alg) throw new Error("Unsupported signing key");
+  // §4.1: exp at most 5 minutes after iat; one minute here.
   return new SignJWT({})
-    .setProtectedHeader({ alg: "ES256", ...(key.kid ? { kid: key.kid } : {}) })
+    .setProtectedHeader({ alg, ...(key.kid ? { kid: key.kid } : {}) })
     .setIssuer(issuer)
     .setSubject(subject)
     .setAudience(audience)
     .setIssuedAt()
     .setExpirationTime("60s")
     .setJti(randomId())
-    .sign(await importJWK(key, "ES256"));
+    .sign(await importJWK(key, alg));
 }
 
 export async function proof(
@@ -81,6 +84,20 @@ export class ReplayCache {
   }
 }
 
+/**
+ * §4.1 and §5.2: Companies accept `ES256` and `PS384` (RSA keys of 2048 to
+ * 4096 bits), so a Personal Agent can have its keys sign blindly. The key's
+ * type chooses the algorithm; nothing in the JWT can choose another.
+ */
+export function signingAlgorithm(jwk: JWK) {
+  if (jwk.kty === "EC" && jwk.crv === "P-256") return "ES256";
+  if (jwk.kty === "RSA" && typeof jwk.n === "string") {
+    const bits = Buffer.from(jwk.n, "base64url").length * 8;
+    if (bits >= 2048 && bits <= 4096) return "PS384";
+  }
+  return undefined;
+}
+
 export async function verifyAssertion(
   jwt: string,
   jwk: JWK,
@@ -89,11 +106,15 @@ export async function verifyAssertion(
   audience: string,
   replay: ReplayCache,
 ) {
-  const { payload } = await jwtVerify(jwt, await importJWK(jwk, "ES256"), {
-    algorithms: ["ES256"],
+  const alg = signingAlgorithm(jwk);
+  if (!alg || (jwk.alg && jwk.alg !== alg))
+    throw new Error("Invalid assertion");
+  // §4.1: at most 5 minutes from iat to exp; the lifetime decides, so an
+  // assertion within it is never refused for its age.
+  const { payload } = await jwtVerify(jwt, await importJWK(jwk, alg), {
+    algorithms: [alg],
     issuer,
     audience,
-    maxTokenAge: "65s",
     clockTolerance: 5,
   });
   if (
@@ -103,7 +124,8 @@ export async function verifyAssertion(
     !payload.jti ||
     !payload.exp ||
     !payload.iat ||
-    payload.exp - payload.iat > 300
+    payload.exp - payload.iat > 300 ||
+    payload.iat > Date.now() / 1000 + 5
   )
     throw new Error("Invalid assertion");
   replay.accept(`${issuer}:${payload.jti}`, payload.exp);

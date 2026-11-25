@@ -1,7 +1,7 @@
 /**
- * Juniper's Company Agent (PAP 0.3 §8): structured requests, sign-in by
+ * Juniper's Company Agent (PAP 1.0 §8): structured requests, sign-in by
  * authorization event, and a support case proposed in a message and opened
- * only with the User's approval, then visible on the website.
+ * only with the User's approval (Operations v3), then visible on the website.
  */
 import { expect, it } from "vitest";
 import { visitors, webLogin } from "./test-visitors.js";
@@ -26,15 +26,17 @@ const company = (r: Read) =>
   r.events.filter((e) => e.message?.role === "company").map((e) => e.message!);
 let n = 0;
 const msg = (body: Record<string, unknown>) => ({
-  message: { id: `msg_j${++n}`, author: { type: "agent" }, ...body },
+  id: `req_j${++n}`,
+  message: { author: { type: "agent" }, ...body },
 });
 
 it("answers store questions signed out and asks for sign-in for the account", async () => {
   const { app, anonymous } = await visitors();
   const doc = (await app.inject({ url: "/.well-known/poppy.json" })).json();
-  expect(doc.agent.protocols[0]).toEqual({
+  expect(doc.agent.protocols[0]).toMatchObject({
     type: "poppy",
     endpoint: "https://juniper.example/poppy/conversations",
+    description: expect.stringContaining("support case"),
   });
   const ana = anonymous("usr_ana");
   const info = (
@@ -88,7 +90,16 @@ it("opens a support case only with the approval, and the website shows it", asyn
       `${BASE}/${id}/messages?wait=0&cursor=${report.cursor}`,
       msg({
         text: "The user approved.",
-        extensions: { operations: { approval: op } },
+        extensions: {
+          operations: {
+            approval: {
+              operation_id: op.operation_id,
+              revision: op.revision,
+              approver: "user",
+              input_type: "tap",
+            },
+          },
+        },
       }),
     )
   ).json() as Read;
@@ -107,9 +118,11 @@ it("opens a support case only with the approval, and the website shows it", asyn
   expect(state.activity[0]).toMatchObject({ state: "succeeded" });
   // Handoff: nobody is available; the reply says how to call.
   const handoff = (
-    await ana("POST", `${BASE}/${id}/handoff?wait=0&cursor=${done.cursor}`, {})
-  ).json() as Read & { status: string };
-  expect(handoff.status).toBe("idle");
+    await ana("POST", `${BASE}/${id}/handoff?wait=0&cursor=${done.cursor}`, {
+      id: "req_j_handoff",
+    })
+  ).json() as Read & { handoff: string; responder: string };
+  expect(handoff).toMatchObject({ handoff: "none", responder: "agent" });
   expect(company(handoff)[0]!.data).toMatchObject({
     handoff: "unavailable",
     phone: "+1 555-0117",

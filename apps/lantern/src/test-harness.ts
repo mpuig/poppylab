@@ -2,6 +2,7 @@
 import { createHash } from "node:crypto";
 import { expect } from "vitest";
 import {
+  approvalHeader,
   assertion,
   createIdentity,
   createSessionKey,
@@ -66,7 +67,6 @@ export async function setup(deploy: Partial<Deployment> = {}) {
     dpop = await createIdentity();
   lab.app = createCompany(lantern, {
     origin,
-    domain: "noodles.localhost",
     store: memoryStore(),
     httpClients: [client],
     fetchJson: async (url) =>
@@ -144,16 +144,24 @@ export async function setup(deploy: Partial<Deployment> = {}) {
     payload?: Record<string, unknown>,
     approval?: { operation_id: string; revision: string },
     user = "usr_noodles",
+    /** Override or drop (empty string) the 1.0 version headers. */
+    extra: Record<string, string> = {},
+    /** A Session ID to use instead of the one kept for this token or user. */
+    sid?: string,
   ) =>
     inject({
       method,
       url,
       headers: {
+        "Poppy-Version": "1.0",
+        "Poppy-Extensions": '"operations";v="3"',
+        ...extra,
         "Poppy-Session": await signSessionHeader({
           key: sessionKey,
           clientId: client,
           audience: origin,
           sessionId:
+            sid ??
             (user === "usr_noodles" ? sids.get(access) : undefined) ??
             sids.get(user) ??
             (sids.set(user, newSessionId()), sids.get(user))!,
@@ -170,11 +178,16 @@ export async function setup(deploy: Partial<Deployment> = {}) {
           : {}),
         ...(approval
           ? {
-              "Poppy-Approval": `operation_id="${approval.operation_id}", revision="${approval.revision}"`,
+              "Poppy-Approval": approvalHeader({
+                ...approval,
+                approver: "user",
+                approved_at: Math.floor(Date.now() / 1000),
+                input_type: "tap",
+              }),
             }
           : {}),
       },
       ...(payload ? { payload } : {}),
     });
-  return { sign, call, token };
+  return { sign, call, token, keys, dpop, sessionKey };
 }

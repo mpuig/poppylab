@@ -1,12 +1,18 @@
 /**
- * The Session header and access tokens at the APIs (§5.3, §7): verifies
- * `Poppy-Session`, binds one account per Session, enforces scopes and
- * Operations v2 on account routes, and replays performed operations (§7).
+ * The Session header and access tokens at the APIs and conversations (§3.4,
+ * §5.3, §7): checks `Poppy-Version`, reads `Poppy-Extensions`, verifies
+ * `Poppy-Session`, finds the Session by client, `sid` and User ID, keeps one
+ * account per Session, enforces scopes and Operations v3 on account routes,
+ * and replays performed operations (Operations §7).
  */
 import type { Hono } from "hono";
-import { tokenHash, verifySessionHeader } from "@poppy-lab/pap-client/core";
+import {
+  parseExtensionsHeader,
+  tokenHash,
+  verifySessionHeader,
+} from "@poppy-lab/pap-client/core";
 import type { Ctx } from "./context.ts";
-import { isChallenge, SESSION_MS, type Token } from "./types.ts";
+import { hash, isChallenge, SESSION_MS, type Token } from "./types.ts";
 import type { Tenancy } from "./tenancy.ts";
 
 /** Session destinations (§5.2): the APIs and the conversation routes (§8.2). */
@@ -19,6 +25,13 @@ export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
   const { def, origin, state, replay, isolated } = ctx;
   app.use("*", async (c, next) => {
     if (!guarded(new URL(c.req.url).pathname)) return next();
+    // Without a Session header, nothing else can be checked (§5.3).
+    if (!c.req.header("poppy-session"))
+      return c.json({ error: "invalid_session" }, 400);
+    // §3.4: this Company serves 1.0; any 1.x Personal Agent is compatible.
+    if (!/^1\.\d{1,3}$/.test(c.req.header("poppy-version") ?? ""))
+      return c.json({ error: "version_unsupported" }, 400);
+    const declared = parseExtensionsHeader(c.req.header("poppy-extensions"));
     const authorization = c.req.header("authorization") ?? "";
     const token = authorization.startsWith("DPoP ")
       ? authorization.slice(5)
@@ -44,14 +57,17 @@ export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
       return c.json({ error: "invalid_session" }, 400);
     }
     const now = Date.now();
-    const sid = `${verified.clientId} ${verified.sessionId}`;
+    // §5.3: a Session is named by client_id, sid and User ID; another User
+    // ID with a known sid is another Session.
+    const sid = hash(
+      `${verified.clientId}\n${verified.sessionId}\n${verified.userId}`,
+    );
     let session = state.sessions[sid];
-    if (
-      session &&
-      (session.expires < now ||
-        session.user !== verified.userId ||
-        (session.agent ?? null) !== (verified.agentId ?? null))
-    )
+    // §5.5: an ended Session gets session_ended; the agent starts a new one.
+    if (session && session.expires < now)
+      return c.json({ error: "session_ended" }, 400);
+    // Its Agent ID is fixed when it starts (guides: Sessions).
+    if (session && (session.agent ?? null) !== (verified.agentId ?? null))
       return c.json({ error: "invalid_session" }, 400);
     let record: Token | undefined;
     if (token) {
@@ -87,9 +103,9 @@ export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
           "WWW-Authenticate": 'DPoP error="invalid_dpop_proof"',
         });
       }
-      // One account per Session (§5.4).
+      // One account per Session: a second one ends it (§5.4).
       if (session?.account && session.account !== record.accountId)
-        return c.json({ error: "invalid_session" }, 400);
+        return c.json({ error: "session_ended" }, 400);
       // A grant serves only the agent user that first used it.
       const holder = ctx.holderOf(verified.clientId, verified.userId);
       if (grant.holder && grant.holder !== holder)
@@ -113,6 +129,8 @@ export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
         expires: now + SESSION_MS,
       };
     }
+    // An idle timeout: each request keeps the Session going (§5.5).
+    session.expires = now + SESSION_MS;
     if (record) session.account ??= record.accountId;
     if (isolated)
       ctx.tenantKeys.set(
@@ -121,7 +139,8 @@ export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
       );
     ctx.sessions.set(c.req.raw, {
       ...session,
-      operations: (await ctx.client(verified.clientId)).operations,
+      // Operations v3 §2: used only when this request declares version 3.
+      operations: declared.operations === "3",
       ...(record
         ? {
             account: record.accountId,
@@ -140,15 +159,12 @@ export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
         return c.json({ error: "insufficient_scope" }, 403, {
           "WWW-Authenticate": `DPoP error="insufficient_scope", scope="${needed}"`,
         });
-      // Operations v2 §2: never return operations to an agent without v2.
-      if (c.req.method === "POST" && !record.operations)
+      // Operations v3 §2: never return operations to a request that doesn't
+      // declare version 3. A JSON body, not a token error (§3.3).
+      if (c.req.method === "POST" && declared.operations !== "3")
         return c.json(
           { error: "extension_required", extension: "operations" },
           403,
-          {
-            "WWW-Authenticate":
-              'DPoP error="extension_required", extension="operations"',
-          },
         );
       // §7: a retry of a performed operation gets its first response.
       if (c.req.method === "POST") {

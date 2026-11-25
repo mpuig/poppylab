@@ -13,7 +13,6 @@ export function GET(request: Request) {
       client_name: "Iris",
       jwks_uri: `${origin}/agent/jwks.json`,
       redirect_uris: [`${origin}/api/account/callback`],
-      extensions: { operations: { version: "2" } },
       token_endpoint_auth_method: "private_key_jwt",
     },
     { headers: { "Cache-Control": "public, max-age=300" } },

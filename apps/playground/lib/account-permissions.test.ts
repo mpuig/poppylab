@@ -8,12 +8,13 @@ import {
 } from "./account-permissions";
 import type { CompanyProfile } from "@poppy-lab/pap-core";
 const profile: CompanyProfile = {
-  version: "0.3",
+  version: "1.0",
   identifier: "https://food.papsandbox.com",
   issuer: "https://food.papsandbox.com",
   signIn: { direct: true, device: true },
   scopes: ["orders:read", "orders:write", "addresses"],
   scopeDescriptions: {},
+  operations: true,
   scopeHints: {
     "orders:read": { changes: "none", personal_data: true },
     "orders:write": { changes: "irreversible", personal_data: true },

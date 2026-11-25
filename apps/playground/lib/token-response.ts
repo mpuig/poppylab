@@ -1,6 +1,6 @@
 import { grantedSubset } from "./account-permissions";
 
-/** Validates an OAuth token response (RFC 6749 §5.1, 0.3 §4.7). */
+/** Validates an OAuth token response (RFC 6749 §5.1, §4.7). */
 export function tokenResponse(
   result: Record<string, unknown>,
   requested: string,

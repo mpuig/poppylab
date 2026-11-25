@@ -39,6 +39,61 @@ describe("Session cryptography", () => {
       ),
     ).rejects.toThrow();
   });
+  it("accepts PS384 and any lifetime up to 5 minutes, and refuses longer (§4.1)", async () => {
+    const { generateKeyPair, exportJWK, SignJWT, importJWK } =
+      await import("jose");
+    const pair = await generateKeyPair("PS384", {
+      modulusLength: 2048,
+      extractable: true,
+    });
+    const rsa = {
+      publicKey: { ...(await exportJWK(pair.publicKey)), kid: "rsa1" },
+      privateKey: { ...(await exportJWK(pair.privateKey)), kid: "rsa1" },
+    };
+    const id = "https://agent.example/client.json";
+    const ps = await assertion(
+      rsa.privateKey,
+      id,
+      id,
+      "https://issuer.example",
+    );
+    await expect(
+      verifyAssertion(
+        ps,
+        rsa.publicKey,
+        id,
+        id,
+        "https://issuer.example",
+        new ReplayCache(),
+      ),
+    ).resolves.toBeTruthy();
+    const ec = await createIdentity();
+    const lasting = async (seconds: number, age: number) => {
+      const now = Math.floor(Date.now() / 1000) - age;
+      return new SignJWT({})
+        .setProtectedHeader({ alg: "ES256", kid: ec.privateKey.kid })
+        .setIssuer(id)
+        .setSubject(id)
+        .setAudience("https://issuer.example")
+        .setIssuedAt(now)
+        .setExpirationTime(now + seconds)
+        .setJti(`j${seconds}${age}`)
+        .sign(await importJWK(ec.privateKey, "ES256"));
+    };
+    const check = async (jwt: string) =>
+      verifyAssertion(
+        jwt,
+        ec.publicKey,
+        id,
+        id,
+        "https://issuer.example",
+        new ReplayCache(),
+      );
+    // Five minutes, used after two: still valid for its lifetime.
+    await expect(check(await lasting(300, 120))).resolves.toBeTruthy();
+    await expect(check(await lasting(301, 0))).rejects.toThrow();
+  });
+
   it("rejects another Company's audience", async () => {
     const key = await createIdentity();
     const jwt = await assertion(

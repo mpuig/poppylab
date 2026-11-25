@@ -1,7 +1,7 @@
 import { beforeEach, it, expect, vi } from "vitest";
 const s = vi.hoisted(() => ({
   run: {
-    protocol: "0.3",
+    protocol: "1.0",
     url: "https://food.papsandbox.com",
     user: "usr_food",
     expires: Date.now() + 60000,

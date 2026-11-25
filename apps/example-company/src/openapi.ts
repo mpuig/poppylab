@@ -43,7 +43,7 @@ const proposal = (
     responses: {
       "200": {
         description:
-          "Performed. Only after a retry carrying the user's approval in Poppy-Approval (Operations v2).",
+          "Performed. Only after a retry carrying the user's approval in Poppy-Approval (Operations v3).",
       },
       "403": {
         description:

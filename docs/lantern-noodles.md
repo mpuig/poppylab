@@ -1,6 +1,6 @@
-# Lantern Noodle Bar — local PAP 0.3 sandbox
+# Lantern Noodle Bar — local PAP 1.0 sandbox
 
-A second **fictional** example Company, so Poppy can be tested against more than one PAP 0.3 Company without depending on third-party services. It replaces the role the public PAP Sandbox played, which still uses 0.2 Sessions and Operations v1 (and is an independent project, not affiliated with the protocol's authors). Lantern Noodle Bar is also independent and unaffiliated; "Personal Agent Protocol" and "Poppy" are the authors' names. Nothing is sold, charged or delivered.
+A second **fictional** example Company, so Poppy can be tested against more than one PAP 1.0 Company without depending on third-party services. It replaces the role the public PAP Sandbox played, which still uses 0.2 Sessions and Operations v1 (and is an independent project, not affiliated with the protocol's authors). Lantern Noodle Bar is also independent and unaffiliated; "Personal Agent Protocol" and "Poppy" are the authors' names. Nothing is sold, charged or delivered.
 
 > **Update:** Lantern now lives in `apps/lantern` on the portable Hono gateway (`@poppy-lab/pap-company`) and runs on Node and on Cloudflare Workers + Durable Objects. See [portable runtime](portable-runtime.md). The Fastify notes below describe the first version.
 
@@ -17,11 +17,11 @@ A second **fictional** example Company, so Poppy can be tested against more than
 | Test customers      | Sam Rivera (order `ord_LNB1001`, Friday 18:30, 2 × shoyu ramen + edamame) and Robin Ito (order `ord_LNB2001`, Saturday 12:30, 1 × miso ramen) |
 | Public API          | `GET /api/menu`, `GET /api/delivery-slots`                                                                                                    |
 | Account API         | `GET /api/account/orders`, `GET /api/account/orders/{id}` (orders:read)                                                                       |
-| Change              | `POST /api/account/orders/{id}/changes` `{ slot_id?, add?: [{dish_id, quantity}], remove?: [dish_id] }` (orders:write), Operations v2         |
+| Change              | `POST /api/account/orders/{id}/changes` `{ slot_id?, add?: [{dish_id, quantity}], remove?: [dish_id] }` (orders:write), Operations v3         |
 | Excluded tasks      | Cancel an order (alternative: move it, with an `openapi` reference to `change_order`); change the delivery address                            |
 | State               | Encrypted vault `noodles`, separate from Juniper's                                                                                            |
 
-It reuses the same PAP 0.3 gateway as Juniper, parameterized by a `CompanyDefinition` in `pap.ts`. That gateway provides:
+It reuses the same PAP 1.0 gateway as Juniper, parameterized by a `CompanyDefinition` in `pap.ts`. That gateway provides:
 
 - discovery metadata (RFC 8414/9728);
 - OAuth with PKCE and `private_key_jwt`;
@@ -29,7 +29,7 @@ It reuses the same PAP 0.3 gateway as Juniper, parameterized by a `CompanyDefini
 - one account per Session;
 - refresh and revocation.
 
-The shared Operations v2 engine now lives in `approvals.ts`, and Juniper uses it too.
+The shared Operations v3 engine now lives in `approvals.ts`, and Juniper uses it too.
 
 **Changes.** A change re-prices the whole order (with USD 3.00 delivery) and returns 403 `approval_required`. The terms carry the before and after slot, the new dishes, the old and new totals and the price difference. The summary states the exact amount.
 
@@ -67,7 +67,7 @@ The full suite has 362 tests.
 
 ### Customer account area
 
-`/site/login`, `/account` and `/site/*` (`src/portal.ts`, browser script `src/site/app.js`) give Lantern the same capabilities as Juniper's portal, in Lantern's terms: sign in as Sam or Robin; a live view (2 s polling) of the scheduled orders the agent reads; **Edit order** (slot and dish quantities), which moves the order's version on so a pending agent proposal becomes stale; the agent's activity from the tenant's Operations v2 records (exposed read-only to `mount` as `operations()`); connected agents with revocation; logout. POSTs need the session cookie, the Company's Origin and an `X-Lantern-Account` header naming the account the page was opened for. The gateway routes each browser to its own tenant, or to the agent user's tenant once that browser approved the agent's consent.
+`/site/login`, `/account` and `/site/*` (`src/portal.ts`, browser script `src/site/app.js`) give Lantern the same capabilities as Juniper's portal, in Lantern's terms: sign in as Sam or Robin; a live view (2 s polling) of the scheduled orders the agent reads; **Edit order** (slot and dish quantities), which moves the order's version on so a pending agent proposal becomes stale; the agent's activity from the tenant's Operations v3 records (exposed read-only to `mount` as `operations()`); connected agents with revocation; logout. POSTs need the session cookie, the Company's Origin and an `X-Lantern-Account` header naming the account the page was opened for. The gateway routes each browser to its own tenant, or to the agent user's tenant once that browser approved the agent's consent.
 
 ## Company Agent (4 November 2026)
 

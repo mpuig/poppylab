@@ -33,31 +33,42 @@ const httpsUrl = z
     },
   );
 
+/** §3.1: the host, with its port when that isn't 443. */
 const domain = z
   .string()
-  .max(253)
+  .max(260)
   .regex(
-    /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?$/i,
-    "Expected a domain name without scheme, port, or path",
+    /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?(?::(?!443$)[1-9][0-9]{0,4})?$/i,
+    "Expected a domain name without scheme or path, with a port only when it isn't 443",
   );
 
 const scopeName = z.string().regex(/^[\x21\x23-\x5b\x5d-\x7e]{1,128}$/);
 const scopeDescriptions = z.record(scopeName, z.string().max(1000));
+/** §8.1: every entry says what the agent there can help with. */
 const protocolEntry = z.object({
   type: z.string().min(1).max(64),
   endpoint: httpsUrl,
+  description: z.string().min(1).max(1000),
   access: z.string().max(64).optional(),
 });
+/** §3.3: an entry per major version; each extension defines the rest. */
+const extensionEntry = z.looseObject({ version: z.string().min(1).max(16) });
+const versionName = z.string().regex(/^\d{1,3}\.\d{1,3}$/);
 
-/** Draft 0.3 discovery document. Unknown fields are ignored by design. */
-export const poppyDocument03Schema = z
+/** Version 1.x discovery document (§3.1). Unknown fields are ignored. */
+export const poppyDocumentSchema = z
   .object({
-    protocol_version: z.literal("0.3"),
-    organization: z.object({ name: z.string().min(1).max(200), domain }),
+    protocol_version: versionName,
+    supported_versions: z.record(versionName, httpsUrl).optional(),
+    organization: z.object({
+      name: z.string().min(1).max(200),
+      domain,
+      logo_uri: httpsUrl.optional(),
+    }),
     auth: z
       .object({
         issuer: httpsUrl.optional(),
-        // §3.2: the issuer serves other clients but offers Personal Agents no sign-in.
+        // §3.2: the Company offers Personal Agents no sign-in.
         disabled: z.boolean().optional(),
         scopes: scopeDescriptions.optional(),
         // Validated entry by entry in normalizeScopeHints: one malformed hint
@@ -76,10 +87,17 @@ export const poppyDocument03Schema = z
       )
       .max(32)
       .optional(),
-    web: z.object({ browser_session_endpoint: httpsUrl.optional() }).optional(),
-    feedback: z.object({ endpoint: httpsUrl }).optional(),
-    excluded_tasks: z.object({ url: httpsUrl }).optional(),
-    extensions: z.record(z.string(), z.unknown()).optional(),
+    web: z
+      .object({
+        browser_session_endpoint: httpsUrl.optional(),
+        disabled: z.boolean().optional(),
+        unscoped: z.boolean().optional(),
+      })
+      .optional(),
+    tasks: z.object({ endpoint: httpsUrl }).optional(),
+    extensions: z
+      .record(z.string().min(1).max(128), z.array(z.unknown()).max(16))
+      .optional(),
   })
   .superRefine((document, context) => {
     if (!document.agent && !document.apis && !document.web)
@@ -89,11 +107,32 @@ export const poppyDocument03Schema = z
         message: "At least one of agent, apis, or web is required",
       });
   });
+/** §3.4: versions this client implements (1.0), compatible by major version. */
+export const IMPLEMENTED_VERSION = "1.0";
+export const compatibleVersion = (version: string) =>
+  /^1\.\d{1,3}$/.test(version);
+/** The entries of one extension whose `version` equals `version` (§3.3). */
+export function extensionEntries(
+  document: Pick<PoppyDocument, "extensions">,
+  name: string,
+) {
+  return (document.extensions?.[name] ?? []).flatMap((entry) => {
+    const parsed = extensionEntry.safeParse(entry);
+    return parsed.success ? [parsed.data] : [];
+  });
+}
+export const listsExtension = (
+  document: Pick<PoppyDocument, "extensions">,
+  name: string,
+  version: string,
+) => extensionEntries(document, name).some((e) => e.version === version);
 
 /** RFC 9728 protected resource metadata (fields this client uses). */
 export const protectedResourceMetadataSchema = z.object({
   resource: httpsUrl,
   authorization_servers: z.array(httpsUrl).max(16).optional(),
+  // §3.2: the scopes Personal Agents can request, as well as the issuer's.
+  scopes_supported: z.array(scopeName).max(256).optional(),
 });
 
 export type ScopeHint = {
@@ -133,12 +172,16 @@ export const authorizationServerMetadataSchema = z.object({
   scopes_supported: z.array(scopeName).max(256).optional(),
   authorization_endpoint: httpsUrl.optional(),
   device_authorization_endpoint: httpsUrl.optional(),
+  // §4.2, RFC 9126: Pushed Authorization Requests.
+  pushed_authorization_request_endpoint: httpsUrl.optional(),
+  require_pushed_authorization_requests: z.boolean().optional(),
+  token_endpoint_auth_signing_alg_values_supported: z
+    .array(z.string())
+    .optional(),
   dpop_signing_alg_values_supported: z.array(z.string()).optional(),
 });
 
-export const poppyDocumentSchema = poppyDocument03Schema;
-export type PoppyDocument03 = z.infer<typeof poppyDocument03Schema>;
-export type PoppyDocument = PoppyDocument03;
+export type PoppyDocument = z.infer<typeof poppyDocumentSchema>;
 export type AuthorizationServerMetadata = z.infer<
   typeof authorizationServerMetadataSchema
 >;
@@ -154,18 +197,24 @@ export interface DiscoveryTraceStep {
   durationMs?: number;
 }
 
-/** Version-independent view used by clients instead of raw version fields. */
+/** What a client needs from discovery, instead of raw document fields. */
 export interface CompanyProfile {
-  version: "0.3";
-  /** Issuer, or https://{domain} for a 0.3 Company without one. */
+  /** The chosen document's `protocol_version` (§3.4). */
+  version: string;
+  /** Issuer, or https://{domain} for a Company without one (§3.2). */
   identifier: string;
   issuer?: string;
   signIn: { direct: boolean; device: boolean };
+  /** RFC 9126: PAR is offered, or required (§4.2). */
+  pushedAuthorization?: { endpoint: string; required: boolean };
   /** Scopes a Personal Agent may request; empty when none are advertised. */
   scopes: string[];
   scopeDescriptions: Record<string, string>;
   scopeHints: Record<string, ScopeHint>;
-  excludedTasksUrl?: string;
+  /** §9: where to get excluded tasks, skills and feedback for a Session. */
+  tasksEndpoint?: string;
+  /** Operations version 3 is listed (the only version this client uses). */
+  operations: boolean;
 }
 
 export type AlternativeReference =
@@ -177,26 +226,36 @@ export type ExcludedTask = {
   alternative?: { instructions?: string; references: AlternativeReference[] };
 };
 
+export type TasksResponse = {
+  excludedTasks: ExcludedTask[];
+  /** §9.3, an HTTPS endpoint for feedback reports. */
+  feedbackEndpoint?: string;
+  /** §9.4: skills listed; this client doesn't load them. */
+  skills: number;
+};
 /**
- * PAP 0.3 §9.1–9.2. Company content, never instructions to follow. API
- * references must name an API from the same poppy.json; web references are
- * kept only on the Company's own domain or its subdomains (conservative while
- * upstream issue #52 is open). Unknown fields and types are skipped.
+ * §9–9.2: the tasks response. Company content, never instructions to follow.
+ * API references must name an API from the same poppy.json; web references
+ * are kept only on the Company's own domain or its subdomains. Unknown fields
+ * and types are skipped.
  */
-export function parseExcludedTasks(
+export function parseTasks(
   value: unknown,
-  document: PoppyDocument03,
-  /** Development-only plain-HTTP origins (the local example Company). */
+  document: PoppyDocument,
+  /** Development-only plain-HTTP origins (the local example Companies). */
   localOrigins: readonly string[] = [],
-): ExcludedTask[] {
-  if (
-    !value ||
-    typeof value !== "object" ||
-    !Array.isArray((value as { tasks?: unknown }).tasks)
-  )
-    throw new Error("Invalid excluded tasks document");
+): TasksResponse {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new Error("Invalid tasks response");
+  const body = value as Record<string, unknown>;
+  const excluded = Array.isArray(body.excluded_tasks)
+    ? body.excluded_tasks
+    : [];
   const apis = document.apis ?? [];
-  const domain = document.organization.domain.toLowerCase();
+  // Hostnames only: a port in organization.domain doesn't widen the match.
+  const domain = document.organization.domain
+    .toLowerCase()
+    .replace(/:\d+$/, "");
   const text = (v: unknown, max: number) =>
     typeof v === "string" && v.trim() ? v.trim().slice(0, max) : undefined;
   const https = (v: unknown) => {
@@ -212,7 +271,7 @@ export function parseExcludedTasks(
     }
   };
   const tasks: ExcludedTask[] = [];
-  for (const raw of (value as { tasks: unknown[] }).tasks.slice(0, 64)) {
+  for (const raw of excluded.slice(0, 64)) {
     if (!raw || typeof raw !== "object") continue;
     const item = raw as Record<string, unknown>;
     const task = text(item.task, 200);
@@ -256,7 +315,14 @@ export function parseExcludedTasks(
         : {}),
     });
   }
-  return tasks;
+  const feedback = body.feedback as { endpoint?: unknown } | undefined;
+  const endpoint = https(feedback?.endpoint);
+  const index = body.skill_index as { skills?: unknown } | undefined;
+  return {
+    excludedTasks: tasks,
+    ...(endpoint ? { feedbackEndpoint: endpoint.href } : {}),
+    skills: Array.isArray(index?.skills) ? index.skills.length : 0,
+  };
 }
 
 /** The Company's normalized profile. */
@@ -272,9 +338,6 @@ export interface DiscoveredCompany {
   discoveryUrl: string;
   document: PoppyDocument;
   profile: CompanyProfile;
-  /** PAP 0.3 §9.1, fetched without a token; absent if none or unavailable. */
-  excludedTasks?: ExcludedTask[];
-  excludedTasksError?: string;
   metadata?: AuthorizationServerMetadata;
   trace: DiscoveryTraceStep[];
   discoveredAt: string;

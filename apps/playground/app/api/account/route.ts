@@ -12,6 +12,7 @@ import {
   accountConfiguration,
   usesDpop,
   revokeRefreshToken,
+  pushAuthorizationRequest,
 } from "@/lib/runtime";
 import {
   accountRecovery,
@@ -144,7 +145,7 @@ export async function POST(request: Request) {
       revision?: string;
     };
     if (body.action === "signin") {
-      // 0.3 §4.2: plain OAuth Direct Sign-In. It doesn't know the Session;
+      // §4.2: plain OAuth Direct Sign-In. It doesn't know the Session;
       // the callback starts a new Session for the signed-in account.
       const candidate = { ...run, history: [] } as Run;
       await connect(candidate, []);
@@ -190,8 +191,7 @@ export async function POST(request: Request) {
         path: "/api/account/callback",
         maxAge: 300,
       });
-      const url = new URL(config.authorization_endpoint!);
-      for (const [k, v] of Object.entries({
+      const params = {
         response_type: "code",
         client_id: clientId,
         redirect_uri: `${agentOrigin}/api/account/callback`,
@@ -201,17 +201,33 @@ export async function POST(request: Request) {
           .update(verifier)
           .digest("base64url"),
         code_challenge_method: "S256",
-      }))
-        url.searchParams.set(k, v);
+        // §4.2: the redirect can come back on another device, so the
+        // Company shows its consent page even for scopes granted before.
+        prompt: "consent",
+      };
+      const url = new URL(config.authorization_endpoint!);
+      if (config.pushed_authorization_request_endpoint) {
+        // §4.2, RFC 9126: push the request with the client assertion (and a
+        // DPoP proof that binds the code), then open only client_id and
+        // request_uri. Used whenever the Company offers it.
+        const pushed = await pushAuthorizationRequest(
+          run,
+          params,
+          run.auth.dpop,
+        );
+        url.searchParams.set("client_id", clientId);
+        url.searchParams.set("request_uri", pushed);
+      } else
+        for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
       return NextResponse.json(
         { url: url.toString(), consentVersion: run.consentVersion ?? 0 },
         { headers: { "Cache-Control": "no-store" } },
       );
     }
     if (body.action === "signout") {
-      // 0.3 §5.5: sign-out revokes every refresh token held for the account.
+      // §5.5: sign-out revokes every refresh token held for the account.
       if (run.accountToken) await revokeRefreshToken(run, run.accountToken);
-      // 0.3 §5.5: the Session continues signed out.
+      // §5.5: the Session continues signed out.
       delete run.accountToken;
       delete run.token;
       delete run.tokenType;
@@ -229,7 +245,7 @@ export async function POST(request: Request) {
       throw new Error();
     const op = run.operations?.[body.id ?? ""];
     if (!op || body.revision !== op.revision) throw new Error();
-    // Declining is local: the Company kept nothing to cancel (Operations v2).
+    // Declining is local: the Company kept nothing to cancel (Operations v3).
     if (body.action === "decline") {
       if (op.state !== "proposed") throw new Error();
       op.state = "declined";
@@ -275,6 +291,26 @@ export async function POST(request: Request) {
       };
       delete op.request;
     } catch (error) {
+      if (
+        error instanceof ProtocolError &&
+        error.status === 403 &&
+        error.code === "approval_declined"
+      ) {
+        // Operations v3 §6: nothing performed; never send this approval again.
+        op.state = "refused";
+        op.result = {
+          summary: `${run.company?.document.organization.name ?? "The Company"} declined this approval and did nothing.${error.declined?.reason ? ` Its reason: ${error.declined.reason}` : ""}`,
+        };
+        delete op.request;
+        run.history.push({
+          role: "assistant",
+          content: `Company declined the approval; nothing was performed. ${op.result.summary}`,
+        });
+        return NextResponse.json(
+          { operation: op, code: "approval_declined" },
+          { headers: { "Cache-Control": "no-store" } },
+        );
+      }
       if (
         error instanceof ProtocolError &&
         error.status === 403 &&

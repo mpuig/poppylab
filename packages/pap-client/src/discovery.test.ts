@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from "vitest";
-import { parseExcludedTasks } from "@poppy-lab/pap-core";
 import { discoverCompany } from "./index";
 
 vi.mock("node:dns/promises", () => ({
@@ -8,7 +7,7 @@ vi.mock("node:dns/promises", () => ({
 
 const issuer = "https://auth.company.example";
 const document = {
-  protocol_version: "0.3",
+  protocol_version: "1.0",
   organization: { name: "Test Company", domain: "company.example" },
   auth: {
     scopes: {
@@ -34,7 +33,11 @@ const document = {
       description: "Future type",
     },
   ],
-  excluded_tasks: { url: "https://company.example/poppy/excluded-tasks.json" },
+  tasks: { endpoint: "https://company.example/poppy/tasks" },
+  extensions: {
+    operations: [{ version: "3" }],
+    "example.com/x": [{ version: "1" }],
+  },
 };
 const resource = {
   resource: "https://company.example",
@@ -67,7 +70,7 @@ const discover = (...responses: Response[]) => {
   };
 };
 
-describe("PAP 0.3 discovery profile", () => {
+describe("PAP 1.0 discovery profile", () => {
   it("finds the issuer through protected resource metadata and normalizes the profile", async () => {
     const { fetchImpl, result } = discover(
       Response.json(document),
@@ -81,7 +84,7 @@ describe("PAP 0.3 discovery profile", () => {
       "https://auth.company.example/.well-known/oauth-authorization-server",
     ]);
     expect(company.profile).toEqual({
-      version: "0.3",
+      version: "1.0",
       identifier: issuer,
       issuer,
       signIn: { direct: true, device: false },
@@ -93,7 +96,8 @@ describe("PAP 0.3 discovery profile", () => {
         "orders:write": { changes: "irreversible", personal_data: true },
         "ignored:field": { changes: "none", personal_data: false },
       },
-      excludedTasksUrl: "https://company.example/poppy/excluded-tasks.json",
+      tasksEndpoint: "https://company.example/poppy/tasks",
+      operations: true,
     });
     expect(company.document.apis).toHaveLength(2);
   });
@@ -168,7 +172,7 @@ describe("PAP 0.3 discovery profile", () => {
     await expect(result).rejects.toThrow("protected_resources");
   });
 
-  it("ignores legacy poppy_domains in 0.3", async () => {
+  it("ignores legacy poppy_domains", async () => {
     const withoutResources: Partial<typeof metadata> = { ...metadata };
     delete withoutResources.protected_resources;
     const { result } = discover(
@@ -241,6 +245,7 @@ describe("PAP 0.3 discovery profile", () => {
             {
               type: "poppy",
               endpoint: "https://api.company.example/c",
+              description: "Orders",
               access: "signed_in",
             },
           ],
@@ -260,6 +265,7 @@ describe("PAP 0.3 discovery profile", () => {
             {
               type: "poppy",
               endpoint: "https://api.company.example/c",
+              description: "Orders",
               access: "future",
             },
           ],
@@ -316,7 +322,7 @@ describe("discovery redirects (all versions)", () => {
     await expect(result).rejects.toThrow("redirect did not end");
   });
 
-  it.each(["0.1", "0.2"])(
+  it.each(["0.1", "0.2", "0.3", "0.4", "2.0"])(
     "rejects PAP %s documents",
     async (protocol_version) => {
       const { result } = discover(
@@ -329,91 +335,115 @@ describe("discovery redirects (all versions)", () => {
   );
 });
 
-describe("PAP 0.3 excluded tasks", () => {
-  const doc = {
+describe("versions (§3.4)", () => {
+  const old = {
     ...document,
-    apis: [
-      ...document.apis,
-      {
-        type: "mcp",
-        url: "https://api.company.example/mcp",
-        description: "Tools",
-      },
-    ],
-  } as Parameters<typeof parseExcludedTasks>[1];
-  it("keeps tasks and safe references, dropping foreign or unknown ones", () => {
-    const tasks = parseExcludedTasks(
-      {
-        tasks: [
-          {
-            task: "Cancel an order",
-            alternative: {
-              instructions: "Phone the kitchen.",
-              references: [
-                { type: "web", url: "https://company.example/policies" },
-                { type: "web", url: "https://help.company.example/cancel" },
-                { type: "web", url: "https://phish.example/company.example" },
-                { type: "web", url: "http://company.example/insecure" },
-                {
-                  type: "openapi",
-                  url: "https://api.company.example/openapi.json",
-                  operation_id: "moveOrder",
-                },
-                {
-                  type: "openapi",
-                  url: "https://other.example/openapi.json",
-                  operation_id: "steal",
-                },
-                {
-                  type: "mcp",
-                  url: "https://api.company.example/mcp",
-                  tool: "move_order",
-                },
-                { type: "agent", url: "https://company.example/future" },
-              ],
-              extra: true,
-            },
-          },
-          { task: "Change the delivery address" },
-          { task: "" },
-          "not a task",
-        ],
-      },
-      doc,
-    );
-    expect(tasks).toEqual([
-      {
-        task: "Cancel an order",
-        alternative: {
-          instructions: "Phone the kitchen.",
-          references: [
-            { type: "web", url: "https://company.example/policies" },
-            { type: "web", url: "https://help.company.example/cancel" },
-            {
-              type: "openapi",
-              url: "https://api.company.example/openapi.json",
-              operation_id: "moveOrder",
-            },
-            {
-              type: "mcp",
-              url: "https://api.company.example/mcp",
-              tool: "move_order",
-            },
-          ],
+    protocol_version: "0.4",
+    agent: {
+      protocols: [{ type: "poppy", endpoint: "https://company.example/c" }],
+    },
+  };
+  it("uses a compatible document from supported_versions on the same host, without redirects", async () => {
+    const { fetchImpl, result } = discover(
+      Response.json({
+        ...old,
+        supported_versions: {
+          "1.0": "https://company.example/poppy/1.0.json",
+          "0.3": "https://company.example/poppy/0.3.json",
         },
-      },
-      { task: "Change the delivery address" },
+      }),
+      Response.json(document),
+      Response.json(resource),
+      Response.json(metadata),
+    );
+    const company = await result;
+    expect(String(fetchImpl.mock.calls[1]![0])).toBe(
+      "https://company.example/poppy/1.0.json",
+    );
+    expect(fetchImpl.mock.calls[1]![1]?.redirect).toBe("manual");
+    expect(company.profile.version).toBe("1.0");
+  });
+  it("chooses the newest compatible minor version", async () => {
+    const { fetchImpl, result } = discover(
+      Response.json({
+        ...document,
+        supported_versions: { "1.2": "https://company.example/poppy/1.2.json" },
+      }),
+      Response.json({ ...document, protocol_version: "1.2" }),
+      Response.json(resource),
+      Response.json(metadata),
+    );
+    expect((await result).profile.version).toBe("1.2");
+    expect(fetchImpl).toHaveBeenCalledTimes(4);
+  });
+  it.each([
+    ["another host", { "1.0": "https://evil.example/poppy/1.0.json" }],
+    ["no compatible version", { "0.3": "https://company.example/0.3.json" }],
+  ])("refuses %s", async (_label, supported_versions) => {
+    const { result } = discover(Response.json({ ...old, supported_versions }));
+    await expect(result).rejects.toThrow("Unsupported PAP version 0.4");
+  });
+  it("refuses a linked document with another version or its own supported_versions", async () => {
+    const link = { "1.0": "https://company.example/poppy/1.0.json" };
+    await expect(
+      discover(
+        Response.json({ ...old, supported_versions: link }),
+        Response.json({ ...document, protocol_version: "1.1" }),
+      ).result,
+    ).rejects.toThrow("says protocol_version 1.1");
+    await expect(
+      discover(
+        Response.json({ ...old, supported_versions: link }),
+        Response.json({ ...document, supported_versions: link }),
+      ).result,
+    ).rejects.toThrow("must not list supported_versions");
+  });
+});
+
+describe("ports and sign-in options (§3.1, §4.2)", () => {
+  it("refuses a Company on another port unless configured on purpose", async () => {
+    const fetchImpl = fetcher(
+      Response.json({
+        ...document,
+        organization: { name: "x", domain: "company.example:8443" },
+      }),
+    );
+    await expect(
+      discoverCompany("https://company.example:8443", { fetchImpl }),
+    ).rejects.toThrow("non-standard port");
+  });
+  it("reads PAR and scopes from either metadata list", async () => {
+    const { result } = discover(
+      Response.json(document),
+      Response.json({ ...resource, scopes_supported: ["addresses"] }),
+      Response.json({
+        ...metadata,
+        pushed_authorization_request_endpoint: `${issuer}/par`,
+        require_pushed_authorization_requests: true,
+      }),
+    );
+    const company = await result;
+    expect(company.profile.pushedAuthorization).toEqual({
+      endpoint: `${issuer}/par`,
+      required: true,
+    });
+    expect(company.profile.scopes).toEqual([
+      "orders:read",
+      "orders:write",
+      "addresses",
     ]);
   });
-  it("rejects a document without a tasks list", () => {
-    expect(() => parseExcludedTasks({ items: [] }, doc)).toThrow("Invalid");
-  });
-  it("bounds the number and length of entries", () => {
-    const tasks = parseExcludedTasks(
-      { tasks: Array.from({ length: 100 }, () => ({ task: "x".repeat(500) })) },
-      doc,
+  it("requires the PAR endpoint when PAR is required", async () => {
+    const { result } = discover(
+      Response.json(document),
+      Response.json(resource),
+      Response.json({
+        ...metadata,
+        require_pushed_authorization_requests: true,
+      }),
     );
-    expect(tasks).toHaveLength(64);
-    expect(tasks[0]!.task).toHaveLength(200);
+    await expect(result).rejects.toThrow(
+      "pushed_authorization_request_endpoint",
+    );
   });
 });

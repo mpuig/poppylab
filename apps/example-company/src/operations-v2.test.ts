@@ -20,7 +20,7 @@ function setup(state: Commerce = { customers: {}, records: {} }) {
             "poppy-approval":
               typeof approval === "string"
                 ? approval
-                : `operation_id="${approval.operation_id}", revision="${approval.revision}"`,
+                : `operation_id="${approval.operation_id}", revision="${approval.revision}", approver="user"`,
           }
         : {},
     });
@@ -226,7 +226,7 @@ it("ignores unknown approval members and bounds revisions per operation", async 
       quantity: 1,
     })
   ).json().operation;
-  const header = `operation_id="${op.operation_id}", revision="${op.revision}", future="yes"`;
+  const header = `operation_id="${op.operation_id}", revision="${op.revision}", approver="user", future="yes"`;
   expect(
     (
       await x.post(

@@ -39,7 +39,7 @@ export const isAccountCompany = (origin: string) =>
   isSandbox(origin) ||
   (isLocalCompany(origin) && localOrigins.includes(origin)) ||
   accountOrigins().includes(origin);
-/** Companies whose proposals may become approval cards (still Operations v2 only). */
+/** Companies whose proposals may become approval cards (still Operations v3 only). */
 export const proposalsAllowed = (origin: string) =>
   isSandbox(origin) ||
   (isLocalCompany(origin) && localOrigins.includes(origin)) ||

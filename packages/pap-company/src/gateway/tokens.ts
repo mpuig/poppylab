@@ -1,4 +1,8 @@
-/** The token endpoint (§4.4, §4.7) and revocation (§4.6, RFC 7009). */
+/**
+ * The token endpoint (§4.4, §4.7) and revocation (§4.6, RFC 7009). Client
+ * assertions may be ES256 or PS384 and last up to 5 minutes (§4.1); refresh
+ * tokens are bound to the DPoP key they were issued with (§4.4).
+ */
 import type { Hono } from "hono";
 import {
   decodeProtectedHeader,
@@ -42,7 +46,7 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
       const kid = decodeProtectedHeader(
         String(body.client_assertion ?? ""),
       ).kid;
-      const key = info.keys.find((k) => k.kid === kid) ?? info.keys[0];
+      const key = info.keys.find((k) => k.kid === kid);
       if (!key) throw new Error("invalid_client");
       await verifyAssertion(
         body.client_assertion!,
@@ -55,7 +59,9 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
         throw new Error("invalid_client");
       });
       fallback = "invalid_grant";
-      if (body.resource) return c.json({ error: "invalid_target" }, 400);
+      // §4.5: one resource, the domain; naming it gets the default token.
+      if (body.resource && body.resource !== origin)
+        return c.json({ error: "invalid_target" }, 400);
       const binding = await ctx.proofOf(
         c.req.header("dpop") ?? "",
         `${origin}/oauth/token`,
@@ -80,7 +86,9 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
           code.client !== id ||
           code.redirect !== body.redirect_uri ||
           !/^[A-Za-z0-9_-]{43,128}$/.test(body.code_verifier ?? "") ||
-          hash(body.code_verifier ?? "") !== code.challenge
+          hash(body.code_verifier ?? "") !== code.challenge ||
+          // RFC 9449 §10: a code pushed with a DPoP proof needs that key.
+          (code.dpop !== undefined && code.dpop !== binding)
         )
           throw new Error("invalid_grant");
         if (ctx.overShare(Object.values(state.grants), id, 1000))
@@ -94,13 +102,20 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
           scopes: code.scopes,
           expires: now + GRANT_MS,
           ...(code.browser ? { browser: code.browser } : {}),
+          // §4.4: refreshed only with the DPoP key it was issued with.
+          dpop: binding,
         };
         state.grants[grantKey] = grant;
         scopes = grant.scopes;
       } else {
         grantKey = tokenHash(body.refresh_token ?? "");
         const found = state.grants[grantKey];
-        if (!found || found.client !== id || found.expires < now)
+        if (
+          !found ||
+          found.client !== id ||
+          found.expires < now ||
+          (found.dpop !== undefined && found.dpop !== binding)
+        )
           throw new Error("invalid_grant");
         grant = found;
         scopes = body.scope ?? grant.scopes;
@@ -117,7 +132,6 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
         client: id,
         binding,
         expires: now + TOKEN_MS,
-        operations: info.operations,
         accountId: grant.account,
         scopes,
         grant: grantKey,
@@ -163,7 +177,7 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
       const kid = decodeProtectedHeader(
         String(body.client_assertion ?? ""),
       ).kid;
-      const key = info.keys.find((k) => k.kid === kid) ?? info.keys[0];
+      const key = info.keys.find((k) => k.kid === kid);
       if (!key) throw new Error();
       await verifyAssertion(
         body.client_assertion ?? "",

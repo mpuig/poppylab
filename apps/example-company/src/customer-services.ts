@@ -58,7 +58,7 @@ export type ServiceCustomer = ProfileCustomer & {
     status: string;
   }>;
 };
-/** Operations v2 gate: refuses with the operation, or performs an approved one. */
+/** Operations v3 gate: refuses with the operation, or performs an approved one. */
 export type Propose = (
   req: Req,
   reply: Reply,

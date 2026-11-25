@@ -24,7 +24,6 @@ import {
 
 export type ClientInfo = {
   keys: JWK[];
-  operations: boolean;
   redirects: string[];
   name: string;
   until: number;
@@ -96,7 +95,10 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
 
   // ---- Client metadata (CIMD) --------------------------------------------
   const clients = new Map<string, ClientInfo>();
-  /** Fetches client metadata at `client_id`, without redirects (§4.1, §5.3). */
+  /**
+   * Fetches client metadata at `client_id`, without redirects (§4.1, §5.3).
+   * Extensions aren't read from it: requests declare them (§3.4).
+   */
   async function client(id: string): Promise<ClientInfo> {
     const cached = clients.get(id);
     if (cached && cached.until > Date.now()) return cached;
@@ -113,7 +115,6 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
       client_name?: unknown;
       jwks_uri?: unknown;
       redirect_uris?: unknown;
-      extensions?: { operations?: { version?: unknown } };
     };
     if (
       metadata?.client_id !== id ||
@@ -129,7 +130,6 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
       throw new Error("invalid_client");
     const info: ClientInfo = {
       keys: jwks.keys.slice(0, 8),
-      operations: metadata.extensions?.operations?.version === "2",
       redirects: metadata.redirect_uris
         .filter((r): r is string => typeof r === "string")
         .slice(0, 8),

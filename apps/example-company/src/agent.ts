@@ -1,8 +1,8 @@
 /**
- * Juniper's Company Agent (PAP 0.3 §8): deterministic, with no model. The
+ * Juniper's Company Agent (PAP 1.0 §8): deterministic, with no model. The
  * Personal Agent sends a structured request in `data.request`; Juniper
  * answers with data and a short fixed sentence. Reporting a problem proposes
- * a support case as an Operations v2 operation; a later message with the
+ * a support case as an Operations v3 operation; a later message with the
  * User's approval opens it, and it then shows on the website like any case.
  */
 import { randomId } from "@poppy-lab/pap-client/core";
@@ -94,7 +94,7 @@ export function juniperAgent(
     ],
   });
 
-  /** A support case, as an Operations v2 action (the case ID is fixed). */
+  /** A support case, as an Operations v3 action (the case ID is fixed). */
   function proposeCase(
     turn: ConversationTurn,
     terms: Record<string, unknown>,

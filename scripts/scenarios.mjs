@@ -37,15 +37,20 @@ const groups = {
       ],
     ],
   ],
-  "pap-0.3": [
+  "pap-1.0": [
+    ["pap-core", ["src/index.test.ts"]],
     [
       "pap-client",
       [
-        "src/discovery03.test.ts",
+        "src/discovery.test.ts",
         "src/index.test.ts",
         "src/session-header.test.ts",
+        "src/session.test.ts",
+        "src/headers.test.ts",
+        "src/protocol-error.test.ts",
       ],
     ],
+    ["lantern", ["src/pap10.test.ts"]],
     [
       "playground",
       [

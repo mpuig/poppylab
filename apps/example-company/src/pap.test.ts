@@ -53,15 +53,15 @@ it("serves signed-out Sessions from the Session header alone, without any token 
     });
     expect(ok.statusCode).toBe(200);
     expect(ok.json().products.length).toBeGreaterThan(0);
-    // Same sid must keep its User ID (§5.3 step 4).
+    // The same sid with another User ID is another Session (§5.3 step 4).
     expect(
       (
         await app.inject({
           url: "/api/products",
           headers: { "poppy-session": await header(sid, "usr_other") },
         })
-      ).json(),
-    ).toEqual({ error: "invalid_session" });
+      ).statusCode,
+    ).toBe(200);
     // A Session JWT is for one method and URL.
     expect(
       (
@@ -114,7 +114,7 @@ it("rejects a Session JWT whose ath doesn't match, or that names an unknown acce
   }
 });
 
-it("publishes 0.3 OAuth metadata and no longer accepts the JWT-bearer Session grant", async () => {
+it("publishes 1.0 OAuth metadata and no longer accepts the JWT-bearer Session grant", async () => {
   const { app, keys } = await setup();
   try {
     const metadata = (
@@ -129,7 +129,11 @@ it("publishes 0.3 OAuth metadata and no longer accepts the JWT-bearer Session gr
     expect(metadata).not.toHaveProperty("poppy_domains");
     expect(
       (await app.inject("/.well-known/oauth-protected-resource")).json(),
-    ).toEqual({ resource: origin, authorization_servers: [origin] });
+    ).toEqual({
+      resource: origin,
+      authorization_servers: [origin],
+      scopes_supported: ["poppy:read", "poppy:write"],
+    });
     const legacy = await app.inject({
       method: "POST",
       url: "/oauth/token",

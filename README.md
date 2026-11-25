@@ -1,6 +1,6 @@
 # Poppy Lab
 
-An independent test bench for the **Personal Agent Protocol, draft 0.3**: **Iris**, a Personal Agent you run with your own model key, and two fictional Companies it can sign in to. Everything runs on Cloudflare Workers or on Node from the same code.
+An independent test bench for **Personal Agent Protocol 1.0**: **Iris**, a Personal Agent you run with your own model key, and two fictional Companies it can sign in to. Everything runs on Cloudflare Workers or on Node from the same code.
 
 - **https://poppylab.dev** explains the lab; **/playground** is Iris.
 - **https://juniper.poppylab.dev** is Juniper Market, a grocery with a full customer website.
@@ -10,12 +10,12 @@ Nothing is sold, charged or shipped. Poppy Lab is not affiliated with or endorse
 
 ## What it does
 
-- **Discovery and identity (§3, §4.1):** `poppy.json`, protected-resource and authorization-server metadata, an HTTPS `client_id` with metadata and JWKS.
-- **Sessions (§5):** a delegated ES256 `Poppy-Session` header on every API request, one account per Session, DPoP-bound access tokens, refresh and revocation.
-- **Direct Sign-In (§4.2)** on the Company's own consent page, read-only first, with a separate step to add change proposals.
-- **Operations v2:** a change comes back as `approval_required`; the Company performs it only when the agent resends the same request with the user's `Poppy-Approval`, at most once. The model reads and proposes; only the user's click approves.
-- **Conversations (§8):** each Company has its own agent. It's deterministic, takes structured requests in `data` and answers with data, so the only model is yours. It asks for sign-in with an authorization event, proposes a refund or a support case as an Operations v2 operation inside a message, and answers a handoff with a (fictional) phone number. See [conversations](docs/conversations.md).
-- **Companies you can inspect:** OpenAPI tools, excluded tasks, an Inspector that labels every step with its spec section and copies a trace for interop reports.
+- **Discovery, versions and identity (§3, §4.1):** `poppy.json` 1.0 with `supported_versions`, extensions declared per request, protected-resource and authorization-server metadata, an HTTPS `client_id` with metadata and JWKS (ES256 or PS384 accepted).
+- **Sessions (§5):** a delegated ES256 `Poppy-Session` header and `Poppy-Version: 1.0` on every request, `session_ended` for a second account, DPoP-bound access tokens, refresh only with the same DPoP key, and revocation.
+- **Direct Sign-In (§4.2)** through a pushed authorization request when offered, with `prompt=consent`, on the Company's own consent page: read-only first, with a separate step to add change proposals.
+- **Operations v3:** a change comes back as `approval_required` with its exact terms; the Company performs it only when the agent resends the same request with the user's approval in `Poppy-Approval` (who approved, when, and a reference), at most once. The model reads and proposes; only the user's click approves.
+- **Conversations (§8):** each Company has its own agent. It's deterministic, takes structured requests in `data` and answers with data, so the only model is yours. It asks for sign-in with an authorization event, proposes a refund or a support case as an Operations v3 operation inside a message, and answers a handoff with a (fictional) phone number. See [conversations](docs/conversations.md).
+- **Companies you can inspect:** OpenAPI tools, excluded tasks read per Session from the tasks endpoint (§9), an Inspector that labels every step with its spec section and copies a trace for interop reports.
 - **Public and isolated:** every visitor gets their own agent state (sealed at rest) and their own copy of each Company's fictional customers; rate limits per visitor, IP and globally.
 
 ## Run it locally
@@ -52,14 +52,14 @@ pnpm spec:drift
 - `apps/playground`: the Next.js agent (OpenNext on Workers or `next start`), per-visitor state in Durable Objects, the home page.
 - `apps/example-company`: Juniper Market, a `CompanyDefinition` with a customer portal.
 - `apps/lantern`: Lantern Noodle Bar, a second independent Company.
-- `packages/pap-company`: the Hono Company gateway (discovery, sign-in, tokens, Sessions, Operations v2, tenancy) that runs both.
+- `packages/pap-company`: the Hono Company gateway (discovery, sign-in with PAR, tokens, Sessions, conversations, Operations v3, tenancy) that runs both.
 - `packages/pap-client`: discovery, safe transport, Session and DPoP cryptography.
-- `packages/pap-core`: 0.3 schemas and shared types.
+- `packages/pap-core`: 1.0 schemas and shared types.
 - `packages/llm-adapters`: provider-neutral model execution.
 
 ## Documentation
 
-`docs/` holds the design notes: [PAP 0.3 notes](docs/pap-03.md), [coverage matrix](docs/pap-coverage.md), [portable runtime and deployment](docs/portable-runtime.md), [security review](docs/security-review.md), [community demos and interop](docs/community-demos.md), [Lantern](docs/lantern-noodles.md), and the Juniper website and service notes. `DESIGN.md` records the visual systems; `PRODUCT.md` the product context.
+`docs/` holds the design notes: [PAP 1.0 notes](docs/pap-10.md), [coverage matrix](docs/pap-coverage.md), [portable runtime and deployment](docs/portable-runtime.md), [security review](docs/security-review.md), [community demos and interop](docs/community-demos.md), [Lantern](docs/lantern-noodles.md), and the Juniper website and service notes. `DESIGN.md` records the visual systems; `PRODUCT.md` the product context.
 
 ## Deploy
 

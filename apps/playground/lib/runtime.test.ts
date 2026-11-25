@@ -28,13 +28,14 @@ import {
   papRequest,
   renewAccount,
   tokenResponse,
+  type Operation,
   type Run,
 } from "./runtime";
 
 function example(host = "food", signedIn = true): Run {
   const origin = `https://${host}.papsandbox.com`;
   return {
-    protocol: "0.3",
+    protocol: "1.0",
     url: origin,
     user: "",
     visitor: "visitor-fixture",
@@ -57,7 +58,7 @@ function example(host = "food", signedIn = true): Run {
       discoveredAt: new Date().toISOString(),
       trace: [],
       document: {
-        protocol_version: "0.3",
+        protocol_version: "1.0",
         organization: { name: host, domain: host + ".papsandbox.com" },
         apis: [
           {
@@ -66,9 +67,7 @@ function example(host = "food", signedIn = true): Run {
             description: "Test",
           },
         ],
-        extensions: {
-          operations: { version: "1", endpoint: origin + "/poppy/operations" },
-        },
+        extensions: { operations: [{ version: "3" }] },
       },
       metadata: {
         issuer: origin,
@@ -80,13 +79,14 @@ function example(host = "food", signedIn = true): Run {
         dpop_signing_alg_values_supported: ["ES256"],
       },
       profile: {
-        version: "0.3",
+        version: "1.0",
         identifier: origin,
         issuer: origin,
         signIn: { direct: true, device: false },
         scopes: ["orders:read", "orders:write"],
         scopeDescriptions: {},
         scopeHints: {},
+        operations: true,
       },
     },
   };
@@ -121,6 +121,9 @@ it("sends a verifiable Session header and the DPoP access token on signed-in req
   const headers = headersOf(transport.mock.calls[0]!);
   expect(headers.Authorization).toBe("DPoP access-1");
   expect(headers.DPoP).toBeTruthy();
+  // §3.4: the version, and the extensions the Company lists.
+  expect(headers["Poppy-Version"]).toBe("1.0");
+  expect(headers["Poppy-Extensions"]).toBe('"operations";v="3"');
   const session = await verify(
     r,
     headers["Poppy-Session"]!,
@@ -146,6 +149,7 @@ it("sends only the Session header when signed out", async () => {
   const headers = headersOf(transport.mock.calls[0]!);
   expect(headers).not.toHaveProperty("Authorization");
   expect(headers).not.toHaveProperty("DPoP");
+  expect(headers["Poppy-Version"]).toBe("1.0");
   await verify(
     r,
     headers["Poppy-Session"]!,
@@ -153,62 +157,54 @@ it("sends only the Session header when signed out", async () => {
   );
 });
 
-it("starts one new Session after invalid_session and stops if it fails again", async () => {
+it("starts one new Session after session_ended and stops if it ends again (§5.5)", async () => {
   const r = example("food", false);
   transport
-    .mockRejectedValueOnce(new ProtocolError(400, "invalid_session"))
+    .mockRejectedValueOnce(new ProtocolError(400, "session_ended"))
     .mockResolvedValueOnce({ ok: true });
+  const before = r.sessionId;
   await papRequest(r, "https://food.papsandbox.com/poppy/products", "GET");
-  const first = await verify(
-    r,
-    headersOf(transport.mock.calls[0]!)["Poppy-Session"]!,
-    "https://food.papsandbox.com/poppy/products",
-  ).catch(() => undefined);
   const second = await verify(
     r,
     headersOf(transport.mock.calls[1]!)["Poppy-Session"]!,
     "https://food.papsandbox.com/poppy/products",
   );
   expect(second.sessionId).toBe(r.sessionId);
-  if (first) expect(first.sessionId).not.toBe(second.sessionId);
+  expect(r.sessionId).not.toBe(before);
+  transport
+    .mockReset()
+    .mockRejectedValue(new ProtocolError(400, "session_ended"));
+  await expect(
+    papRequest(r, "https://food.papsandbox.com/poppy/products", "GET"),
+  ).rejects.toThrow();
+  expect(transport).toHaveBeenCalledTimes(2);
+});
+
+it("doesn't retry invalid_session, and stops on version_unsupported (§3.4, §5.3)", async () => {
+  const r = example("food", false);
   transport
     .mockReset()
     .mockRejectedValue(new ProtocolError(400, "invalid_session"));
   await expect(
     papRequest(r, "https://food.papsandbox.com/poppy/products", "GET"),
   ).rejects.toThrow();
-  // A new Session, then the earlier 0.3 delegation form once; then it stops.
-  expect(transport).toHaveBeenCalledTimes(3);
-  expect(r.sessionDialect).toBeUndefined();
-});
-
-it("falls back to the earlier 0.3 delegation form (pap_dlg) only after a repeated invalid_session, and remembers it", async () => {
-  const r = example("food", false);
+  expect(transport).toHaveBeenCalledTimes(1);
   transport
     .mockReset()
-    .mockRejectedValueOnce(new ProtocolError(400, "invalid_session"))
-    .mockRejectedValueOnce(new ProtocolError(400, "invalid_session"))
-    .mockResolvedValue({ ok: true });
+    .mockRejectedValue(new ProtocolError(400, "version_unsupported"));
+  await expect(
+    papRequest(r, "https://food.papsandbox.com/poppy/products", "GET"),
+  ).rejects.toThrow("no longer serves PAP 1.0");
+  expect(transport).toHaveBeenCalledTimes(1);
+});
+
+it("declares no extensions to a Company that lists none", async () => {
+  const r = example("food", false);
+  r.company!.profile.operations = false;
   await papRequest(r, "https://food.papsandbox.com/poppy/products", "GET");
-  const header = (call: number) =>
-    JSON.parse(
-      Buffer.from(
-        headersOf(transport.mock.calls[call]!)["Poppy-Session"]!.split(".")[0]!,
-        "base64url",
-      ).toString(),
-    );
-  expect(header(0)).toHaveProperty("poppy_dlg");
-  expect(header(2)).toHaveProperty("pap_dlg");
-  expect(header(2)).not.toHaveProperty("poppy_dlg");
-  expect(r.sessionDialect).toBe("earlier");
-  // Verifiable by a Company that accepts either form.
-  await verify(
-    r,
-    headersOf(transport.mock.calls[2]!)["Poppy-Session"]!,
-    "https://food.papsandbox.com/poppy/products",
+  expect(headersOf(transport.mock.calls[0]!)).not.toHaveProperty(
+    "Poppy-Extensions",
   );
-  await papRequest(r, "https://food.papsandbox.com/poppy/products", "GET");
-  expect(header(3)).toHaveProperty("pap_dlg");
 });
 
 it.each([
@@ -330,7 +326,7 @@ it("resends the recorded request with an RFC 9651 Poppy-Approval header and the 
   const r = example();
   r.dpop = dpop;
   transport.mockResolvedValueOnce({ summary: "Done" });
-  await sendApproval(r, {
+  const op: Operation = {
     operation_id: "op_1",
     revision: "1791-abc",
     summary: "s",
@@ -340,13 +336,25 @@ it("resends the recorded request with an RFC 9651 Poppy-Approval header and the 
       url: "https://food.papsandbox.com/poppy/orders/1/changes",
       body: { slot: "a" },
     },
-  });
+  };
+  await sendApproval(r, op);
+  // A retry after an unknown outcome sends the very same approval (§7).
+  transport.mockResolvedValueOnce({ summary: "Done" });
+  await sendApproval(r, op);
+  expect(
+    (transport.mock.calls[1]![1] as { headers: Record<string, string> })
+      .headers["Poppy-Approval"],
+  ).toBe(
+    (transport.mock.calls[0]![1] as { headers: Record<string, string> })
+      .headers["Poppy-Approval"],
+  );
   const [url, init] = transport.mock.calls[0]! as [string, RequestInit];
   expect(url).toBe("https://food.papsandbox.com/poppy/orders/1/changes");
   expect(init.body).toBe(JSON.stringify({ slot: "a" }));
   const headers = init.headers as Record<string, string>;
-  expect(headers["Poppy-Approval"]).toBe(
-    'operation_id="op_1", revision="1791-abc"',
+  // Operations v3 §6: a user approval, when and how, and our own reference.
+  expect(headers["Poppy-Approval"]).toMatch(
+    /^operation_id="op_1", revision="1791-abc", approver="user", approved_at=\d+, input_type="tap", reference="apr_[A-Za-z0-9_-]+"$/,
   );
   await verify(r, headers["Poppy-Session"]!, url, "POST", "access-1");
   await expect(

@@ -42,7 +42,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
   const [waitingSignIn, setWaitingSignIn] = useState(false);
   const [operations, setOperations] = useState<Operation[]>([]);
   const profile = result ? companyProfile(result) : undefined;
-  // Scope meaning comes from the Company's own hints (0.3 §4.7).
+  // Scope meaning comes from the Company's own hints (§4.7).
   const canWrite = canChange(profile, scopes);
   const moreAccess = canRequestChanges(profile, scopes);
   const connected =
@@ -164,7 +164,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
           setSignedIn(false);
           setScopes("");
         }
-        // New terms (Operations v2) or an unknown outcome: show current state.
+        // New terms (Operations v3) or an unknown outcome: show current state.
         if (data.operation) replaceOperation(data.operation);
         if (data.code === "outcome_unknown" && op)
           replaceOperation({ ...op, state: "uncertain" });

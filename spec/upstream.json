@@ -1,16 +1,21 @@
 {
-  "retrieved": "2026-11-03",
-  "note": "Poppy Lab implements the text as retrieved on this date. Run `pnpm spec:drift` to see whether the published draft changed.",
+  "retrieved": "2026-11-25",
+  "note": "Poppy Lab implements Personal Agent Protocol 1.0 as published on 14 November 2026. Run `pnpm spec:drift` to see whether the published text changed.",
   "documents": [
     {
-      "file": "spec/draft-0.3/spec.md",
-      "url": "https://personalagentprotocol.org/docs/0.3/spec.md",
-      "sha256": "294ca9fb16d6e04e281bece1cc8cc2dc542b4904691d6340fc567b781c3c3d3a"
+      "file": "spec/1.0/spec.md",
+      "url": "https://personalagentprotocol.org/docs/1.0/spec.md",
+      "sha256": "137f02164167026443fb2c29b699e6bfb97f3a292f40d1abeee7924c10e1dd53"
     },
     {
-      "file": "spec/draft-0.3/extensions-operations.md",
-      "url": "https://personalagentprotocol.org/docs/0.3/extensions/operations.md",
-      "sha256": "007eb3ff483e952cded4cc310c078720407e145fae963af9fd60f6f894775cc0"
+      "file": "spec/1.0/extensions-operations.md",
+      "url": "https://personalagentprotocol.org/docs/1.0/extensions/operations.md",
+      "sha256": "01c861db59f3693ff1a798558b0fb75347c3d6adbed18a6f254c7cd66fdf5221"
+    },
+    {
+      "file": "spec/1.0/guides.md",
+      "url": "https://personalagentprotocol.org/docs/1.0/guides.md",
+      "sha256": "95ec19d5dfd31ffb69916a40fad5032318cc410512228245e0440c046feb339e"
     }
   ]
 }

@@ -119,7 +119,7 @@ export async function visitors() {
           DPoP: await proof(dpop.privateKey, origin + url, method, access),
           ...(approval
             ? {
-                "Poppy-Approval": `operation_id="${approval.operation_id}", revision="${approval.revision}"`,
+                "Poppy-Approval": `operation_id="${approval.operation_id}", revision="${approval.revision}", approver="user"`,
               }
             : {}),
         },

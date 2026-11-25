@@ -1,9 +1,27 @@
-/** Direct Sign-In (§4.2): the consent page and the one-time code. */
-import type { Hono } from "hono";
+/**
+ * Direct Sign-In (§4.2): Pushed Authorization Requests (RFC 9126, offered,
+ * not required), the consent page and the one-time code. The consent page
+ * always lists every requested scope, so `prompt=consent` needs nothing more
+ * (§4.2, §10.8).
+ */
+import type { Context, Hono } from "hono";
 import { scryptSync, timingSafeEqual } from "node:crypto";
-import { randomId, tokenHash } from "@poppy-lab/pap-client/core";
+import {
+  decodeProtectedHeader,
+  randomId,
+  tokenHash,
+  verifyAssertion,
+} from "@poppy-lab/pap-client/core";
 import type { Ctx } from "./context.ts";
-import { ObjectMap, type Code, type Consent } from "./types.ts";
+import {
+  isChallenge,
+  ObjectMap,
+  type Code,
+  type Consent,
+  type Pushed,
+} from "./types.ts";
+
+const REQUEST_URI = "urn:ietf:params:oauth:request_uri:";
 
 export function mountSignIn(app: Hono, ctx: Ctx) {
   const { def, deploy, origin, state, both, isolated, cookiePrefix, secure } =
@@ -11,18 +29,19 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
   // Persisted: a Durable Object may restart while the user reads consent.
   const pending = new ObjectMap<Consent>((state.consents ??= {}));
   const codes = new ObjectMap<Code>((state.codes ??= {}));
+  const pushed = new ObjectMap<Pushed>((state.pushed ??= {}));
   let failures = 0,
     windowStart = Date.now();
-  app.get("/oauth/authorize", async (c) => {
-    const q = c.req.query();
+
+  /** The authorization request's checks, for a query or a pushed request. */
+  async function check(q: Record<string, string | undefined>) {
     const requested = typeof q.scope === "string" ? q.scope.split(" ") : [];
     if (
       !requested.length ||
       requested.some((s) => !both.includes(s)) ||
       new Set(requested).size !== requested.length
     )
-      return c.json({ error: "invalid_scope" }, 400);
-    const scopes = both.filter((s) => requested.includes(s)).join(" ");
+      return { error: "invalid_scope" } as const;
     if (
       q.response_type !== "code" ||
       q.code_challenge_method !== "S256" ||
@@ -31,29 +50,147 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
       !q.client_id ||
       !q.redirect_uri
     )
-      return c.json({ error: "invalid_request" }, 400);
+      return { error: "invalid_request" } as const;
     let info;
     try {
       info = await ctx.client(q.client_id);
     } catch {
-      return c.json({ error: "invalid_client" }, 400);
+      return { error: "invalid_client" } as const;
     }
     // Exact redirect_uri from the client's own metadata (§4.2).
     if (!info.redirects.includes(q.redirect_uri))
-      return c.json({ error: "invalid_request" }, 400);
+      return { error: "invalid_request" } as const;
+    return {
+      info,
+      scopes: both.filter((s) => requested.includes(s)).join(" "),
+      client: q.client_id,
+      redirect: q.redirect_uri,
+      state: q.state!,
+      challenge: q.code_challenge!,
+    } as const;
+  }
+
+  // RFC 9126: the client pushes the request with its assertion, so the
+  // Company knows who asks before the User sees anything (§4.2).
+  app.post("/oauth/par", async (c) => {
+    const body = (await c.req.parseBody()) as Record<string, string>;
+    const id = String(body.client_id ?? "");
+    try {
+      await ctx.challengeBeforeConsuming(c);
+      if (
+        body.client_assertion_type !==
+          "urn:ietf:params:oauth:client-assertion-type:jwt-bearer" ||
+        body.request_uri
+      )
+        return c.json({ error: "invalid_request" }, 400);
+      const info = await ctx.client(id);
+      const kid = decodeProtectedHeader(
+        String(body.client_assertion ?? ""),
+      ).kid;
+      const key = info.keys.find((k) => k.kid === kid);
+      if (!key) throw Error();
+      await verifyAssertion(
+        body.client_assertion!,
+        key,
+        id,
+        id,
+        origin,
+        ctx.replay,
+      );
+    } catch (e) {
+      if (isChallenge(e))
+        return c.json({ error: "use_dpop_nonce" }, 400, {
+          "DPoP-Nonce": e.nonce,
+        });
+      return c.json({ error: "invalid_client" }, 401);
+    }
+    const checked = await check(body);
+    if ("error" in checked) return c.json({ error: checked.error }, 400);
+    // RFC 9449 §10: a DPoP proof here binds the code to that key.
+    let dpop: string | undefined;
+    if (c.req.header("dpop"))
+      try {
+        dpop = await ctx.proofOf(
+          c.req.header("dpop")!,
+          `${origin}/oauth/par`,
+          "POST",
+          ctx.replay,
+          undefined,
+          undefined,
+          ctx.nonceFor("token"),
+        );
+      } catch (e) {
+        if (isChallenge(e))
+          return c.json({ error: "use_dpop_nonce" }, 400, {
+            "DPoP-Nonce": e.nonce,
+          });
+        return c.json({ error: "invalid_dpop_proof" }, 400);
+      }
+    for (const [k, p] of pushed) if (p.expires < Date.now()) pushed.delete(k);
+    if (ctx.overShare(pushed.values(), id, 500))
+      return c.json({ error: "rate_limited" }, 429);
+    const uri = `${REQUEST_URI}${randomId()}`;
+    const params = Object.fromEntries(
+      [
+        "response_type",
+        "client_id",
+        "redirect_uri",
+        "scope",
+        "state",
+        "code_challenge",
+        "code_challenge_method",
+      ].map((k) => [k, String(body[k])]),
+    );
+    pushed.set(tokenHash(uri), {
+      client: id,
+      params,
+      expires: Date.now() + 90000,
+      ...(dpop ? { dpop } : {}),
+    });
+    ctx.markDirty();
+    return c.json({ request_uri: uri, expires_in: 90 }, 201, {
+      "Cache-Control": "no-store",
+    });
+  });
+
+  app.get("/oauth/authorize", async (c) => {
+    let q: Record<string, string | undefined> = c.req.query();
+    let dpop: string | undefined;
+    // A pushed request: only client_id and request_uri count, once.
+    if (q.request_uri) {
+      const key = tokenHash(q.request_uri);
+      const p = pushed.get(key);
+      pushed.delete(key);
+      ctx.markDirty();
+      if (!p || p.expires < Date.now() || p.client !== q.client_id)
+        return c.json({ error: "invalid_request_uri" }, 400);
+      q = p.params;
+      dpop = p.dpop;
+    }
+    return consent(c, q, dpop);
+  });
+  async function consent(
+    c: Context,
+    q: Record<string, string | undefined>,
+    dpop: string | undefined,
+  ) {
+    const checked = await check(q);
+    if ("error" in checked) return c.json({ error: checked.error }, 400);
+    const { info, scopes, client, redirect, state, challenge } = checked;
     for (const [id, p] of pending)
       if (p.expires < Date.now()) pending.delete(id);
-    if (ctx.overShare(pending.values(), q.client_id, 500))
+    if (ctx.overShare(pending.values(), client, 500))
       return c.json({ error: "rate_limited" }, 429);
     ctx.markDirty();
     const nonce = randomId();
     pending.set(nonce, {
-      client: q.client_id,
-      redirect: q.redirect_uri,
-      state: q.state!,
+      client,
+      redirect,
+      state,
       scopes,
-      challenge: q.code_challenge!,
+      challenge,
       expires: Date.now() + 300000,
+      ...(dpop ? { dpop } : {}),
     });
     // Isolated deployments remember which browser approved (website link).
     if (isolated && !ctx.browserOf(c))
@@ -70,16 +207,16 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
         passwordRequired: !!deploy.passwordHash,
         scopes,
         client: info.name,
-        clientHost: new URL(q.client_id!).host,
+        clientHost: new URL(client).host,
       }),
       200,
       {
         "Cache-Control": "no-store",
-        "Content-Security-Policy": `default-src 'none'; style-src 'unsafe-inline'${def.fontSources ? ` ${def.fontSources.style}; font-src ${def.fontSources.font}` : ""}; form-action 'self' ${new URL(q.redirect_uri).origin}; frame-ancestors 'none'; base-uri 'none'`,
+        "Content-Security-Policy": `default-src 'none'; style-src 'unsafe-inline'${def.fontSources ? ` ${def.fontSources.style}; font-src ${def.fontSources.font}` : ""}; form-action 'self' ${new URL(redirect).origin}; frame-ancestors 'none'; base-uri 'none'`,
         "Referrer-Policy": "same-origin",
       },
     );
-  });
+  }
   app.post("/oauth/authorize", async (c) => {
     const body = (await c.req.parseBody()) as Record<string, string>;
     const nonce = String(body.nonce ?? "");
@@ -142,6 +279,7 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
         account: selected!.id,
         expires: Date.now() + 60000,
         ...(browser ? { browser } : {}),
+        ...(p.dpop ? { dpop: p.dpop } : {}),
       });
       redirect.searchParams.set("code", code);
     } else redirect.searchParams.set("error", "access_denied");

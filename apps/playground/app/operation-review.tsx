@@ -18,11 +18,13 @@ const moneyRows = [
   ["before_total_cents", "Previous total"],
   ["price_difference_cents", "Difference"],
   ["new_total_cents", "New total"],
+  ["refund_cents", "Refund"],
 ] as const;
 const states: Record<string, string> = {
   proposed: "Approval required",
   succeeded: "Completed",
   declined: "Declined",
+  refused: "Declined by the Company",
   failed: "Not applied",
   expired: "Expired",
   uncertain: "Outcome unknown",
@@ -67,7 +69,15 @@ export function OperationReview({
         <p className="quiet operation-company">
           {company} · terms revision {op.revision}
         </p>
-        <p>{op.summary}</p>
+        {op.summary ? (
+          // Shown as text: a summary's Markdown, links or images never render.
+          <p>{op.summary}</p>
+        ) : (
+          <p>
+            {company} sent no summary. Review its exact terms below before you
+            approve.
+          </p>
+        )}
         {diff.map((row, index) => (
           <div className="operation-diff" key={`${row.label}-${index}`}>
             <strong>{row.label}</strong>
@@ -114,18 +124,11 @@ export function OperationReview({
             {op.result.summary}
           </p>
         )}
-        <details className="operation-terms">
+        <details className="operation-terms" open={!op.summary}>
           <summary>All exact terms</summary>
-          {op.terms === undefined ? (
-            <p>
-              No structured terms supplied. Review the Company's full summary
-              above; approval applies to that summary and this revision.
-            </p>
-          ) : (
-            <pre className="operation-exact">
-              {JSON.stringify(op.terms, null, 2)}
-            </pre>
-          )}
+          <pre className="operation-exact">
+            {JSON.stringify(op.terms ?? {}, null, 2)}
+          </pre>
           <p className="quiet">Operation {op.operation_id}</p>
         </details>
         {pending && (

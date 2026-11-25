@@ -1,4 +1,4 @@
-import { discoverCompany, fetchExcludedTasks } from "@poppy-lab/pap-client";
+import { discoverCompany } from "@poppy-lab/pap-client";
 import { LOCAL_COMPANY_ORIGINS, PapDiscoveryError } from "@poppy-lab/pap-core";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -97,18 +97,8 @@ export async function POST(request: Request) {
       process.env.PAP_ALLOW_PRIVATE_NETWORK === "true"
         ? [...LOCAL_COMPANY_ORIGINS]
         : [];
+    // §9: tasks need a Session, so Iris reads them when it connects.
     const result = await discoverCompany(url, { allowedPrivateOrigins });
-    if (result.profile?.excludedTasksUrl) {
-      try {
-        result.excludedTasks = await fetchExcludedTasks(result, {
-          allowedPrivateOrigins,
-        });
-      } catch {
-        // Optional and advisory: discovery stays valid; never invent a list.
-        result.excludedTasksError =
-          "Excluded tasks are listed but could not be read.";
-      }
-    }
     const response = json(result);
     response.cookies.set("pap_oauth", "", {
       httpOnly: true,

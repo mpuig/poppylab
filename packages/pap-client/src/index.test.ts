@@ -15,7 +15,7 @@ vi.mock("node:dns/promises", () => ({
 }));
 
 const company = {
-  protocol_version: "0.3",
+  protocol_version: "1.0",
   organization: { name: "Test Company", domain: "company.example" },
   web: {},
 };

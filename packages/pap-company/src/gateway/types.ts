@@ -5,12 +5,8 @@
  */
 import type { Context, Hono } from "hono";
 import { createHash } from "node:crypto";
-import type {
-  Action,
-  Approval,
-  OperationRecord,
-  Outcome,
-} from "../approvals.ts";
+import type { Approval } from "@poppy-lab/pap-client/core";
+import type { Action, OperationRecord, Outcome } from "../approvals.ts";
 
 export type Session = {
   client: string;
@@ -20,7 +16,7 @@ export type Session = {
   account?: string;
   grant?: string;
   scopes?: string;
-  /** The Personal Agent lists Operations v2 in its client metadata. */
+  /** The request declares Operations version 3 in `Poppy-Extensions`. */
   operations?: boolean;
 };
 export type Grant = {
@@ -33,12 +29,13 @@ export type Grant = {
   client: string;
   scopes: string;
   expires: number;
+  /** §4.4: the DPoP key the refresh token was issued with (thumbprint). */
+  dpop?: string;
 };
 export type Token = {
   client: string;
   binding: string;
   expires: number;
-  operations: boolean;
   accountId: string;
   scopes: string;
   grant: string;
@@ -52,6 +49,8 @@ export type GatewayState = {
   /** Pending consent pages by nonce, and one-time codes by hash. */
   consents?: Record<string, Consent>;
   codes?: Record<string, Code>;
+  /** RFC 9126 pushed authorization requests by `request_uri` hash. */
+  pushed?: Record<string, Pushed>;
   /** Browser → the agent user's tenant it approved consent for. */
   links?: Record<string, { tenant: string; used: number }>;
   /** Before tenancy: shared operation records (moved to `shared`). */
@@ -66,6 +65,15 @@ export type Consent = {
   scopes: string;
   challenge: string;
   expires: number;
+  /** RFC 9449 §10: the code is bound to this DPoP key (from PAR). */
+  dpop?: string;
+};
+/** An authorization request pushed by an authenticated client (RFC 9126). */
+export type Pushed = {
+  client: string;
+  params: Record<string, string>;
+  expires: number;
+  dpop?: string;
 };
 export type Code = {
   client: string;
@@ -75,21 +83,26 @@ export type Code = {
   account: string;
   expires: number;
   browser?: string;
+  dpop?: string;
 };
 export type Tenant = {
   business: Record<string, unknown>;
   operations: Record<string, OperationRecord>;
   used: number;
-  /** Conversations (§8) by ID, and accepted message IDs by owner hash. */
+  /** Conversations (§8) by ID, and accepted request IDs by owner hash. */
   conversations?: Record<string, Conversation>;
-  messageIds?: Record<string, MessageRecord>;
+  requests?: Record<string, RequestRecord>;
 };
 
 // ---- Conversations (§8) ----------------------------------------------------
 export type ConversationMessage = {
   id: string;
   role: "user" | "company";
-  author: { type: "agent" | "human"; id?: string; name?: string };
+  author: { type: string; id?: string; name?: string };
+  /** §8.4 hints: the request a Company message took into account, and the
+   * last cursor the Personal Agent had read. */
+  as_of_request?: string;
+  as_of_cursor?: string;
   text?: string;
   data?: Record<string, unknown>;
   context?: Record<string, unknown>;
@@ -100,8 +113,10 @@ export type ConversationEvent = {
   type: "message" | "state" | "authorization";
   created_at: string;
   message?: ConversationMessage;
-  status?: "idle" | "queued" | "closed";
+  /** §8.7: a state event carries all three. */
+  handoff?: "none" | "pending";
   responder?: "agent";
+  closed?: boolean;
   error?: string;
   scope?: string;
 };
@@ -113,7 +128,9 @@ export type Conversation = {
   client: string;
   user: string;
   account?: string;
-  status: "idle" | "closed";
+  /** §8.7 state (never `working`: replies are computed on acceptance). */
+  handoff: "none" | "pending";
+  closed: boolean;
   /** Last event number; events before the first kept one were dropped. */
   seq: number;
   events: ConversationEvent[];
@@ -124,16 +141,19 @@ export type Conversation = {
   messages: number;
   updated: number;
 };
-export type MessageRecord = {
+/** §8.3: an accepted request, so a retry gets the original response. */
+export type RequestRecord = {
   conversation: string;
+  /** Path without the query, and a hash of the canonical body. */
+  path: string;
   digest: string;
-  /** The message started the conversation (its response was 201). */
-  started: boolean;
+  status: 201 | 202;
 };
 /** One accepted User-side message, for the Company Agent. */
 export type ConversationTurn = {
   conversation: string;
   message: {
+    /** An unrecognized `author.type` counts as `agent` (§8.4). */
     author: "agent" | "human";
     text?: string;
     data?: Record<string, unknown>;
@@ -145,9 +165,9 @@ export type ConversationTurn = {
   scopes: string[];
   /** Notes kept for this conversation; the Company Agent may change them. */
   memory: Record<string, unknown>;
-  /** `extensions.operations.approval`, only from an Operations v2 agent. */
+  /** `extensions.operations.approval`, only when the request declares v3. */
   approval?: Approval;
-  /** Whether operations may be sent to this agent (Operations v2 §2). */
+  /** Whether operations may be sent (the request declares Operations v3). */
   operations: boolean;
   /** Operations v2 for an action of this conversation (needs `account`). */
   propose: (action: Action) => Outcome;
@@ -223,8 +243,10 @@ export type CompanyDefinition = {
   persona: (id: unknown) => { id: string } | undefined;
   defaultAccount: string;
   /** `poppy.json` for this origin (the gateway adds nothing to it). */
+  /** `poppy.json` for this origin; `domain` is its host, with a non-443 port (§3.1). */
   discovery: (origin: string, domain: string) => Record<string, unknown>;
-  excludedTasks?: (origin: string) => Record<string, unknown>;
+  /** §9.1: tasks not offered through the protocol, for `tasks.endpoint`. */
+  excludedTasks?: (origin: string) => Array<Record<string, unknown>>;
   landing?: (origin: string) => string;
   /** Further server-rendered pages of the Company website, by path. */
   pages?: Record<string, (origin: string) => string>;
@@ -260,7 +282,6 @@ export type CompanyDefinition = {
 };
 export type Deployment = {
   origin: string;
-  domain: string;
   store: Store;
   fetchJson: FetchJson;
   /** Plain-HTTP Personal Agents accepted in development, by exact client_id. */

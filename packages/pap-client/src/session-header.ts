@@ -1,7 +1,7 @@
 /**
- * PAP 0.3 §5.2–5.3: the `Poppy-Session` header. A key from the Personal
- * Agent's jwks_uri signs only short-lived delegations; each delegated key
- * signs Session JWTs for exactly one User ID.
+ * PAP 1.0 §5.2–5.3: the `Poppy-Session` header. A key from the Personal
+ * Agent's jwks_uri signs only short-lived delegations (ES256 or PS384); each
+ * delegated key signs Session JWTs (ES256) for exactly one User ID.
  */
 import {
   SignJWT,
@@ -13,22 +13,20 @@ import {
   jwtVerify,
   type JWK,
 } from "jose";
-import { randomId, tokenHash, type ReplayCache } from "./session.ts";
+import {
+  randomId,
+  signingAlgorithm,
+  tokenHash,
+  type ReplayCache,
+} from "./session.ts";
 
 export const SESSION_TYP = "poppy-session+jwt";
 export const DELEGATION_TYP = "poppy-delegation+jwt";
-/**
- * The delegation's wire form. `current` is the 0.3 text from 3 November 2026
- * (`poppy_dlg`, `poppy-delegation+jwt`); `earlier` is the 0.3 text before it
- * (`pap_dlg`, `pap-delegation+jwt`), still used by some live demos.
- */
-export type SessionDialect = "current" | "earlier";
-const WIRE = {
-  current: { field: "poppy_dlg", typ: DELEGATION_TYP },
-  earlier: { field: "pap_dlg", typ: "pap-delegation+jwt" },
-} as const;
 const MAX_DELEGATION_SECONDS = 24 * 3600;
-const ID = /^[A-Za-z0-9_-]{16,128}$/;
+/** The `sid` this client chooses: random, never reused (§5.2). */
+const OWN_SID = /^[A-Za-z0-9_-]{16,128}$/;
+/** What a Company accepts: the characters of Conversation IDs (§8.2). */
+const SID = /^[A-Za-z0-9_-]{1,256}$/;
 
 /** A delegated key pair plus the delegation vouching for its public key. */
 export type SessionKey = {
@@ -36,8 +34,6 @@ export type SessionKey = {
   kid: string;
   delegation: string;
   expires: number;
-  /** Absent means `current`. */
-  dialect?: SessionDialect;
 };
 
 /** Random Session ID, never reused (§5.2). */
@@ -51,9 +47,10 @@ export async function createSessionKey(
   rootKey: JWK,
   clientId: string,
   lifetimeSeconds = 6 * 3600,
-  dialect: SessionDialect = "current",
 ): Promise<SessionKey> {
   if (!rootKey.kid) throw new Error("Root key needs a kid");
+  const alg = signingAlgorithm(rootKey);
+  if (!alg) throw new Error("Unsupported root key");
   const lifetime = Math.min(
     Math.max(Math.floor(lifetimeSeconds), 60),
     MAX_DELEGATION_SECONDS,
@@ -74,22 +71,17 @@ export async function createSessionKey(
       },
     },
   })
-    .setProtectedHeader({
-      alg: "ES256",
-      typ: WIRE[dialect].typ,
-      kid: rootKey.kid,
-    })
+    .setProtectedHeader({ alg, typ: DELEGATION_TYP, kid: rootKey.kid })
     .setIssuer(clientId)
     .setIssuedAt(iat)
     .setExpirationTime(iat + lifetime)
     .setJti(randomId())
-    .sign(await importJWK(rootKey, "ES256"));
+    .sign(await importJWK(rootKey, alg));
   return {
     privateKey,
     kid,
     delegation,
     expires: (iat + lifetime) * 1000,
-    ...(dialect === "earlier" ? { dialect } : {}),
   };
 }
 
@@ -120,7 +112,7 @@ export async function signSessionHeader(input: {
 }) {
   if (input.key.expires <= Date.now())
     throw new Error("Session key delegation expired");
-  if (!ID.test(input.sessionId)) throw new Error("Invalid Session ID");
+  if (!OWN_SID.test(input.sessionId)) throw new Error("Invalid Session ID");
   return new SignJWT({
     sid: input.sessionId,
     ...(input.agentId ? { agent_id: input.agentId } : {}),
@@ -132,7 +124,7 @@ export async function signSessionHeader(input: {
       typ: SESSION_TYP,
       alg: "ES256",
       kid: input.key.kid,
-      [WIRE[input.key.dialect ?? "current"].field]: input.key.delegation,
+      poppy_dlg: input.key.delegation,
     })
     .setIssuer(input.clientId)
     .setAudience(input.audience)
@@ -174,15 +166,8 @@ export async function verifySessionHeader(
     "jwk" in header
   )
     throw new Error("invalid_session");
-  // Either 0.3 wire form, but one consistently: field and typ together.
-  const dialect: SessionDialect | undefined =
-    typeof header.poppy_dlg === "string"
-      ? "current"
-      : typeof header.pap_dlg === "string"
-        ? "earlier"
-        : undefined;
-  if (!dialect) throw new Error("invalid_session");
-  const delegationJwt = header[WIRE[dialect].field] as string;
+  if (typeof header.poppy_dlg !== "string") throw new Error("invalid_session");
+  const delegationJwt = header.poppy_dlg;
   // Read iss before verification only to locate keys; nothing is trusted yet.
   const unverified = JSON.parse(
     Buffer.from(jwt.split(".")[1] ?? "", "base64url").toString("utf8"),
@@ -190,24 +175,25 @@ export async function verifySessionHeader(
   if (typeof unverified.iss !== "string") throw new Error("invalid_session");
   const clientId = unverified.iss;
 
-  // 1–2. Delegation signed by a jwks_uri key named by its kid.
+  // 1–2. Delegation signed (ES256 or PS384) by a jwks_uri key named by its kid.
   const delegationHeader = decodeProtectedHeader(delegationJwt);
   if (
-    delegationHeader.typ !== WIRE[dialect].typ ||
-    delegationHeader.alg !== "ES256" ||
+    delegationHeader.typ !== DELEGATION_TYP ||
     typeof delegationHeader.kid !== "string"
   )
     throw new Error("invalid_session");
   const root = (await options.keysFor(clientId)).find(
     (key) => key.kid === delegationHeader.kid && !("d" in key),
   );
-  if (!root) throw new Error("invalid_session");
+  const alg = root && signingAlgorithm(root);
+  if (!root || !alg || delegationHeader.alg !== alg)
+    throw new Error("invalid_session");
   const { payload: delegation } = await jwtVerify(
     delegationJwt,
-    await importJWK(root, "ES256"),
+    await importJWK(root, alg),
     {
-      algorithms: ["ES256"],
-      typ: WIRE[dialect].typ,
+      algorithms: [alg],
+      typ: DELEGATION_TYP,
       issuer: clientId,
       clockTolerance: 5,
     },
@@ -248,7 +234,7 @@ export async function verifySessionHeader(
     payload.htm !== options.method.toUpperCase() ||
     payload.htu !== target(options.url) ||
     typeof payload.sid !== "string" ||
-    !ID.test(payload.sid) ||
+    !SID.test(payload.sid) ||
     typeof payload.sub !== "string" ||
     !payload.sub ||
     payload.sub.length > 256 ||

@@ -1,4 +1,4 @@
-/** TEST ONLY: the Operations v2 approval header for an operation. */
+/** TEST ONLY: a user's approval header for an operation (Operations v3). */
 export const approvalOf = (op: { operation_id: string; revision: string }) => ({
-  "poppy-approval": `operation_id="${op.operation_id}", revision="${op.revision}"`,
+  "poppy-approval": `operation_id="${op.operation_id}", revision="${op.revision}", approver="user"`,
 });

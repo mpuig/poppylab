@@ -197,7 +197,6 @@ it("saves only when state can change, and fails closed if storage fails", async 
   const store = memoryStore();
   lab.app = createCompany(lantern, {
     origin,
-    domain: "noodles.localhost",
     store,
     fetchJson: async () => ({ keys: [keys.publicKey] }),
   });

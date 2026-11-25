@@ -70,27 +70,56 @@ it("honors HTTP-date, ignores malformed values and never shortens an existing co
   expect(() => checkCooldown(origin, now + 60000)).not.toThrow();
 });
 
-it("serializes and parses the Poppy-Approval dictionary (RFC 9651)", () => {
-  const header = approvalHeader({ operation_id: "op_1", revision: "1791-k3" });
-  expect(header).toBe('operation_id="op_1", revision="1791-k3"');
+it("serializes and parses the Poppy-Approval dictionary (Operations v3, RFC 9651)", () => {
+  const header = approvalHeader({
+    operation_id: "op_1",
+    revision: "1791-k3",
+    approver: "user",
+    approved_at: 1791487260,
+    input_type: "tap",
+    reference: "apr_01JD8ZK3Q9",
+  });
+  expect(header).toBe(
+    'operation_id="op_1", revision="1791-k3", approver="user", approved_at=1791487260, input_type="tap", reference="apr_01JD8ZK3Q9"',
+  );
   expect(parseApprovalHeader(header)).toEqual({
     operation_id: "op_1",
     revision: "1791-k3",
+    approver: "user",
+    approved_at: 1791487260,
+    input_type: "tap",
+    reference: "apr_01JD8ZK3Q9",
   });
-  expect(parseApprovalHeader(`${header}, future="x", flag`)).toEqual({
-    operation_id: "op_1",
-    revision: "1791-k3",
-  });
+  // Unknown members and parameters are ignored; strings may hold commas.
+  expect(
+    parseApprovalHeader(
+      'approver="agent";x=1, operation_id="op_1", revision="r", future="a, b", flag, input_type="tap"',
+    ),
+  ).toEqual({ operation_id: "op_1", revision: "r", approver: "agent" });
   for (const bad of [
     undefined,
     "",
     "operation_id=op_1",
     'revision="r"',
+    // No approver: not an approval.
+    'operation_id="op_1", revision="r"',
+    'operation_id="op_1", revision="r", approver="someone"',
+    'operation_id="op_1", revision="r", approver="user",',
+    'operation_id="op_1 , revision="r", approver="user"',
     "{}",
     "x".repeat(2000),
   ])
     expect(parseApprovalHeader(bad)).toBeUndefined();
   expect(() =>
-    approvalHeader({ operation_id: 'op"1', revision: "r" }),
+    approvalHeader({ operation_id: 'op"1', revision: "r", approver: "user" }),
+  ).toThrow();
+  // input_type comes only with a user approval.
+  expect(() =>
+    approvalHeader({
+      operation_id: "op_1",
+      revision: "r",
+      approver: "agent",
+      input_type: "tap",
+    }),
   ).toThrow();
 });

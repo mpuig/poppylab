@@ -22,7 +22,12 @@ const legend = [
     "§3.2",
   ],
   ["ID", "Your agent's identity", "HTTPS client_id, metadata and JWKS", "§4.1"],
-  ["SI", "Direct Sign-In", "GET /oauth/authorize · PKCE S256", "§4.2"],
+  [
+    "SI",
+    "Direct Sign-In",
+    "POST /oauth/par, then /oauth/authorize · PKCE S256",
+    "§4.2",
+  ],
   [
     "TK",
     "Tokens and refresh",
@@ -30,9 +35,14 @@ const legend = [
     "§4.4–4.5",
   ],
   ["RV", "Revocation", "POST /oauth/revoke", "§4.6"],
-  ["SH", "Session header", "Poppy-Session on every API request", "§5.2–5.3"],
+  [
+    "SH",
+    "Session header",
+    "Poppy-Session and Poppy-Version: 1.0 on every request",
+    "§3.4, §5.2–5.3",
+  ],
   ["AP", "APIs", "/openapi.json · OpenAPI 3.1", "§7"],
-  ["EX", "Excluded tasks", "/poppy/excluded-tasks.json", "§9.1"],
+  ["TS", "Tasks", "GET /poppy/tasks · excluded tasks per Session", "§9"],
   [
     "CV",
     "Conversations",
@@ -42,8 +52,8 @@ const legend = [
   [
     "OP",
     "Approvals",
-    "403 approval_required → resend with Poppy-Approval",
-    "Operations v2",
+    '403 approval_required → resend with Poppy-Approval (approver="user")',
+    "Operations v3",
   ],
 ] as const;
 
@@ -65,7 +75,7 @@ export default function Home() {
       </a>
       <header className="bar">
         <a className="wordmark" href="/">
-          Poppy Lab <span className="tag">PAP 0.3</span>
+          Poppy Lab <span className="tag">PAP 1.0</span>
         </a>
         <nav aria-label="Sections">
           <a href="#route">How it works</a>
@@ -85,11 +95,11 @@ export default function Home() {
               Send an agent to the shops. Nothing changes until you sign.
             </h1>
             <p className="lead">
-              Poppy Lab is an independent test bench for the Personal Agent
-              Protocol, draft 0.3. Run Iris, its Personal Agent, with your own
-              model key, point it at two fictional Companies, and watch every
-              step it takes: discovery, sign-in, signed Sessions, and changes
-              that wait for your approval.
+              Poppy Lab is an independent test bench for Personal Agent Protocol
+              1.0. Run Iris, its Personal Agent, with your own model key, point
+              it at two fictional Companies, and watch every step it takes:
+              discovery, sign-in, signed Sessions, conversations with each
+              Company&apos;s own agent, and changes that wait for your approval.
             </p>
             <div className="actions">
               <a className="button" href="/playground">
@@ -168,7 +178,7 @@ export default function Home() {
 
           <div className="label-pair">
             <article className="label">
-              <LabelStrip code="JM · PAP 0.3 · Ops v2" bars="JUNIPER" />
+              <LabelStrip code="JM · PAP 1.0 · Ops v3" bars="JUNIPER" />
               <h3>Juniper Market</h3>
               <p className="address">{host(juniper)}</p>
               <p>
@@ -199,7 +209,7 @@ export default function Home() {
               </div>
             </article>
             <article className="label">
-              <LabelStrip code="LN · PAP 0.3 · Ops v2" bars="LANTERN" />
+              <LabelStrip code="LN · PAP 1.0 · Ops v3" bars="LANTERN" />
               <h3>Lantern Noodle Bar</h3>
               <p className="address">{host(lantern)}</p>
               <p>
@@ -266,7 +276,7 @@ export default function Home() {
             <p>
               Juniper and Lantern accept any Personal Agent with an HTTPS{" "}
               <code>client_id</code> that serves its metadata and keys, with
-              redirect URIs from that metadata. Both speak Operations v2.
+              redirect URIs from that metadata. Both speak Operations v3.
               Replace <code>{"{company}"}</code> with{" "}
               <code>{host(juniper)}</code> or <code>{host(lantern)}</code>.
             </p>
@@ -314,10 +324,9 @@ export default function Home() {
         <div>
           <p className="wordmark">Poppy Lab</p>
           <p>
-            An independent experiment with Personal Agent Protocol draft 0.3,
-            following the text as published on 3 November 2026. The draft still
-            changes. Poppy Lab makes no claim of conformance or production
-            security.
+            An independent experiment with Personal Agent Protocol 1.0,
+            following the text as published on 14 November 2026. Poppy Lab makes
+            no claim of conformance or production security.
           </p>
         </div>
         <nav aria-label="Poppy Lab sites" className="lab-nav">
@@ -333,17 +342,16 @@ export default function Home() {
           </a>
         </nav>
         <nav aria-label="Elsewhere">
-          <a href="https://personalagentprotocol.org/docs/0.3/spec">
+          <a href="https://personalagentprotocol.org/docs/1.0/spec">
             Specification <ArrowUpRight size={14} aria-hidden="true" />
           </a>
-          <a href="https://papsandbox.com">
-            PAP Sandbox <ArrowUpRight size={14} aria-hidden="true" />
+          <a href="https://personalagentprotocol.org/docs/demos">
+            Community demos <ArrowUpRight size={14} aria-hidden="true" />
           </a>
         </nav>
         <p className="disclaimer">
           Not affiliated with or endorsed by the protocol&apos;s authors.
-          “Personal Agent Protocol” and “Poppy” are their names. PAP Sandbox is
-          a separate, independent site.
+          “Personal Agent Protocol” and “Poppy” are their names.
         </p>
       </footer>
     </div>

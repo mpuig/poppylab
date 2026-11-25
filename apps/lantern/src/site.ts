@@ -167,7 +167,7 @@ export function shell(
         `<a href="${href}"${href === current ? ' aria-current="page"' : ""}>${label}</a>`,
     )
     .join("");
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${title}</title>${fonts}<style>${css}</style></head><body><header class="strip"><div class="wrap"><a class="brand" href="/">Lantern Noodle Bar</a><nav aria-label="Site">${nav}</nav><span class="tag">Fictional test Company · PAP 0.3</span></div></header>${body}<footer><div class="wrap"><p>Lantern Noodle Bar is a fictional restaurant for testing personal agents. Nothing is sold, charged or delivered.</p><p>Independent experiment, not affiliated with or endorsed by the authors of the Personal Agent Protocol. “Personal Agent Protocol” and “Poppy” are their names.</p>${labLineHtml(origin, "lantern")}</div></footer></body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${title}</title>${fonts}<style>${css}</style></head><body><header class="strip"><div class="wrap"><a class="brand" href="/">Lantern Noodle Bar</a><nav aria-label="Site">${nav}</nav><span class="tag">Fictional test Company · PAP 1.0</span></div></header>${body}<footer><div class="wrap"><p>Lantern Noodle Bar is a fictional restaurant for testing personal agents. Nothing is sold, charged or delivered.</p><p>Independent experiment, not affiliated with or endorsed by the authors of the Personal Agent Protocol. “Personal Agent Protocol” and “Poppy” are their names.</p>${labLineHtml(origin, "lantern")}</div></footer></body></html>`;
 }
 
 const [slotDay, slotTime] = [
@@ -206,16 +206,24 @@ export function forAgentsPage(origin: string) {
       `${origin}/.well-known/oauth-authorization-server`,
       "§3.2",
     ],
-    ["Direct Sign-In", `GET ${origin}/oauth/authorize · PKCE S256`, "§4.2"],
+    [
+      "Direct Sign-In",
+      `POST ${origin}/oauth/par (optional) · GET ${origin}/oauth/authorize · PKCE S256`,
+      "§4.2",
+    ],
     [
       "Tokens and refresh",
       `POST ${origin}/oauth/token · private_key_jwt, DPoP`,
       "§4.4–4.5",
     ],
     ["Revocation", `POST ${origin}/oauth/revoke`, "§4.6"],
-    ["Session header", "Poppy-Session on every /api request", "§5.2–5.3"],
+    [
+      "Session header",
+      "Poppy-Session, Poppy-Version: 1.0 and Poppy-Extensions on API and conversation requests",
+      "§3.4, §5.2–5.3",
+    ],
     ["API", `${origin}/openapi.json · OpenAPI 3.1`, "§7"],
-    ["Excluded tasks", `${origin}/poppy/excluded-tasks.json`, "§9.1"],
+    ["Tasks", `GET ${origin}/poppy/tasks · excluded tasks`, "§9"],
     [
       "Conversations",
       `${origin}/poppy/conversations · structured requests in data`,
@@ -223,8 +231,8 @@ export function forAgentsPage(origin: string) {
     ],
     [
       "Approvals",
-      "403 approval_required → resend with Poppy-Approval",
-      "Operations v2",
+      '403 approval_required → resend with Poppy-Approval (approver="user" or "agent")',
+      "Operations v3",
     ],
   ];
   const table = rows
@@ -243,7 +251,7 @@ export function forAgentsPage(origin: string) {
       return `<li><strong>${escape(c.name)}</strong><span>Account <code>${c.id}</code> · order <code>${c.order.id}</code>: ${escape(lines)} · ${escape(slot)}</span></li>`;
     })
     .join("");
-  const body = `<main class="wrap"><section class="intro"><h1>Point your agent here.</h1><p>Lantern Noodle Bar speaks Personal Agent Protocol draft 0.3. Any Personal Agent with an HTTPS <code>client_id</code> that serves its metadata and keys can start a Session, sign in as a test customer and change a scheduled order with Operations v2. Every visitor gets its own copy of the customers.</p></section><section class="plain"><h2>Endpoints at ${host}</h2><div class="table-wrap"><table><thead><tr><th scope="col">What</th><th scope="col">Where</th><th scope="col">Spec</th></tr></thead><tbody>${table}</tbody></table></div><p class="try">Scopes: <code>orders:read</code> (scheduled orders) and <code>orders:write</code> (propose changes). Sign-in offers read first; a visitor adds write later.</p></section><section class="plain"><h2>Test customers</h2><ul class="customers">${people}</ul><p class="try">Try: <q>Add a matcha ice cream to my order and move it to Sunday lunchtime.</q> The approval shows the new slot, the dishes and the price difference before anything changes.</p><p class="try">Or: <q>The gyoza were missing from my last delivery.</q> Your agent takes it up with Lantern's own agent in a conversation. It answers structured requests with data, and proposes a refund you approve.</p></section><section class="plain"><h2>Watch it work</h2><p class="try">Open <a href="${playgroundFor(origin)}">Iris</a>, the test Personal Agent in Poppy Lab, with this Company connected. Its Inspector shows discovery, the Session and each API call with the spec section it meets.</p></section></main>`;
+  const body = `<main class="wrap"><section class="intro"><h1>Point your agent here.</h1><p>Lantern Noodle Bar speaks Personal Agent Protocol 1.0. Any Personal Agent with an HTTPS <code>client_id</code> that serves its metadata and keys (ES256 or PS384) can start a Session, sign in as a test customer, with or without a pushed authorization request, and change a scheduled order with Operations version 3. Every visitor gets its own copy of the customers.</p></section><section class="plain"><h2>Endpoints at ${host}</h2><div class="table-wrap"><table><thead><tr><th scope="col">What</th><th scope="col">Where</th><th scope="col">Spec</th></tr></thead><tbody>${table}</tbody></table></div><p class="try">Scopes: <code>orders:read</code> (scheduled orders) and <code>orders:write</code> (propose changes). Sign-in offers read first; a visitor adds write later.</p></section><section class="plain"><h2>Test customers</h2><ul class="customers">${people}</ul><p class="try">Try: <q>Add a matcha ice cream to my order and move it to Sunday lunchtime.</q> The approval shows the new slot, the dishes and the price difference before anything changes.</p><p class="try">Or: <q>The gyoza were missing from my last delivery.</q> Your agent takes it up with Lantern's own agent in a conversation. It answers structured requests with data, and proposes a refund you approve.</p></section><section class="plain"><h2>Watch it work</h2><p class="try">Open <a href="${playgroundFor(origin)}">Iris</a>, the test Personal Agent in Poppy Lab, with this Company connected. Its Inspector shows discovery, the Session and each API call with the spec section it meets.</p></section></main>`;
   return shell("For agents · Lantern Noodle Bar", body, "/for-agents", origin);
 }
 

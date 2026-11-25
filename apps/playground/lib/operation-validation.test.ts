@@ -9,7 +9,7 @@ const remote = {
   terms: { to: "Saturday" },
   expires_at: new Date(Date.now() + 60000).toISOString(),
 };
-it("keeps only the fields Operations v2 defines", () => {
+it("keeps only the fields Operations v3 defines", () => {
   const op = validateOperation({
     ...remote,
     state: "succeeded",
@@ -18,16 +18,21 @@ it("keeps only the fields Operations v2 defines", () => {
   });
   expect(op).toEqual(remote);
 });
-it("accepts omitted terms without inventing structured facts", () => {
-  const summaryOnly: Partial<typeof remote> = { ...remote };
-  delete summaryOnly.terms;
-  expect(validateOperation(summaryOnly)).not.toHaveProperty("terms");
+it("accepts an operation without a summary: the terms say it all (§3)", () => {
+  const termsOnly: Partial<typeof remote> = { ...remote };
+  delete termsOnly.summary;
+  expect(validateOperation(termsOnly)).toEqual(termsOnly);
+  // A blank summary is no summary.
+  expect(validateOperation({ ...remote, summary: " " })).not.toHaveProperty(
+    "summary",
+  );
 });
 it.each([
   ["numeric revision", { revision: 2 }],
   ["missing expiry", { expires_at: undefined }],
-  ["blank summary", { summary: " " }],
+  ["missing terms", { terms: undefined }],
   ["array terms", { terms: [] }],
+  ["numeric summary", { summary: 7 }],
   ["bad id", { operation_id: "op 1" }],
 ])("rejects %s", (_name, change) => {
   expect(() => validateOperation({ ...remote, ...change })).toThrow();
@@ -39,8 +44,12 @@ it("allows a new revision but never different content under the same revision", 
       .revision,
   ).toBe("r2");
   expect(() =>
-    validateOperation({ ...remote, summary: "Changed silently" }, previous),
+    validateOperation({ ...remote, terms: { to: "Sunday" } }, previous),
   ).toThrow("immutable");
+  // A summary reworded without changing the terms may keep the revision.
+  expect(
+    validateOperation({ ...remote, summary: "Reworded." }, previous).summary,
+  ).toBe("Reworded.");
   expect(() =>
     validateOperation({ ...remote, operation_id: "op_2" }, previous),
   ).toThrow("identity");

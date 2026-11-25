@@ -1,18 +1,23 @@
 /**
- * PAP 0.3 conversations (§8) from Iris's side: one conversation per run with
- * the Company's own agent. Iris sends structured requests in `data` (or
- * `text`), reads the Company's events after its saved cursor, and turns them
- * into tool results for the model and entries for the chat. Everything the
- * Company says is untrusted content (§10.1): bounded, never instructions.
+ * PAP 1.0 conversations (§8) from Iris's side: one conversation per run with
+ * the Company's own agent. Every POST has a request `id`; Iris sends
+ * structured requests in `data` (or `text`), reads the Company's events after
+ * its saved cursor until `working` is false, and turns them into tool results
+ * for the model and entries for the chat. Everything the Company says is
+ * untrusted content (§10.1): bounded, never instructions.
  *
  * An `authorization` event (§8.11) becomes the usual Sign in instruction. An
- * operation in `extensions.operations` (Operations v2) becomes the usual
- * approval card; approving sends a message carrying the approval, with an ID
- * derived from the revision so a retry after a lost response is the same
- * message (§8.3). Direct Conversations (§8.10) are not supported yet.
+ * operation in `extensions.operations` (Operations v3) becomes the usual
+ * approval card; approving sends a message carrying the User's approval, with
+ * a request ID derived from the revision, so a retry after a lost response is
+ * the same request (§8.3). Direct Conversations (§8.10) aren't supported yet.
  */
 import { createHash, randomBytes } from "node:crypto";
-import { ProtocolError, type ApiTool } from "@poppy-lab/pap-client";
+import {
+  ProtocolError,
+  type ApiTool,
+  type Approval,
+} from "@poppy-lab/pap-client";
 import type { DiscoveredCompany } from "@poppy-lab/pap-core";
 import { recordOperation } from "./operation-store";
 import type { Operation, Run } from "./runtime";
@@ -23,8 +28,9 @@ export type ConversationState = {
   cursor?: string;
   /** Event IDs already handled (a read after a reconnect can repeat them). */
   seen: string[];
-  status?: string;
+  handoff?: string;
   responder?: string;
+  closed?: boolean;
 };
 /** One Company message or event, as the chat shows it. */
 export type CompanyEntry = {
@@ -55,7 +61,7 @@ const clip = (v: unknown, max: number) =>
         .join("")
         .slice(0, max) || undefined
     : undefined;
-const messageId = () => `msg_${randomBytes(12).toString("base64url")}`;
+const requestId = () => `req_${randomBytes(12).toString("base64url")}`;
 
 /** The `poppy` conversation endpoint, on the Company's own domain only. */
 export function conversationEndpoint(company: DiscoveredCompany) {
@@ -63,7 +69,8 @@ export function conversationEndpoint(company: DiscoveredCompany) {
     (p) => p.type === "poppy",
   );
   if (!entry) return undefined;
-  const host = new URL(entry.endpoint).hostname;
+  // §3.1: organization.domain carries a port when it isn't 443, as host does.
+  const host = new URL(entry.endpoint).host.toLowerCase();
   const domain = company.document.organization.domain.toLowerCase();
   return host === domain || host.endsWith(`.${domain}`)
     ? entry.endpoint.replace(/\/$/, "")
@@ -76,8 +83,8 @@ function parseRead(value: unknown) {
     !object(value) ||
     typeof value.conversation_id !== "string" ||
     !ID.test(value.conversation_id) ||
-    typeof value.status !== "string" ||
-    typeof value.responder !== "string"
+    typeof value.working !== "boolean" ||
+    typeof value.closed !== "boolean"
   )
     throw new Error("Invalid conversation response");
   const events = Array.isArray(value.events) ? value.events.slice(0, 100) : [];
@@ -92,11 +99,11 @@ function parseRead(value: unknown) {
         ? value.cursor
         : undefined,
     hasMore: value.has_more === true,
-    // §8.7: unknown values are treated as working and human.
-    status: ["working", "idle", "queued", "closed"].includes(value.status)
-      ? value.status
-      : "working",
+    // §8.7: an unknown handoff counts as pending, an unknown responder as human.
+    working: value.working,
+    handoff: value.handoff === "none" ? "none" : "pending",
     responder: value.responder === "agent" ? "agent" : "human",
+    closed: value.closed,
   };
 }
 
@@ -105,7 +112,7 @@ export function conversationTools(
   options: {
     endpoint: string;
     request: Request;
-    /** Approvals only for allowlisted account Companies (Operations v2). */
+    /** Approvals only for allowlisted account Companies (Operations v3). */
     allowProposals: boolean;
     trace: (line: string) => void;
     /** What the chat shows this turn. */
@@ -122,8 +129,9 @@ export function conversationTools(
   function handle(read: ReturnType<typeof parseRead>) {
     const s = state();
     s.id = read.id;
-    s.status = read.status;
+    s.handoff = read.handoff;
     s.responder = read.responder;
+    s.closed = read.closed;
     if (read.cursor) s.cursor = read.cursor;
     const replies: Array<Record<string, unknown>> = [];
     const result: Record<string, unknown> = {};
@@ -132,7 +140,9 @@ export function conversationTools(
       s.seen = [...s.seen, e.id as string].slice(-200);
       if (e.type === "message" && object(e.message)) {
         const m = e.message;
-        if (m.role !== "company") continue;
+        // §8.4: only our own side is skipped; an unknown role is Company content.
+        if (m.role === "user") continue;
+        // An unknown author type counts as an agent: a person only when said.
         const author = object(m.author) ? m.author : {};
         const human = author.type === "human";
         const text = clip(m.text, 2000);
@@ -158,20 +168,30 @@ export function conversationTools(
               note: "Poppy Lab approves operations only at its own test Companies. Nothing was done.",
             };
           } else {
-            const op = recordOperation(run, operation, {
-              conversation: { endpoint: options.endpoint, id: read.id },
-            });
-            options.trace(
-              "Conversation operation · approval required · nothing performed",
-            );
-            note = "Proposed an operation: approve or decline it below.";
-            result.approval = {
-              status: "approval_required",
-              operation_id: op.operation_id,
-              summary: op.summary,
-              expires_at: op.expires_at,
-              note: "Nothing was done. The user must approve these exact terms with the control in the chat; your words can't approve it.",
-            };
+            let op: Operation | undefined;
+            try {
+              op = recordOperation(run, operation, {
+                conversation: { endpoint: options.endpoint, id: read.id },
+              });
+            } catch {
+              note =
+                "Offered an operation Iris couldn't read. Nothing was done.";
+              result.approval = { status: "invalid", note };
+            }
+            if (op) {
+              options.trace(
+                "Conversation operation · approval required · nothing performed",
+              );
+              note = "Proposed an operation: approve or decline it below.";
+              result.approval = {
+                status: "approval_required",
+                operation_id: op.operation_id,
+                ...(op.summary ? { summary: op.summary } : {}),
+                terms: op.terms,
+                expires_at: op.expires_at,
+                note: "Nothing was done. The user must approve these exact terms with the control in the chat; your words can't approve it.",
+              };
+            }
           }
         }
         options.shown.push({
@@ -202,18 +222,23 @@ export function conversationTools(
         };
       } else if (e.type === "state") {
         options.trace(
-          `Conversation state · ${clip(e.status, 20)} · responder ${clip(e.responder, 20)}`,
+          `Conversation state · handoff ${clip(e.handoff, 20)} · responder ${clip(e.responder, 20)}${e.closed === true ? " · closed" : ""}`,
         );
       }
     }
-    if (["working", "queued"].includes(read.status))
+    if (read.working)
       result.note =
-        "The Company is still working. Call company_agent_read to get its reply.";
+        "The Company is still replying. Call company_agent_read to get the rest.";
+    else if (read.handoff === "pending")
+      result.note =
+        "The Company is looking for a person. Call company_agent_read later, or company_agent_cancel_handoff if the user no longer needs one.";
     return {
       untrusted_company_content: true,
       conversation_id: read.id,
-      status: read.status,
+      working: read.working,
+      handoff: read.handoff,
       responder: read.responder,
+      closed: read.closed,
       replies,
       ...result,
     };
@@ -262,9 +287,11 @@ export function conversationTools(
     } catch (error) {
       if (!(error instanceof ProtocolError)) throw error;
       if (
-        ["conversation_not_found", "conversation_closed"].includes(
-          error.code ?? "",
-        )
+        [
+          "conversation_not_found",
+          "conversation_closed",
+          "version_mismatch",
+        ].includes(error.code ?? "")
       ) {
         run.conversation = { endpoint: options.endpoint, seen: [] };
         return {
@@ -295,14 +322,31 @@ export function conversationTools(
       options.trace(
         s.id ? `Conversation message · ${s.id}` : "Conversation started",
       );
+      // §8.3: the request ID is the message's; as_of_cursor says what we read.
       const body = {
-        message: { id: messageId(), author: { type: "agent" }, ...message },
+        id: requestId(),
+        message: {
+          author: { type: "agent" },
+          ...(s.id && s.cursor ? { as_of_cursor: s.cursor } : {}),
+          ...message,
+        },
       };
       return call(
         s.id ? `${options.endpoint}/${s.id}/messages` : options.endpoint,
         "POST",
         body,
       );
+    });
+  /** handoff and handoff/cancel: a request ID and nothing else (§8.9). */
+  const control = (path: string, line: string) =>
+    guarded(async () => {
+      const s = state();
+      if (!s.id)
+        return { note: "Start a conversation with company_agent_send first." };
+      options.trace(line);
+      return call(`${options.endpoint}/${s.id}/${path}`, "POST", {
+        id: requestId(),
+      });
     });
 
   const tools: Record<string, ApiTool> = {
@@ -342,35 +386,34 @@ export function conversationTools(
         }),
     },
     company_agent_handoff: {
-      description: `Ask for a person at ${company} in the current conversation. Only when the user asks for a person, or the Company's agent can't help.`,
+      description: `Ask for a person at ${company} in the current conversation. Only when the user asks for a person, or the Company's agent can't help. Send a short summary of the problem first, for whoever joins.`,
+      schema: { type: "object", properties: {}, additionalProperties: false },
+      execute: () => control("handoff", "Conversation handoff requested"),
+    },
+    company_agent_cancel_handoff: {
+      description: `Withdraw a request for a person at ${company}, when the user no longer needs one. The Company may still assign someone.`,
       schema: { type: "object", properties: {}, additionalProperties: false },
       execute: () =>
-        guarded(async () => {
-          const s = state();
-          if (!s.id)
-            return {
-              note: "Start a conversation with company_agent_send first.",
-            };
-          options.trace("Conversation handoff requested");
-          return call(`${options.endpoint}/${s.id}/handoff`, "POST", {});
-        }),
+        control("handoff/cancel", "Conversation handoff withdrawn"),
     },
   };
   return tools;
 }
 
-/** The message ID for one approval: the same for a retry (§8.3). */
-export const approvalMessageId = (op: Operation) =>
-  `msg_apv_${createHash("sha256").update(`${op.operation_id}\n${op.revision}`).digest("base64url").slice(0, 24)}`;
+/** The request ID for one approval: the same for a retry (§8.3). */
+export const approvalRequestId = (op: Operation) =>
+  `apv_${createHash("sha256").update(`${op.operation_id}\n${op.revision}`).digest("base64url").slice(0, 24)}`;
 
 /**
- * Operations v2 in a conversation (§6): sends the User's approval in
+ * Operations v3 in a conversation (§6): sends the User's approval in
  * `extensions.operations.approval`. Returns the Company's reply as the
- * result; new terms come back as `approval_required`, like at an API.
+ * result. New terms come back as `approval_required`, and a decline as
+ * `approval_declined`, as at an API.
  */
 export async function approveInConversation(
   run: Run,
   op: Operation,
+  approval: Approval,
   request: Request,
 ) {
   const target = op.request?.conversation;
@@ -387,15 +430,11 @@ export async function approveInConversation(
   url.searchParams.set("wait", "10");
   if (s.id === target.id && s.cursor) url.searchParams.set("cursor", s.cursor);
   const value = await request(run, url.href, "POST", {
+    id: approvalRequestId(op),
     message: {
-      id: approvalMessageId(op),
       author: { type: "agent" },
       text: "The user approved this operation.",
-      extensions: {
-        operations: {
-          approval: { operation_id: op.operation_id, revision: op.revision },
-        },
-      },
+      extensions: { operations: { approval } },
     },
   });
   const read = parseRead(value);
@@ -403,16 +442,25 @@ export async function approveInConversation(
   for (const e of read.events) {
     if (s.seen.includes(e.id as string)) continue;
     s.seen = [...s.seen, e.id as string].slice(-200);
-    if (
-      e.type !== "message" ||
-      !object(e.message) ||
-      e.message.role !== "company"
-    )
+    if (e.type !== "message" || !object(e.message) || e.message.role === "user")
       continue;
     const m = e.message;
     const ext = object(m.extensions) ? m.extensions.operations : undefined;
     const next = object(ext) ? ext.operation : undefined;
-    // New terms: never approved for the User (Operations v2 §6).
+    const declined = object(ext) ? ext.declined : undefined;
+    // A decline: nothing performed; this approval is never sent again (§6).
+    if (object(declined))
+      throw new ProtocolError(
+        403,
+        "approval_declined",
+        undefined,
+        undefined,
+        undefined,
+        typeof declined.reason === "string"
+          ? { reason: declined.reason.slice(0, 500) }
+          : {},
+      );
+    // New terms: never approved for the User (§6).
     if (next !== undefined)
       throw new ProtocolError(
         403,

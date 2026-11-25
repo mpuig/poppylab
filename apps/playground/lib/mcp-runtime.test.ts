@@ -3,14 +3,12 @@ const state = vi.hoisted(() => ({
   discover: vi.fn(),
   request: vi.fn(),
   protocol: vi.fn(),
-  excluded: vi.fn(async () => [{ task: "Cancel an order" }]),
 }));
 vi.mock("@poppy-lab/pap-client", async (original) => ({
   ...(await original<typeof import("@poppy-lab/pap-client")>()),
   discoverCompany: state.discover,
   mcpRequest: state.request,
   protocolRequest: state.protocol,
-  fetchExcludedTasks: state.excluded,
 }));
 vi.mock("node:fs/promises", () => ({
   mkdir: vi.fn(async () => {}),
@@ -33,12 +31,13 @@ function run(issuer: string | null = "https://mcp.example") {
     trace: [],
     discoveredAt: "",
     document: {
-      protocol_version: "0.3",
+      protocol_version: "1.0",
       organization: { name: "Fixture", domain: "mcp.example" },
       apis: [{ type: "mcp", url: mcp, description: "Fixture MCP" }],
     },
     profile: {
-      version: "0.3",
+      version: "1.0",
+      operations: false,
       identifier: issuer ?? "https://mcp.example",
       ...(issuer ? { issuer } : {}),
       signIn: { direct: false, device: false },
@@ -76,7 +75,7 @@ function run(issuer: string | null = "https://mcp.example") {
     };
   });
   return {
-    protocol: "0.3",
+    protocol: "1.0",
     url: "https://mcp.example",
     user: "",
     visitor: "visitor-fixture",
@@ -152,15 +151,52 @@ it("does not send the account's access token to MCP", async () => {
   expect(state.request).not.toHaveBeenCalled();
 });
 
-it("offers excluded tasks as an untrusted, token-free read tool", async () => {
+it("reads the tasks response once per Session, signed out, and offers excluded tasks as untrusted content (§9)", async () => {
   allow();
   const r = run();
   const discovered = await state.discover();
-  discovered.profile.excludedTasksUrl = "https://mcp.example/excluded.json";
+  discovered.profile.tasksEndpoint = "https://mcp.example/poppy/tasks";
   state.discover.mockResolvedValue(discovered);
+  state.protocol.mockImplementation(async (url: string) =>
+    url === "https://mcp.example/poppy/tasks"
+      ? {
+          excluded_tasks: [
+            { task: "Cancel an order" },
+            {
+              task: "Wire money",
+              alternative: { instructions: "In the app." },
+            },
+          ],
+        }
+      : { resource: mcp, authorization_servers: ["https://mcp.example"] },
+  );
   const tools = await connect(r, []);
   expect(await tools.excluded_tasks!.execute()).toEqual({
     untrusted_company_content: true,
-    tasks: [{ task: "Cancel an order" }],
+    tasks: [
+      { task: "Cancel an order" },
+      {
+        task: "Wire money",
+        alternative: { instructions: "In the app.", references: [] },
+      },
+    ],
   });
+  const tasksCalls = state.protocol.mock.calls.filter(
+    ([url]) => url === "https://mcp.example/poppy/tasks",
+  );
+  expect(tasksCalls).toHaveLength(1);
+  const headers = (tasksCalls[0]![1] as RequestInit).headers as Record<
+    string,
+    string
+  >;
+  expect(headers["Poppy-Session"]).toBeTruthy();
+  expect(headers["Poppy-Version"]).toBe("1.0");
+  expect(headers).not.toHaveProperty("Authorization");
+  // The same Session reuses it; a new one reads it again.
+  await connect(r, []);
+  expect(
+    state.protocol.mock.calls.filter(
+      ([url]) => url === "https://mcp.example/poppy/tasks",
+    ),
+  ).toHaveLength(1);
 });

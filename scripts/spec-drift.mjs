@@ -1,7 +1,7 @@
 /**
- * Compares the pinned PAP 0.3 text (spec/upstream.json) with the published
- * draft. Exit 1 when it changed, with the changed documents listed. The
- * draft changes often; review the diff before updating the pin.
+ * Compares the pinned PAP 1.0 text (spec/upstream.json) with the published
+ * text. Exit 1 when it changed, with the changed documents listed. Review
+ * the diff before updating the pin.
  */
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
