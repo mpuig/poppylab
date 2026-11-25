@@ -1098,6 +1098,45 @@ describe("Human-controlled account boundary", () => {
       delete run.conversation;
     }
   });
+  it("gives a reloaded page the transcript, not the model's context", async () => {
+    const run = state.run as {
+      history: unknown[];
+      transcript?: unknown[];
+    };
+    const shown = [
+      { role: "user", content: "My order never arrived" },
+      {
+        role: "company",
+        content: "Shall we refund it?",
+        author: "Juniper · automated agent",
+        direct: true,
+      },
+      { role: "user", content: "yes", direct: true },
+      {
+        role: "assistant",
+        content: "Protocol demo (no LLM). Told.",
+        demo: true,
+        data: '{"replies":1}',
+      },
+    ];
+    try {
+      run.history = [
+        { role: "user", content: "(The user wrote to Juniper directly.)" },
+      ];
+      run.transcript = shown;
+      const restored = await (
+        await GET(
+          new Request(
+            "http://localhost:3000/api/account?conversation=run_fixture_0001",
+          ),
+        )
+      ).json();
+      expect(restored.history).toEqual(shown);
+    } finally {
+      run.history = [];
+      delete run.transcript;
+    }
+  });
   it("rejects cross-origin approval", async () => {
     expect(
       (

@@ -1,6 +1,7 @@
 import { isLocalCompany } from "@poppy-lab/pap-core";
 import type { AgentStep } from "@/lib/agent-steps";
 import { isSandbox } from "@/lib/company-policy";
+import type { TranscriptEntry } from "@/lib/transcript";
 
 // Inlined at build time: local Companies in development, poppylab.dev when deployed.
 export const exampleUrl =
@@ -105,11 +106,70 @@ export type Message = {
   /** §8.10: said in the User's Direct Conversation with the Company. */
   direct?: boolean;
 };
-/** Server history (`user`/`assistant`) as transcript messages. */
+/**
+ * A turn of a transcript stored before it kept what the page showed: the
+ * notes written for the model stood in for the User's own direct lines and
+ * buttons. Ended conversations are kept for seven days, so these lines are
+ * still read for that long after the change.
+ */
+function earlierTurn(m: TranscriptEntry): Message[] | undefined {
+  if (m.role === "user") {
+    const direct =
+      /^\((?:Said|Written) to .+? directly, without Iris(?:; it may not have been sent)?\) /.exec(
+        m.content,
+      );
+    if (direct)
+      return [
+        { role: "You", text: m.content.slice(direct[0].length), direct: true },
+      ];
+    // Accept, decline and leave were buttons: Iris's next line says it.
+    if (
+      /^\(Direct conversation with .+: (accept|decline|close)\)$/.test(
+        m.content,
+      )
+    )
+      return [];
+  }
+  if (
+    m.role === "assistant" &&
+    m.content ===
+      "(No reply from Iris: the user was talking with the Company directly.)"
+  )
+    return [];
+  return undefined;
+}
+
+/**
+ * The server's transcript as the messages the page showed: the User's
+ * words, Company content with its author, and each answer with its label,
+ * steps and data.
+ */
 export const historyToMessages = (
-  history: Array<{ role: string; content: string }> | undefined,
+  history: TranscriptEntry[] | undefined,
 ): Message[] =>
-  (history ?? []).map((m) => ({
-    role: m.role === "user" ? "You" : "Agent",
-    text: m.content,
-  }));
+  (history ?? []).flatMap((m): Message[] => {
+    const earlier = earlierTurn(m);
+    if (earlier) return earlier;
+    const direct = m.direct ? { direct: true } : {};
+    const data = m.data ? { data: m.data } : {};
+    if (m.role === "company")
+      return [
+        {
+          role: "Company",
+          author: m.author ?? "Company",
+          text: m.content,
+          ...data,
+          ...(m.note ? { note: m.note } : {}),
+          ...direct,
+        },
+      ];
+    if (m.role === "user") return [{ role: "You", text: m.content, ...direct }];
+    return [
+      {
+        role: m.demo ? "Demo" : "Agent",
+        text: m.content,
+        ...data,
+        ...(m.steps?.length ? { steps: m.steps } : {}),
+      },
+    ];
+  });

@@ -72,6 +72,7 @@ import {
   type TasksResponse,
 } from "@poppy-lab/pap-core";
 import type { Approval } from "@poppy-lab/pap-client";
+import type { TranscriptEntry } from "./transcript";
 
 export const agentOrigin = (
   process.env.AGENT_PUBLIC_ORIGIN ?? "http://localhost:3000"
@@ -305,9 +306,11 @@ export type Run = {
   publicHistory?: Array<{ role: "user" | "assistant"; content: string }>;
   /**
    * What the page shows: `history` is cut to the model's last ten turns,
-   * this keeps the conversation. It resets wherever `history` does.
+   * this keeps the conversation, with the Company content and each
+   * answer's label, steps and data that the model is never sent. It resets
+   * wherever `history` does.
    */
-  transcript?: Array<{ role: "user" | "assistant"; content: string }>;
+  transcript?: TranscriptEntry[];
   /** When the conversation started, and its first request, for the list. */
   created?: number;
   title?: string;

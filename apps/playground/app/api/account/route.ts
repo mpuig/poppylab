@@ -242,6 +242,9 @@ export async function GET(request: Request) {
       readOnly: !!run?.archived,
       keptUntil: run?.archived ? run.keepUntil : undefined,
       company: run?.company,
+      // What the page showed, to show again: the transcript, with Company
+      // content and each answer's label, steps and data. Not the model's
+      // context, except in a run that has no transcript yet.
       history: run?.transcript ?? run?.history ?? [],
       url: run?.url,
       scopes: run?.scopes,

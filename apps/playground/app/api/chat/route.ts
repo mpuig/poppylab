@@ -11,7 +11,7 @@ import {
 import { shoppingTarget } from "@/lib/shopping-context";
 import { cookies } from "next/headers";
 import { connect, directConversation, type Run } from "@/lib/runtime";
-import { record, recordDirect } from "@/lib/transcript";
+import { recordDirect, recordTurn } from "@/lib/transcript";
 import type { CompanyEntry, DirectAction } from "@/lib/conversations";
 import { directState } from "@/lib/direct-state";
 import {
@@ -291,6 +291,8 @@ async function reply(request: Request, started: { id?: string }) {
         body.message,
         text,
         !result.error && !result.note,
+        // What the page shows this turn, to show it again after a reload.
+        { company: shown, trace },
       );
       run.history = run.history.slice(-10);
       return NextResponse.json(
@@ -487,18 +489,21 @@ async function reply(request: Request, started: { id?: string }) {
         },
       );
     }
-    record(
-      run,
-      { role: "user", content: body.message },
-      { role: "assistant", content: text },
-    );
+    const exact =
+      raw !== undefined ? JSON.stringify(raw).slice(0, 20000) : undefined;
+    // The model's context gets the two turns. The page's transcript also
+    // keeps what this turn shows, to show it again after a reload.
+    recordTurn(run, body.message, text, {
+      company: shown,
+      trace,
+      demo: provider === "demo",
+      data: exact,
+    });
     run.history = run.history.slice(-10);
     return NextResponse.json(
       {
         text,
-        ...(raw !== undefined
-          ? { data: JSON.stringify(raw).slice(0, 20000) }
-          : {}),
+        ...(exact !== undefined ? { data: exact } : {}),
         trace,
         sessionId: run.sessionId,
         mode: provider,

@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
+import type { CompanyEntry } from "./conversations";
 import type { Run } from "./runtime";
-import { record, recordDirect } from "./transcript";
+import {
+  record,
+  recordDirect,
+  recordTurn,
+  TRANSCRIPT_LIMITS,
+} from "./transcript";
 
 const run = () => ({ history: [] }) as unknown as Run;
 const company = "Lantern Noodle Bar";
@@ -89,10 +95,11 @@ describe("what a Direct Conversation leaves behind (§8.10)", () => {
         },
         { role: "assistant", content: notes[action] },
       ]);
-      // The page still shows the words, and not as said to the Company.
-      expect(forPage(r)).toEqual([
-        `(Written to ${company} directly, without Iris; it may not have been sent) ${secret}`,
-        notes[action],
+      // The page shows their words as it did, then Iris's line that says
+      // they weren't sent.
+      expect(r.transcript).toEqual([
+        { role: "user", content: secret, direct: true },
+        { role: "assistant", content: notes[action] },
       ]);
     }
   });
@@ -107,14 +114,31 @@ describe("what a Direct Conversation leaves behind (§8.10)", () => {
     recordDirect(r, company, "start", "It was order 12", opened, true);
     recordDirect(r, company, "say", secret, "", true);
 
-    expect(forPage(r)).toEqual([
-      "My order never arrived",
-      "Lantern asks to talk with you.",
-      `(Said to ${company} directly, without Iris) It was order 12`,
-      opened,
-      `(Said to ${company} directly, without Iris) ${secret}`,
-      "(No reply from Iris: the user was talking with the Company directly.)",
+    // As what they are: the User's own direct lines, with no note written
+    // for the model, and no line of Iris's where Iris said nothing.
+    expect(r.transcript).toEqual([
+      { role: "user", content: "My order never arrived" },
+      { role: "assistant", content: "Lantern asks to talk with you." },
+      { role: "user", content: "It was order 12", direct: true },
+      { role: "assistant", content: opened },
+      { role: "user", content: secret, direct: true },
     ]);
+  });
+
+  it("keeps a button as Iris's line about it, not as words of the User's", () => {
+    const r = run();
+    for (const action of ["accept", "decline", "close"] as const)
+      recordDirect(r, company, action, `Button: ${action}`, opened, false);
+
+    expect(forPage(r)).toEqual([opened, opened, opened]);
+    expect(JSON.stringify(r.transcript)).not.toContain("Button");
+    // The model still learns what the User chose.
+    expect(r.history.filter((turn) => turn.role === "user")).toEqual(
+      ["accept", "decline", "close"].map((action) => ({
+        role: "user",
+        content: `(Direct conversation with ${company}: ${action})`,
+      })),
+    );
   });
 
   it("leaves the model's earlier turns in place while the User talks", () => {
@@ -129,6 +153,210 @@ describe("what a Direct Conversation leaves behind (§8.10)", () => {
 
     // The route cuts the history to its last ten after every turn.
     expect(r.history.slice(-10)[0]?.content).toBe("My order never arrived");
-    expect(r.transcript).toHaveLength(18);
+    expect(r.transcript).toHaveLength(10);
+  });
+});
+
+describe("what the page shows again after a reload", () => {
+  const menu = { items: [{ name: "Shoyu ramen", price_cents: 1400 }] };
+  const said: CompanyEntry = {
+    author: `${company} · automated agent`,
+    human: false,
+    text: "Which order is it?",
+    data: JSON.stringify({ orders: ["ord_LNB0907"] }),
+    note: "Proposed an operation: approve or decline it below.",
+  };
+  const trace = [
+    "Poppy 1.0 Session signed in",
+    "GET https://food.example/api/menu?access_token=tok_secret_1 · 200",
+    "Conversation message · cnv_1",
+  ];
+  const turn = (r: Run) =>
+    recordTurn(r, "What's on the menu?", "Protocol demo (no LLM). Ramen.", {
+      company: [said],
+      trace,
+      demo: true,
+      data: JSON.stringify(menu),
+    });
+
+  it("keeps Company content, and each answer's label, steps and data", () => {
+    const r = run();
+    turn(r);
+    expect(r.transcript).toEqual([
+      { role: "user", content: "What's on the menu?" },
+      {
+        role: "company",
+        content: "Which order is it?",
+        author: `${company} · automated agent`,
+        data: said.data,
+        note: said.note,
+      },
+      {
+        role: "assistant",
+        content: "Protocol demo (no LLM). Ramen.",
+        demo: true,
+        steps: [
+          {
+            text: "Started a Poppy Session, signed in",
+            how: "setup",
+            access: null,
+            state: "done",
+          },
+          {
+            text: "Read https://food.example/api/menu",
+            how: "API",
+            access: "view",
+            state: "done",
+          },
+          {
+            text: "Talked to the Company's own agent",
+            how: "Company's agent",
+            access: null,
+            state: "done",
+          },
+        ],
+        data: JSON.stringify(menu),
+      },
+    ]);
+  });
+
+  it("sends the model the two turns' words and nothing else", () => {
+    const r = run();
+    turn(r);
+    recordDirect(r, company, "start", secret, opened, true, {
+      company: [{ ...said, text: "A person is here now.", direct: true }],
+      trace,
+    });
+    recordDirect(r, company, "say", "yes", "", true, {
+      company: [{ ...said, text: "Refund it is.", direct: true }],
+      trace,
+    });
+
+    // Exactly a role and its words: no steps, data, label or author.
+    expect(r.history).toEqual([
+      { role: "user", content: "What's on the menu?" },
+      { role: "assistant", content: "Protocol demo (no LLM). Ramen." },
+      {
+        role: "user",
+        content: `(The user wrote to ${company} directly, without Iris.)`,
+      },
+      { role: "assistant", content: opened },
+    ]);
+    // No Company content, in a conversation of Iris's or the User's own,
+    // and none of the User's direct words.
+    for (const theirs of [
+      "Which order",
+      "ord_LNB0907",
+      "A person is here",
+      "Refund it is",
+      "4417",
+      "Shoyu",
+    ])
+      expect(forModel(r)).not.toContain(theirs);
+    // The page has them, each said where it was said.
+    expect(
+      r.transcript!.map((e) => [e.role, e.content, e.direct ?? false]),
+    ).toEqual([
+      ["user", "What's on the menu?", false],
+      ["company", "Which order is it?", false],
+      ["assistant", "Protocol demo (no LLM). Ramen.", false],
+      ["user", secret, true],
+      ["company", "A person is here now.", true],
+      ["assistant", opened, false],
+      ["user", "yes", true],
+      ["company", "Refund it is.", true],
+    ]);
+  });
+
+  it("holds no secrets: only what was on screen", () => {
+    const r = {
+      history: [],
+      accountToken: "refresh_secret",
+      token: "access_secret",
+      dpop: { d: "private_key_secret" },
+      sessionKey: { privateKey: "session_secret" },
+    } as unknown as Run;
+    turn(r);
+    const stored = JSON.stringify(r.transcript);
+    for (const hidden of [
+      "refresh_secret",
+      "access_secret",
+      "private_key_secret",
+      "session_secret",
+      // A trace line's address is kept without its query.
+      "tok_secret_1",
+      "access_token",
+      "Authorization",
+      "DPoP",
+    ])
+      expect(stored).not.toContain(hidden);
+  });
+
+  it("bounds each entry", () => {
+    const r = run();
+    recordTurn(r, "q", "a".repeat(50_000), {
+      trace: Array.from(
+        { length: 200 },
+        (_, i) => `step ${i} ${"x".repeat(900)}`,
+      ),
+      company: [{ ...said, note: "n".repeat(5000) }],
+      // Larger than the page is ever sent: left out, not cut mid-JSON.
+      data: JSON.stringify({ big: "d".repeat(TRANSCRIPT_LIMITS.data) }),
+    });
+    const [, companyEntry, answer] = r.transcript!;
+    expect(answer!.content).toHaveLength(TRANSCRIPT_LIMITS.text);
+    expect(answer!.steps).toHaveLength(TRANSCRIPT_LIMITS.steps);
+    expect(answer!.steps![0]!.text.length).toBeLessThanOrEqual(300);
+    expect(answer).not.toHaveProperty("data");
+    expect(companyEntry!.note!.length).toBeLessThanOrEqual(600);
+  });
+
+  it("bounds the whole transcript, dropping the oldest data first", () => {
+    const r = run();
+    const bytes = () =>
+      new TextEncoder().encode(JSON.stringify(r.transcript)).length;
+    // Twenty turns, the most a run has, each with all the data it can show.
+    for (let i = 0; i < 20; i++)
+      recordTurn(r, `question ${i}`, `answer ${i}`, {
+        trace,
+        company: [{ ...said, data: JSON.stringify({ pad: "c".repeat(3900) }) }],
+        data: JSON.stringify({ i, pad: "é".repeat(9000) }),
+      });
+    expect(bytes()).toBeLessThanOrEqual(TRANSCRIPT_LIMITS.bytes);
+    // Every word of the conversation is still there…
+    expect(forPage(r).filter((c) => c.startsWith("question"))).toHaveLength(20);
+    const answers = r.transcript!.filter((e) => e.role === "assistant");
+    // …the newest answers have their data, and the oldest have lost it.
+    expect(answers.at(-1)).toHaveProperty("data");
+    expect(answers[0]).not.toHaveProperty("data");
+    expect(answers[0]).toHaveProperty("steps");
+
+    // Far more than fits: the oldest entries go, the newest stay.
+    for (let i = 0; i < 400; i++)
+      recordTurn(r, `later ${i}`, "w".repeat(TRANSCRIPT_LIMITS.text));
+    expect(bytes()).toBeLessThanOrEqual(TRANSCRIPT_LIMITS.bytes);
+    expect(r.transcript!.length).toBeLessThanOrEqual(TRANSCRIPT_LIMITS.entries);
+    expect(forPage(r)).not.toContain("question 0");
+    expect(forPage(r)).toContain("later 399");
+  });
+
+  it("goes on from a transcript stored before, which had words only", () => {
+    const r = run();
+    r.transcript = [
+      {
+        role: "user",
+        content: `(Said to ${company} directly, without Iris) hi`,
+      },
+      { role: "assistant", content: "An earlier answer." },
+    ];
+    turn(r);
+    expect(r.transcript.slice(0, 2)).toEqual([
+      {
+        role: "user",
+        content: `(Said to ${company} directly, without Iris) hi`,
+      },
+      { role: "assistant", content: "An earlier answer." },
+    ]);
+    expect(r.transcript).toHaveLength(5);
   });
 });
