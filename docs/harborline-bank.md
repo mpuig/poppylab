@@ -56,7 +56,7 @@ Useful reads list accounts/balances, transactions, cards, recipients and budgets
 
 Every mutation requires the request to declare Operations version 3. The first request returns `403 approval_required` with exact terms. Only a retry with a valid `Poppy-Approval` for the same unexpired revision can perform it. Replayed approvals return the first result.
 
-Payment, transfer and budget creation requests require stable caller-generated idempotency keys. Reuse with different terms returns `idempotency_conflict`. Approved state is rechecked for versions, balances, statuses and limits; stale approvals return `account_changed`.
+Payment, transfer and budget creation requests require stable caller-generated idempotency keys. Reuse with different terms returns `idempotency_conflict`. A payment or transfer is proposed on the accounts as they are at each request, so a key reused after the account changed gets a new revision. Approving a revision whose balances or versions are gone performs nothing and returns `approval_required` with the new revision. A key that has already moved money is never performed again: approving it returns `account_changed`.
 
 Modeled business errors include:
 

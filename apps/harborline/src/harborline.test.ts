@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { scopes } from "./scopes.ts";
 import { inject, origin, setup } from "./test-harness.ts";
 
@@ -281,7 +281,7 @@ describe("Harborline Bank", () => {
     });
   });
 
-  it("detects stale approved transfers after another approved transfer changes the account", async () => {
+  it("answers a stale transfer approval with a new revision after another approved transfer changes the account", async () => {
     const { sign, call } = await setup();
     const token = await sign("elena", all);
     const firstPayload = {
@@ -329,8 +329,218 @@ describe("Harborline Bank", () => {
       secondPayload,
       second,
     );
-    expect(stale.statusCode).toBe(409);
-    expect(stale.json().error).toBe("account_changed");
+    // The approved terms no longer describe the accounts: nothing moves, and
+    // the same operation comes back with a revision for the current balances.
+    expect(stale.statusCode).toBe(403);
+    expect(stale.json().error).toBe("approval_required");
+    const fresh = operation(stale);
+    expect(fresh.operation_id).toBe(second.operation_id);
+    expect(fresh.revision).not.toBe(second.revision);
+    expect(fresh.terms).toMatchObject({
+      source_balance_before_cents: 1234500,
+      source_balance_after_cents: 1174500,
+    });
+    const accounts = await call(
+      token.access_token,
+      "GET",
+      "/api/account/accounts",
+    );
+    expect(accounts.json().accounts).toMatchObject([
+      { id: "acc_HLB_A100", balance_cents: 1234500 },
+      { id: "acc_HLB_A200", balance_cents: 4300000 },
+    ]);
+  });
+
+  it("re-proposes a payment on the current balance when its idempotency key is reused after the account changed", async () => {
+    const { sign, call } = await setup();
+    const token = await sign("elena", all);
+    const post = (
+      url: string,
+      payload: Record<string, unknown>,
+      approval?: ReturnType<typeof operation>,
+    ) => call(token.access_token, "POST", url, payload, approval);
+    const payment = {
+      source_account_id: "acc_HLB_A100",
+      recipient_id: "rcp_HLB_A501",
+      amount_cents: 30000,
+      memo: "Logo revisions",
+      idempotency_key: "payment-reuse-001",
+    };
+    const transfer = {
+      source_account_id: "acc_HLB_A100",
+      destination_account_id: "acc_HLB_A200",
+      amount_cents: 100000,
+      idempotency_key: "payment-reuse-other",
+    };
+    const first = operation(await post("/api/account/payments", payment));
+    expect(first.terms.source_balance_before_cents).toBe(1284500);
+    // Another approved transfer changes the account before the approval.
+    const other = operation(await post("/api/account/transfers", transfer));
+    expect(
+      (await post("/api/account/transfers", transfer, other)).statusCode,
+    ).toBe(200);
+    const again = await post("/api/account/payments", payment);
+    expect(again.statusCode).toBe(403);
+    const second = operation(again);
+    expect(second.operation_id).toBe(first.operation_id);
+    expect(second.revision).not.toBe(first.revision);
+    // The new revision's terms and summary describe the same, current balance.
+    expect(second.terms).toMatchObject({
+      source_account_version: Number(first.terms.source_account_version) + 1,
+      source_balance_before_cents: 1184500,
+      source_balance_after_cents: 1154500,
+    });
+    expect(second.summary).toContain(
+      "Resulting fictional balance USD 11545.00",
+    );
+    // The key still stands for one request only.
+    const conflict = await post("/api/account/payments", {
+      ...payment,
+      amount_cents: 31000,
+    });
+    expect(conflict.statusCode).toBe(409);
+    expect(conflict.json().error).toBe("idempotency_conflict");
+    // The first revision describes a balance that is gone: nothing is paid.
+    const outdated = await post("/api/account/payments", payment, first);
+    expect(outdated.statusCode).toBe(403);
+    expect(operation(outdated).revision).toBe(second.revision);
+    const approved = await post("/api/account/payments", payment, second);
+    expect(approved.statusCode).toBe(200);
+    expect(approved.json().data.account.balance_cents).toBe(1154500);
+    const replay = await post("/api/account/payments", payment, second);
+    expect(replay.json()).toEqual(approved.json());
+    const accounts = await call(
+      token.access_token,
+      "GET",
+      "/api/account/accounts",
+    );
+    expect(accounts.json().accounts[0].balance_cents).toBe(1154500);
+  });
+
+  it("re-proposes a transfer on the current balances when its idempotency key is reused after the accounts changed", async () => {
+    const { sign, call } = await setup();
+    const token = await sign("elena", all);
+    const post = (
+      payload: Record<string, unknown>,
+      approval?: ReturnType<typeof operation>,
+    ) =>
+      call(
+        token.access_token,
+        "POST",
+        "/api/account/transfers",
+        payload,
+        approval,
+      );
+    const transfer = {
+      source_account_id: "acc_HLB_A100",
+      destination_account_id: "acc_HLB_A200",
+      amount_cents: 30000,
+      idempotency_key: "transfer-reuse-001",
+    };
+    const between = {
+      ...transfer,
+      amount_cents: 100000,
+      idempotency_key: "transfer-reuse-other",
+    };
+    const first = operation(await post(transfer));
+    expect(first.terms.source_balance_before_cents).toBe(1284500);
+    const other = operation(await post(between));
+    expect((await post(between, other)).statusCode).toBe(200);
+    const again = await post(transfer);
+    expect(again.statusCode).toBe(403);
+    const second = operation(again);
+    expect(second.operation_id).toBe(first.operation_id);
+    expect(second.revision).not.toBe(first.revision);
+    expect(second.terms).toMatchObject({
+      source_version: Number(first.terms.source_version) + 1,
+      destination_version: Number(first.terms.destination_version) + 1,
+      source_balance_before_cents: 1184500,
+      source_balance_after_cents: 1154500,
+      destination_balance_before_cents: 4350000,
+      destination_balance_after_cents: 4380000,
+    });
+    expect(second.summary).toContain(
+      "Operating checking USD 11545.00; Reserve savings USD 43800.00",
+    );
+    const conflict = await post({ ...transfer, amount_cents: 31000 });
+    expect(conflict.statusCode).toBe(409);
+    expect(conflict.json().error).toBe("idempotency_conflict");
+    const approved = await post(transfer, second);
+    expect(approved.statusCode).toBe(200);
+    expect(approved.json().data.accounts).toMatchObject([
+      { id: "acc_HLB_A100", balance_cents: 1154500 },
+      { id: "acc_HLB_A200", balance_cents: 4380000 },
+    ]);
+    const replay = await post(transfer, second);
+    expect(replay.json()).toEqual(approved.json());
+    const accounts = await call(
+      token.access_token,
+      "GET",
+      "/api/account/accounts",
+    );
+    expect(accounts.json().accounts).toMatchObject([
+      { id: "acc_HLB_A100", balance_cents: 1154500 },
+      { id: "acc_HLB_A200", balance_cents: 4380000 },
+    ]);
+  });
+
+  it("never performs an idempotency key twice, even after the gateway has forgotten the operation", async () => {
+    const { sign, call } = await setup();
+    const token = await sign("elena", all);
+    const post = (
+      url: string,
+      payload: Record<string, unknown>,
+      approval?: ReturnType<typeof operation>,
+    ) => call(token.access_token, "POST", url, payload, approval);
+    const requests: Array<[string, Record<string, unknown>]> = [
+      [
+        "/api/account/payments",
+        {
+          source_account_id: "acc_HLB_A100",
+          recipient_id: "rcp_HLB_A501",
+          amount_cents: 30000,
+          memo: "Logo revisions",
+          idempotency_key: "payment-once-001",
+        },
+      ],
+      [
+        "/api/account/transfers",
+        {
+          source_account_id: "acc_HLB_A100",
+          destination_account_id: "acc_HLB_A200",
+          amount_cents: 100000,
+          idempotency_key: "transfer-once-001",
+        },
+      ],
+    ];
+    for (const [url, payload] of requests) {
+      const op = operation(await post(url, payload));
+      expect((await post(url, payload, op)).statusCode).toBe(200);
+    }
+    // A performed operation is only kept until its revision would expire.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(Date.now() + 11 * 60000);
+      for (const [url, payload] of requests) {
+        const again = await post(url, payload);
+        // Not a replay: the gateway treats this as a new operation.
+        expect(again.statusCode).toBe(403);
+        const repeated = await post(url, payload, operation(again));
+        expect(repeated.statusCode).toBe(409);
+        expect(repeated.json().error).toBe("account_changed");
+      }
+      const accounts = await call(
+        token.access_token,
+        "GET",
+        "/api/account/accounts",
+      );
+      expect(accounts.json().accounts).toMatchObject([
+        { id: "acc_HLB_A100", balance_cents: 1154500 },
+        { id: "acc_HLB_A200", balance_cents: 4350000 },
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("freezes and unfreezes active cards while refusing inactive or stale cards", async () => {

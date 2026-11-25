@@ -603,9 +603,12 @@ function mount(
       amount_cents: amount,
       memo,
     };
-    const reservation = reserve(customer, "payment", key, request);
-    if (!reservation) return c.json({ error: "idempotency_conflict" }, 409);
-    const terms = (reservation.terms ??= {
+    if (!reserve(customer, "payment", key, request))
+      return c.json({ error: "idempotency_conflict" }, 409);
+    const id = generatedId("pay_HLB", `${customer.id}:${key}`);
+    // The key reserves the request, not a balance: the terms describe the
+    // account as it is now, so a reused key can still be approved.
+    const terms = {
       ...request,
       idempotency_key: key,
       source_account_version: source.version,
@@ -618,13 +621,17 @@ function mount(
       currency: "USD",
       execution: "Immediate fictional payment after approval",
       notice: FICTION_NOTICE,
-    });
+    };
     return ctx.gate(c, {
       key: `payment:${key}`,
       terms,
       decline: ownApprovalForMoney,
       summary: `Send ${usd(amount)} from ${source.name} to ${recipient.name} (account ending ${recipient.account_last4}) for “${memo}”. Fee ${usd(0)}. Resulting fictional balance ${usd(source.balance_cents - amount)}. No real money moves.`,
+      // A key that has paid never pays again, even once the gateway has
+      // forgotten the operation and takes the request as a new one. The
+      // snapshot checks back up the gateway's own comparison of the terms.
       stale: (approved) =>
+        customer.payments.some((item) => item.id === id) ||
         source.version !== approved.source_account_version ||
         source.balance_cents !== approved.source_balance_before_cents ||
         recipient.version !== approved.recipient_version ||
@@ -636,7 +643,7 @@ function mount(
         source.available_cents -= Number(approved.amount_cents);
         source.version++;
         const payment: Payment = {
-          id: generatedId("pay_HLB", `${customer.id}:${key}`),
+          id,
           source_account_id: source.id,
           recipient_id: recipient.id,
           amount_cents: Number(approved.amount_cents),
@@ -710,9 +717,11 @@ function mount(
       destination_account_id: destination.id,
       amount_cents: amount,
     };
-    const reservation = reserve(customer, "transfer", key, request);
-    if (!reservation) return c.json({ error: "idempotency_conflict" }, 409);
-    const terms = (reservation.terms ??= {
+    if (!reserve(customer, "transfer", key, request))
+      return c.json({ error: "idempotency_conflict" }, 409);
+    const id = generatedId("trf_HLB", `${customer.id}:${key}`);
+    // As for payments: the terms describe the accounts as they are now.
+    const terms = {
       ...request,
       idempotency_key: key,
       source_name: source.name,
@@ -725,13 +734,15 @@ function mount(
       destination_balance_after_cents: destination.balance_cents + amount,
       currency: "USD",
       notice: FICTION_NOTICE,
-    });
+    };
     return ctx.gate(c, {
       key: `transfer:${key}`,
       terms,
       decline: ownApprovalForMoney,
       summary: `Transfer ${usd(amount)} from ${source.name} to ${destination.name}. New fictional balances: ${source.name} ${usd(source.balance_cents - amount)}; ${destination.name} ${usd(destination.balance_cents + amount)}. No real money moves.`,
+      // A key that has moved money never moves it again (see payments).
       stale: (approved) =>
+        customer.transfers.some((item) => item.id === id) ||
         source.version !== approved.source_version ||
         destination.version !== approved.destination_version ||
         source.balance_cents !== approved.source_balance_before_cents ||
@@ -749,7 +760,7 @@ function mount(
         destination.available_cents += moved;
         destination.version++;
         const transfer: Transfer = {
-          id: generatedId("trf_HLB", `${customer.id}:${key}`),
+          id,
           source_account_id: source.id,
           destination_account_id: destination.id,
           amount_cents: moved,
