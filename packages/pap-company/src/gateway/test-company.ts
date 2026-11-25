@@ -1,13 +1,16 @@
 /**
  * TEST ONLY. A small Company on the gateway, with a Company Agent, and a
- * Personal Agent's keys to call it: form posts to the OAuth endpoints and
- * signed-out conversation requests.
+ * Personal Agent's keys to call it: form posts to the OAuth endpoints,
+ * signed-out conversation requests, Direct Sign-In and signed calls with a
+ * DPoP-bound token.
  */
+import { createHash } from "node:crypto";
 import {
   assertion,
   createIdentity,
   createSessionKey,
   newSessionId,
+  proof,
   signSessionHeader,
 } from "@poppy-lab/pap-client/core";
 import { createCompany } from "../gateway.ts";
@@ -34,23 +37,31 @@ const company: CompanyDefinition = {
   mount: (_app, ctx) => ctx.converse(() => ({ replies: [{ text: "ok" }] })),
 };
 
-export async function setup(deploy: Partial<Deployment> = {}) {
+/** `overrides` replace fields of the test Company's definition. */
+export async function setup(
+  deploy: Partial<Deployment> = {},
+  overrides: Partial<CompanyDefinition> = {},
+) {
   const keys = await createIdentity();
+  const dpop = await createIdentity();
   const store = memoryStore();
-  const app = createCompany(company, {
-    origin,
-    store,
-    fetchJson: async (url) =>
-      url === client
-        ? {
-            client_id: client,
-            client_name: "Agent",
-            jwks_uri: "https://agent.test/jwks.json",
-            redirect_uris: [redirect],
-          }
-        : { keys: [keys.publicKey] },
-    ...deploy,
-  });
+  const app = createCompany(
+    { ...company, ...overrides },
+    {
+      origin,
+      store,
+      fetchJson: async (url) =>
+        url === client
+          ? {
+              client_id: client,
+              client_name: "Agent",
+              jwks_uri: "https://agent.test/jwks.json",
+              redirect_uris: [redirect],
+            }
+          : { keys: [keys.publicKey] },
+      ...deploy,
+    },
+  );
   /** The client's fields of an OAuth request, with a fresh assertion. */
   const credentials = async () => ({
     client_id: client,
@@ -92,5 +103,104 @@ export async function setup(deploy: Partial<Deployment> = {}) {
       },
       body: JSON.stringify(body),
     });
-  return { app, store, credentials, form, post };
+  type Tokens = { access_token: string; refresh_token: string; scope?: string };
+  /** The token endpoint, with the agent's DPoP key. */
+  const token = async (body: Record<string, string>) => {
+    const r = await form(
+      "/oauth/token",
+      { ...body, ...(await credentials()) },
+      { DPoP: await proof(dpop.privateKey, `${origin}/oauth/token`, "POST") },
+    );
+    if (r.status !== 200) throw new Error(`token: ${await r.text()}`);
+    return (await r.json()) as Tokens;
+  };
+  /** Direct Sign-In as Elena; `consent` adds fields to the consent form. */
+  const signIn = async (
+    scope = "things:read",
+    consent: Record<string, string> = {},
+  ) => {
+    const verifier = "v".repeat(64);
+    const page = await app.request(
+      `/oauth/authorize?${new URLSearchParams({
+        client_id: client,
+        redirect_uri: redirect,
+        response_type: "code",
+        scope,
+        state: "s".repeat(32),
+        code_challenge: createHash("sha256")
+          .update(verifier)
+          .digest("base64url"),
+        code_challenge_method: "S256",
+      })}`,
+    );
+    if (page.status !== 200) throw new Error(`authorize: ${page.status}`);
+    // With visitor isolation a browser cookie comes first.
+    const cookie = page.headers
+      .getSetCookie()
+      .find((c) => c.includes("pap_consent_"))!
+      .split(";")[0]!;
+    const approved = await form(
+      "/oauth/authorize",
+      {
+        nonce: cookie.split("=")[1]!,
+        decision: "approve",
+        account: "elena",
+        write: "yes",
+        ...consent,
+      },
+      { cookie, origin },
+    );
+    const location = approved.headers.get("location");
+    if (approved.status !== 302 || !location)
+      return { refused: approved } as const;
+    const code = new URL(location).searchParams.get("code")!;
+    return token({
+      grant_type: "authorization_code",
+      code,
+      code_verifier: verifier,
+      redirect_uri: redirect,
+    });
+  };
+  /** A signed call: the User's Session, and the token when given. */
+  const call = async (
+    path: string,
+    options: {
+      method?: "GET" | "POST";
+      access?: string;
+      extensions?: string;
+      user?: string;
+      session?: string;
+    } = {},
+  ) => {
+    const method = options.method ?? "GET";
+    const { access } = options;
+    return app.request(path, {
+      method,
+      headers: {
+        "Poppy-Version": "1.0",
+        ...(options.extensions !== undefined
+          ? { "Poppy-Extensions": options.extensions }
+          : {}),
+        "Poppy-Session": await signSessionHeader({
+          key: sessionKey,
+          clientId: client,
+          audience: origin,
+          sessionId: options.session ?? sessionId,
+          userId: options.user ?? "usr_test",
+          method,
+          url: origin + path,
+          ...(access ? { accessToken: access } : {}),
+        }),
+        ...(access
+          ? {
+              Authorization: `DPoP ${access}`,
+              DPoP: await proof(dpop.privateKey, origin + path, method, access),
+            }
+          : {}),
+        ...(method === "POST" ? { "content-type": "application/json" } : {}),
+      },
+      ...(method === "POST" ? { body: "{}" } : {}),
+    });
+  };
+  return { app, store, credentials, form, post, token, signIn, call };
 }

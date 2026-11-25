@@ -1,10 +1,11 @@
 /**
  * Tenancy: one mounted copy of the Company's business routes per tenant
  * (the shared copy, or one per agent user with `isolation: "visitor"`), the
- * Operations v3 gate, grant access for the Company website, and the final
- * dispatch that routes website browsers to their copy.
+ * Operations v3 gate, grant access for the Company website and for a
+ * request's own grant, and the final dispatch that routes website browsers
+ * to their copy.
  */
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { randomId } from "@poppy-lab/pap-client/core";
 import { approvals } from "../approvals.ts";
 import type { Ctx } from "./context.ts";
@@ -14,6 +15,7 @@ import {
   type ConversationHandler,
   type Gate,
   type GrantAccess,
+  type GrantView,
   type Tenant,
 } from "./types.ts";
 
@@ -48,6 +50,7 @@ export function createTenancy(ctx: Ctx) {
           id: g.id,
           client: g.client,
           scopes: g.scopes,
+          ...(g.resources ? { resources: [...g.resources] } : {}),
           expires_at: new Date(g.expires).toISOString(),
         })),
     revoke(account, id) {
@@ -64,6 +67,35 @@ export function createTenancy(ctx: Ctx) {
       return true;
     },
   });
+  /**
+   * The grant behind a request's access token, for the tenant `key`. The
+   * Session middleware already refused a token of another client, holder,
+   * or an expired one; this checks again, so a view is never another
+   * tenant's, client's, User's or account's, whatever request a Company's
+   * code passes in.
+   */
+  const grantFor =
+    (key: string) =>
+    (c: Context): GrantView | undefined => {
+      const s = ctx.sessions.get(c.req.raw);
+      if (!s?.grant || (ctx.tenantKeys.get(c.req.raw) ?? SHARED_TENANT) !== key)
+        return undefined;
+      const g = state.grants[s.grant];
+      if (
+        !g ||
+        g.expires < Date.now() ||
+        g.client !== s.client ||
+        g.account !== s.account ||
+        g.holder !== ctx.holderOf(s.client, s.user)
+      )
+        return undefined;
+      return {
+        id: g.id,
+        scopes: g.scopes.split(" ").filter(Boolean),
+        ...(g.resources ? { resources: [...g.resources] } : {}),
+        expires_at: new Date(g.expires).toISOString(),
+      };
+    };
   type Entry = {
     app: Hono;
     engine: ReturnType<typeof approvals>;
@@ -126,6 +158,7 @@ export function createTenancy(ctx: Ctx) {
         state: tenant.business,
         gate,
         grants: grantsOf(key),
+        grantFor: grantFor(key),
         origin,
         operations: () => tenant.operations,
         converse: (handler) => {

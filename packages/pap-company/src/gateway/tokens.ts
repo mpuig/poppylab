@@ -1,7 +1,8 @@
 /**
  * The token endpoint (§4.4, §4.7) and revocation (§4.6, RFC 7009). Client
  * assertions may be ES256 or PS384 and last up to 5 minutes (§4.1); refresh
- * tokens are bound to the DPoP key they were issued with (§4.4).
+ * tokens are bound to the DPoP key they were issued with (§4.4). A grant
+ * keeps the scopes and resources of its consent through every refresh.
  */
 import type { Hono } from "hono";
 import {
@@ -112,6 +113,8 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
           ...(code.browser ? { browser: code.browser } : {}),
           // §4.4: refreshed only with the DPoP key it was issued with.
           dpop: binding,
+          // The consent's resources; a refresh keeps this grant, and them.
+          ...(code.resources ? { resources: [...code.resources] } : {}),
         };
         state.grants[grantKey] = grant;
         scopes = grant.scopes;
