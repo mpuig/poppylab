@@ -11,6 +11,7 @@ pnpm scenarios mcp              # transport, reads and resource tokens
 pnpm scenarios banking          # Harborline reads, approvals and portal parity
 pnpm scenarios fdx              # Harborline's FDX-shaped API and its gateway options
 pnpm scenarios airline          # Northwind search, scopes, portal and changes
+pnpm scenarios energy           # Fernwick's ESPI-shaped API, bills and plan change
 ```
 
 The runner (`scripts/scenarios.mjs`) runs deterministic regression tests, not models or live purchases. Each run creates a `poppy-scenarios-*` directory in the system temp folder with Vitest reports and a `summary.json`. Test state lives in memory or in real vaults under temporary directories; it doesn't reset `.poppy` or change saved accounts. It inherits only PATH, HOME, TMPDIR, SYSTEMROOT and LANG, forces NODE_ENV=test, and doesn't inherit model keys, the Juniper password or tunnel configuration. It's not an operating-system sandbox or an official conformance suite.
@@ -26,6 +27,7 @@ The runner (`scripts/scenarios.mjs`) runs deterministic regression tests, not mo
 | banking    | Harborline Bank scopes, reads, payment/transfer idempotency, limits, stale state, reversible changes, conversations and portal parity; its FDX-shaped API and statements                                                                                                                                                 |
 | fdx        | Gateway account prefixes, token fields and refused consent; Harborline's FDX-shaped API: extension, clusters, accounts, consent, revocation, statements and their PDF; the native tools and the binary transport; Iris with Use FDX against the real Harborline app, its demo mode and the statements in the account row |
 | airline    | Northwind Air public tools, differentiated scopes, portal state, exact terms, stale prices and idempotent execution                                                                                                                                                                                                      |
+| energy     | Fernwick Power & Light: the DST bitmap, deterministic curves and bill arithmetic; its ESPI-shaped API (extension, scopes per route, meters chosen at consent, Atom XML, window and paging, 404s, token fields, Authorization and revocation); the plan change through Operations v3; the Company Agent and portal; the gateway's token fields |
 
 The `mcp` group covers client and transport tests and the runtime: reads with the local policy, metadata, DPoP and Bearer resource tokens, SSE, nonces and the absence of uncertain retries. See [MCP read-only](mcp-readonly.md).
 
