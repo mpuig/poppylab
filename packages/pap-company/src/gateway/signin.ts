@@ -153,7 +153,7 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
       expires: Date.now() + 90000,
       ...(dpop ? { dpop } : {}),
     });
-    ctx.markDirty();
+    ctx.markDirty(c.req.raw);
     return c.json({ request_uri: uri, expires_in: 90 }, 201, {
       "Cache-Control": "no-store",
     });
@@ -203,7 +203,7 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
         if (p.expires < Date.now()) pending.delete(id);
       if (ctx.overShare(pending.values(), client, 500))
         return c.json({ error: "rate_limited" }, 429);
-      ctx.markDirty();
+      ctx.markDirty(c.req.raw);
       nonce = randomId();
       pending.set(nonce, {
         client,

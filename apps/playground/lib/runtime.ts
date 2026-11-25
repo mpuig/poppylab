@@ -185,6 +185,12 @@ export type Operation = {
    * doesn't approve the new terms on the same instruction: the User decides.
    */
   agentSuperseded?: true;
+  /**
+   * Proposed in the User's Direct Conversation (§8.10), which the model
+   * doesn't read. Kept once that thread is over, so the model is never told
+   * how the operation ended in the Company's words.
+   */
+  direct?: true;
   /** An API request to resend, or the conversation the operation is in (§8). */
   request?:
     | { url: string; body: unknown; conversation?: undefined }

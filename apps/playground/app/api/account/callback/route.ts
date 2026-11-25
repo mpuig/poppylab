@@ -6,14 +6,40 @@ import {
   localOrigins,
   accountConfiguration,
   newSession,
+  papRequest,
   revokeRefreshToken,
   usesDpop,
+  type Run,
 } from "@/lib/runtime";
 import { assertion, proof, protocolRequest } from "@poppy-lab/pap-client";
 import { tokenResponse } from "../../../../lib/token-response";
 import { serving } from "@/lib/deployment";
 import { acquireRun, releaseRun, runForState, visitorOf } from "@/lib/runs";
 export const runtime = "nodejs";
+
+/**
+ * §8.2: a conversation that used an account belongs to it, and a token
+ * response doesn't say which account a sign-in is for. The Company does: it
+ * answers `conversation_not_found` to another account. So each thread is
+ * read once with the new sign-in, from its saved cursor, which changes
+ * nothing here. Any answer but the events counts as no.
+ */
+async function sameOwner(run: Run) {
+  const conversation = run.conversation;
+  if (!conversation?.id) return false;
+  try {
+    for (const thread of [conversation, conversation.direct]) {
+      if (!thread) continue;
+      const url = new URL(`${conversation.endpoint}/${thread.id}/events`);
+      if (thread.cursor) url.searchParams.set("cursor", thread.cursor);
+      await papRequest(run, url.href, "GET");
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function GET(request: Request) {
   const store = await cookies();
   const url = new URL(request.url);
@@ -120,6 +146,12 @@ export async function GET(request: Request) {
     // §4.5: per-service tokens were issued to the sign-in this one replaces:
     // its account, scopes and DPoP key. None is sent again.
     delete run.resourceTokens;
+    // The conversation with the Company's agent, and the User's Direct
+    // Conversation in it (§8.10), may belong to the account of the sign-in
+    // this one replaces. The same account goes on in it (§8.11); for
+    // another, Iris forgets it, as at sign-out. Signed out before, no
+    // account had used it.
+    if (replaced && !(await sameOwner(run))) delete run.conversation;
     // §4.7: revoke the refresh token the new sign-in replaced (best effort;
     // revoking a replaced token isn't sign-out).
     if (replaced) void revokeRefreshToken(run, replaced).catch(() => undefined);

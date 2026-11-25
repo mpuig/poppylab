@@ -26,7 +26,7 @@ _Cause:_ the check that a conversation URL belongs to the Company compared
 `hostname`, which drops the port.
 _Fix:_ compare `host` (or the whole origin). `organization.domain` includes a
 non-443 port for the same reason
-([§3.1](https://personalagentprotocol.org/docs/1.0/spec#discovery)).
+([§3.1](https://personalagentprotocol.org/docs/1.0/spec#fields)).
 
 **Retrying the wrong errors.**
 _Trap:_ the two Session errors look alike and mean opposite things.
@@ -43,7 +43,7 @@ _Cause:_ none; this is the failure Operations is designed for.
 _Fix:_ keep the approval with the operation and resend the identical request
 with the identical approval. The Company returns the original result instead of
 ordering twice
-([Operations §7](https://personalagentprotocol.org/docs/1.0/extensions)).
+([Operations §7](https://personalagentprotocol.org/docs/1.0/extensions/operations#at-most-once)).
 Never propose the purchase again to "check".
 
 **Rate limits across origins.**
@@ -85,6 +85,129 @@ thread, and ignore Company replies whose `as_of_request` names another
 request ([§8.4](https://personalagentprotocol.org/docs/1.0/spec#message-fields)).
 The tests had a single thread; the bug needed two.
 
+**A token that outlives its sign-in.**
+_Seen:_ after **Request change permission**, the next call to a service
+answered `invalid_token` and the User was told access was lost.
+_Cause:_ a token for one service's resource
+([§4.5](https://personalagentprotocol.org/docs/1.0/spec#access-tokens)) was cached for its lifetime, and nothing cleared
+the cache on a new sign-in or a sign-out. The old token went out with the new
+sign-in's DPoP key. With Bearer tokens, a second account's requests would
+have carried the first account's token.
+_Fix:_ drop every cached token with the sign-in it came from. The services'
+resource metadata can stay: it is public and doesn't depend on who signed in.
+
+**Feedback sent wherever the tasks response says.**
+_Trap:_ `feedback.endpoint` can name any HTTPS URL, and a signed-in report
+carries the access token and the Session header. A tasks response naming
+another host would hand that host the User's token.
+_Fix:_ a feedback endpoint counts only on the Company's own domain or a
+subdomain of it, the rule a conversation endpoint already follows
+([§9.3](https://personalagentprotocol.org/docs/1.0/spec#feedback)). Elsewhere, offer no report tool and send nothing.
+
+**Tools that remember the last Session's tasks.**
+_Seen:_ after `session_ended` in the middle of a turn, `excluded_tasks`
+returned an empty list and a report no longer saw the feedback endpoint.
+_Cause:_ a tasks response is used only in its own Session
+([§9](https://personalagentprotocol.org/docs/1.0/spec#task-coverage)), so the new Session dropped it, but the tools
+built at the start of the turn kept reading the old copy.
+_Fix:_ each tool reads the tasks for the current Session before using them.
+The same Session still reads them once.
+
+**One request ID for two approvals.**
+_Seen:_ the User approved an operation the Company had declined from Iris,
+and the page reported an unknown outcome until the operation expired.
+_Cause:_ the request ID of an approval message came from the operation and
+its revision alone. The User's approval reused the ID of Iris's with a
+different body, and the Company answered `request_id_conflict`
+([§8.3](https://personalagentprotocol.org/docs/1.0/spec#sending-messages)).
+_Fix:_ derive the ID from the approval itself (approver, time, reference). A
+retry sends the same approval, so it is still the same request
+([Operations §7](https://personalagentprotocol.org/docs/1.0/extensions/operations#at-most-once)); any other approval is another message.
+
+**An error shown as the result.**
+_Seen:_ "Company operation succeeded: The card changed after the proposal.
+Ask again for fresh terms."
+_Cause:_ an approval sent in a conversation took the text of the Company's
+reply as the result, whatever it said. Some Company Agents answer a stale
+proposal with plain text and an `error` in `data`.
+_Fix:_ a reply to an approval with an error in its data means nothing was
+performed. Report it as a declined approval, with what the Company said as
+the reason, and don't send that approval again.
+
+**A refusal reported as "may have completed".**
+_Seen:_ a transfer the bank refused with `409 insufficient_funds` showed
+"unknown outcome" and a Retry button, which then failed with a sign-in
+error.
+_Cause:_ only a few 4xx answers had a case of their own. The rest fell
+through to the answer for a lost response.
+_Fix:_ a 4xx in answer to a first send is a refusal: nothing was performed,
+and the outcome is known. Iris answers the page with `409 not_performed` and
+the operation, still proposed, so the User can approve again or ask for
+fresh terms. The same holds when the operation's conversation is closed
+(`conversation_closed`): the Company didn't take the message. The message
+names the Company's status and error code, never its text.
+
+**A Retry that makes a new approval.**
+_Seen:_ after the Company declined a retried agent approval, a second Retry
+performed the operation in the User's name, though they had only pressed
+Retry.
+_Cause:_ the stored approval had been dropped, and Retry fell back to
+approver `user` and built a new one.
+_Fix:_ Retry resends the stored approval or sends nothing. A new approval is
+made only by Approve. A declined retry is a known outcome, so the operation
+goes back to proposed and waits for the User.
+
+**A standing instruction that keeps approving.**
+_Seen:_ every reload sent another agent approval for an operation the
+Company had already declined, and each one counted against the hour's
+allowance.
+_Cause:_ the rule looked only at the terms. Nothing on the operation said
+the Company had declined the agent, and proposing it again rebuilt it.
+_Fix:_ mark the operation when the Company declines the agent's approval or
+answers it with new terms, keep the mark whatever the revision, and leave
+the operation to the User
+([Operations §5](https://personalagentprotocol.org/docs/1.0/extensions/operations#approval),
+[§6](https://personalagentprotocol.org/docs/1.0/extensions/operations#sending-approval)). Count an automatic approval toward the allowance
+only when the Company performed it or the outcome is unknown, once, at the
+amount it covered.
+
+**A model that isn't told the terms.**
+_Seen:_ an API call refused with `approval_required` gave the model the
+operation's ID, summary and expiry. The summary is optional, so without one
+the model had nothing to tell the User about what was waiting.
+_Fix:_ give the model the terms, and leave the summary out when the Company
+sent none.
+
+**A reload that sends the User's words to the model.**
+_Seen:_ in a Direct Conversation the page says Iris doesn't read what the
+User types. After a reload the page had forgotten the conversation was
+direct, and the next message went to Iris and the model.
+_Cause:_ the state came back only with a chat answer, not when the page
+restored the run. Separately, the User's direct words were recorded in the
+run's history, which is the model's context for later turns.
+_Fix:_ return the Direct Conversation's state wherever the run is restored,
+and clear it on connecting elsewhere or signing out. Record a direct turn
+apart: the User's words go to the transcript only, and the model gets
+Iris's own line with a note that the User wrote to the Company. When the
+words were not sent (the thread had closed, or sign-in was needed), say so
+in both places ([§8.10](https://personalagentprotocol.org/docs/1.0/spec#direct-conversations)).
+
+**A Direct Conversation the agent lost track of.**
+_Seen:_ every message, start and handoff got `409 direct_conversation_open`,
+the page showed no way to leave, and only signing out recovered.
+_Cause:_ Iris recorded a Direct Conversation only when the Company's answer
+arrived. When that answer was lost, the Company had a thread open that Iris
+didn't know.
+_Fix:_ the refusal names the open thread in `conversation_id`
+([§8.13](https://personalagentprotocol.org/docs/1.0/spec#conversation-errors)). When the User starts a Direct Conversation and gets
+that refusal, take the named thread as theirs, show what the Company said in
+it, and tell them their new message wasn't sent, since the earlier one may
+have arrived. Nothing else joins a thread on the Company's word. When only the User's
+thread is gone (`conversation_closed`, `conversation_not_found`), drop that
+thread and keep the parent with its ID and read position. Read a closed
+thread once more before dropping it, which sends nothing
+([§8.12](https://personalagentprotocol.org/docs/1.0/spec#closing)), so the User sees the Company's last message.
+
 ## Company side
 
 **The token endpoint's check order.**
@@ -120,7 +243,7 @@ it's not a property of the token.
 
 **A second account in the same Session.**
 _Fix:_ a Session belongs to one account
-([§5.4](https://personalagentprotocol.org/docs/1.0/spec#signing-in)). A token
+([§5.4](https://personalagentprotocol.org/docs/1.0/spec#sign-in)). A token
 for another account ends it with `session_ended`; the agent starts a new
 Session. Don't silently rebind it.
 
@@ -148,6 +271,76 @@ public endpoint.
 _Fix:_ always show the agent's `client_name` next to the verified host of its
 `client_id`: "Connecting Iris from poppylab.dev". The name is only what the
 agent claims; the host is what was verified.
+
+**A nonce check that needs a proof.**
+_Seen:_ with DPoP nonces on, a pushed authorization request without a
+proof, which is allowed, was refused with `invalid_client`. So was a
+revocation, which never takes a proof.
+_Cause:_ the early nonce check decoded the `DPoP` header even when there
+was none.
+_Fix:_ challenge a nonce only when the request carries a proof. Where a
+challenge applies, answer it the same way everywhere: revocation
+([§4.6](https://personalagentprotocol.org/docs/1.0/spec#revocation)) answered `401 invalid_client` with no nonce to
+retry with, and now answers as the token endpoint does:
+
+```http
+HTTP/1.1 400 Bad Request
+DPoP-Nonce: 8Ie5cRqxWkyXcS1n
+Content-Type: application/json
+
+{ "error": "use_dpop_nonce" }
+```
+
+**An assertion without a `kid`.**
+_Seen:_ a client that publishes one key and signs its assertion without a
+`kid` header was refused with `invalid_client` at the token, revocation and
+pushed-request endpoints.
+_Cause:_ neither [§4.1](https://personalagentprotocol.org/docs/1.0/spec#agent-identity) nor RFC 7523 requires a `kid`
+in a client assertion, and the fallback to the client's key had been
+dropped. The first repair then matched an assertion without a `kid` to a
+published key without one, so a client with several such keys had its
+first picked.
+_Fix:_ choose the key in one place. A `kid` names its key. Without one,
+use the client's key only when it publishes exactly one, and refuse when it
+publishes several: never pick the first of several.
+
+**A consent page that can't be reloaded.**
+_Seen:_ a User who opened the consent page a minute after the push and
+reloaded it 40 seconds later got `invalid_request_uri`, though the page had
+260 seconds left and the browser held its cookie.
+_Cause:_ a pushed request is used once, and its 90 seconds also limited
+reloading the page it had made.
+_Fix:_ the 90 seconds limit only opening the request. Once it has made its
+consent page, the browser with that page's cookie gets it again until it is
+answered or its own 300 seconds end. A request still makes one page and one
+code at most.
+
+**Context emptied when it grows too large.**
+_Seen:_ once a conversation's merged context passed 4,096 bytes, the Company
+Agent's next turn saw none of it, not even the field just sent.
+_Cause:_ over the limit, the whole context was replaced with `{}`. The
+limit of 20 fields kept the first 20, so the newest were the ones dropped.
+A second fault hid behind the first: an object lists keys such as `"2027"`
+or `"0"` first, whenever they were set, so a field just sent under such a
+key counted as the oldest.
+_Fix:_ fill the bounds from the newest field back. This message's fields
+come first, then each older one while it still fits, and the order of age
+is kept apart from the object's own key order.
+
+**Request IDs kept forever.**
+_Trap:_ every accepted POST stores its request ID so a retry gets the first
+answer. Messages stop at 40, but a handoff, a cancel and a close aren't
+counted, so an agent sending new IDs made stored state grow without limit.
+_Fix:_ a conversation keeps its 64 newest request IDs, on every route. That
+is more than its 40 messages and the request that started it, so a
+conversation that only talks never drops one.
+
+**A lookup in a plain object.**
+_Seen:_ Northwind's travel information answered `200` with no text for the
+topic `constructor`, instead of `400 unknown_topic`.
+_Cause:_ the topic was looked up in a plain object, and every object
+inherits keys such as `constructor` and `__proto__`.
+_Fix:_ accept only the object's own keys, and only a string.
 
 ## Between implementations
 

@@ -3,7 +3,7 @@
  * builders. The shelf, delivery terms and hours are the same data the APIs
  * serve, so the website and an agent never disagree.
  */
-import { labPlaygroundUrl } from "@poppy-lab/pap-core";
+import { labPlaygroundUrl, specRefHtml } from "@poppy-lab/pap-core";
 import { personas } from "./personas.js";
 import { publicPage } from "./website.js";
 
@@ -91,7 +91,7 @@ export function forAgentsPage(origin: string) {
   const table = rows
     .map(
       ([what, where, spec]) =>
-        `<tr><th scope="row">${what}</th><td><code>${escape(where)}</code></td><td>${spec}</td></tr>`,
+        `<tr><th scope="row">${what}</th><td><code>${escape(where)}</code></td><td>${specRefHtml(spec)}</td></tr>`,
     )
     .join("");
   const people = personas

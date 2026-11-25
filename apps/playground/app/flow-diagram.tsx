@@ -213,8 +213,7 @@ export function FlowDiagram() {
         </text>
       </svg>
       <figcaption>
-        <b>Figure 3.</b> Who talks to whom. Amber marks the two things only you
-        do.
+        Who talks to whom. Amber marks the two things only you do.
       </figcaption>
     </figure>
   );

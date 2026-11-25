@@ -146,6 +146,7 @@ vi.mock("@/lib/runtime", async () => ({
 }));
 
 import { POST, GET } from "./route";
+import { recordOperation } from "../../../lib/operation-store";
 import { seedRun } from "@/lib/runs";
 import { nextAutoApproval, usesAllowance } from "@/lib/auto-approval";
 import { createIdentity, ProtocolError } from "@poppy-lab/pap-client";
@@ -525,8 +526,7 @@ describe("Human-controlled account boundary", () => {
   const act = (action: string) =>
     POST(request({ action, id: "op_test", revision: "r1" }));
   it.each([
-    // A code this client doesn't know, such as Harborline's
-    // insufficient_funds, arrives without one.
+    // No code at all: not the protocol's, and none of the Company's own.
     [409, undefined],
     [409, "request_id_conflict"],
     [400, "invalid_request"],
@@ -565,6 +565,28 @@ describe("Human-controlled account boundary", () => {
       expect(state.request.mock.calls[1]![1]).toMatchObject({
         approval: { approver: "user", reference: "a1" },
       });
+    },
+  );
+  it.each([
+    // As Harborline's: a code of its own, which isn't one of the protocol's.
+    [undefined, "insufficient_funds", "insufficient_funds"],
+    [undefined, "account_changed", "account_changed"],
+    // The protocol's code comes first when the answer has both.
+    ["request_id_conflict", "request_id_conflict", "request_id_conflict"],
+    ["invalid_dpop_proof", "card_locked", "invalid_dpop_proof"],
+  ])(
+    "tells the User why the Company refused: its own error code (%s, %s)",
+    async (code, companyCode, shown) => {
+      sendThenFail(() =>
+        Object.assign(new ProtocolError(409, code), { companyCode }),
+      );
+      const r = await act("approve");
+      expect(r.status).toBe(409);
+      const body = await r.json();
+      expect(body.code).toBe("not_performed");
+      expect(body.error).toContain(
+        `Juniper refused this request (HTTP 409, ${shown}). Nothing was performed.`,
+      );
     },
   );
   it("says nothing was performed when the Company answers an approval with terms it can't use", async () => {
@@ -616,6 +638,65 @@ describe("Human-controlled account boundary", () => {
     });
     expect((await act("approve")).status).toBe(410);
   });
+  it.each([
+    ["a new revision", { operation_id: "op_test", revision: "r2" }],
+    ["another operation", { operation_id: "op_other", revision: "r1" }],
+  ])(
+    "doesn't offer %s for approval when it answers a Retry: the first outcome is still unknown (Operations v3 §7)",
+    async (_name, named) => {
+      sendThenFail(lost);
+      expect((await act("approve")).status).toBe(502);
+      sendThenFail(
+        () =>
+          new ProtocolError(403, "approval_required", undefined, undefined, {
+            ...named,
+            summary: "Move fictional delivery, now with a fee",
+            terms: { to: "Saturday", fee_cents: 100 },
+            expires_at: new Date(Date.now() + 60000).toISOString(),
+          }),
+      );
+      const r = await act("retry");
+      expect(r.status).toBe(409);
+      const body = await r.json();
+      expect(body.code).toBe("new_terms_after_retry");
+      expect(body.next).toBe("status");
+      // The card stays the approved revision's, and says what to check.
+      expect(body.operation).toMatchObject({
+        operation_id: "op_test",
+        revision: "r1",
+        state: "uncertain",
+        terms: { to: "Saturday" },
+        result: { summary: body.error },
+      });
+      expect(body.error).toContain("doesn't say whether");
+      expect(body.error).toContain("Juniper's own records");
+      expect(body.error).not.toContain("fee");
+      // Nothing of the new terms is kept, so nothing asks for their approval.
+      expect(Object.keys(state.run.operations)).not.toContain("op_other");
+      expect(JSON.stringify(state.run.operations)).not.toContain("fee_cents");
+      for (const revision of ["r1", "r2"])
+        expect(
+          (
+            await POST(
+              request({ action: "approve", id: named.operation_id, revision }),
+            )
+          ).status,
+        ).not.toBe(200);
+      expect(state.request).toHaveBeenCalledTimes(2);
+      // Retry still works, and still sends only the approval sent first.
+      state.request.mockResolvedValueOnce({ summary: "Done once" });
+      const again = await act("retry");
+      expect(again.status).toBe(200);
+      expect((await again.json()).operation).toMatchObject({
+        state: "succeeded",
+        result: { summary: "Done once" },
+      });
+      expect(state.request.mock.calls[2]![1]).toMatchObject({
+        revision: "r1",
+        approval: { approver: "user", reference: "a1" },
+      });
+    },
+  );
   it.each([
     [new ProtocolError(401, undefined), 401, "account_unavailable"],
     [new ProtocolError(403, "insufficient_scope"), 403, "insufficient_scope"],
@@ -828,6 +909,131 @@ describe("An operation whose conversation refuses the approval (§8.10, §8.12)"
     const again = await act("approve");
     expect(again.status).toBe(200);
     expect((await again.json()).operation.state).toBe("succeeded");
+  });
+});
+
+describe("An operation proposed in the User's Direct Conversation (§8.10)", () => {
+  const run = state.run as unknown as {
+    operations: Record<string, Record<string, unknown>>;
+    history: Array<{ role: string; content: string }>;
+    transcript?: Array<{ role: string; content: string }>;
+  };
+  const act = (revision = "r1", instruction?: unknown) =>
+    POST(
+      request({
+        action: "approve",
+        id: "op_test",
+        revision,
+        ...(instruction ? { instruction } : {}),
+      }),
+    );
+  /** Everything a model turn after this one would be sent. */
+  const forModel = () => JSON.stringify(run.history);
+  const forPage = () => JSON.stringify(run.transcript ?? []);
+  // What only the Company and the User said or agreed in that thread.
+  const theirs = ["ord_LNB0907", "37.00", "3700", "holder", "Refund"];
+  beforeEach(() => {
+    run.history.length = 0;
+    delete run.transcript;
+    Object.assign(run.operations.op_test!, {
+      summary: "Refund all of order ord_LNB0907 (USD 37.00).",
+      terms: { order_id: "ord_LNB0907", total_cents: 3700, currency: "USD" },
+      request: {
+        conversation: {
+          endpoint: "http://juniper.localhost:4100/agent",
+          id: "cnv_direct",
+        },
+      },
+      // Set when the operation arrived in the User's own thread.
+      direct: true,
+    });
+  });
+  const declined = () =>
+    new ProtocolError(
+      403,
+      "approval_declined",
+      undefined,
+      undefined,
+      undefined,
+      { reason: "Only the card holder can take a refund of USD 37.00." },
+    );
+
+  it("tells the model that one was approved, and keeps the Company's result for the page", async () => {
+    state.request.mockResolvedValue({
+      summary: "Refunded USD 37.00 for order ord_LNB0907.",
+    });
+    const r = await act();
+    expect(r.status).toBe(200);
+    // The card and the transcript show the User what the Company answered.
+    expect((await r.json()).operation.result.summary).toContain("ord_LNB0907");
+    expect(forPage()).toContain("Refunded USD 37.00 for order ord_LNB0907.");
+    for (const word of theirs) expect(forModel()).not.toContain(word);
+    expect(run.history).toEqual([
+      {
+        role: "assistant",
+        content:
+          "(An operation proposed in the user's direct conversation with Juniper was approved and performed.)",
+      },
+    ]);
+  });
+
+  it("tells the model that the Company declined one, without its reason", async () => {
+    state.request.mockRejectedValue(declined());
+    const r = await act();
+    expect((await r.json()).code).toBe("approval_declined");
+    expect(forPage()).toContain("Only the card holder can take a refund");
+    for (const word of theirs) expect(forModel()).not.toContain(word);
+    expect(run.history).toEqual([
+      {
+        role: "assistant",
+        content:
+          "(The Company declined an operation proposed in the user's direct conversation with Juniper. Nothing was performed.)",
+      },
+    ]);
+  });
+
+  it("keeps the reason from the model when the Company declines Iris's approval of one too", async () => {
+    state.request.mockRejectedValue(declined());
+    const r = await act("r1", { maxCents: 5000, currency: "USD" });
+    expect((await r.json()).code).toBe("agent_approval_declined");
+    expect(forPage()).toContain("Only the card holder can take a refund");
+    for (const word of theirs) expect(forModel()).not.toContain(word);
+    expect(run.history).toHaveLength(1);
+  });
+
+  it("keeps new terms the Company answers with in that thread, and their result, from the model", async () => {
+    state.request.mockRejectedValueOnce(
+      new ProtocolError(403, "approval_required", undefined, undefined, {
+        operation_id: "op_test",
+        revision: "r2",
+        summary: "Refund all of order ord_LNB0907 (USD 37.00), less a fee.",
+        terms: { order_id: "ord_LNB0907", total_cents: 3500, currency: "USD" },
+        expires_at: new Date(Date.now() + 60000).toISOString(),
+      }),
+    );
+    const changed = await (await act()).json();
+    expect(changed.code).toBe("terms_changed");
+    expect(changed.operation).toMatchObject({ revision: "r2", direct: true });
+    state.request.mockResolvedValueOnce({
+      summary: "Refunded USD 35.00 for order ord_LNB0907.",
+    });
+    expect((await act("r2")).status).toBe(200);
+    expect(forPage()).toContain("Refunded USD 35.00");
+    for (const word of [...theirs, "35.00"])
+      expect(forModel()).not.toContain(word);
+  });
+
+  it("still tells the model the result of an operation Iris's own conversation proposed", async () => {
+    delete run.operations.op_test!.direct;
+    state.request.mockResolvedValue({ summary: "Refunded USD 8.00." });
+    expect((await act()).status).toBe(200);
+    expect(run.history).toEqual([
+      {
+        role: "assistant",
+        content: "Company operation succeeded: Refunded USD 8.00.",
+      },
+    ]);
+    expect(run.transcript).toEqual(run.history);
   });
 });
 
@@ -1056,12 +1262,41 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
       request({ action: "retry", id: "op_rule", revision: "r1" }),
     );
     expect(retried.status).toBe(409);
+    // §7: the new terms don't say whether Iris's approval was performed, so
+    // they aren't kept: neither Iris nor the User can approve them yet.
     expect((await retried.json()).operation).toMatchObject({
-      revision: "r2",
+      revision: "r1",
+      state: "uncertain",
       agentSuperseded: true,
     });
-    expect((await approve(rule, "r2")).status).toBe(409);
+    for (const by of [rule, undefined])
+      expect((await approve(by, "r2")).status).toBe(400);
     expect(state.request).toHaveBeenCalledTimes(2);
+    // When the Company offers them again, such as for a new request once
+    // the outcome is known, the rule still doesn't approve them (§5).
+    recordOperation(run as never, newTerms().operation, {
+      url: "http://juniper.localhost:4100/api/account/checkout",
+      body: {},
+    });
+    const second = await approve(rule, "r2");
+    expect(second.status).toBe(409);
+    expect((await second.json()).error).toContain("new terms");
+    expect(state.request).toHaveBeenCalledTimes(2);
+  });
+
+  it("drops the unknown-outcome note once a later retry is declined: that outcome is known", async () => {
+    sendThenFail(lost);
+    expect((await approve(rule)).status).toBe(502);
+    sendThenFail(newTerms);
+    const retry = () =>
+      POST(request({ action: "retry", id: "op_rule", revision: "r1" }));
+    expect((await (await retry()).json()).operation.result.summary).toContain(
+      "doesn't say whether",
+    );
+    sendThenFail(() => new ProtocolError(403, "approval_declined"));
+    const declined = (await (await retry()).json()).operation;
+    expect(declined).toMatchObject({ state: "proposed", revision: "r1" });
+    expect(declined).not.toHaveProperty("result");
   });
 
   it("lets the rule look at a new revision the Company returned for the User's own approval", async () => {
@@ -1180,7 +1415,9 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
       declinedBy,
     ],
     ["the revision it names", sameTerms, "proposed", "proposed"],
-    ["new terms", newTerms, "proposed", "proposed"],
+    // §7: new terms in answer to a retry don't say what became of the
+    // approval sent first, and aren't offered until that is known.
+    ["new terms", newTerms, "proposed", "uncertain"],
     [
       "a closed conversation",
       () => new ProtocolError(409, "conversation_closed"),

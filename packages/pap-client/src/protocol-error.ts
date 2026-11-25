@@ -49,6 +49,12 @@ export class ProtocolError extends Error {
      * `WWW-Authenticate` challenge. Untrusted Company content.
      */
     public body?: unknown,
+    /**
+     * The `error` of the Company's error body when it is one short token,
+     * such as `insufficient_funds`: safe to show the User, never free text.
+     * `code` has only the protocol's own codes, so branch on that one.
+     */
+    public companyCode?: string,
   ) {
     super(
       `Remote server returned HTTP ${status}${code ? ` (${code})` : ""}${retryAt ? " — retry after " + new Date(Math.min(retryAt, 8640000000000000)).toISOString() : ""}`,
@@ -57,6 +63,12 @@ export class ProtocolError extends Error {
 }
 export function errorCode(value: unknown) {
   return typeof value === "string" && codes.has(value) ? value : undefined;
+}
+/** A Company's own error code, kept only when it is one short token. */
+export function companyErrorCode(value: unknown) {
+  return typeof value === "string" && /^[A-Za-z0-9_.:-]{1,64}$/.test(value)
+    ? value
+    : undefined;
 }
 const cooldowns = new Map<string, number>();
 let globalUntil = 0;

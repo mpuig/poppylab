@@ -1,5 +1,6 @@
 import { ArrowUpRight } from "lucide-react";
-import { LAB_REPOSITORY, labSites } from "@poppy-lab/pap-core";
+import { LAB_REPOSITORY, SPEC_URL, labSites } from "@poppy-lab/pap-core";
+import { specLink } from "./spec-ref";
 
 // Inlined at build time: local Companies in development, poppylab.dev when deployed.
 const juniper =
@@ -11,7 +12,7 @@ const harborline =
 const northwind =
   process.env.NEXT_PUBLIC_NORTHWIND_URL ?? "http://northwind.localhost:4400";
 
-export const SPEC_URL = "https://personalagentprotocol.org/docs/1.0/spec";
+export { SPEC_URL };
 export const DEMOS_URL = "https://personalagentprotocol.org/docs/demos";
 
 export const host = (url: string) => new URL(url).host;
@@ -21,11 +22,13 @@ export const connect = (url: string) =>
 /**
  * The four fictional Companies. The home shows the plain-language fields and
  * `change`, the exact change the visitor would approve (from each Company's
- * own data); `/developers` adds the host, scopes and agent-facing page.
+ * own data), and `brand`, the leading colour of that Company's own website;
+ * `/developers` adds the host, scopes and agent-facing page.
  */
 export const companies = [
   {
     id: "juniper",
+    brand: "#17342b",
     sector: "Grocery",
     name: "Juniper Market",
     url: juniper,
@@ -44,6 +47,7 @@ export const companies = [
   },
   {
     id: "lantern",
+    brand: "#c62f1e",
     sector: "Restaurant",
     name: "Lantern Noodle Bar",
     url: lantern,
@@ -62,6 +66,7 @@ export const companies = [
   },
   {
     id: "harborline",
+    brand: "#073b5c",
     sector: "Bank",
     name: "Harborline Bank",
     url: harborline,
@@ -81,6 +86,7 @@ export const companies = [
   },
   {
     id: "northwind",
+    brand: "#1d6882",
     sector: "Airline",
     name: "Northwind Air",
     url: northwind,
@@ -132,42 +138,52 @@ export function SiteBar({ current }: { current?: "developers" | "learn" }) {
 }
 
 export function SiteFoot() {
+  const sites = labSites(juniper);
+  const demos = sites.filter((s) => s.id !== "home" && s.id !== "playground");
   return (
     <footer className="foot">
-      <div>
+      <div className="foot-about">
         <p className="wordmark">Poppy Lab</p>
         <p>
           An independent experiment with Personal Agent Protocol 1.0, following
-          the text as published on 14 November 2026. Poppy Lab makes no claim of
+          the text as published on 14 November 2026. Poppy Lab is not affiliated
+          with or endorsed by the protocol&apos;s authors; “Personal Agent
+          Protocol” and “Poppy” are their names. It makes no claim of
           conformance or production security.
         </p>
       </div>
-      <nav aria-label="Poppy Lab sites" className="lab-nav">
-        {labSites(juniper)
-          .filter((s) => s.id !== "home")
-          .map((s) => (
-            <a key={s.id} href={s.url}>
-              {s.label}
-            </a>
-          ))}
+      <nav aria-labelledby="foot-lab">
+        <p id="foot-lab" className="foot-title">
+          Poppy Lab
+        </p>
+        <a href="/playground">Playground</a>
         <a href="/learn">Learn</a>
         <a href="/developers">Developers</a>
         <a href={LAB_REPOSITORY}>
           Source on GitHub <ArrowUpRight size={14} aria-hidden="true" />
         </a>
       </nav>
-      <nav aria-label="Elsewhere">
-        <a href={SPEC_URL}>
+      <nav aria-labelledby="foot-demos">
+        <p id="foot-demos" className="foot-title">
+          Demos
+        </p>
+        {demos.map((s) => (
+          <a key={s.id} href={s.url}>
+            {s.label}
+          </a>
+        ))}
+      </nav>
+      <nav aria-labelledby="foot-protocol">
+        <p id="foot-protocol" className="foot-title">
+          Protocol
+        </p>
+        <a href={SPEC_URL} {...specLink}>
           Specification <ArrowUpRight size={14} aria-hidden="true" />
         </a>
-        <a href={DEMOS_URL}>
+        <a href={DEMOS_URL} {...specLink}>
           Community demos <ArrowUpRight size={14} aria-hidden="true" />
         </a>
       </nav>
-      <p className="disclaimer">
-        Not affiliated with or endorsed by the protocol&apos;s authors.
-        “Personal Agent Protocol” and “Poppy” are their names.
-      </p>
     </footer>
   );
 }

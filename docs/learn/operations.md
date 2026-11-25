@@ -1,6 +1,6 @@
 # Approvals with Operations
 
-The [Operations extension](https://personalagentprotocol.org/docs/1.0/extensions)
+The [Operations extension](https://personalagentprotocol.org/docs/1.0/extensions/operations)
 (version 3) answers one question: how does a Company know the user agreed to
 _this exact change_, when the request comes from an agent? Instead of
 performing a change, the Company answers with its exact terms and waits for an
@@ -78,7 +78,7 @@ missing from `terms` isn't part of the deal.
 ## 3. Where it shows up
 
 The same operation travels through every interface
-([Operations §4](https://personalagentprotocol.org/docs/1.0/extensions)):
+([Operations §4](https://personalagentprotocol.org/docs/1.0/extensions/operations#approval-required)):
 
 | Interface    | The Company asks with                                                       | The agent approves with                                                                                 |
 | ------------ | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
@@ -94,7 +94,7 @@ conversation form, both from Lantern.
 ## 4. Who approves
 
 There are two kinds of approval
-([Operations §5](https://personalagentprotocol.org/docs/1.0/extensions)):
+([Operations §5](https://personalagentprotocol.org/docs/1.0/extensions/operations#approval)):
 
 - **User approved.** The agent shows the user the Company's name and the
   terms, and takes the answer through its own interface. A message from the
@@ -178,7 +178,7 @@ nor a new operation.
 Networks fail after the work is done. The extension's answer is that the agent
 resends the identical request with the identical approval, and the Company
 answers with the original result instead of acting twice
-([Operations §7](https://personalagentprotocol.org/docs/1.0/extensions)). For
+([Operations §7](https://personalagentprotocol.org/docs/1.0/extensions/operations#at-most-once)). For
 that to hold:
 
 - the Company records the result **before** replying;

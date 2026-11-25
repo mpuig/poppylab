@@ -509,9 +509,12 @@ async function reply(request: Request, started: { id?: string }) {
       const code = /^[A-Za-z0-9_.:-]{1,64}$/.test(error.code ?? "")
         ? error.code
         : undefined;
+      // A code of the Company's own, such as insufficient_funds, is shown
+      // too; `code` below stays the protocol's.
+      const shown = code ?? error.companyCode;
       return NextResponse.json(
         {
-          error: `The Company answered HTTP ${error.status}${code ? ` ${code}` : ""}. Nothing was retried; see the Inspector.`,
+          error: `The Company answered HTTP ${error.status}${shown ? ` ${shown}` : ""}. Nothing was retried; see the Inspector.`,
           code: code ?? "company_error",
           stage,
         },

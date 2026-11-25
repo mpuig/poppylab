@@ -2,6 +2,7 @@ import { ArrowRight, ArrowUpRight, Check } from "lucide-react";
 import { FlowDiagram } from "./flow-diagram";
 import { SequenceFigure } from "./sequence-figure";
 import { SPEC_URL, SiteBar, SiteFoot, companies, connect } from "./site-chrome";
+import { specLink } from "./spec-ref";
 import "./site.css";
 
 /** From "no agents" to "the agent is you": Poppy is the three steps between. */
@@ -21,34 +22,26 @@ const ladder = [
   { tone: 0, title: "Full access", text: "The agent acts as you." },
 ] as const;
 
-/** Who holds what, without a protocol and with one: Figure 4. */
-const parties = ["You", "Your agent", "The company"] as const;
-const holdings: ReadonlyArray<{
-  what: string;
-  without: readonly number[];
-  with: readonly number[];
-}> = [
-  { what: "Your password", without: [0, 1], with: [0] },
-  { what: "The decision on each change", without: [1], with: [0] },
-  { what: "A permission you can limit and take back", without: [], with: [1] },
-  { what: "A way to know which agent is calling", without: [], with: [2] },
-  { what: "The change, held until you approve it", without: [], with: [2] },
-];
-
-/** What that means for each side, in the order of the figure's columns. */
-const gets = [
-  [
-    "People.",
-    "You keep your password and the final say. In this lab access starts read-only, and you can take it back at any time.",
-  ],
-  [
-    "Agent builders.",
-    "Your agent carries a permission, never a password. Discovery, sign-in and approval work the same way at every company, through APIs.",
-  ],
-  [
-    "Companies.",
-    "You know which agent is calling and who approved each change, and you perform it at most once. You start with what you have: a website, APIs or your own agent.",
-  ],
+/** What changes for each side: one sentence for today, one with the protocol. */
+const sides = [
+  {
+    who: "People",
+    without:
+      "Your agent signs in as you, with your password, and can do anything you can.",
+    with: "You sign in at the company yourself. The agent gets a permission you can take back, and each change waits for your approval.",
+  },
+  {
+    who: "Companies",
+    without:
+      "You block agents, or one signs in as the customer and you can't tell them apart.",
+    with: "You know which agent is calling and what the customer approved, and you perform each change once.",
+  },
+  {
+    who: "Agent builders",
+    without:
+      "You build one integration for each company, through pages built for people, holding the person's password.",
+    with: "One protocol works at every company, through its APIs, with no password to hold.",
+  },
 ] as const;
 
 const never = [
@@ -127,8 +120,8 @@ export default function Home() {
             <p className="lead">
               Personal Agent Protocol, Poppy for short, is an open protocol for
               how personal agents and companies work together. Poppy Lab is an
-              independent place to watch it work, with one agent and four
-              fictional companies.
+              independent place to watch it work, with one agent, called Iris,
+              and four fictional companies.
             </p>
             <div className="actions">
               <a className="button" href="/playground">
@@ -138,10 +131,6 @@ export default function Home() {
                 Why it exists
               </a>
             </div>
-            <p className="fine">
-              Not affiliated with the protocol&apos;s authors. Nothing here is
-              charged, shipped or transferred.
-            </p>
           </div>
           <SequenceFigure />
         </section>
@@ -179,9 +168,9 @@ export default function Home() {
               ))}
             </ol>
             <figcaption>
-              <b>Figure 2.</b> What an agent may do at Juniper Market, one of
-              the lab&apos;s fictional companies. The three middle steps are
-              what you can try in the demo.
+              What an agent may do at Juniper Market, one of the lab&apos;s
+              fictional companies. The three middle steps are what you can try
+              in the demo.
             </figcaption>
           </figure>
         </section>
@@ -190,13 +179,24 @@ export default function Home() {
           <div className="sec-head">
             <h2 id="how-title">How it works</h2>
             <p>
-              There are three parties, and each keeps its own job (Figure 3).
-              The steps are the same at a grocery, a bank or an airline.
+              There are three parties, and each keeps its own job. The steps are
+              the same at a grocery, a bank or an airline.
             </p>
           </div>
           <FlowDiagram />
           <ol className="steps">
             <li>
+              <span className="step-n" aria-hidden="true">
+                1
+              </span>
+              <div className="step-text">
+                <h3>You ask, your agent finds the company</h3>
+                <p>
+                  The company publishes one small file that says how agents can
+                  reach it. Your agent reads it and introduces itself with an
+                  identity the company can check.
+                </p>
+              </div>
               <div
                 className="mini"
                 role="img"
@@ -217,16 +217,19 @@ export default function Home() {
                   </li>
                 </ul>
               </div>
-              <h3>
-                <span>1</span>You ask, your agent finds the company
-              </h3>
-              <p>
-                The company publishes one small file that says how agents can
-                reach it. Your agent reads it and introduces itself with an
-                identity the company can check.
-              </p>
             </li>
             <li>
+              <span className="step-n" aria-hidden="true">
+                2
+              </span>
+              <div className="step-text">
+                <h3>You sign in on the company&apos;s own page</h3>
+                <p>
+                  The company shows which agent is asking and what it wants, and
+                  you decide what to allow. Your password never passes through
+                  the agent.
+                </p>
+              </div>
               <div
                 className="mini"
                 role="img"
@@ -253,16 +256,18 @@ export default function Home() {
                   <span className="pill quiet">Don&apos;t allow</span>
                 </p>
               </div>
-              <h3>
-                <span>2</span>You sign in on the company&apos;s own page
-              </h3>
-              <p>
-                The company shows which agent is asking and what it wants, and
-                you decide what to allow. Your password never passes through the
-                agent.
-              </p>
             </li>
             <li>
+              <span className="step-n" aria-hidden="true">
+                3
+              </span>
+              <div className="step-text">
+                <h3>Changes wait for your approval</h3>
+                <p>
+                  The agent proposes exact terms. The company holds the change
+                  until you approve it, then performs it once.
+                </p>
+              </div>
               <div
                 className="mini"
                 role="img"
@@ -279,13 +284,6 @@ export default function Home() {
                   <span className="pill quiet">Decline</span>
                 </p>
               </div>
-              <h3>
-                <span>3</span>Changes wait for your approval
-              </h3>
-              <p>
-                The agent proposes exact terms. The company holds the change
-                until you approve it, then performs it once.
-              </p>
             </li>
           </ol>
           <p className="note">
@@ -294,91 +292,60 @@ export default function Home() {
           </p>
         </section>
 
-        <section id="who" className="sec split" aria-labelledby="who-title">
+        <section id="who" className="sec" aria-labelledby="who-title">
           <div className="sec-head">
             <h2 id="who-title">What each side gets</h2>
             <p>
-              Poppy 1.0 was published on 14 November 2026, so there are no
-              adoption figures to quote. Everything below is something you can
-              watch happen in the demo.
+              The same steps change something different for the person, for the
+              company and for whoever builds the agent.
             </p>
           </div>
-          <figure className="matrix holds">
-            <p className="key" aria-hidden="true">
-              <span className="ring" /> Without a protocol
-              <span className="dot" /> With Poppy
-            </p>
-            <table>
-              <thead>
-                <tr>
-                  <th scope="col">
-                    <span className="sr-only">What is held</span>
-                  </th>
-                  {parties.map((party) => (
-                    <th scope="col" key={party}>
-                      {party}
-                    </th>
-                  ))}
+          <table className="compare">
+            <thead>
+              <tr>
+                <th scope="col">
+                  <span className="sr-only">Side</span>
+                </th>
+                <th scope="col">Without a protocol</th>
+                <th scope="col" className="on">
+                  With Poppy
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {sides.map((side) => (
+                <tr key={side.who}>
+                  <th scope="row">{side.who}</th>
+                  <td data-label="Without a protocol">{side.without}</td>
+                  <td className="with" data-label="With Poppy">
+                    {side.with}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {holdings.map((row) => (
-                  <tr key={row.what}>
-                    <th scope="row">{row.what}</th>
-                    {parties.map((party, i) => {
-                      const before = row.without.includes(i);
-                      const after = row.with.includes(i);
-                      return (
-                        <td key={party}>
-                          {before ? (
-                            <span className="ring">
-                              <span className="sr-only">
-                                Without a protocol
-                              </span>
-                            </span>
-                          ) : null}
-                          {after ? (
-                            <span className="dot">
-                              <span className="sr-only">With Poppy</span>
-                            </span>
-                          ) : null}
-                          {before || after ? null : (
-                            <span className="none">
-                              <span className="sr-only">Neither</span>
-                            </span>
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <figcaption>
-              <b>Figure 4.</b> Who holds what. Without a protocol the agent ends
-              up with your password and the decision. With Poppy each party
-              holds its own part.
-            </figcaption>
-          </figure>
-          <Points items={gets} />
+              ))}
+            </tbody>
+          </table>
         </section>
 
         <section id="try" className="sec" aria-labelledby="try-title">
           <div className="sec-head">
             <h2 id="try-title">Try it in four industries</h2>
             <p>
-              The lab&apos;s personal agent is called Iris. Pick a company, sign
-              in as a test customer, ask Iris for a change and approve it
-              yourself.
+              Four companies that look nothing alike, and one agent that works
+              at all of them. Pick one, sign in as a test customer, ask Iris for
+              a change and approve it yourself.
             </p>
           </div>
           <div className="cases">
             {companies.map((c) => (
-              <article className="case" key={c.id}>
-                <h3>
-                  {c.name}
+              <article
+                className="case"
+                key={c.id}
+                style={{ "--brand": c.brand } as React.CSSProperties}
+              >
+                <header className="case-head">
+                  <h3>{c.name}</h3>
                   <span className="sector">{c.sector}</span>
-                </h3>
+                </header>
                 <p className="ask">“{c.ask}”</p>
                 <div className="change">
                   <p className="change-head">
@@ -410,9 +377,10 @@ export default function Home() {
             ))}
           </div>
           <p className="note">
-            Each visitor gets a private copy of the test customers. An idle copy
-            starts again after 24 hours. Never enter real banking, travel or
-            payment details.
+            The companies are fictional: nothing is charged, shipped or
+            transferred. Each visitor gets a private copy of the test customers,
+            and an idle copy starts again after 24 hours. Never enter real
+            banking, travel or payment details.
           </p>
         </section>
 
@@ -466,8 +434,8 @@ export default function Home() {
               </tbody>
             </table>
             <figcaption>
-              <b>Figure 5.</b> Who does what inside Iris. The model never holds
-              a credential, and only you can approve.
+              Who does what inside Iris. The model never holds a credential, and
+              only you can approve.
             </figcaption>
           </figure>
         </section>
@@ -478,7 +446,10 @@ export default function Home() {
             <p>
               You don&apos;t need an account or a model key. If you are building
               an agent or a company, the developer guide has the endpoints and
-              the spec sections, and the <a href={SPEC_URL}>specification</a>{" "}
+              the spec sections, and the{" "}
+              <a href={SPEC_URL} {...specLink}>
+                specification
+              </a>{" "}
               has the rest.
             </p>
           </div>

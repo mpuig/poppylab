@@ -1,8 +1,9 @@
 /**
  * What every gateway module shares: the definition and deployment, the
- * persisted state, the replay cache, the dirty flag, cookie helpers, the
- * client-metadata cache, DPoP proof helpers, and the per-request maps that
- * carry the Session and tenant from middleware to handlers.
+ * persisted state, the replay cache, the requests to save for, cookie
+ * helpers, the client-metadata cache, DPoP proof helpers, and the
+ * per-request maps that carry the Session and tenant from middleware to
+ * handlers.
  */
 import type { Context } from "hono";
 import {
@@ -82,9 +83,15 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
   const replay = new ReplayCache(new Map(state.replays));
   const secure = origin.startsWith("https:"),
     cookiePrefix = secure ? "__Host-" : "";
-  const flags = { dirty: false, failed: false };
-  const markDirty = () => {
-    flags.dirty = true;
+  const flags = { failed: false };
+  /**
+   * The requests that may have changed state; each saves when it ends. Per
+   * request, not one flag for all: requests overlap while one awaits, and
+   * one would drop another's save or save for it.
+   */
+  const dirty = new WeakSet<Request>();
+  const markDirty = (request: Request) => {
+    dirty.add(request);
   };
 
   /** Hash of this browser's `pap_browser` cookie (never stored raw). */
@@ -97,9 +104,9 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
   };
   const browserCookie = (raw: string) =>
     `${cookiePrefix}pap_browser=${raw}; HttpOnly; SameSite=Lax; Path=/${secure ? "; Secure" : ""}; Max-Age=${7 * 86400}`;
-  const link = (browser: string, tenant: string) => {
+  const link = (request: Request, browser: string, tenant: string) => {
     const links = (state.links ??= {});
-    if (links[browser]?.tenant !== tenant) markDirty();
+    if (links[browser]?.tenant !== tenant) markDirty(request);
     links[browser] = { tenant, used: Date.now() };
     const keys = Object.keys(links);
     if (keys.length > 2000)
@@ -238,6 +245,7 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
     secure,
     cookiePrefix,
     flags,
+    dirty,
     markDirty,
     browserOf,
     browserCookie,

@@ -7,6 +7,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { Marked } from "marked";
+import { SPEC_LINK_ATTRIBUTES } from "@poppy-lab/pap-core";
 import { LAB_REPOSITORY } from "@poppy-lab/pap-core";
 
 export const LEARN_PAGES = [
@@ -68,6 +69,8 @@ export function learnHref(href: string) {
 const escape = (s: string) =>
   s.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
 
+const PROTOCOL_SITE = "https://personalagentprotocol.org/";
+
 const marked = new Marked({
   renderer: {
     heading({ tokens, depth }) {
@@ -77,7 +80,15 @@ const marked = new Marked({
     link({ href, title, tokens }) {
       const target = learnHref(href);
       const external = /^https?:/.test(target) && !target.startsWith("/");
-      return `<a href="${escape(target)}"${title ? ` title="${escape(title)}"` : ""}${external ? ' rel="noopener"' : ""}>${this.parser.parseInline(tokens)}</a>`;
+      // A link into the protocol's published text opens in a new tab, so the
+      // reader keeps their place in the page that cites it.
+      const published = target.startsWith(PROTOCOL_SITE);
+      const attributes = published
+        ? ` ${SPEC_LINK_ATTRIBUTES}`
+        : external
+          ? ' rel="noopener"'
+          : "";
+      return `<a href="${escape(target)}"${title ? ` title="${escape(title)}"` : ""}${attributes}>${this.parser.parseInline(tokens)}</a>`;
     },
     table(token) {
       // Wide tables scroll inside their own box on small screens.

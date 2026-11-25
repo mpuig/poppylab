@@ -7,6 +7,13 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { expect, it } from "vitest";
+import {
+  GUIDES_ANCHORS,
+  OPERATIONS_ANCHORS,
+  OPERATIONS_EXTRA_ANCHORS,
+  SPEC_ANCHORS,
+  SPEC_EXTRA_ANCHORS,
+} from "@poppy-lab/pap-core";
 import { slugify } from "./learn";
 
 const root = path.resolve(process.cwd(), "..", "..");
@@ -21,7 +28,18 @@ const skip = new Set([
   "spec",
   ".poppy",
   ".impeccable",
+  // Other branches' checkouts live here on a developer's machine.
+  ".claude",
 ]);
+
+function filesEnding(dir: string, endings: string[]): string[] {
+  return readdirSync(dir).flatMap((name) => {
+    if (skip.has(name)) return [];
+    const full = path.join(dir, name);
+    if (statSync(full).isDirectory()) return filesEnding(full, endings);
+    return endings.some((ending) => name.endsWith(ending)) ? [full] : [];
+  });
+}
 
 function markdownFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
@@ -60,4 +78,48 @@ it("finds no broken relative links in the repository's Markdown", () => {
     }
   }
   expect(broken).toEqual([]);
+});
+
+/**
+ * A link into the protocol's published text names a heading by the id that
+ * page gives it, which is not the title's slug ("The Session header" is
+ * `#session-header`). A wrong id opens the top of the document.
+ */
+it("links into the published spec by headings that exist, in pages and in code", () => {
+  const published: Record<string, Set<string>> = {
+    spec: new Set([...Object.values(SPEC_ANCHORS), ...SPEC_EXTRA_ANCHORS]),
+    "extensions/operations": new Set([
+      ...Object.values(OPERATIONS_ANCHORS),
+      ...OPERATIONS_EXTRA_ANCHORS,
+    ]),
+    guides: new Set(GUIDES_ANCHORS),
+  };
+  const broken: string[] = [];
+  let checked = 0;
+  for (const file of filesEnding(root, [".md", ".ts", ".tsx"])) {
+    const text = readFileSync(file, "utf8");
+    for (const [, page, anchor] of text.matchAll(
+      /https:\/\/personalagentprotocol\.org\/docs\/1\.0\/([a-z/-]+)#([\w-]+)/g,
+    )) {
+      const known = published[page!];
+      if (!known) continue;
+      checked++;
+      if (!known.has(anchor!))
+        broken.push(`${path.relative(root, file)} → ${page}#${anchor}`);
+    }
+  }
+  expect(checked).toBeGreaterThan(20);
+  expect(broken).toEqual([]);
+});
+
+it("links a numbered Operations section to the extension's own page", () => {
+  const vague: string[] = [];
+  for (const file of markdownFiles(root)) {
+    const text = readFileSync(file, "utf8");
+    for (const [link] of text.matchAll(
+      /\[Operations §[^\]]*\]\(https:\/\/personalagentprotocol\.org\/docs\/1\.0\/extensions\)/g,
+    ))
+      vague.push(`${path.relative(root, file)} → ${link}`);
+  }
+  expect(vague).toEqual([]);
 });

@@ -112,6 +112,90 @@ it("carries the Direct Conversation a direct_conversation_open names, only when 
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 });
+it("carries a Company's own error code when it is a short token, and never its words", async () => {
+  let status = 409,
+    body: unknown = {
+      error: "insufficient_funds",
+      error_description: "Your balance is USD 12.00",
+    },
+    challenge = "";
+  const server = createServer((_req, res) => {
+    res.writeHead(status, {
+      "content-type": "application/json",
+      ...(challenge ? { "WWW-Authenticate": challenge } : {}),
+    });
+    res.end(typeof body === "string" ? body : JSON.stringify(body));
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const origin = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+  const refused = () =>
+    protocolRequest(origin + "/payments", { method: "POST" }, [origin]).then(
+      () => {
+        throw Error("expected error");
+      },
+      (e: ProtocolError) => e,
+    );
+  try {
+    const funds = await refused();
+    // `code` still holds only the protocol's own codes: callers branch on it.
+    expect(funds).toMatchObject({
+      status: 409,
+      code: undefined,
+      companyCode: "insufficient_funds",
+    });
+    expect(JSON.stringify(funds) + funds.message).not.toContain("balance");
+    // Other safe shapes: dots, colons, hyphens, digits, up to 64 characters.
+    for (const token of [
+      "account_changed",
+      "bank.limit:daily-2",
+      "x".repeat(64),
+    ]) {
+      body = { error: token };
+      expect((await refused()).companyCode).toBe(token);
+    }
+    // Free text, or anything that isn't one short token, is left out.
+    for (const bad of [
+      "Your balance is too low",
+      "insufficient funds",
+      "",
+      "x".repeat(65),
+      "limit\nreached",
+      "<b>no</b>",
+      7,
+      null,
+      { code: "insufficient_funds" },
+      ["insufficient_funds"],
+    ]) {
+      body = { error: bad, error_description: "insufficient_funds" };
+      const error = await refused();
+      expect(error).toMatchObject({ status: 409, code: undefined });
+      expect(error.companyCode).toBeUndefined();
+    }
+    // Not JSON, or no `error` member: nothing to carry.
+    for (const other of [
+      "insufficient_funds",
+      { code: "insufficient_funds" },
+    ]) {
+      body = other;
+      expect((await refused()).companyCode).toBeUndefined();
+    }
+    // A protocol code is in both; a challenge's code is the protocol's only.
+    body = { error: "request_id_conflict" };
+    expect(await refused()).toMatchObject({
+      code: "request_id_conflict",
+      companyCode: "request_id_conflict",
+    });
+    status = 401;
+    body = { error: "card_locked" };
+    challenge = 'DPoP error="invalid_token"';
+    expect(await refused()).toMatchObject({
+      code: "invalid_token",
+      companyCode: "card_locked",
+    });
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+});
 it("honors HTTP-date, ignores malformed values and never shortens an existing cooldown", () => {
   const now = Date.parse("2030-01-01T00:00:00Z"),
     origin = "https://retry-tests.invalid";

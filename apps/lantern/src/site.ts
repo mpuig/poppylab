@@ -4,7 +4,12 @@
  * the same arrays the API serves, so the page and the agent never disagree.
  * The consent page shares the visual system.
  */
-import { labBarHtml, labLineHtml, labPlaygroundUrl } from "@poppy-lab/pap-core";
+import {
+  labBarHtml,
+  labLineHtml,
+  labPlaygroundUrl,
+  specRefHtml,
+} from "@poppy-lab/pap-core";
 import {
   customers,
   DELIVERY_CENTS,
@@ -234,7 +239,7 @@ export function forAgentsPage(origin: string) {
   const table = rows
     .map(
       ([what, where, spec]) =>
-        `<tr><th scope="row">${what}</th><td><code>${escape(where)}</code></td><td>${spec}</td></tr>`,
+        `<tr><th scope="row">${what}</th><td><code>${escape(where)}</code></td><td>${specRefHtml(spec)}</td></tr>`,
     )
     .join("");
   const people = customers

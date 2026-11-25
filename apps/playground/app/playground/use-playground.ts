@@ -223,6 +223,9 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
             setOperations(data.operations ?? []);
             setSignedIn(true);
             setScopes(data.scopes ?? "");
+            // A sign-in as another account drops the conversation and the
+            // Direct Conversation in it: the page must not stay in one.
+            applyDirect(data.directConversation);
             setFdxConsent(data.fdxConsent);
             setFdxRevoked(undefined);
             setWaitingSignIn(false);

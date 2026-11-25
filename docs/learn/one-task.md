@@ -86,7 +86,7 @@ From this one document the agent learns:
   to. The agent picks per task; here, the API.
 - **that changes need approval.** `extensions.operations` means Lantern
   will answer a change with the exact terms and wait for an approval
-  ([Operations](https://personalagentprotocol.org/docs/1.0/extensions)).
+  ([Operations](https://personalagentprotocol.org/docs/1.0/extensions/operations)).
 
 The agent chooses version 1.0, the newest it shares with the Company, and
 sends `Poppy-Version: 1.0` on every request after this
@@ -169,7 +169,7 @@ without trying.
 
 The Session header is the part of Poppy with no OAuth equivalent. It's a JWT
 the agent signs for **every** request, signed in or not
-([§5.2](https://personalagentprotocol.org/docs/1.0/spec#the-session-header)).
+([§5.2](https://personalagentprotocol.org/docs/1.0/spec#session-header)).
 Decoded:
 
 ```json
@@ -300,7 +300,7 @@ DPoP: eyJ0eXAiOiJkcG9wK2p3dCIs…
 
 The agent asks for the change. It declares the Operations extension, so Lantern
 doesn't apply it: it answers with the exact terms
-([Operations §4](https://personalagentprotocol.org/docs/1.0/extensions)):
+([Operations §4](https://personalagentprotocol.org/docs/1.0/extensions/operations#approval-required)):
 
 ```http
 POST https://food-demo.poppylab.dev/api/account/orders/ord_LNB2001/changes
@@ -366,7 +366,7 @@ HTTP/1.1 200 OK
 If the connection drops and the agent can't tell whether this worked, it sends
 the same request with the same approval again. Lantern answers with the same
 result and doesn't move the order twice
-([Operations §7](https://personalagentprotocol.org/docs/1.0/extensions)).
+([Operations §7](https://personalagentprotocol.org/docs/1.0/extensions/operations#at-most-once)).
 
 ## What the Company got, and the user
 

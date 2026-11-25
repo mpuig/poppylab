@@ -517,3 +517,4 @@ export class PapDiscoveryError extends Error {
   }
 }
 export * from "./lab.ts";
+export * from "./spec-links.ts";

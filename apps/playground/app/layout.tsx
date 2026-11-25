@@ -5,7 +5,6 @@ import { Geist_Mono, Hanken_Grotesk, STIX_Two_Text } from "next/font/google";
 const serif = STIX_Two_Text({
   variable: "--font-serif",
   subsets: ["latin"],
-  style: ["normal", "italic"],
   display: "swap",
 });
 const sans = Hanken_Grotesk({

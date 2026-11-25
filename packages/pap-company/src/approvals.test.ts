@@ -90,6 +90,49 @@ it("ignores approvals from another owner and never repeats the refused revision"
   expect(x.performed()).toBe(0);
 });
 
+it("holds one account to its share of a tenant's operations", () => {
+  const x = setup();
+  // One account asking with a fresh key each time, as many times as the
+  // tenant holds operations, whatever client or User ID it comes with.
+  let taken = 0;
+  for (let n = 0; n < 2000; n++) {
+    const outcome = x.ops.gate(
+      { client: `agent-${n % 3}`, user: `usr_${n % 7}`, account: "elena" },
+      undefined,
+      x.action({ n }, `fresh-${n}`),
+    );
+    if (outcome.status === 403) taken++;
+    else
+      expect(outcome).toEqual({
+        status: 429,
+        body: { error: "too_many_operations" },
+      });
+  }
+  // Another customer still gets an operation.
+  const robin = { ...owner, account: "robin" };
+  expect(x.ops.gate(robin, undefined, x.action({ a: 1 })).status).toBe(403);
+  // 100 of the tenant's 2000 are one account's share.
+  expect(taken).toBe(100);
+  expect(Object.keys(x.records)).toHaveLength(101);
+  // Only new operations are refused: one the account holds is returned
+  // again, and performed when approved.
+  const first = { client: "agent-0", user: "usr_0", account: "elena" };
+  const held = x.ops.gate(first, undefined, x.action({ n: 0 }, "fresh-0"));
+  expect(held.status).toBe(403);
+  const op = (
+    held.body as { operation: { operation_id: string; revision: string } }
+  ).operation;
+  expect(
+    x.ops.gate(first, x.header(op), x.action({ n: 0 }, "fresh-0")).status,
+  ).toBe(200);
+  // Performed, it still counts until it expires; then there is room again.
+  const more = () => x.ops.gate(first, undefined, x.action({}, "later"));
+  expect(more().status).toBe(429);
+  x.tick(11 * 60000);
+  expect(more().status).toBe(403);
+  expect(Object.keys(x.records)).toHaveLength(1);
+});
+
 it("guards stale terms and ignores selected fields", () => {
   const x = setup();
   const stale: Action = {

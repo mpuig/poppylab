@@ -10,6 +10,7 @@ import {
   connect,
   host,
 } from "../site-chrome";
+import { SpecRef, specLink } from "../spec-ref";
 import "../site.css";
 
 export const metadata: Metadata = {
@@ -117,7 +118,7 @@ export default function Developers() {
               <a className="button ghost" href="/learn">
                 Learn how it works
               </a>
-              <a className="button ghost" href={SPEC_URL}>
+              <a className="button ghost" href={SPEC_URL} {...specLink}>
                 Specification <ArrowUpRight size={16} aria-hidden="true" />
               </a>
               <a className="button ghost" href={LAB_REPOSITORY}>
@@ -150,8 +151,7 @@ export default function Developers() {
               </span>
             </div>
             <figcaption>
-              <b>Figure 1.</b> Two ways to test. A dashed outline is the side
-              you bring.
+              Two ways to test. A dashed outline is the side you bring.
             </figcaption>
           </figure>
         </section>
@@ -281,7 +281,9 @@ export default function Developers() {
                     <td>
                       <code>{where}</code>
                     </td>
-                    <td className="spec">{spec}</td>
+                    <td className="spec">
+                      <SpecRef reference={spec} />
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -305,7 +307,7 @@ export default function Developers() {
             {covers.map(([title, text, spec]) => (
               <li key={title}>
                 <strong>{title}</strong> {text}{" "}
-                <span className="spec-ref">{spec}</span>
+                <SpecRef className="spec-ref" reference={spec} />
               </li>
             ))}
           </ul>
