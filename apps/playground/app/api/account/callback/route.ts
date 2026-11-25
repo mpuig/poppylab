@@ -12,13 +12,7 @@ import {
 import { assertion, proof, protocolRequest } from "@poppy-lab/pap-client";
 import { tokenResponse } from "../../../../lib/token-response";
 import { serving } from "@/lib/deployment";
-import {
-  acquireRun,
-  releaseRun,
-  runForState,
-  secureCookies,
-  visitorOf,
-} from "@/lib/runs";
+import { acquireRun, releaseRun, runForState, visitorOf } from "@/lib/runs";
 export const runtime = "nodejs";
 export async function GET(request: Request) {
   const store = await cookies();
@@ -46,7 +40,7 @@ export async function GET(request: Request) {
     );
   if (!held || held === "busy" || !visitor || held.run.auth?.state !== state)
     return fail();
-  const { id, run } = held;
+  const { run } = held;
   const pending = run.auth!;
   delete run.auth;
   store.delete("pap_oauth");
@@ -112,6 +106,7 @@ export async function GET(request: Request) {
     delete run.accountUnavailable;
     run.consentVersion = (run.consentVersion ?? 0) + 1;
     run.history = structuredClone(run.publicHistory ?? []);
+    delete run.transcript;
     run.operations = {};
     run.scopes = result.scope;
     run.token = result.accessToken;
@@ -122,13 +117,6 @@ export async function GET(request: Request) {
     // §4.7: revoke the refresh token the new sign-in replaced (best effort;
     // revoking a replaced token isn't sign-out).
     if (replaced) void revokeRefreshToken(run, replaced).catch(() => undefined);
-    store.set("pap_run", id, {
-      httpOnly: true,
-      secure: secureCookies(),
-      sameSite: "strict",
-      path: "/",
-      maxAge: Math.max(1, Math.floor((run.expires - Date.now()) / 1000)),
-    });
     return new Response(
       "Signed in to the Company account. Close this tab and return to Poppy Lab.",
       {

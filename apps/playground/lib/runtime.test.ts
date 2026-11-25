@@ -381,6 +381,15 @@ it("derives a stable User ID per visitor and Company, unlinkable across both", a
   expect(await userFor("visitor-a", "https://juniper.example")).toBe(a);
   expect(await userFor("visitor-b", "https://juniper.example")).not.toBe(a);
   expect(await userFor("visitor-a", "https://noodles.example")).not.toBe(a);
+  // A demo reset makes the visitor a new person to the same Company.
+  const reset = await userFor("visitor-a", "https://juniper.example", "e1");
+  expect(reset).not.toBe(a);
+  expect(await userFor("visitor-a", "https://juniper.example", "e1")).toBe(
+    reset,
+  );
+  expect(await userFor("visitor-a", "https://juniper.example", "e2")).not.toBe(
+    reset,
+  );
 });
 
 it("signs every Session request with the operator key, covering the Session JWT and the token (§5.3)", async () => {

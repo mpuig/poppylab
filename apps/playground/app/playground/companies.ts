@@ -19,7 +19,7 @@ export const accountCompany = (origin: string) =>
     (u) => new URL(u).origin === origin,
   );
 
-export type View = "run" | "inspect" | "identity";
+export type View = "run" | "inspect" | "identity" | "history";
 export type Message = {
   role: "You" | "Agent" | "Demo" | "Error" | "Company";
   text: string;

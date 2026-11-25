@@ -1,11 +1,19 @@
 /**
  * The playground's state and its three server calls: discovery, chat and
- * account actions (sign-in, sign-out, approve, decline, retry). It also
- * restores the current run on load and waits for a consent tab to finish.
- * Rendering lives in the components; nothing here touches the DOM except
- * the sign-in popup and the `?company=` query.
+ * account actions (sign-in, sign-out, approve, decline, retry). Each
+ * conversation has its own address, `/playground/<id>`: connecting starts
+ * one, loading the address restores it (read-only once it has ended), and
+ * a consent tab is waited for. Rendering lives in the components; nothing
+ * here touches the DOM except the sign-in popup, the `?company=` query and
+ * the address.
  */
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import { companyProfile } from "@poppy-lab/pap-core";
 import type {
   DiscoveredCompany,
@@ -28,8 +36,34 @@ import {
 } from "@/lib/standing-instructions";
 import { exampleUrl, historyToMessages, type Message } from "./companies";
 
+/** The conversation the address names, if it names one. */
+const conversationInAddress = () =>
+  /^\/playground\/([A-Za-z0-9_-]{16,64})\/?$/.exec(
+    window.location.pathname,
+  )?.[1];
+const CONVERSATION = "X-Poppy-Conversation";
+
 export function usePlayground(options: { onConnected?: () => void } = {}) {
   const [companyUrl, setCompanyUrl] = useState(exampleUrl);
+  // The conversation this page shows. The ref serves requests in flight.
+  const [conversation, setConversation] = useState<string | undefined>();
+  const current = useRef<string | undefined>(undefined);
+  /** Ended conversations are read-only; `keptUntil` is when they go. */
+  const [ended, setEnded] = useState<{ keptUntil?: number } | undefined>();
+  /** The address names a conversation this browser can't open. */
+  const [missing, setMissing] = useState(false);
+  /** Takes the conversation the server names and puts it in the address. */
+  const adopt = (response: Response) => {
+    const id = response.headers.get(CONVERSATION);
+    if (!id || id === current.current) return;
+    current.current = id;
+    setConversation(id);
+    setEnded(undefined);
+    setMissing(false);
+    window.history.replaceState(null, "", `/playground/${id}`);
+  };
+  const named = (): Record<string, string> =>
+    current.current ? { [CONVERSATION]: current.current } : {};
   const [modelConfig, setModelConfig] = useState<ModelConfig>(initialModel);
   const configureModel = useCallback(
     (config: ModelConfig) => setModelConfig(config),
@@ -65,27 +99,30 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
   const trace = result?.trace ?? failedTrace;
   const busy = sending || discovering || accountBusy;
 
-  // Restore the current run, or take the Company named by the home page.
+  // Restore the conversation the address names, or start empty with the
+  // Company a link named (?company=).
   useEffect(() => {
     let cancelled = false;
-    void fetch("/api/account")
+    const id = conversationInAddress();
+    if (!id) {
+      const wanted = new URLSearchParams(window.location.search).get("company");
+      if (wanted && /^https?:\/\/[^\s]{1,280}$/.test(wanted))
+        setCompanyUrl(wanted.replace(/\/$/, ""));
+      return;
+    }
+    current.current = id;
+    setConversation(id);
+    void fetch(`/api/account?conversation=${id}`)
       .then((r) => r.json())
       .then((data) => {
         if (cancelled) return;
-        // A link from the home page (?company=) names the Company to try.
-        const wanted = new URLSearchParams(window.location.search).get(
-          "company",
-        );
-        if (wanted && /^https?:\/\/[^\s]{1,280}$/.test(wanted)) {
-          if (
-            data.company?.requestedUrl.replace(/\/$/, "") !==
-            wanted.replace(/\/$/, "")
-          ) {
-            setCompanyUrl(wanted.replace(/\/$/, ""));
-            return;
-          }
+        if (data.missing || !data.company) {
+          current.current = undefined;
+          setConversation(undefined);
+          setMissing(true);
+          return;
         }
-        if (!data.company) return;
+        if (data.readOnly) setEnded({ keptUntil: data.keptUntil });
         setResult(data.company);
         setCompanyUrl(data.company.requestedUrl.replace(/\/$/, ""));
         setSignedIn(!!data.signedIn);
@@ -105,7 +142,8 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     if (!waitingSignIn) return;
     let cancelled = false;
     const interval = setInterval(() => {
-      void fetch("/api/account")
+      if (!current.current) return;
+      void fetch(`/api/account?conversation=${current.current}`)
         .then((r) => r.json())
         .then((data) => {
           if (cancelled) return;
@@ -153,7 +191,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     op?: Operation,
     access: "read" | "write" = "read",
   ) {
-    if (busy) return;
+    if (busy || ended) return;
     const popup =
       action === "signin" ? window.open("about:blank", "company-signin") : null;
     setAccountBusy(true);
@@ -164,6 +202,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
         headers: {
           "Content-Type": "application/json",
           "X-PAP-Company": result?.requestedUrl ?? companyUrl,
+          ...named(),
         },
         body: JSON.stringify({
           action,
@@ -172,6 +211,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
           revision: op?.revision,
         }),
       });
+      adopt(response);
       const data = await response.json();
       if (!response.ok) {
         if (data.code === "account_unavailable") {
@@ -259,11 +299,16 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     setWaitingSignIn(false);
     setOperations([]);
     try {
+      // Connecting starts a new conversation, whatever this page showed.
       const response = await fetch("/api/discover", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: companyUrl.trim() }),
       });
+      if (response.ok) {
+        current.current = undefined;
+        adopt(response);
+      }
       const data = await response.json();
       if (!response.ok) {
         setFailedTrace(data.trace ?? []);
@@ -287,7 +332,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
 
   async function send(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!task.trim() || !connected || !result || busy) return;
+    if (!task.trim() || !connected || !result || busy || ended) return;
     const message = task.trim();
     setTask("");
     setSending(true);
@@ -295,13 +340,14 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...named() },
         body: JSON.stringify({
           url: result.requestedUrl,
           message,
           ...modelConfig,
         }),
       });
+      adopt(response);
       const data = await response.json();
       if (!response.ok) {
         if (data.code === "account_unavailable") {
@@ -368,6 +414,14 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     setMessages((old) => old.filter((_, i) => i !== index));
 
   return {
+    conversation,
+    readOnly: !!ended,
+    keptUntil: ended?.keptUntil,
+    missing,
+    /** The demo was reset under this page: its conversation has ended. */
+    markEnded: () => {
+      if (current.current) setEnded({});
+    },
     companyUrl,
     setCompanyUrl,
     configureModel,

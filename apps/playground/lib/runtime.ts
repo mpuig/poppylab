@@ -220,6 +220,22 @@ export type Run = {
   history: Array<{ role: "user" | "assistant"; content: string }>;
   /** Pre-account conversation only; safe to retain across account consent. */
   publicHistory?: Array<{ role: "user" | "assistant"; content: string }>;
+  /**
+   * What the page shows: `history` is cut to the model's last ten turns,
+   * this keeps the conversation. It resets wherever `history` does.
+   */
+  transcript?: Array<{ role: "user" | "assistant"; content: string }>;
+  /** When the conversation started, and its first request, for the list. */
+  created?: number;
+  title?: string;
+  /** The visitor's demo epoch when it started (see `userFor`). */
+  epoch?: string;
+  /**
+   * An ended conversation: readable until `keepUntil`, with every token,
+   * key and Session removed. It can't be continued.
+   */
+  archived?: boolean;
+  keepUntil?: number;
 };
 const globalState = globalThis as typeof globalThis & {
   papRetry?: ReturnType<typeof vault<RetryState>>;
@@ -237,12 +253,19 @@ if (!onWorkers() && process.env.NODE_ENV !== "test" && !process.env.VITEST)
  * The visitor's User ID for one Company identifier: stable for that visitor,
  * unlinkable across Companies and visitors (§3.2), and kept nowhere.
  */
-export async function userFor(visitor: string, identifier: string) {
+export async function userFor(
+  visitor: string,
+  identifier: string,
+  /** Changes when the visitor resets the demo: a new person to every Company. */
+  epoch?: string,
+) {
   const secret = createHmac("sha256", "poppy-user-ids")
     .update(String((await identity()).privateKey.d))
     .digest();
   return `usr_${createHmac("sha256", secret)
-    .update(`${visitor}\n${new URL(identifier).href}`)
+    .update(
+      `${visitor}\n${new URL(identifier).href}${epoch ? `\n${epoch}` : ""}`,
+    )
     .digest("base64url")
     .slice(0, 32)}`;
 }
@@ -284,7 +307,7 @@ export function accountConfiguration(run: Run) {
 export async function ensureSession(run: Run) {
   const profile = companyProfile(run.company!);
   if (!run.visitor) throw Error("Run without a visitor");
-  const user = await userFor(run.visitor, profile.identifier);
+  const user = await userFor(run.visitor, profile.identifier, run.epoch);
   if (run.user !== user) {
     // New Company identifier: new User ID, Session and delegated key (§3.2).
     run.user = user;

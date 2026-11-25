@@ -104,7 +104,7 @@ Deployed: `https://noodles.poppylab.dev` (`334aa256`) and `https://juniper.poppy
 The same Next.js app runs with `next dev`/`next start` on Node and on Cloudflare Workers through OpenNext (`@opennextjs/cloudflare` 1.20).
 
 - **Per-visitor state** (`lib/runs.ts`): an unguessable `HttpOnly` visitor cookie (`__Host-poppy_visitor` over HTTPS, SameSite=Lax so the Company's redirect to the callback still identifies the visitor). Storage only sees its SHA-256.
-  - Runs (tokens, keys, conversation) are keyed by visitor: at most five per visitor, 30 minutes each.
+  - Runs (tokens, keys, conversation) are keyed by visitor: at most five running per visitor, 30 minutes each. Ended ones stay as read-only transcripts without tokens or keys for seven days, up to 20 per visitor (see [conversation continuity](chat-continuity.md)).
   - Locking is compare-and-set on a version, with a two-minute lapse for a crashed request.
   - Backends: Node keeps memory plus the encrypted vault `visitor-runs`. Workers use one Durable Object `PoppyVisitor` per visitor (`worker/visitor.ts`), deleted by an alarm after eight idle days.
 - **User IDs:** HMAC of visitor and Company identifier, keyed from the agent identity. They are stable per visitor, unlinkable across visitors and Companies, and stored nowhere. `lib/user-identities.ts` is gone.

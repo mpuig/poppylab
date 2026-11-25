@@ -7,13 +7,13 @@ import { ProtocolError } from "@poppy-lab/pap-client";
 import { shoppingTarget } from "@/lib/shopping-context";
 import { cookies } from "next/headers";
 import { connect, type Run } from "@/lib/runtime";
+import { record } from "@/lib/transcript";
 import type { CompanyEntry } from "@/lib/conversations";
 import {
   acquireRun,
   createRun,
   releaseRun,
   visitorOf,
-  secureCookies,
   type Held,
 } from "@/lib/runs";
 import { overBudget } from "@/lib/limits";
@@ -27,7 +27,14 @@ export const runtime = "nodejs";
 let active = 0;
 let count = 0;
 let windowStart = Date.now();
+/** Names the conversation in a header, so the page can keep its address. */
 export async function POST(request: Request) {
+  const started: { id?: string } = {};
+  const response = await reply(request, started);
+  if (started.id) response.headers.set("X-Poppy-Conversation", started.id);
+  return response;
+}
+async function reply(request: Request, started: { id?: string }) {
   if (!serving())
     return NextResponse.json(
       { error: "Chat is disabled on this deployment." },
@@ -136,22 +143,21 @@ export async function POST(request: Request) {
     visitor = visitorOf(store, true);
     const limited = await overBudget(request, visitor, "chat");
     if (limited) return limited;
-    const current = await acquireRun(visitor, store.get("pap_run")?.value);
+    const current = await acquireRun(
+      visitor,
+      request.headers.get("x-poppy-conversation") ?? undefined,
+    );
     if (current === "busy")
       throw new UserFacingError("Wait for the current response.");
     held = current;
+    // An ended or unknown conversation continues as a new one.
     if (!held || new URL(held.run.url).href !== new URL(body.url).href) {
       if (held) await releaseRun(visitor, held);
       held = await createRun(visitor, body.url);
-      store.set("pap_run", held.id, {
-        httpOnly: true,
-        secure: secureCookies(),
-        sameSite: "strict",
-        path: "/",
-        maxAge: 1800,
-      });
     }
+    started.id = held.id;
     run = held.run;
+    run.title ??= body.message.trim().slice(0, 80);
     if (run.calls >= 20)
       throw new UserFacingError(
         "This run reached its 20-turn limit. Connect again to start another run.",
@@ -286,7 +292,8 @@ export async function POST(request: Request) {
         },
       );
     }
-    run.history.push(
+    record(
+      run,
       { role: "user", content: body.message },
       { role: "assistant", content: text },
     );

@@ -114,7 +114,11 @@ import { ProtocolError } from "@poppy-lab/pap-client";
 function request(body: unknown, origin = "http://localhost:3000") {
   return new Request("http://localhost:3000/api/account", {
     method: "POST",
-    headers: { origin, "Content-Type": "application/json" },
+    headers: {
+      origin,
+      "Content-Type": "application/json",
+      "X-Poppy-Conversation": "run_fixture_0001",
+    },
     body: JSON.stringify(body),
   });
 }
@@ -424,7 +428,13 @@ describe("Human-controlled account boundary", () => {
     expect(r.status).toBe(401);
     expect((await r.json()).code).toBe("account_unavailable");
     expect(state.run.accountUnavailable).toBe(true);
-    const restored = await (await GET()).json();
+    const restored = await (
+      await GET(
+        new Request(
+          "http://localhost:3000/api/account?conversation=run_fixture_0001",
+        ),
+      )
+    ).json();
     expect(restored.signedIn).toBe(false);
     expect(state.run.operations.op_test.state).toBe("proposed");
     expect(state.request).toHaveBeenCalledTimes(1);

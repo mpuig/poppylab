@@ -1,5 +1,15 @@
 # Conversation continuity and viewport composer
 
+## Conversations have addresses
+
+Each conversation with a Company is one run, and its ID is the page's address: `/playground/<id>`. `/playground` is a new, empty conversation; connecting to a Company starts the run and puts its ID in the address. The ID is a name, not a key: the server looks it up under the visitor's cookie, so the address opens nothing in another browser (the page says so and offers a new conversation).
+
+- **Running:** 30 minutes from its start, at most five at a time. Requests name it in the `X-Poppy-Conversation` header; the server answers with the same header, so a conversation that had to be started again (the old one ended) moves the address to the new ID. No cookie names a run any more.
+- **Ended:** when it expires, is pushed out by a sixth, or the demo is reset, a conversation becomes read-only. Its tokens, keys, Session and pending sign-in are removed; the transcript, the Company and how its proposals ended stay. It is kept for seven days from its start, up to 20 conversations per visitor (the oldest ended ones go first). One in which nothing was said or signed in is dropped instead.
+- **Transcript:** `history` is still cut to the model's last ten turns; `transcript` keeps the conversation for the page (up to 80 entries) and resets wherever `history` does (sign-in, sign-out).
+- **History view:** lists them (`GET /api/conversations`: names and times only) and links to each address.
+- **Reset demo data:** a new conversation keeps what earlier ones changed at the Companies, because a Company's copy of its test customers belongs to the User ID Iris presents. The reset stores a new per-visitor epoch that goes into that User ID (`userFor`), so every Company meets the visitor as a new person and gives a fresh copy on the next connection. Running conversations end, since their Sessions belong to the person before. Locally the Companies share one copy unless `COMPANY_ISOLATION=visitor`, so the reset shows fresh data only on the deployed, per-visitor Companies.
+
 ## Sign-in
 
 The callback previously cleared every history entry on successful consent, and the UI polling path independently called `setMessages([])`. First sign-in now snapshots and retains the pre-account conversation (bounded to the existing 10-message model history). Polling renders the server's returned history. Refresh uses the same persisted history.

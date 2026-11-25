@@ -1459,3 +1459,137 @@ footer .lab-links a:hover {
 .chat-workspace .conversation:has(.needs-you) .messages {
   min-height: 7.5rem;
 }
+
+/* Conversations: each has its own address; ended ones are read-only. */
+.conversation-note {
+  margin-bottom: 16px;
+  padding: 12px 0;
+  border-block: 1px solid var(--line);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+.heading-side {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px 16px;
+}
+.conversation-heading .new-conversation {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.list-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 20px;
+  margin-bottom: 28px;
+  font-size: 14px;
+}
+.list-actions .connect-button {
+  text-decoration: none;
+}
+.conversations {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 2px solid var(--ink);
+}
+.conversations li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px 24px;
+  flex-wrap: wrap;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+.conversations a {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 280px;
+  text-decoration: none;
+}
+.conversations a strong {
+  font-size: 15px;
+  font-weight: 650;
+}
+.conversations a span {
+  font-size: 14px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.conversations a:hover strong,
+.conversations a[aria-current] strong {
+  text-decoration: underline;
+}
+.conversation-meta {
+  display: inline-flex;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.conversation-meta .open {
+  color: var(--success);
+  font-weight: 600;
+}
+.reset-demo {
+  margin-top: 44px;
+}
+.reset-demo h2 {
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--ink);
+  font-size: 18px;
+  font-weight: 700;
+}
+.reset-demo p {
+  margin: 14px 0 16px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  max-width: 68ch;
+}
+.reset-button {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 700;
+}
+.reset-button:hover {
+  border-color: var(--ink);
+}
+.reset-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+  font-size: 14px;
+}
+.reset-demo .reset-status {
+  margin: 12px 0 0;
+  min-height: 1.6em;
+  color: var(--success);
+}
+@media (max-width: 520px) {
+  /* Four tabs and the wordmark on one row. */
+  .brand {
+    white-space: nowrap;
+  }
+  .nav-item {
+    padding-inline: 5px;
+    font-size: 12.5px;
+  }
+  .site-header nav {
+    gap: 0;
+  }
+}

@@ -42,7 +42,9 @@ export function Conversation({
     return () => clearInterval(timer);
   }, [waiting.length]);
   // A new proposal opens the panel again.
-  const waitingKey = waiting.map((op) => `${op.operation_id}:${op.revision}`).join();
+  const waitingKey = waiting
+    .map((op) => `${op.operation_id}:${op.revision}`)
+    .join();
   useEffect(() => {
     if (waitingKey) setPanelOpen(true);
   }, [waitingKey]);
@@ -63,7 +65,20 @@ export function Conversation({
     <section className="conversation" aria-label="Chat">
       <div className="conversation-heading">
         <h2>Conversation</h2>
-        <span>{signedIn ? "Account connected" : "Public access"}</span>
+        <div className="heading-side">
+          <span>
+            {p.readOnly
+              ? "Ended · read-only"
+              : signedIn
+                ? "Account connected"
+                : "Public access"}
+          </span>
+          {p.conversation && (
+            <a className="new-conversation" href="/playground">
+              New conversation
+            </a>
+          )}
+        </div>
       </div>
       <div
         className={`messages ${messages.length ? "has-messages" : ""}`}
@@ -179,6 +194,7 @@ export function Conversation({
           </article>
         ))}
         {company &&
+          !p.readOnly &&
           companyProfile(company).signIn.direct &&
           accountCompany(new URL(company.requestedUrl).origin) && (
             <div className="account-row">
@@ -265,7 +281,9 @@ export function Conversation({
             <b>{waiting.length}</b>
             <small>{panelOpen ? "Hide" : "Show"}</small>
           </button>
-          {panelOpen && <div className="needs-you-body">{waiting.map(review)}</div>}
+          {panelOpen && (
+            <div className="needs-you-body">{waiting.map(review)}</div>
+          )}
         </section>
       )}
       <form className="composer" onSubmit={p.send}>
@@ -278,7 +296,7 @@ export function Conversation({
           value={p.task}
           maxLength={2000}
           rows={2}
-          disabled={!connected || busy}
+          disabled={!connected || busy || p.readOnly}
           onChange={(event) => p.setTask(event.target.value)}
           onKeyDown={(event) => {
             if (
@@ -290,12 +308,18 @@ export function Conversation({
               event.currentTarget.form?.requestSubmit();
             }
           }}
-          placeholder={connected ? "Ask Iris…" : "Connect a Company first…"}
+          placeholder={
+            p.readOnly
+              ? "This conversation has ended."
+              : connected
+                ? "Ask Iris…"
+                : "Connect a Company first…"
+          }
         />
         <button
           type="submit"
           className="send-button"
-          disabled={!connected || busy || !p.task.trim()}
+          disabled={!connected || busy || p.readOnly || !p.task.trim()}
           aria-label="Send message"
         >
           <ArrowUp size={19} />

@@ -4,9 +4,12 @@ import {
   allow,
   configureBackend,
   createRun,
+  listConversations,
   loadRun,
   memoryBackend,
+  readConversation,
   releaseRun,
+  resetDemo,
   runForState,
   visitorOf,
 } from "./runs";
@@ -69,12 +72,13 @@ it("locks a run for one request at a time and recovers a crashed lock", async ()
   expect(await acquireRun("v", held.id)).not.toBe("busy");
 });
 
-it("keeps at most five runs per visitor, dropping the oldest", async () => {
+it("keeps at most five runs running per visitor, ending the oldest", async () => {
   configureBackend(memoryBackend());
   const ids: string[] = [];
   for (let i = 0; i < 7; i++) {
     vi.useFakeTimers({ now: Date.now() + i * 1000 });
     const held = await createRun("v", "https://juniper.example");
+    held.run.title = `Request ${i}`;
     await releaseRun("v", held);
     ids.push(held.id);
   }
@@ -137,4 +141,120 @@ it("never evicts a run another request currently holds", async () => {
     await releaseRun("v", await createRun("v", "https://juniper.example"));
   }
   expect(await loadRun("v", held.id)).toBeDefined();
+});
+
+it("ends an expired conversation: readable for a week, without tokens, never continued", async () => {
+  configureBackend(memoryBackend());
+  const start = Date.now();
+  vi.useFakeTimers({ now: start });
+  const held = await createRun("v", "https://juniper.example");
+  Object.assign(held.run, {
+    title: "Move my delivery",
+    accountToken: "refresh-secret",
+    token: "access-secret",
+    dpop: { kty: "EC", d: "private" },
+    sessionId: "sid",
+    auth: {
+      state: "s",
+      verifier: "v",
+      expires: start + 1000,
+      issuer: "i",
+      scopes: "",
+    },
+    transcript: [{ role: "user", content: "Move my delivery" }],
+    operations: {
+      op_1: {
+        operation_id: "op_1",
+        revision: "r1",
+        state: "completed",
+        summary: "Moved",
+        request: { url: "https://juniper.example/api", body: {} },
+      },
+    },
+  });
+  await releaseRun("v", held);
+  vi.setSystemTime(start + 31 * 60000);
+  expect(await loadRun("v", held.id)).toBeUndefined();
+  expect(await acquireRun("v", held.id)).toBeUndefined();
+  const read = await readConversation("v", held.id);
+  expect(read).toMatchObject({
+    archived: true,
+    transcript: [{ role: "user", content: "Move my delivery" }],
+    keepUntil: start + 7 * 86400000,
+  });
+  expect(JSON.stringify(read)).not.toMatch(/secret|private|"sid"|verifier/);
+  expect(read!.operations!.op_1).not.toHaveProperty("request");
+  // Another visitor can't read it, whatever the address says.
+  expect(await readConversation("other", held.id)).toBeUndefined();
+  expect(await listConversations("v")).toEqual([
+    expect.objectContaining({
+      id: held.id,
+      title: "Move my delivery",
+      active: false,
+      company: "juniper.example",
+    }),
+  ]);
+  vi.setSystemTime(start + 7 * 86400000 + 1);
+  expect(await readConversation("v", held.id)).toBeUndefined();
+  expect(await listConversations("v")).toEqual([]);
+});
+
+it("keeps at most twenty conversations, dropping the oldest ended ones", async () => {
+  configureBackend(memoryBackend());
+  const ids: string[] = [];
+  const start = Date.now();
+  for (let i = 0; i < 23; i++) {
+    vi.useFakeTimers({ now: start + i * 1000 });
+    const held = await createRun("v", "https://juniper.example");
+    held.run.title = `Request ${i}`;
+    await releaseRun("v", held);
+    ids.push(held.id);
+  }
+  const list = await listConversations("v");
+  expect(list).toHaveLength(20);
+  expect(list[0]!.id).toBe(ids[22]);
+  expect(list.filter((c) => c.active)).toHaveLength(5);
+  expect(list.map((c) => c.id)).not.toContain(ids[0]);
+});
+
+it("starts the demo over: running conversations end and new ones carry a new epoch", async () => {
+  configureBackend(memoryBackend());
+  const before = await createRun("v", "https://juniper.example");
+  before.run.title = "Move my delivery";
+  await releaseRun("v", before);
+  expect(before.run.epoch).toBeUndefined();
+  await resetDemo("v");
+  expect(await loadRun("v", before.id)).toBeUndefined();
+  expect((await readConversation("v", before.id))?.archived).toBe(true);
+  const after = await createRun("v", "https://juniper.example");
+  expect(after.run.epoch).toMatch(/^[A-Za-z0-9_-]{16,}$/);
+  const other = await createRun("w", "https://juniper.example");
+  expect(other.run.epoch).toBeUndefined();
+  await resetDemo("v");
+  const again = await createRun("v", "https://juniper.example");
+  expect(again.run.epoch).not.toBe(after.run.epoch);
+});
+
+it("leaves no trail of conversations nothing was said in", async () => {
+  configureBackend(memoryBackend());
+  const first = await createRun("v", "https://juniper.example");
+  await releaseRun("v", first);
+  const second = await createRun("v", "https://juniper.example");
+  await releaseRun("v", second);
+  expect((await listConversations("v")).map((c) => c.id)).toEqual([second.id]);
+  // One with a sign-in under way is kept.
+  const signing = await createRun("v", "https://juniper.example");
+  signing.run.auth = {
+    state: "s",
+    verifier: "v",
+    expires: Date.now() + 60000,
+    issuer: "https://juniper.example",
+    scopes: "",
+  };
+  await releaseRun("v", signing);
+  const third = await createRun("v", "https://juniper.example");
+  await releaseRun("v", third);
+  expect((await listConversations("v")).map((c) => c.id).sort()).toEqual(
+    [signing.id, third.id].sort(),
+  );
 });

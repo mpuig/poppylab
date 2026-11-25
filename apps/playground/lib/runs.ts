@@ -77,15 +77,25 @@ export function memoryBackend(persist?: () => void) {
   return backend;
 }
 
-/** Node: memory plus an encrypted snapshot of unexpired runs. */
+/** A conversation still worth keeping: running, or ended and readable. */
+const kept = (run: Run, now = Date.now()) =>
+  run.archived ? (run.keepUntil ?? 0) > now : run.expires > now;
+/**
+ * Node: memory plus an encrypted snapshot of the conversations still kept
+ * and of each visitor's demo epoch.
+ */
 function nodeBackend() {
-  const storage = vault<Array<[string, string, Run]>>("visitor-runs", () => []);
+  const storage = vault<Array<[string, string, unknown]>>(
+    "visitor-runs",
+    () => [],
+  );
   const persist = () => {
-    const rows: Array<[string, string, Run]> = [];
+    const rows: Array<[string, string, unknown]> = [];
     for (const [visitor, entries] of backend.data)
       for (const [key, entry] of entries) {
+        if (key === DEMO) rows.push([visitor, key, entry.value]);
         const run = entry.value as Run;
-        if (key.startsWith("run:") && run.expires > Date.now())
+        if (key.startsWith("run:") && kept(run))
           rows.push([visitor, key, { ...run, busy: false, auth: undefined }]);
       }
     storage.value.splice(0, storage.value.length, ...rows);
@@ -93,13 +103,18 @@ function nodeBackend() {
   };
   const backend = memoryBackend(persist);
   // Runs from 0.2 used Session Tokens: never restore them.
-  for (const [visitor, key, run] of storage.value)
-    if (run.expires > Date.now() && run.protocol === "1.0") {
-      if (!backend.data.has(visitor)) backend.data.set(visitor, new Map());
-      backend.data
-        .get(visitor)!
-        .set(key, { value: { ...run, busy: false }, version: 1 });
-    }
+  for (const [visitor, key, value] of storage.value) {
+    const run = value as Run;
+    const restore =
+      key === DEMO
+        ? value
+        : run.protocol === "1.0" && kept(run)
+          ? { ...run, busy: false }
+          : undefined;
+    if (!restore) continue;
+    if (!backend.data.has(visitor)) backend.data.set(visitor, new Map());
+    backend.data.get(visitor)!.set(key, { value: restore, version: 1 });
+  }
   return backend;
 }
 
@@ -206,18 +221,184 @@ export function visitorOf(store: CookieStore, create = false) {
 }
 
 // ---- Runs ------------------------------------------------------------------
+// A run is one conversation with one Company. Its ID is in the page's URL
+// (`/playground/<id>`); only the visitor who started it can name it.
 const RUN_MS = 1800000,
   MAX_RUNS = 5,
-  BUSY_MS = 120000;
+  BUSY_MS = 120000,
+  /** An ended conversation stays readable this long, counted from its start. */
+  KEEP_MS = 7 * 86400000,
+  MAX_CONVERSATIONS = 20,
+  /** The visitor's demo epoch (`resetDemo`). */
+  DEMO = "demo";
 export type Held = { id: string; run: Run; version: number };
+export const isConversationId = (id: unknown): id is string =>
+  typeof id === "string" && /^[A-Za-z0-9_-]{16,64}$/.test(id);
+const locked = (run: Run, now = Date.now()) =>
+  run.busy && (run.busyUntil ?? 0) > now;
+const startOf = (run: Run) => run.created ?? run.expires - RUN_MS;
+/** Nothing said, no account, no sign-in under way. */
+const untouched = (run: Run) =>
+  !run.title &&
+  !run.history.length &&
+  !run.transcript?.length &&
+  !run.accountToken &&
+  !run.auth;
 
 export async function loadRun(visitor: string, id: string | undefined) {
-  if (!id || !/^[A-Za-z0-9_-]{16,64}$/.test(id)) return undefined;
+  if (!isConversationId(id)) return undefined;
   const entry = await backend().get(visitor, `run:${id}`);
   const run = entry?.value as Run | undefined;
-  return run && run.expires > Date.now() && run.protocol === "1.0"
+  return run &&
+    !run.archived &&
+    run.expires > Date.now() &&
+    run.protocol === "1.0"
     ? { id, run, version: entry!.version }
     : undefined;
+}
+
+/** What stays of a conversation once it ends: its words, never its keys. */
+function ended(run: Run, now = Date.now()): Run {
+  const operations = Object.fromEntries(
+    Object.entries(run.operations ?? {}).map(([id, op]) => {
+      // The stored request could be sent again; an ended one never is.
+      const rest = { ...op };
+      delete rest.request;
+      return [id, rest];
+    }),
+  );
+  return {
+    protocol: "1.0",
+    ...(run.visitor ? { visitor: run.visitor } : {}),
+    url: run.url,
+    user: "",
+    expires: Math.min(run.expires, now),
+    calls: run.calls,
+    busy: false,
+    history: [],
+    transcript: run.transcript ?? run.history,
+    ...(run.company ? { company: run.company } : {}),
+    operations,
+    ...(run.title ? { title: run.title } : {}),
+    created: startOf(run),
+    archived: true,
+    keepUntil: startOf(run) + KEEP_MS,
+  };
+}
+
+/**
+ * The visitor's conversations, after ending the expired ones and dropping
+ * those past their keep time. `room` leaves space for that many new ones.
+ */
+async function sweep(visitor: string, room = 0) {
+  const b = backend(),
+    now = Date.now();
+  const all: Held[] = [];
+  for (const [key, entry] of await b.list(visitor, "run:")) {
+    let run = entry.value as Run,
+      version = entry.version;
+    if (
+      run.protocol !== "1.0" ||
+      (run.archived && (!kept(run, now) || untouched(run))) ||
+      // Nothing to read in one that ended untouched.
+      (!run.archived &&
+        run.expires <= now &&
+        untouched(run) &&
+        !locked(run, now))
+    ) {
+      await b.remove(visitor, key);
+      continue;
+    }
+    if (!run.archived && run.expires <= now && !locked(run, now)) {
+      const next = ended(run, now);
+      if (await b.put(visitor, key, next, version)) {
+        run = next;
+        version++;
+      }
+    }
+    all.push({ id: key.slice(4), run, version });
+  }
+  // Over the cap, the oldest ended conversations go first.
+  const oldest = all
+    .filter((held) => held.run.archived)
+    .sort((a, c) => startOf(a.run) - startOf(c.run));
+  for (const held of oldest) {
+    if (all.length + room <= MAX_CONVERSATIONS) break;
+    await b.remove(visitor, `run:${held.id}`);
+    all.splice(all.indexOf(held), 1);
+  }
+  return all;
+}
+
+export type ConversationSummary = {
+  id: string;
+  company: string;
+  url: string;
+  title?: string;
+  created: number;
+  /** Still running; otherwise read-only. */
+  active: boolean;
+  /** When a running one ends, or when an ended one is deleted. */
+  until: number;
+};
+/** The visitor's conversations, newest first. Names and times only. */
+export async function listConversations(
+  visitor: string,
+): Promise<ConversationSummary[]> {
+  return (await sweep(visitor))
+    .map(({ id, run }) => ({
+      id,
+      company: run.company?.document.organization.name ?? new URL(run.url).host,
+      url: run.url,
+      ...(run.title ? { title: run.title } : {}),
+      created: startOf(run),
+      active: !run.archived,
+      until: run.archived ? (run.keepUntil ?? 0) : run.expires,
+    }))
+    .sort((a, c) => c.created - a.created);
+}
+
+/** A conversation to show: running, or ended and read-only. */
+export async function readConversation(visitor: string, id: unknown) {
+  if (!isConversationId(id)) return undefined;
+  const b = backend(),
+    now = Date.now();
+  const entry = await b.get(visitor, `run:${id}`);
+  let run = entry?.value as Run | undefined;
+  if (!run || run.protocol !== "1.0") return undefined;
+  if (run.archived) return kept(run, now) ? run : undefined;
+  if (run.expires <= now && !locked(run, now)) {
+    const next = ended(run, now);
+    if (await b.put(visitor, `run:${id}`, next, entry!.version)) run = next;
+  }
+  return run;
+}
+
+/**
+ * Starts the demo over: every Company meets this visitor as a new person
+ * (a new User ID, so a fresh copy of its test customers), and the running
+ * conversations end, since their Sessions belong to the person before.
+ * The Companies' old copies lapse on their own idle clocks.
+ */
+export async function resetDemo(visitor: string) {
+  const b = backend();
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const current = await b.get(visitor, DEMO);
+    if (
+      await b.put(
+        visitor,
+        DEMO,
+        { epoch: randomId() },
+        current?.version ?? null,
+      )
+    )
+      break;
+  }
+  for (const { id, run, version } of await sweep(visitor)) {
+    if (run.archived) continue;
+    if (untouched(run)) await b.remove(visitor, `run:${id}`);
+    else await b.put(visitor, `run:${id}`, ended(run), version);
+  }
 }
 
 /** Locks a run for one request; `busy` when another request holds it. */
@@ -260,25 +441,34 @@ export async function releaseRun(visitor: string, held: Held) {
   return false;
 }
 
-/** A new, locked run. The visitor keeps at most five; the oldest go first. */
+/**
+ * A new, locked run. The visitor keeps at most five running; the oldest idle
+ * ones end (and stay readable) to make room.
+ */
 export async function createRun(visitor: string, url: string): Promise<Held> {
   const b = backend();
-  const existing = (await b.list(visitor, "run:")).sort(
-    ([, a], [, c]) => (a.value as Run).expires - (c.value as Run).expires,
-  );
-  // Expired runs go; then the oldest idle ones until four remain. A run
-  // another request holds right now is never evicted under it.
-  let room = existing.length - (MAX_RUNS - 1);
-  for (const [key, entry] of existing) {
-    const r = entry.value as Run;
-    const expired = r.expires < Date.now();
-    const locked = r.busy && (r.busyUntil ?? 0) > Date.now();
-    if (expired || (room > 0 && !locked)) {
-      await b.remove(visitor, key);
-      if (!expired) room--;
-    }
+  const running: Held[] = [];
+  for (const held of await sweep(visitor, 1)) {
+    if (held.run.archived) continue;
+    // Connecting again and again leaves no trail: a conversation nothing
+    // was said or signed in doesn't outlive the next one.
+    if (untouched(held.run) && !locked(held.run))
+      await b.remove(visitor, `run:${held.id}`);
+    else running.push(held);
+  }
+  running.sort((a, c) => a.run.expires - c.run.expires);
+  // A run another request holds right now is never ended under it.
+  let over = running.length - (MAX_RUNS - 1);
+  for (const held of running) {
+    if (over <= 0) break;
+    if (locked(held.run)) continue;
+    if (await b.put(visitor, `run:${held.id}`, ended(held.run), held.version))
+      over--;
   }
   const id = randomId();
+  const epoch = (
+    (await b.get(visitor, DEMO))?.value as { epoch?: string } | undefined
+  )?.epoch;
   const run: Run = {
     protocol: "1.0",
     url,
@@ -289,6 +479,8 @@ export async function createRun(visitor: string, url: string): Promise<Held> {
     busyUntil: Date.now() + BUSY_MS,
     history: [],
     visitor,
+    created: Date.now(),
+    ...(epoch ? { epoch } : {}),
   };
   if (!(await b.put(visitor, `run:${id}`, run, null)))
     throw new Error("Run conflict");

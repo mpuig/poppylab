@@ -154,6 +154,7 @@ it("model tool → real Juniper 403 operation → human approval → Poppy-Appro
         headers: {
           origin: "http://localhost:3000",
           "Content-Type": "application/json",
+          "X-Poppy-Conversation": "run_fixture_0001",
         },
         body: JSON.stringify({ action, id, revision }),
       }),

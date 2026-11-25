@@ -14,6 +14,7 @@ import {
   revokeRefreshToken,
   pushAuthorizationRequest,
 } from "@/lib/runtime";
+import { record } from "@/lib/transcript";
 import {
   accountRecovery,
   accountUnavailableNotice,
@@ -24,7 +25,7 @@ import { isAccountCompany, serving } from "@/lib/deployment";
 import {
   acquireRun,
   createRun,
-  loadRun,
+  readConversation,
   releaseRun,
   secureCookies,
   visitorOf,
@@ -33,7 +34,8 @@ import {
 import { overBudget } from "@/lib/limits";
 export const runtime = "nodejs";
 const issuer = "http://juniper.localhost:4100";
-export async function GET() {
+/** One conversation, named by `?conversation=`: running, or ended and read-only. */
+export async function GET(request: Request) {
   if (!serving())
     return NextResponse.json(
       { error: "Account access is disabled on this deployment." },
@@ -41,13 +43,17 @@ export async function GET() {
     );
   const store = await cookies();
   const visitor = visitorOf(store);
-  const run = visitor
-    ? (await loadRun(visitor, store.get("pap_run")?.value))?.run
-    : undefined;
+  const id = new URL(request.url).searchParams.get("conversation");
+  const run = visitor ? await readConversation(visitor, id) : undefined;
   return NextResponse.json(
     {
+      // Unknown here: never started in this browser, or past its keep time.
+      missing: !run,
+      conversation: run ? id : undefined,
+      readOnly: !!run?.archived,
+      keptUntil: run?.archived ? run.keepUntil : undefined,
       company: run?.company,
-      history: run?.history ?? [],
+      history: run?.transcript ?? run?.history ?? [],
       url: run?.url,
       scopes: run?.scopes,
       consentVersion: run?.consentVersion ?? 0,
@@ -57,15 +63,23 @@ export async function GET() {
         !run.accountUnavailable &&
         run.expires > Date.now(),
       authPending: !!run?.auth || !!run?.busy,
+      // An ended conversation shows how its proposals ended.
       operations:
-        run?.expires && run.expires > Date.now()
+        run && (run.archived || run.expires > Date.now())
           ? Object.values(run.operations ?? {})
           : [],
     },
     { headers: { "Cache-Control": "no-store" } },
   );
 }
+/** Names the conversation in a header, so the page can keep its address. */
 export async function POST(request: Request) {
+  const started: { id?: string } = {};
+  const response = await act(request, started);
+  if (started.id) response.headers.set("X-Poppy-Conversation", started.id);
+  return response;
+}
+async function act(request: Request, started: { id?: string }) {
   if (
     !serving() ||
     request.headers.get("origin") !== new URL(request.url).origin
@@ -78,7 +92,10 @@ export async function POST(request: Request) {
   const visitor = visitorOf(store, true);
   const limited = await overBudget(request, visitor, "account");
   if (limited) return limited;
-  const current = await acquireRun(visitor, store.get("pap_run")?.value);
+  const current = await acquireRun(
+    visitor,
+    request.headers.get("x-poppy-conversation") ?? undefined,
+  );
   if (current === "busy")
     return NextResponse.json(
       { error: "Wait for the current request." },
@@ -99,14 +116,8 @@ export async function POST(request: Request) {
       );
     }
     held = await createRun(visitor, origin);
-    store.set("pap_run", held.id, {
-      httpOnly: true,
-      secure: secureCookies(),
-      sameSite: "strict",
-      path: "/",
-      maxAge: 1800,
-    });
   }
+  started.id = held.id;
   const run = held.run;
   if (!isAccountCompany(new URL(run.url).origin)) {
     await releaseRun(visitor, held);
@@ -236,6 +247,7 @@ export async function POST(request: Request) {
       delete run.auth;
       run.operations = {};
       run.history = [];
+      delete run.transcript;
       delete run.publicHistory;
       // Iris forgets it; the Company keeps the conversation open (§5.5).
       delete run.conversation;
@@ -302,7 +314,7 @@ export async function POST(request: Request) {
           summary: `${run.company?.document.organization.name ?? "The Company"} declined this approval and did nothing.${error.declined?.reason ? ` Its reason: ${error.declined.reason}` : ""}`,
         };
         delete op.request;
-        run.history.push({
+        record(run, {
           role: "assistant",
           content: `Company declined the approval; nothing was performed. ${op.result.summary}`,
         });
@@ -340,7 +352,7 @@ export async function POST(request: Request) {
         op.state = "uncertain";
       throw error;
     }
-    run.history.push({
+    record(run, {
       role: "assistant",
       content: `Company operation succeeded: ${op.result.summary}`,
     });

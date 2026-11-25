@@ -2,7 +2,7 @@ import { discoverCompany } from "@poppy-lab/pap-client";
 import { LOCAL_COMPANY_ORIGINS, PapDiscoveryError } from "@poppy-lab/pap-core";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { visitorOf } from "@/lib/runs";
+import { createRun, releaseRun, visitorOf } from "@/lib/runs";
 import { overBudget } from "@/lib/limits";
 import { publicMode } from "@/lib/deployment";
 
@@ -106,13 +106,16 @@ export async function POST(request: Request) {
       path: "/api/account/callback",
       maxAge: 0,
     });
-    response.cookies.set("pap_run", "", {
-      httpOnly: true,
-      sameSite: "strict",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: 0,
-    });
+    // Connecting starts a conversation; its ID becomes the page's address.
+    try {
+      const visitor = visitorOf(await cookies(), true);
+      const held = await createRun(visitor, result.requestedUrl);
+      held.run.company = result;
+      await releaseRun(visitor, held);
+      response.headers.set("X-Poppy-Conversation", held.id);
+    } catch {
+      // Without one the first message or sign-in starts it instead.
+    }
     return response;
   } catch (error) {
     if (error instanceof PapDiscoveryError) {
