@@ -54,7 +54,7 @@ describe("FDX-shaped tools (poppylab.dev/fdx v1)", () => {
     const { tools, request, trace } = setup(ok(fixture.accounts));
     const result = (await tools.fdx_list_accounts!.execute({})) as {
       accounts: Array<Record<string, unknown>>;
-      notice: string;
+      note: string;
     };
     expect(request).toHaveBeenCalledWith(
       "https://bank.example/fdx/v6/accounts",
@@ -67,7 +67,7 @@ describe("FDX-shaped tools (poppylab.dev/fdx v1)", () => {
         accountType: "CHECKING",
         productName: "Everyday Checking",
         nickname: "Bills",
-        accountNumberDisplay: "...4821",
+        accountNumberDisplay: "4821",
         status: "OPEN",
         currency: { currencyCode: "USD" },
       },
@@ -76,13 +76,13 @@ describe("FDX-shaped tools (poppylab.dev/fdx v1)", () => {
         accountCategory: "DEPOSIT_ACCOUNT",
         accountType: "SAVINGS",
         productName: "High Yield Savings",
-        accountNumberDisplay: "...9034",
+        accountNumberDisplay: "9034",
         status: "OPEN",
         currency: { currencyCode: "USD" },
       },
     ]);
     expect(JSON.stringify(result)).not.toContain("Ignore previous");
-    expect(result.notice).toBe(fixture.accounts.notice);
+    expect(result.note).toBe(fixture.accounts.note);
     expect(trace).toHaveBeenCalledWith(
       "GET /fdx/v6/accounts · FDX-shaped · fdx:ACCOUNT_BASIC",
     );
@@ -115,7 +115,11 @@ describe("FDX-shaped tools (poppylab.dev/fdx v1)", () => {
       "https://bank.example/fdx/v6/accounts/acc%3A1%26x%3D2",
       ["fdx:ACCOUNT_BASIC"],
     );
-    expect(result).toMatchObject({ accountId: "acc:1&x=2" });
+    expect(result).toMatchObject({
+      accountId: "acc:1&x=2",
+      accountNumberDisplay: "4821",
+      note: fixture.account.note,
+    });
     expect(result).not.toHaveProperty("currentBalance");
   });
 
@@ -149,6 +153,8 @@ describe("FDX-shaped tools (poppylab.dev/fdx v1)", () => {
     expect(result).toEqual({
       accountId: "acc_elena_checking",
       truncated: false,
+      totalElements: 3,
+      note: fixture.transactions[0].note,
       transactions: [
         {
           transactionId: "txn_101",
@@ -224,7 +230,7 @@ describe("FDX-shaped tools (poppylab.dev/fdx v1)", () => {
   });
 
   it("ends paging on a repeated or malformed nextOffset", async () => {
-    for (const nextOffset of ["1", "a b", -1, 1.5, { x: 1 }]) {
+    for (const nextOffset of ["1", "a b", "2a", "-2", -1, 1.5, { x: 1 }]) {
       const { tools, request } = setup(
         ok({ page: { nextOffset: "1" }, transactions: [] }),
         ok({ page: { nextOffset }, transactions: [] }),
@@ -243,6 +249,7 @@ describe("FDX-shaped tools (poppylab.dev/fdx v1)", () => {
       customerId: "cus_elena",
       name: { first: "Elena", last: "Maren" },
       email: ["elena.maren@example.invalid"],
+      note: fixture.customer.note,
     });
     expect(request).toHaveBeenCalledWith(
       "https://bank.example/fdx/v6/customers/current",

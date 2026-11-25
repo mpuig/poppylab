@@ -151,7 +151,7 @@ function consent(v: unknown): Json | undefined {
         const party = obj(p)
           ? defined([
               ["name", text(p.name, 120)],
-              ["partyType", code(p.partyType)],
+              ["type", code(p.type)],
             ])
           : {};
         return Object.keys(party).length ? [party] : [];
@@ -198,9 +198,9 @@ function consent(v: unknown): Json | undefined {
   ]);
 }
 
-/** Harborline's note that its data is fictional, kept when present. */
+/** Harborline's top-level `note` that its data is fictional, when present. */
 const notice = (body: unknown) =>
-  obj(body) && text(body.notice, 300) ? { notice: text(body.notice, 300) } : {};
+  obj(body) && text(body.note, 300) ? { note: text(body.note, 300) } : {};
 
 /**
  * An error response. An FDX error body (`code`, `message`, `debugMessage`)
@@ -376,6 +376,7 @@ export function fdxTools({
       const used = new Set<string>();
       let offset: string | undefined;
       let notes: Json = {};
+      let total: number | undefined;
       for (let page = 0; page < FDX_LIMITS.maxPages; page++) {
         const r = await get(
           base,
@@ -390,7 +391,10 @@ export function fdxTools({
         if (isOutcome(r)) return r.outcome;
         if (!ok(r)) return failure(r.status, r.body);
         if (!obj(r.body) || !Array.isArray(r.body.transactions)) return invalid;
-        if (page === 0) notes = notice(r.body);
+        if (page === 0) {
+          notes = notice(r.body);
+          total = totalElements(r.body);
+        }
         for (const t of r.body.transactions.slice(0, FDX_LIMITS.pageSize)) {
           const kept = transaction(t);
           if (!kept || seen.has(kept.transactionId as string)) continue;
@@ -408,6 +412,7 @@ export function fdxTools({
         truncated:
           offset !== undefined ||
           transactions.length > FDX_LIMITS.maxTransactions,
+        ...(total === undefined ? {} : { totalElements: total }),
         ...notes,
       };
     },
@@ -460,8 +465,9 @@ export function fdxTools({
 }
 
 /**
- * `page.nextOffset`, when it moves on: a non-negative integer or an id-like
- * string not used before in this call. Anything else ends paging.
+ * `page.nextOffset`, when it moves on: a decimal string (absent on the last
+ * page) or a non-negative integer, not used before in this call. Anything
+ * else ends paging.
  */
 function nextOffset(body: Json, used: ReadonlySet<string>) {
   const page = obj(body.page) ? body.page : undefined;
@@ -469,8 +475,16 @@ function nextOffset(body: Json, used: ReadonlySet<string>) {
   const next =
     typeof raw === "number" && Number.isSafeInteger(raw) && raw >= 0
       ? String(raw)
-      : typeof raw === "string" && /^[A-Za-z0-9._~-]{1,128}$/.test(raw)
+      : typeof raw === "string" && /^\d{1,15}$/.test(raw)
         ? raw
         : undefined;
   return next === undefined || used.has(next) ? undefined : next;
+}
+
+/** `page.totalElements` of the first page, when a non-negative integer. */
+function totalElements(body: Json) {
+  const raw = obj(body.page) ? body.page.totalElements : undefined;
+  return Number.isSafeInteger(raw) && Number(raw) >= 0
+    ? Number(raw)
+    : undefined;
 }

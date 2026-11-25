@@ -1,7 +1,6 @@
 {
   "_about": "Hand-written responses in the shape Harborline's FDX-shaped API returns (plan/fdx-harborline.md, mapping table). Not taken from the FDX specification; FDX-shaped, not FDX-conformant. All data is fictional.",
   "accounts": {
-    "notice": "Fictional bank data for the Poppy Lab demo.",
     "accounts": [
       {
         "accountId": "acc_elena_checking",
@@ -9,9 +8,11 @@
         "accountType": "CHECKING",
         "productName": "Everyday Checking",
         "nickname": "Bills",
-        "accountNumberDisplay": "...4821",
+        "accountNumberDisplay": "4821",
         "status": "OPEN",
-        "currency": { "currencyCode": "USD" },
+        "currency": {
+          "currencyCode": "USD"
+        },
         "currentBalance": 2450.17,
         "availableBalance": 2310.5,
         "balanceAsOf": "2026-11-24T18:00:00Z",
@@ -22,9 +23,11 @@
         "accountCategory": "DEPOSIT_ACCOUNT",
         "accountType": "SAVINGS",
         "productName": "High Yield Savings",
-        "accountNumberDisplay": "...9034",
+        "accountNumberDisplay": "9034",
         "status": "OPEN",
-        "currency": { "currencyCode": "USD" },
+        "currency": {
+          "currencyCode": "USD"
+        },
         "currentBalance": 10200,
         "availableBalance": 10200,
         "balanceAsOf": "2026-11-24T18:00:00Z"
@@ -34,23 +37,30 @@
         "accountType": "CHECKING",
         "productName": "An account whose id would leave its path segment"
       }
-    ]
+    ],
+    "note": "Fictional bank data for the Poppy Lab demo."
   },
   "account": {
     "accountId": "acc_elena_checking",
     "accountCategory": "DEPOSIT_ACCOUNT",
     "accountType": "CHECKING",
     "productName": "Everyday Checking",
-    "accountNumberDisplay": "...4821",
+    "accountNumberDisplay": "4821",
     "status": "OPEN",
-    "currency": { "currencyCode": "USD" },
+    "currency": {
+      "currencyCode": "USD"
+    },
     "currentBalance": 2450.17,
     "availableBalance": 2310.5,
-    "balanceAsOf": "2026-11-24T18:00:00Z"
+    "balanceAsOf": "2026-11-24T18:00:00Z",
+    "note": "Fictional bank data for the Poppy Lab demo."
   },
   "transactions": [
     {
-      "page": { "nextOffset": "2" },
+      "page": {
+        "nextOffset": "2",
+        "totalElements": 3
+      },
       "transactions": [
         {
           "transactionId": "txn_101",
@@ -74,10 +84,13 @@
           "category": "income",
           "merchantSecret": "dropped"
         }
-      ]
+      ],
+      "note": "Fictional bank data for the Poppy Lab demo."
     },
     {
-      "page": {},
+      "page": {
+        "totalElements": 3
+      },
       "transactions": [
         {
           "transactionId": "txn_103",
@@ -90,21 +103,33 @@
           "status": "POSTED",
           "category": "transport"
         }
-      ]
+      ],
+      "note": "Fictional bank data for the Poppy Lab demo."
     }
   ],
   "customer": {
     "customerId": "cus_elena",
-    "name": { "first": "Elena", "last": "Maren", "title": "Dropped" },
+    "name": {
+      "first": "Elena",
+      "last": "Maren",
+      "title": "Dropped"
+    },
     "email": ["elena.maren@example.invalid"],
-    "taxId": "000-00-0000"
+    "taxId": "000-00-0000",
+    "note": "Fictional bank data for the Poppy Lab demo."
   },
   "consent": {
     "id": "grant_7Hk2",
     "status": "ACTIVE",
     "parties": [
-      { "name": "Harborline Bank", "partyType": "DATA_PROVIDER" },
-      { "name": "Iris", "partyType": "DATA_RECIPIENT" }
+      {
+        "name": "Harborline Bank",
+        "type": "DATA_PROVIDER"
+      },
+      {
+        "name": "Iris",
+        "type": "DATA_RECIPIENT"
+      }
     ],
     "createdTime": "2026-11-24T10:00:00Z",
     "expirationTime": "2027-02-22T10:00:00Z",
@@ -116,7 +141,8 @@
         "resourceId": "acc_elena_checking",
         "dataClusters": ["ACCOUNT_BASIC", "TRANSACTIONS"]
       }
-    ]
+    ],
+    "note": "Fictional bank data for the Poppy Lab demo."
   },
   "errors": {
     "accountNotFound": {

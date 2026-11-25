@@ -7,6 +7,7 @@ import type { ProtocolEntry } from "./protocol-log";
 const discovery: Record<string, string> = {
   poppy: "§3",
   domain: "§3",
+  extension: "§3.3",
   link: "§3",
   resource: "§3.2",
   issuer: "§3.2",
