@@ -9,6 +9,7 @@ apps/example-company/src/site/app-script.ts
 apps/lantern/src/site/app-script.ts
 apps/harborline/src/site/app-script.ts
 apps/northwind/src/site/app-script.ts
+apps/fernwick/src/site/app-script.ts
 
 # Served byte for byte for the official validator (see its README)
 apps/playground/public/validator-agent/

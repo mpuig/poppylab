@@ -108,10 +108,23 @@ const groups = {
     ],
   ],
   airline: [["northwind", ["src/northwind.test.ts"]]],
+  energy: [
+    [
+      "fernwick",
+      [
+        "src/data.test.ts",
+        "src/espi.test.ts",
+        "src/fernwick.test.ts",
+        "src/conversations.test.ts",
+      ],
+    ],
+    ["pap-company", ["src/gateway/account-routes.test.ts"]],
+  ],
   conversations: [
     ["lantern", ["src/conversations.test.ts"]],
     ["harborline", ["src/conversations.test.ts"]],
     ["northwind", ["src/conversations.test.ts"]],
+    ["fernwick", ["src/conversations.test.ts"]],
     ["example-company", ["src/conversations.test.ts"]],
     ["playground", ["lib/conversations.test.ts"]],
   ],
