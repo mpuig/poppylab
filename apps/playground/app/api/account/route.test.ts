@@ -373,19 +373,50 @@ describe("Human-controlled account boundary", () => {
       ).not.toBe(200);
     expect(state.request).toHaveBeenCalledTimes(1);
   });
-  it("refuses a Company that answers an approval with the same revision", async () => {
-    state.request.mockRejectedValue(
-      new ProtocolError(403, "approval_required", undefined, undefined, {
-        ...state.run.operations.op_test,
-        request: undefined,
-        state: undefined,
-      }),
+  it("leaves the same terms for a new approval when the Company answers an approval with its own revision (Operations v3 §6)", async () => {
+    const sent = { approver: "user", approved_at: 1791487260, reference: "a1" };
+    state.request.mockImplementationOnce(
+      async (_run: unknown, op: Record<string, unknown>) => {
+        // As sendApproval does: the approval stays with the operation.
+        op.approval = sent;
+        throw new ProtocolError(
+          403,
+          "approval_required",
+          undefined,
+          undefined,
+          {
+            ...state.run.operations.op_test,
+            approval: undefined,
+            request: undefined,
+            state: undefined,
+          },
+        );
+      },
     );
-    const r = await POST(
-      request({ action: "approve", id: "op_test", revision: "r1" }),
-    );
-    expect(r.status).not.toBe(200);
+    const approve = () =>
+      POST(request({ action: "approve", id: "op_test", revision: "r1" }));
+    const r = await approve();
+    expect(r.status).toBe(409);
+    const body = await r.json();
+    // Nothing was performed and the outcome is known: the page shows what
+    // the server holds, the terms waiting for an approval.
+    expect(body.code).toBe("approval_not_accepted");
+    expect(body.error).toContain("Nothing was performed");
+    expect(body.operation).toMatchObject({ revision: "r1", state: "proposed" });
+    expect(state.run.operations.op_test.state).toBe("proposed");
     expect(state.request).toHaveBeenCalledTimes(1);
+    // The approval the Company answered that way is never sent again…
+    expect(state.run.operations.op_test).not.toHaveProperty("approval");
+    expect(
+      (await POST(request({ action: "retry", id: "op_test", revision: "r1" })))
+        .status,
+    ).toBe(400);
+    expect(state.request).toHaveBeenCalledTimes(1);
+    // …and the User's next tap, a new approval, works.
+    state.request.mockResolvedValueOnce({ summary: "Done" });
+    const again = await approve();
+    expect(again.status).toBe(200);
+    expect((await again.json()).operation.state).toBe("succeeded");
   });
   it.each([
     ["lost response", new Error("socket hang up")],
@@ -621,6 +652,32 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
     state.request.mockResolvedValueOnce({ summary: "Ordered." });
     const mine = await approve();
     expect(mine.status).toBe(200);
+    expect(state.request).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.anything(),
+      "user",
+    );
+  });
+
+  it("gives the operation back to the User when the Company answers the agent's approval with its own revision", async () => {
+    state.request.mockRejectedValueOnce(
+      new ProtocolError(403, "approval_required", undefined, undefined, {
+        ...run.operations.op_rule,
+        request: undefined,
+        state: undefined,
+      }),
+    );
+    const r = await approve(rule);
+    expect(r.status).toBe(409);
+    expect((await r.json()).operation).toMatchObject({
+      state: "proposed",
+      agentDeclined: {},
+    });
+    // Iris doesn't try the rule on it again; the User can still approve.
+    expect((await approve(rule)).status).toBe(409);
+    expect(state.request).toHaveBeenCalledTimes(1);
+    state.request.mockResolvedValueOnce({ summary: "Ordered." });
+    expect((await approve()).status).toBe(200);
     expect(state.request).toHaveBeenLastCalledWith(
       expect.anything(),
       expect.anything(),

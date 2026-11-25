@@ -399,8 +399,23 @@ async function act(request: Request, started: { id?: string }) {
       ) {
         // §6: the Company returned other terms. Never approve them for the User.
         const next = recordOperation(run, error.operation, op.request!);
-        if (next.revision === op.revision)
-          throw new Error("Approval loop", { cause: error });
+        if (next.revision === op.revision) {
+          // §6 forbids this answer, so the approval is never sent again in
+          // a loop. The Company performed nothing and the outcome is known
+          // (§7): the terms wait for the User, who may approve them anew.
+          delete next.approval;
+          if (approver === "agent") next.agentDeclined = {};
+          return NextResponse.json(
+            {
+              code: "approval_not_accepted",
+              next: "review",
+              operation: next,
+              error:
+                "The Company asked for approval of the same terms again instead of performing them. Nothing was performed. Approve them again yourself if you still want this, or decline.",
+            },
+            { status: 409, headers: { "Cache-Control": "no-store" } },
+          );
+        }
         return NextResponse.json(
           {
             code: "terms_changed",
