@@ -1,6 +1,7 @@
 {
   "name": "@poppy-lab/playground",
   "version": "0.1.0",
+  "license": "Apache-2.0",
   "private": true,
   "scripts": {
     "dev": "PAP_ALLOW_PRIVATE_NETWORK=true next dev -p 3000",

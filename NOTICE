@@ -1,0 +1,18 @@
+Poppy Lab
+Copyright 2026 Marc Puig
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Poppy Lab is an independent project. It is not affiliated with or endorsed by
+the authors of the Personal Agent Protocol. "Personal Agent Protocol" and
+"Poppy" are their names.
+
+The files in spec/1.0/ are unmodified copies of the Personal Agent Protocol 1.0
+specification, the Operations extension and the guides, published at
+https://personalagentprotocol.org/docs/1.0/ by the Personal Agent Protocol
+authors under the Apache License, Version 2.0
+(https://personalagentprotocol.org/license). spec/upstream.json records where
+each copy came from and its SHA-256 digest.
+
+All companies, people, accounts, orders and phone numbers in this repository are
+fictional.

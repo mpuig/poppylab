@@ -70,3 +70,7 @@ pnpm spec:drift
 ## Deploy
 
 Five Cloudflare Workers, deployed with Wrangler: `pnpm --filter @poppy-lab/lantern deploy`, `pnpm --filter @poppy-lab/example-company deploy`, `pnpm --filter @poppy-lab/harborline deploy`, `pnpm --filter @poppy-lab/northwind deploy`, and for Poppy `pnpm --filter @poppy-lab/playground build:worker && pnpm --filter @poppy-lab/playground deploy:worker`. Poppy needs two secrets, `POPPY_IDENTITY` (the agent key pair) and `POPPY_STATE_KEY` (32 random bytes, base64url). See [portable runtime](docs/portable-runtime.md).
+
+## License
+
+Apache License 2.0; see [LICENSE](LICENSE) and [NOTICE](NOTICE). The copies of the Personal Agent Protocol 1.0 documents in `spec/1.0/` belong to the protocol authors and are published by them under the same license.
