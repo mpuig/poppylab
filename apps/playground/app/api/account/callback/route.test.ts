@@ -126,6 +126,11 @@ const req = (iss = "https://food.papsandbox.com", state = "state_test") =>
     "http://localhost:3000/api/account/callback?" +
       new URLSearchParams({ code: "code_test", state, iss }),
   );
+/** Where the tab is sent: the address says how the sign-in went. */
+const DONE = "/playground/sign-in/done",
+  FAILED = "/playground/sign-in/failed";
+const landed = async (request = req()) =>
+  (await GET(request)).headers.get("Location");
 const success = (extra: Record<string, unknown> = {}) => ({
   access_token: "new-access",
   refresh_token: "new-refresh",
@@ -136,7 +141,7 @@ const success = (extra: Record<string, unknown> = {}) => ({
 
 it("exchanges the code with PKCE, no session_id, and starts a new Session", async () => {
   s.request.mockResolvedValue(success());
-  expect((await GET(req())).status).toBe(200);
+  expect(await landed()).toBe(DONE);
   const [url, init] = s.request.mock.calls[0]!;
   expect(url).toBe("https://food.papsandbox.com/oauth/token");
   const form = new URLSearchParams(init.body);
@@ -162,7 +167,7 @@ it("exchanges the code with PKCE, no session_id, and starts a new Session", asyn
 it("keeps the FDX-shaped consent id of the grant, and drops an earlier one when there is none (poppylab.dev/fdx v1)", async () => {
   const run = s.run as typeof s.run & { fdxConsent?: string };
   s.request.mockResolvedValue(success({ consent_id: "grant_7Hk2" }));
-  expect((await GET(req())).status).toBe(200);
+  expect(await landed()).toBe(DONE);
   expect(run.fdxConsent).toBe("grant_7Hk2");
   // A base64url grant ID may start with - or _: kept.
   for (const consent_id of ["-Hk2_a", "_Hk2-a"]) {
@@ -175,7 +180,7 @@ it("keeps the FDX-shaped consent id of the grant, and drops an earlier one when 
       dpop: { kty: "EC" },
     };
     s.request.mockResolvedValue(success({ consent_id }));
-    expect((await GET(req())).status).toBe(200);
+    expect(await landed()).toBe(DONE);
     expect(run.fdxConsent).toBe(consent_id);
   }
   // Not one path segment: not kept.
@@ -190,7 +195,7 @@ it("keeps the FDX-shaped consent id of the grant, and drops an earlier one when 
       dpop: { kty: "EC" },
     };
     s.request.mockResolvedValue(success({ consent_id }));
-    expect((await GET(req())).status).toBe(200);
+    expect(await landed()).toBe(DONE);
     expect(run.fdxConsent).toBeUndefined();
   }
 });
@@ -254,7 +259,7 @@ it("forgets the per-service tokens of the sign-in it replaces (§4.5)", async ()
     // A failed exchange keeps the previous access, and so its tokens.
     run.resourceTokens = structuredClone(cached);
     s.request.mockResolvedValueOnce(success({ refresh_token: undefined }));
-    expect((await GET(req())).status).toBe(400);
+    expect(await landed()).toBe(FAILED);
     expect(run.resourceTokens).toEqual(cached);
     // They were issued to the old sign-in's account, scopes and DPoP key.
     s.run.auth = {
@@ -266,7 +271,7 @@ it("forgets the per-service tokens of the sign-in it replaces (§4.5)", async ()
       dpop: { kty: "EC" },
     };
     s.request.mockResolvedValueOnce(success());
-    expect((await GET(req())).status).toBe(200);
+    expect(await landed()).toBe(DONE);
     expect(run.resourceTokens).toBeUndefined();
   } finally {
     delete run.resourceTokens;
@@ -276,7 +281,7 @@ it("forgets the per-service tokens of the sign-in it replaces (§4.5)", async ()
 it("uses Bearer tokens when the issuer doesn't bind DPoP", async () => {
   s.dpop = false;
   s.request.mockResolvedValue(success({ token_type: "Bearer" }));
-  expect((await GET(req())).status).toBe(200);
+  expect(await landed()).toBe(DONE);
   expect(s.request.mock.calls[0]![1].headers).not.toHaveProperty("DPoP");
   expect(s.run.token).toBe("new-access");
 });
@@ -293,7 +298,7 @@ it.each([
     history: s.run.history,
     session: s.run.sessionId,
   });
-  expect((await GET(req())).status).toBe(400);
+  expect(await landed()).toBe(FAILED);
   expect({
     token: s.run.token,
     refresh: s.run.accountToken,
@@ -311,7 +316,7 @@ it("preserves the public conversation on first sign-in", async () => {
   ];
   s.run.history = structuredClone(publicTurns);
   s.request.mockResolvedValue(success());
-  expect((await GET(req())).status).toBe(200);
+  expect(await landed()).toBe(DONE);
   expect(s.run.history).toEqual(publicTurns);
   expect(s.run.publicHistory).toEqual(publicTurns);
   expect(s.revoke).not.toHaveBeenCalled();
@@ -324,7 +329,7 @@ it("retains only pre-account turns on later consent, never another account's con
     { role: "assistant", content: "Private order details" },
   ];
   s.request.mockResolvedValue(success());
-  expect((await GET(req())).status).toBe(200);
+  expect(await landed()).toBe(DONE);
   expect(JSON.stringify(s.run.history)).not.toContain("Private order");
 });
 
@@ -355,7 +360,7 @@ describe("the conversation with the Company's agent across a sign-in (§8.2)", (
       tokens.push(r.token);
       return { conversation_id: "cnv_1", events: [] };
     });
-    expect((await GET(req())).status).toBe(200);
+    expect(await landed()).toBe(DONE);
     expect(run.conversation).toEqual(open());
     // Asked with the new sign-in, as reads that change nothing here.
     expect(tokens).toEqual(["new-access", "new-access"]);
@@ -376,7 +381,7 @@ describe("the conversation with the Company's agent across a sign-in (§8.2)", (
     "forgets it, and the Direct Conversation with it, when the Company %s",
     async (_name, error) => {
       s.pap.mockRejectedValue(error);
-      expect((await GET(req())).status).toBe(200);
+      expect(await landed()).toBe(DONE);
       expect(s.run.accountToken).toBe("new-refresh");
       expect(run.conversation).toBeUndefined();
       // What a reloaded page is told: no Direct Conversation, no invitation.
@@ -394,34 +399,71 @@ describe("the conversation with the Company's agent across a sign-in (§8.2)", (
         throw new ProtocolError(404, "conversation_not_found");
       return { conversation_id: "cnv_1", events: [] };
     });
-    expect((await GET(req())).status).toBe(200);
+    expect(await landed()).toBe(DONE);
     expect(run.conversation).toBeUndefined();
   });
 
   it("keeps a signed-out conversation on first sign-in without asking: no account has used it (§8.11)", async () => {
     s.run.accountToken = undefined;
-    expect((await GET(req())).status).toBe(200);
+    expect(await landed()).toBe(DONE);
     expect(run.conversation).toEqual(open());
     expect(s.pap).not.toHaveBeenCalled();
   });
 
   it("leaves it alone when the sign-in fails", async () => {
     s.request.mockResolvedValue(success({ refresh_token: undefined }));
-    expect((await GET(req())).status).toBe(400);
+    expect(await landed()).toBe(FAILED);
     expect(run.conversation).toEqual(open());
     expect(s.pap).not.toHaveBeenCalled();
   });
 });
 
 it("rejects wrong issuer or state without exchanging the code", async () => {
-  expect((await GET(req("https://flowers.papsandbox.com"))).status).toBe(400);
-  expect((await GET(req(undefined, "other_state"))).status).toBe(400);
+  expect(await landed(req("https://flowers.papsandbox.com"))).toBe(FAILED);
+  expect(await landed(req(undefined, "other_state"))).toBe(FAILED);
   expect(s.request).not.toHaveBeenCalled();
+});
+
+it("leaves the callback's address, with its one-time code, for a clean one, whether the sign-in worked or not", async () => {
+  s.request.mockResolvedValue(success());
+  // The Company declined: no code, an error it describes in its own words.
+  const declined = new Request(
+    "http://localhost:3000/api/account/callback?" +
+      new URLSearchParams({
+        state: "state_test",
+        iss: "https://food.papsandbox.com",
+        error: "access_denied",
+        error_description: "Words of the Company's own.",
+      }),
+  );
+  for (const [request, address] of [
+    [req(), "/playground/sign-in/done"],
+    // The same code again: it was spent.
+    [req(), "/playground/sign-in/failed"],
+    [declined, "/playground/sign-in/failed"],
+  ] as const) {
+    if (request === declined)
+      s.run.auth = {
+        state: "state_test",
+        verifier: "verifier_test",
+        issuer: "https://food.papsandbox.com",
+        scopes: "orders:read",
+        expires: Date.now() + 60000,
+      };
+    const response = await GET(request);
+    expect(response.status).toBe(303);
+    // One of two fixed addresses: nothing of the query, in any form.
+    expect(response.headers.get("Location")).toBe(address);
+    expect(await response.text()).toBe("");
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(response.headers.get("Referrer-Policy")).toBe("no-referrer");
+  }
+  expect(s.request).toHaveBeenCalledTimes(1);
 });
 
 it("is single use", async () => {
   s.request.mockResolvedValue(success());
-  expect((await GET(req())).status).toBe(200);
-  expect((await GET(req())).status).toBe(400);
+  expect(await landed()).toBe(DONE);
+  expect(await landed()).toBe(FAILED);
   expect(s.request).toHaveBeenCalledTimes(1);
 });

@@ -220,7 +220,7 @@ describe("Use FDX against Harborline, end to end", () => {
     const back = await consent((await signin.json()).url, ["acc_HLB_A100"]);
     expect(back.startsWith(redirect)).toBe(true);
     const done = await callback(new Request(back));
-    expect(done.status).toBe(200);
+    expect(done.headers.get("Location")).toBe("/playground/sign-in/done");
     await withRun(async (run) => {
       expect(run.fdxConsent).toMatch(/^[A-Za-z0-9_-]/);
       expect(run.scopes).toContain("fdx:TRANSACTIONS");
@@ -554,7 +554,9 @@ describe("Use FDX against Harborline, end to end", () => {
     // Signing in again shares accounts over FDX with a new consent.
     const signin = await post(act, "/api/account", { action: "signin" });
     const back = await consent((await signin.json()).url, ["acc_HLB_A100"]);
-    expect((await callback(new Request(back))).status).toBe(200);
+    expect((await callback(new Request(back))).headers.get("Location")).toBe(
+      "/playground/sign-in/done",
+    );
     const fresh = await withRun(async (run) => run.fdxConsent);
     expect(fresh).toMatch(/^[A-Za-z0-9_-]/);
     expect(fresh).not.toBe(before.consent);

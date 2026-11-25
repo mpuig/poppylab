@@ -40,6 +40,23 @@ async function sameOwner(run: Run) {
   }
 }
 
+/**
+ * Where the tab goes once the code is spent or refused: a page of ours at an
+ * address that carries nothing from the query, so the one-time code doesn't
+ * stay in the address bar or the history of a tab left open. The outcome is
+ * one of two fixed words, which the page turns into its own fixed text. The
+ * address is relative: the browser resolves it against the callback's.
+ */
+const leave = (result: "done" | "failed") =>
+  new Response(null, {
+    status: 303,
+    headers: {
+      Location: `/playground/sign-in/${result}`,
+      "Cache-Control": "no-store",
+      "Referrer-Policy": "no-referrer",
+    },
+  });
+
 export async function GET(request: Request) {
   const store = await cookies();
   const url = new URL(request.url);
@@ -53,19 +70,8 @@ export async function GET(request: Request) {
       : undefined;
   const held =
     found && visitor ? await acquireRun(visitor, found.id) : undefined;
-  const fail = () =>
-    new Response(
-      "Sign-in failed or was declined. Close this tab and retry Sign in in the playground.",
-      {
-        status: 400,
-        headers: {
-          "Cache-Control": "no-store",
-          "Referrer-Policy": "no-referrer",
-        },
-      },
-    );
   if (!held || held === "busy" || !visitor || held.run.auth?.state !== state)
-    return fail();
+    return leave("failed");
   const { run } = held;
   const pending = run.auth!;
   delete run.auth;
@@ -76,7 +82,7 @@ export async function GET(request: Request) {
     !url.searchParams.get("code")
   ) {
     await releaseRun(visitor, held);
-    return fail();
+    return leave("failed");
   }
   try {
     const clientId = clientFor(run),
@@ -155,18 +161,9 @@ export async function GET(request: Request) {
     // §4.7: revoke the refresh token the new sign-in replaced (best effort;
     // revoking a replaced token isn't sign-out).
     if (replaced) void revokeRefreshToken(run, replaced).catch(() => undefined);
-    return new Response(
-      "Signed in to the Company account. Close this tab and return to Poppy Lab.",
-      {
-        headers: {
-          "Cache-Control": "no-store",
-          "Referrer-Policy": "no-referrer",
-          "Content-Type": "text/plain",
-        },
-      },
-    );
+    return leave("done");
   } catch {
-    return fail();
+    return leave("failed");
   } finally {
     await releaseRun(visitor, held).catch(() => {});
   }
