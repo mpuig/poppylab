@@ -26,7 +26,7 @@ import {
   type Approval,
 } from "@poppy-lab/pap-client";
 import type { DiscoveredCompany } from "@poppy-lab/pap-core";
-import { recordOperation } from "./operation-store";
+import { outcomeUnknown, recordOperation } from "./operation-store";
 import type { Operation, Run } from "./runtime";
 
 /** One conversation's read position and state. */
@@ -204,7 +204,16 @@ export function conversationSession(run: Run, options: Options) {
                 "Offered an operation Iris couldn't read. Nothing was done.";
               result.approval = { status: "invalid", note };
             }
-            if (op) {
+            if (op?.state === "uncertain") {
+              // §7: an approval for it is out, so no new proposal was
+              // recorded, and the stored operation is left as it is.
+              options.trace(
+                "Conversation operation · approval already sent · outcome not known yet",
+              );
+              note =
+                "Offered an operation whose approval was already sent. Its outcome is unknown, so it isn't up for approval again: retry it below.";
+              result.approval = outcomeUnknown(op);
+            } else if (op) {
               // §8.10: the mark outlasts the thread, which Iris forgets
               // when the User leaves it.
               if (inDirect) op.direct = true;

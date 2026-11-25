@@ -710,11 +710,13 @@ async function act(request: Request, started: { id?: string }) {
           // new terms aren't kept: the operation stays uncertain, with the
           // approval Retry resends. Only a website's operation has a status
           // to look up (§6), so here the User checks the Company's records.
+          // Asked for again in this conversation, the same operation stays
+          // uncertain (recordOperation), so the note points to a new one.
           const company = run.company?.document.organization.name;
           // §5: when the terms come back, Iris's rule doesn't approve them.
           if (approver === "agent") op.agentSuperseded = true;
           op.result = {
-            summary: `${company ?? "The Company"} answered the retry with new terms instead of a result. That doesn't say whether the approval sent first was performed, so the new terms aren't offered for approval. Check ${company ? `${company}'s` : "the Company's"} own records to see whether the change was made, such as by asking Iris to read your account. If it wasn't, ask for the change again to get terms you can approve.`,
+            summary: `${company ?? "The Company"} answered the retry with new terms instead of a result. That doesn't say whether the approval sent first was performed, so the new terms aren't offered for approval. Check ${company ? `${company}'s` : "the Company's"} own records to see whether the change was made, such as by asking Iris to read your account. If it wasn't, ask for the change in a new conversation to get terms you can approve.`,
           };
           return NextResponse.json(
             {
@@ -729,7 +731,9 @@ async function act(request: Request, started: { id?: string }) {
           );
         }
         try {
-          next = recordOperation(run, error.operation, op.request!);
+          // The answer to the approval itself: for a retry too, it settles
+          // an unknown outcome (the same revision; nothing was performed).
+          next = recordOperation(run, error.operation, op.request!, true);
         } catch {
           // Terms Poppy can't show or that have expired: a refusal, below.
         }

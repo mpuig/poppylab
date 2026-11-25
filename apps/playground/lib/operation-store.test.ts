@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { nextAutoApproval } from "./auto-approval";
-import { recordOperation } from "./operation-store";
+import { outcomeUnknown, recordOperation } from "./operation-store";
 import type { Operation } from "./runtime";
 
 const remote = {
@@ -33,10 +33,91 @@ it("keeps a declined agent approval when the same revision is proposed again", (
 
 it("keeps the approval as first sent when the same revision is proposed again", () => {
   const { run, op } = proposed();
+  // As after a request the Company refused: nothing performed, terms wait.
+  op.approval = approval;
+  expect(recordOperation(run, remote, request)).toMatchObject({
+    state: "proposed",
+    approval,
+  });
+});
+
+const dearer = {
+  ...remote,
+  revision: "r2",
+  terms: { total_cents: 1600, currency: "USD" },
+};
+const uncertain = () => {
+  const { run, op } = proposed();
   op.approval = approval;
   op.state = "uncertain";
-  expect(recordOperation(run, remote, request).approval).toEqual(approval);
+  return { run, op };
+};
+
+it.each([
+  ["the same revision", remote],
+  ["a new revision", dearer],
+])(
+  "leaves an approval with an unknown outcome as it is when %s is proposed again (Operations v3 §7)",
+  (_name, again) => {
+    const { run, op } = uncertain();
+    const kept = recordOperation(run, again, {
+      url: "https://x.example/orders",
+      body: { asked: "again" },
+    });
+    // Still the approved revision, with the approval and request Retry sends.
+    expect(kept).toBe(op);
+    expect(run.operations!.op_1).toBe(op);
+    expect(kept).toEqual({ ...remote, state: "uncertain", request, approval });
+    // Nothing asks for an approval: not the card, not the User's rule.
+    expect(
+      nextAutoApproval({
+        operations: Object.values(run.operations!),
+        instruction: { maxCents: 3000, currency: "USD" },
+        signedIn: true,
+        busy: false,
+        decided: new Set(),
+      }),
+    ).toBeNull();
+  },
+);
+
+it("says so, not that a proposal waits, when the outcome is unknown", () => {
+  const { run } = uncertain();
+  const told = outcomeUnknown(recordOperation(run, dearer, request));
+  expect(told).toEqual({
+    status: "outcome_unknown",
+    operation_id: "op_1",
+    // The terms the approval was for, never the ones offered since.
+    terms: remote.terms,
+    note: expect.stringContaining("outcome is unknown"),
+  });
+  expect(told.note).toContain("Nothing new was proposed");
+  expect(told.note).toContain("Retry");
+  expect(told.note).toContain("Company's own records");
 });
+
+it("takes the operation as proposed when it answers the approval itself: that outcome is known", () => {
+  const { run } = uncertain();
+  expect(recordOperation(run, remote, request, true)).toMatchObject({
+    state: "proposed",
+    approval,
+  });
+});
+
+it.each(["proposed", "declined", "refused", "expired"] as const)(
+  "offers a %s operation again when the Company proposes it again",
+  (state) => {
+    for (const again of [remote, dearer]) {
+      const { run, op } = proposed();
+      op.state = state;
+      expect(recordOperation(run, again, request)).toMatchObject({
+        state: "proposed",
+        revision: again.revision,
+        terms: again.terms,
+      });
+    }
+  },
+);
 
 it("starts a new revision without the approval but keeps the decline", () => {
   const { run, op } = proposed();

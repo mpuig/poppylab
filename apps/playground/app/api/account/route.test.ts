@@ -698,6 +698,81 @@ describe("Human-controlled account boundary", () => {
     },
   );
   it.each([
+    ["the same revision", { revision: "r1", terms: { to: "Saturday" } }],
+    ["a new revision", { revision: "r2", terms: { to: "Sunday" } }],
+  ])(
+    "leaves only Retry when the Company proposes %s again before the outcome is known (Operations v3 §7)",
+    async (_name, again) => {
+      sendThenFail(lost);
+      expect((await act("approve")).status).toBe(502);
+      const { expires_at } = state.run.operations.op_test;
+      // The model calls the tool again, and the Company answers as before.
+      recordOperation(
+        state.run as never,
+        { operation_id: "op_test", ...again, expires_at },
+        {
+          url: "http://juniper.localhost:4100/api/account/delivery-change",
+          body: { day: "Saturday" },
+        },
+      );
+      expect(state.run.operations.op_test).toMatchObject({
+        revision: "r1",
+        state: "uncertain",
+        terms: { to: "Saturday" },
+        approval: { approver: "user", reference: "a1" },
+      });
+      // No revision of it can be approved, by the User or by a rule.
+      for (const revision of ["r1", "r2"])
+        for (const instruction of [undefined, { maxCents: 2000 }])
+          expect(
+            (
+              await POST(
+                request({
+                  action: "approve",
+                  id: "op_test",
+                  revision,
+                  ...(instruction ? { instruction } : {}),
+                }),
+              )
+            ).status,
+          ).not.toBe(200);
+      expect(state.request).toHaveBeenCalledTimes(1);
+      // Retry still sends the approval sent first, and its answer is final.
+      state.request.mockResolvedValueOnce({ summary: "Done once" });
+      const retried = await act("retry");
+      expect(retried.status).toBe(200);
+      expect((await retried.json()).operation.state).toBe("succeeded");
+      expect(state.request.mock.calls[1]![1]).toMatchObject({
+        revision: "r1",
+        approval: { approver: "user", reference: "a1" },
+      });
+    },
+  );
+  it("takes the same terms in answer to a Retry as a known outcome: nothing was performed", async () => {
+    sendThenFail(lost);
+    expect((await act("approve")).status).toBe(502);
+    const { expires_at } = state.run.operations.op_test;
+    sendThenFail(
+      () =>
+        new ProtocolError(403, "approval_required", undefined, undefined, {
+          operation_id: "op_test",
+          revision: "r1",
+          terms: { to: "Saturday" },
+          expires_at,
+        }),
+    );
+    const r = await act("retry");
+    expect(r.status).toBe(409);
+    const body = await r.json();
+    expect(body.code).toBe("approval_not_accepted");
+    // The answer is to the approval itself, so the terms wait again.
+    expect(body.operation).toMatchObject({ revision: "r1", state: "proposed" });
+    expect(state.run.operations.op_test).not.toHaveProperty("approval");
+    expect((await act("retry")).status).toBe(400);
+    state.request.mockResolvedValueOnce({ summary: "Done" });
+    expect((await act("approve")).status).toBe(200);
+  });
+  it.each([
     [new ProtocolError(401, undefined), 401, "account_unavailable"],
     [new ProtocolError(403, "insufficient_scope"), 403, "insufficient_scope"],
   ])(
@@ -1272,16 +1347,29 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
     for (const by of [rule, undefined])
       expect((await approve(by, "r2")).status).toBe(400);
     expect(state.request).toHaveBeenCalledTimes(2);
-    // When the Company offers them again, such as for a new request once
-    // the outcome is known, the rule still doesn't approve them (§5).
-    recordOperation(run as never, newTerms().operation, {
-      url: "http://juniper.localhost:4100/api/account/checkout",
-      body: {},
-    });
+    // Nor when the Company offers them again for a new request (§7).
+    const offer = () =>
+      recordOperation(run as never, newTerms().operation, {
+        url: "http://juniper.localhost:4100/api/account/checkout",
+        body: {},
+      });
+    expect(offer()).toMatchObject({ revision: "r1", state: "uncertain" });
+    for (const by of [rule, undefined])
+      expect((await approve(by, "r2")).status).toBe(400);
+    expect(state.request).toHaveBeenCalledTimes(2);
+    // Once the outcome is known (the Company declines a later retry), the
+    // terms it offers again are kept, and the rule still doesn't approve
+    // them (§5).
+    sendThenFail(() => new ProtocolError(403, "approval_declined"));
+    await POST(request({ action: "retry", id: "op_rule", revision: "r1" }));
+    expect(offer()).toMatchObject({ revision: "r2", state: "proposed" });
     const second = await approve(rule, "r2");
     expect(second.status).toBe(409);
-    expect((await second.json()).error).toContain("new terms");
-    expect(state.request).toHaveBeenCalledTimes(2);
+    expect((await second.json()).operation).toMatchObject({
+      revision: "r2",
+      agentSuperseded: true,
+    });
+    expect(state.request).toHaveBeenCalledTimes(3);
   });
 
   it("drops the unknown-outcome note once a later retry is declined: that outcome is known", async () => {

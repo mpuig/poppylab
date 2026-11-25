@@ -179,6 +179,11 @@ export function readable(value: unknown): string {
   // A change the Company holds: its own summary says it best.
   if (value.status === "approval_required" && typeof value.summary === "string")
     return `The company is holding this change until you approve it:\n${value.summary}`;
+  // Asked for again while its approval's outcome is unknown (Operations v3
+  // §7): nothing is held for a new approval. The note that says so is
+  // hidden with the other bookkeeping, so it is said here.
+  if (value.status === "outcome_unknown")
+    return `The company offered this change again, but an approval for it was already sent and its outcome is unknown. Nothing new is waiting for your approval. Press “Retry the same approval” on its card, or check the company's own records to see whether it was made.${typeof value.summary === "string" ? `\n${value.summary}` : ""}`;
   if (typeof value.error === "string")
     return `The company answered with an error: ${value.error.replace(/_/g, " ")}${typeof value.message === "string" ? ` (${value.message})` : ""}.`;
   const out = lines(value, undefined, 0);

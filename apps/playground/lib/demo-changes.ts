@@ -687,6 +687,8 @@ export async function demoChange(
  * `show` puts the Company's answer into lines. Signed in to read only, the
  * request is never sent: the answer is an error, there is nothing of the
  * Company's to show, and saying it holds a change for approval would be false.
+ * It would be false too for a change whose approval was already sent with an
+ * unknown outcome (Operations v3 §7): its card has no Approve to click.
  */
 export function demoChangeReply(
   plan: Extract<DemoPlan, { call: string }>,
@@ -696,7 +698,9 @@ export function demoChangeReply(
   const error = refusal(result);
   if (error)
     return `The demo read your account and prepared this change, but nothing was sent to the Company: ${unsent(error)}.${error === "insufficient_scope" ? " Press “Request change permission”, review the Company's consent, and ask again." : ""}`;
-  return `${plan.because}\n\nThe company answered:\n\n${show(result)}\n\nThe Company holds a change until you click Approve. For natural-language reasoning, select a model.`;
+  const held =
+    (result as { status?: unknown } | null)?.status !== "outcome_unknown";
+  return `${plan.because}\n\nThe company answered:\n\n${show(result)}\n\n${held ? "The Company holds a change until you click Approve. " : ""}For natural-language reasoning, select a model.`;
 }
 
 /**

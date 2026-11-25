@@ -253,6 +253,58 @@ describe("conversations (§8) in Iris", () => {
     expect(other.operations).toBeUndefined();
   });
 
+  it("doesn't offer an operation again while its approval's outcome is unknown (Operations v3 §7)", async () => {
+    const run = newRun();
+    let event = 1;
+    let offered: Record<string, unknown> = operation;
+    const { t, shown, trace } = tools(run, () =>
+      read([
+        said(`e${++event}`, {
+          text: "I can refund it once you approve.",
+          extensions: { operations: { operation: offered } },
+        }),
+      ]),
+    );
+    const ask = async () =>
+      (
+        (await t.company_agent_send!.execute({
+          data: { request: "report_missing_item" },
+        })) as { approval: Record<string, unknown> }
+      ).approval;
+    await ask();
+    // The User approved, and the Company's answer was lost.
+    const stored = {
+      ...run.operations!.op_refund!,
+      state: "uncertain" as const,
+      approval: { approver: "user" as const, approved_at: 1, reference: "a" },
+    };
+    run.operations!.op_refund = stored;
+    for (const again of [
+      operation,
+      {
+        ...operation,
+        revision: "1793800600-def",
+        terms: { ...operation.terms, refund_cents: 400 },
+      },
+    ]) {
+      offered = again;
+      const told = await ask();
+      expect(told).toEqual({
+        status: "outcome_unknown",
+        operation_id: "op_refund",
+        summary: operation.summary,
+        terms: operation.terms,
+        note: expect.stringContaining("outcome is unknown"),
+      });
+      expect(told.note).toContain("Nothing new was proposed");
+      // The card keeps the one action it had: Retry, with the same approval.
+      expect(run.operations).toEqual({ op_refund: stored });
+      expect(shown.at(-1)!.note).toContain("outcome is unknown");
+      expect(shown.at(-1)!.note).not.toContain("approve or decline");
+      expect(trace.at(-1)).toContain("approval already sent");
+    }
+  });
+
   it("resends a message once after a lost response, with the same ID", async () => {
     const run = newRun();
     let calls = 0;

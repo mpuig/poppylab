@@ -136,6 +136,19 @@ it("says a held change and an error in words", () => {
   ).toBe(
     "The company is holding this change until you approve it:\nTransfer USD 500.00 from Operating checking to Reserve savings.",
   );
+  // Asked for again while its approval's outcome is unknown: nothing is held.
+  const unknown = readable({
+    status: "outcome_unknown",
+    operation_id: "op_1",
+    summary: "Transfer USD 500.00 from Operating checking to Reserve savings.",
+    terms: { amount_cents: 50000, currency: "USD" },
+    note: "An approval of these terms was already sent.",
+  });
+  expect(unknown).toContain("its outcome is unknown");
+  expect(unknown).toContain("Nothing new is waiting for your approval");
+  expect(unknown).toContain("Retry the same approval");
+  expect(unknown).toContain("Transfer USD 500.00");
+  expect(unknown).not.toContain("until you approve");
   expect(readable({ error: "sign_in_required" })).toBe(
     "The company answered with an error: sign in required.",
   );

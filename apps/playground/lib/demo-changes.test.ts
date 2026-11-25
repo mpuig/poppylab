@@ -6,6 +6,7 @@ import {
   demoChangeReply,
   type DemoTools,
 } from "./demo-changes";
+import { readable } from "./demo-text";
 
 const tool = (value: unknown) => ({ execute: vi.fn(async () => value) });
 const key = () => "key_fixture_0001";
@@ -649,6 +650,18 @@ it("never says a change is held for approval when it wasn't sent", () => {
   expect(held).toContain("asked to transfer $500.00");
   expect(held).toContain('"operation_id": "op_1"');
   expect(held).toContain("until you click Approve");
+  // Asked for again while its approval's outcome is unknown (Operations v3
+  // §7): the card offers only Retry, so there is no Approve to click.
+  const unknown = demoChangeReply(
+    plan,
+    { status: "outcome_unknown", operation_id: "op_1" },
+    readable,
+  );
+  expect(unknown).toContain("asked to transfer $500.00");
+  expect(unknown).toContain("its outcome is unknown");
+  expect(unknown).toContain("Retry the same approval");
+  expect(unknown).not.toContain("until you");
+  expect(unknown).not.toContain("click Approve");
 });
 
 it("leaves reading questions and unknown Companies to the other rules", async () => {

@@ -859,6 +859,71 @@ it("tells the model an API operation's terms, and its summary only when the Comp
   }
 });
 
+it("tells the model the outcome is unknown, not that a proposal waits, when it asks again for an operation whose approval was sent (Operations v3 §7)", async () => {
+  const r = example("shop", false);
+  vi.stubEnv("PAP_ACCOUNT_ORIGINS", "https://shop.papsandbox.com");
+  try {
+    rediscover.mockResolvedValueOnce(r.company!);
+    transport.mockResolvedValueOnce({
+      paths: {
+        "/orders": {
+          post: {
+            operationId: "place_order",
+            "x-poppy-proposal": true,
+            responses: { "403": {} },
+          },
+        },
+      },
+    });
+    const trace: string[] = [];
+    const tools = await connect(r, trace);
+    const operation = {
+      operation_id: "op_1",
+      revision: "r1",
+      summary: "One ramen.",
+      terms: { item: "Tonkotsu ramen", total: "14.00 EUR" },
+      expires_at: new Date(Date.now() + 60000).toISOString(),
+    };
+    const refuse = (op: object) =>
+      transport.mockRejectedValueOnce(
+        new ProtocolError(403, "approval_required", undefined, undefined, op),
+      );
+    refuse(operation);
+    await tools.place_order!.execute({});
+    // The User approved, and the Company's answer was lost.
+    const stored: Operation = {
+      ...r.operations!.op_1!,
+      state: "uncertain",
+      approval: { approver: "user", approved_at: 1, reference: "a" },
+    };
+    r.operations!.op_1 = stored;
+    for (const again of [
+      operation,
+      { ...operation, revision: "r2", terms: { total: "15.00 EUR" } },
+    ]) {
+      refuse(again);
+      const told = (await tools.place_order!.execute({})) as { note: string };
+      expect(told).toEqual({
+        status: "outcome_unknown",
+        operation_id: "op_1",
+        summary: "One ramen.",
+        terms: operation.terms,
+        note: expect.stringContaining("outcome is unknown"),
+      });
+      expect(told.note).toContain("Nothing new was proposed");
+      // The card keeps the one action it had: Retry, with the same approval.
+      expect(r.operations).toEqual({ op_1: stored });
+    }
+    expect(trace.filter((line) => line.includes("Approval"))).toEqual([
+      "Approval required · nothing performed",
+      "Approval already sent · outcome not known yet · nothing new proposed",
+      "Approval already sent · outcome not known yet · nothing new proposed",
+    ]);
+  } finally {
+    vi.unstubAllEnvs();
+  }
+});
+
 it("approves as the agent without input_type, and a different approver is a new approval (Operations v3 §6)", () => {
   const op = {
     operation_id: "op_1",

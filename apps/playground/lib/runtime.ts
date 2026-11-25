@@ -35,7 +35,7 @@ import {
 } from "@poppy-lab/pap-client";
 import { tokenResponse } from "./token-response";
 export { tokenResponse };
-import { recordOperation } from "./operation-store";
+import { outcomeUnknown, recordOperation } from "./operation-store";
 import {
   approveInConversation,
   conversationEndpoint,
@@ -1615,6 +1615,13 @@ async function openApiConnect(
           url: target,
           body,
         });
+        // §7: an approval for it is out, so no new proposal was recorded.
+        if (op.state === "uncertain") {
+          trace.push(
+            "Approval already sent · outcome not known yet · nothing new proposed",
+          );
+          return outcomeUnknown(op);
+        }
         trace.push("Approval required · nothing performed");
         // The summary is optional: the terms always say what is waiting.
         return {
