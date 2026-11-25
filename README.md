@@ -2,7 +2,7 @@
 
 An independent test bench for **Personal Agent Protocol 1.0**: **Iris**, a Personal Agent you run with your own model key, and four fictional Companies it can sign in to. Everything runs on Cloudflare Workers or on Node from the same code.
 
-- **https://poppylab.dev** explains the lab; **/playground** is Iris.
+- **https://poppylab.dev** explains the protocol and its benefits in plain language; **/developers** has the endpoints, scopes and spec sections; **/playground** is Iris.
 - **https://juniper.poppylab.dev** is Juniper Market, a grocery with a full customer website.
 - **https://noodles.poppylab.dev** is Lantern Noodle Bar, a noodle bar with scheduled orders.
 - **Harborline Bank** targets **https://harborline.poppylab.dev** when deployed: a fully fictional bank with accounts, transactions, cards, recipients, budgets, payments and transfers.
@@ -65,7 +65,7 @@ pnpm spec:drift
 
 ## Documentation
 
-`docs/` holds the design notes: [PAP 1.0 notes](docs/pap-10.md), [coverage matrix](docs/pap-coverage.md), [portable runtime and deployment](docs/portable-runtime.md), [security review](docs/security-review.md), [community demos and interop](docs/community-demos.md), [Lantern](docs/lantern-noodles.md), [Harborline](docs/harborline-bank.md), [Northwind Air](docs/northwind-air.md), and the Juniper website and service notes. `DESIGN.md` records the visual systems; `PRODUCT.md` the product context.
+`docs/` holds the design notes: [Poppy 1.0 notes](docs/pap-10.md), [coverage matrix](docs/pap-coverage.md), [portable runtime and deployment](docs/portable-runtime.md), [security review](docs/security-review.md), [community demos and interop](docs/community-demos.md), [Lantern](docs/lantern-noodles.md), [Harborline](docs/harborline-bank.md), [Northwind Air](docs/northwind-air.md), and the Juniper website and service notes. `DESIGN.md` records the visual systems; `PRODUCT.md` the product context.
 
 ## Deploy
 

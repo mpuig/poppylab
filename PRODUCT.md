@@ -12,7 +12,7 @@ Delegated: a TypeScript monorepo using pnpm. Next.js (OpenNext on Cloudflare Wor
 
 ## Users
 
-The primary users are protocol implementers and developers evaluating Personal Agent Protocol. They need to inspect discovery, identity, Session, authorization, and interaction behavior while using a familiar chat workflow. A secondary audience is technically curious end users trying a Personal Agent against a test Company.
+The public home (`/`) is written for business readers and curious end users who have never heard of the protocol: it explains what Personal Agent Protocol is, why it exists and what companies and customers get from it, then sends them to the live demo. Protocol implementers and developers evaluating Poppy are served by `/developers`, the playground and its Inspector. They need to inspect discovery, identity, Session, authorization, and interaction behavior while using a familiar chat workflow.
 
 ## Product Purpose
 
@@ -20,11 +20,11 @@ Provide a practical environment for learning, implementing, and testing Personal
 
 ## Positioning
 
-Unlike a generic chat client or browser agent, the playground treats PAP discovery, scoped Sessions, sign-in, DPoP, channel selection, and human approval as first-class observable objects. Secrets and request signing remain in deterministic code rather than model context.
+Unlike a generic chat client or browser agent, the playground treats Poppy discovery, scoped Sessions, sign-in, DPoP, channel selection, and human approval as first-class observable objects. Secrets and request signing remain in deterministic code rather than model context.
 
 ## Operating Context
 
-Developers use the product locally while implementing or evaluating PAP Companies and Personal Agents. The central workflow is URL discovery, capability inspection, task execution through OpenAPI, MCP, Company Agent conversations, or session-aware browsing, and review of a chronological protocol trace. The included example Company provides a safe commerce scenario for end-to-end testing.
+Developers use the product locally while implementing or evaluating Poppy Companies and Personal Agents. The central workflow is URL discovery, capability inspection, task execution through OpenAPI, MCP, Company Agent conversations, or session-aware browsing, and review of a chronological protocol trace. The included example Company provides a safe commerce scenario for end-to-end testing.
 
 ## Capabilities and Constraints
 
@@ -33,13 +33,13 @@ Developers use the product locally while implementing or evaluating PAP Companie
 - Support provider-neutral LLM integration, beginning with OpenAI-compatible, Anthropic, Google, and local/Ollama adapters.
 - Keep credentials, private keys, Session Tokens, Account Tokens, one-time codes, OAuth state, and DPoP material out of model context and user-visible traces.
 - Prevent SSRF, unsafe redirects, private-network access, prompt-injection crossover, and unapproved consequential actions.
-- Clearly distinguish PAP-capable Companies from ordinary websites; generic browser automation is not PAP.
-- Example Company should eventually expose OpenAPI, MCP, PAP conversations, browser Session joining, sign-in, scopes, and approval-gated operations.
+- Clearly distinguish Poppy-capable Companies from ordinary websites; generic browser automation is not Poppy.
+- Example Company should eventually expose OpenAPI, MCP, Poppy conversations, browser Session joining, sign-in, scopes, and approval-gated operations.
 - The initial implementation may be an experimental MVP, but security boundaries should be architectural rather than deferred UI warnings.
 
 ## Brand Commitments
 
-The working product name is “Poppy Lab.” Its voice is precise and developer-first without being austere. The user requested a clean, minimalist playground inspired by papplayground.com; prioritize model/URL setup and conversation, with protocol details available on demand. The interface should behave like a trustworthy instrument with an approachable chat layer. “Personal Agent Protocol” and “Poppy” are names belonging to the protocol project; the product must not imply endorsement or affiliation. Poppy Lab's Personal Agent is called **Iris** (its `client_name`), never "Poppy", so the agent stays distinct from the protocol. Companies show it as "Iris from poppylab.dev": the name is self-asserted, the host is verified.
+The working product name is “Poppy Lab.” Its voice is precise without being austere: plain language on the home, developer-first on `/developers` and in the playground. The user requested a clean, minimalist playground inspired by papplayground.com; prioritize model/URL setup and conversation, with protocol details available on demand. The interface should behave like a trustworthy instrument with an approachable chat layer. Refer to the protocol as “Personal Agent Protocol” or “Poppy”, as personalagentprotocol.org does; never “PAP”. “Personal Agent Protocol” and “Poppy” are names belonging to the protocol project; the product must not imply endorsement or affiliation. Poppy Lab's Personal Agent is called **Iris** (its `client_name`), never "Poppy", so the agent stays distinct from the protocol. Companies show it as "Iris from poppylab.dev": the name is self-asserted, the host is verified.
 
 ## Evidence on Hand
 

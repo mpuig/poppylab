@@ -32,7 +32,7 @@ const httpsUrl = z
     },
     {
       message:
-        "PAP protocol URLs require HTTPS without credentials or fragments",
+        "Poppy protocol URLs require HTTPS without credentials or fragments",
     },
   );
 

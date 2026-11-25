@@ -3,7 +3,7 @@ import { expect, it } from "vitest";
 import { assertion, proof } from "@poppy-lab/pap-client/core";
 import { client, inject, origin, redirect, setup } from "./test-harness.ts";
 
-it("offers PAR, DPoP tokens, refresh, revocation and PAP 1.0 only", async () => {
+it("offers PAR, DPoP tokens, refresh, revocation and Poppy 1.0 only", async () => {
   const x = await setup();
   const metadata = (
     await inject("/.well-known/oauth-authorization-server")

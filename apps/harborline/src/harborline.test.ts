@@ -23,7 +23,7 @@ describe("Harborline Bank", () => {
     await setup();
   });
 
-  it("publishes PAP 1.0 discovery, narrow scope hints, tasks and useful OpenAPI", async () => {
+  it("publishes Poppy 1.0 discovery, narrow scope hints, tasks and useful OpenAPI", async () => {
     const discovery = (await inject("/.well-known/poppy.json")).json();
     expect(discovery).toMatchObject({
       protocol_version: "1.0",

@@ -70,7 +70,7 @@ const discover = (...responses: Response[]) => {
   };
 };
 
-describe("PAP 1.0 discovery profile", () => {
+describe("Poppy 1.0 discovery profile", () => {
   it("finds the issuer through protected resource metadata and normalizes the profile", async () => {
     const { fetchImpl, result } = discover(
       Response.json(document),
@@ -323,13 +323,13 @@ describe("discovery redirects (all versions)", () => {
   });
 
   it.each(["0.1", "0.2", "0.3", "0.4", "2.0"])(
-    "rejects PAP %s documents",
+    "rejects Poppy %s documents",
     async (protocol_version) => {
       const { result } = discover(
         Response.json({ ...document, protocol_version }),
       );
       await expect(result).rejects.toThrow(
-        `Unsupported PAP version ${protocol_version}`,
+        `Unsupported Poppy version ${protocol_version}`,
       );
     },
   );
@@ -381,7 +381,7 @@ describe("versions (§3.4)", () => {
     ["no compatible version", { "0.3": "https://company.example/0.3.json" }],
   ])("refuses %s", async (_label, supported_versions) => {
     const { result } = discover(Response.json({ ...old, supported_versions }));
-    await expect(result).rejects.toThrow("Unsupported PAP version 0.4");
+    await expect(result).rejects.toThrow("Unsupported Poppy version 0.4");
   });
   it("refuses a linked document with another version or its own supported_versions", async () => {
     const link = { "1.0": "https://company.example/poppy/1.0.json" };

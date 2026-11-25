@@ -70,5 +70,5 @@ export function labLineHtml(
         : `<a href="${escape(s.url)}">${nbsp(s.label)}</a>`,
     );
   const home = labSites(origin)[0]!;
-  return `<p class="${className}">Part of <a href="${escape(home.url)}">Poppy&nbsp;Lab</a>, an independent PAP 1.0 test bench · ${items.join(" · ")} · <a href="${LAB_REPOSITORY}">${nbsp("Source on GitHub")}</a></p>`;
+  return `<p class="${className}">Part of <a href="${escape(home.url)}">Poppy&nbsp;Lab</a>, an independent Poppy 1.0 test bench · ${items.join(" · ")} · <a href="${LAB_REPOSITORY}">${nbsp("Source on GitHub")}</a></p>`;
 }

@@ -87,7 +87,7 @@ it("opens a case only after agent approval and retries never duplicate it", asyn
     await app.close();
   }
 });
-it("shares website cases with PAP, enforces browser authority and invalidates a stale closure", async () => {
+it("shares website cases with Poppy, enforces browser authority and invalidates a stale closure", async () => {
   const app = await setup();
   try {
     const web = await cookie(app);

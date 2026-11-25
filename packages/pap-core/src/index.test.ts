@@ -12,7 +12,7 @@ const base = {
   web: {},
 };
 
-describe("PAP 1.0 document boundary", () => {
+describe("Poppy 1.0 document boundary", () => {
   it("accepts 1.0, and later 1.x minor versions as compatible (§3.4)", () => {
     expect(poppyDocumentSchema.parse(base).protocol_version).toBe("1.0");
     expect(compatibleVersion("1.0")).toBe(true);

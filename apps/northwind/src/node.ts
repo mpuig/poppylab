@@ -30,4 +30,4 @@ const app = createCompany(northwind, {
     : {}),
 });
 serve({ fetch: app.fetch, port, hostname: process.env.HOST ?? "127.0.0.1" });
-console.log(`Northwind Air (PAP 1.0) on ${origin}`);
+console.log(`Northwind Air (Poppy 1.0) on ${origin}`);

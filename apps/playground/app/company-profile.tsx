@@ -26,7 +26,7 @@ export function CompanyProfileView({
       <dl className="profile-facts">
         <div>
           <dt>Protocol</dt>
-          <dd>PAP {profile.version}</dd>
+          <dd>Poppy {profile.version}</dd>
         </div>
         <div>
           <dt>Domain</dt>

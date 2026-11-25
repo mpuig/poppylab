@@ -1,12 +1,12 @@
 :root {
-  /* Registered post (see DESIGN.md): the home page's world, in Operate. */
-  --background: #f7f8fa;
+  /* Registered post, decluttered (see DESIGN.md): the home's world, in Operate. */
+  --background: #ffffff;
   --surface: #ffffff;
   --ink: #121a2b;
   --ink-soft: #2c3548;
   --muted: #4a5468;
   --line: #d7dbe2;
-  --soft: #eef0f3;
+  --soft: #f1f3f6;
   --accent: #f6c514;
   --accent-hover: #e2b100;
   --danger: #b3261e;
@@ -17,7 +17,7 @@
 * {
   box-sizing: border-box;
   scrollbar-width: thin;
-  scrollbar-color: #b7b9af var(--background);
+  scrollbar-color: #b9c0cc var(--background);
 }
 .account-row,
 .operation-actions {
@@ -247,15 +247,6 @@ p {
   font-weight: 700;
   font-size: 19px;
   letter-spacing: -0.025em;
-}
-.version {
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 400;
-  padding: 2px 5px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  letter-spacing: 0;
 }
 nav {
   display: flex;
@@ -507,13 +498,9 @@ h2 {
   gap: 8px;
 }
 .company-badge {
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.02em;
+  font-size: 12px;
+  font-weight: 400;
   color: var(--muted);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  padding: 1px 6px;
 }
 .company-note {
   margin-top: 6px;
@@ -582,13 +569,14 @@ h2 {
   height: 34px;
   display: grid;
   place-items: center;
-  border: 1px solid var(--accent-hover);
+  border: 1px solid var(--accent);
   border-radius: 8px;
   background: var(--accent);
   color: var(--ink);
 }
 .send-button:hover:not(:disabled) {
   background: var(--accent-hover);
+  border-color: var(--accent-hover);
 }
 .send-button:disabled {
   background: var(--soft);
@@ -606,7 +594,11 @@ h2 {
   line-height: 1.5;
 }
 .inspector h2 {
-  margin: 30px 0 14px;
+  margin: 36px 0 0;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--ink);
+  font-size: 18px;
+  font-weight: 700;
 }
 .inspector h2:first-child {
   margin-top: 0;
@@ -683,6 +675,7 @@ summary {
 }
 .identity-panel dl {
   margin: 0;
+  border-top: 2px solid var(--ink);
 }
 .identity-panel dl > div {
   display: grid;
@@ -957,8 +950,8 @@ main {
 }
 .chat-workspace .site-header {
   flex-shrink: 0;
-  height: 64px;
-  min-height: 64px;
+  height: 72px;
+  min-height: 72px;
   padding-block: 8px;
 }
 .chat-workspace main {
@@ -1112,8 +1105,8 @@ kbd,
 }
 h1 {
   font-stretch: 112%;
-  font-weight: 750;
-  letter-spacing: -0.03em;
+  font-weight: 800;
+  letter-spacing: -0.035em;
 }
 h2,
 .brand {
@@ -1124,32 +1117,33 @@ h2,
   font-stretch: 118%;
   letter-spacing: -0.03em;
 }
-.version {
-  font-family: var(--mono);
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--ink);
-  background: var(--accent);
-  border: 0;
-  border-radius: 3px;
-  padding: 3px 7px;
-}
 .site-header {
   width: 100%;
-  padding-inline: max((100% - 1080px) / 2, 32px);
+  height: 72px;
+  padding-inline: max((100% - 1200px) / 2, clamp(20px, 4vw, 40px));
   background: var(--surface);
 }
+.site-header nav {
+  gap: 4px;
+}
+/* Tabs as the home's nav links: text, with an ink rule under the current one. */
 .nav-item {
-  border-radius: 8px;
-  font-weight: 600;
+  border-radius: 0;
+  padding-inline: 10px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink-soft);
 }
-.nav-item.selected {
-  background: var(--ink);
-  color: var(--surface);
+.nav-item:hover {
+  background: transparent;
+  color: var(--ink);
 }
+.nav-item.selected,
 .nav-item.selected:hover {
-  background: var(--ink-soft);
-  color: var(--surface);
+  background: transparent;
+  color: var(--ink);
+  font-weight: 650;
+  box-shadow: inset 0 -2px 0 var(--ink);
 }
 .setup input,
 .setup select,
@@ -1164,19 +1158,17 @@ h2,
 .conversation {
   border-color: var(--line);
   border-radius: 14px;
-  box-shadow: 0 1px 2px rgb(18 26 43 / 0.05);
 }
 .conversation-heading h2 {
   font-size: 16px;
   font-weight: 750;
 }
 .message h3 {
-  font-family: var(--mono);
-  font-weight: 500;
-  font-size: 11px;
+  font-size: 13px;
+  font-weight: 600;
 }
 .message.you h3 {
-  font-weight: 600;
+  font-weight: 700;
 }
 .suggestions button {
   border-radius: 8px;
@@ -1212,9 +1204,6 @@ h2,
     padding-block: 0;
     gap: 8px;
   }
-  .site-header .version {
-    display: none;
-  }
   .site-header nav {
     width: auto;
     gap: 2px;
@@ -1243,10 +1232,7 @@ h2,
   font-family: var(--mono);
   font-size: 11px;
   font-weight: 500;
-  padding: 1px 6px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  color: var(--ink-soft);
+  color: var(--muted);
   white-space: nowrap;
 }
 /* Breathing room below the chat: the box closes above the window edge. */
@@ -1266,6 +1252,18 @@ h2,
   }
 }
 
+/* The footer shares the header's edges. */
+footer {
+  width: min(1200px, calc(100% - 2 * clamp(20px, 4vw, 40px)));
+}
+.chat-workspace main {
+  padding-top: 28px;
+}
+@media (max-width: 600px) {
+  .chat-workspace main {
+    padding-top: 12px;
+  }
+}
 footer .lab-links {
   display: flex;
   flex-wrap: wrap;

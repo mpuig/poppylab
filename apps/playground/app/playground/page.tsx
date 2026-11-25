@@ -71,7 +71,7 @@ export default function PlaygroundPage() {
     >
       <header className="site-header">
         <a href="/" className="brand">
-          Poppy Lab<span className="version">PAP 1.0</span>
+          Poppy Lab
         </a>
         <nav aria-label="Playground views">
           {(Object.keys(copy) as View[]).map((item) => (
@@ -116,8 +116,8 @@ export default function PlaygroundPage() {
       </main>
       <footer>
         <span>
-          An independent PAP 1.0 experiment. The shops are fictional; nothing is
-          charged or shipped.
+          An independent Poppy 1.0 experiment. The shops are fictional; nothing
+          is charged or shipped.
         </span>
         <nav aria-label="Poppy Lab sites" className="lab-links">
           {labSites(exampleUrl)

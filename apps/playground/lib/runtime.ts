@@ -824,7 +824,7 @@ export async function connect(
   const profile = companyProfile(company);
   await ensureSession(run);
   trace.push(
-    `PAP ${profile.version} Session ${run.accountToken ? "signed in" : "signed out"} · delegated ES256 Session header · Poppy-Version ${POPPY_VERSION}${profile.operations ? ' · Poppy-Extensions "operations";v="3"' : ""}`,
+    `Poppy ${profile.version} Session ${run.accountToken ? "signed in" : "signed out"} · delegated ES256 Session header · Poppy-Version ${POPPY_VERSION}${profile.operations ? ' · Poppy-Extensions "operations";v="3"' : ""}`,
   );
   await readTasks(run, trace);
   const api =
@@ -861,7 +861,7 @@ export async function connect(
     new URL(api.url).origin === new URL(run.url).origin;
   if (sandbox && !agentOrigin.startsWith("https://"))
     throw new UserFacingError(
-      "Set AGENT_PUBLIC_ORIGIN to a publicly reachable HTTPS origin before using PAP Sandbox Sessions. Do not expose an unprotected playground.",
+      "Set AGENT_PUBLIC_ORIGIN to a publicly reachable HTTPS origin before using Poppy Sandbox Sessions. Do not expose an unprotected playground.",
     );
   const tools =
     api.type === "mcp"

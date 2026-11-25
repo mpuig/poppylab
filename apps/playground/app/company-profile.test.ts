@@ -40,7 +40,7 @@ it("shows 1.0 scopes with descriptions, hints, PAR, extensions and the tasks end
   const html = renderToStaticMarkup(
     createElement(CompanyProfileView, { company }),
   );
-  expect(html).toContain("PAP 1.0");
+  expect(html).toContain("Poppy 1.0");
   expect(html).toContain("company.example");
   expect(html).toContain("not that it belongs to “Company”");
   expect(html).toContain("Direct · PAR offered");

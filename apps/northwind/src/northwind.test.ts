@@ -2,7 +2,7 @@ import { expect, it, vi } from "vitest";
 import { openApiTools } from "@poppy-lab/pap-client";
 import { inject, lab, origin, setup } from "./test-harness.ts";
 
-it("publishes PAP 1.0 discovery, five differentiated scopes and excluded tasks", async () => {
+it("publishes Poppy 1.0 discovery, five differentiated scopes and excluded tasks", async () => {
   await setup();
   const discovery = (await inject("/.well-known/poppy.json")).json();
   expect(discovery).toMatchObject({

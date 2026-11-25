@@ -30,4 +30,4 @@ const app = createCompany(harborline, {
     : {}),
 });
 serve({ fetch: app.fetch, port, hostname: process.env.HOST ?? "127.0.0.1" });
-console.log(`Harborline Bank (fictional PAP 1.0) on ${origin}`);
+console.log(`Harborline Bank (fictional Poppy 1.0) on ${origin}`);

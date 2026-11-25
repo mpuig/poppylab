@@ -36,4 +36,4 @@ const app = createCompany(lantern, {
     : {}),
 });
 serve({ fetch: app.fetch, port, hostname: process.env.HOST ?? "127.0.0.1" });
-console.log(`Lantern Noodle Bar (PAP 1.0) on ${origin}`);
+console.log(`Lantern Noodle Bar (Poppy 1.0) on ${origin}`);

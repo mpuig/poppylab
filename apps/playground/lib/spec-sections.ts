@@ -44,7 +44,7 @@ export function traceReport(input: {
   at?: Date;
 }) {
   const lines = [
-    `Poppy Lab trace · PAP 1.0 · ${input.company}`,
+    `Poppy Lab trace · Poppy 1.0 · ${input.company}`,
     `Recorded ${(input.at ?? new Date()).toISOString()}`,
     "",
     "Discovery",

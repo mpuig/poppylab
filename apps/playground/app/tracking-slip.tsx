@@ -2,69 +2,37 @@
 import { useState } from "react";
 import { Check, PenLine, RotateCcw } from "lucide-react";
 
-/** A sample trace (illustrative), shaped like what Poppy records. */
+/** A sample request (illustrative), in the order Iris and a company handle it. */
 const steps = [
   {
-    title: "Discovered",
-    detail: "/.well-known/poppy.json · issuer verified",
-  },
-  { title: "Session started", detail: "Poppy-Session · ES256, signed out" },
-  {
-    title: "Signed in",
-    detail: "Juniper's own page · Alex · poppy:read poppy:write",
+    title: "Found the company",
+    detail: "Juniper publishes how agents can reach it.",
   },
   {
-    title: "Proposal held",
-    detail: "403 approval_required · revision 1793646108",
+    title: "Introduced itself",
+    detail: "Each request is signed, so Juniper knows it is Iris.",
   },
-  { title: "Approved by you", detail: "Poppy-Approval · same request, resent" },
   {
-    title: "Delivered once",
-    detail: "Thursday → Saturday · a retry replays it",
+    title: "You signed in",
+    detail: "On Juniper's own page, as Alex. You chose what Iris may do.",
+  },
+  {
+    title: "Change proposed",
+    detail: "Juniper holds it: delivery from Thursday to Saturday.",
+  },
+  { title: "Approved by you", detail: "Your click. The AI can't press it." },
+  {
+    title: "Done, once",
+    detail: "Thursday → Saturday. A retry can't repeat it.",
   },
 ] as const;
-
-export function Barcode({ code }: { code: string }) {
-  // Deterministic bars from the item code: geometry, not a picture.
-  const bars: Array<{ x: number; w: number }> = [];
-  let x = 0;
-  for (const ch of code) {
-    const n = ch.charCodeAt(0);
-    for (const w of [1 + (n % 3), 1 + ((n >> 2) % 2), 2 + ((n >> 3) % 3)]) {
-      bars.push({ x, w });
-      x += w + 1 + ((n >> 1) % 2);
-    }
-  }
-  return (
-    <svg
-      className="barcode"
-      viewBox={`0 0 ${x} 24`}
-      preserveAspectRatio="none"
-      aria-hidden="true"
-    >
-      {bars.map((b, i) => (
-        <rect key={i} x={b.x} y="0" width={b.w} height="24" />
-      ))}
-    </svg>
-  );
-}
 
 export function TrackingSlip() {
   // Steps 1–4 are done; the last two wait for the visitor's signature.
   const [signed, setSigned] = useState(false);
   const visible = signed ? 6 : 4;
   return (
-    <figure
-      className="slip"
-      aria-label="Sample tracking slip of one agent request"
-    >
-      <div className="slip-head">
-        <div>
-          <span className="slip-kind">Registered request</span>
-          <span className="slip-code">PL-JM-0001</span>
-        </div>
-        <Barcode code="PLJM0001" />
-      </div>
+    <figure className="slip" aria-label="Sample of one agent request">
       <dl className="slip-route">
         <div>
           <dt>From</dt>
@@ -88,7 +56,7 @@ export function TrackingSlip() {
               aria-current={waiting ? "step" : undefined}
             >
               <span className="mark" aria-hidden="true">
-                {done ? <Check size={14} strokeWidth={3} /> : null}
+                {done ? <Check size={13} strokeWidth={3} /> : null}
               </span>
               <span className="step-text">
                 <strong>
@@ -100,11 +68,6 @@ export function TrackingSlip() {
                     : step.detail}
                 </small>
               </span>
-              {i === 5 && done && (
-                <span className="stamp" aria-hidden="true">
-                  Delivered
-                </span>
-              )}
             </li>
           );
         })}
@@ -128,7 +91,7 @@ export function TrackingSlip() {
           </button>
         )}
         <figcaption>
-          Sample trace. In the playground, you sign on a real proposal.
+          A sample. In the live demo, you approve a real proposal.
         </figcaption>
       </div>
     </figure>

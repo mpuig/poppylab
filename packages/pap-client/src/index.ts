@@ -74,7 +74,7 @@ const localName = (hostname: string) =>
   !hostname.includes(".");
 function assertPublicHttpsHost(url: URL) {
   if (url.protocol !== "https:")
-    throw new Error("PAP discovery requires HTTPS");
+    throw new Error("Poppy discovery requires HTTPS");
   if (url.username || url.password)
     throw new Error("URLs with credentials are not allowed");
   const hostname = url.hostname.replace(/^\[|\]$/g, "");
@@ -97,7 +97,7 @@ async function assertPublicHttps(
     url.protocol !== "https:" &&
     !(allowPrivateNetwork && url.protocol === "http:")
   ) {
-    throw new Error("PAP discovery requires HTTPS");
+    throw new Error("Poppy discovery requires HTTPS");
   }
   if (url.username || url.password)
     throw new Error("URLs with credentials are not allowed");
@@ -405,7 +405,7 @@ export async function discoverCompany(
       );
     trace.push({
       id: "poppy",
-      label: `Discovery document · PAP ${chosen.version}`,
+      label: `Discovery document · Poppy ${chosen.version}`,
       detail: chosen.url.toString(),
       status: "passed",
       durationMs: discovery.durationMs,
@@ -506,7 +506,7 @@ async function chooseVersion(
   const best = candidates[0];
   if (!best)
     throw new Error(
-      `Unsupported PAP version ${own.slice(0, 16) || "unknown"}: Poppy Lab implements ${IMPLEMENTED_VERSION}, and the Company lists no compatible version`,
+      `Unsupported Poppy version ${own.slice(0, 16) || "unknown"}: Poppy Lab implements ${IMPLEMENTED_VERSION}, and the Company lists no compatible version`,
     );
   if (best.url === servedUrl) return { ...best, value };
   const linked = await fetchJsonSafely(best.url, {

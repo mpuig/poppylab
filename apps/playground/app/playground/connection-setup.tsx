@@ -66,7 +66,7 @@ export function ConnectionSetup({
               {company.document.agent?.protocols.some((p) => p.type === "poppy")
                 ? "Company agent · "
                 : ""}
-              PAP {company.document.protocol_version}
+              Poppy {company.document.protocol_version}
             </span>
           </span>
         ) : (

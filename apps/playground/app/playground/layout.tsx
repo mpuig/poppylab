@@ -4,7 +4,7 @@ import "./playground.css";
 export const metadata: Metadata = {
   title: "Playground · Poppy Lab",
   description:
-    "Run Iris, a Personal Agent, against PAP 1.0 Companies with your own model key, and inspect every protocol step.",
+    "Run Iris, a Personal Agent, against Poppy 1.0 Companies with your own model key, and inspect every protocol step.",
 };
 
 export default function PlaygroundLayout({

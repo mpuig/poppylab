@@ -209,7 +209,7 @@ export function juniperCompany(options: {
     <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Juniper Market — PAP example Company</title>
+    <title>Juniper Market — Poppy example Company</title>
     <style>
       :root{--paper:#f2f0e6;--ink:#17342b;--leaf:#4e715b;--fruit:#d46a43;--line:#bfc8b7}
       *{box-sizing:border-box} body{margin:0;background:var(--paper);color:var(--ink);font-family:ui-sans-serif,system-ui,sans-serif}
@@ -230,7 +230,7 @@ export function juniperCompany(options: {
     <header><div class="brand">Juniper Market</div><a class="pap" href="/account" style="color:inherit;text-underline-offset:4px">Sign in to your account</a></header>
     <main>
     <h1>Good things, in season.</h1>
-    <p class="lead">A fictional neighborhood market used to test Personal Agent Protocol discovery. Connect in Poppy Lab to browse the catalogue, check delivery, and ask about store policies through signed PAP Sessions. Sign in as a fictional customer to read deliveries and approve delivery changes. No real purchases or shipments are made.</p>
+    <p class="lead">A fictional neighborhood market used to test Personal Agent Protocol discovery. Connect in Poppy Lab to browse the catalogue, check delivery, and ask about store policies through signed Poppy Sessions. Sign in as a fictional customer to read deliveries and approve delivery changes. No real purchases or shipments are made.</p>
     <section class="shelf" aria-label="Seasonal produce">
       <article><span class="number">A—01</span><h2 class="produce">Cara cara oranges</h2><div class="meta">Bright · sweet · California</div></article>
       <article><span class="number">A—02</span><h2 class="produce">Purple sprouting broccoli</h2><div class="meta">Tender · mineral · Local</div></article>

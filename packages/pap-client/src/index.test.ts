@@ -82,7 +82,7 @@ describe("Company discovery", () => {
           Response.json({ ...company, protocol_version: "9.9" }),
         ),
       }),
-    ).rejects.toThrow("Unsupported PAP version 9.9");
+    ).rejects.toThrow("Unsupported Poppy version 9.9");
   });
   it("rejects a copied document", async () => {
     await expect(

@@ -57,7 +57,7 @@ export function mountPortal(app: Hono, ctx: PortalContext, deps: Deps) {
     return c.html(
       shell(
         "Sign in · Harborline Bank",
-        `<main class="wrap"><section class="account-head"><h1>Enter a fictional account.</h1><p>The portal reads the same balances, transactions, cards, recipients and budgets as the PAP APIs. Persona selection does not verify a real identity.</p></section><section class="section"><form class="form-card" method="post" action="/site/login"><label for="account">Fictional customer</label><select id="account" name="account">${customers.map((customer) => `<option value="${customer.id}">${escape(customer.name)}</option>`).join("")}</select><p class="warning">Do not enter a real bank password, account number, card number or any real financial data.</p><button type="submit">Open selected fictional account</button></form></section></main>`,
+        `<main class="wrap"><section class="account-head"><h1>Enter a fictional account.</h1><p>The portal reads the same balances, transactions, cards, recipients and budgets as the Poppy APIs. Persona selection does not verify a real identity.</p></section><section class="section"><form class="form-card" method="post" action="/site/login"><label for="account">Fictional customer</label><select id="account" name="account">${customers.map((customer) => `<option value="${customer.id}">${escape(customer.name)}</option>`).join("")}</select><p class="warning">Do not enter a real bank password, account number, card number or any real financial data.</p><button type="submit">Open selected fictional account</button></form></section></main>`,
         "/account",
         ctx.origin,
       ),
