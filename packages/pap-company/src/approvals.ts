@@ -71,6 +71,16 @@ export type Outcome = {
   replayed?: boolean;
 };
 
+/**
+ * Bounds: operations per tenant, and per account of it, so one account
+ * asking with fresh keys can't use up what the tenant's other customers
+ * need. An operation lasts about ten minutes: 100 is far more than a person
+ * approving by hand, or an agent approving for them, opens in that time,
+ * and twenty accounts would have to fill theirs at once to fill the tenant.
+ */
+const PER_ACCOUNT = 100,
+  PER_TENANT = 2000;
+
 const same = (a: Owner, r: OperationRecord) =>
   r.client === a.client && r.user === a.user && r.account === a.account;
 
@@ -163,7 +173,13 @@ export function approvals(
         }
       }
       if (!r) {
-        if (Object.keys(records).length >= 2000)
+        // Counted by account, not by client or User ID: a client picks
+        // those itself, and an account takes a sign-in.
+        const held = Object.values(records);
+        if (
+          held.length >= PER_TENANT ||
+          held.filter((v) => v.account === owner.account).length >= PER_ACCOUNT
+        )
           return { status: 429, body: { error: "too_many_operations" } };
         r = records[id] = { ...owner, key: action.key, revisions: [] };
       }
