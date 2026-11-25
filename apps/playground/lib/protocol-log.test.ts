@@ -33,3 +33,10 @@ it("formats a clock with milliseconds and a download name", () => {
     traceFileName("https://juniper.example/", new Date("2026-11-03T10:00:00Z")),
   ).toBe("poppy-trace-juniper.example-2026-11-03.txt");
 });
+
+it("reads an outcome from the words, not from the address", () => {
+  expect(
+    logEntry("GET /api/payments/failed-orders · Poppy Session").outcome,
+  ).toBe("info");
+  expect(logEntry("GET /api/orders · request failed").outcome).toBe("error");
+});

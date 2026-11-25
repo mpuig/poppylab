@@ -175,7 +175,7 @@ export function homePage(origin: string) {
   const dishes = menu
     .map(
       (d, i) =>
-        `<li class="btn"><img class="photo" src="/img/${d.id}.webp" alt="" width="512" height="384" loading="lazy"><span class="n">${String(i + 1).padStart(2, "0")}</span><span class="name">${escape(d.name)}</span><span class="price">${usd(d.price_cents)}</span></li>`,
+        `<li class="btn"><img class="photo" src="/img/${d.id}.webp" alt="" width="512" height="384"${i < 3 ? "" : ' loading="lazy"'}><span class="n">${String(i + 1).padStart(2, "0")}</span><span class="name">${escape(d.name)}</span><span class="price">${usd(d.price_cents)}</span></li>`,
     )
     .join("");
   const slotButtons = slots

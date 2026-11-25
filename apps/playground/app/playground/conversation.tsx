@@ -10,6 +10,14 @@ import { StandingInstruction } from "./standing-instruction";
 import { accountCompany, labCompanies, labCompany } from "./companies";
 import type { Playground } from "./use-playground";
 
+/** The currency the Company's own proposals use; USD until it has made one. */
+function currencyOf(operations: Array<{ terms?: Record<string, unknown> }>) {
+  const found = operations
+    .map((op) => op.terms?.currency)
+    .find((c) => typeof c === "string" && /^[A-Z]{3}$/.test(c));
+  return typeof found === "string" ? found : "USD";
+}
+
 /** A Company message's data, indented for reading (it arrives compact). */
 function prettyData(json: string) {
   try {
@@ -274,7 +282,7 @@ export function Conversation({
               {signedIn && p.canWrite && (
                 <StandingInstruction
                   instruction={p.instruction}
-                  currency={p.instruction?.currency ?? "USD"}
+                  currency={p.instruction?.currency ?? currencyOf(p.operations)}
                   onChange={p.setLimit}
                 />
               )}

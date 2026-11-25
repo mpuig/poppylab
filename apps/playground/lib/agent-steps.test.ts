@@ -31,3 +31,9 @@ it("names Company conversations and setup, and keeps unknown events as written",
   ).toBe("Found 19 API tools at the Company");
   expect(step("Something new happened").text).toBe("Something new happened");
 });
+
+it("names the address a request went to, without its query", () => {
+  expect(step("GET /poppy/tasks?cursor=abc · Poppy Session").text).toBe(
+    "Read /poppy/tasks",
+  );
+});

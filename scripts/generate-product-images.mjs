@@ -19,6 +19,7 @@ import { mkdir, writeFile, access } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import console from "node:console";
+import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -94,31 +95,41 @@ for (const [company, items] of Object.entries(companies)) {
       console.log(`kept     ${company}/${id}`);
       continue;
     }
-    const response = await globalThis.fetch(
-      "https://api.openai.com/v1/images/generations",
-      {
-        method: "POST",
-        // A stuck request should fail the run, not hang it.
-        signal: globalThis.AbortSignal.timeout(180_000),
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${key}`,
+    const body = JSON.stringify({
+      model,
+      prompt: `${subject}. ${style}`,
+      size,
+      quality,
+      output_format: "webp",
+      output_compression: compression,
+      n: 1,
+    });
+    // A rate limit or a server error is worth a few patient tries; anything
+    // else (a bad key, an unknown model, a refused prompt) is not.
+    let response;
+    for (let attempt = 1; ; attempt++) {
+      response = await globalThis.fetch(
+        "https://api.openai.com/v1/images/generations",
+        {
+          method: "POST",
+          // A stuck request should fail the attempt, not hang the run.
+          signal: globalThis.AbortSignal.timeout(180_000),
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${key}`,
+          },
+          body,
         },
-        body: JSON.stringify({
-          model,
-          prompt: `${subject}. ${style}`,
-          size,
-          quality,
-          output_format: "webp",
-          output_compression: compression,
-          n: 1,
-        }),
-      },
-    );
+      );
+      const retryable = response.status === 429 || response.status >= 500;
+      if (response.ok || !retryable || attempt === 3) break;
+      console.log(`retrying ${company}/${id}: ${response.status}`);
+      await sleep(5000 * attempt);
+    }
     if (!response.ok) {
-      const body = await response.json().catch(() => ({}));
+      const failure = await response.json().catch(() => ({}));
       console.error(
-        `failed   ${company}/${id}: ${response.status} ${body?.error?.message ?? ""}`,
+        `failed   ${company}/${id}: ${response.status} ${failure?.error?.message ?? ""}`,
       );
       process.exit(1);
     }

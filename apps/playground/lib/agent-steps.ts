@@ -12,8 +12,6 @@ export type AgentStep = {
   state: StepState;
 };
 
-const path = (value: string) => value.replace(/[?#].*$/, "");
-
 /**
  * One readable line for a trace event: what Iris did, how, and with what
  * access. Pure, so it is tested on its own. An event it does not recognise
@@ -27,11 +25,10 @@ export function agentStep(entry: ProtocolEntry): AgentStep {
       : entry.outcome === "error"
         ? "failed"
         : "done";
-  const request = /^(GET|HEAD|POST|PUT|PATCH|DELETE) (\S+)/.exec(text);
-  if (request) {
-    const read = request[1] === "GET" || request[1] === "HEAD";
+  if (entry.method && entry.url) {
+    const read = entry.method === "GET" || entry.method === "HEAD";
     return {
-      text: `${read ? "Read" : "Sent a request to"} ${path(request[2] ?? "")}`,
+      text: `${read ? "Read" : "Sent a request to"} ${entry.url}`,
       how: "API",
       access: read ? "view" : "view and change",
       state,

@@ -34,12 +34,15 @@ function outcomeOf(text: string): ProtocolOutcome {
 export function logEntry(line: string, at = Date.now()): ProtocolEntry {
   const text = line.replace(/([/\w.-])[?#]\S*/g, "$1");
   const match = request.exec(text);
+  // The outcome comes from the event's own words: an address such as
+  // /payments/failed says nothing about how the request went.
+  const words = match ? text.slice(match[0].length) : text;
   return {
     at,
     section: apiSection(text),
     ...(match ? { method: match[1], url: bareUrl(match[2] ?? "") } : {}),
     text,
-    outcome: outcomeOf(text),
+    outcome: outcomeOf(words),
   };
 }
 

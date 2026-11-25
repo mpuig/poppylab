@@ -2,7 +2,9 @@
  * Lantern Noodle Bar on Node (development or a VPS). Same app as the
  * Cloudflare Worker; only the store and the network client differ.
  */
+import { relative } from "node:path";
 import { loadEnvFile } from "node:process";
+import { fileURLToPath } from "node:url";
 try {
   loadEnvFile(".env.local");
 } catch (error) {
@@ -39,7 +41,12 @@ const app = createCompany(lantern, {
 });
 // Product photos from ./public, then the Company itself.
 const server = new Hono();
-server.use("/img/*", serveStatic({ root: "./public" }));
+// The folder is found from this file, not from where the server was started.
+const photos = relative(
+  process.cwd(),
+  fileURLToPath(new URL("../public", import.meta.url)),
+);
+server.use("/img/*", serveStatic({ root: photos }));
 server.all("*", (c) => app.fetch(c.req.raw));
 serve({ fetch: server.fetch, port, hostname: process.env.HOST ?? "127.0.0.1" });
 console.log(`Lantern Noodle Bar (Poppy 1.0) on ${origin}`);
