@@ -10,7 +10,7 @@ Open **http://juniper.localhost:4100/account** or use **Sign in to your account*
 4. Juniper shows the proposal as pending, without changing the account's basket/delivery/order data.
 5. Approve in Poppy. Juniper automatically shows the committed update within roughly two seconds while the tab is visible.
 
-The customer page shows basket line items/totals, recurring delivery products/day/totals, expandable order details, and the eight most recent account operation records. Expired proposals are labeled expired, not pending. Original Company summaries may be in English; the surrounding customer interface is Spanish.
+The home page shows a generated photo for each product, and `GET /api/products` gives its address as `image`; see [product photos](product-photos.md). The customer page shows basket line items/totals, recurring delivery products/day/totals, expandable order details, and the eight most recent account operation records. Expired proposals are labeled expired, not pending. Original Company summaries may be in English; the surrounding customer interface is Spanish.
 
 ## Browser security
 

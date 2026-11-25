@@ -9,7 +9,10 @@ certification.
 
 ## Results, 25 November 2026
 
-All four Poppy Lab Companies, with version 1.0 and Operations version 3:
+All four Poppy Lab Companies, with version 1.0 and Operations version 3. They were
+measured at their previous hostnames (`juniper`, `noodles`, `harborline` and
+`northwind` under `poppylab.dev`), before the Companies were renamed; the code
+is the same:
 
 | Company                                              | Pass | Fail | Warn | Skipped |
 | ---------------------------------------------------- | ---- | ---- | ---- | ------- |

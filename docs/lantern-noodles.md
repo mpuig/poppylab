@@ -15,7 +15,7 @@ A second **fictional** example Company, so Poppy can be tested against more than
 | Issuer / identifier | `http://noodles.localhost:4200` (own issuer, own User IDs)                                                                                     |
 | Scopes              | `orders:read` (hint `none`, personal data), `orders:write` (hint `irreversible`: a change can cost more). `orders:write` alone doesn't read.   |
 | Test customers      | Elena Maren (order `ord_LNB1001`, Friday 18:30, 2 × shoyu ramen + edamame) and Robin Ito (order `ord_LNB2001`, Saturday 12:30, 1 × miso ramen) |
-| Public API          | `GET /api/menu`, `GET /api/delivery-slots`                                                                                                     |
+| Public API          | `GET /api/menu` (each dish has an `image` URL, see [product photos](product-photos.md)), `GET /api/delivery-slots`                             |
 | Account API         | `GET /api/account/orders`, `GET /api/account/orders/{id}` (orders:read)                                                                        |
 | Change              | `POST /api/account/orders/{id}/changes` `{ slot_id?, add?: [{dish_id, quantity}], remove?: [dish_id] }` (orders:write), Operations v3          |
 | Excluded tasks      | Cancel an order (alternative: move it, with an `openapi` reference to `change_order`); change the delivery address                             |
