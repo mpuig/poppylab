@@ -328,8 +328,12 @@ export function conversationSession(run: Run, options: Options) {
     }
     return out;
   }
-  /** Errors the model can act on; the conversation restarts when it is gone. */
-  async function guarded(task: () => Promise<unknown>) {
+  /**
+   * Errors the model can act on; the conversation restarts when it is gone.
+   * With `own`, the request went to the User's Direct Conversation (§8.10):
+   * an error about that thread says nothing about the parent, which stays.
+   */
+  async function guarded(task: () => Promise<unknown>, own?: Thread) {
     try {
       return await task();
     } catch (error) {
@@ -341,6 +345,14 @@ export function conversationSession(run: Run, options: Options) {
           "version_mismatch",
         ].includes(error.code ?? "")
       ) {
+        if (own) {
+          // Only that thread is over: the parent keeps its ID and its place.
+          delete state().direct;
+          return {
+            error: error.code,
+            note: "That direct conversation is over, so nothing was sent. Iris is back.",
+          };
+        }
         run.conversation = { endpoint: options.endpoint, seen: [] };
         return {
           error: error.code,
@@ -353,11 +365,15 @@ export function conversationSession(run: Run, options: Options) {
           note: "The user is talking with the Company directly. Wait until they close that conversation; don't send to it yourself.",
         };
       if (error.code === "cursor_expired") {
-        delete state().cursor;
-        state().seen = [];
+        // Each thread has its own read position; only the one asked forgets it.
+        const s = own ?? state();
+        delete s.cursor;
+        s.seen = [];
         return {
           error: error.code,
-          note: "Call company_agent_read to read the conversation again.",
+          note: own
+            ? "Iris lost its place in the direct conversation and will read it again from the start. Your last message may not have arrived."
+            : "Call company_agent_read to read the conversation again.",
         };
       }
       if (error.status === 401)
@@ -463,6 +479,9 @@ export function conversationSession(run: Run, options: Options) {
       author: { type: "human" },
       text: text.slice(0, 2000),
     });
+    // Say and close go to the User's own thread. Opening one names the
+    // parent, so its errors are about the parent (§8.10).
+    const own = action === "say" || action === "close" ? s.direct : undefined;
     return guarded(async () => {
       if (action === "decline") {
         if (!s.invitation) return { note: "Nothing is waiting for an answer." };
@@ -540,7 +559,7 @@ export function conversationSession(run: Run, options: Options) {
         },
         open,
       );
-    });
+    }, own);
   }
   return { tools, direct };
 }

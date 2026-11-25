@@ -545,6 +545,108 @@ describe("Direct Conversations (§8.10) in Iris", () => {
     expect(run.conversation.cursor).toBe("evt_9");
   });
 
+  // The parent has read up to evt_9; the User's own thread up to evt_d3.
+  const both = () => ({
+    endpoint,
+    id: "cnv_1",
+    cursor: "evt_9",
+    seen: ["evt_8", "evt_9"],
+    direct: { id: "cnv_d", cursor: "evt_d3", seen: ["evt_d3"] },
+  });
+  const parentOnly = {
+    endpoint,
+    id: "cnv_1",
+    cursor: "evt_9",
+    seen: ["evt_8", "evt_9"],
+  };
+
+  it.each([
+    ["say", 409, "conversation_closed"],
+    ["say", 404, "conversation_not_found"],
+    ["close", 404, "conversation_not_found"],
+  ] as const)(
+    "drops only the Direct Conversation when %s to it gets %i %s, and the parent carries on",
+    async (action, status, code) => {
+      const { run, s, request } = session((url) => {
+        if (url.startsWith(`${endpoint}/cnv_d/`))
+          throw new ProtocolError(status, code);
+        return read([said("evt_10", { text: "Still here." })]);
+      });
+      run.conversation = both();
+      const result = (await s.direct(action, "Are you there?")) as {
+        error?: string;
+        note?: string;
+      };
+      expect(result.error).toBe(code);
+      expect(result.note).toContain("Iris is back");
+      // The User is out of the Direct Conversation; the parent is as it was.
+      expect(run.conversation).toEqual(parentOnly);
+      expect(await s.direct("say", "Hello?")).toMatchObject({
+        note: "No Direct Conversation is open.",
+      });
+      // The model's next message goes on in the same conversation.
+      await s.tools.company_agent_send!.execute({ text: "Any news?" });
+      const sent = request.mock.calls.at(-1)!;
+      expect(sent[1]).toBe(`${endpoint}/cnv_1/messages?wait=10&cursor=evt_9`);
+      expect(sent[3]).toMatchObject({ message: { as_of_cursor: "evt_9" } });
+      expect(run.conversation).toMatchObject({ id: "cnv_1", cursor: "evt_10" });
+    },
+  );
+
+  it("forgets only the Direct Conversation's read position when its cursor expired", async () => {
+    const { run, s } = session(() => {
+      throw new ProtocolError(410, "cursor_expired");
+    });
+    run.conversation = both();
+    expect(await s.direct("say", "Are you there?")).toMatchObject({
+      error: "cursor_expired",
+    });
+    expect(run.conversation).toEqual({
+      ...parentOnly,
+      direct: { id: "cnv_d", seen: [] },
+    });
+  });
+
+  it("still starts over, or reads again, when the error is about the parent", async () => {
+    for (const code of ["conversation_closed", "conversation_not_found"]) {
+      const { run, s } = session(() => {
+        throw new ProtocolError(
+          code === "conversation_closed" ? 409 : 404,
+          code,
+        );
+      });
+      run.conversation = both();
+      expect(
+        await s.tools.company_agent_send!.execute({ text: "x" }),
+      ).toMatchObject({ error: code });
+      expect(run.conversation).toEqual({ endpoint, seen: [] });
+    }
+    // Opening a Direct Conversation names the parent: a closed one is over.
+    const opening = session(() => {
+      throw new ProtocolError(409, "conversation_closed");
+    });
+    opening.run.conversation = { ...parentOnly };
+    expect(await opening.s.direct("start", "Hello")).toMatchObject({
+      error: "conversation_closed",
+    });
+    expect(opening.run.conversation).toEqual({ endpoint, seen: [] });
+    // The parent's expired cursor leaves the User's thread where it was.
+    const expired = session(() => {
+      throw new ProtocolError(410, "cursor_expired");
+    });
+    expired.run.conversation = both();
+    expect(await expired.s.tools.company_agent_read!.execute()).toMatchObject({
+      error: "cursor_expired",
+      note: expect.stringContaining("company_agent_read"),
+    });
+    expect(expired.run.conversation).toEqual({
+      endpoint,
+      id: "cnv_1",
+      seen: [],
+      direct: both().direct,
+    });
+  });
+
   it("tells the Company in the parent when the User declines", async () => {
     const { run, s, request } = session((url) =>
       url.startsWith(`${endpoint}?`)
