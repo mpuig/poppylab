@@ -2,8 +2,13 @@
  * Builds the Cloudflare Worker and refuses to keep an artifact that carries
  * local secrets. OpenNext embeds `.env*` values in `next-env.mjs`; a deployed
  * Poppy takes its configuration from wrangler vars and secrets only, so that
- * file is emptied and the whole bundle is scanned for any local secret value.
- * Only names are ever printed.
+ * file is emptied and the whole bundle is scanned for any local secret value
+ * from `.env*` and `.dev.vars*`. Only names are ever printed.
+ *
+ * `deploy:worker` then uploads exactly this checked artifact: it sets
+ * OPEN_NEXT_DEPLOY so `wrangler deploy` doesn't hand over to
+ * `opennextjs-cloudflare deploy`, which would start a local runtime that reads
+ * `.dev.vars` and warns that the Durable Object class is missing.
  */
 import { spawnSync } from "node:child_process";
 import {
@@ -42,7 +47,25 @@ writeFileSync(
 
 // Every local secret-looking value, and the local agent identity.
 const secrets = new Map();
-for (const file of readdirSync(root).filter((f) => f.startsWith(".env"))) {
+/** The private scalars inside a JSON value such as POPPY_IDENTITY's key pair. */
+const privateParts = (value) => {
+  const parts = [];
+  const visit = (node) => {
+    if (!node || typeof node !== "object") return;
+    for (const [key, inner] of Object.entries(node))
+      if (key === "d" && typeof inner === "string") parts.push(inner);
+      else visit(inner);
+  };
+  try {
+    visit(JSON.parse(value));
+  } catch {
+    // Not JSON: the value itself is the secret.
+  }
+  return parts;
+};
+for (const file of readdirSync(root).filter(
+  (f) => f.startsWith(".env") || f.startsWith(".dev.vars"),
+)) {
   for (const line of readFileSync(path.join(root, file), "utf8").split("\n")) {
     const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
     if (!m) continue;
@@ -51,8 +74,12 @@ for (const file of readdirSync(root).filter((f) => f.startsWith(".env"))) {
     if (
       value.length >= 8 &&
       /KEY|SECRET|TOKEN|PASSWORD|HASH|PRIVATE|IDENTITY|CREDENTIAL/.test(m[1])
-    )
+    ) {
       secrets.set(`${file}:${m[1]}`, value);
+      // A reformatted key pair would still carry its private scalar.
+      for (const [index, part] of privateParts(value).entries())
+        secrets.set(`${file}:${m[1]} private part ${index + 1}`, part);
+    }
   }
 }
 const identityFile = path.join(root, ".poppy", "identity.json");

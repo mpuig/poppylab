@@ -12,7 +12,7 @@
     "lint": "tsc --noEmit",
     "build:worker": "node scripts/build-worker.mjs",
     "preview:worker": "wrangler dev --port 4400",
-    "deploy:worker": "wrangler deploy"
+    "deploy:worker": "OPEN_NEXT_DEPLOY=true wrangler deploy"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.20.18",

@@ -61,6 +61,7 @@ it("builds a plain-text report for interop issues", () => {
       "- 2026-11-03T10:00:01.123Z (§7) GET /api/products · Poppy Session [info]",
       "",
       "Recorded: time, spec section, method, address without its query, and the event's own words.",
+      "Times are when this page received each event; one turn's events arrive together.",
       "Never recorded: headers, bodies, tokens, Session JWTs, DPoP proofs, keys, codes or sign-in values.",
     ].join("\n"),
   );

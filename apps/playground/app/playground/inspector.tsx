@@ -123,7 +123,7 @@ export function Inspector({
               <li key={index} className={`log-${entry.outcome}`}>
                 <time
                   dateTime={new Date(entry.at).toISOString()}
-                  title={new Date(entry.at).toLocaleString()}
+                  title={`Received by this page at ${new Date(entry.at).toLocaleString()}`}
                 >
                   {clock(entry.at)}
                 </time>
@@ -134,11 +134,12 @@ export function Inspector({
                       <span className="spec-ref">{entry.section}</span>
                     )}
                   </p>
-                  {entry.url && (
-                    <code>
-                      {entry.method} {entry.url}
-                    </code>
-                  )}
+                  {entry.url &&
+                    !entry.text.startsWith(`${entry.method} ${entry.url}`) && (
+                      <code>
+                        {entry.method} {entry.url}
+                      </code>
+                    )}
                 </div>
                 <span className={`outcome ${entry.outcome}`}>
                   {outcomeLabel[entry.outcome]}

@@ -67,6 +67,7 @@ export function traceReport(input: {
   lines.push(
     "",
     "Recorded: time, spec section, method, address without its query, and the event's own words.",
+    "Times are when this page received each event; one turn's events arrive together.",
     "Never recorded: headers, bodies, tokens, Session JWTs, DPoP proofs, keys, codes or sign-in values.",
   );
   return lines.join("\n");

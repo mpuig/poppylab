@@ -24,9 +24,9 @@ function bareUrl(value: string) {
 
 function outcomeOf(text: string): ProtocolOutcome {
   if (/approval required/i.test(text)) return "waiting";
-  if (/declin|refus|revoked|signed out/i.test(text)) return "refused";
+  if (/declin|refus|revoked/i.test(text)) return "refused";
   if (/fail|error|could not|unavailable|unknown/i.test(text)) return "error";
-  if (/complet|succeed|started|loaded|signed\b/i.test(text)) return "ok";
+  if (/complet|succeed|started|loaded|signed in/i.test(text)) return "ok";
   return "info";
 }
 
