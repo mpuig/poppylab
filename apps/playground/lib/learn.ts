@@ -24,9 +24,63 @@ export const LEARN_PAGES: readonly LearnPage[] = [
     label: "How it works",
   },
   {
+    slug: "how-it-works/connecting-to-a-company",
+    file: "how-it-works/connecting-to-a-company.md",
+    label: "Connecting to a company",
+    parent: "how-it-works",
+  },
+  {
+    slug: "how-it-works/signing-in-and-giving-permission",
+    file: "how-it-works/signing-in-and-giving-permission.md",
+    label: "Signing in and giving permission",
+    parent: "how-it-works",
+  },
+  {
     slug: "how-it-works/changing-an-order",
     file: "how-it-works/changing-an-order.md",
     label: "Changing an order",
+    parent: "how-it-works",
+  },
+  {
+    slug: "how-it-works/moving-money",
+    file: "how-it-works/moving-money.md",
+    label: "Moving money",
+    parent: "how-it-works",
+  },
+  {
+    slug: "how-it-works/changing-a-trip",
+    file: "how-it-works/changing-a-trip.md",
+    label: "Changing a trip",
+    parent: "how-it-works",
+  },
+  {
+    slug: "how-it-works/letting-the-agent-approve-for-you",
+    file: "how-it-works/letting-the-agent-approve-for-you.md",
+    label: "Letting the agent approve for you",
+    parent: "how-it-works",
+  },
+  {
+    slug: "how-it-works/getting-help-from-the-company",
+    file: "how-it-works/getting-help-from-the-company.md",
+    label: "Getting help from the company",
+    parent: "how-it-works",
+  },
+  {
+    slug: "how-it-works/talking-to-the-company-yourself",
+    file: "how-it-works/talking-to-the-company-yourself.md",
+    label: "Talking to the company yourself",
+    parent: "how-it-works",
+  },
+  {
+    slug: "how-it-works/when-the-company-cant-do-it",
+    file: "how-it-works/when-the-company-cant-do-it.md",
+    label: "When the company can't do it",
+    parent: "how-it-works",
+  },
+  {
+    slug: "how-it-works/when-something-goes-wrong",
+    file: "how-it-works/when-something-goes-wrong.md",
+    label: "When something goes wrong",
     parent: "how-it-works",
   },
   {

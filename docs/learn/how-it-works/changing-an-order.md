@@ -248,12 +248,13 @@ dishes, 43 dollars.
 
 ### 11. See what the agent did
 
-![Lantern's record of the agent's activity: the change, applied, approved by you in your agent](../../../apps/playground/public/learn-media/how-it-works/changing-an-order/11-agent-activity-at-lantern.webp "Lantern keeps its own record of what the agent asked for and who approved it.")
+![Lantern's record of the agent's activity: the change, applied, approved by you in your agent](../../../apps/playground/public/learn-media/how-it-works/changing-an-order/11-agent-activity-at-lantern.webp "Lantern shows the customer what her agent asked for and who approved it.")
 
-Lower on the same page, Lantern lists what Elena's agent has done on her
-behalf. The entry for this change says it was applied and that Elena approved
-it in her agent. A customer who wonders how an order changed finds the answer
-on the company's site.
+Lower on the same page, Lantern lists what Elena's agent has asked for
+recently. The entry for this change says it was applied and that Elena
+approved it in her agent. A customer who wonders how an order changed finds
+the answer on the company's site while the entry is listed. The order keeps
+the change.
 
 ## What Lantern controls
 
@@ -265,7 +266,8 @@ Lantern stays in charge of its own business throughout.
 - It computes the terms and the price. The agent cannot propose a total.
 - It makes a change only when the customer's approval arrives, and only for
   the terms it offered.
-- It keeps the record of what was asked, what was approved and what was done.
+- It shows the customer what her agent asked for recently, what was applied
+  and who approved it.
 
 ## For the technical reader
 
