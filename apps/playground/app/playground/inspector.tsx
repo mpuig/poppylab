@@ -118,6 +118,10 @@ export function Inspector({
       {!!chatLog.length && (
         <>
           <h2>Session & API calls</h2>
+          <p className="log-note">
+            Times are when this page received each event; one turn&apos;s events
+            arrive together.
+          </p>
           <ol className="api-events">
             {chatLog.map((entry, index) => (
               <li key={index} className={`log-${entry.outcome}`}>

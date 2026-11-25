@@ -181,3 +181,21 @@ it("gives every product a photo URL on its own origin, and the photo exists", as
     await app.close();
   }
 });
+
+it("lets only the home page load images, and only from its own origin", async () => {
+  const { app } = await setup();
+  try {
+    const home = await app.inject({ url: "/" });
+    expect(home.statusCode).toBe(200);
+    expect(home.headers["content-security-policy"]).toContain(
+      "img-src 'self';",
+    );
+    // The shared default for everything else allows no images.
+    const discovery = await app.inject({ url: "/.well-known/poppy.json" });
+    expect(discovery.headers["content-security-policy"]).not.toContain(
+      "img-src",
+    );
+  } finally {
+    await app.close();
+  }
+});

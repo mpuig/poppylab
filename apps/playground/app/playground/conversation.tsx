@@ -299,6 +299,12 @@ export function Conversation({
           </div>
         )}
       </div>
+      {/* Always present, so a proposal arriving in the panel is announced. */}
+      <p className="sr-only" role="status">
+        {waiting.length
+          ? `${waiting.length} ${waiting.length === 1 ? "request needs" : "requests need"} your decision`
+          : ""}
+      </p>
       {!!waiting.length && (
         <section
           ref={panel}

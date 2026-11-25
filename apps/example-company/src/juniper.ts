@@ -196,6 +196,11 @@ export function juniperCompany(options: {
         };
       return undefined;
     },
+    // The home page shows product photos from its own origin, nothing else.
+    pageHeaders: {
+      "Content-Security-Policy":
+        "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+    },
     landing: (publicOrigin) =>
       homePage(publicOrigin, { products, delivery, policies }),
     pages: { "/for-agents": forAgentsPage },
