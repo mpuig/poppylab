@@ -2,6 +2,10 @@
 
 Borrador. Los detalles de FDX (rutas, campos, data clusters, códigos de error, duración del consentimiento) están escritos de memoria y se verifican en la fase 0 antes de escribir código.
 
+## Estado (25/11/2026)
+
+Hechas e integradas en `feat/fdx-harborline`: fases 0, 1, 2, 3, 4, 5 y 6. Pendiente la 2b (extractos, opcional). Falta además una prueba manual en el navegador (interruptor "Use FDX" y página de consentimiento) y pasadas con un LLM real. La extensión está descrita en `docs/extensions/fdx.md`.
+
 ## Objetivo
 
 Demostrar el patrón "estándar de dominio existente + extensión de Poppy", igual que `ucp`: Poppy pone descubrimiento, identidad del agente, Session y sign-in; FDX pone el modelo de datos. Harborline sirve una API con forma FDX sobre los mismos datos que ya tiene, y el agente la usa con un adaptador nativo en vez del adaptador OpenAPI genérico.
