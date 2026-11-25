@@ -146,14 +146,78 @@ article.order{background:var(--tile);border:1px solid var(--tile-edge);border-ra
 article.activity{padding:14px 0;border-bottom:1px solid var(--rule)}
 article.activity h3{font:800 18px/1 var(--display);text-transform:uppercase;margin:0 0 6px}
 article.activity p{margin:0;color:var(--ink-soft);font-size:15px}.records{list-style:none;margin:0;padding:0;border-top:1px solid var(--rule)}.record{display:grid;gap:6px;padding:16px 0 18px;border-bottom:1px solid var(--rule);overflow-wrap:anywhere}.record-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 16px}.record-when{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}.record-title{margin:4px 0 0;max-width:65ch}.record-body{margin:0;max-width:65ch;font-size:15px;line-height:1.55}.record-meta{margin:0;font-size:13px;color:var(--muted)}.record[data-tone=muted] .record-tag{background:transparent;color:var(--muted);box-shadow:inset 0 0 0 1px var(--rule)}.record-tag{font:600 12px/1 var(--mono);letter-spacing:.04em;text-transform:uppercase;padding:6px 8px 5px;border-radius:3px;background:var(--panel);color:var(--tile)}.record[data-tone=pending] .record-tag{background:var(--amber);color:var(--ink)}.record[data-tone=info] .record-tag{background:var(--tile);color:var(--ink);box-shadow:inset 0 0 0 1px var(--amber)}.record-when{font-family:var(--mono)}.record-title{font:700 17px/1.35 var(--body);color:var(--ink)}.record-body{color:var(--ink-soft)}
+.intro.wide h1{max-width:20ch;font-size:clamp(40px,6.4vw,84px)}
+.intro.wide p{max-width:70ch}
+.agents{padding:0 0 clamp(40px,6vw,64px)}
+.agents.steps{padding-bottom:0}
+.more{margin:20px 0 0;font:700 14px var(--mono)}
+.step{display:grid;grid-template-columns:minmax(0,4fr) minmax(0,7fr);gap:clamp(20px,4vw,48px);align-items:start;padding:clamp(24px,4vw,40px) 0;border-top:1px solid var(--rule)}
+.step>div:first-child{position:sticky;top:24px}
+.step .num{display:block;font:900 clamp(56px,7vw,88px)/.85 var(--display);color:var(--red)}
+.step h2{font:900 clamp(26px,3vw,36px)/1 var(--display);text-transform:uppercase;letter-spacing:.02em;margin:14px 0 10px}
+.step .say{margin:0;color:var(--ink-soft);max-width:44ch}
+.mark{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--amber);color:var(--ink);font:700 12px/1 var(--mono)}
+.keys{list-style:none;margin:20px 0 0;padding:0;display:grid;gap:10px;font-size:15px;line-height:1.45;color:var(--ink-soft)}
+.keys li{display:grid;grid-template-columns:22px minmax(0,1fr);gap:12px}
+.keys strong{color:var(--ink)}
+.doc{background:var(--panel);color:var(--tile);border-radius:14px;overflow:hidden}
+.doc-head{margin:0;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:4px 12px;padding:12px 18px;border-bottom:1px solid rgba(255,255,255,.12);font:700 13px var(--mono)}
+.doc-head span{font-weight:400;color:#b9c0cc}
+.doc pre{margin:0;padding:14px 0;font:400 13px/1.65 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere}
+.doc .ln{display:block;position:relative;padding:0 18px 0 calc(46px + var(--d,0)*2ch + 2ch);text-indent:-2ch}
+.doc .d1{--d:1}.doc .d2{--d:2}.doc .d3{--d:3}.doc .d4{--d:4}.doc .d5{--d:5}
+.doc .ln.hit{background:rgba(228,161,27,.16)}
+.doc .ln .mark{position:absolute;left:14px;top:1px;width:20px;height:20px;font-size:11px;text-indent:0}
+.doc .k{color:#f3c96a}
+.ops{background:var(--panel);color:var(--tile);border-radius:18px;padding:clamp(16px,2.4vw,24px);display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 12px}
+.zone{grid-column:span var(--n);grid-row:span 2;display:grid;grid-template-rows:subgrid;gap:0}
+.zone.n1{--n:1}.zone.n2{--n:2}.zone.n3{--n:3}
+.zone .cap{padding:0 0 10px;margin-bottom:12px;border-bottom:1px solid rgba(255,255,255,.2)}
+.zone:nth-child(n+2) .cap{margin-top:22px}
+.zone h3{font:900 20px/1.05 var(--display);text-transform:uppercase;letter-spacing:.04em;margin:0 0 6px}
+.zone .who{font:400 12px/1.45 var(--mono);color:#b9c0cc;margin:0}
+.zone ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:12px}
+.op{position:relative;background:var(--tile);color:var(--ink);border:1px solid var(--tile-edge);border-radius:10px;padding:14px 14px 12px;display:grid;gap:8px;align-content:start}
+.op .n{position:absolute;top:10px;right:12px;font:700 12px var(--mono);color:var(--muted)}
+.op .name{font:800 22px/1.05 var(--display);text-transform:uppercase;letter-spacing:.01em;padding-right:28px}
+.op .path{justify-self:start;font:700 12px/1.35 var(--mono);background:var(--ink);color:#fff;padding:4px 7px;border-radius:3px;overflow-wrap:break-word}
+.op .sum{margin:0;font-size:13px;line-height:1.4;color:var(--ink-soft)}
+.op.lit{box-shadow:0 0 0 3px var(--amber-glow),0 0 18px 2px var(--amber-glow)}
+.tel{white-space:nowrap}
+.ticket{margin-top:24px;max-width:340px;background:var(--tile);border:1px solid var(--tile-edge);border-radius:6px;font:400 13px/1.5 var(--mono);color:var(--ink)}
+.ticket .top{padding:14px 16px 10px;text-align:center;border-bottom:2px dashed var(--rule)}
+.ticket .top strong{display:block;font:900 22px/1 var(--display);text-transform:uppercase;letter-spacing:.04em}
+.ticket dl{margin:0;padding:10px 16px 12px}
+.ticket dl div{display:flex;justify-content:space-between;gap:12px;padding:3px 0}
+.ticket dt{color:var(--ink-soft)}
+.ticket dd{margin:0;text-align:right;font-weight:700}
+.ticket .new dt,.ticket .new dd{background:var(--amber);box-shadow:0 0 0 2px var(--amber)}
+.ticket .was dd{font-weight:400;text-decoration:line-through;color:var(--muted)}
+.ticket .rule{border-top:1px solid var(--rule);margin-top:6px;padding-top:8px}
+.ticket .stamp{margin:0 16px;padding:6px 8px;border:2px solid var(--amber);font-weight:700;text-align:center;letter-spacing:.06em;text-transform:uppercase}
+.ticket .acts{display:flex;gap:8px;padding:12px 16px 16px}
+.ticket .acts span{flex:1;text-align:center;padding:9px 8px;border-radius:6px;font:800 15px var(--display);text-transform:uppercase;letter-spacing:.04em;background:var(--ink);color:#fff}
+.ticket .acts span+span{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1px var(--rule)}
+.seq{margin:0}
+.seq svg{display:block;width:100%;height:auto}
+.seq .narrow{display:none}
+.seq figcaption{margin-top:10px;font-size:14px;color:var(--muted);max-width:60ch}
+.sq-head{font:800 17px var(--display);letter-spacing:.04em;text-transform:uppercase}
+.sq-label{font:700 12px var(--mono);letter-spacing:.04em;text-transform:uppercase}
+.faq-title{font:900 clamp(24px,2.6vw,32px)/1 var(--display);text-transform:uppercase;letter-spacing:.02em;margin:0;padding-top:clamp(24px,4vw,40px);border-top:1px solid var(--rule)}
+.faq{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px clamp(24px,4vw,56px);margin:20px 0 0}
+.faq dt{font:800 20px/1.15 var(--display);text-transform:uppercase;letter-spacing:.02em;margin:0 0 6px}
+.faq dd{margin:0;color:var(--ink-soft);font-size:15px;max-width:52ch}
+@media(max-width:1000px){.step,.faq{grid-template-columns:minmax(0,1fr)}.step>div:first-child{position:static}}
+@media(max-width:640px){.seq .wide{display:none}.seq .narrow{display:block;max-width:420px}.sq-head{font-size:15px}.doc pre{font-size:12px}.ops{grid-template-columns:minmax(0,1fr)}.zone{--n:1!important;grid-row:auto;grid-template-rows:none}.zone .cap{margin-top:22px}.zone:first-child .cap{margin-top:0}}
 @media(max-width:900px){.buttons{grid-template-columns:repeat(2,minmax(0,1fr))}.buttons.slots{grid-template-columns:repeat(2,minmax(0,1fr))}.cols{grid-template-columns:1fr}.tray{grid-template-columns:1fr}.tray .cta{justify-self:start}}
-@media(max-width:560px){.strip nav{gap:10px;font-size:12px}.quantities{grid-template-columns:1fr}.strip .tag{display:none}.btn{min-height:104px;padding:14px}.customers{grid-template-columns:1fr}.consent .actions{flex-wrap:wrap}.consent .actions button{flex:1}}
+@media(max-width:560px){.strip .wrap{flex-wrap:wrap;row-gap:8px}.strip nav{width:100%;gap:14px;font-size:12px;white-space:nowrap}.quantities{grid-template-columns:1fr}.strip .tag{display:none}.btn{min-height:104px;padding:14px}.customers{grid-template-columns:1fr}.consent .actions{flex-wrap:wrap}.consent .actions button{flex:1}}
 `;
 
 export function shell(
   title: string,
   body: string,
-  current: "/" | "/for-agents" | "/account",
+  current: "/" | "/for-agents" | "/account" | "/how-it-works",
   origin: string,
 ) {
   const nav = (
@@ -161,6 +225,7 @@ export function shell(
       ["/", "Menu"],
       ["/for-agents", "For agents"],
       ["/account", "Your account"],
+      ["/how-it-works", "How it works"],
     ] as const
   )
     .map(
@@ -176,6 +241,297 @@ const [slotDay, slotTime] = [
   (label: string) => label.split(" ").slice(1).join(" "),
 ];
 
+type GuideOperation = {
+  operationId: string;
+  summary: string;
+  "x-poppy-scopes"?: readonly string[];
+  "x-poppy-proposal"?: boolean;
+};
+export type GuidePaths = Record<string, Record<string, GuideOperation>>;
+/** What the home page shows of the protocol; built in lantern.ts from the objects the endpoints serve. */
+export type AgentGuide = {
+  discovery: Record<string, unknown>;
+  paths: GuidePaths;
+  excluded: string[];
+  example: {
+    ask: string;
+    order: string;
+    customer: string;
+    fromSlot: string;
+    toSlot: string;
+    items: Array<{
+      name: string;
+      quantity: number;
+      cents: number;
+      added: boolean;
+    }>;
+    deliveryCents: number;
+    beforeCents: number;
+    afterCents: number;
+  };
+};
+
+/** The parts of the discovery document the page points at, in the order they appear in it. */
+const discoveryKeys: Array<[key: string, title: string, text: string]> = [
+  [
+    "organization",
+    "Who we are.",
+    "Our name, and the domain this file was served from.",
+  ],
+  [
+    "auth",
+    "Where you sign in.",
+    "And the two permissions an agent can ask you for: to see your orders, and to propose changes to them.",
+  ],
+  [
+    "apis",
+    "What it can ask the kitchen.",
+    "The menu, the delivery slots, your orders and changes to them.",
+  ],
+  [
+    "agent",
+    "Who it can talk to.",
+    "Lantern's own automated agent, for hours, delivery and a missing dish.",
+  ],
+  [
+    "tasks",
+    "What we don't do through agents.",
+    "And where an agent tells us what it couldn't do here.",
+  ],
+  [
+    "extensions",
+    "Changes wait for you.",
+    "A change comes back with its exact terms and is held until you approve it.",
+  ],
+];
+
+/** JSON on one line, spaced as a person would write it. */
+function inlineJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(inlineJson).join(", ")}]`;
+  if (value && typeof value === "object") {
+    const entries = Object.entries(value);
+    return entries.length
+      ? `{ ${entries.map(([k, v]) => `${JSON.stringify(k)}: ${inlineJson(v)}`).join(", ")} }`
+      : "{}";
+  }
+  return JSON.stringify(value);
+}
+
+type JsonLine = { depth: number; text: string };
+/** A document's lines: a value stays on its line when it is short and opens up when it is not. */
+function jsonLines(
+  value: unknown,
+  depth = 0,
+  lead = "",
+  trail = "",
+): JsonLine[] {
+  const short = inlineJson(value);
+  if (
+    value === null ||
+    typeof value !== "object" ||
+    depth * 2 + lead.length + short.length <= 76
+  )
+    return [{ depth, text: `${lead}${short}${trail}` }];
+  const array = Array.isArray(value);
+  const entries: Array<[string, unknown]> = array
+    ? value.map((item) => ["", item])
+    : Object.entries(value).map(([k, v]) => [`${JSON.stringify(k)}: `, v]);
+  return [
+    { depth, text: `${lead}${array ? "[" : "{"}` },
+    ...entries.flatMap(([key, item], i) =>
+      jsonLines(item, depth + 1, key, i < entries.length - 1 ? "," : ""),
+    ),
+    { depth, text: `${array ? "]" : "}"}${trail}` },
+  ];
+}
+
+/** The discovery document, with a numbered mark on each part the page explains. */
+function annotatedJson(document: Record<string, unknown>) {
+  return jsonLines(document)
+    .map(({ depth, text }) => {
+      const key = depth === 1 ? /^"([^"]+)":/.exec(text)?.[1] : undefined;
+      const number = discoveryKeys.findIndex(([k]) => k === key) + 1;
+      const html = escape(text).replace(
+        /^(&#34;[^&]*&#34;)(:)/,
+        '<span class="k">$1</span>$2',
+      );
+      return `<span class="ln d${depth}${number ? " hit" : ""}">${number ? `<b class="mark">${number}</b>` : ""}${html}</span>`;
+    })
+    .join("");
+}
+
+/** The API's operations and the Company's own agent as buttons, grouped by what each needs from the customer. */
+function operationZones(guide: AgentGuide) {
+  const operations = Object.entries(guide.paths).flatMap(([path, methods]) =>
+    Object.entries(methods).map(([method, operation]) => ({
+      name: operation.operationId.replace(/_/g, " "),
+      where: `${method.toUpperCase()} ${path}`,
+      // The first clause of the API's own summary.
+      text: operation.summary.split(/[:.]/)[0] ?? "",
+      signedIn: (operation["x-poppy-scopes"] ?? []).length > 0,
+      approval: operation["x-poppy-proposal"] === true,
+    })),
+  );
+  const agent = (
+    guide.discovery.agent as
+      | { protocols?: Array<{ endpoint?: string; description?: string }> }
+      | undefined
+  )?.protocols?.[0];
+  if (agent?.endpoint)
+    operations.push({
+      name: "ask our agent",
+      where: `POST ${new URL(agent.endpoint).pathname}`,
+      text: (agent.description ?? "").split(/[.;]/)[0] ?? "",
+      signedIn: false,
+      approval: false,
+    });
+  const zones: Array<[title: string, who: string, list: typeof operations]> = [
+    [
+      "Anyone",
+      "No sign-in. Any agent may press these.",
+      operations.filter((o) => !o.signedIn && !o.approval),
+    ],
+    [
+      "After you sign in",
+      "Only for the customer who signed in here.",
+      operations.filter((o) => o.signedIn && !o.approval),
+    ],
+    [
+      "Needs your approval",
+      "Held until you approve.",
+      operations.filter((o) => o.approval),
+    ],
+  ];
+  let n = 0;
+  return zones
+    .filter(([, , list]) => list.length)
+    .map(
+      ([title, who, list]) =>
+        `<div class="zone n${Math.min(list.length, 3)}"><div class="cap"><h3>${title}</h3><p class="who">${who}</p></div><ul>${list
+          .map(
+            (o) =>
+              `<li class="op${o.approval ? " lit" : ""}"><span class="n">${String(++n).padStart(2, "0")}</span><span class="name">${escape(o.name)}</span><span class="path">${escape(o.where).replace(/\//g, "/<wbr>")}</span><p class="sum">${escape(o.text)}.</p></li>`,
+          )
+          .join("")}</ul></div>`,
+    )
+    .join("");
+}
+
+/** The change the customer approves, printed as the shop's ticket. */
+function changeTicket(example: AgentGuide["example"]) {
+  const difference = example.afterCents - example.beforeCents;
+  const dishes = example.items
+    .map(
+      (item) =>
+        `<div${item.added ? ' class="new"' : ""}><dt>${item.added ? "+ " : ""}${item.quantity} × ${escape(item.name)}</dt><dd>${usd(item.cents)}</dd></div>`,
+    )
+    .join("");
+  return `<div class="ticket" role="img" aria-label="Change ticket for order ${escape(example.order)}: delivery moves from ${escape(example.fromSlot)} to ${escape(example.toSlot)}, the new total is ${usd(example.afterCents)}, ${usd(Math.abs(difference))} ${difference >= 0 ? "more" : "less"} than before, waiting for your approval."><div class="top"><strong>Change ticket</strong>${escape(example.order)} · ${escape(example.customer)}</div><dl><div class="was"><dt>Delivery</dt><dd>${escape(example.fromSlot)}</dd></div><div class="new"><dt>Moves to</dt><dd>${escape(example.toSlot)}</dd></div><div class="rule"></div>${dishes}<div><dt>Delivery</dt><dd>${usd(example.deliveryCents)}</dd></div><div class="rule was"><dt>Was</dt><dd>${usd(example.beforeCents)}</dd></div><div><dt>New total</dt><dd>${usd(example.afterCents)}</dd></div><div><dt>Difference</dt><dd>${difference >= 0 ? "+" : "−"} ${usd(Math.abs(difference))}</dd></div></dl><p class="stamp">Waiting for you</p><p class="acts" aria-hidden="true"><span>Approve</span><span>Decline</span></p></div>`;
+}
+
+/**
+ * Who says what when a change is approved: three lifelines and six messages,
+ * straight and level, each label on its own ground above its line. The one
+ * amber message is the customer's own.
+ */
+function approvalSequence(narrow = false) {
+  // The same picture twice: lifelines 230 apart on a wide screen, 128 on a phone,
+  // where a label may cross a lifeline on its own ground.
+  const id = `lantern-approval${narrow ? "-narrow" : ""}`;
+  const width = narrow ? 360 : 640;
+  const at = narrow
+    ? { you: 52, agent: 180, lantern: 308 }
+    : { you: 90, agent: 320, lantern: 550 };
+  const box = narrow ? 100 : 156;
+  const messages: Array<
+    [from: keyof typeof at, to: keyof typeof at, label: string, kind?: string]
+  > = [
+    ["you", "agent", "Ask for a change"],
+    ["agent", "lantern", "Change order"],
+    ["lantern", "agent", "403 · exact terms", "reply"],
+    ["you", "agent", "Approve", "yours"],
+    ["agent", "lantern", "Again, with approval"],
+    ["lantern", "agent", "Changed, once", "reply"],
+  ];
+  const rows = messages
+    .map(([from, to, label, kind], i) => {
+      const y = 98 + i * 48 + (i >= 3 ? 48 : 0);
+      const x1 = at[from],
+        x2 = at[to];
+      const text = `${i + 1} · ${label}`;
+      const ground = text.length * 7.9 + 16;
+      // Centred on its arrow, and kept inside the picture.
+      const middle = Math.min(
+        Math.max((x1 + x2) / 2, ground / 2 + 4),
+        width - ground / 2 - 4,
+      );
+      const yours = kind === "yours";
+      return `<line x1="${x1}" y1="${y}" x2="${x2 > x1 ? x2 - 10 : x2 + 10}" y2="${y}" stroke="${yours ? "#e4a11b" : "#17202a"}" stroke-width="${yours ? 2.5 : 1.5}"${kind === "reply" ? ' stroke-dasharray="5 4"' : ""} marker-end="url(#${id}-${yours ? "amber" : "ink"})"/><rect x="${middle - ground / 2}" y="${y - 27}" width="${ground}" height="18" rx="2" fill="${yours ? "#e4a11b" : "#f3efe6"}"/><text class="sq-label" x="${middle}" y="${y - 14}" text-anchor="middle" fill="#17202a">${escape(text)}</text>`;
+    })
+    .join("");
+  const head = (x: number, label: string, dark: boolean) =>
+    `<rect x="${x - box / 2}" y="8" width="${box}" height="40" rx="6" fill="${dark ? "#17202a" : "#fbf7ee"}" stroke="#17202a" stroke-width="1.5"/><text class="sq-head" x="${x}" y="34" text-anchor="middle" fill="${dark ? "#fbf7ee" : "#17202a"}">${label}</text>`;
+  const marker = (name: string, fill: string) =>
+    `<marker id="${id}-${name}" viewBox="0 0 10 10" refX="1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="${fill}"/></marker>`;
+  const lifelines = Object.values(at)
+    .map(
+      (x) =>
+        `<line x1="${x}" y1="48" x2="${x}" y2="398" stroke="#d9d2c5" stroke-width="1.5"/>`,
+    )
+    .join("");
+  // Between the terms and the approval the order is as it was: the band says so across all three.
+  const held = `<rect x="${narrow ? 2 : 12}" y="216" width="${width - (narrow ? 4 : 24)}" height="30" rx="4" fill="#fbf7ee" stroke="#e4a11b" stroke-width="1.5" stroke-dasharray="6 4"/><text class="sq-label" x="${width / 2}" y="235" text-anchor="middle" fill="#17202a">The ticket waits · nothing has changed</text>`;
+  return `<svg class="${narrow ? "narrow" : "wide"}" viewBox="0 0 ${width} 410" role="img" aria-labelledby="${id}-title ${id}-desc"><title id="${id}-title">How a change to an order is approved</title><desc id="${id}-desc">You ask your agent for a change. Your agent sends it to Lantern, which answers with the exact terms and changes nothing. You approve. Your agent sends the same request again with your approval, and Lantern changes the order once.</desc><defs>${marker("ink", "#17202a")}${marker("amber", "#e4a11b")}</defs>${lifelines}${held}${rows}${head(at.you, "You", false)}${head(at.agent, "Your agent", false)}${head(at.lantern, "Lantern", true)}</svg>`;
+}
+
+/** "How it works": three steps with a personal agent, each showing the real thing, then questions. */
+export function howItWorksPage(origin: string, guide: AgentGuide) {
+  const { example } = guide;
+  const keys = discoveryKeys
+    .filter(([key]) => key in guide.discovery)
+    .map(
+      ([, title, text], i) =>
+        `<li><b class="mark">${i + 1}</b><span><strong>${title}</strong> ${text}</span></li>`,
+    )
+    .join("");
+  const cannot = guide.excluded.length
+    ? `An agent can&#39;t ${guide.excluded.map((task) => escape(task.charAt(0).toLowerCase() + task.slice(1))).join(" or ")}. It can move an order to another slot instead.`
+    : "Nothing is ruled out.";
+  const questions: Array<[string, string]> = [
+    [
+      "Do I have to set anything up?",
+      "No. Your agent finds Lantern on its own. To see or change your order you sign in on this site, on a page we show you, and choose what the agent may do.",
+    ],
+    [
+      "What can an agent do without me?",
+      "Read the menu, the prices and the delivery slots, and ask our automated agent about hours and delivery. Nothing about you.",
+    ],
+    [
+      "What needs my approval?",
+      "Every change to an order. You see the dishes, the slot and the new total first, and the kitchen changes the order once, after you approve.",
+    ],
+    [
+      "Does the agent get my password?",
+      'No. You sign in on Lantern&#39;s own page. The agent gets a permission, and you can take it away under <a href="/account">Your account</a>.',
+    ],
+    [
+      "What can&#39;t an agent do here?",
+      `${cannot} For anything else, call <span class="mono tel">${PHONE}</span> (a fictional number).`,
+    ],
+    [
+      "Which agents work here?",
+      `Any personal agent that follows Personal Agent Protocol 1.0. <a href="${labPlaygroundUrl(origin)}">Iris</a>, the agent of Poppy Lab, is one you can try now. The addresses an agent needs are under <a href="/for-agents">For agents</a>.`,
+    ],
+  ];
+  const body = `<main class="wrap"><section class="intro wide"><h1>How Lantern works with your agent.</h1><p>Lantern takes orders from personal AI agents through Personal Agent Protocol, an open protocol. It takes three steps. Each is shown here as this site serves it.</p></section><section class="agents steps" aria-label="The three steps"><article class="step"><div><span class="num" aria-hidden="true">01</span><h2>Your agent finds the door</h2><p class="say">Every agent starts at one small file on our site. This is ours, as an agent reads it.</p><ol class="keys">${keys}</ol></div><div class="doc"><p class="doc-head"><code>/.well-known/poppy.json</code><span>as served to every agent</span></p><pre tabindex="0" aria-label="Lantern&#39;s discovery document">${annotatedJson(guide.discovery)}</pre></div></article><article class="step"><div><span class="num" aria-hidden="true">02</span><h2>The machine shows it the buttons</h2><p class="say">The file leads to our API, which works like the machine at the door: a few buttons, each with one job. Some are for anyone, some open once you sign in, and one waits for you.</p></div><div class="ops">${operationZones(guide)}</div></article><article class="step"><div><span class="num" aria-hidden="true">03</span><h2>You approve the ticket</h2><p class="say">Ask your agent: <q>${escape(example.ask)}</q> It presses the last button, and the kitchen prints a ticket with the exact change and holds it. Nothing changes until you approve, and then it changes once.</p>${changeTicket(example)}</div><figure class="seq">${approvalSequence()}${approvalSequence(true)}<figcaption>The kitchen answers the first request with the terms, not with the change. The amber step is yours.</figcaption></figure></article></section><section class="agents" aria-labelledby="questions-title"><h2 class="faq-title" id="questions-title">Questions</h2><dl class="faq">${questions.map(([q, a]) => `<div><dt>${q}</dt><dd>${a}</dd></div>`).join("")}</dl></section></main>`;
+  return shell(
+    "Lantern Noodle Bar · How it works with your agent",
+    body,
+    "/how-it-works",
+    origin,
+  );
+}
+
 export function homePage(origin: string) {
   const dishes = menu
     .map(
@@ -189,7 +545,7 @@ export function homePage(origin: string) {
         `<li class="btn slot"><span class="name">${escape(slotDay(s.label))}</span><span class="time">${escape(slotTime(s.label))}</span></li>`,
     )
     .join("");
-  const body = `<main class="wrap"><section class="intro"><h1>Noodles on your night, not your to-do list.</h1><p>Six dishes, four delivery slots, one neighbourhood noodle bar. Schedule a delivery for the night you want it, and change the dishes or the slot until the kitchen starts.</p></section><section class="machine" aria-labelledby="machine-title"><div class="head"><h2 id="machine-title">Menu</h2><span>Delivery ${usd(DELIVERY_CENTS)} per order · USD</span></div><ol class="buttons" aria-label="Menu">${dishes}</ol><ol class="buttons slots" aria-label="Delivery slots">${slotButtons}</ol><div class="tray"><p><strong>Order through your agent.</strong> Lantern takes orders from personal AI agents. Yours reads the menu and the slots, gets the change ready, and you approve the exact new total.</p><a class="cta" href="${labPlaygroundUrl(origin)}">Try it with Iris</a></div></section><section class="plain"><h2>How ordering works</h2><div class="cols"><div><h3>1. Your agent reads the menu</h3><p>Dishes, prices and delivery slots are open to any agent. No account is needed for that.</p></div><div><h3>2. You sign in here</h3><p>To see or change your scheduled order, you sign in on Lantern&apos;s own page and choose what your agent may do. It never gets your password.</p></div><div><h3>3. You approve the ticket</h3><p>The agent proposes the change with the exact dishes, slot and price difference. The shop waits for your approval and performs it once.</p></div></div></section><section class="plain"><h2>Hours and delivery</h2><div class="cols"><div><h3>Kitchen</h3><dl class="hours">${hours.map((h) => `<div><dt>${h.days}</dt><dd>${h.open}</dd></div>`).join("")}</dl></div><div><h3>Delivery slots</h3><p>Scheduled orders go out in the four slots above. A change of slot costs nothing; a change of dishes is charged at the difference.</p></div><div><h3>Find us</h3><p>12 Lantern Lane (fictional).<br>Dine in, collect, or let your agent schedule a delivery.<br>Phone <span class="mono">${PHONE}</span> (fictional number).</p></div></div></section></main>`;
+  const body = `<main class="wrap"><section class="intro"><h1>Noodles on your night, not your to-do list.</h1><p>Six dishes, four delivery slots, one neighbourhood noodle bar. Schedule a delivery for the night you want it, and change the dishes or the slot until the kitchen starts.</p></section><section class="machine" aria-labelledby="machine-title"><div class="head"><h2 id="machine-title">Menu</h2><span>Delivery ${usd(DELIVERY_CENTS)} per order · USD</span></div><ol class="buttons" aria-label="Menu">${dishes}</ol><ol class="buttons slots" aria-label="Delivery slots">${slotButtons}</ol><div class="tray"><p><strong>Order through your agent.</strong> Lantern takes orders from personal AI agents. Yours reads the menu and the slots, gets the change ready, and you approve the exact new total.</p><a class="cta" href="${labPlaygroundUrl(origin)}">Try it with Iris</a></div></section><section class="plain"><h2>How ordering works</h2><div class="cols"><div><h3>1. Your agent reads the menu</h3><p>Dishes, prices and delivery slots are open to any agent. No account is needed for that.</p></div><div><h3>2. You sign in here</h3><p>To see or change your scheduled order, you sign in on Lantern&apos;s own page and choose what your agent may do. It never gets your password.</p></div><div><h3>3. You approve the ticket</h3><p>The agent proposes the change with the exact dishes, slot and price difference. The shop waits for your approval and performs it once.</p></div></div><p class="more"><a href="/how-it-works">See each step as your agent sees it</a></p></section><section class="plain"><h2>Hours and delivery</h2><div class="cols"><div><h3>Kitchen</h3><dl class="hours">${hours.map((h) => `<div><dt>${h.days}</dt><dd>${h.open}</dd></div>`).join("")}</dl></div><div><h3>Delivery slots</h3><p>Scheduled orders go out in the four slots above. A change of slot costs nothing; a change of dishes is charged at the difference.</p></div><div><h3>Find us</h3><p>12 Lantern Lane (fictional).<br>Dine in, collect, or let your agent schedule a delivery.<br>Phone <span class="mono">${PHONE}</span> (fictional number).</p></div></div></section></main>`;
   return shell("Lantern Noodle Bar · Menu and delivery", body, "/", origin);
 }
 

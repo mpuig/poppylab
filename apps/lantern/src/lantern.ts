@@ -22,7 +22,10 @@ import {
   fontSources,
   forAgentsPage,
   homePage,
+  howItWorksPage,
   pageHeaders,
+  type AgentGuide,
+  type GuidePaths,
 } from "./site.ts";
 import { mountPortal } from "./portal.ts";
 import { lanternAgent, type Refund } from "./agent.ts";
@@ -92,7 +95,7 @@ const view = (o: Order) => ({
 const object = (v: unknown): v is Record<string, unknown> =>
   !!v && typeof v === "object" && !Array.isArray(v);
 /** Validates a change request strictly; returns the new slot and lines. */
-function changed(order: Order, body: unknown) {
+function changed(order: Pick<Order, "slot" | "lines">, body: unknown) {
   if (
     !object(body) ||
     Object.keys(body).some((k) => !["slot_id", "add", "remove"].includes(k))
@@ -359,6 +362,49 @@ function mount(
   });
 }
 
+/**
+ * What the home page shows of how agents work here. It is built from the
+ * objects the endpoints serve (the discovery document, the API's paths, the
+ * excluded tasks) and from the same pricing and validation a real change
+ * goes through, so the page can't drift from what an agent meets.
+ */
+function agentGuide(origin: string): AgentGuide {
+  const elena = customers[0]!;
+  const request = {
+    slot_id: "sun-1300",
+    add: [{ dish_id: "matcha-ice", quantity: 1 }],
+  };
+  const next = changed(
+    { slot: elena.order.slot, lines: { ...elena.order.lines } },
+    request,
+  )!;
+  const before = priced(elena.order.lines),
+    after = priced(next.lines);
+  return {
+    discovery: lantern.discovery(origin, new URL(origin).host),
+    paths: noodlePaths as unknown as GuidePaths,
+    excluded: (lantern.excludedTasks?.(origin) ?? []).map((t) =>
+      String(t.task),
+    ),
+    example: {
+      ask: "Add a matcha ice cream and move it to Sunday lunchtime.",
+      order: elena.order.id,
+      customer: elena.name,
+      fromSlot: slotLabel(elena.order.slot),
+      toSlot: slotLabel(next.slot),
+      items: after.items.map((item) => ({
+        name: item.name,
+        quantity: item.quantity,
+        cents: item.line_total_cents,
+        added: request.add.some((a) => a.dish_id === item.dish_id),
+      })),
+      deliveryCents: after.delivery_cents,
+      beforeCents: before.total_cents,
+      afterCents: after.total_cents,
+    },
+  };
+}
+
 export const lantern: CompanyDefinition = {
   name: "Lantern Noodle Bar",
   readScope: "orders:read",
@@ -444,7 +490,10 @@ export const lantern: CompanyDefinition = {
     return undefined;
   },
   landing: homePage,
-  pages: { "/for-agents": forAgentsPage },
+  pages: {
+    "/for-agents": forAgentsPage,
+    "/how-it-works": (origin) => howItWorksPage(origin, agentGuide(origin)),
+  },
   pageHeaders,
   fontSources,
 };

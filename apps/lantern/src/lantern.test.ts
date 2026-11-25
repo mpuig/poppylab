@@ -432,6 +432,63 @@ it("serves the website pages with their own headers and fonts allowed on consent
   );
 });
 
+it("explains on How it works what its own endpoints serve, not a copy of it", async () => {
+  await setup();
+  const page = await lab.app.request("/how-it-works");
+  expect(page.status).toBe(200);
+  expect(page.headers.get("content-security-policy")).toContain(
+    "font-src https://fonts.gstatic.com",
+  );
+  const html = (await page.text()).replace(/<wbr>/g, "");
+  const text = (value: string) =>
+    value.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+  // Step 1: every part of the discovery document, as the well-known address serves it.
+  const discovery = (await (
+    await lab.app.request("/.well-known/poppy.json")
+  ).json()) as Record<string, unknown>;
+  for (const key of Object.keys(discovery))
+    expect(html).toContain(`<span class="k">${text(`"${key}"`)}</span>`);
+  const { issuer, scopes } = discovery.auth as {
+    issuer: string;
+    scopes: Record<string, string>;
+  };
+  expect(html).toContain(text(JSON.stringify(issuer)));
+  for (const description of Object.values(scopes))
+    expect(html).toContain(text(JSON.stringify(description)));
+  // Step 2: every operation of the API, and only the one that proposes is lit.
+  const api = (await (await lab.app.request("/openapi.json")).json()) as {
+    paths: Record<string, Record<string, { operationId: string }>>;
+  };
+  const operations = Object.entries(api.paths).flatMap(([path, methods]) =>
+    Object.keys(methods).map((method) => `${method.toUpperCase()} ${path}`),
+  );
+  expect(operations.length).toBeGreaterThan(0);
+  for (const operation of operations) expect(html).toContain(text(operation));
+  expect(html.match(/class="op lit"/g)).toHaveLength(1);
+  expect(html).toMatch(
+    /class="op lit">.*?POST \/api\/account\/orders\/\{order_id\}\/changes/,
+  );
+  // Step 3: the example is Elena's seeded order, priced by the shop's own sums.
+  expect(html).toContain("ord_LNB1001");
+  expect(html).toContain("<dt>Was</dt><dd>$37.00</dd>");
+  expect(html).toContain("<dt>New total</dt><dd>$43.00</dd>");
+  expect(html).toContain("<dt>Difference</dt><dd>+ $6.00</dd>");
+  // The questions name what the document rules out.
+  expect(html).toContain(
+    "An agent can&#39;t cancel an order or change the delivery address of an order.",
+  );
+  expect(html).not.toContain("<script");
+  // The page is in the menu of every page, and the home leads to it.
+  expect(html).toContain(
+    '<a href="/how-it-works" aria-current="page">How it works</a>',
+  );
+  const home = await (await lab.app.request("/")).text();
+  expect(home).toContain('<a href="/how-it-works">How it works</a>');
+  expect(home).toContain(
+    '<a href="/how-it-works">See each step as your agent sees it</a>',
+  );
+});
+
 async function webLogin(account: string) {
   const page = await inject("/site/login");
   const login = String(page.headers["set-cookie"]).split(";")[0]!;
