@@ -158,7 +158,7 @@ Fernwick is the fifth card in the playground (**Fernwick Power & Light**, Utilit
 
 - With it on, Iris declares `poppylab.dev/espi` v1 in a new Session, asks at sign-in for `espi:usage` and `espi:summary` besides Fernwick's read scopes, keeps `resourceURI` and `authorizationURI` from the token response when they fit the entry, and offers four ESPI-shaped read tools that add up the hourly intervals before the model sees them. Fernwick's own API stays offered, with the meters chosen at consent applying to both.
 - The account row shows the subscription, its status, shared meters and expiry, with **Revoke ESPI access**, which sends `DELETE Authorization/{sub}` and signs the conversation out on `204`.
-- In demo mode, "usage", "consumo" or "kWh" read each shared meter's last seven days, and "bill", "factura" or "recibo" its bills.
+- In demo mode, words about usage ("usage", "use", "consumo", "consumido", "energía", "kWh") read each shared meter's last seven days, and words about bills or money paid ("bill", "factura", "recibo", "paid", "pagué") its bills, matched by word stem ([the rules](openapi-tools.md#use-espi)).
 
 The playground trusts `https://energy-demo.poppylab.dev` for sign-in and proposals (`PAP_ACCOUNT_ORIGINS` in its `wrangler.toml`) and builds its card with `NEXT_PUBLIC_FERNWICK_URL`, ready for the deployment.
 

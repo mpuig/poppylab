@@ -15,6 +15,21 @@ const METERS = 3;
 /** Days of usage one demo answer reads: the week before today. */
 const DAYS = 7;
 
+/**
+ * Bills, by word stem: bill, billed, factura, facturas, recibo; and money
+ * paid ("pay", "paid", "pagué", "pagado"), which at a utility is what was
+ * billed. Checked first, so "my last electricity bill" is a bill.
+ */
+const BILLS = /\b(?:bill|factur|recibo|invoice|pay|paid|pag[aoóué])/;
+/**
+ * Usage, by word stem: consumo, consumido, consumption; electricity,
+ * eléctrico, electricidad; energy, energía; kWh; usage, use, used, uso; luz.
+ * "Gastar" and "spend" are left out: "¿Cuánto gasté el mes pasado?" is as
+ * likely a bill as a week's energy, so it falls through to the own API.
+ */
+const USAGE =
+  /\b(?:consum|electri|eléctri|energ|usage|uses?\b|used\b|usos?\b|luz\b)|kwh/;
+
 /** Which read the message asks for, if the ESPI-shaped tools can answer it. */
 export function demoEspiRead(
   message: string,
@@ -22,13 +37,8 @@ export function demoEspiRead(
 ): EspiDemoRead | undefined {
   if (!tools.espi_meters) return undefined;
   const lowered = message.toLowerCase();
-  if (tools.espi_bills && /\bbills?\b|factura|recibo/.test(lowered))
-    return "bills";
-  if (
-    tools.espi_usage &&
-    /usage|consumo|kwh|electricity|electricidad|energy|energía/.test(lowered)
-  )
-    return "usage";
+  if (tools.espi_bills && BILLS.test(lowered)) return "bills";
+  if (tools.espi_usage && USAGE.test(lowered)) return "usage";
   return undefined;
 }
 
