@@ -36,6 +36,7 @@ const built = spawnSync("pnpm", ["exec", "opennextjs-cloudflare", "build"], {
     NEXT_PUBLIC_LANTERN_URL: "https://food-demo.poppylab.dev",
     NEXT_PUBLIC_HARBORLINE_URL: "https://bank-demo.poppylab.dev",
     NEXT_PUBLIC_NORTHWIND_URL: "https://airline-demo.poppylab.dev",
+    NEXT_PUBLIC_FERNWICK_URL: "https://energy-demo.poppylab.dev",
   },
 });
 if (built.status !== 0) process.exit(built.status ?? 1);

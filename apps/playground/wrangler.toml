@@ -13,7 +13,7 @@ binding = "ASSETS"
 [vars]
 AGENT_PUBLIC_ORIGIN = "https://poppylab.dev"
 POPPY_PUBLIC = "true"
-PAP_ACCOUNT_ORIGINS = "https://grocery-demo.poppylab.dev https://food-demo.poppylab.dev https://bank-demo.poppylab.dev https://airline-demo.poppylab.dev"
+PAP_ACCOUNT_ORIGINS = "https://grocery-demo.poppylab.dev https://food-demo.poppylab.dev https://bank-demo.poppylab.dev https://airline-demo.poppylab.dev https://energy-demo.poppylab.dev"
 # Secrets, set with `wrangler secret put` (never in this file):
 #   POPPY_IDENTITY   the agent key pair (JSON)
 #   POPPY_STATE_KEY  32 random bytes, base64url: seals per-visitor state at rest

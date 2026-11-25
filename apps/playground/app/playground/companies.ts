@@ -11,16 +11,18 @@ export const harborlineUrl =
   process.env.NEXT_PUBLIC_HARBORLINE_URL ?? "http://harbor.localhost:4300";
 export const northwindUrl =
   process.env.NEXT_PUBLIC_NORTHWIND_URL ?? "http://northwind.localhost:4400";
+export const fernwickUrl =
+  process.env.NEXT_PUBLIC_FERNWICK_URL ?? "http://fernwick.localhost:4500";
 /** Shows the sign-in control; the server decides (PAP_ACCOUNT_ORIGINS). */
 export const accountCompany = (origin: string) =>
   isLocalCompany(origin) ||
   isSandbox(origin) ||
-  [exampleUrl, lanternUrl, harborlineUrl, northwindUrl].some(
+  [exampleUrl, lanternUrl, harborlineUrl, northwindUrl, fernwickUrl].some(
     (u) => new URL(u).origin === origin,
   );
 
 /**
- * The lab's four Companies, for the cards a new conversation starts from and
+ * The lab's five Companies, for the cards a new conversation starts from and
  * the requests the chat suggests. `open` needs no account, `account` reads
  * one, `ask` changes it. Demo mode (no model) answers with keyword rules:
  * every phrase here was checked against them, and `demoChange` says the
@@ -66,6 +68,18 @@ export const labCompanies = [
     account: ["my upcoming trips"],
     ask: "Upgrade my NA 118 flight to Business.",
     demoChange: true,
+  },
+  {
+    url: fernwickUrl,
+    sector: "Utility",
+    name: "Fernwick Power & Light",
+    people: "Elena or Robin",
+    open: [],
+    // The first reads through the ESPI-shaped tools: with Use ESPI on in
+    // demo mode (`lib/demo-espi.ts`), or with a model.
+    account: ["How much electricity did my EV use last week?", "my bills"],
+    ask: "Switch my EV charger to the flat rate.",
+    demoChange: false,
   },
 ] as const;
 export const labCompany = (url: string | undefined) => {
