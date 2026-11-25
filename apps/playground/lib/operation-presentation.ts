@@ -347,3 +347,44 @@ export function needsYou(op: ReviewOperation, now = Date.now()) {
     (op.state === "proposed" && Date.parse(op.expires_at) > now)
   );
 }
+
+/** What the account route records when a Company's result has no summary. */
+const NO_SUMMARY = "The Company performed the approved operation.";
+/**
+ * How a finished operation ended, for its entry in the transcript, so it
+ * reads without opening it. `says` is the Company's own result sentence, to
+ * show as its words. `note` is Poppy's: who approved, why nothing was done,
+ * or what the User can do next. `state` is the state the card shows, where a
+ * proposal past its expiry is already "expired".
+ */
+export function outcome(
+  op: ReviewOperation,
+  state: string,
+  company: string,
+): { says?: string; note?: string } {
+  const result = op.result?.summary;
+  if (state === "succeeded") {
+    const who =
+      op.approvedBy?.approver === "agent"
+        ? "Approved by Iris on your standing instruction."
+        : op.approvedBy
+          ? "Approved by you."
+          : "";
+    return result && result !== NO_SUMMARY
+      ? { says: result, ...(who ? { note: who } : {}) }
+      : { note: [result, who].filter(Boolean).join(" ") };
+  }
+  if (state === "declined")
+    return {
+      note: `You declined this, and nothing was sent to ${company}. Ask for the change again if you still want it.`,
+    };
+  // A refusal, new terms or an ended conversation: the route's own sentence
+  // says what happened. A proposal that ran out on its own clock has none,
+  // or only one about an approval refused while it still waited.
+  if (result && op.state !== "proposed") return { note: result };
+  return state === "expired"
+    ? {
+        note: "This proposal ran out before it was approved, so nothing was done. Ask for the change again to get new terms.",
+      }
+    : {};
+}

@@ -139,6 +139,127 @@ it("says why the standing instruction left a proposal to the User, in one place"
   expect(declined).toContain("It says: “Approve money moves yourself.”");
   expect(declined).not.toContain("did not apply");
 });
+/** A card's closed entry: what shows without opening it. */
+const entry = (marks: object, company = "Lantern Noodle Bar") => {
+  const html = renderToStaticMarkup(
+    createElement(OperationReview, {
+      op: { ...op, ...marks },
+      company,
+      busy: false,
+      signedIn: true,
+      onAction: vi.fn(),
+    }),
+  );
+  expect(html.match(/^<details[^>]*>/)?.[0]).not.toContain("open=");
+  return html.slice(0, html.indexOf("</summary>"));
+};
+it("shows the Company's confirmation and who approved on a finished entry", () => {
+  const refunded =
+    "Refunded USD 37.00 for order ord_LNB0907. Simulated: no real money moves.";
+  const own = entry({
+    state: "succeeded",
+    result: { summary: refunded },
+    approvedBy: { approver: "user" },
+  });
+  expect(own).toContain("Completed");
+  // Company content, marked as the Company's words.
+  expect(own).toContain(
+    `<span class="company-says"><small>Lantern Noodle Bar says:</small>${refunded}</span>`,
+  );
+  expect(own).toContain("Approved by you.");
+  expect(
+    entry({
+      state: "succeeded",
+      result: { summary: refunded },
+      approvedBy: { approver: "agent", rule: "$37.00 within your limit" },
+    }),
+  ).toContain("Approved by Iris on your standing instruction.");
+  // A Company that sent no confirmation is not quoted as saying one.
+  const silent = entry({
+    state: "succeeded",
+    result: { summary: "The Company performed the approved operation." },
+    approvedBy: { approver: "user" },
+  });
+  expect(silent).not.toContain("says:");
+  expect(silent).toContain(
+    "The Company performed the approved operation. Approved by you.",
+  );
+});
+it("says on a closed entry why nothing was done and what to do next", () => {
+  expect(
+    entry({ state: "declined", result: { summary: "Declined." } }),
+  ).toContain(
+    "You declined this, and nothing was sent to Lantern Noodle Bar. Ask for the change again if you still want it.",
+  );
+  const reason =
+    "Lantern Noodle Bar declined this approval and did nothing. Its reason: The kitchen has closed.";
+  const refused = entry({ state: "refused", result: { summary: reason } });
+  expect(refused).toContain("Declined by the Company");
+  expect(refused).toContain(reason);
+  expect(refused).not.toContain("says:");
+  const replaced =
+    "Lantern Noodle Bar offered new terms instead of performing these, so they can no longer be approved.";
+  const superseded = entry({
+    state: "superseded",
+    result: { summary: replaced },
+  });
+  expect(superseded).toContain("Replaced by new terms");
+  expect(superseded).toContain(replaced);
+});
+it("tells the customer what an expired proposal means", () => {
+  const ranOut =
+    "This proposal ran out before it was approved, so nothing was done. Ask for the change again to get new terms.";
+  expect(entry({ state: "expired" })).toContain(ranOut);
+  // Past its expiry on the page's own clock, whatever was noted before.
+  expect(
+    entry({
+      expires_at: new Date(Date.now() - 1000).toISOString(),
+      result: { summary: "The Company refused the request." },
+    }),
+  ).toContain(ranOut);
+  // The route's own sentence, when a conversation ended.
+  const ended =
+    "The conversation this was proposed in has ended. Nothing was performed. Ask for the change again to get fresh terms.";
+  const html = entry({ state: "expired", result: { summary: ended } });
+  expect(html).toContain(ended);
+  expect(html).not.toContain(ranOut);
+});
+it("shows what became of a refused approval as a notice above the controls of a waiting card", () => {
+  const refusal =
+    "Juniper Market refused the approved request, and nothing was performed. Approve again or ask for new terms.";
+  expect(render("proposed")).not.toContain("operation-ledger declined");
+  const waiting = renderToStaticMarkup(
+    createElement(OperationReview, {
+      op: { ...op, result: { summary: refusal } },
+      company: "Juniper Market",
+      busy: false,
+      signedIn: true,
+      onAction: vi.fn(),
+    }),
+  );
+  // Still open and approvable, with the sentence as a notice, not a success.
+  expect(waiting.match(/^<details[^>]*>/)?.[0]).toContain("open=");
+  expect(waiting).toContain(
+    `<p class="operation-ledger declined" role="status">${refusal}</p><div class="operation-actions">`,
+  );
+  expect(waiting).not.toContain("operation-result");
+  expect(waiting).not.toContain("operation-outcome");
+  expect(waiting).toContain("Approve this change");
+  // The same for the note a retry leaves on an unknown outcome.
+  const uncertain = renderToStaticMarkup(
+    createElement(OperationReview, {
+      op: { ...op, state: "uncertain", result: { summary: refusal } },
+      company: "Juniper Market",
+      busy: false,
+      signedIn: true,
+      onAction: vi.fn(),
+    }),
+  );
+  expect(uncertain).toContain(
+    `<p class="operation-ledger declined" role="status">${refusal}</p><div class="operation-actions">`,
+  );
+  expect(uncertain).toContain("Retry the same approval");
+});
 it("opens proposals with before/after and formatted money", () => {
   const html = render("proposed");
   expect(html.match(/^<details[^>]*>/)?.[0]).toContain("open=");

@@ -194,9 +194,17 @@ Approval covers only revision 1795610120-n19JJxSZnvGF54sY. Expires 25/11/2026, 1
 
 The domain sits beside the name because discovery proves the domain, not who
 owns it. "All exact terms" opens the terms as the Company sent them. Once
-approved, the card moves to the transcript as "Change delivery day ·
-Completed" with the Company's result: "Fictional delivery delivery_001 now
-repeats weekly on Saturday. USD 0.00 charged. No real shipment affected."
+approved, the card moves to the transcript as a closed entry, "Change
+delivery day · Completed", which shows how it ended without a click: the
+Company's result, quoted as its words ("Juniper Market says: Fictional
+delivery delivery_001 now repeats weekly on Saturday. USD 0.00 charged. No
+real shipment affected."), and who approved ("Approved by you." or "Approved
+by Iris on your standing instruction."). A declined, refused, replaced or
+expired entry says why nothing was done and what to do next; an expired one
+reads "This proposal ran out before it was approved, so nothing was done. Ask
+for the change again to get new terms." While a card still waits, what became
+of an approval already sent (the Company refused the request) is a notice
+right above its buttons.
 
 **What Iris did**, under the answer that proposed the change:
 

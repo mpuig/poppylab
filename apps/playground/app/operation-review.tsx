@@ -7,6 +7,7 @@ import {
   money,
   summaryDisagreements,
   operationTitle,
+  outcome,
   ownLayout,
   termRows,
   termValue,
@@ -33,6 +34,8 @@ const states: Record<string, string> = {
   failed: "Not applied",
   expired: "Expired",
   uncertain: "Outcome unknown",
+  // The Company answered an approval with new terms under another ID.
+  superseded: "Replaced by new terms",
 };
 export function OperationReview({
   op,
@@ -75,11 +78,25 @@ export function OperationReview({
   const active = pending || state === "uncertain";
   const total = approvalTotal(op);
   const disagreements = summaryDisagreements(op);
+  // A finished operation says how it ended on its closed entry.
+  const ended = active ? {} : outcome(op, state, company);
   return (
     <details className="operation-review" open={active}>
       <summary className="operation-summary">
         <span>{operationTitle(op)}</span>
         <span className="operation-state">{states[state] ?? state}</span>
+        {(ended.says || ended.note) && (
+          <span className="operation-outcome">
+            {ended.says && (
+              // The Company's words, marked as they are in the open card.
+              <span className="company-says">
+                <small>{company} says:</small>
+                {ended.says}
+              </span>
+            )}
+            {ended.note && <span>{ended.note}</span>}
+          </span>
+        )}
       </summary>
       <div className="operation-content">
         <p className="quiet operation-company">
@@ -168,11 +185,6 @@ export function OperationReview({
               ))}
           </dl>
         )}
-        {op.result && (
-          <p className="operation-result" role="status">
-            {op.result.summary}
-          </p>
-        )}
         {op.approvedBy?.approver === "agent" && (
           <p className="operation-ledger">
             Approved by Iris on your standing instruction
@@ -231,7 +243,15 @@ export function OperationReview({
             same approval; the Company performs it at most once.
           </p>
         )}
-        {(pending || state === "uncertain") && (
+        {active && op.result && (
+          // What became of an approval already sent, while this still waits:
+          // the Company refused the request, or answered a retry with new
+          // terms. A notice, right above the controls, not a success line.
+          <p className="operation-ledger declined" role="status">
+            {op.result.summary}
+          </p>
+        )}
+        {active && (
           <div className="operation-actions">
             {pending ? (
               <>

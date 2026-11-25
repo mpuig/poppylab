@@ -143,8 +143,29 @@
 .operation-fields dd {
   white-space: pre-wrap;
 }
-.operation-result {
-  color: var(--success);
+/* How a finished operation ended, read on its closed entry. */
+.operation-outcome {
+  display: block;
+  max-width: 65ch;
+  margin-top: 4px;
+  /* Under the title, clear of the disclosure mark. */
+  padding-left: 20px;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+.operation-summary .operation-outcome > span {
+  display: block;
+  margin-right: 0;
+  color: var(--muted);
+}
+.operation-summary .operation-outcome > .company-says {
+  color: var(--ink);
+}
+.operation-outcome small {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
 }
 .operation-terms {
   margin: 20px 0;
