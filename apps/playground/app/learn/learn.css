@@ -1,0 +1,206 @@
+/* Learn: a section's own pages, screenshots and walk-throughs. Scoped to
+   .site; the tokens and the base Learn styles are in site.css. */
+
+/* A section's pages, listed under it on the same rail. */
+.learn-nav .learn-nav-sub {
+  border-left: 0;
+  margin: 2px 0 8px;
+}
+.learn-nav .learn-nav-sub a {
+  padding: 5px 0 5px 28px;
+  font-size: 14px;
+}
+
+/* A page with a walk-through takes the column's width for its screenshots;
+   its prose keeps the reading measure. */
+.learn-article:has(.learn-steps) {
+  max-width: 780px;
+}
+
+/* A screenshot: what the person sees on a screen, at the size it was. */
+.site .learn-shot {
+  margin-top: 20px;
+}
+.learn-shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--tint);
+}
+.site .learn-shot figcaption {
+  margin-top: 10px;
+  max-width: 66ch;
+}
+
+/* What travelled underneath, folded away until asked for. */
+.site .learn-body details {
+  margin-top: 24px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.site .learn-body details + details {
+  margin-top: 0;
+  border-top: 0;
+}
+.learn-body summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+.learn-body summary::-webkit-details-marker {
+  display: none;
+}
+.learn-body summary::before {
+  content: "";
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin-left: 2px;
+  border-right: 1.5px solid var(--muted);
+  border-bottom: 1.5px solid var(--muted);
+  transform: rotate(-45deg);
+  transition: transform 160ms var(--ease);
+}
+.learn-body details[open] > summary::before {
+  transform: rotate(45deg);
+}
+.learn-body summary:hover::before {
+  border-color: var(--ink);
+}
+.site .learn-body details > * + * {
+  margin-top: 14px;
+}
+.site .learn-body details > summary + * {
+  margin-top: 4px;
+}
+.learn-body details > :last-child {
+  margin-bottom: 18px;
+}
+
+/* A walk-through: a list of steps that opens with an ink rule. One step
+   shows at a time, and the bar that moves between them stays in reach. */
+.learn-steps {
+  margin-top: 28px;
+}
+.learn-steps-bar {
+  position: sticky;
+  top: 64px;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  min-height: 64px;
+  padding: 8px 0;
+  background: var(--paper);
+  border-top: 1px solid var(--ink);
+  border-bottom: 1px solid var(--line);
+}
+.site .learn-steps-count {
+  margin: 0;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.learn-steps-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.learn-steps .button {
+  font-family: inherit;
+  cursor: pointer;
+}
+.learn-steps .button:disabled {
+  background: var(--tint);
+  border-color: var(--line);
+  color: var(--muted);
+  cursor: default;
+  transform: none;
+}
+.learn-steps-toggle {
+  min-height: 40px;
+  margin-right: 8px;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--muted);
+  font: inherit;
+  font-size: 15px;
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.learn-steps-toggle:hover {
+  color: var(--ink);
+  text-decoration-color: currentColor;
+}
+.learn-steps-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.learn-step {
+  padding-top: 28px;
+}
+/* Under the sticky bars when a link opens on a step. */
+.site .learn-steps .learn-step > h3 {
+  margin-top: 0;
+  scroll-margin-top: 152px;
+}
+.learn-step-number {
+  font-variant-numeric: tabular-nums;
+}
+.learn-steps[data-mode="all"] .learn-step + .learn-step {
+  margin-top: 40px;
+  border-top: 1px solid var(--line);
+}
+.site .learn-after {
+  margin-top: 56px;
+}
+
+@media (max-width: 900px) {
+  /* The section's pages become a second wrapped row under its own name. */
+  .learn-nav li:has(> .learn-nav-sub) {
+    flex-basis: 100%;
+  }
+  .learn-nav .learn-nav-sub {
+    margin: 6px 0 2px;
+  }
+  .learn-nav .learn-nav-sub a {
+    padding: 4px 0;
+  }
+}
+@media (max-width: 520px) {
+  .learn-steps-toggle {
+    margin-right: auto;
+  }
+  .learn-steps-actions {
+    width: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .learn-body summary::before {
+    transition: none;
+  }
+}
+@media print {
+  .learn-step[hidden] {
+    display: block !important;
+  }
+  .learn-steps-bar {
+    display: none;
+  }
+}

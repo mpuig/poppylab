@@ -239,6 +239,7 @@ The world is white paper, graphite ink, hairlines and two colours with fixed mea
 The same tokens serve three modes. The home persuades, `/developers` and `/learn` are for reading, and the playground operates: it takes type, palette, density and state colours from this world and keeps its own structure.
 
 **Key Characteristics:**
+
 - White ground, graphite ink, 1px hairlines; sections separated by a rule, never by a coloured band.
 - One figure per claim, unnumbered, each with a plain sentence caption in muted sans.
 - Green for action and for "with Poppy"; amber only for what is the person's to do.
@@ -252,20 +253,24 @@ The same tokens serve three modes. The home persuades, `/developers` and `/learn
 A near-monochrome page with two signal colours, each tied to one meaning, and four borrowed colours that belong to the fictional Companies. The stylesheets declare the same values twice: on `.site` in `site.css` (`--green`, `--amber`, `--tint`) and on `:root` in `playground.css` (`--accent`, `--wait`, `--soft`). The petrol ramp and `amber-deep` exist only in `site.css`, where the figures are.
 
 ### Primary
+
 - **Petrol Green** (`green`): the primary button, the Approve control, figure connectors and arrowheads, message numbers in the sequence, the ring and numeral of each stop on the "How it works" rail, the "With Poppy" column head of the comparison and its rule, the dots of the who-does-what matrix, the 2px rule under the current nav item, links inside `/learn` prose, and the "done" state in the playground. Hover and pressed are **Deep Petrol** (`green-deep`).
 - **Petrol ramp** (`green-light`, `green-mid`, `green`): the three "With Poppy" steps of the spectrum, lightest for browsing and deepest for a change that needs approval. `green-light` is also the border of a settled approval and the underline of `/learn` links.
 - **Petrol Wash** (`green-wash`): the ground of the approval row once approved.
 
 ### Secondary
+
 - **Signal Amber** (`amber`): a thin rule or border, a small dot or a small count mark, never the fill of a panel. It marks the waiting approval in the sequence, the two actions only the person takes in the flow diagram, "Waiting for you" on proposals and on each Company card, the "You" column of the who-does-what matrix, and in the playground the current guide step and the count of items that need the person.
 - **Amber Wash** (`amber-wash`): the ground behind an amber-bordered element.
 - **Deep Amber** (`amber-deep`): one job, the 1px ring that holds the edge of an amber dot on white in the who-does-what matrix. Never a fill or a text colour.
 
 ### Tertiary
+
 - **Error Red** (`danger`): playground only, for failed checks and for the error block, where it is the icon, a 35% rule and a 5% wash over paper with the message in ink. It does not appear on the home, `/developers` or `/learn`.
 - **Company colours** (`juniper`, `lantern`, `harborline`, `northwind`): the leading colour of each fictional Company's own website (Juniper's forest green, Lantern's red, Harborline's channel blue, Northwind's route blue). Home only, one job: the header band of that Company's card, and the card's border on hover. Each is set per card as `--brand` from `companies[].brand` in `site-chrome.tsx`; the sector beside the name is paper mixed 80% with the brand.
 
 ### Neutral
+
 - **Paper** (`paper`): the ground of the home, `/developers` and `/learn`, and every working surface. In the playground paper is the header, the conversation, inputs, cards and quiet buttons, which stand off a tint ground. It is also the Company's name on the coloured band of its card.
 - **Graphite Ink** (`ink`): text, the solid "You" node, the 1px rule that opens a list or table, the dark button.
 - **Soft Ink** (`ink-soft`): supporting paragraphs and list text.
@@ -277,6 +282,7 @@ A near-monochrome page with two signal colours, each tied to one meaning, and fo
 - **Selection** (`selection`): text selection on every surface.
 
 ### Named Rules
+
 **The Amber Is Yours Rule.** Amber appears only where something waits for the person or where only the person can act. It is never a brand accent, a highlight or a warning about the product.
 
 **The Green Means Poppy Rule.** Green is the action and the protocol's side of any comparison. A column, step or mark that describes life without a protocol stays in the neutrals: ink, soft ink, muted and hairline.
@@ -292,6 +298,7 @@ A near-monochrome page with two signal colours, each tied to one meaning, and fo
 **Character:** A publishing serif at medium weight over a plain, slightly warm grotesque. The serif carries authority without ornament; the sans does all the work of reading and of the interface. All three load through `next/font/google` in `layout.tsx`.
 
 ### Hierarchy
+
 The ramp is a closed set of sizes in whole pixels: 58 to 38 and 48 to 34 (fluid), 36 to 28 (fluid), 26, 21, 19, 18, 17, 16, 15, 14, 13 and 12, plus 12.5 for mono on the site. Every literal in both stylesheets is one of these steps.
 
 - **Display** (500, clamp(38px, 4.3vw, 58px), 1.06, -0.02em): the one h1 of the home and `/developers`.
@@ -314,6 +321,7 @@ The ramp is a closed set of sizes in whole pixels: 58 to 38 and 48 to 34 (fluid)
 Weights in use are 400, 500 and 600. Numbers that line up (step numbers, amounts, timings) use tabular figures.
 
 ### Named Rules
+
 **The One Serif Job Rule.** STIX Two Text names things: h1, h2, the wordmark, a Company on its card, a side in the comparison, and the numeral of a step on the rail. Nothing else, and never in italic, which is not loaded. Buttons, labels, captions, figure text, table column heads and every other h3 are Hanken Grotesk.
 
 **The Whole Step Rule.** A new size is one of the recorded steps. Half-pixel sizes are gone except mono's 12.5px on the site; a value between two steps is a stray, not a new step.
@@ -327,12 +335,14 @@ A single centred column, 1120px wide at most, with a gutter of clamp(20px, 4vw, 
 Two-part compositions are unequal: the home hero is 5fr text to 6fr figure, a step on the rail 5fr words to 6fr screen, the comparison 22% for the side and 39% for each sentence, the `/developers` hero 6fr to 5fr, and the ruled two-column sections on `/developers` 0.85fr to 1.15fr. The one even split is "What the AI can never do", four points beside the matrix. Repeating content sits on a real grid: five columns for the spectrum, two for the four Company cards (24px apart), and in the footer a 5fr paragraph beside three 2fr groups of links.
 
 Where each surface sits:
+
 - **Home (`/`):** hero (h1, a lead that introduces Iris by name, two actions and nothing beneath them) with the sequence; "Today it is all or nothing" with the spectrum; "How it works" with the flow diagram above a rail of three numbered steps, each with its screen beside it; "What each side gets" as the comparison, three sides by two columns with one sentence per cell; "Try it in four industries" as four Company cards, each headed in the Company's own colour and showing the exact change the visitor would approve; "What the AI can never do" as four points beside the who-does-what matrix; a closing row with both actions; the footer with one paragraph on independence and three groups of links.
 - **`/developers`:** a hero with the pairs (two ways to test, drawn as two pairs of parties); "Test a Company with Iris" as a paragraph beside a ruled fact list; the four test Companies and "Bring your own agent" as ruled tables; "What the lab implements" as a ruled list with spec references.
-- **`/learn`:** a 220px sticky list of pages beside an article held to 72ch, prose at 66ch, tables and code at the article's width.
+- **`/learn`:** a 220px sticky list of pages beside an article held to 72ch, prose at 66ch, tables and code at the article's width. A page with a walk-through widens its article to 780px, the width of the playground's working column, so a screenshot shows at the size it was taken; its prose keeps the 66ch measure.
 - **Playground:** a full-width header on the home's edges, then a 780px working column. The workspace fills the viewport and only the transcript scrolls; the conversation closes 24px above the window edge (12px on phones, plus the safe area).
 
 Responsive behaviour:
+
 - **960px:** two-column compositions become one column. In the hero the figure follows the actions. The bar keeps the wordmark and the demo button and drops its links. The flow diagram swaps to an upright drawing of the same parties and connectors, because the wide one would scale its labels below a readable size; the spectrum becomes rows with a 44px swatch at the left. On the rail each step's screen drops under its words and the rail stays at the left. The comparison drops its column heads and stacks each side: the serif name, then its two sentences, each under its own label ("Without a protocol" in muted, "With Poppy" in green semibold), with a 1px ink rule opening the first side. The Company cards stack. The footer sets its paragraph across the top and its three groups in three columns. The who-does-what matrix stays a table at every width, below its points.
 - **900px:** the `/learn` page list becomes a wrapped row above the article.
 - **860px:** the Companies table on `/developers` becomes stacked rows with its column names as labels.
@@ -341,6 +351,7 @@ Responsive behaviour:
 - **380px:** the sequence's labels drop to 12px so each still fits on one line.
 
 ### Named Rules
+
 **The Same Drawing Rule.** A figure is never hidden on a small screen. It is redrawn upright or restacked with its labels, and carries the same facts at every width.
 
 ## Elevation & Depth
@@ -348,6 +359,7 @@ Responsive behaviour:
 Flat. No surface casts a shadow, on the site or in the playground. Depth is carried by the hairline, by the single solid ink node, and by the two washes that mark state. `box-shadow` appears only as a drawn line: a 2px inset rule under the current nav item or tab, and a 1px ring on a quiet pill and on the amber dot of the who-does-what matrix. The sticky bar separates from the page with a 1px bottom rule.
 
 ### Named Rules
+
 **The Flat Rule.** If a surface needs to stand apart, give it a 1px border in `line-strong`. A blur, an offset or a glow is never the answer here.
 
 ## Shapes
@@ -357,11 +369,13 @@ Small, consistent corners and thin strokes. Controls, inputs and figure nodes ta
 Strokes are 1px for rules and borders, 1.2px for node outlines and 1.5px for connectors, for the steps rail and the ring of its stops, for a checkbox outline and for the dash that means "not this one" in the matrix. A request is a solid line and a reply is a dashed one (5 on, 4 off in the SVG). Arrowheads are small solid triangles in the connector's colour. The flow diagram is drawn on a 4px grid with 8px elbows. A dashed node outline means "the side you bring" on `/developers`. Diagonal hatching in tint is used once, for the two steps without a protocol in the spectrum.
 
 ### Named Rules
+
 **The Ink Opens, Hairline Divides Rule.** A list, table or column of rows opens with a 1px rule in ink and separates its rows with 1px hairlines. Column heads sit above a `line-strong` rule, which turns green over the "With Poppy" column. The comparison has column heads on wide screens and takes the ink rule once it stacks.
 
 ## Components
 
 ### Buttons
+
 - **Shape:** gently squared (6px), 46px tall, 18px side padding, 16px semibold; the small size is 40px tall with 14px padding and 15px type.
 - **Primary:** petrol green with paper text and a matching 1px border. Hover deepens to `green-deep` over 160ms on the system's one easing curve (cubic-bezier(0.16, 1, 0.3, 1)); pressed keeps `green-deep` and moves down 1px. Often carries a trailing 18px arrow.
 - **Ghost:** paper with ink text and a `line-strong` border; hover turns the border ink.
@@ -370,12 +384,14 @@ Strokes are 1px for rules and borders, 1.2px for node outlines and 1.5px for con
 - **Playground:** Connect, sign-in, approval and send use the same green at 44px (send is a 34px square with an icon). Secondary actions use the ghost treatment at 44px. A disabled send button is tint with muted ink.
 
 ### Navigation
+
 - **Bar:** sticky, paper, at least 64px tall, 1px hairline beneath. The wordmark "Poppy Lab" in serif 600 at 21px on the left, six text links in muted 15px on the right, then a small primary button. Hover turns a link ink; the current page is ink, semibold, with a 2px green rule beneath. On the home the same mark follows the reading: the link of the section that lies under a line 120px below the top of the window is marked (`aria-current="location"`), and none is marked above the first section or in a section the bar doesn't link to. Each link holds the width of its semibold form, so the row doesn't shift as the mark moves (`bar-nav.tsx`).
 - **Playground header:** 72px, the same wordmark, and four views (Playground, Inspector, Identity, History) as text tabs with the same current-item treatment. One 56px row with compact 12px tabs at 520px and below.
-- **Learn pages:** a vertical list on a 1px left hairline; the current page is ink, semibold, with a green left rule. In the wrapped row below 900px the current page takes a 2px green underline.
+- **Learn pages:** a vertical list on a 1px left hairline; the current page is ink, semibold, with a green left rule. In the wrapped row below 900px the current page takes a 2px green underline. A section's own pages are listed under it on the same rail, in 14px and indented 28px, while the reader is in that section.
 - **Footer:** tint ground with a hairline above, 56px of padding, soft-ink 15px text. On the left the wordmark over one paragraph (46ch) that states the lab's independence, its non-affiliation with the protocol's authors and that it claims no conformance or production security. Then three titled groups of links: "Poppy Lab" (Playground, Learn, Developers, Source on GitHub), "Demos" (the four Companies) and "Protocol" (Specification and Community demos, both opening in a new tab). A group title is 14px semibold ink; links sit 10px apart in soft ink with no underline, and turn ink and underlined on hover. Links that leave the lab carry a 14px up-right arrow. The paragraph takes 5fr and each group 2fr; three columns under the paragraph at 960px and below, two at 520px and below.
 
 ### Figures
+
 Every figure is a `figure` with a `figcaption` (the comparison is a plain table under its section head), drawn in ink, hairline and green, with amber only under the Amber Is Yours Rule. None is numbered. Parties keep one look everywhere: You is the solid ink node, the agent is outlined on paper, the company is outlined on tint.
 
 - **Sequence (`sequence-figure.tsx`):** three party heads over three `line-strong` lifelines. Each message is a 52px row: a numbered label on a paper ground above a 1.5px green line with an arrowhead, dashed for replies. The fifth row is the approval gate: an amber-bordered, amber-wash row with "Waiting for your approval" and a working Approve button. Messages 6 and 7 are drawn in `line-strong` and muted until approval. Approving turns the gate to green wash with a tick and "Approved by you", draws the last two messages, and replaces the button with a quiet "Show it again".
@@ -387,13 +403,21 @@ Every figure is a `figure` with a `figcaption` (the comparison is a plain table 
 - **Who-does-what matrix ("What the AI can never do"):** five jobs as rows, the three actors (The AI model, Plain code, You) as columns. Column heads are semibold 14px, centred, over a 1px ink rule; row heads are soft-ink sans at 15px on hairlines; each cell holds one mark with its meaning as screen-reader text: a 12px green dot for the model's and the code's jobs, an amber dot with a 1px `amber-deep` ring for the person's, a short `line-strong` dash for none. Four points sit beside it.
 - **Pairs (`/developers`):** two rows of party, green arrow, party.
 
+### Walk-throughs (`/learn`)
+
+A process is told as a list of steps (`learn-steps.tsx`), built from the page's own Markdown and shown one at a time. The list opens with a 1px ink rule; under it a bar stays in reach below the site bar while the step scrolls: the count ("Step 3 of 11", 15px semibold ink) on the left, and on the right a quiet text control ("Show all steps") beside a small ghost Previous and a small primary Next with its arrow. A disabled control is tint with muted ink. Each step is its title (h3), one screenshot and a few plain paragraphs, with what travelled between the agent and the company folded under a `details` line. The left and right arrow keys move between steps, each step has its own address, and without scripts or in print every step shows in order. Steps swap without motion.
+
+- **Screenshot:** a `figure` at the article's width with a 1px `line-strong` border and 8px corners, captured from the live lab at twice the size it is shown. A capture of the conversation sits on the playground's tint ground. Its caption follows the Sentence Caption Rule.
+
 ### Screen panels
+
 A bordered panel (1px `line-strong`, 8px corners, 16px padding, 14px type) is used only for something the person would see on a screen: a discovery file, a Company's sign-in page, a proposal waiting for approval. Its head is a semibold line over a hairline. Inside it, a small pill (30px, 5px corners) stands for a button and is not interactive, and a 16px checkbox mark is green when ticked.
 
 - **Waiting mark:** an 8px amber dot before "Waiting for you" in ink, weight 500.
 - **Change line:** the old value struck through in muted, a 14px green arrow, the new value in semibold ink. When there is no old value the new one stands alone.
 
 ### Company cards (home)
+
 The four Companies are the one place where the page borrows colour. Each is a card (1px `line-strong` border, 8px corners, paper, no shadow) whose header band is filled with that Company's own colour under the Company's Own Colour Rule.
 
 - **Header band:** 18px by 24px of padding; the name in the 26px serif in paper, the sector at 14px in a tint of paper mixed with the brand, on one baseline and wrapping when narrow.
@@ -402,17 +426,20 @@ The four Companies are the one place where the page borrows colour. Each is a ca
 - **Hover:** the card's border takes the Company's colour over 160ms. The button stays petrol green on every card.
 
 ### Ruled lists and tables
+
 - **Points:** 16px rows on hairlines under a 1px ink rule, with a semibold ink lead-in and soft-ink text, one sentence or two each.
 - **Fact list:** a 120px muted term beside a medium-weight value; links to endpoints are mono.
 - **Tables (`/developers`, `/learn`):** muted 14px column heads, semibold row heads, 13px vertical padding, hairline rows, mono for codes and spec sections. Wide tables scroll sideways inside a thin scrollbar or stack: the Companies table below 860px, the endpoint table below 640px.
 - **Code (`/learn`):** inline code on tint with 4px corners; blocks on tint with a hairline border and 8px corners.
 
 ### Inputs (playground)
+
 - **Style:** 44px, paper, 1px `line-strong` border, 6px corners, 14px type, a 13px semibold label above.
 - **Focus:** the border turns ink and the green outline appears.
 - **Composer:** a borderless textarea inside the conversation, above a hairline, with the green send button.
 
 ### Playground workspace
+
 The same world in Operate mode. `playground.css` restates the tokens on `:root`. The page ground is tint and the working surfaces are paper, so the conversation reads as the place where the work happens; the discovery document in the Inspector is a paper block with a hairline border for the same reason.
 
 - **Conversation:** the one bordered object (1px `line-strong`, 10px corners, no shadow), with a hairline under its heading and above the composer. Messages are separated by hairlines and headed by a 13px semibold label, muted for Iris and ink for the person.
@@ -428,6 +455,7 @@ The same world in Operate mode. `playground.css` restates the tokens on `:root`.
 - **First visit:** the playground starts in demo mode with no model or key, and the model row offers "Use your own model". The address form appears only for another Company's address or to change Company. Each conversation has its own address; its heading carries its state and a "New conversation" link, and an ended one shows a ruled note and a disabled composer. History lists the visitor's conversations (Company, first request, start time, Open or Read-only) above "Start the demo over", whose reset asks once more before acting.
 
 ### Content and vocabulary
+
 - The protocol is "Personal Agent Protocol" or "Poppy", never its three-letter abbreviation. The agent is Iris, introduced once per page: by name in the home's lead ("with one agent, called Iris, and four fictional companies") and as the lab's Personal Agent on `/developers`; general explanation says "your agent".
 - The home writes "personal agent" and "company" in lower case; `/developers` and the playground capitalise the specification's defined terms.
 - `site-chrome.tsx` holds the bar, the footer and the Company data that the home and `/developers` both render, including the exact change each Company shows and its leading colour (`brand`). Company addresses come from `NEXT_PUBLIC_*_URL`; a link to `/playground?company=…` connects straight away when it names one of the lab's own Companies, and any other address only fills the form.
@@ -435,6 +463,7 @@ The same world in Operate mode. `playground.css` restates the tokens on `:root`.
 ## Do's and Don'ts
 
 ### Do:
+
 - **Do** give each claim one figure with a plain sentence caption in muted 14px sans, and name a figure by what it is, never by number.
 - **Do** keep amber for what waits for the person or what only the person does, as a thin rule or border on amber wash, a small dot or a count mark.
 - **Do** use green for the primary action, for connectors, and for the protocol's side of a comparison.
@@ -449,6 +478,7 @@ The same world in Operate mode. `playground.css` restates the tokens on `:root`.
 - **Do** keep a 2px green focus outline on every focusable element and show everything at rest under reduced motion.
 
 ### Don't:
+
 - **Don't** cast a shadow, blur a surface or use a gradient; `box-shadow` is only ever an inset 2px rule or a 1px ring.
 - **Don't** use amber as decoration, emphasis or a general warning colour.
 - **Don't** use a colour outside green, amber, error red and the neutrals, except a Company's own colour on the header band and hover border of its card.
