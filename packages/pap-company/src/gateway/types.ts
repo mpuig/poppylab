@@ -101,6 +101,8 @@ export type FeedbackReport = {
   client: string;
   user: string;
   at: string;
+  /** What the Company answered: 202, or 200 with an alternative. */
+  answer: "accepted" | "alternative";
 };
 /** §9.2: another way to do a task (at least one of the two fields). */
 export type Alternative = {
@@ -312,6 +314,8 @@ export type CompanyDefinition = {
       operations: () => Readonly<Record<string, OperationRecord>>;
       /** Registers this tenant's Company Agent (with `agent` set). */
       converse: (handler: ConversationHandler) => void;
+      /** This tenant's §9.3 reports, newest last, read-only (for a website). */
+      feedback: () => readonly FeedbackReport[];
     },
   ) => void;
 };

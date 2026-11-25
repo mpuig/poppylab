@@ -262,6 +262,7 @@ export function juniperCompany(options: {
         commerce.services,
         ctx.grants,
         options.portal,
+        ctx.feedback,
       );
       r.get("/api/products", async () => ({ currency: "USD", products }));
       r.get("/api/delivery", async () => delivery);

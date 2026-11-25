@@ -1,7 +1,12 @@
 /** Harborline's fictional customer portal backed by the same tenant state as PAP. */
 import type { Context, Hono } from "hono";
 import { randomId, tokenHash } from "@poppy-lab/pap-client/core";
-import type { GrantAccess, OperationRecord } from "@poppy-lab/pap-company";
+import {
+  feedbackSection,
+  type FeedbackReport,
+  type GrantAccess,
+  type OperationRecord,
+} from "@poppy-lab/pap-company";
 import { customers, FICTION_NOTICE } from "./data.ts";
 import type { CustomerState } from "./harborline.ts";
 import { escape, shell } from "./site.ts";
@@ -13,6 +18,7 @@ type PortalContext = {
   grants: GrantAccess;
   origin: string;
   operations: () => Readonly<Record<string, OperationRecord>>;
+  feedback: () => readonly FeedbackReport[];
 };
 type Deps = { customerFor: (account: string) => CustomerState };
 const cookie = (c: Context, name: string) =>
@@ -174,7 +180,7 @@ export function mountPortal(app: Hono, ctx: PortalContext, deps: Deps) {
   app.get("/account", (c) => {
     const record = current(c);
     if (!record) return c.redirect("/site/login", 302);
-    const body = `<main class="wrap account" data-account="${escape(record.account)}"><section class="account-head"><h1>Your fictional Harborline ledger.</h1><p id="current-account"></p><p>State here matches the account APIs. A pending agent proposal changes nothing until you approve it in Iris. <a href="/site/login">Switch fictional customer</a>.</p><div class="live-row"><p id="status" class="live" role="status">Loading the fictional account…</p><div><button id="refresh" class="secondary" type="button">Refresh now</button> <button id="logout" class="secondary" type="button">Log out</button></div></div></section><div id="content" aria-busy="true"><div class="account-grid"><div><section class="section"><h2>Accounts and balances</h2><div id="accounts" class="data-list"></div></section><section class="section"><h2>Recent transactions</h2><div id="transactions" class="data-list"></div></section><section class="section"><h2>Budgets</h2><div id="budgets" class="data-list"></div></section></div><div><section class="section"><h2>Cards</h2><div id="cards" class="data-list"></div></section><section class="section"><h2>Recipients</h2><div id="recipients" class="data-list"></div></section><section class="section"><h2>Agent activity</h2><p class="fine">Proposed means nothing has changed. Approve or decline in Iris.</p><div id="activity"></div></section><section class="section"><h2>Connected agents</h2><p class="fine">Revocation ends this grant. Portal logout does not revoke it.</p><button id="load-access" class="secondary" type="button">Show grants</button><div id="access"></div><p id="access-status" role="status"></p></section></div></div></div></main><script defer src="/site/app.js"></script>`;
+    const body = `<main class="wrap account" data-account="${escape(record.account)}"><section class="account-head"><h1>Your fictional Harborline ledger.</h1><p id="current-account"></p><p>State here matches the account APIs. A pending agent proposal changes nothing until you approve it in Iris. <a href="/site/login">Switch fictional customer</a>.</p><div class="live-row"><p id="status" class="live" role="status">Loading the fictional account…</p><div><button id="refresh" class="secondary" type="button">Refresh now</button> <button id="logout" class="secondary" type="button">Log out</button></div></div></section><div id="content" aria-busy="true"><div class="account-grid"><div><section class="section"><h2>Accounts and balances</h2><div id="accounts" class="data-list"></div></section><section class="section"><h2>Recent transactions</h2><div id="transactions" class="data-list"></div></section><section class="section"><h2>Budgets</h2><div id="budgets" class="data-list"></div></section></div><div><section class="section"><h2>Cards</h2><div id="cards" class="data-list"></div></section><section class="section"><h2>Recipients</h2><div id="recipients" class="data-list"></div></section><section class="section"><h2>Agent activity</h2><p class="fine">Proposed means nothing has changed. Approve or decline in Iris.</p><div id="activity"></div></section>${feedbackSection(ctx.feedback(), { section: "section", notice: "fine" })}<section class="section"><h2>Connected agents</h2><p class="fine">Revocation ends this grant. Portal logout does not revoke it.</p><button id="load-access" class="secondary" type="button">Show grants</button><div id="access"></div><p id="access-status" role="status"></p></section></div></div></div></main><script defer src="/site/app.js"></script>`;
     return c.html(
       shell("Customer portal · Harborline Bank", body, "/account", ctx.origin),
       200,

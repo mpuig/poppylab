@@ -10,6 +10,7 @@ import type { Hono } from "hono";
 import type {
   CompanyDefinition,
   ConversationHandler,
+  FeedbackReport,
   Gate,
   GrantAccess,
   OperationRecord,
@@ -243,6 +244,7 @@ function mount(
     origin: string;
     operations: () => Readonly<Record<string, OperationRecord>>;
     converse: (handler: ConversationHandler) => void;
+    feedback: () => readonly FeedbackReport[];
   },
 ) {
   const state = ctx.state as State;

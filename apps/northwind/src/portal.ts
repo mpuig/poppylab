@@ -1,7 +1,12 @@
 /** Northwind customer portal: fictional account data shared with the PAP APIs. */
 import type { Context, Hono } from "hono";
 import { randomId, tokenHash } from "@poppy-lab/pap-client/core";
-import type { GrantAccess, OperationRecord } from "@poppy-lab/pap-company";
+import {
+  feedbackSection,
+  type FeedbackReport,
+  type GrantAccess,
+  type OperationRecord,
+} from "@poppy-lab/pap-company";
 import { customers, FICTION_NOTICE, northwindPersona } from "./data.ts";
 import type { Booking, FlightInventory } from "./northwind.ts";
 import { escape, shell } from "./site.ts";
@@ -13,6 +18,7 @@ type Ctx = {
   grants: GrantAccess;
   origin: string;
   operations: () => Readonly<Record<string, OperationRecord>>;
+  feedback: () => readonly FeedbackReport[];
 };
 type Deps = {
   bookingsFor: (account: string) => Booking[];
@@ -175,7 +181,7 @@ export function mountPortal(app: Hono, ctx: Ctx, deps: Deps) {
   app.get("/account", (c) => {
     const record = current(c);
     if (!record) return c.redirect("/site/login", 302);
-    const body = `<main class="wrap account-shell account" data-account="${escape(record.account)}"><section class="account-head"><div><h1>My Northwind.</h1><p id="current-account"></p><p>The account refreshes from the same tenant state the APIs use. Pending proposals do not appear as completed changes. <a href="/site/login">Switch fictional passenger</a>.</p></div><div class="live-row"><p id="status" role="status">Loading the account…</p><button id="refresh" class="secondary" type="button">Refresh</button><button id="logout" class="secondary" type="button">Log out</button></div></section><div class="account-grid" id="content" aria-busy="true"><div><section><h2>Upcoming trips</h2><div id="trip-list"></div></section><section><h2>Agent activity</h2><p class="notice">An awaiting proposal has changed nothing. Approve or decline it in Poppy Lab.</p><div id="activity-list"></div></section></div><aside><section><h2>Gale loyalty</h2><div id="loyalty"></div></section><section><h2>Passenger preferences</h2><div id="preferences"></div></section><section><h2>Connected agents</h2><p class="notice">Revoking ends that grant. Website logout does not revoke an agent, and revoking does not log out this website.</p><button id="load-access" class="secondary" type="button">Show grants</button><div id="access-list"></div><p id="access-status" role="status"></p></section></aside></div></main><script defer src="/site/app.js"></script>`;
+    const body = `<main class="wrap account-shell account" data-account="${escape(record.account)}"><section class="account-head"><div><h1>My Northwind.</h1><p id="current-account"></p><p>The account refreshes from the same tenant state the APIs use. Pending proposals do not appear as completed changes. <a href="/site/login">Switch fictional passenger</a>.</p></div><div class="live-row"><p id="status" role="status">Loading the account…</p><button id="refresh" class="secondary" type="button">Refresh</button><button id="logout" class="secondary" type="button">Log out</button></div></section><div class="account-grid" id="content" aria-busy="true"><div><section><h2>Upcoming trips</h2><div id="trip-list"></div></section><section><h2>Agent activity</h2><p class="notice">An awaiting proposal has changed nothing. Approve or decline it in Poppy Lab.</p><div id="activity-list"></div></section></div><aside><section><h2>Gale loyalty</h2><div id="loyalty"></div></section><section><h2>Passenger preferences</h2><div id="preferences"></div></section>${feedbackSection(ctx.feedback(), { notice: "notice" })}<section><h2>Connected agents</h2><p class="notice">Revoking ends that grant. Website logout does not revoke an agent, and revoking does not log out this website.</p><button id="load-access" class="secondary" type="button">Show grants</button><div id="access-list"></div><p id="access-status" role="status"></p></section></aside></div></main><script defer src="/site/app.js"></script>`;
     return c.html(
       shell("My Northwind · fictional account", body, "/account", ctx.origin),
       200,

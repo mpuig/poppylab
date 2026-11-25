@@ -550,3 +550,34 @@ it("customer website: signs in, shows the agent's orders, edits one and makes th
   const script = await (await lab.app.request("/site/app.js")).text();
   expect(() => new Function(script)).not.toThrow();
 });
+
+it("customer website: shows the agent's feedback reports, newest first and escaped (§9.3)", async () => {
+  const x = await setup();
+  const web = await webLogin("robin");
+  const empty = await (
+    await lab.app.request("/account", { headers: { cookie: web.cookie } })
+  ).text();
+  expect(empty).toContain("Feedback from agents");
+  expect(empty).toContain("No reports yet");
+  for (const task of ["Buy a gift card", "Pick <b>chopsticks</b>"])
+    expect(
+      (
+        await x.call("", "POST", "/poppy/feedback", {
+          task,
+          description: "The User wanted it.",
+        })
+      ).statusCode,
+    ).toBeLessThan(300);
+  const html = await (
+    await lab.app.request("/account", { headers: { cookie: web.cookie } })
+  ).text();
+  const section = html.slice(html.indexOf('id="agent-feedback"'));
+  expect(section).toContain("Pick &#60;b&#62;chopsticks&#60;/b&#62;");
+  expect(section).not.toContain("<b>chopsticks");
+  expect(section.indexOf("chopsticks")).toBeLessThan(
+    section.indexOf("Buy a gift card"),
+  );
+  expect(section).toContain("We answered with another way to do it");
+  expect(section).toContain("Received, no alternative offered");
+  expect(section).toContain("From localhost:3000");
+});

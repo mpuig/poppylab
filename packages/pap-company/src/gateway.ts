@@ -37,6 +37,7 @@ import { mountFeedback } from "./gateway/feedback.ts";
 import type { CompanyDefinition, Deployment } from "./gateway/types.ts";
 
 export * from "./gateway/types.ts";
+export { feedbackSection } from "./gateway/feedback.ts";
 
 export function createCompany(def: CompanyDefinition, deploy: Deployment) {
   const ctx = createContext(def, deploy);

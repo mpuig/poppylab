@@ -131,6 +131,7 @@ export function createTenancy(ctx: Ctx) {
         converse: (handler) => {
           created.converse = handler;
         },
+        feedback: () => tenant.feedback ?? [],
       });
     }
     return entry;
