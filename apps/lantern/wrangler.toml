@@ -7,6 +7,10 @@ compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
 routes = [{ pattern = "noodles.poppylab.dev", custom_domain = true }]
 workers_dev = false
 
+# Product photos: files in ./public are served before the Worker runs.
+[assets]
+directory = "./public"
+
 [vars]
 PUBLIC_ORIGIN = "https://noodles.poppylab.dev"
 PUBLIC_DOMAIN = "noodles.poppylab.dev"

@@ -6,6 +6,10 @@ compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
 routes = [{ pattern = "juniper.poppylab.dev", custom_domain = true }]
 workers_dev = false
 
+# Product photos: files in ./public are served before the Worker runs.
+[assets]
+directory = "./public"
+
 [vars]
 PUBLIC_ORIGIN = "https://juniper.poppylab.dev"
 PUBLIC_DOMAIN = "juniper.poppylab.dev"

@@ -9,6 +9,8 @@ try {
   if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
 }
 import { serve } from "@hono/node-server";
+import { serveStatic } from "@hono/node-server/serve-static";
+import { Hono } from "hono";
 import { protocolRequest, vault } from "@poppy-lab/pap-client";
 import { createCompany, emptyState } from "@poppy-lab/pap-company";
 import { lantern } from "./lantern.ts";
@@ -35,5 +37,9 @@ const app = createCompany(lantern, {
     ? { passwordHash: process.env.LANTERN_PASSWORD_HASH }
     : {}),
 });
-serve({ fetch: app.fetch, port, hostname: process.env.HOST ?? "127.0.0.1" });
+// Product photos from ./public, then the Company itself.
+const server = new Hono();
+server.use("/img/*", serveStatic({ root: "./public" }));
+server.all("*", (c) => app.fetch(c.req.raw));
+serve({ fetch: server.fetch, port, hostname: process.env.HOST ?? "127.0.0.1" });
 console.log(`Lantern Noodle Bar (Poppy 1.0) on ${origin}`);

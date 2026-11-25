@@ -12,7 +12,7 @@ const securityHeaders = (formTargets: string[]) => ({
   "X-Frame-Options": "DENY",
   "Referrer-Policy": "no-referrer",
   "Content-Security-Policy":
-    `default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'self' ${formTargets.join(" ")}`.trim(),
+    `default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self' ${formTargets.join(" ")}`.trim(),
 });
 
 export function mountPersistence(app: Hono, ctx: Ctx) {

@@ -38,7 +38,7 @@ export function homePage(origin: string, shop: Shop) {
   const shelf = shop.products
     .map(
       (product) =>
-        `<article class="product"><p class="muted">${escape(capital(product.category))}</p><h3>${escape(product.name)}</h3><p class="price">${usd(product.price)} <small class="muted">per ${escape(product.unit)}</small></p><p class="muted">${product.stock} in stock</p></article>`,
+        `<article class="product"><img class="photo" src="/img/${escape(product.id)}.webp" alt="" width="512" height="384" loading="lazy"><p class="muted">${escape(capital(product.category))}</p><h3>${escape(product.name)}</h3><p class="price">${usd(product.price)} <small class="muted">per ${escape(product.unit)}</small></p><p class="muted">${product.stock} in stock</p></article>`,
     )
     .join("");
   const { delivery, policies } = shop;

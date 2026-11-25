@@ -24,7 +24,7 @@ export const fontSources = {
   font: "https://fonts.gstatic.com",
 };
 export const pageHeaders = {
-  "Content-Security-Policy": `default-src 'none'; style-src 'unsafe-inline' ${fontSources.style}; font-src ${fontSources.font}; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`,
+  "Content-Security-Policy": `default-src 'none'; style-src 'unsafe-inline' ${fontSources.style}; img-src 'self'; font-src ${fontSources.font}; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`,
   "Referrer-Policy": "no-referrer",
 };
 const fonts = `<link rel="preconnect" href="${fontSources.style}"><link rel="preconnect" href="${fontSources.font}" crossorigin><link href="${fontSources.style}/css2?family=Big+Shoulders+Display:wght@700;900&family=Manrope:wght@500;700&family=Sometype+Mono:wght@400;700&display=swap" rel="stylesheet">`;
@@ -58,6 +58,7 @@ header.strip .wrap{display:flex;align-items:center;justify-content:space-between
 .buttons{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:0;padding:0;list-style:none}
 .buttons.slots{grid-template-columns:repeat(4,minmax(0,1fr));margin-top:14px}
 .btn{position:relative;background:var(--tile);color:var(--ink);border-radius:10px;padding:16px 16px 14px;min-height:118px;display:flex;flex-direction:column;justify-content:space-between;gap:10px;border:1px solid var(--tile-edge);box-shadow:0 1px 0 rgba(255,255,255,.4) inset,0 0 0 3px var(--amber-glow),0 0 18px 2px var(--amber-glow)}
+.btn .photo{display:block;width:calc(100% + 32px);height:auto;max-width:none;margin:-16px -16px 0;aspect-ratio:4/3;object-fit:cover;border-radius:9px 9px 0 0;border-bottom:1px solid var(--tile-edge)}
 .btn .n{position:absolute;top:10px;right:12px;font:700 12px var(--mono);color:var(--muted)}
 .btn .name{font:800 clamp(20px,2vw,26px)/1.05 var(--display);text-transform:uppercase;letter-spacing:.01em;padding-right:28px}
 .btn .price{align-self:flex-start;font:700 15px/1 var(--mono);letter-spacing:.06em;background:var(--ink);color:#fff;padding:5px 8px;border-radius:3px;box-shadow:inset 0 1px 0 rgba(255,255,255,.25),inset 0 -1px 0 rgba(0,0,0,.6)}
@@ -174,7 +175,7 @@ export function homePage(origin: string) {
   const dishes = menu
     .map(
       (d, i) =>
-        `<li class="btn"><span class="n">${String(i + 1).padStart(2, "0")}</span><span class="name">${escape(d.name)}</span><span class="price">${usd(d.price_cents)}</span></li>`,
+        `<li class="btn"><img class="photo" src="/img/${d.id}.webp" alt="" width="512" height="384" loading="lazy"><span class="n">${String(i + 1).padStart(2, "0")}</span><span class="name">${escape(d.name)}</span><span class="price">${usd(d.price_cents)}</span></li>`,
     )
     .join("");
   const slotButtons = slots
