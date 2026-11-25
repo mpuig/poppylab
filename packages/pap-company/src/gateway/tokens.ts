@@ -40,7 +40,7 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
   /** The Company's own fields for a grant's token response, string-valued. */
   const extra = (grant: Grant) =>
     Object.fromEntries(
-      Object.entries(def.tokenFields?.(viewOf(grant)) ?? {}).filter(
+      Object.entries(def.tokenFields?.(viewOf(grant), origin) ?? {}).filter(
         ([name, value]) => !STANDARD.has(name) && typeof value === "string",
       ),
     );

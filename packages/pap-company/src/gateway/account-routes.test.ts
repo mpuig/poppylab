@@ -7,7 +7,7 @@
 import type { Context } from "hono";
 import { describe, expect, it } from "vitest";
 import { newSessionId } from "@poppy-lab/pap-client/core";
-import { setup } from "./test-company.ts";
+import { origin, setup } from "./test-company.ts";
 import type { CompanyDefinition, GrantView } from "./types.ts";
 
 const DATA = { name: "example.com/data", version: "1" };
@@ -31,8 +31,13 @@ function company(): Partial<CompanyDefinition> {
         ? chosen.map((r) => `${persona}:${r}`)
         : { refuse: "Choose at least one record to share." };
     },
-    tokenFields: (grant: GrantView) => ({
-      ...(grant.scopes.includes("data:read") ? { consent_id: grant.id } : {}),
+    tokenFields: (grant: GrantView, at: string) => ({
+      ...(grant.scopes.includes("data:read")
+        ? {
+            consent_id: grant.id,
+            consent_uri: `${at}/data/v1/consents/${grant.id}`,
+          }
+        : {}),
       // Never replaces a standard field.
       access_token: "spoofed",
       scope: "spoofed",
@@ -66,6 +71,7 @@ type Issued = {
   refresh_token: string;
   scope?: string;
   consent_id?: string;
+  consent_uri?: string;
 };
 const signedIn = (tokens: unknown) => {
   if (tokens && typeof tokens === "object" && "refused" in tokens)
@@ -194,6 +200,8 @@ describe("token response fields", () => {
       ).json()) as { grant: GrantView }
     ).grant;
     expect(tokens.consent_id).toBe(grant.id);
+    // With the deployment's origin, for fields that are absolute URLs.
+    expect(tokens.consent_uri).toBe(`${origin}/data/v1/consents/${grant.id}`);
     expect(tokens.access_token).not.toBe("spoofed");
     expect(tokens.scope).not.toBe("spoofed");
     for (const scope of [undefined, "data:read"]) {

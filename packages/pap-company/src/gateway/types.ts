@@ -409,9 +409,10 @@ export type CompanyDefinition = {
    * code exchange and at every refresh. RFC 6749 §5.1 lets a server add
    * parameters, and clients ignore those they don't know. Names of the
    * standard fields (`access_token`, `token_type`, `expires_in`, `scope`,
-   * `refresh_token`) and of errors are never replaced.
+   * `refresh_token`) and of errors are never replaced. `origin` is the
+   * deployment's, for fields that are absolute URLs.
    */
-  tokenFields?: (grant: GrantView) => Record<string, string>;
+  tokenFields?: (grant: GrantView, origin: string) => Record<string, string>;
   /**
    * How long a grant lasts, in milliseconds from the code exchange, given
    * the scopes its consent granted. Without the hook every grant lasts
