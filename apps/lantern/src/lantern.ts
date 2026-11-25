@@ -256,7 +256,7 @@ function mount(
     if (list.length > 20) list.splice(0, list.length - 20);
     return list;
   };
-  const account = (s: Session) => s.account ?? "sam";
+  const account = (s: Session) => s.account ?? "elena";
   const ordersFor = (id: string) => {
     const customer = noodlePersona(id) ?? customers[0]!;
     return (orders[id] ??= [
@@ -361,7 +361,7 @@ export const lantern: CompanyDefinition = {
   writeScope: "orders:write",
   consent: consentPage,
   persona: noodlePersona,
-  defaultAccount: "sam",
+  defaultAccount: "elena",
   paths: noodlePaths,
   mount,
   agent: {

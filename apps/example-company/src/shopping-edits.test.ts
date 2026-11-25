@@ -23,7 +23,7 @@ async function setup() {
     () => ({
       client: "agent",
       user: "u",
-      account: "alex",
+      account: "elena",
       expires: Date.now() + 60000,
     }),
     state,
@@ -48,7 +48,7 @@ async function setup() {
     state,
     cookie,
     post: async (url: string, payload: Record<string, unknown>) => {
-      const headers = { origin, cookie, "x-juniper-account": "alex" };
+      const headers = { origin, cookie, "x-juniper-account": "elena" };
       const r = await app.inject({ method: "POST", url, headers, payload });
       if (r.statusCode === 403 && r.json().error === "approval_required")
         sent.set(r.json().operation.operation_id, {
@@ -93,8 +93,8 @@ it("web basket edits invalidate both basket and checkout proposals without chang
     expect(b.total_cents).toBe(4200);
     expect(b.delivery_fee_cents).toBe(0);
     expect(b.version).toBe(2);
-    expect(state.customers.alex!.orders).toHaveLength(0);
-    expect(state.customers.alex!.deliveryItems).toEqual({
+    expect(state.customers.elena!.orders).toHaveLength(0);
+    expect(state.customers.elena!.deliveryItems).toEqual({
       oranges: 1,
       coffee: 1,
     });
@@ -102,7 +102,7 @@ it("web basket edits invalidate both basket and checkout proposals without chang
       (await post("/site/basket", { version: 1, items: quantities(2) }))
         .statusCode,
     ).toBe(409);
-    expect(state.customers.alex!.basket.coffee).toBe(3);
+    expect(state.customers.elena!.basket.coffee).toBe(3);
     const fresh = (
       await post("/api/account/basket-change", {
         product_id: "coffee",
@@ -114,7 +114,7 @@ it("web basket edits invalidate both basket and checkout proposals without chang
       (await post("/site/basket", { version: 2, items: quantities(5) }))
         .statusCode,
     ).toBe(409);
-    expect(state.customers.alex!.basket.coffee).toBe(4);
+    expect(state.customers.elena!.basket.coffee).toBe(4);
   } finally {
     await app.close();
   }
@@ -151,7 +151,7 @@ it("web delivery edits reject stale day/items proposals including change-away-an
     ).toBe(200);
     for (const id of [day.operation_id, items.operation_id])
       expect((await confirm(id)).statusCode).toBeGreaterThanOrEqual(403);
-    expect(state.customers.alex!.basket).toEqual({ oranges: 1, coffee: 1 });
+    expect(state.customers.elena!.basket).toEqual({ oranges: 1, coffee: 1 });
     const view = (
       await app.inject({ url: "/site/state", headers: { cookie } })
     ).json();
@@ -162,7 +162,7 @@ it("web delivery edits reject stale day/items proposals including change-away-an
     ).json().operation;
     for (let i = 0; i < 2; i++)
       expect((await confirm(fresh.operation_id)).statusCode).toBe(200);
-    expect(state.customers.alex!.deliveryVersion).toBe(4);
+    expect(state.customers.elena!.deliveryVersion).toBe(4);
     expect(
       (
         await post("/site/delivery", {
@@ -172,7 +172,7 @@ it("web delivery edits reject stale day/items proposals including change-away-an
         })
       ).statusCode,
     ).toBe(409);
-    expect(state.customers.alex!.day).toBe("Saturday");
+    expect(state.customers.elena!.day).toBe("Saturday");
   } finally {
     await app.close();
   }
@@ -181,7 +181,7 @@ it("rejects malformed quantities, authority fields, stale drafts and missing bro
   const { app, post, state, cookie } = await setup();
   try {
     await app.inject("/api/account/basket");
-    const before = structuredClone(state.customers.alex);
+    const before = structuredClone(state.customers.elena);
     for (const payload of [
       { version: 1, items: { coffee: 1 } },
       { version: 1, items: { ...quantities(), coffee: 13 } },
@@ -215,7 +215,7 @@ it("rejects malformed quantities, authority fields, stale drafts and missing bro
           })
         ).statusCode,
       ).toBe(403);
-    expect(state.customers.alex).toEqual(before);
+    expect(state.customers.elena).toEqual(before);
   } finally {
     await app.close();
   }
@@ -241,7 +241,7 @@ it("allows explicit zero-item saves with zero fees, without inventing orders or 
       (await app.inject("/api/account/deliveries")).json().deliveries[0]
         .total_cents,
     ).toBe(0);
-    expect(state.customers.alex!.orders).toHaveLength(0);
+    expect(state.customers.elena!.orders).toHaveLength(0);
   } finally {
     await app.close();
   }

@@ -12,7 +12,7 @@ Shopping tools are now generated from the published OpenAPI, including scalar pa
 
 ## Sign-in and scopes
 
-By default, Juniper presents a clearly labeled fictional Alex persona selector. It does not verify a real identity. To require a dedicated local account password, run:
+By default, Juniper presents a clearly labeled fictional Elena persona selector. It does not verify a real identity. To require a dedicated local account password, run:
 
 ```sh
 node apps/example-company/scripts/set-password.mjs

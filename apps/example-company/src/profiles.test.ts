@@ -12,8 +12,8 @@ type Sent = {
 };
 const origin = "http://juniper.localhost:4100";
 const values = {
-  name: "Alex Demo",
-  email: "alex@juniper.invalid",
+  name: "Elena Demo",
+  email: "elena@juniper.invalid",
   address: "12 Forest Road — fictional address",
 };
 async function setup(state: Commerce = { customers: {}, records: {} }) {
@@ -23,7 +23,7 @@ async function setup(state: Commerce = { customers: {}, records: {} }) {
     (r) => ({
       client: "agent",
       user: "u",
-      account: String(r.headers["x-test-account"] ?? "alex"),
+      account: String(r.headers["x-test-account"] ?? "elena"),
       expires: Date.now() + 60000,
     }),
     state,
@@ -47,7 +47,7 @@ async function setup(state: Commerce = { customers: {}, records: {} }) {
     app,
     cookie,
     post: async (url: string, payload: Record<string, unknown>) => {
-      const headers = { cookie, origin, "x-juniper-account": "alex" };
+      const headers = { cookie, origin, "x-juniper-account": "elena" };
       const r = await app.inject({ method: "POST", url, headers, payload });
       if (r.statusCode === 403 && r.json().error === "approval_required")
         sent.set(r.json().operation.operation_id, {
@@ -77,7 +77,7 @@ it("keeps proposals separate, rejects stale profile confirmation and confirms a 
       await post("/api/account/profile-proposal", { ...values, version: 1 })
     ).json().operation;
     expect((await app.inject("/api/account/profile")).json().profile.name).toBe(
-      "Alex Rivers",
+      "Elena Maren",
     );
     expect(
       (await post("/site/profile", { ...values, version: 1 })).statusCode,
@@ -91,7 +91,7 @@ it("keeps proposals separate, rejects stale profile confirmation and confirms a 
     const fresh = (
       await post("/api/account/profile-proposal", {
         ...values,
-        name: "Alex Nuevo",
+        name: "Elena Nuevo",
         version: 2,
       })
     ).json().operation;
@@ -99,7 +99,7 @@ it("keeps proposals separate, rejects stale profile confirmation and confirms a 
       expect((await confirm(fresh.operation_id)).statusCode).toBe(200);
     const current = (await app.inject("/api/account/profile")).json();
     expect(current.profile_version).toBe(3);
-    expect(current.profile.name).toBe("Alex Nuevo");
+    expect(current.profile.name).toBe("Elena Nuevo");
     expect(
       (
         await app.inject({
@@ -107,16 +107,16 @@ it("keeps proposals separate, rejects stale profile confirmation and confirms a 
           headers: { "x-test-account": "other" },
         })
       ).json().profile.name,
-    ).toBe("Alex Rivers");
+    ).toBe("Elena Maren");
     await post("/site/profile", {
       ...values,
-      name: "Alex After",
+      name: "Elena After",
       version: 3,
     });
     expect(
       // A retry of the performed operation returns its first response.
       (await confirm(fresh.operation_id)).json().data.profile.name,
-    ).toBe("Alex Nuevo");
+    ).toBe("Elena Nuevo");
   } finally {
     await app.close();
   }
@@ -155,7 +155,7 @@ it("binds checkout to the reviewed profile and preserves destination snapshots o
 it("migrates existing contact data without inventing historical shipping addresses or coupling basket versions", async () => {
   const state: Commerce = {
     customers: {
-      alex: {
+      elena: {
         profile: {
           name: "Eli Demo",
           email: "eli@example.invalid",
@@ -182,7 +182,7 @@ it("migrates existing contact data without inventing historical shipping address
   };
   const { app, post, confirm } = await setup(state);
   try {
-    const old = structuredClone(state.customers.alex!.orders);
+    const old = structuredClone(state.customers.elena!.orders);
     const p = (await app.inject("/api/account/profile")).json();
     expect(p.profile.name).toBe("Eli Demo");
     expect(p.profile_version).toBe(1);
@@ -197,11 +197,11 @@ it("migrates existing contact data without inventing historical shipping address
     ).json().operation;
     expect((await confirm(basket.operation_id)).statusCode).toBe(200);
     expect((await confirm(profile.operation_id)).statusCode).toBe(200);
-    expect(state.customers.alex!.orders).toEqual(old);
-    expect(state.customers.alex!.orders[0]!.destination).toBeUndefined();
-    expect(state.customers.alex!.version).toBe(56);
-    expect(state.customers.alex!.deliveryVersion).toBe(22);
-    expect(state.customers.alex!.profile_version).toBe(2);
+    expect(state.customers.elena!.orders).toEqual(old);
+    expect(state.customers.elena!.orders[0]!.destination).toBeUndefined();
+    expect(state.customers.elena!.version).toBe(56);
+    expect(state.customers.elena!.deliveryVersion).toBe(22);
+    expect(state.customers.elena!.profile_version).toBe(2);
   } finally {
     await app.close();
   }
@@ -230,11 +230,11 @@ it("requires browser authority, fictional contact data and an exact version", as
       ).statusCode,
     ).toBe(403);
     for (const value of [
-      { ...values, email: "alex@example.com", version: 1 },
+      { ...values, email: "elena@example.com", version: 1 },
       { ...values, name: " ", version: 1 },
       { ...values, address: "x".repeat(241), version: 1 },
       { ...values, version: 1, approved_by: "user" },
-      { ...values, name: "Alex\nInjected", version: 1 },
+      { ...values, name: "Elena\nInjected", version: 1 },
       { ...values, version: "1" },
     ])
       expect(

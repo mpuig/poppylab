@@ -2,7 +2,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { testApp } from "./test-app.js";
 import { operations, type Commerce } from "./operations.js";
 
-let session = { client: "agent", user: "usr_a", account: "alex" };
+let session = { client: "agent", user: "usr_a", account: "elena" };
 function setup(state: Commerce = { customers: {}, records: {} }) {
   const app = testApp();
   operations(app, () => ({ ...session, expires: Date.now() + 60000 }), state);
@@ -29,7 +29,7 @@ function setup(state: Commerce = { customers: {}, records: {} }) {
   return { app, state, post, orders };
 }
 afterEach(() => {
-  session = { client: "agent", user: "usr_a", account: "alex" };
+  session = { client: "agent", user: "usr_a", account: "elena" };
   vi.useRealTimers();
 });
 
@@ -183,9 +183,9 @@ it("only the same account, client and User can approve; other approvals are igno
     await x.post("/api/account/delivery-change", { day: "Saturday" })
   ).json().operation;
   for (const other of [
-    { client: "agent", user: "usr_a", account: "maya" },
-    { client: "other-agent", user: "usr_a", account: "alex" },
-    { client: "agent", user: "usr_b", account: "alex" },
+    { client: "agent", user: "usr_a", account: "robin" },
+    { client: "other-agent", user: "usr_a", account: "elena" },
+    { client: "agent", user: "usr_b", account: "elena" },
   ]) {
     session = other;
     const r = await x.post(
@@ -196,7 +196,7 @@ it("only the same account, client and User can approve; other approvals are igno
     expect(r.statusCode).toBe(403);
     expect(r.json().operation.operation_id).not.toBe(op.operation_id);
   }
-  session = { client: "agent", user: "usr_a", account: "alex" };
+  session = { client: "agent", user: "usr_a", account: "elena" };
   expect(
     (await x.app.inject("/api/account/deliveries")).json().deliveries[0].day,
   ).not.toBe("Saturday");

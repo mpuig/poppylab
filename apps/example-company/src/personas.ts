@@ -1,27 +1,19 @@
 export const personas = [
   {
-    id: "alex",
-    name: "Alex Rivers",
-    email: "alex@example.invalid",
+    id: "elena",
+    name: "Elena Maren",
+    email: "elena@example.invalid",
     address: "Fictional Juniper demo address",
     day: "Thursday",
     items: { oranges: 1, coffee: 1 },
   },
   {
-    id: "maya",
-    name: "Maya Sol",
-    email: "maya@example.invalid",
+    id: "robin",
+    name: "Robin Ito",
+    email: "robin@example.invalid",
     address: "8 Elm Street — fictional",
     day: "Tuesday",
     items: { apples: 2, broccoli: 1 },
-  },
-  {
-    id: "leo",
-    name: "Leo Mar",
-    email: "leo@example.invalid",
-    address: "3 Harbour Square — fictional",
-    day: "Saturday",
-    items: { coffee: 2 },
   },
 ];
 export const persona = (id: unknown) => personas.find((p) => p.id === id);

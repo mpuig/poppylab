@@ -32,12 +32,12 @@ it("shows exact profile fields and labels missing before values", () => {
   const proposal = op({
     kind: "profile_change",
     before_profile: {
-      name: "Alex",
+      name: "Elena",
       email: "a@example.invalid",
       address: "Old demo address",
     },
     after_profile: {
-      name: "Alex Demo",
+      name: "Elena Demo",
       email: "a@example.invalid",
       address: "New demo address",
     },
@@ -49,8 +49,9 @@ it("shows exact profile fields and labels missing before values", () => {
     after: "New demo address",
   });
   expect(
-    changes(op({ kind: "profile_change", after_profile: { name: "Alex" } }))[0]!
-      .before,
+    changes(
+      op({ kind: "profile_change", after_profile: { name: "Elena" } }),
+    )[0]!.before,
   ).toBe("Not provided");
 });
 it("formats cents without losing zero or inventing currency", () => {

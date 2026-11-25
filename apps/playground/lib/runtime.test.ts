@@ -570,7 +570,7 @@ it("reports an unsupported task once per Session, with the token when signed in,
     { ...report, task: "pay with a GIFT card" },
     { task: "Cancel an order", description: "Wanted to." },
     { task: "Refund", description: "Order ord_LNB0907 was missing a bowl." },
-    { task: "Refund", description: "Email sam@example.com about it." },
+    { task: "Refund", description: "Email elena@example.com about it." },
     { task: "Refund", description: "Call +1 555 0142 about it." },
   ])
     expect(await tool.execute(input)).toMatchObject({ sent: false });

@@ -112,9 +112,9 @@ export function website(
       portal &&
       !!record &&
       record.expires > Date.now() &&
-      !!persona(record.account ?? "alex") &&
+      !!persona(record.account ?? "elena") &&
       (req.method !== "POST" ||
-        req.headers["x-juniper-account"] === (record.account ?? "alex"))
+        req.headers["x-juniper-account"] === (record.account ?? "elena"))
     );
   };
   const setCookie = (name: string, value: string, maxAge: number) =>
@@ -178,7 +178,7 @@ export function website(
             .send("Wrong password. Go back to /site/login.");
         }
       }
-      const selected = persona(req.body?.account ?? "alex");
+      const selected = persona(req.body?.account ?? "elena");
       if (!selected) return reply.code(400).send({ error: "invalid_account" });
       pending.delete(key);
       sessions.delete(tokenHash(cookie(req, "juniper_web")));
@@ -212,9 +212,9 @@ export function website(
   const browserSession = (req: Req): Session => ({
     client: "juniper-website",
     user:
-      sessions.get(tokenHash(cookie(req, "juniper_web")))!.account ?? "alex",
+      sessions.get(tokenHash(cookie(req, "juniper_web")))!.account ?? "elena",
     account:
-      sessions.get(tokenHash(cookie(req, "juniper_web")))!.account ?? "alex",
+      sessions.get(tokenHash(cookie(req, "juniper_web")))!.account ?? "elena",
     expires: Date.now() + 60000,
   });
   app.get("/help", async (_req, reply) =>

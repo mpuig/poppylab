@@ -67,7 +67,7 @@ it("offers PAR, DPoP tokens, refresh, revocation and Poppy 1.0 only", async () =
 it("ends a Session when a second fictional account is used", async () => {
   const x = await setup();
   const elena = await x.sign("elena", false);
-  const darius = await x.sign("darius", false);
+  const robin = await x.sign("robin", false);
   const sid = "sid_shared_northwind";
   expect(
     (
@@ -84,7 +84,7 @@ it("ends a Session when a second fictional account is used", async () => {
     ).statusCode,
   ).toBe(200);
   const second = await x.call(
-    darius.access_token,
+    robin.access_token,
     "GET",
     "/api/account/bookings",
     undefined,

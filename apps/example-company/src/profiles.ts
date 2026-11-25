@@ -5,8 +5,8 @@ export type Profile = { name: string; email: string; address: string };
 export type ProfileCustomer = { profile?: Profile; profile_version?: number };
 export function profileState(c: ProfileCustomer) {
   c.profile ??= {
-    name: "Alex Rivers",
-    email: "alex@example.invalid",
+    name: "Elena Maren",
+    email: "elena@example.invalid",
     address: "Fictional Juniper demo address",
   };
   c.profile_version ??= 1;

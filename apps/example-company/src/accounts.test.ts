@@ -98,7 +98,7 @@ describe("Direct Sign-In (0.3 §4.2)", () => {
     const x = await setup();
     const { page, response } = await x.consent(scope, {
       decision: "approve",
-      account: "alex",
+      account: "elena",
       write: "yes",
     });
     if (scope === "poppy:read") {

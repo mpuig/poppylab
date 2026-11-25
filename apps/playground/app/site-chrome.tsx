@@ -33,7 +33,7 @@ export const companies = [
     ask: "Move my recurring delivery to Saturday.",
     shows:
       "You see the day before and after, then approve. The shop's website updates within seconds.",
-    people: "Alex, Maya or Leo",
+    people: "Elena or Robin",
     scopes: "poppy:read · poppy:write",
     site: { label: "Visit the shop", href: juniper },
     agents: { label: "For agents", path: "/for-agents" },
@@ -47,7 +47,7 @@ export const companies = [
     ask: "Add a matcha ice cream and move it to Sunday lunchtime.",
     shows:
       "The approval shows the new dishes, the new slot and the price difference before anything changes.",
-    people: "Sam or Robin",
+    people: "Elena or Robin",
     scopes: "orders:read · orders:write",
     site: { label: "Visit the restaurant", href: lantern },
     agents: { label: "For agents", path: "/for-agents" },
@@ -62,7 +62,7 @@ export const companies = [
     ask: "Transfer $500 from checking to savings.",
     shows:
       "Money moves only on your approval, and the bank rechecks balance and limits at that moment.",
-    people: "Avery or Jordan",
+    people: "Elena or Robin",
     scopes: "Reads · reversible changes · payment requests",
     site: { label: "Visit the bank", href: harborline },
     agents: { label: "For agents", path: "/for-agents" },
@@ -74,10 +74,10 @@ export const companies = [
     url: northwind,
     blurb:
       "An airline with flight search, trips, loyalty points, seats, bags and upgrades.",
-    ask: "Move Darius from NA 274 to NA 278.",
+    ask: "Upgrade my NA 118 flight to Business.",
     shows:
-      "You approve the exact new flight and fare. If the fare changed meanwhile, the airline asks again.",
-    people: "Elena or Darius",
+      "You see the exact upgrade price and approve it yourself. It is applied once.",
+    people: "Elena or Robin",
     scopes: "bookings:read · bookings:change",
     site: { label: "Visit the airline", href: northwind },
     agents: { label: "For agents", path: "/for-agents" },

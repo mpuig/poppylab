@@ -72,12 +72,12 @@ describe("Harborline Bank", () => {
   it("lets consent omit offline and change scopes without widening the grant", async () => {
     const { sign } = await setup();
     const requested = [...reads, "cards:write", "offline_access"];
-    const limited = await sign("avery", requested, {
+    const limited = await sign("elena", requested, {
       allowChanges: false,
       allowOffline: false,
     });
     expect(limited.scope).toBe(reads.join(" "));
-    const full = await sign("jordan", requested, {
+    const full = await sign("robin", requested, {
       allowChanges: true,
       allowOffline: true,
     });
@@ -86,14 +86,14 @@ describe("Harborline Bank", () => {
 
   it("enforces route-specific scopes and returns each persona's matching reads", async () => {
     const { sign, call } = await setup();
-    const token = await sign("jordan", ["accounts:read"]);
+    const token = await sign("robin", ["accounts:read"]);
     const accounts = await call(
       token.access_token,
       "GET",
       "/api/account/accounts",
     );
     expect(accounts.statusCode).toBe(200);
-    expect(accounts.json().customer.name).toBe("Jordan Lee");
+    expect(accounts.json().customer.name).toBe("Robin Ito");
     expect(accounts.json().accounts[0].balance_cents).toBe(382740);
     const transactions = await call(
       token.access_token,
@@ -109,7 +109,7 @@ describe("Harborline Bank", () => {
 
   it("requests a payment with exact terms, performs it once, and rejects idempotency conflicts", async () => {
     const { sign, call } = await setup();
-    const token = await sign("avery", all, { allowOffline: true });
+    const token = await sign("elena", all, { allowOffline: true });
     const payload = {
       source_account_id: "acc_HLB_A100",
       recipient_id: "rcp_HLB_A501",
@@ -168,7 +168,7 @@ describe("Harborline Bank", () => {
 
   it("returns meaningful payment and transfer errors before creating an operation", async () => {
     const { sign, call } = await setup();
-    const token = await sign("avery", all);
+    const token = await sign("elena", all);
     const inactive = await call(
       token.access_token,
       "POST",
@@ -197,9 +197,9 @@ describe("Harborline Bank", () => {
     );
     expect(recipientLimit.statusCode).toBe(422);
     expect(recipientLimit.json().error).toBe("recipient_limit_exceeded");
-    const jordan = await sign("jordan", all);
+    const robin = await sign("robin", all);
     const insufficient = await call(
-      jordan.access_token,
+      robin.access_token,
       "POST",
       "/api/account/payments",
       {
@@ -232,7 +232,7 @@ describe("Harborline Bank", () => {
 
   it("detects stale approved transfers after another approved transfer changes the account", async () => {
     const { sign, call } = await setup();
-    const token = await sign("avery", all);
+    const token = await sign("elena", all);
     const firstPayload = {
       source_account_id: "acc_HLB_A100",
       destination_account_id: "acc_HLB_A200",
@@ -284,7 +284,7 @@ describe("Harborline Bank", () => {
 
   it("freezes and unfreezes active cards while refusing inactive or stale cards", async () => {
     const { sign, call } = await setup();
-    const token = await sign("avery", all);
+    const token = await sign("elena", all);
     const freezePayload = { status: "frozen", expected_version: 1 };
     const proposal = operation(
       await call(
@@ -343,7 +343,7 @@ describe("Harborline Bank", () => {
 
   it("edits transaction categories and creates then updates a budget through approvals", async () => {
     const { sign, call } = await setup();
-    const token = await sign("avery", all);
+    const token = await sign("elena", all);
     const categoryPayload = { category: "dining", expected_version: 1 };
     const categoryOp = operation(
       await call(
@@ -364,9 +364,9 @@ describe("Harborline Bank", () => {
       category: "dining",
       version: 2,
     });
-    const jordan = await sign("jordan", all);
+    const robin = await sign("robin", all);
     const pending = await call(
-      jordan.access_token,
+      robin.access_token,
       "POST",
       "/api/account/transactions/txn_HLB_J302/category",
       categoryPayload,
@@ -427,7 +427,7 @@ describe("Harborline Bank", () => {
 
   it("requires Operations v3 for every mutation", async () => {
     const { sign, call } = await setup();
-    const token = await sign("avery", all);
+    const token = await sign("elena", all);
     const response = await call(
       token.access_token,
       "POST",
@@ -446,7 +446,7 @@ describe("Harborline Bank", () => {
 
   it("serves a customer portal that observes the same approved API state", async () => {
     const { sign, call } = await setup();
-    const token = await sign("avery", all);
+    const token = await sign("elena", all);
     const payload = {
       source_account_id: "acc_HLB_A100",
       destination_account_id: "acc_HLB_A200",
@@ -469,7 +469,7 @@ describe("Harborline Bank", () => {
       method: "POST",
       url: "/site/login",
       headers: { cookie: loginCookie, origin },
-      payload: { account: "avery" },
+      payload: { account: "elena" },
     });
     const portalCookie = String(signed.headers["set-cookie"])
       .split(",")

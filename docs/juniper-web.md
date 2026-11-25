@@ -1,10 +1,10 @@
 # Juniper customer website
 
-Open **http://juniper.localhost:4100/account** or use **Sign in to your account** on the Company homepage. The site shares the selected persisted fictional account used by the PAP APIs (Alex, Maya or Leo), not a duplicate frontend dataset. Customers can now [edit the basket and recurring delivery](juniper-shopping-web.md), edit a versioned fictional profile and submit/follow up on support cases. Billing remains read-only; website shopping edits do not create orders. [Profile changes](juniper-profile.md) affect only future purchases and invalidate older checkout proposals, without rewriting existing orders. See the [service foundation and its limits](juniper-services.md).
+Open **http://juniper.localhost:4100/account** or use **Sign in to your account** on the Company homepage. The site shares the selected persisted fictional account used by the PAP APIs (Elena or Robin), not a duplicate frontend dataset. Customers can now [edit the basket and recurring delivery](juniper-shopping-web.md), edit a versioned fictional profile and submit/follow up on support cases. Billing remains read-only; website shopping edits do not create orders. [Profile changes](juniper-profile.md) affect only future purchases and invalidate older checkout proposals, without rewriting existing orders. See the [service foundation and its limits](juniper-services.md).
 
 ## Flow
 
-1. Enter as Alex in demo mode, or supply the dedicated local password if configured with `node apps/example-company/scripts/set-password.mjs`.
+1. Enter as Elena in demo mode, or supply the dedicated local password if configured with `node apps/example-company/scripts/set-password.mjs`.
 2. Keep Juniper open beside Poppy Lab.
 3. Ask the agent for a basket, recurring-delivery, or checkout proposal.
 4. Juniper shows the proposal as pending, without changing the account's basket/delivery/order data.

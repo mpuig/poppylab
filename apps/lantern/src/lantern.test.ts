@@ -68,10 +68,10 @@ it("changes a scheduled order only after approval, once, for the right customer"
     price_difference_cents: 750,
   });
   expect(op.summary).toContain("USD 7.50 more");
-  // Sam can't use Robin's approval.
-  const sam = await x.sign("sam", true);
+  // Elena can't use Robin's approval.
+  const elena = await x.sign("elena", true);
   expect(
-    (await x.call(sam.access_token, "POST", url, body, op)).statusCode,
+    (await x.call(elena.access_token, "POST", url, body, op)).statusCode,
   ).toBe(404);
   // Read-only access can't even get the operation.
   const read = await x.sign("robin", false);
@@ -98,19 +98,19 @@ it("changes a scheduled order only after approval, once, for the right customer"
 
 it("performs an operation at most once; another revision gets the first response", async () => {
   const x = await setup();
-  const sam = await x.sign("sam", true);
+  const elena = await x.sign("elena", true);
   const url = "/api/account/orders/ord_LNB1001/changes";
   const first = (
-    await x.call(sam.access_token, "POST", url, { slot_id: "sat-1900" })
+    await x.call(elena.access_token, "POST", url, { slot_id: "sat-1900" })
   ).json().operation;
   const second = (
-    await x.call(sam.access_token, "POST", url, { remove: ["edamame"] })
+    await x.call(elena.access_token, "POST", url, { remove: ["edamame"] })
   ).json().operation;
   expect(second.operation_id).toBe(first.operation_id);
   expect(
     (
       await x.call(
-        sam.access_token,
+        elena.access_token,
         "POST",
         url,
         { slot_id: "sat-1900" },
@@ -119,7 +119,7 @@ it("performs an operation at most once; another revision gets the first response
     ).statusCode,
   ).toBe(200);
   const stale = await x.call(
-    sam.access_token,
+    elena.access_token,
     "POST",
     url,
     { remove: ["edamame"] },
@@ -130,12 +130,12 @@ it("performs an operation at most once; another revision gets the first response
   expect(stale.statusCode).toBe(200);
   expect(stale.json().data.slot.id).toBe("sat-1900");
   // A new request is a new action on the new order version.
-  const fresh = await x.call(sam.access_token, "POST", url, {
+  const fresh = await x.call(elena.access_token, "POST", url, {
     remove: ["edamame"],
   });
   expect(fresh.json().operation.operation_id).not.toBe(first.operation_id);
   const order = (
-    await x.call(sam.access_token, "GET", "/api/account/orders/ord_LNB1001")
+    await x.call(elena.access_token, "GET", "/api/account/orders/ord_LNB1001")
   ).json();
   expect(
     order.items.some((i: { dish_id: string }) => i.dish_id === "edamame"),
@@ -153,9 +153,9 @@ it.each([
   [{ note: "extra field" }],
 ])("rejects an invalid or empty change: %j", async (body) => {
   const x = await setup();
-  const sam = await x.sign("sam", true);
+  const elena = await x.sign("elena", true);
   const r = await x.call(
-    sam.access_token,
+    elena.access_token,
     "POST",
     "/api/account/orders/ord_LNB1001/changes",
     body,

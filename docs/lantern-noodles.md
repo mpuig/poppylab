@@ -10,16 +10,16 @@ A second **fictional** example Company, so Poppy can be tested against more than
 
 ## What it is
 
-|                     |                                                                                                                                               |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| Issuer / identifier | `http://noodles.localhost:4200` (own issuer, own User IDs)                                                                                    |
-| Scopes              | `orders:read` (hint `none`, personal data), `orders:write` (hint `irreversible`: a change can cost more). `orders:write` alone doesn't read.  |
-| Test customers      | Sam Rivera (order `ord_LNB1001`, Friday 18:30, 2 × shoyu ramen + edamame) and Robin Ito (order `ord_LNB2001`, Saturday 12:30, 1 × miso ramen) |
-| Public API          | `GET /api/menu`, `GET /api/delivery-slots`                                                                                                    |
-| Account API         | `GET /api/account/orders`, `GET /api/account/orders/{id}` (orders:read)                                                                       |
-| Change              | `POST /api/account/orders/{id}/changes` `{ slot_id?, add?: [{dish_id, quantity}], remove?: [dish_id] }` (orders:write), Operations v3         |
-| Excluded tasks      | Cancel an order (alternative: move it, with an `openapi` reference to `change_order`); change the delivery address                            |
-| State               | Encrypted vault `noodles`, separate from Juniper's                                                                                            |
+|                     |                                                                                                                                                |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Issuer / identifier | `http://noodles.localhost:4200` (own issuer, own User IDs)                                                                                     |
+| Scopes              | `orders:read` (hint `none`, personal data), `orders:write` (hint `irreversible`: a change can cost more). `orders:write` alone doesn't read.   |
+| Test customers      | Elena Maren (order `ord_LNB1001`, Friday 18:30, 2 × shoyu ramen + edamame) and Robin Ito (order `ord_LNB2001`, Saturday 12:30, 1 × miso ramen) |
+| Public API          | `GET /api/menu`, `GET /api/delivery-slots`                                                                                                     |
+| Account API         | `GET /api/account/orders`, `GET /api/account/orders/{id}` (orders:read)                                                                        |
+| Change              | `POST /api/account/orders/{id}/changes` `{ slot_id?, add?: [{dish_id, quantity}], remove?: [dish_id] }` (orders:write), Operations v3          |
+| Excluded tasks      | Cancel an order (alternative: move it, with an `openapi` reference to `change_order`); change the delivery address                             |
+| State               | Encrypted vault `noodles`, separate from Juniper's                                                                                             |
 
 It reuses the same PAP 1.0 gateway as Juniper, parameterized by a `CompanyDefinition` in `pap.ts`. That gateway provides:
 
@@ -42,7 +42,7 @@ The shared Operations v3 engine now lives in `approvals.ts`, and Juniper uses it
 Live, with **GPT-6 Luna**, against the running Company:
 
 1. Signed-out menu read through the Session header (5 tools generated from its OpenAPI).
-2. Write consent requested `orders:read orders:write` (from hints) for Sam.
+2. Write consent requested `orders:read orders:write` (from hints) for Elena.
 3. "Move my scheduled order to Saturday 19:00 and add one portion of pork gyoza." The model called `change_order`, explained the pending terms ($45.00, $8.00 more than $37.00) and didn't claim it was done.
 4. Approval in Poppy resent the request with `Poppy-Approval`, and the order changed.
 5. "Show my order now" confirmed Saturday 19:00–19:30 and $45.00.
@@ -67,8 +67,8 @@ The full suite has 362 tests.
 
 ### Customer account area
 
-`/site/login`, `/account` and `/site/*` (`src/portal.ts`, browser script `src/site/app.js`) give Lantern the same capabilities as Juniper's portal, in Lantern's terms: sign in as Sam or Robin; a live view (2 s polling) of the scheduled orders the agent reads; **Edit order** (slot and dish quantities), which moves the order's version on so a pending agent proposal becomes stale; the agent's activity from the tenant's Operations v3 records (exposed read-only to `mount` as `operations()`); connected agents with revocation; logout. POSTs need the session cookie, the Company's Origin and an `X-Lantern-Account` header naming the account the page was opened for. The gateway routes each browser to its own tenant, or to the agent user's tenant once that browser approved the agent's consent.
+`/site/login`, `/account` and `/site/*` (`src/portal.ts`, browser script `src/site/app.js`) give Lantern the same capabilities as Juniper's portal, in Lantern's terms: sign in as Elena or Robin; a live view (2 s polling) of the scheduled orders the agent reads; **Edit order** (slot and dish quantities), which moves the order's version on so a pending agent proposal becomes stale; the agent's activity from the tenant's Operations v3 records (exposed read-only to `mount` as `operations()`); connected agents with revocation; logout. POSTs need the session cookie, the Company's Origin and an `X-Lantern-Account` header naming the account the page was opened for. The gateway routes each browser to its own tenant, or to the agent user's tenant once that browser approved the agent's consent.
 
 ## Company Agent (4 November 2026)
 
-Lantern lists `agent.protocols` with a `poppy` endpoint at `/poppy/conversations`. Its agent answers structured requests: `opening_hours`, `delivery_info`, `order_status` and `report_missing_item`. A missing dish from the last delivery (`ord_LNB0907` for Sam, `ord_LNB1907` for Robin) gets a refund proposal, performed once after approval. The account page shows it under "Last delivery" and in the agent's activity. A handoff says nobody can join and gives +1 555-0142, a fictional number. Details in [conversations](conversations.md).
+Lantern lists `agent.protocols` with a `poppy` endpoint at `/poppy/conversations`. Its agent answers structured requests: `opening_hours`, `delivery_info`, `order_status` and `report_missing_item`. A missing dish from the last delivery (`ord_LNB0907` for Elena, `ord_LNB1907` for Robin) gets a refund proposal, performed once after approval. The account page shows it under "Last delivery" and in the agent's activity. A handoff says nobody can join and gives +1 555-0142, a fictional number. Details in [conversations](conversations.md).

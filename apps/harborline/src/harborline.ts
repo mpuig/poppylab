@@ -449,7 +449,7 @@ function mount(
     return (customerStates[id] ??= cloneCustomer(seed));
   };
   const customerOf = (session: Session) =>
-    customerFor(session.account ?? "avery");
+    customerFor(session.account ?? "elena");
   const reserve = (
     customer: CustomerState,
     kind: string,
@@ -1056,7 +1056,7 @@ export const harborline: CompanyDefinition = {
     }),
   consent: consentPage,
   persona: bankPersona,
-  defaultAccount: "avery",
+  defaultAccount: "elena",
   paths: bankPaths,
   mount,
   agent: {

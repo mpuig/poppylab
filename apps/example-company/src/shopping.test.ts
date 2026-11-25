@@ -9,7 +9,7 @@ function setup(state: Commerce = { customers: {}, records: {} }) {
     () => ({
       client: "agent",
       user: "user",
-      account: "alex",
+      account: "elena",
       expires: Date.now() + 60000,
     }),
     state,

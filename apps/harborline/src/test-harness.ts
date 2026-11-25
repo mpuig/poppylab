@@ -106,7 +106,7 @@ export async function setup(deploy: Partial<Deployment> = {}) {
       })
     ).json();
   const sign = async (
-    account: "avery" | "jordan",
+    account: "elena" | "robin",
     requested: string[],
     options: { allowOffline?: boolean; allowChanges?: boolean } = {},
   ) => {

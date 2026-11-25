@@ -9,7 +9,7 @@ function setup(state: Commerce = { customers: {}, records: {} }) {
     () => ({
       client: "agent",
       user: "user",
-      account: "alex",
+      account: "elena",
       expires: Date.now() + 60000,
     }),
     state,
@@ -114,7 +114,7 @@ it("upgrades old saved customers without resetting their basket or orders", asyn
   const state = JSON.parse(
     JSON.stringify({
       customers: {
-        alex: {
+        elena: {
           day: "Saturday",
           version: 7,
           basket: { apples: 2 },
@@ -132,6 +132,6 @@ it("upgrades old saved customers without resetting their basket or orders", asyn
   expect((await app.inject("/api/account/basket")).json().items[0].id).toBe(
     "apples",
   );
-  expect(state.customers.alex!.version).toBe(7);
+  expect(state.customers.elena!.version).toBe(7);
   await app.close();
 });

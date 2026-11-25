@@ -239,7 +239,7 @@ it("retries by request ID, rejects reuse with another path or body, and validate
 
 it("belongs to its client, User and account (§8.2)", async () => {
   const x = await lab();
-  const sam = await x.sign("sam", false);
+  const elena = await x.sign("elena", false);
   const robin = await x.sign("robin", false);
   const a = await x.post("", BASE, msg({ data: { request: "help" } }));
   const id = a.body.conversation_id;
@@ -254,9 +254,9 @@ it("belongs to its client, User and account (§8.2)", async () => {
       )
     ).status,
   ).toBe(404);
-  // Signed in to sam: continues, and the conversation now uses sam's account.
+  // Signed in to elena: continues, and the conversation now uses elena's account.
   const read = await x.post(
-    sam.access_token,
+    elena.access_token,
     `${BASE}/${id}/messages?wait=0&cursor=${(await x.events("", id)).cursor}`,
     msg({ data: { request: "order_status" } }),
   );
@@ -275,8 +275,8 @@ it("belongs to its client, User and account (§8.2)", async () => {
 
 it("proposes a refund for a missing dish and performs it once, only with the approval", async () => {
   const x = await lab();
-  const sam = await x.sign("sam", true);
-  const t = sam.access_token;
+  const elena = await x.sign("elena", true);
+  const t = elena.access_token;
   const report = await x.post(
     t,
     `${BASE}?wait=0`,
@@ -400,7 +400,7 @@ it("proposes a refund for a missing dish and performs it once, only with the app
 
 it("asks for the write scope first, and sends no operation to a request that doesn't declare Operations v3", async () => {
   const x = await lab();
-  const reader = await x.sign("sam", false);
+  const reader = await x.sign("elena", false);
   const r = await x.post(
     reader.access_token,
     `${BASE}?wait=0`,
@@ -416,7 +416,7 @@ it("asks for the write scope first, and sends no operation to a request that doe
     type: "authorization",
     scope: "orders:read orders:write",
   });
-  const writer = await x.sign("sam", true);
+  const writer = await x.sign("elena", true);
   const undeclared = await x.post(
     writer.access_token,
     `${BASE}?wait=0`,
@@ -449,7 +449,7 @@ it("asks for the write scope first, and sends no operation to a request that doe
       },
     },
     context: {},
-    account: "sam",
+    account: "elena",
     scopes: ["orders:read", "orders:write"],
     memory: {},
     operations: false,

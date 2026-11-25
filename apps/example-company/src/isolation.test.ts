@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import { visitors, webLogin } from "./test-visitors.js";
 
-it("keeps each visitor's fictional Alex separate, including support-case text", async () => {
+it("keeps each visitor's fictional Elena separate, including support-case text", async () => {
   const { visitor } = await visitors();
   const ana = await visitor("usr_ana"),
     ben = await visitor("usr_ben");
@@ -16,7 +16,7 @@ it("keeps each visitor's fictional Alex separate, including support-case text", 
     (await ana("POST", "/api/account/case-proposal", body, op)).statusCode,
   ).toBe(200);
   expect((await ana("GET", "/api/account/cases")).json().cases).toHaveLength(1);
-  // Ben, also signed in as Alex, sees none of Ana's cases or text.
+  // Ben, also signed in as Elena, sees none of Ana's cases or text.
   const benCases = await ben("GET", "/api/account/cases");
   expect(benCases.json().cases).toHaveLength(0);
   expect(benCases.body).not.toContain("Ana's text");
@@ -30,7 +30,7 @@ it("shows a browser the agent user's copy once it approved that agent's consent,
   const { app, visitor } = await visitors();
   const browser = { cookie: "" };
   const ana = await visitor("usr_ana", browser);
-  // Ana's agent moves Alex's delivery (Operations v2, approved).
+  // Ana's agent moves Elena's delivery (Operations v2, approved).
   const body = { delivery_id: "delivery_001", day: "Saturday" };
   const op = (await ana("POST", "/api/account/delivery-change", body)).json()
     .operation;
@@ -47,7 +47,7 @@ it("shows a browser the agent user's copy once it approved that agent's consent,
   expect(state.body).toContain("Saturday");
   // The agent's approved operation shows in the website's activity.
   expect(state.json().activity[0]).toMatchObject({ state: "succeeded" });
-  // A stranger's browser gets a fresh copy: Alex still delivers on Thursday.
+  // A stranger's browser gets a fresh copy: Elena still delivers on Thursday.
   const stranger = await webLogin(app);
   const theirs = await app.inject({
     url: "/site/state",

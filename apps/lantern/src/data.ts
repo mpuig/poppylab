@@ -25,8 +25,8 @@ export const PHONE = "+1 555-0142";
 export const PHONE_HOURS = "Wednesday to Sunday, during kitchen hours";
 export const customers = [
   {
-    id: "sam",
-    name: "Sam Rivera",
+    id: "elena",
+    name: "Elena Maren",
     order: {
       id: "ord_LNB1001",
       slot: "fri-1830",

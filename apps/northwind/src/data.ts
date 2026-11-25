@@ -186,8 +186,8 @@ export const customers = [
     } satisfies SeedBooking,
   },
   {
-    id: "darius",
-    name: "Darius Okafor",
+    id: "robin",
+    name: "Robin Ito",
     loyalty: {
       number: "GALE-207-451",
       tier: "Blue",
@@ -197,21 +197,21 @@ export const customers = [
     },
     booking: {
       reference: "NW4D8R",
-      surname: "Okafor",
-      passenger: { id: "psg_darius", name: "Darius Okafor" },
+      surname: "Ito",
+      passenger: { id: "psg_robin", name: "Robin Ito" },
       flight_ids: ["flt_na274_20270603"],
       fare: "SAVER",
       paid_cents: 25900,
       seats: { flt_na274_20270603: "27D" },
       baggage: { flt_na274_20270603: 0 },
       preference: {
-        passenger_id: "psg_darius",
+        passenger_id: "psg_robin",
         meal: "standard",
         assistance: "hearing_support",
         version: 1,
       },
       upgrade_offer: {
-        id: "upg_darius_1",
+        id: "upg_robin_1",
         flight_id: "flt_na274_20270603",
         price_cents: 31900,
       },

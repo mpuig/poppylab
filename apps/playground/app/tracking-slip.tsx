@@ -14,7 +14,7 @@ const steps = [
   },
   {
     title: "You signed in",
-    detail: "On Juniper's own page, as Alex. You chose what Iris may do.",
+    detail: "On Juniper's own page, as Elena. You chose what Iris may do.",
   },
   {
     title: "Change proposed",

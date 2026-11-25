@@ -4,7 +4,7 @@ First vertical slice of the approved [testbed plan](juniper-testbed-plan.md), no
 
 ## Working customer journey
 
-1. Open `/help` for public FAQs, or enter `/account` as fictional Alex.
+1. Open `/help` for public FAQs, or enter `/account` as fictional Elena.
 2. The account navigation covers shopping, deliveries, orders, billing, help/cases, profile and collapsed agent activity. [Shopping and recurring delivery editors](juniper-shopping-web.md) share version guards with agent proposals. Billing derives simulated documents from existing orders; profile now supports [versioned website edits and approval-gated agent changes](juniper-profile.md). No new payment ledger is implied.
 3. Submit a case in **Help and support**, optionally selecting one of your actual fictional orders. Submission is an explicit customer action, not a PAP approval. Both surfaces read the same persisted record.
 4. A clearly labeled automatic test responder posts topic-based guidance. No real support worker, LLM support conversation, refund or delivery intervention is involved.

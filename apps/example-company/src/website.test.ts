@@ -11,7 +11,7 @@ async function setup() {
   const commerce = operations(app, () => ({
     client: "agent",
     user: "user",
-    account: "alex",
+    account: "elena",
     expires: Date.now() + 60000,
   }));
   website(app, origin, commerce.view);
@@ -53,7 +53,7 @@ it("switches browser personas without retaining the old session and rejects unkn
       method: "POST",
       url: "/site/login",
       headers: { origin, cookie: challenge + "; " + old },
-      payload: { account: "maya" },
+      payload: { account: "robin" },
     });
     const current = (next.headers["set-cookie"] as string[])
       .find((v) => v.startsWith("juniper_web="))!
@@ -65,12 +65,12 @@ it("switches browser personas without retaining the old session and rejects unkn
     const data = (
       await app.inject({ url: "/site/state", headers: { cookie: current } })
     ).json();
-    expect(data.account_id).toBe("maya");
-    expect(data.profile.name).toBe("Maya Sol");
+    expect(data.account_id).toBe("robin");
+    expect(data.profile.name).toBe("Robin Ito");
     expect(
       (await app.inject({ url: "/account", headers: { cookie: current } }))
         .body,
-    ).toContain('data-account="maya"');
+    ).toContain('data-account="robin"');
   } finally {
     await app.close();
   }

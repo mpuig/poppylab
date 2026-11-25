@@ -41,7 +41,7 @@ pnpm scenarios revisions
 ```
 
 - `revisions.test.ts`: immutability, recalculation, disallowed fields, status and expiry, limits, concurrency and ownership.
-- `authority-regression.test.ts`: creates a checkout in the last minute of a Session, lets that Session expire, gets another with the Account Token, rejects Maya and read-only access, creates revision 2, rejects the old approval, restarts from a real temporary vault and confirms once.
+- `authority-regression.test.ts`: creates a checkout in the last minute of a Session, lets that Session expire, gets another with the Account Token, rejects Robin and read-only access, creates revision 2, rejects the old approval, restarts from a real temporary vault and confirms once.
 - A cross-app test: generated OpenAPI tools → real Juniper handlers → Poppy's approval route → one order, with an authenticated Session injected and an in-memory transport; business responses weren't simulated.
 - `runtime.test.ts`: bounded Session recovery without losing context and without retrying uncertain errors.
 

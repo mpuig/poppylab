@@ -72,40 +72,40 @@ it.each([false, "2"])(
 it("keeps one account per Session, continues signed out after revocation, and never mixes accounts", async () => {
   const x = await setup();
   try {
-    const alex = x.signed.access_token;
+    const elena = x.signed.access_token;
     expect(
-      (await x.call(alex, "GET", "/api/account/profile")).json().profile.name,
-    ).not.toBe("Maya Sol");
-    const maya = await x.sign("maya");
+      (await x.call(elena, "GET", "/api/account/profile")).json().profile.name,
+    ).not.toBe("Robin Ito");
+    const robin = await x.sign("robin");
     // Sign-in doesn't know Sessions (§5.4): no session_id or signed_in.
-    expect(maya).not.toHaveProperty("session_id");
-    expect(maya).not.toHaveProperty("signed_in");
-    // A second account in Alex's Session ends it (§5.4).
+    expect(robin).not.toHaveProperty("session_id");
+    expect(robin).not.toHaveProperty("signed_in");
+    // A second account in Elena's Session ends it (§5.4).
     const mixed = await x.call(
-      maya.access_token,
+      robin.access_token,
       "GET",
       "/api/account/profile",
       undefined,
       x.app,
-      x.sidFor(alex),
+      x.sidFor(elena),
     );
     expect(mixed.statusCode).toBe(400);
     expect(mixed.json()).toEqual({ error: "session_ended" });
     expect(
-      (await x.call(maya.access_token, "GET", "/api/account/profile")).json()
+      (await x.call(robin.access_token, "GET", "/api/account/profile")).json()
         .profile.name,
-    ).toBe("Maya Sol");
-    // Revoking Maya's refresh token ends its access tokens (RFC 7009 §2.1).
-    await x.revoke(maya.refresh_token);
+    ).toBe("Robin Ito");
+    // Revoking Robin's refresh token ends its access tokens (RFC 7009 §2.1).
+    await x.revoke(robin.refresh_token);
     expect(
-      (await x.call(maya.access_token, "GET", "/api/account/profile"))
+      (await x.call(robin.access_token, "GET", "/api/account/profile"))
         .statusCode,
     ).toBe(401);
     expect(
       (
         await x.token({
           grant_type: "refresh_token",
-          refresh_token: maya.refresh_token,
+          refresh_token: robin.refresh_token,
         })
       ).json().error,
     ).toBe("invalid_grant");
@@ -259,7 +259,7 @@ it("revises checkout with the same operation_id from a new Session, keeps accoun
     expect(second.revision).not.toBe(first.revision);
     expect(second.terms.delivery_day).toBe("Saturday");
     // Another account never gets this operation, whatever it approves.
-    const foreign = (await x.sign("maya")).access_token;
+    const foreign = (await x.sign("robin")).access_token;
     const stolen = await x.call(
       foreign,
       "POST",
@@ -339,7 +339,7 @@ it("limits consent to requested scopes, upgrades explicitly and preserves old-to
         })
       ).statusCode,
     ).toBe(403);
-    const expanded = await x.sign("alex", true);
+    const expanded = await x.sign("elena", true);
     expect(expanded.scope).toBe("poppy:read poppy:write");
     expect(
       (await x.call(read.access_token, "POST", "/api/account/checkout", {}))
@@ -445,11 +445,11 @@ async function setup(
   let session_id = newSessionId();
   const newSession = () => (session_id = newSessionId());
   // An agent uses one Session per account (0.3 §5.4): map tokens to sids.
-  const accountSids = new Map<string, string>([["alex", session_id]]);
+  const accountSids = new Map<string, string>([["elena", session_id]]);
   const tokenSids = new Map<string, string>();
   const verifier = "v".repeat(64);
   const sign = async (
-    account = "alex",
+    account = "elena",
     _fresh = false,
     scope = "poppy:read poppy:write",
   ) => {
@@ -492,7 +492,7 @@ async function setup(
     tokenSids.set(result.access_token, accountSids.get(account)!);
     return result;
   };
-  const signed = await sign("alex", false, initialScope);
+  const signed = await sign("elena", false, initialScope);
   const call = async (
     access: string,
     method: "GET" | "POST",
@@ -598,13 +598,13 @@ async function setup(
 it("isolates profiles, orders, cases, Operations and browser grant revocation across personas", async () => {
   const x = await setup();
   try {
-    const alex = x.signed.access_token;
+    const elena = x.signed.access_token;
     const orderOp = (
-      await x.call(alex, "POST", "/api/account/checkout", { day: "Saturday" })
+      await x.call(elena, "POST", "/api/account/checkout", { day: "Saturday" })
     ).json().operation;
     const result = (
       await x.call(
-        alex,
+        elena,
         "POST",
         "/api/account/checkout",
         { day: "Saturday" },
@@ -615,8 +615,8 @@ it("isolates profiles, orders, cases, Operations and browser grant revocation ac
     ).json();
     const orderId = result.data.id;
     const caseOp = (
-      await x.call(alex, "POST", "/api/account/case-proposal", {
-        subject: "Alex only",
+      await x.call(elena, "POST", "/api/account/case-proposal", {
+        subject: "Elena only",
         topic: "delivery",
         message: "Fictional",
         order_id: orderId,
@@ -624,11 +624,11 @@ it("isolates profiles, orders, cases, Operations and browser grant revocation ac
     ).json().operation;
     const incident = (
       await x.call(
-        alex,
+        elena,
         "POST",
         "/api/account/case-proposal",
         {
-          subject: "Alex only",
+          subject: "Elena only",
           topic: "delivery",
           message: "Fictional",
           order_id: orderId,
@@ -638,29 +638,29 @@ it("isolates profiles, orders, cases, Operations and browser grant revocation ac
         caseOp,
       )
     ).json().data;
-    const maya = (await x.sign("maya")).access_token;
+    const robin = (await x.sign("robin")).access_token;
     expect(
-      (await x.call(maya, "GET", "/api/account/profile")).json().profile.name,
-    ).toBe("Maya Sol");
+      (await x.call(robin, "GET", "/api/account/profile")).json().profile.name,
+    ).toBe("Robin Ito");
     expect(
-      (await x.call(alex, "GET", "/api/account/profile")).json().profile.name,
-    ).toBe("Alex Rivers");
+      (await x.call(elena, "GET", "/api/account/profile")).json().profile.name,
+    ).toBe("Elena Maren");
     for (const path of [
       `/api/account/orders/${orderId}`,
       `/api/account/cases/${incident.id}`,
     ])
-      expect((await x.call(maya, "GET", path)).statusCode).toBe(404);
-    // Alex's approvals never replay or perform anything for Maya.
+      expect((await x.call(robin, "GET", path)).statusCode).toBe(404);
+    // Elena's approvals never replay or perform anything for Robin.
     for (const [url, op, body] of [
       ["/api/account/checkout", orderOp, { day: "Saturday" }],
       [
         "/api/account/case-proposal",
         caseOp,
-        { subject: "Alex only", topic: "delivery", message: "Fictional" },
+        { subject: "Elena only", topic: "delivery", message: "Fictional" },
       ],
     ] as const) {
       const replayed = await x.call(
-        maya,
+        robin,
         "POST",
         url,
         body,
@@ -673,7 +673,7 @@ it("isolates profiles, orders, cases, Operations and browser grant revocation ac
     }
     expect(
       (
-        await x.call(maya, "POST", "/api/account/case-proposal", {
+        await x.call(robin, "POST", "/api/account/case-proposal", {
           subject: "No access",
           topic: "delivery",
           message: "Test",
@@ -682,13 +682,13 @@ it("isolates profiles, orders, cases, Operations and browser grant revocation ac
       ).statusCode,
     ).toBe(400);
     expect(
-      (await x.call(maya, "GET", "/api/account/orders")).json().orders,
+      (await x.call(robin, "GET", "/api/account/orders")).json().orders,
     ).toEqual([]);
     expect(
-      (await x.call(maya, "GET", "/api/account/cases")).json().cases,
+      (await x.call(robin, "GET", "/api/account/cases")).json().cases,
     ).toEqual([]);
     expect(
-      (await x.call(maya, "GET", "/api/account/invoices")).json().invoices,
+      (await x.call(robin, "GET", "/api/account/invoices")).json().invoices,
     ).toEqual([]);
     const login = async (account: string) => {
       const start = await x.app.inject("/site/login");
@@ -705,20 +705,20 @@ it("isolates profiles, orders, cases, Operations and browser grant revocation ac
         .find((v) => v.startsWith("juniper_web="))!
         .split(";")[0]!;
     };
-    const mayaCookie = await login("maya"),
-      alexCookie = await login("alex");
+    const robinCookie = await login("robin"),
+      elenaCookie = await login("elena");
     expect(
       (
         await x.app.inject({
           url: "/site/state",
-          headers: { cookie: mayaCookie },
+          headers: { cookie: robinCookie },
         })
       ).json().account_id,
-    ).toBe("maya");
+    ).toBe("robin");
     const grants = (
       await x.app.inject({
         url: "/site/access",
-        headers: { cookie: alexCookie },
+        headers: { cookie: elenaCookie },
       })
     ).json().grants;
     expect(grants).toHaveLength(1);
@@ -729,7 +729,11 @@ it("isolates profiles, orders, cases, Operations and browser grant revocation ac
         await x.app.inject({
           method: "POST",
           url: revoke,
-          headers: { cookie: mayaCookie, origin, "x-juniper-account": "maya" },
+          headers: {
+            cookie: robinCookie,
+            origin,
+            "x-juniper-account": "robin",
+          },
         })
       ).statusCode,
     ).toBe(404);
@@ -739,9 +743,9 @@ it("isolates profiles, orders, cases, Operations and browser grant revocation ac
           method: "POST",
           url: revoke,
           headers: {
-            cookie: alexCookie,
+            cookie: elenaCookie,
             origin: "https://evil.example",
-            "x-juniper-account": "alex",
+            "x-juniper-account": "elena",
           },
         })
       ).statusCode,
@@ -751,7 +755,11 @@ it("isolates profiles, orders, cases, Operations and browser grant revocation ac
         await x.app.inject({
           method: "POST",
           url: "/site/profile",
-          headers: { cookie: mayaCookie, origin, "x-juniper-account": "alex" },
+          headers: {
+            cookie: robinCookie,
+            origin,
+            "x-juniper-account": "elena",
+          },
           payload: {
             version: 1,
             name: "Wrong draft",
@@ -766,31 +774,32 @@ it("isolates profiles, orders, cases, Operations and browser grant revocation ac
         await x.app.inject({
           method: "POST",
           url: revoke,
-          headers: { cookie: alexCookie, origin, "x-juniper-account": "alex" },
+          headers: {
+            cookie: elenaCookie,
+            origin,
+            "x-juniper-account": "elena",
+          },
         })
       ).statusCode,
     ).toBe(200);
-    expect((await x.call(alex, "GET", "/api/account/profile")).statusCode).toBe(
-      401,
-    );
-    expect((await x.call(maya, "GET", "/api/account/profile")).statusCode).toBe(
-      200,
-    );
+    expect(
+      (await x.call(elena, "GET", "/api/account/profile")).statusCode,
+    ).toBe(401);
+    expect(
+      (await x.call(robin, "GET", "/api/account/profile")).statusCode,
+    ).toBe(200);
     expect((await x.refresh()).error).toBe("invalid_grant");
     expect(
       (
         await x.app.inject({
           url: "/site/state",
-          headers: { cookie: alexCookie },
+          headers: { cookie: elenaCookie },
         })
       ).statusCode,
     ).toBe(200);
-    const leo = (await x.sign("leo", true)).access_token;
+    // The other customer can't read an order that isn't theirs.
     expect(
-      (await x.call(leo, "GET", "/api/account/profile")).json().profile.name,
-    ).toBe("Leo Mar");
-    expect(
-      (await x.call(leo, "GET", `/api/account/orders/${orderId}`)).statusCode,
+      (await x.call(robin, "GET", `/api/account/orders/${orderId}`)).statusCode,
     ).toBe(404);
   } finally {
     await x.app.close();

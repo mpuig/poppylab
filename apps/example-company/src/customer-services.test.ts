@@ -11,7 +11,7 @@ async function setup(state: Commerce = { customers: {}, records: {} }) {
     (req) => ({
       client: "agent",
       user: "u",
-      account: String(req.headers["x-test-account"] ?? "alex"),
+      account: String(req.headers["x-test-account"] ?? "elena"),
       expires: Date.now() + 60000,
     }),
     state,
@@ -97,7 +97,7 @@ it("shares website cases with Poppy, enforces browser authority and invalidates 
       headers: Record<string, string> = {
         cookie: web,
         origin,
-        "x-juniper-account": "alex",
+        "x-juniper-account": "elena",
       },
     ) => app.inject({ method: "POST", url, headers, payload });
     expect((await post("/site/cases", body, { origin })).statusCode).toBe(403);
@@ -129,7 +129,7 @@ it("shares website cases with Poppy, enforces browser authority and invalidates 
           {
             cookie: web,
             origin,
-            "x-juniper-account": "alex",
+            "x-juniper-account": "elena",
             ...approvalOf(op),
           },
         )
@@ -149,7 +149,7 @@ it("shares website cases with Poppy, enforces browser authority and invalidates 
           {
             cookie: web,
             origin,
-            "x-juniper-account": "alex",
+            "x-juniper-account": "elena",
             ...approvalOf(fresh),
           },
         )
@@ -187,7 +187,7 @@ it("rejects invalid subjects, extra authority fields and unrelated orders", asyn
     );
     expect(
       (await app.inject("/api/account/profile")).json().profile.email,
-    ).toBe("alex@example.invalid");
+    ).toBe("elena@example.invalid");
     expect((await app.inject("/api/account/invoices")).json().invoices).toEqual(
       [],
     );
@@ -198,7 +198,7 @@ it("rejects invalid subjects, extra authority fields and unrelated orders", asyn
 it("upgrades old commerce records without resetting existing orders or basket", async () => {
   const state: Commerce = {
     customers: {
-      alex: {
+      elena: {
         day: "Tuesday",
         version: 8,
         basket: { coffee: 2 },
@@ -223,8 +223,8 @@ it("upgrades old commerce records without resetting existing orders or basket", 
     const invoices = (await app.inject("/api/account/invoices")).json()
       .invoices;
     expect(invoices[0].total_cents).toBe(2800);
-    expect(state.customers.alex!.basket).toEqual({ coffee: 2 });
-    expect(state.customers.alex!.version).toBe(8);
+    expect(state.customers.elena!.basket).toEqual({ coffee: 2 });
+    expect(state.customers.elena!.version).toBe(8);
     const op = (
       await app.inject({
         method: "POST",
@@ -244,8 +244,8 @@ it("upgrades old commerce records without resetting existing orders or basket", 
       headers: approvalOf(op),
     });
     expect(result.statusCode).toBe(403);
-    expect(state.customers.alex!.orders).toHaveLength(1);
-    expect(state.customers.alex!.basket).toEqual({ coffee: 2 });
+    expect(state.customers.elena!.orders).toHaveLength(1);
+    expect(state.customers.elena!.basket).toEqual({ coffee: 2 });
   } finally {
     await app.close();
   }

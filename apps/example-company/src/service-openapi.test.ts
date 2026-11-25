@@ -30,8 +30,8 @@ it("advertises service reads and proposal-only support tools with declared permi
   );
   const profile = {
     version: 1,
-    name: "Alex Demo",
-    email: "alex@example.invalid",
+    name: "Elena Demo",
+    email: "elena@example.invalid",
     address: "Fictional address",
   };
   await tools.propose_profile_change!.execute(profile);

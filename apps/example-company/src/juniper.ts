@@ -114,7 +114,7 @@ export function juniperCompany(options: {
     consent: ({ nonce, passwordRequired, scopes, client, clientHost }) =>
       consentPage(nonce, passwordRequired, scopes, client, clientHost),
     persona,
-    defaultAccount: "alex",
+    defaultAccount: "elena",
     paths,
     agent: {
       name: "Juniper's automated agent",

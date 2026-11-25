@@ -72,9 +72,9 @@ export type CustomerSeed = {
 
 export const customers: readonly CustomerSeed[] = [
   {
-    id: "avery",
-    name: "Avery Stone",
-    email: "avery.stone@example.invalid",
+    id: "elena",
+    name: "Elena Maren",
+    email: "elena.maren@example.invalid",
     accounts: [
       {
         id: "acc_HLB_A100",
@@ -191,9 +191,9 @@ export const customers: readonly CustomerSeed[] = [
     ],
   },
   {
-    id: "jordan",
-    name: "Jordan Lee",
-    email: "jordan.lee@example.invalid",
+    id: "robin",
+    name: "Robin Ito",
+    email: "robin.ito@example.invalid",
     accounts: [
       {
         id: "acc_HLB_J100",

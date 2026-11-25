@@ -56,7 +56,7 @@ The gateway (`packages/pap-company/src/gateway.ts`) is a 50-line composition of 
 - The gateway gained what Juniper needed: optional RFC 9449 DPoP nonces (`deploy.dpopNonces`; the token endpoint challenges before the client assertion or grant is consumed, the API answers 401 `use_dpop_nonce`), grant listing/revocation for the website, and a 16 KiB body limit.
 - The browser portal (`/site/*`, `/account`) only runs on the local origin. On Workers it answers 403 `local_demo_only`: all visitors would share the same fictional personas, so it waits for per-visitor isolation.
 - **Tests:** `src/test-app.ts` gives tests a Fastify-like `inject`/`listen` over the Hono apps. The account tests were rewritten as HTTP tests against the gateway (consent subsets, Origin and cookie binding, PKCE, one-time codes, password, refresh without widening, revocation). The socket-loss test drops the response after the commit at the network layer. Total: 357 tests.
-- **Verified live on Node with GPT-6 Luna:** read-only consent as Alex, read of orders and recurring delivery, **Request change permission**, then Thursday→Saturday proposed, approved and completed, and back to Thursday. Also on workerd (Wrangler dev): discovery, OpenAPI and health return 200, the API without a Session returns 400, and the portal returns 403.
+- **Verified live on Node with GPT-6 Luna:** read-only consent as Elena, read of orders and recurring delivery, **Request change permission**, then Thursday→Saturday proposed, approved and completed, and back to Thursday. Also on workerd (Wrangler dev): discovery, OpenAPI and health return 200, the API without a Session returns 400, and the portal returns 403.
 
 ## Harborline Bank
 
@@ -126,7 +126,7 @@ The same Next.js app runs with `next dev`/`next start` on Node and on Cloudflare
   - JWKS without a private part; `client.json` with `https://poppylab.dev` and Operations v3.
   - Discovery of Juniper and Lantern; private, HTTP and metadata URLs refused.
   - Protocol demo signed out: Juniper fetched `client.json` across Workers and verified the Session header.
-  - Browser: read-only sign-in as Alex, read of deliveries, **Request change permission**, Thursday→Saturday proposed, approved and `succeeded`.
+  - Browser: read-only sign-in as Elena, read of deliveries, **Request change permission**, Thursday→Saturday proposed, approved and `succeeded`.
   - The 21st discovery in a minute returned 429; a cross-origin chat returned 403; a provider without a key returned 400.
 - **Consent cookies:** each consent page has its own cookie (`pap_consent_<id>`), so a second tab or reload can't break another consent. This came up in the production run.
 

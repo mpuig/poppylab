@@ -134,13 +134,13 @@ it("chooses a seat only after approval and replays the first result", async () =
 
 it("invalidates a flight-change proposal when inventory price changes and requires fresh approval", async () => {
   const x = await setup();
-  const darius = await x.sign("darius", true);
+  const robin = await x.sign("robin", true);
   const url = "/api/account/bookings/NW4D8R/change-flight";
   const body = {
     old_flight_id: "flt_na274_20270603",
     new_flight_id: "flt_na278_20270603",
   };
-  const first = await x.call(darius.access_token, "POST", url, body);
+  const first = await x.call(robin.access_token, "POST", url, body);
   const oldOperation = first.json().operation;
   expect(oldOperation.terms).toMatchObject({
     fare_difference_cents: 3000,
@@ -153,7 +153,7 @@ it("invalidates a flight-change proposal when inventory price changes and requir
   business.inventory.flt_na278_20270603!.economy_cents += 2000;
   business.inventory.flt_na278_20270603!.version++;
   const stale = await x.call(
-    darius.access_token,
+    robin.access_token,
     "POST",
     url,
     body,
@@ -164,11 +164,11 @@ it("invalidates a flight-change proposal when inventory price changes and requir
   expect(fresh.operation_id).toBe(oldOperation.operation_id);
   expect(fresh.revision).not.toBe(oldOperation.revision);
   expect(fresh.terms.amount_due_cents).toBe(12500);
-  const done = await x.call(darius.access_token, "POST", url, body, fresh);
+  const done = await x.call(robin.access_token, "POST", url, body, fresh);
   expect(done.statusCode).toBe(200);
   expect(done.json().data.itinerary[0].flight_number).toBe("NA 278");
   expect(
-    (await x.call(darius.access_token, "POST", url, body, fresh)).json(),
+    (await x.call(robin.access_token, "POST", url, body, fresh)).json(),
   ).toEqual(done.json());
 });
 
@@ -229,14 +229,14 @@ it("returns exact baggage, preference, upgrade and cancellation terms", async ()
 
 it("accepts an upgrade and cancels a booking once after exact approval", async () => {
   const x = await setup();
-  const darius = await x.sign("darius", true);
+  const robin = await x.sign("robin", true);
   const upgradeUrl = "/api/account/bookings/NW4D8R/upgrade";
-  const upgradeBody = { offer_id: "upg_darius_1" };
+  const upgradeBody = { offer_id: "upg_robin_1" };
   const upgrade = (
-    await x.call(darius.access_token, "POST", upgradeUrl, upgradeBody)
+    await x.call(robin.access_token, "POST", upgradeUrl, upgradeBody)
   ).json().operation;
   const upgraded = await x.call(
-    darius.access_token,
+    robin.access_token,
     "POST",
     upgradeUrl,
     upgradeBody,

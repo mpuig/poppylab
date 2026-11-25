@@ -53,7 +53,7 @@ describe("Harborline conversations", () => {
 
   it("reads cash position and freezes a card only after conversation approval", async () => {
     const { sign, call } = await setup();
-    const token = await sign("avery", [...scopes]);
+    const token = await sign("elena", [...scopes]);
     const cash = await call(
       token.access_token,
       "POST",

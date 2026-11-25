@@ -63,7 +63,7 @@ export async function visitors() {
       payload: {
         nonce: cookie.split("=")[1]!,
         decision: "approve",
-        account: "alex",
+        account: "elena",
         write: "yes",
       },
     });
@@ -149,7 +149,7 @@ export async function visitors() {
   return { app, visitor, anonymous };
 }
 
-/** Logs a browser into the Company website as Alex; returns its cookies. */
+/** Logs a browser into the Company website as Elena; returns its cookies. */
 export async function webLogin(
   app: Awaited<ReturnType<typeof visitors>>["app"],
   browser = "",
@@ -170,7 +170,7 @@ export async function webLogin(
       origin,
       "content-type": "application/x-www-form-urlencoded",
     },
-    payload: "account=alex",
+    payload: "account=elena",
   });
   const web = ([] as string[])
     .concat(entered.headers["set-cookie"] ?? [])

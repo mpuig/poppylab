@@ -79,7 +79,7 @@ export function operations(
   records: () => Readonly<Record<string, OperationRecord>> = () =>
     state.records,
 ) {
-  const account = (s: Session) => s.account ?? "alex";
+  const account = (s: Session) => s.account ?? "elena";
   const customer = (s: Session) => {
     const p = persona(account(s));
     const c = (state.customers[account(s)] ??= {

@@ -59,7 +59,7 @@ it("uses authorization events for booking and loyalty scopes", async () => {
     type: "authorization",
     scope: "bookings:read",
   });
-  const read = await x.sign("darius", false);
+  const read = await x.sign("robin", false);
   const continued = (
     await x.call(
       read.access_token,

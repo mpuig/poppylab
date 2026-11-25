@@ -69,9 +69,9 @@ it("checks Poppy-Version and reads Poppy-Extensions (§3.4)", async () => {
     ).statusCode,
   ).toBe(200);
   // A change without the extension declared: extension_required, as JSON only.
-  const sam = await x.sign("sam", true);
+  const elena = await x.sign("elena", true);
   const r = await x.call(
-    sam.access_token,
+    elena.access_token,
     "POST",
     "/api/account/orders/ord_LNB1001/changes",
     { slot_id: "sun-1300" },
@@ -116,12 +116,12 @@ it("names a Session by client, sid and User ID, and ends it on a second account 
       sid,
     ),
   );
-  const sam = await x.sign("sam", false);
+  const elena = await x.sign("elena", false);
   const robin = await x.sign("robin", false);
   const shared = newSessionId();
   ok(
     await x.call(
-      sam.access_token,
+      elena.access_token,
       "GET",
       "/api/account/orders",
       undefined,
@@ -202,7 +202,7 @@ it("signs in through a pushed request, binding the code and refresh token to the
       payload: {
         nonce: cookie.split("=")[1]!,
         decision: "approve",
-        account: "sam",
+        account: "elena",
       },
     });
     const code = new URL(String(consent.headers.location)).searchParams.get(
@@ -254,7 +254,7 @@ it("signs in through a pushed request, binding the code and refresh token to the
 
 it("refreshes only with the DPoP key the refresh token was issued with (§4.4)", async () => {
   const x = await setup();
-  const sam = await x.sign("sam", false);
+  const elena = await x.sign("elena", false);
   const refresh = async (
     key: Awaited<ReturnType<typeof createIdentity>>,
     extra: Record<string, string> = {},
@@ -263,7 +263,7 @@ it("refreshes only with the DPoP key the refresh token was issued with (§4.4)",
       "/oauth/token",
       {
         grant_type: "refresh_token",
-        refresh_token: sam.refresh_token,
+        refresh_token: elena.refresh_token,
         client_id: client,
         client_assertion_type:
           "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",

@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import { approvals, type Action, type OperationRecord } from "./approvals.ts";
 
-const owner = { client: "agent", user: "usr_a", account: "alex" };
+const owner = { client: "agent", user: "usr_a", account: "elena" };
 function setup() {
   const records: Record<string, OperationRecord> = {};
   let performed = 0;
@@ -70,13 +70,13 @@ it("ignores approvals from another owner and never repeats the refused revision"
     }
   ).operation;
   const other = x.ops.gate(
-    { ...owner, account: "maya" },
+    { ...owner, account: "robin" },
     x.header(op),
     x.action({ a: 1 }),
   );
   expect(other.status).toBe(403);
   expect(
-    x.ops.replay({ ...owner, account: "maya" }, x.header(op)),
+    x.ops.replay({ ...owner, account: "robin" }, x.header(op)),
   ).toBeUndefined();
   const mismatch = x.ops.gate(owner, x.header(op), x.action({ a: 2 }));
   expect(

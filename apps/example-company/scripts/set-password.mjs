@@ -4,7 +4,7 @@ import { writeFileSync } from "node:fs";
 import { fileURLToPath, URL } from "node:url";
 if (!process.stdin.isTTY)
   throw new Error("Run this in an interactive terminal.");
-process.stdout.write("New local Alex password (12–128 characters, hidden): ");
+process.stdout.write("New local Elena password (12–128 characters, hidden): ");
 process.stdin.setRawMode(true);
 process.stdin.resume();
 process.stdin.setEncoding("utf8");

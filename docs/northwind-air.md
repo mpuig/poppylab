@@ -2,7 +2,7 @@
 
 Northwind Air is a standalone fictional Company at `apps/northwind`, parallel to Juniper Market and Lantern Noodle Bar. It implements Personal Agent Protocol **1.0 only** through `@poppy-lab/pap-company`, including Direct Sign-In with PAR, DPoP-bound tokens and refresh, signed Sessions, task discovery, deterministic conversations and Operations v3 approvals.
 
-Nothing in Northwind Air is real. No ticket is sold, changed or cancelled; no passenger travels; no loyalty points exist; no card is charged or refunded. The two test passengers are **Elena Maren** (`NW7K2P`) and **Darius Okafor** (`NW4D8R`). Never enter real airline, identity, passport, payment or medical data.
+Nothing in Northwind Air is real. No ticket is sold, changed or cancelled; no passenger travels; no loyalty points exist; no card is charged or refunded. The two test passengers are **Elena Maren** (`NW7K2P`) and **Robin Ito** (`NW4D8R`). Never enter real airline, identity, passport, payment or medical data.
 
 ## Run
 

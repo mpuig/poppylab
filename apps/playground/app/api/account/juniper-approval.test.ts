@@ -80,7 +80,7 @@ it("model tool → real Juniper 403 operation → human approval → Poppy-Appro
   operations(app, () => ({
     client: "fixture",
     user: "usr_a",
-    account: "alex",
+    account: "elena",
     expires: Date.now() + 60000,
   }));
   const invoke = async (
