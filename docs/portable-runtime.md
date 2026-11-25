@@ -101,7 +101,7 @@ The same Next.js app runs with `next dev`/`next start` on Node and on Cloudflare
 - **Network** (`pap-client`): on Workers only public HTTPS hostnames or public IP literals are allowed, with no credentials, no `localhost`/`.local`/`.internal`/single-label names, and no redirects. `global_fetch_strictly_public` is on for all three Workers. Node still pins checked DNS answers; `node:dns` and `undici` are loaded lazily.
 - **Public mode** (`lib/deployment.ts`): `POPPY_PUBLIC=true` with an HTTPS `AGENT_PUBLIC_ORIGIN`.
   - Chat accepts only Protocol demo, OpenAI-compatible and Anthropic, each with the visitor's own key. The server keys are used only on localhost in development.
-  - Sign-in and proposals are allowed only for `PAP_ACCOUNT_ORIGINS` (Juniper, Lantern and Harborline on poppylab.dev) and the PAP Sandbox. `client.json` always names the public origin.
+  - Sign-in and proposals are allowed only for `PAP_ACCOUNT_ORIGINS` (Juniper, Lantern, Harborline and Northwind on poppylab.dev) and the PAP Sandbox. `client.json` always names the public origin.
 - **Budgets** (`lib/limits.ts`, public mode):
   - chat: 8/min and 150/day per visitor, 20/min per IP, 600/min global;
   - account: 20/min per visitor, 40/min per IP;
@@ -127,7 +127,7 @@ The same Next.js app runs with `next dev`/`next start` on Node and on Cloudflare
 
 1. `wrangler login` on the operator machine, or a scoped API token.
 2. Routes are set in each `wrangler.toml` (`custom_domain = true`); Wrangler creates the DNS record in the zone.
-3. `pnpm --filter @poppy-lab/lantern deploy` / `pnpm --filter @poppy-lab/example-company deploy` / `pnpm --filter @poppy-lab/harborline deploy`; Poppy: `pnpm --filter @poppy-lab/playground build:worker` then `deploy:worker`.
-4. Optional secrets: `wrangler secret put JUNIPER_PASSWORD_HASH`, `LANTERN_PASSWORD_HASH` or `HARBORLINE_PASSWORD_HASH` in the corresponding workspace.
+3. Deploy the Companies with `pnpm --filter @poppy-lab/lantern deploy`, `pnpm --filter @poppy-lab/example-company deploy`, `pnpm --filter @poppy-lab/harborline deploy`, and `pnpm --filter @poppy-lab/northwind deploy`; deploy Poppy with `pnpm --filter @poppy-lab/playground build:worker` then `deploy:worker`.
+4. Optional secrets: `wrangler secret put JUNIPER_PASSWORD_HASH`, `LANTERN_PASSWORD_HASH`, `HARBORLINE_PASSWORD_HASH` or `NORTHWIND_PASSWORD_HASH` in the corresponding workspace.
 
 Lantern can go live on its own, as a public PAP 1.0 test Company that any agent with an HTTPS `client_id` can use. Poppy still needs its own port before `poppylab.dev` hosts the playground.

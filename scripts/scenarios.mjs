@@ -68,8 +68,11 @@ const groups = {
   banking: [
     ["harborline", ["src/harborline.test.ts", "src/conversations.test.ts"]],
   ],
+  airline: [["northwind", ["src/northwind.test.ts"]]],
   conversations: [
     ["lantern", ["src/conversations.test.ts"]],
+    ["harborline", ["src/conversations.test.ts"]],
+    ["northwind", ["src/conversations.test.ts"]],
     ["example-company", ["src/conversations.test.ts"]],
     ["playground", ["lib/conversations.test.ts"]],
   ],

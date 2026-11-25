@@ -10,22 +10,22 @@ The runtime now generates Juniper’s account tools from its actual `/openapi.js
 - Scalar string/number/integer/boolean path and query parameters, with percent encoding and bound path placeholders.
 - Bounded object/array JSON request bodies, explicit properties/required fields, no undeclared keys, a depth limit of four and a maximum of twenty array items.
 - Enums, calendar-valid date strings and numeric/string bounds; runtime validation before any request, not just model-side JSON schemas.
-- Same-origin absolute OpenAPI servers. Public GET discovery can work beyond the examples; account sign-in is limited to Juniper and the three Sandbox examples from the development playground.
+- Same-origin absolute OpenAPI servers. Public GET discovery can work beyond the examples; account sign-in is limited to the exact configured example-Company origins and the three Sandbox examples.
 
 Request-schema refs, compositions, multipart input, header/cookie parameters, parameter serialization variants, relative servers and per-operation server overrides are intentionally unsupported. Unsupported operations are omitted with sanitized Inspector trace entries. Duplicate operation IDs are removed rather than allowed to replace an existing tool. Schema strings and payload sizes are bounded. This is a conservative subset, not full OpenAPI conformance.
 
 ## Authority boundary
 
-Juniper uses two **local experimental OpenAPI annotations**, not standardized PAP fields:
+The Poppy Lab Companies use two **local experimental OpenAPI annotations**, not standardized PAP fields:
 
 - `x-poppy-scopes` declares required account scopes for a tool.
 - `x-poppy-proposal: true` plus a declared HTTP 202 response identifies an endpoint that only proposes an operation.
 
-Metadata alone never authorizes POST. The runtime independently allows proposal POSTs only for trusted local Juniper and the three exact PAP Sandbox example origins; other Companies’ POST tools are omitted even if their schemas claim proposal support. The Sandbox’s singular scope annotation/DPoP security scopes and HTTP 202 Operations response declaration are also recognized. See pap-sandbox.md for that compatibility profile and public-identity setup. A trusted Company must actually enforce its proposal-only contract. Checking a response after an unsafe write would not undo it; the adapter is not a sandbox for arbitrary Company writes.
+Metadata alone never authorizes POST. The runtime independently allows proposal POSTs only for the exact configured Juniper, Lantern and Northwind origins and the three exact PAP Sandbox example origins; other Companies’ POST tools are omitted even if their schemas claim proposal support. The Sandbox’s singular scope annotation/DPoP security scopes and HTTP 202 Operations response declaration are also recognized. See pap-sandbox.md for that compatibility profile and public-identity setup. A trusted Company must actually enforce its proposal-only contract. Checking a response after an unsafe write would not undo it; the adapter is not a sandbox for arbitrary Company writes.
 
 OAuth, agent/control endpoints, and Operations endpoints are excluded, including when hidden in the server base path. Model input cannot provide a destination URL, headers, token, approval mode or confirmation endpoint. Existing SSRF/DNS pinning, redirect refusal, DPoP and same-origin server policies still apply.
 
-Poppy owns tokens/proofs and enforces declared account scopes before calling the Company; Juniper independently enforces scopes again. Proposal responses must have a valid ID, revision, state, summary, terms and expiry before entering the approval UI. Confirm, cancel, status recovery, sign-in and revocation remain outside the generated model tool set.
+Poppy owns tokens/proofs and enforces declared account scopes before calling the Company; each Poppy Lab Company independently enforces scopes again. Proposal responses must have a valid ID, revision, state, summary, terms and expiry before entering the approval UI. Confirm, cancel, status recovery, sign-in and revocation remain outside the generated model tool set.
 
 ## Human approval
 
@@ -35,7 +35,7 @@ Complete structured terms remain available under **All exact terms**, without re
 
 ## Verification
 
-Tests cover generated path/query/body tools, unknown/invalid input, cross-origin/control endpoints, server-base bypasses, unsupported schemas, duplicate IDs, tool limits, the actual Juniper contract, currency presentation, missing historical values, collapsed final states and expired approvals.
+Tests cover generated path/query/body tools, unknown/invalid input, cross-origin/control endpoints, server-base bypasses, unsupported schemas, duplicate IDs, tool limits, the actual Juniper and Northwind contracts, currency presentation, missing historical values, collapsed final states and expired approvals.
 
 A real configured-model browser pass read the basket and invoked the generated basket proposal tool; another retrieved an order through its path ID. A no-LLM pass exercised the generated delivery-day proposal. Test proposals were declined without applying account changes. Desktop/mobile inspection showed open pending proposals, folded final results and no horizontal page overflow.
 

@@ -1,7 +1,12 @@
 "use client";
 import { ArrowUpRight, Check, LoaderCircle } from "lucide-react";
 import { ModelSettings } from "../model-settings";
-import { exampleUrl, harborlineUrl, lanternUrl } from "./companies";
+import {
+  exampleUrl,
+  harborlineUrl,
+  lanternUrl,
+  northwindUrl,
+} from "./companies";
 import type { Playground } from "./use-playground";
 
 /** Model settings, the Company URL form and the connection status row. */
@@ -92,6 +97,15 @@ export function ConnectionSetup({
               onClick={() => suggest(harborlineUrl)}
             >
               Harborline Bank
+            </button>
+            , or{" "}
+            <button
+              className="text-button"
+              type="button"
+              disabled={busy}
+              onClick={() => suggest(northwindUrl)}
+            >
+              Northwind Air
             </button>
             . They are our fictional test companies.
           </span>

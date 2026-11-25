@@ -2,12 +2,14 @@ import { z } from "zod";
 
 /**
  * The local example Companies (development only, plain HTTP): Juniper Market,
- * Lantern Noodle Bar and Harborline Bank. Nothing else may use the exception.
+ * Lantern Noodle Bar, Harborline Bank and Northwind Air. Nothing else may use
+ * the private-network exception.
  */
 export const LOCAL_COMPANY_ORIGINS = [
   "http://juniper.localhost:4100",
   "http://noodles.localhost:4200",
   "http://harbor.localhost:4300",
+  "http://northwind.localhost:4400",
 ] as const;
 export const isLocalCompany = (origin: string) =>
   (LOCAL_COMPANY_ORIGINS as readonly string[]).includes(origin);

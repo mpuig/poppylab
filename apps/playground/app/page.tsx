@@ -10,6 +10,8 @@ const lantern =
   process.env.NEXT_PUBLIC_LANTERN_URL ?? "http://noodles.localhost:4200";
 const harborline =
   process.env.NEXT_PUBLIC_HARBORLINE_URL ?? "http://harbor.localhost:4300";
+const northwind =
+  process.env.NEXT_PUBLIC_NORTHWIND_URL ?? "http://northwind.localhost:4400";
 const host = (url: string) => new URL(url).host;
 const connect = (url: string) =>
   `/playground?company=${encodeURIComponent(url)}`;
@@ -273,6 +275,37 @@ export default function Home() {
                 </a>
               </div>
             </article>
+            <article className="label">
+              <LabelStrip code="NA · PAP 1.0 · Ops v3" bars="NORTHWIND" />
+              <h3>Northwind Air</h3>
+              <p className="address">{host(northwind)}</p>
+              <p>
+                A fictional airline with public search and status, account trips
+                and loyalty, plus exact approval terms for seats, bags,
+                upgrades, cancellation and flight changes.
+              </p>
+              <dl className="facts">
+                <div>
+                  <dt>Passengers</dt>
+                  <dd>Elena, Darius</dd>
+                </div>
+                <div>
+                  <dt>Scopes</dt>
+                  <dd>
+                    <code>bookings:read</code> <code>bookings:change</code>
+                  </dd>
+                </div>
+              </dl>
+              <p className="try">“Move Darius from NA 274 to NA 278.”</p>
+              <div className="label-links">
+                <a className="button dark" href={connect(northwind)}>
+                  Connect in the playground
+                </a>
+                <a href={`${northwind}/account`}>
+                  Customer portal <ArrowUpRight size={15} aria-hidden="true" />
+                </a>
+              </div>
+            </article>
           </div>
           <p className="note">
             Every visitor gets a separate copy of the fictional customers. An
@@ -306,12 +339,12 @@ export default function Home() {
           <div className="agents-intro">
             <h2 id="agents-title">Bring your own agent</h2>
             <p>
-              Juniper, Lantern and Harborline accept any Personal Agent with an
+              Juniper, Lantern, Harborline and Northwind accept any Personal Agent with an
               HTTPS <code>client_id</code> that serves its metadata and keys,
               with redirect URIs from that metadata. Both speak Operations v3.
               Replace <code>{"{company}"}</code> with{" "}
               <code>{host(juniper)}</code>, <code>{host(lantern)}</code> or{" "}
-              <code>{host(harborline)}</code>.
+              <code>{host(harborline)}</code> or <code>{host(northwind)}</code>.
             </p>
           </div>
           <div

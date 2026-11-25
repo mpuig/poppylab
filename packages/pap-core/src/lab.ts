@@ -3,7 +3,12 @@
  * to its own footer. Local development links to the localhost addresses.
  */
 export type LabSite =
-  "home" | "playground" | "juniper" | "lantern" | "harborline";
+  | "home"
+  | "playground"
+  | "juniper"
+  | "lantern"
+  | "harborline"
+  | "northwind";
 export const LAB_REPOSITORY = "https://github.com/mpuig/poppylab";
 
 export function labSites(origin: string) {
@@ -41,6 +46,13 @@ export function labSites(origin: string) {
       url: local
         ? "http://harbor.localhost:4300"
         : "https://harborline.poppylab.dev",
+    },
+    {
+      id: "northwind" as const,
+      label: "Northwind Air",
+      url: local
+        ? "http://northwind.localhost:4400"
+        : "https://northwind.poppylab.dev",
     },
   ];
 }

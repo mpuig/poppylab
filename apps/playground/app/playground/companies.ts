@@ -8,11 +8,13 @@ export const lanternUrl =
   process.env.NEXT_PUBLIC_LANTERN_URL ?? "http://noodles.localhost:4200";
 export const harborlineUrl =
   process.env.NEXT_PUBLIC_HARBORLINE_URL ?? "http://harbor.localhost:4300";
+export const northwindUrl =
+  process.env.NEXT_PUBLIC_NORTHWIND_URL ?? "http://northwind.localhost:4400";
 /** Shows the sign-in control; the server decides (PAP_ACCOUNT_ORIGINS). */
 export const accountCompany = (origin: string) =>
   isLocalCompany(origin) ||
   isSandbox(origin) ||
-  [exampleUrl, lanternUrl, harborlineUrl].some(
+  [exampleUrl, lanternUrl, harborlineUrl, northwindUrl].some(
     (u) => new URL(u).origin === origin,
   );
 

@@ -1,13 +1,13 @@
 # Personal Agent Protocol 1.0
 
-Iris, Juniper, Lantern and Harborline implement **only** PAP 1.0, published 14 November 2026, and version 3 of the Operations extension. There is no compatibility with 0.1–0.4: a document of another version is refused ("Unsupported PAP version"), and runs saved by the 0.3 implementation are discarded, not migrated. The text is pinned in `spec/1.0/` (spec, Operations extension, guides); `pnpm spec:drift` reports when the published text changes.
+Iris, Juniper, Lantern, Harborline and Northwind implement **only** PAP 1.0, published 14 November 2026, and version 3 of the Operations extension. There is no compatibility with 0.1–0.4: a document of another version is refused ("Unsupported PAP version"), and runs saved by the 0.3 implementation are discarded, not migrated. The text is pinned in `spec/1.0/` (spec, Operations extension, guides); `pnpm spec:drift` reports when the published text changes.
 
 1.0 is 0.4 with the fixes implementers needed. Coming from 0.3, both releases changed what's on the wire. What Poppy Lab does now, section by section:
 
 ## Discovery and versions (§3)
 
 - `poppy.json` has `protocol_version: "1.0"`. Iris takes the newest compatible document (any 1.x) among `protocol_version` and `supported_versions`. A linked document must be on the host that served `poppy.json`, is fetched without redirects, has the version it's listed under and no `supported_versions` of its own.
-- `organization.domain` is the served host **with its port when it isn't 443**. Locally that includes `juniper.localhost:4100`, `noodles.localhost:4200` and `harbor.localhost:4300`. Iris uses another port only for these exact local Companies, in development.
+- `organization.domain` is the served host **with its port when it isn't 443**. Locally that includes `juniper.localhost:4100`, `noodles.localhost:4200`, `harbor.localhost:4300` and `northwind.localhost:4400`. Iris uses another port only for these exact local Companies, in development.
 - Every request with the Session header carries `Poppy-Version: 1.0`. The Companies refuse a missing or incompatible version with `version_unsupported`; Iris then stops, because it implements 1.0 only.
 - Extensions are listed per version (`"operations": [{ "version": "3" }]`) and declared per request: `Poppy-Extensions: "operations";v="3"`. Iris declares only what the Company lists. Client metadata no longer has `extensions`.
 - Every `agent.protocols` entry has a `description` of what the agent there helps with. A document without one fails discovery.

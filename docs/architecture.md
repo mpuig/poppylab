@@ -36,7 +36,7 @@ Protocol demo is not a model. It deterministically selects a catalogue, delivery
 
 ## Local development versus deployment
 
-The local example deliberately uses HTTP at `http://juniper.localhost:4100`. The discovery schema permits that exact origin only when both development mode and the explicit private-network flag are active. The example Company likewise permits its local agent metadata origin. This is a development transport exception, not HTTPS conformance.
+The local examples deliberately use HTTP at the exact Juniper, Lantern and Northwind localhost origins. The discovery schema permits only those origins when both development mode and the explicit private-network flag are active. Each example Company likewise permits the local agent metadata origin. This is a development transport exception, not HTTPS conformance.
 
 Deployed Companies and agent identities require HTTPS. Production chat is off by default. Enabling it requires access control and deployment-level abuse protections beyond the in-process budgets provided here.
 

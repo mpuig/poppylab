@@ -155,6 +155,8 @@ export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
         c.req.method === "POST" ? def.writeScope : def.readScope,
       ];
       const scope = needed.join(" ");
+      if (!needed.length)
+        return c.json({ error: "invalid_scope_configuration" }, 500);
       if (!record)
         return c.body(null, 401, {
           "WWW-Authenticate": `DPoP scope="${scope}"`,

@@ -9,6 +9,7 @@ pnpm scenarios nonce operations # a selection
 pnpm scenarios permissions      # read first, widening and recovery
 pnpm scenarios mcp              # transport, reads and resource tokens
 pnpm scenarios banking          # Harborline reads, approvals and portal parity
+pnpm scenarios airline          # Northwind search, scopes, portal and changes
 ```
 
 The runner (`scripts/scenarios.mjs`) runs deterministic regression tests, not models or live purchases. Each run creates a `poppy-scenarios-*` directory in the system temp folder with Vitest reports and a `summary.json`. Test state lives in memory or in real vaults under temporary directories; it doesn't reset `.poppy` or change saved accounts. It inherits only PATH, HOME, TMPDIR, SYSTEMROOT and LANG, forces NODE_ENV=test, and doesn't inherit model keys, the Juniper password or tunnel configuration. It's not an operating-system sandbox or an official conformance suite.
@@ -22,6 +23,7 @@ The runner (`scripts/scenarios.mjs`) runs deterministic regression tests, not mo
 | pap-1.0    | Discovery and versions, Poppy-Version and Poppy-Extensions, Session header, delegated keys (ES256, PS384), PAR, Operations v3 approvals      |
 | noodles    | Lantern Noodle Bar end to end on the portable gateway                                                                                        |
 | banking    | Harborline Bank scopes, reads, payment/transfer idempotency, limits, stale state, reversible changes, conversations and portal parity        |
+| airline    | Northwind Air public tools, differentiated scopes, portal state, exact terms, stale prices and idempotent execution                          |
 
 The `mcp` group covers client and transport tests and the runtime: reads with the local policy, metadata, DPoP and Bearer resource tokens, SSE, nonces and the absence of uncertain retries. See [MCP read-only](mcp-readonly.md).
 

@@ -9,6 +9,8 @@ const nextConfig: NextConfig = {
       "../../.poppy/**/*",
       "../example-company/.poppy/**/*",
       "../example-company/.env*",
+      "../northwind/.poppy/**/*",
+      "../northwind/.env*",
     ],
   },
   // OAuth callback query strings contain one-time credentials. Browser logs

@@ -1,5 +1,19 @@
 # Poppy Lab design system
 
+## Northwind Air website: synoptic route chart
+
+Northwind Air (`apps/northwind/src/site.ts`) is a fictional airline site and account portal built as a working weather-route briefing rather than a destination-photo template.
+
+- **Palette:** pale chart sky `#dbeaf0` and paper `#f7f4ea`; pressure ink `#102a38`; route blue `#1d6882`; weather-line blue-gray `#91aab4`; sun yellow `#efb73e` for committed actions; restrained red and green for errors and current state.
+- **Type:** Barlow Condensed for compressed operational headings, Figtree for readable interface prose and Azeret Mono for flight numbers, times, prices, scopes and status. The site and consent CSPs allow only Google Fonts' stylesheet and font origins.
+- **First viewport:** curved isobars and one dashed route fill a pale chart field. A large, compact headline sits left; a real origin/destination/date search form sits right and submits to the signed-out flight-search API. The no-real-ticket notice remains visible in the offer, not buried in the footer.
+- **Structure:** a dark three-part capability band follows the search; a ruled departure board uses the same schedule and prices as the APIs; travel information is a varied three-column passage; the final yellow strip sends visitors to Iris. `/for-agents` uses the same typographic chart language for endpoints, scopes and personas.
+- **Account:** the portal is a precise Operate surface: an unequal trip/sidebar grid, ruled segment rows, loyalty and preferences as compact facts, agent activity below the trip, and connected grants on demand. It polls the same tenant state every two seconds and never presents a pending proposal as completed.
+- **Consent:** requested scopes appear as a ruled manifest. Read-only consent has no change control; a write request has one explicit checkbox covering reversible preferences and consequential booking changes, while explaining that every mutation still needs separate exact approval.
+- **Responsive behavior:** the hero becomes one column, the dark capability band becomes stacked rows, departure times yield before route/fare data, and the account sidebar follows trips. Controls keep 50px targets and focus uses the sun-yellow chart mark.
+- **Motion:** no decorative animation is required; state change is the portal's live refresh. The route chart remains legible with reduced motion because its diagram is static.
+- **Content rule:** schedule, fares, personas, booking references, loyalty balances and notices come from `data.ts` and the same business projection used by OpenAPI routes. Every surface says the data is fictional and that no real ticket is sold, changed, cancelled or charged.
+
 ## Lantern Noodle Bar website: ticket machine
 
 The fictional noodle bar's read-only site (`apps/lantern/src/site.ts`): home (menu, slots, how ordering works, hours), `/for-agents`, and the consent page, all server-rendered with no JavaScript. The world is the shokkenki ticket machine at a ramen shop's door.

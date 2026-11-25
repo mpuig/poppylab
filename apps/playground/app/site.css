@@ -597,6 +597,9 @@ body:has(.site) {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 20px;
 }
+.label-pair > :nth-child(3) {
+  grid-column: 1 / -1;
+}
 .try {
   font-size: 18px;
   font-weight: 650;

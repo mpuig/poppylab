@@ -1,4 +1,4 @@
-# PAP 1.0 coverage matrix: Iris, Juniper, Lantern and Harborline
+# PAP 1.0 coverage matrix: Iris, Juniper, Lantern, Harborline and Northwind
 
 This describes the current implementation against **Personal Agent Protocol 1.0** and the **Operations extension, version 3**. **It does not certify conformance**: it is a map of capabilities, limits and evidence, not an inventory of every MUST and SHOULD. The text is pinned in `spec/1.0/` (published 14 November 2026, retrieved 25 November); `pnpm spec:drift` reports later changes. Details in [PAP 1.0](pap-10.md).
 
@@ -6,7 +6,7 @@ This describes the current implementation against **Personal Agent Protocol 1.0*
 
 Legend: **I** implemented (within the stated limits) · **P** partial · **N** not implemented · **—** not applicable. Evidence: **A** automated tests · **V** documented live check · **C** code inspection only.
 
-`pnpm scenarios` groups tests by topic (`pap-1.0`, `conversations`, `noodles`, `banking`, `permissions`, `revisions`, `operations`, `recovery`, `mcp`, `nonce`, `authority`).
+`pnpm scenarios` groups tests by topic (`pap-1.0`, `conversations`, `noodles`, `banking`, `airline`, `permissions`, `revisions`, `operations`, `recovery`, `mcp`, `nonce`, `authority`).
 
 ## 1. Discovery and versions (§3)
 
@@ -22,7 +22,7 @@ Legend: **I** implemented (within the stated limits) · **P** partial · **N** n
 | D08 | Company scopes from either metadata list, descriptions and `scope_hints`                    | I         | I    | A: [permissions](../apps/playground/lib/account-permissions.test.ts)                               | Unknown hint = irreversible; no hint = consequential            |
 | D09 | `agent.protocols[].description` required                                                    | I         | I    | A                                                                                                  | A document without it fails discovery                           |
 | D10 | `auth.disabled`: no sign-in with a Company that sets it                                     | —         | I    | A                                                                                                  | —                                                               |
-| D11 | HTTPS and private destinations blocked                                                      | I         | I    | A: [Workers network](../packages/pap-client/src/workers-network.test.ts)                           | HTTP only for the three exact local origins, in development     |
+| D11 | HTTPS and private destinations blocked                                                      | I         | I    | A: [Workers network](../packages/pap-client/src/workers-network.test.ts)                           | HTTP only for the four exact local origins, in development     |
 | D12 | `web.disabled`, `web.unscoped`, browser join (§6)                                           | N         | N    | None                                                                                               | Iris doesn't browse                                             |
 
 ## 2. OAuth (§4)
@@ -78,7 +78,7 @@ Legend: **I** implemented (within the stated limits) · **P** partial · **N** n
 | O09 | Agent approvals on a User's instruction                                                        | I (accepts) | N              | A                                                                                                                                   | Iris always asks the User                 |
 | O10 | Explicit human approval; the model can't approve; declining is local                           | —           | I              | A                                                                                                                                   | —                                         |
 | O11 | Operations on websites (`Poppy-Operation`, `endpoint`)                                         | N           | N              | None                                                                                                                                | No browser join                           |
-| O12 | A website edit makes a pending agent proposal stale                                            | I           | —              | A: Juniper shopping edits, [Lantern portal](../apps/lantern/src/lantern.test.ts)                                                    | —                                         |
+| O12 | A website edit makes a pending agent proposal stale                                            | I           | —              | A: Juniper shopping edits, [Lantern portal](../apps/lantern/src/lantern.test.ts), [Harborline account state](../apps/harborline/src/harborline.test.ts), [Northwind fare/inventory](../apps/northwind/src/northwind.test.ts)                                                    | —                                         |
 
 ## 6. Security and project limits
 
