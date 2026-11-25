@@ -893,7 +893,7 @@ export async function connect(
   const taskTools: Record<string, ApiTool> = {};
   if (run.tasks?.value.excludedTasks.length)
     taskTools.excluded_tasks = excludedTasksTool(run);
-  if (run.tasks?.value.feedbackEndpoint)
+  if (feedbackEndpoint(run))
     taskTools.report_unsupported_task = feedbackTool(run, trace);
   if (!api) {
     if (endpoint) return { ...conversation, ...taskTools };
@@ -998,6 +998,20 @@ function excludedTasksTool(run: Run): ApiTool {
   };
 }
 
+/**
+ * §9.3: where reports go, only on the Company's own domain or a subdomain, as
+ * a conversation endpoint is. A report carries the Session header and, signed
+ * in, the access token, and a tasks response mustn't send those elsewhere.
+ */
+function feedbackEndpoint(run: Run) {
+  const endpoint = run.tasks?.value.feedbackEndpoint;
+  if (!endpoint) return undefined;
+  // §3.1: organization.domain carries a port when it isn't 443, as host does.
+  const host = new URL(endpoint).host.toLowerCase();
+  const domain = run.company!.document.organization.domain.toLowerCase();
+  return host === domain || host.endsWith(`.${domain}`) ? endpoint : undefined;
+}
+
 /** Identifiers a report must not carry (§9.3): emails, phone numbers, IDs. */
 const IDENTIFIERS =
   /[^\s@]+@[^\s@]+\.[a-z]{2,}|\+?\d[\d\s().-]{6,}\d|\b[a-z]{2,5}_[a-z0-9]{3,}\b/i;
@@ -1065,7 +1079,12 @@ export function feedbackTool(run: Run, trace: string[]): ApiTool {
       const before = run.reported;
       if (before && before.sid === run.sessionId && before.tasks.includes(key))
         return { sent: false, reason: "Already reported in this Session." };
-      const endpoint = run.tasks!.value.feedbackEndpoint!;
+      const endpoint = feedbackEndpoint(run);
+      if (!endpoint)
+        return {
+          sent: false,
+          reason: "The Company takes no reports in this Session.",
+        };
       // No scope needed, but signed in it goes with the access token (§9.3
       // allows it): the report is tied to the account, and the Company's
       // website can show it to the customer who approved the consent.

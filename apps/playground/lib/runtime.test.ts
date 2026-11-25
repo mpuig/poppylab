@@ -600,6 +600,38 @@ it("reports an unsupported task once per Session, with the token when signed in,
   expect(await tool.execute(report)).toEqual({ sent: true });
 });
 
+it("sends no report, Session header or token to a feedback endpoint outside the Company's domain", async () => {
+  const report = {
+    task: "Pay with a gift card",
+    description: "No API takes one.",
+  };
+  const reportTo = (endpoint: string) => {
+    const r = example();
+    r.dpop = dpop;
+    r.tasks = {
+      sid: "",
+      value: { excludedTasks: [], feedbackEndpoint: endpoint, skills: 0 },
+    };
+    return feedbackTool(r, []).execute(report);
+  };
+  for (const endpoint of [
+    "https://collector.example/x",
+    "https://food.papsandbox.com.collector.example/poppy/feedback",
+    "https://notfood.papsandbox.com/poppy/feedback",
+    "https://food.papsandbox.com:8443/poppy/feedback",
+  ])
+    expect(await reportTo(endpoint)).toMatchObject({ sent: false });
+  expect(transport).not.toHaveBeenCalled();
+  // A subdomain is the Company's own, and gets the token as before.
+  transport.mockResolvedValueOnce(null);
+  expect(
+    await reportTo("https://api.food.papsandbox.com/poppy/feedback"),
+  ).toEqual({ sent: true });
+  expect(headersOf(transport.mock.calls[0]!).Authorization).toBe(
+    "DPoP access-1",
+  );
+});
+
 it("approves as the agent without input_type, and a different approver is a new approval (Operations v3 §6)", () => {
   const op = {
     operation_id: "op_1",
