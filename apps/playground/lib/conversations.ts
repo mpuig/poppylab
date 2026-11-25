@@ -571,11 +571,16 @@ export async function approveInConversation(
           seen: [],
           id: target.id,
         });
+  // The thread the operation came from: the conversation itself, or the
+  // User's Direct Conversation (§8.10), each with its own read position.
+  const thread: Thread | undefined =
+    s.id === target.id ? s : s.direct?.id === target.id ? s.direct : undefined;
+  const requestId = approvalRequestId(op);
   const url = new URL(`${target.endpoint}/${target.id}/messages`);
   url.searchParams.set("wait", "10");
-  if (s.id === target.id && s.cursor) url.searchParams.set("cursor", s.cursor);
+  if (thread?.cursor) url.searchParams.set("cursor", thread.cursor);
   const value = await request(run, url.href, "POST", {
-    id: approvalRequestId(op),
+    id: requestId,
     message: {
       author: { type: "agent" },
       text: "The user approved this operation.",
@@ -583,13 +588,18 @@ export async function approveInConversation(
     },
   });
   const read = parseRead(value);
+  const seen = thread ?? { seen: [] as string[] };
   let summary: string | undefined;
   for (const e of read.events) {
-    if (s.seen.includes(e.id as string)) continue;
-    s.seen = [...s.seen, e.id as string].slice(-200);
+    if (seen.seen.includes(e.id as string)) continue;
+    seen.seen = [...seen.seen, e.id as string].slice(-200);
     if (e.type !== "message" || !object(e.message) || e.message.role === "user")
       continue;
     const m = e.message;
+    // §8.4: a reply to another request, such as the proposal itself, isn't
+    // the answer to this approval.
+    if (typeof m.as_of_request === "string" && m.as_of_request !== requestId)
+      continue;
     const ext = object(m.extensions) ? m.extensions.operations : undefined;
     const next = object(ext) ? ext.operation : undefined;
     const declined = object(ext) ? ext.declined : undefined;
@@ -616,7 +626,7 @@ export async function approveInConversation(
       );
     summary = clip(m.text, 2000) ?? summary;
   }
-  if (s.id === target.id && read.cursor) s.cursor = read.cursor;
+  if (thread && read.cursor) thread.cursor = read.cursor;
   return {
     summary:
       summary ??

@@ -503,6 +503,48 @@ describe("Direct Conversations (§8.10) in Iris", () => {
     expect(run.conversation?.direct).toBeUndefined();
   });
 
+  it("approves an operation from the Direct Conversation, ignoring the earlier proposal in the read", async () => {
+    const run = newRun();
+    run.conversation = {
+      endpoint,
+      id: "cnv_1",
+      cursor: "evt_9",
+      seen: [],
+      direct: { id: "cnv_d", seen: [] },
+    };
+    const op = {
+      ...operation,
+      state: "proposed",
+      request: { conversation: { endpoint, id: "cnv_d" } },
+    } as unknown as Parameters<typeof approveInConversation>[1];
+    const proposal = said("evt_d2", {
+      as_of_request: "req_yes",
+      text: "I can refund USD 37.00 once you approve.",
+      extensions: { operations: { operation } },
+    });
+    const request = vi.fn(async (_r: Run, url: string) => {
+      // Read without a cursor: the whole thread, the proposal included.
+      expect(url).toContain(`${endpoint}/cnv_d/messages`);
+      expect(url).not.toContain("cursor=evt_9");
+      return read(
+        [
+          proposal,
+          said("evt_d4", {
+            as_of_request: approvalRequestId(op),
+            text: "Refunded USD 37.00.",
+          }),
+        ],
+        { conversation_id: "cnv_d" },
+      );
+    });
+    await expect(
+      approveInConversation(run, op, approval, request),
+    ).resolves.toEqual({ summary: "Refunded USD 37.00." });
+    expect(run.conversation.direct?.cursor).toBe("evt_d4");
+    // The parent's read position is untouched.
+    expect(run.conversation.cursor).toBe("evt_9");
+  });
+
   it("tells the Company in the parent when the User declines", async () => {
     const { run, s, request } = session((url) =>
       url.startsWith(`${endpoint}?`)
