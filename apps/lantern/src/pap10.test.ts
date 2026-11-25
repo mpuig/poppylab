@@ -293,6 +293,29 @@ it("refreshes only with the DPoP key the refresh token was issued with (§4.4)",
       }
     ).error,
   ).toBe("invalid_target");
+  // An unknown refresh token is invalid_grant even without a DPoP proof, so
+  // a verifier can tell the client assertion was accepted; a real one still
+  // needs its key.
+  const bare = async (refresh_token: string) =>
+    (
+      (await (
+        await formPost("/oauth/token", {
+          grant_type: "refresh_token",
+          refresh_token,
+          client_id: client,
+          client_assertion_type:
+            "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+          client_assertion: await assertion(
+            x.keys.privateKey,
+            client,
+            client,
+            origin,
+          ),
+        })
+      ).json()) as { error: string }
+    ).error;
+  expect(await bare("rt_unknown")).toBe("invalid_grant");
+  expect(await bare(elena.refresh_token)).toBe("invalid_dpop_proof");
 });
 
 /** A form POST through the Company under test. */

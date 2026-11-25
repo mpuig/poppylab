@@ -62,6 +62,14 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
       // §4.5: one resource, the domain; naming it gets the default token.
       if (body.resource && body.resource !== origin)
         return c.json({ error: "invalid_target" }, 400);
+      // An unknown, expired or another client's refresh token is
+      // invalid_grant whatever the DPoP proof (RFC 6749 §5.2); a valid one
+      // still needs the key it was bound to, below.
+      if (body.grant_type === "refresh_token") {
+        const found = state.grants[tokenHash(body.refresh_token ?? "")];
+        if (!found || found.client !== id || found.expires < now)
+          throw new Error("invalid_grant");
+      }
       const binding = await ctx.proofOf(
         c.req.header("dpop") ?? "",
         `${origin}/oauth/token`,

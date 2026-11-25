@@ -15,8 +15,9 @@
  * access token, that account. A handoff (§8.9) finds nobody in this lab:
  * `handoff` goes `pending` then back to `none`, and the Company Agent says
  * how to call. Direct Conversations (§8.10) and streaming (§8.6) are not
- * offered: a `parent_conversation_id` gets `invalid_request`, and a stream
- * request gets JSON.
+ * offered: a `parent_conversation_id` gets `conversation_not_found` or
+ * `conversation_closed` for a bad parent and `invalid_request` otherwise,
+ * and a stream request gets JSON.
  */
 import type { Context, Hono } from "hono";
 import { approvalFrom, randomId } from "@poppy-lab/pap-client/core";
@@ -376,11 +377,16 @@ export function mountConversations(app: Hono, ctx: Ctx, tenancy: Tenancy) {
       const q = query(c);
       const { body, id, seen, remember } = await post(c, BASE);
       if (seen) return answer(c, owned(c, seen.conversation), seen.status, q);
-      // Direct Conversations (§8.10) aren't offered by this lab yet.
-      if (
-        body.parent_conversation_id !== undefined ||
-        body.user_requested_event_id !== undefined
-      )
+      // Direct Conversations (§8.10) aren't offered by this lab yet, but the
+      // parent is checked first, so its errors are the spec's: an unknown or
+      // another owner's parent is not found, a closed one is closed.
+      if (body.parent_conversation_id !== undefined) {
+        const parent = String(body.parent_conversation_id);
+        if (owned(c, parent).closed)
+          throw new Refusal(409, "conversation_closed");
+        throw new Refusal(400, "invalid_request");
+      }
+      if (body.user_requested_event_id !== undefined)
         throw new Refusal(400, "invalid_request");
       const message = parseMessage(body.message);
       const who = caller(c);

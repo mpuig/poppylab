@@ -227,6 +227,16 @@ it("retries by request ID, rejects reuse with another path or body, and validate
       })
     ).body.error,
   ).toBe("invalid_request");
+  // A bad parent gets the spec's errors (§8.10), as the official validator
+  // checks: unknown → 404 conversation_not_found.
+  const unknown = await x.post("", BASE, {
+    ...msg({ text: "hi" }),
+    parent_conversation_id: "cnv_nope",
+  });
+  expect([unknown.status, unknown.body.error]).toEqual([
+    404,
+    "conversation_not_found",
+  ]);
   // No Session header: refused before anything else.
   const bare = await inject({
     method: "POST",
@@ -512,6 +522,15 @@ it("hands off to nobody with a phone number, cancels nothing, then closes once",
     expect(late.status).toBe(409);
     expect(late.body.error).toBe("conversation_closed");
   }
+  // A closed parent for a Direct Conversation: conversation_closed (§8.10).
+  const direct = await x.post("", BASE, {
+    ...msg({ text: "hi" }),
+    parent_conversation_id: id,
+  });
+  expect([direct.status, direct.body.error]).toEqual([
+    409,
+    "conversation_closed",
+  ]);
 });
 
 it("keeps each visitor's conversations in their own tenant (isolation)", async () => {
