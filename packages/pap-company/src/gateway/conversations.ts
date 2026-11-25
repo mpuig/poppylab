@@ -274,13 +274,24 @@ export function mountConversations(app: Hono, ctx: Ctx, tenancy: Tenancy) {
       });
     }
     if (message?.context) {
-      // Fields left out keep their values; null clears one (§8.4).
+      // Fields left out keep their values; null clears one (§8.4). A field
+      // set again counts as new: it moves to the end.
       const merged = { ...conv.context };
-      for (const [k, v] of Object.entries(message.context))
-        if (v === null) delete merged[k];
-        else merged[k] = v;
-      const bounded = Object.fromEntries(Object.entries(merged).slice(0, 20));
-      conv.context = size(bounded) <= 4096 ? bounded : {};
+      for (const [k, v] of Object.entries(message.context)) {
+        delete merged[k];
+        if (v !== null) merged[k] = v;
+      }
+      // Bounded to 20 fields and 4096 bytes, newest first: this message's
+      // fields (at most 2048 bytes, so they fit), then each older one that
+      // still fits. The Company Agent never loses what was just sent.
+      const kept: Array<[string, unknown]> = [];
+      for (const field of Object.entries(merged).reverse())
+        if (
+          kept.length < 20 &&
+          size(Object.fromEntries([field, ...kept])) <= 4096
+        )
+          kept.unshift(field);
+      conv.context = Object.fromEntries(kept);
     }
     // Operations v3 §2: extension content only when the request declares it.
     const approval =
