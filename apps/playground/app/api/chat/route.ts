@@ -3,7 +3,7 @@ import {
   accountUnavailableNotice,
 } from "@/lib/account-recovery";
 import { NextResponse } from "next/server";
-import { ProtocolError } from "@poppy-lab/pap-client";
+import { ProtocolError, randomId } from "@poppy-lab/pap-client";
 import { shoppingTarget } from "@/lib/shopping-context";
 import { cookies } from "next/headers";
 import { connect, directConversation, type Run } from "@/lib/runtime";
@@ -18,6 +18,7 @@ import {
 } from "@/lib/runs";
 import { overBudget } from "@/lib/limits";
 import { pickDemoTool } from "@/lib/demo-tool";
+import { demoChange, demoChangeKind } from "@/lib/demo-changes";
 import { UserFacingError } from "@/lib/user-error";
 import { PapDiscoveryError } from "@poppy-lab/pap-core";
 import { publicMode, serving } from "@/lib/deployment";
@@ -295,6 +296,22 @@ async function reply(request: Request, started: { id?: string }) {
           "The User wanted to pay with a gift card they were given. None of the Company's APIs or its agent's requests apply a gift card.",
       });
       text = `Protocol demo (no LLM). Feedback report sent to the Company (§9.3):\n\n${JSON.stringify(result, null, 2)}\n\nWith a model, Iris reports a task only after trying the Company's tools.`;
+    } else if (provider === "demo" && demoChangeKind(body.message, tools)) {
+      // Another kind of Company (orders, a bank, flights): the demo reads the
+      // account and asks for one change with exact arguments. The Company
+      // answers approval_required and holds it for the User.
+      if (!run.accountToken) {
+        text =
+          "Protocol demo (no LLM). Sign in first: the demo reads your account to prepare this change, and nothing changes until you approve it.";
+      } else {
+        const plan = await demoChange(body.message, tools, randomId);
+        if (!plan || "say" in plan) {
+          text = `Protocol demo (no LLM). ${plan?.say ?? "The demo can't prepare that change here."}`;
+        } else {
+          const result = await tools[plan.call]!.execute(plan.args);
+          text = `Protocol demo (no LLM). ${plan.because}\n\nLive Company response:\n\n${JSON.stringify(result, null, 2)}\n\nThe Company holds a change until you click Approve. For natural-language reasoning, select a model.`;
+        }
+      }
     } else if (provider === "demo") {
       const message = lowered;
       const day = ["saturday", "tuesday", "thursday"].find((day) =>

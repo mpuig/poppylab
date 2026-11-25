@@ -23,8 +23,8 @@ export const accountCompany = (origin: string) =>
  * The lab's four Companies, for the cards a new conversation starts from and
  * the requests the chat suggests. `open` needs no account, `account` reads
  * one, `ask` changes it. Demo mode (no model) answers with keyword rules:
- * every phrase here was checked against them, and only Juniper's change
- * (`demoChange`) is within their reach.
+ * every phrase here was checked against them, and `demoChange` says the
+ * rules can prepare that Company's change (see `lib/demo-changes.ts`).
  */
 export const labCompanies = [
   {
@@ -45,7 +45,7 @@ export const labCompanies = [
     open: ["What’s on the menu?", "Which delivery slots are there?"],
     account: ["my orders"],
     ask: "Add a matcha ice cream and move it to Sunday lunchtime.",
-    demoChange: false,
+    demoChange: true,
   },
   {
     url: harborlineUrl,
@@ -55,7 +55,7 @@ export const labCompanies = [
     open: [],
     account: ["my account balances", "my recent transactions"],
     ask: "Transfer $500 from checking to savings.",
-    demoChange: false,
+    demoChange: true,
   },
   {
     url: northwindUrl,
@@ -65,7 +65,7 @@ export const labCompanies = [
     open: [],
     account: ["my upcoming trips"],
     ask: "Upgrade my NA 118 flight to Business.",
-    demoChange: false,
+    demoChange: true,
   },
 ] as const;
 export const labCompany = (url: string | undefined) => {

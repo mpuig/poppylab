@@ -37,10 +37,20 @@ function scalar(v: unknown): Schema {
           "maxLength",
           "description",
           "format",
+          "pattern",
         ].includes(k),
     )
   )
     throw Error("Unsupported schema");
+  // A pattern is common in real contracts (an idempotency key, a month).
+  // It is accepted so the operation isn't lost, but never compiled or sent
+  // on: a Company's regular expression is untrusted input, and the Company
+  // enforces it on its side anyway.
+  if (
+    v.pattern !== undefined &&
+    (typeof v.pattern !== "string" || v.pattern.length > 256)
+  )
+    throw Error("Unsupported pattern");
   if (
     v.enum !== undefined &&
     (!Array.isArray(v.enum) ||
@@ -62,7 +72,9 @@ function scalar(v: unknown): Schema {
   if (v.format !== undefined && v.format !== "date")
     throw Error("Unsupported format");
   return {
-    ...v,
+    ...Object.fromEntries(
+      Object.entries(v).filter(([key]) => key !== "pattern"),
+    ),
     ...(typeof v.description === "string"
       ? { description: v.description.slice(0, 300) }
       : {}),

@@ -35,7 +35,7 @@ pnpm dev
 - Harborline Bank: http://harbor.localhost:4300 (customer portal at `/account`)
 - Northwind Air: http://northwind.localhost:4400 (customer portal at `/account`)
 
-The playground starts in demo mode, with no key: keyword rules call the Company's tools. They read at every Company and can propose a change at Juniper; for the rest, paste an OpenAI or Anthropic key in Model settings. Connect a Company, sign in as a fictional customer, ask for a change, and approve it from the card in the chat. The Company website shows the same data within two seconds.
+The playground starts in demo mode, with no key: keyword rules call the Company's tools. They read at every Company and can propose one kind of change at each (a delivery day, an order, a transfer or payment, an upgrade or a bag); for anything else, paste an OpenAI or Anthropic key in Model settings. Connect a Company, sign in as a fictional customer, ask for a change, and approve it from the card in the chat. The Company website shows the same data within two seconds.
 
 To use the local environment keys instead, `cp apps/playground/.env.example apps/playground/.env.local` and set `OPENAI_API_KEY` or `ANTHROPIC_API_KEY`. Keys never reach the model context, the Companies, logs or the Worker bundle (`build:worker` refuses a bundle that contains a local secret).
 

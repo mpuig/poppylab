@@ -99,6 +99,50 @@ it("generates proposal body schemas and rejects invalid or extra fields before n
     await expect(tools.propose!.execute(input)).rejects.toThrow();
   expect(o.request).toHaveBeenCalledTimes(1);
 });
+it("keeps an operation whose field has a pattern, without compiling or forwarding it", async () => {
+  const keyed = structuredClone(proposal) as typeof proposal & {
+    requestBody: {
+      content: {
+        "application/json": {
+          schema: { properties: Record<string, unknown>; required: string[] };
+        };
+      };
+    };
+  };
+  const schema = keyed.requestBody.content["application/json"].schema;
+  schema.properties.idempotency_key = {
+    type: "string",
+    minLength: 8,
+    maxLength: 80,
+    pattern: "^[A-Za-z0-9_-]+$",
+  };
+  schema.required.push("idempotency_key");
+  const o = options(true);
+  const tools = openApiTools(
+    { paths: { "/change": { post: keyed } } },
+    base + "/openapi.json",
+    o,
+  );
+  expect(Object.keys(tools)).toEqual(["propose"]);
+  expect(JSON.stringify(tools.propose!.schema)).not.toContain("pattern");
+  // The Company enforces its pattern; the client only keeps its bounds.
+  await tools.propose!.execute({ quantity: 1, idempotency_key: "not valid!" });
+  expect(o.request).toHaveBeenCalledTimes(1);
+  await expect(
+    tools.propose!.execute({ quantity: 1, idempotency_key: "short" }),
+  ).rejects.toThrow();
+  // A pattern that isn't a bounded string still drops the operation.
+  schema.properties.idempotency_key = { type: "string", pattern: { evil: 1 } };
+  expect(
+    Object.keys(
+      openApiTools(
+        { paths: { "/change": { post: keyed } } },
+        base + "/openapi.json",
+        options(true),
+      ),
+    ),
+  ).toEqual([]);
+});
 it.each([
   "/oauth/token",
   "/agent/keys",
