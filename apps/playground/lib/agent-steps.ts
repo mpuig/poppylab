@@ -69,7 +69,8 @@ export function agentStep(entry: ProtocolEntry): AgentStep {
       access: null,
       state,
     };
-  const loaded = /^Loaded (\d+) (?:locally approved )?(API|MCP read) tools/.exec(text);
+  const loaded =
+    /^Loaded (\d+) (?:locally approved )?(API|MCP read) tools/.exec(text);
   if (loaded)
     return {
       text: `Found ${loaded[1]} ${loaded[2] === "API" ? "API" : "read-only"} tools at the Company`,

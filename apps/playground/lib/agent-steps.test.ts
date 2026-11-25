@@ -26,8 +26,8 @@ it("says an approval is waiting and nothing was done", () => {
 
 it("names Company conversations and setup, and keeps unknown events as written", () => {
   expect(step("Conversation started").how).toBe("Company's agent");
-  expect(step("Loaded 19 API tools; confirmation is never a model tool").text).toBe(
-    "Found 19 API tools at the Company",
-  );
+  expect(
+    step("Loaded 19 API tools; confirmation is never a model tool").text,
+  ).toBe("Found 19 API tools at the Company");
   expect(step("Something new happened").text).toBe("Something new happened");
 });

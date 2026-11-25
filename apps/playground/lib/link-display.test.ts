@@ -3,7 +3,9 @@ import { hideLinkSecrets } from "./link-display";
 
 it("replaces a signed or tokened query with an ellipsis", () => {
   expect(
-    hideLinkSecrets("Pay at https://shop.example/pay/1?token=abc123&x=1 today."),
+    hideLinkSecrets(
+      "Pay at https://shop.example/pay/1?token=abc123&x=1 today.",
+    ),
   ).toBe("Pay at https://shop.example/pay/1?… today.");
   expect(hideLinkSecrets("(https://a.example/f?X-Amz-Signature=zz)")).toBe(
     "(https://a.example/f?…)",

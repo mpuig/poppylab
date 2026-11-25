@@ -111,9 +111,15 @@ it("flags a summary that quotes an amount the terms lack", () => {
     expires_at: "2099-01-01T00:00:00Z",
     terms: { subtotal_cents: 1000, total_cents: 1450, currency: "USD" },
   };
-  expect(summaryDisagreements({ ...op, summary: "Order for $14.50." })).toEqual([]);
-  expect(summaryDisagreements({ ...op, summary: "Order for $9.99 total." })).toHaveLength(1);
-  expect(summaryDisagreements({ ...op, summary: "No amounts here." })).toEqual([]);
+  expect(summaryDisagreements({ ...op, summary: "Order for $14.50." })).toEqual(
+    [],
+  );
+  expect(
+    summaryDisagreements({ ...op, summary: "Order for $9.99 total." }),
+  ).toHaveLength(1);
+  expect(summaryDisagreements({ ...op, summary: "No amounts here." })).toEqual(
+    [],
+  );
 });
 
 import { needsYou } from "./operation-presentation";
@@ -131,6 +137,7 @@ it("says which operations wait for the User", () => {
   expect(needsYou(pending({}))).toBe(true);
   expect(needsYou(pending({}, { state: "uncertain" }))).toBe(true);
   expect(needsYou(pending({}, { state: "succeeded" }))).toBe(false);
-  expect(needsYou(pending({}, { expires_at: "2000-01-01T00:00:00Z" }))).toBe(false);
+  expect(needsYou(pending({}, { expires_at: "2000-01-01T00:00:00Z" }))).toBe(
+    false,
+  );
 });
-

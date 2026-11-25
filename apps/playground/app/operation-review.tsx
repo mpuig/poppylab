@@ -99,8 +99,7 @@ export function OperationReview({
         {disagreements.length > 0 && (
           <div className="operation-warning" role="alert">
             <strong>
-              Check before you approve: the terms and {company}’s summary
-              differ
+              Check before you approve: the terms and {company}’s summary differ
             </strong>
             <ul>
               {disagreements.map((line) => (

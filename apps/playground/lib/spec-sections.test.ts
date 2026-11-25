@@ -46,7 +46,10 @@ it("builds a plain-text report for interop issues", () => {
       },
     ],
     events: [
-      logEntry("GET /api/products · Poppy Session", Date.parse("2026-11-03T10:00:01.123Z")),
+      logEntry(
+        "GET /api/products · Poppy Session",
+        Date.parse("2026-11-03T10:00:01.123Z"),
+      ),
     ],
   });
   expect(text).toBe(

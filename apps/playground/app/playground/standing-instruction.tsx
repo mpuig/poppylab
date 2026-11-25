@@ -69,7 +69,9 @@ export function StandingInstruction({
             Save
           </button>
           {invalid && (
-            <span role="alert">Enter an amount above 0, such as 20 or 14.50.</span>
+            <span role="alert">
+              Enter an amount above 0, such as 20 or 14.50.
+            </span>
           )}
         </form>
       )}

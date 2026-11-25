@@ -163,7 +163,9 @@ export function summaryDisagreements(op: ReviewOperation): string[] {
     ...op.summary.matchAll(/[$€£]\s?(\d{1,3}(?:,\d{3})*|\d+)(?:\.(\d{1,2}))?/g),
   ].map((m) =>
     Math.round(
-      Number(`${(m[1] ?? "0").replaceAll(",", "")}.${(m[2] ?? "0").padEnd(2, "0")}`) * 100,
+      Number(
+        `${(m[1] ?? "0").replaceAll(",", "")}.${(m[2] ?? "0").padEnd(2, "0")}`,
+      ) * 100,
     ),
   );
   return named

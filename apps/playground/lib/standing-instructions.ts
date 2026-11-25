@@ -43,10 +43,14 @@ export function formatLimit({ maxCents, currency }: Instruction) {
 }
 
 /** A limit typed by the User, in whole currency units or cents, or null. */
-export function parseLimit(value: string, currency: string): Instruction | null {
+export function parseLimit(
+  value: string,
+  currency: string,
+): Instruction | null {
   const match = /^\s*(\d{1,6})(?:\.(\d{1,2}))?\s*$/.exec(value);
   if (!match || !/^[A-Z]{3}$/.test(currency)) return null;
-  const maxCents = Number(match[1]) * 100 + Number((match[2] ?? "").padEnd(2, "0") || 0);
+  const maxCents =
+    Number(match[1]) * 100 + Number((match[2] ?? "").padEnd(2, "0") || 0);
   return maxCents > 0 && maxCents <= MAX ? { maxCents, currency } : null;
 }
 
@@ -77,7 +81,10 @@ function read(): Store {
 
 export const loadInstruction = (origin: string) => read()[origin];
 
-export function saveInstruction(origin: string, instruction: Instruction | null) {
+export function saveInstruction(
+  origin: string,
+  instruction: Instruction | null,
+) {
   try {
     const store = read();
     if (instruction) store[origin] = instruction;
