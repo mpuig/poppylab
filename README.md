@@ -1,6 +1,6 @@
 # Poppy Lab
 
-An independent test bench for **Personal Agent Protocol 1.0**: **Iris**, a Personal Agent you run with your own model key, and three fictional Companies it can sign in to. Everything runs on Cloudflare Workers or on Node from the same code.
+An independent test bench for **Personal Agent Protocol 1.0**: **Iris**, a Personal Agent you run with your own model key, and four fictional Companies it can sign in to. Everything runs on Cloudflare Workers or on Node from the same code.
 
 - **https://poppylab.dev** explains the lab; **/playground** is Iris.
 - **https://juniper.poppylab.dev** is Juniper Market, a grocery with a full customer website.
@@ -58,7 +58,7 @@ pnpm spec:drift
 - `apps/lantern`: Lantern Noodle Bar, a second independent Company.
 - `apps/harborline`: Harborline Bank, a standalone fictional banking Company with a matching customer portal and narrow banking scopes.
 - `apps/northwind`: Northwind Air, an airline-shaped Company with differentiated scopes, stale fare/inventory revisions and a customer portal.
-- `packages/pap-company`: the Hono Company gateway (discovery, sign-in with PAR, tokens, Sessions, conversations, Operations v3, tenancy) that runs both.
+- `packages/pap-company`: the Hono Company gateway (discovery, sign-in with PAR, tokens, Sessions, conversations, Operations v3, tenancy) that runs all four fictional Companies.
 - `packages/pap-client`: discovery, safe transport, Session and DPoP cryptography.
 - `packages/pap-core`: 1.0 schemas and shared types.
 - `packages/llm-adapters`: provider-neutral model execution.

@@ -8,7 +8,7 @@ web
 
 ## Stack
 
-Delegated: a TypeScript monorepo using pnpm. Next.js (OpenNext on Cloudflare Workers, or Node) for the playground at poppylab.dev, whose Personal Agent is called Iris; a Hono Company gateway (`@poppy-lab/pap-company`) that runs three fictional Companies on Workers with Durable Objects or on Node; provider-neutral LLM adapters. Public visitors are isolated: one Durable Object per visitor for the agent, sealed at rest, and one copy of each Company's fictional customers per agent user.
+Delegated: a TypeScript monorepo using pnpm. Next.js (OpenNext on Cloudflare Workers, or Node) for the playground at poppylab.dev, whose Personal Agent is called Iris; a Hono Company gateway (`@poppy-lab/pap-company`) that runs four fictional Companies on Workers with Durable Objects or on Node; provider-neutral LLM adapters. Public visitors are isolated: one Durable Object per visitor for the agent, sealed at rest, and one copy of each Company's fictional customers per agent user.
 
 ## Users
 

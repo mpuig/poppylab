@@ -70,9 +70,20 @@ The gateway (`packages/pap-company/src/gateway.ts`) is a 50-line composition of 
 
 Harborline has deployment configuration but is not claimed as deployed by this document.
 
+## Northwind Air
+
+**Northwind Air** is a fourth portable Company (`apps/northwind`) using the shared `CompanyDefinition` and gateway.
+
+- `pnpm dev:northwind` runs it at `http://northwind.localhost:4400`; the matching fictional passenger portal is `/account`.
+- `pnpm --filter @poppy-lab/northwind dev:worker` runs it under Wrangler. `wrangler.toml` targets `northwind.poppylab.dev`, binds the SQLite-backed `NorthwindCompany` Durable Object, and enables visitor isolation.
+- Public tools cover flight search, cheapest dates, status, fare and baggage information, and fictional booking lookup. Signed-in tools cover trips, loyalty, preferences and approval-gated seat, baggage, cancellation, upgrade and flight changes.
+- Tests cover PAP 1.0 discovery, differentiated scopes, public and account tools, exact Operations v3 terms, stale fare/inventory revisions, idempotent execution, conversations and portal/API parity. Run `pnpm scenarios airline`.
+
+Northwind has deployment configuration but is not claimed as deployed by this document.
+
 ## Per-visitor isolation
 
-With `isolation: "visitor"` (both Workers), the gateway gives every agent user its own copy of the Company's business data:
+With `isolation: "visitor"` (the isolated Company Workers), the gateway gives every agent user its own copy of the Company's business data:
 
 - **Tenant** = SHA-256 of `client_id` + user id from the signed `Poppy-Session` header. It is verified before routing.
 - Each tenant gets its own mounted business app, seeded with the same fictional customers, and its own Operations v3 records (their terms and first responses contain business data).
@@ -98,7 +109,7 @@ The same Next.js app runs with `next dev`/`next start` on Node and on Cloudflare
   - Backends: Node keeps memory plus the encrypted vault `visitor-runs`. Workers use one Durable Object `PoppyVisitor` per visitor (`worker/visitor.ts`), deleted by an alarm after eight idle days.
 - **User IDs:** HMAC of visitor and Company identifier, keyed from the agent identity. They are stable per visitor, unlinkable across visitors and Companies, and stored nowhere. `lib/user-identities.ts` is gone.
 - **Identity:** the `POPPY_IDENTITY` Worker secret. It was generated and piped into `wrangler secret put` without being printed or written. Node still creates `.poppy/identity.json`.
-- **Network** (`pap-client`): on Workers only public HTTPS hostnames or public IP literals are allowed, with no credentials, no `localhost`/`.local`/`.internal`/single-label names, and no redirects. `global_fetch_strictly_public` is on for all three Workers. Node still pins checked DNS answers; `node:dns` and `undici` are loaded lazily.
+- **Network** (`pap-client`): on Workers only public HTTPS hostnames or public IP literals are allowed, with no credentials, no `localhost`/`.local`/`.internal`/single-label names, and no redirects. `global_fetch_strictly_public` is enabled on the deployed Workers. Node still pins checked DNS answers; `node:dns` and `undici` are loaded lazily.
 - **Public mode** (`lib/deployment.ts`): `POPPY_PUBLIC=true` with an HTTPS `AGENT_PUBLIC_ORIGIN`.
   - Chat accepts only Protocol demo, OpenAI-compatible and Anthropic, each with the visitor's own key. The server keys are used only on localhost in development.
   - Sign-in and proposals are allowed only for `PAP_ACCOUNT_ORIGINS` (Juniper, Lantern, Harborline and Northwind on poppylab.dev) and the PAP Sandbox. `client.json` always names the public origin.
@@ -110,7 +121,7 @@ The same Next.js app runs with `next dev`/`next start` on Node and on Cloudflare
 - **Build:** `pnpm --filter @poppy-lab/playground build:worker` (`scripts/build-worker.mjs`).
   - OpenNext copies `.env*` values into `next-env.mjs`; the first build contained the local model keys and was deleted before any deployment.
   - The script now empties that file and scans the whole bundle for every local secret-like value and the local identity. If it finds one, it deletes the artifact and fails, printing names only.
-  - `NEXT_PUBLIC_JUNIPER_URL`, `NEXT_PUBLIC_LANTERN_URL` and `NEXT_PUBLIC_HARBORLINE_URL` point the suggestions to poppylab.dev.
+  - `NEXT_PUBLIC_JUNIPER_URL`, `NEXT_PUBLIC_LANTERN_URL`, `NEXT_PUBLIC_HARBORLINE_URL` and `NEXT_PUBLIC_NORTHWIND_URL` point the suggestions to poppylab.dev.
 - **Verified in production** (version deployed 2 Nov 2026):
   - JWKS without a private part; `client.json` with `https://poppylab.dev` and Operations v3.
   - Discovery of Juniper and Lantern; private, HTTP and metadata URLs refused.
