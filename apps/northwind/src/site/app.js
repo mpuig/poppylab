@@ -22,19 +22,32 @@ const activityNames = {
   expired: "Expired",
 };
 
+/** Airport local time, as printed on a ticket: the ISO string's own clock. */
+const localTime = (departure, arrival) =>
+  new Date(departure.slice(0, 10) + "T12:00:00Z").toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  }) +
+  " · " +
+  departure.slice(11, 16) +
+  (arrival ? " → " + arrival.slice(11, 16) : "");
+
 function render(data) {
   $("current-account").textContent =
-    "Fictional passenger: " + data.customer + " (" + data.account_id + ").";
+    "Signed in as " + data.customer + ", a test passenger.";
   const trips = $("trip-list");
   trips.replaceChildren();
   if (!data.bookings.length)
-    trips.append(node("p", "No fictional trips.", "notice"));
+    trips.append(node("p", "No upcoming trips.", "notice"));
   for (const booking of data.bookings) {
     const article = node("article", undefined, "trip");
     const head = node("div", undefined, "trip-head");
     head.append(
       node("h3", booking.booking_reference),
-      node("span", booking.status + " · version " + booking.version, "mono"),
+      node("span", booking.status, "mono"),
     );
     article.append(head);
     const body = node("div", undefined, "trip-body");
@@ -57,7 +70,7 @@ function render(data) {
             ),
             node(
               "p",
-              new Date(segment.departure).toLocaleString("en-US") +
+              localTime(segment.departure, segment.arrival) +
                 " · " +
                 segment.status.replace("_", " ") +
                 " · gate " +
@@ -85,7 +98,7 @@ function render(data) {
     for (const [label, value] of [
       ["Passenger", booking.passenger.name],
       ["Fare", booking.fare.name],
-      ["Fictional paid total", money(booking.fare.paid_cents)],
+      ["Total paid", money(booking.fare.paid_cents)],
     ]) {
       const fact = node("div", undefined, "fact");
       fact.append(node("span", label), node("strong", value));
@@ -95,17 +108,19 @@ function render(data) {
     if (booking.upgrade_offer) {
       const offer = node("p", undefined, "notice");
       offer.textContent =
-        "Current fictional upgrade offer: " +
+        "Upgrade offer on " +
+        (booking.itinerary.find(
+          (segment) => segment.id === booking.upgrade_offer.flight_id,
+        )?.flight_number ?? "this trip") +
+        ": " +
         money(booking.upgrade_offer.price_cents) +
-        " for " +
-        booking.upgrade_offer.flight_id +
-        ". Ask your agent to review exact terms.";
+        ". Ask your agent to review the exact terms.";
       body.append(offer);
     }
     body.append(
       node(
         "p",
-        "No real ticket is sold, changed, cancelled or charged. Changes are approved in Poppy Lab, not on this page.",
+        "No real ticket is sold, changed, cancelled or charged. Changes are approved in your agent, not on this page.",
         "notice",
       ),
     );
@@ -136,7 +151,6 @@ function render(data) {
     for (const [label, value] of [
       ["Meal", preference.meal],
       ["Assistance", preference.assistance.replaceAll("_", " ")],
-      ["Version", String(preference.version)],
     ]) {
       const fact = node("div", undefined, "activity");
       fact.append(node("h3", label), node("p", value));
@@ -209,10 +223,10 @@ $("load-access").addEventListener("click", async () => {
     const list = $("access-list");
     list.replaceChildren();
     if (!data.grants.length)
-      list.append(node("p", "No active grants.", "notice"));
+      list.append(node("p", "No agents connected.", "notice"));
     for (const grant of data.grants) {
       const row = node("article", undefined, "activity");
-      const revoke = node("button", "Revoke grant", "secondary");
+      const revoke = node("button", "Disconnect", "secondary");
       revoke.type = "button";
       row.append(
         node(
@@ -233,20 +247,20 @@ $("load-access").addEventListener("click", async () => {
             { method: "POST", signal: AbortSignal.timeout(6000) },
           );
           if (!result.ok) throw new Error();
-          row.replaceChildren(node("p", "Grant revoked."));
+          row.replaceChildren(node("p", "Disconnected."));
           $("access-status").textContent =
-            "The agent can no longer use that grant.";
+            "That agent can no longer reach your account.";
         } catch {
           revoke.disabled = false;
           $("access-status").textContent =
-            "Couldn’t confirm revocation. Reload grants before retrying.";
+            "We couldn’t confirm it. Reload the list before trying again.";
         }
       });
       list.append(row);
     }
   } catch {
     $("access-status").textContent =
-      "Couldn’t load grants. Sign in again if the website session expired.";
+      "Couldn’t load connected agents. Sign in again if the website session expired.";
   } finally {
     button.disabled = false;
   }

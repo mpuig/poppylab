@@ -31,11 +31,9 @@ const states = {
 };
 function render(data) {
   $("current-account").textContent =
-    "Fictional persona: " +
+    "Signed in as " +
     data.customer.name +
-    " (" +
-    data.account_id +
-    ") · " +
+    ", a test customer · " +
     data.customer.email;
   $("accounts").replaceChildren(
     ...data.accounts.map((item) =>
@@ -46,9 +44,7 @@ function render(data) {
           " · current " +
           money(item.balance_cents) +
           " · " +
-          item.status +
-          " · version " +
-          item.version,
+          item.status,
       ),
     ),
   );
@@ -61,9 +57,11 @@ function render(data) {
           " · " +
           item.status +
           " · " +
-          new Date(item.occurred_at).toLocaleString("en-US") +
-          " · version " +
-          item.version,
+          new Date(item.occurred_at).toLocaleDateString("en-US", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          }),
       ),
     ),
   );
@@ -72,14 +70,13 @@ function render(data) {
       row(
         item.label + " · " + item.last4,
         item.status,
-        "Linked " +
-          item.account_id +
+        "Linked to " +
+          (data.accounts.find((account) => account.id === item.account_id)
+            ?.name ?? item.account_id) +
           " · daily limit " +
           money(item.daily_limit_cents) +
           " · spent today " +
-          money(item.spent_today_cents) +
-          " · version " +
-          item.version,
+          money(item.spent_today_cents),
       ),
     ),
   );
@@ -105,9 +102,7 @@ function render(data) {
           " · " +
           item.category +
           " · remaining " +
-          money(item.limit_cents - item.spent_cents) +
-          " · version " +
-          item.version,
+          money(item.limit_cents - item.spent_cents),
       ),
     ),
   );
@@ -158,7 +153,7 @@ async function refresh(force) {
   } catch {
     $("status").className = "error";
     $("status").textContent =
-      "Couldn’t refresh. The last fictional view remains visible; try Refresh now.";
+      "Couldn’t refresh. The last view stays on screen; try Refresh now.";
   } finally {
     busy = false;
     $("refresh").disabled = false;
@@ -176,7 +171,7 @@ $("load-access").addEventListener("click", async () => {
     const rows = data.grants.length
       ? data.grants.map((grant) => {
           const article = node("article", undefined, "activity");
-          const revoke = node("button", "Revoke grant", "secondary");
+          const revoke = node("button", "Disconnect", "secondary");
           revoke.type = "button";
           article.append(
             node(
@@ -197,22 +192,22 @@ $("load-access").addEventListener("click", async () => {
                 { method: "POST", signal: AbortSignal.timeout(6000) },
               );
               if (!result.ok) throw new Error();
-              article.replaceChildren(node("p", "Grant revoked."));
+              article.replaceChildren(node("p", "Disconnected."));
               $("access-status").textContent =
-                "The agent can no longer use that grant.";
+                "That agent can no longer reach your account.";
             } catch {
               revoke.disabled = false;
               $("access-status").textContent =
-                "Revocation could not be confirmed. Reload grants before retrying.";
+                "We couldn’t confirm it. Reload the list before trying again.";
             }
           });
           return article;
         })
-      : [node("p", "No active grants.", "fine")];
+      : [node("p", "No agents connected.", "fine")];
     $("access").replaceChildren(...rows);
   } catch {
     $("access-status").textContent =
-      "Couldn’t load grants. The portal session may have expired.";
+      "Couldn’t load connected agents. The portal session may have expired.";
   } finally {
     button.disabled = false;
   }

@@ -386,11 +386,25 @@ it("serves responsive website, consent and account scripts with honest notices",
     "font-src https://fonts.gstatic.com",
   );
   const html = await home.text();
-  expect(html).toContain("Search the fictional timetable");
+  expect(html).toContain('action="/flights"');
+  expect(html).not.toContain("Poppy 1.0");
   expect(html).toContain(
     "No real ticket is sold, changed, cancelled or charged",
   );
   expect(html).toContain("PAU — Port Aurora");
+  const results = await (
+    await lab.app.request("/flights?origin=PAU&destination=NTH&date=2027-05-18")
+  ).text();
+  expect(results).toContain("Port Aurora to Northhaven");
+  expect(results).toContain("1 stop in Cinder Bay");
+  expect(results).toContain("NA 118");
+  const none = await (
+    await lab.app.request(
+      "/flights?origin=%3Cscript%3E&destination=SMR&date=2027-01-01",
+    )
+  ).text();
+  expect(none).toContain("No Northwind flights on that day");
+  expect(none).not.toContain("<script>");
   const agents = await lab.app.request("/for-agents");
   expect(await agents.text()).toContain("bookings:change");
   const script = await (await lab.app.request("/site/app.js")).text();

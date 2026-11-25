@@ -139,7 +139,7 @@ let flash = "";
 function render(data) {
   snapshot = data;
   $("current-account").textContent =
-    "Fictional account: " + data.customer + " (" + data.account_id + ")";
+    "Signed in as " + data.customer + ", a test customer";
   const list = $("order-list");
   list.replaceChildren();
   if (!data.orders.length)
@@ -147,10 +147,7 @@ function render(data) {
   for (const o of data.orders) {
     const article = node("article", undefined, "order");
     const head = node("div", undefined, "order-head");
-    head.append(
-      node("h3", o.id),
-      node("span", o.slot.label + " · version " + o.version, "mono"),
-    );
+    head.append(node("h3", o.id), node("span", o.slot.label, "mono"));
     article.append(head);
     const lines = node("div", undefined, "lines");
     for (const i of o.items) {
@@ -283,7 +280,7 @@ async function refresh(force) {
       else {
         snapshot = data;
         $("current-account").textContent =
-          "Fictional account: " + data.customer + " (" + data.account_id + ")";
+          "Signed in as " + data.customer + ", a test customer";
       }
       last = signature;
     }
@@ -315,10 +312,10 @@ $("load-access").addEventListener("click", async () => {
     const data = await r.json();
     $("access-list").replaceChildren();
     if (!data.grants.length)
-      $("access-list").append(node("p", "No active grants.", "notice"));
+      $("access-list").append(node("p", "No agents connected.", "notice"));
     for (const g of data.grants) {
       const row = node("article", undefined, "activity"),
-        revoke = node("button", "Revoke this grant", "secondary");
+        revoke = node("button", "Disconnect", "secondary");
       revoke.type = "button";
       row.append(
         node(
@@ -339,20 +336,20 @@ $("load-access").addEventListener("click", async () => {
             { method: "POST", signal: AbortSignal.timeout(6000) },
           );
           if (!result.ok) throw Error();
-          row.replaceChildren(node("p", "Grant revoked."));
+          row.replaceChildren(node("p", "Disconnected."));
           $("access-status").textContent =
-            "The agent can no longer use this grant.";
+            "That agent can no longer reach your account.";
         } catch {
           revoke.disabled = false;
           $("access-status").textContent =
-            "We couldn’t confirm the revocation. Check the grants before retrying.";
+            "We couldn’t confirm it. Reload the list before trying again.";
         }
       });
       $("access-list").append(row);
     }
   } catch {
     $("access-status").textContent =
-      "Couldn’t load the grants. Sign in again if your session has expired.";
+      "Couldn’t load connected agents. Sign in again if your session has expired.";
   } finally {
     button.disabled = false;
   }

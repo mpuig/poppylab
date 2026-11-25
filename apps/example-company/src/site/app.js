@@ -149,10 +149,7 @@ function renderServices(data) {
       );
     details.dataset.caseId = c.id;
     details.open = expanded.has(c.id);
-    details.append(
-      summary,
-      node("p", c.id + " · version " + c.version, "notice"),
-    );
+    details.append(summary, node("p", c.id, "notice"));
     if (c.order_id) details.append(node("p", "Order: " + c.order_id));
     for (const m of c.messages) {
       const p = node("p", undefined, "support-message");
@@ -182,7 +179,7 @@ let shoppingSnapshot = null;
 function render(data) {
   shoppingSnapshot = data;
   $("current-account").textContent =
-    "Fictional account: " + data.customer + " (" + data.account_id + ")";
+    "Signed in as " + data.customer + ", a test customer";
   for (const target of ["basket", "delivery"])
     if (!$(target + "-form").dataset.saving)
       $("edit-" + target).disabled = false;
@@ -513,10 +510,10 @@ $("load-access").addEventListener("click", async () => {
     const data = await r.json();
     $("access-list").replaceChildren();
     if (!data.grants.length)
-      $("access-list").append(node("p", "No active grants."));
+      $("access-list").append(node("p", "No agents connected."));
     for (const g of data.grants) {
       const row = node("article", undefined, "activity"),
-        revoke = node("button", "Revoke this grant", "secondary");
+        revoke = node("button", "Disconnect", "secondary");
       revoke.type = "button";
       row.append(
         node(
@@ -537,20 +534,20 @@ $("load-access").addEventListener("click", async () => {
             { method: "POST", signal: AbortSignal.timeout(6000) },
           );
           if (!result.ok) throw Error();
-          row.replaceChildren(node("p", "Grant revoked."));
+          row.replaceChildren(node("p", "Disconnected."));
           $("access-status").textContent =
-            "The agent can no longer use this grant.";
+            "That agent can no longer reach your account.";
         } catch {
           revoke.disabled = false;
           $("access-status").textContent =
-            "We couldn’t confirm the revocation. Check the grants before retrying.";
+            "We couldn’t confirm it. Reload the list before trying again.";
         }
       });
       $("access-list").append(row);
     }
   } catch {
     $("access-status").textContent =
-      "Couldn’t load the grants. Sign in again if your session has expired.";
+      "Couldn’t load connected agents. Sign in again if your session has expired.";
   } finally {
     button.disabled = false;
   }

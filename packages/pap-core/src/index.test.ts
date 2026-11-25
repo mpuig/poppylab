@@ -179,7 +179,7 @@ describe("tasks response (§9)", () => {
   });
 });
 
-import { labLineHtml, labSites } from "./lab.ts";
+import { labBarHtml, labLineHtml, labSites } from "./lab.ts";
 it("links the Poppy Lab sites, locally to localhost and the current one as text", () => {
   expect(labSites("https://noodles.poppylab.dev").map((s) => s.url)).toEqual([
     "https://poppylab.dev",
@@ -198,6 +198,18 @@ it("links the Poppy Lab sites, locally to localhost and the current one as text"
   expect(labSites("http://juniper.localhost:4100")[5]!.url).toBe(
     "http://northwind.localhost:4400",
   );
+  const bar = labBarHtml(
+    "https://noodles.poppylab.dev",
+    "Lantern <Noodle> Bar",
+  );
+  expect(bar).toContain("Lantern &#60;Noodle&#62; Bar is a fictional company");
+  expect(bar).toContain(
+    'href="https://poppylab.dev/playground?company=https%3A%2F%2Fnoodles.poppylab.dev"',
+  );
+  expect(bar).not.toContain("<script");
+  expect(
+    labBarHtml("http://harbor.localhost:4300", "Harborline Bank"),
+  ).toContain("http://localhost:3000/playground?company=");
   const line = labLineHtml("https://noodles.poppylab.dev", "lantern");
   expect(line).toContain(
     '<span aria-current="page">Lantern&nbsp;Noodle&nbsp;Bar</span>',

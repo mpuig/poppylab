@@ -35,8 +35,8 @@ export const companies = [
       "You see the day before and after, then approve. The shop's website updates within seconds.",
     people: "Alex, Maya or Leo",
     scopes: "poppy:read · poppy:write",
-    site: { label: "Customer website", href: `${juniper}/account` },
-    agents: { label: "Discovery document", path: "/.well-known/poppy.json" },
+    site: { label: "Visit the shop", href: juniper },
+    agents: { label: "For agents", path: "/for-agents" },
   },
   {
     id: "lantern",
@@ -49,7 +49,7 @@ export const companies = [
       "The approval shows the new dishes, the new slot and the price difference before anything changes.",
     people: "Sam or Robin",
     scopes: "orders:read · orders:write",
-    site: { label: "Restaurant website", href: lantern },
+    site: { label: "Visit the restaurant", href: lantern },
     agents: { label: "For agents", path: "/for-agents" },
   },
   {
@@ -64,7 +64,7 @@ export const companies = [
       "Money moves only on your approval, and the bank rechecks balance and limits at that moment.",
     people: "Avery or Jordan",
     scopes: "Reads · reversible changes · payment requests",
-    site: { label: "Customer portal", href: `${harborline}/account` },
+    site: { label: "Visit the bank", href: harborline },
     agents: { label: "For agents", path: "/for-agents" },
   },
   {
@@ -79,7 +79,7 @@ export const companies = [
       "You approve the exact new flight and fare. If the fare changed meanwhile, the airline asks again.",
     people: "Elena or Darius",
     scopes: "bookings:read · bookings:change",
-    site: { label: "Customer portal", href: `${northwind}/account` },
+    site: { label: "Visit the airline", href: northwind },
     agents: { label: "For agents", path: "/for-agents" },
   },
 ] as const;

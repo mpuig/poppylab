@@ -29,6 +29,7 @@ import {
 import {
   consentPage,
   fontSources,
+  flightsPage,
   forAgentsPage,
   homePage,
   pageHeaders,
@@ -516,12 +517,7 @@ function mount(
     }),
   );
 
-  app.get("/api/flights/search", (c) => {
-    const origin = c.req.query("origin"),
-      destination = c.req.query("destination"),
-      date = c.req.query("date");
-    if (!origin || !destination || !date)
-      return c.json({ error: "origin_destination_and_date_required" }, 400);
+  const searchFlights = (origin: string, destination: string, date: string) => {
     const direct = flightSchedule
       .filter(
         (flight) =>
@@ -551,10 +547,35 @@ function mount(
             },
           ]
         : [];
+    return [...direct, ...connection];
+  };
+  app.get("/api/flights/search", (c) => {
+    const origin = c.req.query("origin"),
+      destination = c.req.query("destination"),
+      date = c.req.query("date");
+    if (!origin || !destination || !date)
+      return c.json({ error: "origin_destination_and_date_required" }, 400);
     return c.json({
-      itineraries: [...direct, ...connection],
+      itineraries: searchFlights(origin, destination, date),
       note: FICTION_NOTICE,
     });
+  });
+  // The website's search: the same results as the API, as a page for people.
+  app.get("/flights", (c) => {
+    const query = {
+      origin: c.req.query("origin") ?? "",
+      destination: c.req.query("destination") ?? "",
+      date: (c.req.query("date") ?? "").slice(0, 10),
+    };
+    return c.html(
+      flightsPage(
+        ctx.origin,
+        query,
+        searchFlights(query.origin, query.destination, query.date),
+      ),
+      200,
+      pageHeaders,
+    );
   });
   app.get("/api/flights/cheapest-dates", (c) => {
     const origin = c.req.query("origin"),
