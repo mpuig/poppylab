@@ -2,12 +2,12 @@ name = "northwind-air"
 main = "src/worker.ts"
 compatibility_date = "2026-10-01"
 compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
-routes = [{ pattern = "northwind.poppylab.dev", custom_domain = true }]
+routes = [{ pattern = "airline-demo.poppylab.dev", custom_domain = true }]
 workers_dev = false
 
 [vars]
-PUBLIC_ORIGIN = "https://northwind.poppylab.dev"
-PUBLIC_DOMAIN = "northwind.poppylab.dev"
+PUBLIC_ORIGIN = "https://airline-demo.poppylab.dev"
+PUBLIC_DOMAIN = "airline-demo.poppylab.dev"
 
 [[durable_objects.bindings]]
 name = "NORTHWIND"

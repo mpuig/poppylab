@@ -2,7 +2,7 @@
 
 A user asks their Personal Agent: _"Move my Saturday noodle order to Sunday."_
 This page follows that task at
-[Lantern Noodle Bar](https://noodles.poppylab.dev), one of Poppy Lab's
+[Lantern Noodle Bar](https://food-demo.poppylab.dev), one of Poppy Lab's
 fictional Companies, from the first fetch to the changed order. Each step
 shows the real request and response, trimmed, and links to the part of the
 [specification](https://personalagentprotocol.org/docs/1.0/spec) that
@@ -33,7 +33,7 @@ The agent fetches one well-known document from the domain the user named
 ([§3.1](https://personalagentprotocol.org/docs/1.0/spec#discovery)):
 
 ```http
-GET https://noodles.poppylab.dev/.well-known/poppy.json
+GET https://food-demo.poppylab.dev/.well-known/poppy.json
 ```
 
 ```json
@@ -41,10 +41,10 @@ GET https://noodles.poppylab.dev/.well-known/poppy.json
   "protocol_version": "1.0",
   "organization": {
     "name": "Lantern Noodle Bar",
-    "domain": "noodles.poppylab.dev"
+    "domain": "food-demo.poppylab.dev"
   },
   "auth": {
-    "issuer": "https://noodles.poppylab.dev",
+    "issuer": "https://food-demo.poppylab.dev",
     "scopes": {
       "orders:read": "See your scheduled orders: dishes, delivery slot, address and price. Read only.",
       "orders:write": "Change a scheduled order: move its slot, or add or remove dishes. …"
@@ -57,7 +57,7 @@ GET https://noodles.poppylab.dev/.well-known/poppy.json
   "apis": [
     {
       "type": "openapi",
-      "url": "https://noodles.poppylab.dev/openapi.json",
+      "url": "https://food-demo.poppylab.dev/openapi.json",
       "description": "Menu, delivery slots, …"
     }
   ],
@@ -65,12 +65,12 @@ GET https://noodles.poppylab.dev/.well-known/poppy.json
     "protocols": [
       {
         "type": "poppy",
-        "endpoint": "https://noodles.poppylab.dev/poppy/conversations",
+        "endpoint": "https://food-demo.poppylab.dev/poppy/conversations",
         "description": "Lantern's automated agent: …"
       }
     ]
   },
-  "tasks": { "endpoint": "https://noodles.poppylab.dev/poppy/tasks" },
+  "tasks": { "endpoint": "https://food-demo.poppylab.dev/poppy/tasks" },
   "extensions": { "operations": [{ "version": "3" }] }
 }
 ```
@@ -102,8 +102,8 @@ the endpoints:
 ```json
 // GET /.well-known/oauth-protected-resource
 {
-  "resource": "https://noodles.poppylab.dev",
-  "authorization_servers": ["https://noodles.poppylab.dev"],
+  "resource": "https://food-demo.poppylab.dev",
+  "authorization_servers": ["https://food-demo.poppylab.dev"],
   "scopes_supported": ["orders:read", "orders:write"]
 }
 ```
@@ -111,10 +111,10 @@ the endpoints:
 ```json
 // GET /.well-known/oauth-authorization-server (trimmed)
 {
-  "issuer": "https://noodles.poppylab.dev",
-  "authorization_endpoint": "https://noodles.poppylab.dev/oauth/authorize",
-  "pushed_authorization_request_endpoint": "https://noodles.poppylab.dev/oauth/par",
-  "token_endpoint": "https://noodles.poppylab.dev/oauth/token",
+  "issuer": "https://food-demo.poppylab.dev",
+  "authorization_endpoint": "https://food-demo.poppylab.dev/oauth/authorize",
+  "pushed_authorization_request_endpoint": "https://food-demo.poppylab.dev/oauth/par",
+  "token_endpoint": "https://food-demo.poppylab.dev/oauth/token",
   "token_endpoint_auth_methods_supported": ["private_key_jwt"],
   "token_endpoint_auth_signing_alg_values_supported": ["ES256", "PS384"],
   "client_id_metadata_document_supported": true,
@@ -136,7 +136,7 @@ through the protocol
 its first request with a **Session header**:
 
 ```http
-GET https://noodles.poppylab.dev/poppy/tasks
+GET https://food-demo.poppylab.dev/poppy/tasks
 Poppy-Version: 1.0
 Poppy-Session: eyJ0eXAiOiJwb3BweS1zZXNzaW9uK2p3dCIs…
 ```
@@ -151,7 +151,7 @@ Poppy-Session: eyJ0eXAiOiJwb3BweS1zZXNzaW9uK2p3dCIs…
         "references": [
           {
             "type": "openapi",
-            "url": "https://noodles.poppylab.dev/openapi.json",
+            "url": "https://food-demo.poppylab.dev/openapi.json",
             "operation_id": "change_order"
           }
         ]
@@ -159,7 +159,7 @@ Poppy-Session: eyJ0eXAiOiJwb3BweS1zZXNzaW9uK2p3dCIs…
     },
     { "task": "Change the delivery address of an order" }
   ],
-  "feedback": { "endpoint": "https://noodles.poppylab.dev/poppy/feedback" }
+  "feedback": { "endpoint": "https://food-demo.poppylab.dev/poppy/feedback" }
 }
 ```
 
@@ -183,11 +183,11 @@ Decoded:
 // payload
 {
   "iss": "https://poppylab.dev/agent/client.json",
-  "aud": "https://noodles.poppylab.dev",
+  "aud": "https://food-demo.poppylab.dev",
   "sub": "usr_noodles",
   "sid": "RL9MLQq-RIp2pVW0a-dpEOLXBkNton_C",
   "htm": "GET",
-  "htu": "https://noodles.poppylab.dev/poppy/tasks",
+  "htu": "https://food-demo.poppylab.dev/poppy/tasks",
   "iat": 1795599637,
   "jti": "qrMTRBeYhMszmk2XciKTTnBZFT43jqQ1"
 }
@@ -209,7 +209,7 @@ Decoded:
 The agent reads the menu and the delivery slots, still signed out:
 
 ```http
-GET https://noodles.poppylab.dev/api/menu
+GET https://food-demo.poppylab.dev/api/menu
 Poppy-Version: 1.0
 Poppy-Session: eyJ0eXAi…
 ```
@@ -225,7 +225,7 @@ To see the order, the agent needs `orders:read`, and to change it,
 the parameters never travel in a URL:
 
 ```http
-POST https://noodles.poppylab.dev/oauth/par
+POST https://food-demo.poppylab.dev/oauth/par
 DPoP: eyJ0eXAiOiJkcG9wK2p3dCIs…
 Content-Type: application/x-www-form-urlencoded
 
@@ -268,7 +268,7 @@ Signed-in requests carry the Session header _and_ the access token, and the
 Session JWT includes a hash of the token, tying the two together:
 
 ```http
-GET https://noodles.poppylab.dev/api/account/orders
+GET https://food-demo.poppylab.dev/api/account/orders
 Poppy-Version: 1.0
 Poppy-Session: eyJ0eXAi…
 Authorization: DPoP <access token>
@@ -303,7 +303,7 @@ doesn't apply it: it answers with the exact terms
 ([Operations §4](https://personalagentprotocol.org/docs/1.0/extensions)):
 
 ```http
-POST https://noodles.poppylab.dev/api/account/orders/ord_LNB2001/changes
+POST https://food-demo.poppylab.dev/api/account/orders/ord_LNB2001/changes
 Poppy-Version: 1.0
 Poppy-Extensions: "operations";v="3"
 Poppy-Session: eyJ0eXAi…
@@ -348,7 +348,7 @@ and chat text never counts as an approval.
 The agent sends the identical request again, with the approval:
 
 ```http
-POST https://noodles.poppylab.dev/api/account/orders/ord_LNB2001/changes
+POST https://food-demo.poppylab.dev/api/account/orders/ord_LNB2001/changes
 Poppy-Approval: operation_id="op_P9yN9PnUo_teWd3-Femrsqg_", revision="1795599649-m-M2VJxTga9pW4gq", approver="user", approved_at=1795600000, input_type="tap"
 …same headers and body…
 ```

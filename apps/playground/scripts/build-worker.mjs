@@ -32,10 +32,10 @@ const built = spawnSync("pnpm", ["exec", "opennextjs-cloudflare", "build"], {
   stdio: "inherit",
   env: {
     ...process.env,
-    NEXT_PUBLIC_JUNIPER_URL: "https://juniper.poppylab.dev",
-    NEXT_PUBLIC_LANTERN_URL: "https://noodles.poppylab.dev",
-    NEXT_PUBLIC_HARBORLINE_URL: "https://harborline.poppylab.dev",
-    NEXT_PUBLIC_NORTHWIND_URL: "https://northwind.poppylab.dev",
+    NEXT_PUBLIC_JUNIPER_URL: "https://grocery-demo.poppylab.dev",
+    NEXT_PUBLIC_LANTERN_URL: "https://food-demo.poppylab.dev",
+    NEXT_PUBLIC_HARBORLINE_URL: "https://bank-demo.poppylab.dev",
+    NEXT_PUBLIC_NORTHWIND_URL: "https://airline-demo.poppylab.dev",
   },
 });
 if (built.status !== 0) process.exit(built.status ?? 1);

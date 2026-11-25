@@ -13,10 +13,10 @@ All four Poppy Lab Companies, with version 1.0 and Operations version 3:
 
 | Company                                            | Pass | Fail | Warn | Skipped |
 | -------------------------------------------------- | ---- | ---- | ---- | ------- |
-| [Lantern Noodle Bar](https://noodles.poppylab.dev) | 107  | 0    | 0    | 26      |
-| [Juniper Market](https://juniper.poppylab.dev)     | 107  | 0    | 0    | 26      |
-| [Harborline Bank](https://harborline.poppylab.dev) | 107  | 0    | 0    | 26      |
-| [Northwind Air](https://northwind.poppylab.dev)    | 107  | 0    | 0    | 26      |
+| [Lantern Noodle Bar](https://food-demo.poppylab.dev) | 107  | 0    | 0    | 26      |
+| [Juniper Market](https://grocery-demo.poppylab.dev)     | 107  | 0    | 0    | 26      |
+| [Harborline Bank](https://bank-demo.poppylab.dev) | 107  | 0    | 0    | 26      |
+| [Northwind Air](https://airline-demo.poppylab.dev)    | 107  | 0    | 0    | 26      |
 
 The skipped checks are for parts these Companies don't offer: browser join
 (12), MCP (4), several protocol versions (2), Device and Mediated Sign-In (3),

@@ -58,7 +58,7 @@ describe("operator signatures (§5.3, RFC 9421, Web Bot Auth)", () => {
       key,
       agent,
       method: "post",
-      url: "https://Noodles.PoppyLab.dev/poppy/conversations?wait=10",
+      url: "https://Food-Demo.PoppyLab.dev/poppy/conversations?wait=10",
       poppySession: "eyJhbGciOi.session.jwt",
       authorization: "DPoP token-1",
       now: 1793800000000,
@@ -69,7 +69,7 @@ describe("operator signatures (§5.3, RFC 9421, Web Bot Auth)", () => {
     expect(h["Signature-Input"]).toBe(`sig1=${params}`);
     // A verifier rebuilds the base from the request and checks it.
     const base = [
-      '"@authority": noodles.poppylab.dev',
+      '"@authority": food-demo.poppylab.dev',
       '"@method": POST',
       '"@path": /poppy/conversations',
       `"signature-agent";key="sig1": "${agent}"`,
@@ -87,7 +87,7 @@ describe("operator signatures (§5.3, RFC 9421, Web Bot Auth)", () => {
       key,
       agent,
       method: "GET",
-      url: "https://noodles.poppylab.dev/poppy/tasks",
+      url: "https://food-demo.poppylab.dev/poppy/tasks",
       poppySession: "jwt",
     });
     expect(out["Signature-Input"]).not.toContain('"authorization"');

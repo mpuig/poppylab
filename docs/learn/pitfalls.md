@@ -66,7 +66,7 @@ showed a green check next to the Company's name.
 _Cause:_ the check meant "discovery succeeded", which says nothing about
 account access.
 _Fix:_ say what discovery proved ("Found Lantern Noodle Bar ·
-noodles.poppylab.dev") and show account access separately. Users read every
+food-demo.poppylab.dev") and show account access separately. Users read every
 green check as "connected".
 
 **Markdown from the model.**

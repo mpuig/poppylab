@@ -181,13 +181,13 @@ describe("tasks response (§9)", () => {
 
 import { labBarHtml, labLineHtml, labSites } from "./lab.ts";
 it("links the Poppy Lab sites, locally to localhost and the current one as text", () => {
-  expect(labSites("https://noodles.poppylab.dev").map((s) => s.url)).toEqual([
+  expect(labSites("https://food-demo.poppylab.dev").map((s) => s.url)).toEqual([
     "https://poppylab.dev",
     "https://poppylab.dev/playground",
-    "https://juniper.poppylab.dev",
-    "https://noodles.poppylab.dev",
-    "https://harborline.poppylab.dev",
-    "https://northwind.poppylab.dev",
+    "https://grocery-demo.poppylab.dev",
+    "https://food-demo.poppylab.dev",
+    "https://bank-demo.poppylab.dev",
+    "https://airline-demo.poppylab.dev",
   ]);
   expect(labSites("http://juniper.localhost:4100")[3]!.url).toBe(
     "http://noodles.localhost:4200",
@@ -199,29 +199,29 @@ it("links the Poppy Lab sites, locally to localhost and the current one as text"
     "http://northwind.localhost:4400",
   );
   const bar = labBarHtml(
-    "https://noodles.poppylab.dev",
+    "https://food-demo.poppylab.dev",
     "Lantern <Noodle> Bar",
   );
   expect(bar).toContain("Lantern &#60;Noodle&#62; Bar is a fictional company");
   expect(bar).toContain(
-    'href="https://poppylab.dev/playground?company=https%3A%2F%2Fnoodles.poppylab.dev"',
+    'href="https://poppylab.dev/playground?company=https%3A%2F%2Ffood-demo.poppylab.dev"',
   );
   expect(bar).not.toContain("<script");
   expect(
     labBarHtml("http://harbor.localhost:4300", "Harborline Bank"),
   ).toContain("http://localhost:3000/playground?company=");
-  const line = labLineHtml("https://noodles.poppylab.dev", "lantern");
+  const line = labLineHtml("https://food-demo.poppylab.dev", "lantern");
   expect(line).toContain(
     '<span aria-current="page">Lantern&nbsp;Noodle&nbsp;Bar</span>',
   );
   expect(line).toContain(
-    '<a href="https://juniper.poppylab.dev">Juniper&nbsp;Market</a>',
+    '<a href="https://grocery-demo.poppylab.dev">Juniper&nbsp;Market</a>',
   );
   expect(line).toContain(
-    '<a href="https://harborline.poppylab.dev">Harborline&nbsp;Bank</a>',
+    '<a href="https://bank-demo.poppylab.dev">Harborline&nbsp;Bank</a>',
   );
   expect(line).toContain(
-    '<a href="https://northwind.poppylab.dev">Northwind&nbsp;Air</a>',
+    '<a href="https://airline-demo.poppylab.dev">Northwind&nbsp;Air</a>',
   );
   expect(line).toContain("https://github.com/mpuig/poppylab");
 });

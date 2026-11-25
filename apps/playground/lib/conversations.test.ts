@@ -10,22 +10,22 @@ import {
 } from "./conversations";
 import type { Run } from "./runtime";
 
-const endpoint = "https://noodles.poppylab.dev/poppy/conversations";
+const endpoint = "https://food-demo.poppylab.dev/poppy/conversations";
 const company = (protocols: Array<{ type: string; endpoint: string }>) =>
   ({
-    requestedUrl: "https://noodles.poppylab.dev",
+    requestedUrl: "https://food-demo.poppylab.dev",
     document: {
       protocol_version: "1.0",
       organization: {
         name: "Lantern Noodle Bar",
-        domain: "noodles.poppylab.dev",
+        domain: "food-demo.poppylab.dev",
       },
       agent: { protocols },
     },
   }) as unknown as DiscoveredCompany;
 const newRun = () =>
   ({
-    url: "https://noodles.poppylab.dev",
+    url: "https://food-demo.poppylab.dev",
     user: "usr_x",
     expires: Date.now() + 60000,
     calls: 0,

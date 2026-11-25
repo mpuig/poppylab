@@ -63,7 +63,7 @@ The full suite has 362 tests.
 
 ## Website (3 November 2026)
 
-`noodles.poppylab.dev` is now a read-only restaurant site: a home page with the menu, delivery slots, how ordering works and hours; `/for-agents` with the endpoints, scopes and test customers; and the consent page in the same style. It is server-rendered with no JavaScript and takes its menu, slots and customers from `src/data.ts`, the same module the API uses. The gateway gained `pages`, `pageHeaders` and `fontSources` on `CompanyDefinition` for this.
+`food-demo.poppylab.dev` is now a read-only restaurant site: a home page with the menu, delivery slots, how ordering works and hours; `/for-agents` with the endpoints, scopes and test customers; and the consent page in the same style. It is server-rendered with no JavaScript and takes its menu, slots and customers from `src/data.ts`, the same module the API uses. The gateway gained `pages`, `pageHeaders` and `fontSources` on `CompanyDefinition` for this.
 
 ### Customer account area
 

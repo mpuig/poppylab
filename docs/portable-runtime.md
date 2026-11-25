@@ -33,7 +33,7 @@ The gateway (`packages/pap-company/src/gateway.ts`) is a 50-line composition of 
 
 - `pnpm dev` or `pnpm dev:lantern` runs it on Node at `http://noodles.localhost:4200`.
 - `pnpm --filter @poppy-lab/lantern dev:worker` runs it in `workerd` (the Workers runtime) through Wrangler.
-- `wrangler.toml`: `nodejs_compat`, SQLite-backed Durable Object `LanternCompany`, vars `PUBLIC_ORIGIN=https://noodles.poppylab.dev`, custom domain `noodles.poppylab.dev`, `workers_dev = false`.
+- `wrangler.toml`: `nodejs_compat`, SQLite-backed Durable Object `LanternCompany`, vars `PUBLIC_ORIGIN=https://food-demo.poppylab.dev`, custom domain `food-demo.poppylab.dev`, `workers_dev = false`.
 - **Deployed** to `https://noodles.poppylab.dev` (version `e2ff8ca8`). Discovery, metadata, excluded tasks and OpenAPI return 200; the API without a Session header returns 400; authorize with a plain-HTTP client returns 400; security headers are present.
 
 **Verified:**
@@ -52,7 +52,7 @@ The gateway (`packages/pap-company/src/gateway.ts`) is a 50-line composition of 
 **Juniper Market** is migrated too (`apps/example-company`). Fastify is gone from the repository.
 
 - `src/juniper.ts` is its `CompanyDefinition`. The business modules (shopping, customer services, profiles, shopping edits, website/portal, Operations v3) are unchanged. They are written against `src/router.ts`, a small `(req, reply)` facade over Hono.
-- `src/node.ts` (vault `juniper`, `protocolRequest`) and `src/worker.ts` (Durable Object `JuniperCompany`) are the entry points. `wrangler.toml` targets `juniper.poppylab.dev`.
+- `src/node.ts` (vault `juniper`, `protocolRequest`) and `src/worker.ts` (Durable Object `JuniperCompany`) are the entry points. `wrangler.toml` targets `grocery-demo.poppylab.dev`.
 - The gateway gained what Juniper needed: optional RFC 9449 DPoP nonces (`deploy.dpopNonces`; the token endpoint challenges before the client assertion or grant is consumed, the API answers 401 `use_dpop_nonce`), grant listing/revocation for the website, and a 16 KiB body limit.
 - The browser portal (`/site/*`, `/account`) only runs on the local origin. On Workers it answers 403 `local_demo_only`: all visitors would share the same fictional personas, so it waits for per-visitor isolation.
 - **Tests:** `src/test-app.ts` gives tests a Fastify-like `inject`/`listen` over the Hono apps. The account tests were rewritten as HTTP tests against the gateway (consent subsets, Origin and cookie binding, PKCE, one-time codes, password, refresh without widening, revocation). The socket-loss test drops the response after the commit at the network layer. Total: 357 tests.
@@ -63,7 +63,7 @@ The gateway (`packages/pap-company/src/gateway.ts`) is a 50-line composition of 
 **Harborline Bank** is a third portable Company (`apps/harborline`) using the same `CompanyDefinition` and gateway.
 
 - `pnpm dev:harborline` runs it at `http://harbor.localhost:4300`; the matching fictional customer portal is `/account`.
-- `pnpm --filter @poppy-lab/harborline dev:worker` runs it under Wrangler. `wrangler.toml` targets `harborline.poppylab.dev`, binds the SQLite-backed `HarborlineCompany` Durable Object, and enables visitor isolation in the Worker entry point.
+- `pnpm --filter @poppy-lab/harborline dev:worker` runs it under Wrangler. `wrangler.toml` targets `bank-demo.poppylab.dev`, binds the SQLite-backed `HarborlineCompany` Durable Object, and enables visitor isolation in the Worker entry point.
 - The gateway now accepts an optional complete scope list, route-specific required scopes and Company-owned consent selection. Existing two-scope Companies keep their previous defaults. Harborline uses this to separate five read scopes, three reversible change scopes, irreversible payment/transfer scopes and optional `offline_access` without weakening Session, DPoP or Operations checks.
 - All data is fictional. Payments and transfers only mutate the tenant's in-memory/persisted demo ledger after exact Operations v3 approval; stable idempotency keys reject conflicting reuse and repeated approvals return the first result.
 - Tests cover discovery, consent subsets, DPoP-bound signed calls through the shared harness, reads, all mutations, limits, insufficient funds, inactive resources, stale state, replay, conversations and portal/API parity. Run `pnpm scenarios banking`.
@@ -75,7 +75,7 @@ Harborline has deployment configuration but is not claimed as deployed by this d
 **Northwind Air** is a fourth portable Company (`apps/northwind`) using the shared `CompanyDefinition` and gateway.
 
 - `pnpm dev:northwind` runs it at `http://northwind.localhost:4400`; the matching fictional passenger portal is `/account`.
-- `pnpm --filter @poppy-lab/northwind dev:worker` runs it under Wrangler. `wrangler.toml` targets `northwind.poppylab.dev`, binds the SQLite-backed `NorthwindCompany` Durable Object, and enables visitor isolation.
+- `pnpm --filter @poppy-lab/northwind dev:worker` runs it under Wrangler. `wrangler.toml` targets `airline-demo.poppylab.dev`, binds the SQLite-backed `NorthwindCompany` Durable Object, and enables visitor isolation.
 - Public tools cover flight search, cheapest dates, status, fare and baggage information, and fictional booking lookup. Signed-in tools cover trips, loyalty, preferences and approval-gated seat, baggage, cancellation, upgrade and flight changes.
 - Tests cover Poppy 1.0 discovery, differentiated scopes, public and account tools, exact Operations v3 terms, stale fare/inventory revisions, idempotent execution, conversations and portal/API parity. Run `pnpm scenarios airline`.
 
@@ -133,6 +133,10 @@ The same Next.js app runs with `next dev`/`next start` on Node and on Cloudflare
 **Review fixes (3 November 2026):** per-visitor state on Workers is sealed with AES-256-GCM under the `POPPY_STATE_KEY` secret, bound to its row (`lib/sealed.ts`; records from before the key read as absent); a lost run lock merges the request's operations into the newer copy and logs `run_lock_lost`; the gateway saves only when state can change (non-GET, Session header, or an explicit mark) so website polls and discovery reads write nothing; the 16 KiB body limit is counted on the stream; no client may hold more than a fifth of the Session, token, grant or consent caps; the client-metadata cache evicts one entry instead of clearing; a turn counts only after discovery succeeds; a locked run is never evicted; only `UserFacingError` and discovery messages reach the browser; the Workers `fetchJson` bounds responses before reading.
 
 **Open before calling it robust:** no CSP on Poppy pages yet (Next inline scripts need nonces); an edge rate-limit rule per IP in front of the Companies; the replaced-refresh-token revocation after sign-in is best effort and may be cut when the Worker response ends; and no live model run in production yet (it needs a visitor's own key in the browser).
+
+## Hostnames
+
+The demo Companies are named by what they are: `grocery-demo.poppylab.dev` (Juniper Market), `food-demo.poppylab.dev` (Lantern Noodle Bar), `bank-demo.poppylab.dev` (Harborline Bank) and `airline-demo.poppylab.dev` (Northwind Air). They were `juniper`, `noodles`, `harborline` and `northwind` before; the dated deployment records below keep the names of their day. A Company's origin is its identifier, so the rename is a new identity: signed-in sessions and consents made at the old hosts do not carry over, and the old hosts are not redirected. Local development hosts (`juniper.localhost` and the others) are unchanged.
 
 ## Deployment notes (when ready)
 

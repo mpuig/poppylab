@@ -72,14 +72,14 @@ it("shows the domain discovery proved next to the Company's claimed name (§10.3
     createElement(OperationReview, {
       op,
       company: "Juniper Market",
-      domain: "juniper.poppylab.dev",
+      domain: "grocery-demo.poppylab.dev",
       busy: false,
       signedIn: true,
       onAction: vi.fn(),
     }),
   );
   expect(html).toContain(
-    "Juniper Market · juniper.poppylab.dev · terms revision",
+    "Juniper Market · grocery-demo.poppylab.dev · terms revision",
   );
 });
 it("labels a Company's decline", () => {

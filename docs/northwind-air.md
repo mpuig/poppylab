@@ -68,7 +68,7 @@ pnpm --filter @poppy-lab/northwind dev:worker
 pnpm --filter @poppy-lab/northwind deploy
 ```
 
-`wrangler.toml` deploys `NorthwindCompany`, a SQLite-backed Durable Object, to `northwind.poppylab.dev` with per-visitor fictional business state. Set an optional consent password with the `NORTHWIND_PASSWORD_HASH` Worker secret. For local Wrangler development, `DEV_HTTP_CLIENT` may name the exact local Iris client metadata URL; it is honored only on a localhost Company origin.
+`wrangler.toml` deploys `NorthwindCompany`, a SQLite-backed Durable Object, to `airline-demo.poppylab.dev` with per-visitor fictional business state. Set an optional consent password with the `NORTHWIND_PASSWORD_HASH` Worker secret. For local Wrangler development, `DEV_HTTP_CLIENT` may name the exact local Iris client metadata URL; it is honored only on a localhost Company origin.
 
 ## Direction contract
 

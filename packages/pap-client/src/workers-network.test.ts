@@ -16,7 +16,7 @@ function onWorkers() {
 
 it("on Workers, fetches public HTTPS hosts without redirects", async () => {
   const fetch = onWorkers();
-  expect(await protocolRequest("https://juniper.poppylab.dev/api/x")).toEqual({
+  expect(await protocolRequest("https://grocery-demo.poppylab.dev/api/x")).toEqual({
     ok: true,
   });
   expect(fetch).toHaveBeenCalledOnce();
@@ -26,7 +26,7 @@ it("on Workers, fetches public HTTPS hosts without redirects", async () => {
 });
 
 it.each([
-  "http://juniper.poppylab.dev/",
+  "http://grocery-demo.poppylab.dev/",
   "https://localhost/",
   "https://juniper.localhost/",
   "https://router.local/",
@@ -35,7 +35,7 @@ it.each([
   "https://127.0.0.1/",
   "https://[::1]/",
   "https://169.254.169.254/",
-  "https://user:pw@juniper.poppylab.dev/",
+  "https://user:pw@grocery-demo.poppylab.dev/",
 ])("on Workers, refuses %s before any request", async (url) => {
   const fetch = onWorkers();
   await expect(protocolRequest(url)).rejects.toThrow();

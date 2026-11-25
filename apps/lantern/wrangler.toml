@@ -4,7 +4,7 @@ compatibility_date = "2026-10-01"
 # global_fetch_strictly_public: fetch() only reaches the public internet.
 compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
 # Custom domain on the poppylab.dev zone (Wrangler creates the DNS record).
-routes = [{ pattern = "noodles.poppylab.dev", custom_domain = true }]
+routes = [{ pattern = "food-demo.poppylab.dev", custom_domain = true }]
 workers_dev = false
 
 # Product photos: files in ./public are served before the Worker runs.
@@ -12,8 +12,8 @@ workers_dev = false
 directory = "./public"
 
 [vars]
-PUBLIC_ORIGIN = "https://noodles.poppylab.dev"
-PUBLIC_DOMAIN = "noodles.poppylab.dev"
+PUBLIC_ORIGIN = "https://food-demo.poppylab.dev"
+PUBLIC_DOMAIN = "food-demo.poppylab.dev"
 
 [[durable_objects.bindings]]
 name = "LANTERN"

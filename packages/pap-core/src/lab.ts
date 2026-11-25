@@ -28,28 +28,28 @@ export function labSites(origin: string) {
       label: "Juniper Market",
       url: local
         ? "http://juniper.localhost:4100"
-        : "https://juniper.poppylab.dev",
+        : "https://grocery-demo.poppylab.dev",
     },
     {
       id: "lantern" as const,
       label: "Lantern Noodle Bar",
       url: local
         ? "http://noodles.localhost:4200"
-        : "https://noodles.poppylab.dev",
+        : "https://food-demo.poppylab.dev",
     },
     {
       id: "harborline" as const,
       label: "Harborline Bank",
       url: local
         ? "http://harbor.localhost:4300"
-        : "https://harborline.poppylab.dev",
+        : "https://bank-demo.poppylab.dev",
     },
     {
       id: "northwind" as const,
       label: "Northwind Air",
       url: local
         ? "http://northwind.localhost:4400"
-        : "https://northwind.poppylab.dev",
+        : "https://airline-demo.poppylab.dev",
     },
   ];
 }

@@ -12,7 +12,7 @@ pnpm dev:harborline
 # customer portal: http://harbor.localhost:4300/account
 ```
 
-The package also has `dev:worker`, `build`, `test`, `typecheck` and `deploy` scripts. `wrangler.toml` deploys `HarborlineCompany` to `harborline.poppylab.dev` with visitor isolation and SQLite-backed Durable Object storage.
+The package also has `dev:worker`, `build`, `test`, `typecheck` and `deploy` scripts. `wrangler.toml` deploys `HarborlineCompany` to `bank-demo.poppylab.dev` with visitor isolation and SQLite-backed Durable Object storage.
 
 ## Fictional personas and shared state
 
