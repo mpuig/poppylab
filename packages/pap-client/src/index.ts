@@ -20,6 +20,7 @@ export * from "./operator-signature.ts";
 export { openApiTools, InvalidToolArguments, type ApiTool } from "./openapi.ts";
 export {
   fdxTools,
+  validFdxId,
   FDX_SCOPES,
   FDX_LIMITS,
   type FdxRequest,

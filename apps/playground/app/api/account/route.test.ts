@@ -1756,6 +1756,19 @@ describe("Revoking the FDX consent (poppylab.dev/fdx v1)", () => {
     signedOut();
   });
 
+  it.each(["-Hk2_a", "_Hk2-a"])(
+    "revokes a consent whose base64url id starts with - or _ (%s), as one in 32 grant IDs does",
+    async (id) => {
+      run.fdxConsent = id;
+      state.transport.mockResolvedValue(null);
+      const r = await POST(request({ action: "fdx_revoke" }));
+      expect(r.status).toBe(200);
+      expect(state.transport.mock.calls[0]![0]).toBe(
+        revocation.replace("grant_1", id),
+      );
+    },
+  );
+
   it("takes a 401 for a consent that has already ended, and signs out the same way", async () => {
     state.transport.mockRejectedValue(new ProtocolError(401, "invalid_token"));
     const r = await POST(request({ action: "fdx_revoke" }));

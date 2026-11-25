@@ -19,6 +19,7 @@ import {
   type OperatorKey,
   openApiTools,
   fdxTools,
+  validFdxId,
   mcpTools,
   mcpRequest,
   mcpResourcePolicy,
@@ -1134,10 +1135,9 @@ function fdxRequest(run: Run) {
 }
 
 /** The consent id as one path segment, as the token response was checked. */
+/** The adapter's id rule: one path segment, base64url ids included. */
 const consentSegment = (id: string | undefined) =>
-  id && /^[A-Za-z0-9][\x21-\x7e]{0,127}$/.test(id) && !/[/\\%?#]/.test(id)
-    ? id
-    : undefined;
+  validFdxId(id) ? id : undefined;
 
 /**
  * `poppylab.dev/fdx` v1: the consent this sign-in holds, when Use FDX is on

@@ -1,3 +1,4 @@
+import { validFdxId } from "@poppy-lab/pap-client";
 import { grantedSubset } from "./account-permissions";
 
 /**
@@ -5,13 +6,7 @@ import { grantedSubset } from "./account-permissions";
  * (an extra field other agents ignore, RFC 6749 §5.1). Kept only when it
  * could be one path segment of the consent endpoint.
  */
-const consentId = (value: unknown) =>
-  typeof value === "string" &&
-  // As the FDX-shaped adapter's ids: base64url may start with - or _.
-  /^[A-Za-z0-9_-][\x21-\x7e]{0,127}$/.test(value) &&
-  !/[/\\%?#]/.test(value)
-    ? value
-    : undefined;
+const consentId = (value: unknown) => (validFdxId(value) ? value : undefined);
 
 /** Validates an OAuth token response (RFC 6749 §5.1, §4.7). */
 export function tokenResponse(

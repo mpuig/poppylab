@@ -57,8 +57,9 @@ const obj = (v: unknown): v is Json =>
  * stays refused, so `.` and `..` never reach a path.
  */
 const ID = /^[A-Za-z0-9_-][\x21-\x7e]{0,127}$/;
-const validId = (v: unknown): v is string =>
+export const validFdxId = (v: unknown): v is string =>
   typeof v === "string" && ID.test(v) && !/[/\\%?#]/.test(v);
+const validId = validFdxId;
 
 const text = (v: unknown, max: number = FDX_LIMITS.text) => {
   if (typeof v !== "string") return undefined;
