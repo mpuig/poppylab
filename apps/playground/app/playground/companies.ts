@@ -1,4 +1,5 @@
 import { isLocalCompany } from "@poppy-lab/pap-core";
+import type { AgentStep } from "@/lib/agent-steps";
 import { isSandbox } from "@/lib/company-policy";
 
 // Inlined at build time: local Companies in development, poppylab.dev when deployed.
@@ -26,6 +27,8 @@ export type Message = {
   author?: string;
   data?: string;
   note?: string;
+  /** What Iris did to produce this answer, for Agent and Demo messages. */
+  steps?: AgentStep[];
 };
 /** Server history (`user`/`assistant`) as transcript messages. */
 export const historyToMessages = (

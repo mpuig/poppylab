@@ -18,6 +18,7 @@ import {
   consentOutcome,
 } from "@/lib/account-permissions";
 import type { ReviewOperation as Operation } from "@/lib/operation-presentation";
+import { agentStep } from "@/lib/agent-steps";
 import { logEntry, type ProtocolEntry } from "@/lib/protocol-log";
 import { exampleUrl, historyToMessages, type Message } from "./companies";
 
@@ -291,7 +292,13 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
       setMessages((old) => [
         ...old,
         ...company,
-        { role: data.mode === "demo" ? "Demo" : "Agent", text: data.text },
+        {
+          role: data.mode === "demo" ? "Demo" : "Agent",
+          text: data.text,
+          steps: ((data.trace ?? []) as string[]).map((line) =>
+            agentStep(logEntry(line)),
+          ),
+        },
       ]);
       addTrace(data.trace);
       setSignedIn(!!data.signedIn);

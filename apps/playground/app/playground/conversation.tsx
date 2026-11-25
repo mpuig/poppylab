@@ -99,6 +99,27 @@ export function Conversation({
                   : message.text}
               </div>
             )}
+            {!!message.steps?.length && (
+              <details className="agent-steps">
+                <summary>
+                  What Iris did · {message.steps.length}{" "}
+                  {message.steps.length === 1 ? "step" : "steps"}
+                </summary>
+                <ol>
+                  {message.steps.map((step, i) => (
+                    <li key={i} className={`step-${step.state}`}>
+                      <span>{step.text}</span>
+                      <small>
+                        {step.how}
+                        {step.access ? ` · ${step.access}` : ""}
+                        {step.state === "waiting" ? " · waiting for you" : ""}
+                        {step.state === "failed" ? " · failed" : ""}
+                      </small>
+                    </li>
+                  ))}
+                </ol>
+              </details>
+            )}
             {message.note && <p className="company-note">{message.note}</p>}
             {message.data && (
               <details className="company-data">
