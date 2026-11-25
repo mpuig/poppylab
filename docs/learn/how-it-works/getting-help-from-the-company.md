@@ -96,7 +96,7 @@ request for a person for "talk to someone". It does not send
 `report_missing_item`, so a refund for one missing dish cannot be reached in
 demo mode.
 [Conversations with a Company Agent](../conversations.md#a-proposal-inside-a-message)
-shows that refund, taken from the lab's tests.
+shows that refund.
 
 <details>
 <summary>What travelled</summary>
@@ -162,12 +162,16 @@ describes the event.
 
 ### 5. Sign in at Lantern
 
-![Lantern's own page asks Elena to let Iris see her scheduled orders, read only, with Allow and Don't allow buttons](../../../apps/playground/public/learn-media/how-it-works/getting-help-from-the-company/05-sign-in-at-lantern.webp "This page belongs to Lantern. Iris only opened it.")
+![Lantern's own page says that Iris wants to connect to your Lantern account. On the left Elena Maren is chosen as the test customer to sign in as. On the right it says what Iris may do: read her scheduled orders, and propose no changes. The buttons are Don't allow and Allow](../../../apps/playground/public/learn-media/how-it-works/getting-help-from-the-company/05-sign-in-at-lantern.webp "This page belongs to Lantern. Iris only opened it.")
 
 Signing in happens on Lantern's website, as it does for any other task. The
-page names the agent that is asking and what it would be allowed to do. Elena
+page names the agent that is asking, from poppylab.dev, and says what it would
+be allowed to do: read Elena's scheduled orders, and propose no changes. Elena
 chooses Allow, and Iris receives a permission from Lantern that Elena can
 withdraw at Lantern whenever she likes. Iris never sees a password.
+
+The tab then shows a short page of the lab that says she is signed in and can
+close it.
 
 [Changing an order](changing-an-order.md#3-sign-in-at-lantern) explains this
 page and what travels when Elena allows it.
@@ -297,6 +301,6 @@ Lantern stays in charge of its own support throughout.
 ![The Inspector view lists the sign-in, the conversation messages, the authorization event and the handoff of this conversation](../../../apps/playground/public/learn-media/how-it-works/getting-help-from-the-company/09-inspector.webp "The Inspector shows each call of the conversation, without the secrets.")
 
 The Inspector view of the playground lists every call behind the screens
-above. [Conversations with a Company Agent](../conversations.md) walks through
-a conversation with each request and response written out, including the
-refund for a missing dish that demo mode does not reach.
+above. [Conversations with a Company Agent](../conversations.md) explains the
+same conversation with its requests and responses, including the refund for a
+missing dish that demo mode does not reach.
