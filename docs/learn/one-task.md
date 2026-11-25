@@ -260,7 +260,7 @@ exchanges it, proving again who it is and binding the token to its DPoP key
 
 A stolen token is useless without the private key that signs each DPoP proof,
 and the refresh token works only with that same key
-([§4.4](https://personalagentprotocol.org/docs/1.0/spec#refreshing-tokens)).
+([§4.4](https://personalagentprotocol.org/docs/1.0/spec#refresh-tokens)).
 
 ## 7. Read the order
 
