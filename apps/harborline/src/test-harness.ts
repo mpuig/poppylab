@@ -54,11 +54,14 @@ export async function inject(input: Inject | string) {
         }
       : {}),
   });
-  const body = await response.text();
+  // The raw bytes too, for a binary body such as a statement PDF.
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  const body = new TextDecoder().decode(bytes);
   return {
     statusCode: response.status,
     headers: Object.fromEntries(response.headers.entries()),
     body,
+    bytes,
     json: () => JSON.parse(body),
   };
 }
@@ -232,4 +235,49 @@ export async function setup(deploy: Partial<Deployment> = {}) {
       ...(payload ? { payload } : {}),
     });
   return { sign, authorize, call, token, keys, dpop, sessionKey };
+}
+
+/**
+ * A PDF's structure, checked from its bytes: header, objects at the offsets
+ * the cross-reference table gives, stream lengths, the trailer and the page
+ * tree. Returns the page count and the text the content streams show.
+ */
+export function readPdf(bytes: Uint8Array) {
+  const file = String.fromCharCode(...bytes);
+  expect(file.startsWith("%PDF-1.4\n")).toBe(true);
+  expect(file.endsWith("%%EOF\n")).toBe(true);
+  const start = Number(/startxref\n(\d+)\n%%EOF\n$/.exec(file)![1]);
+  expect(file.slice(start, start + 5)).toBe("xref\n");
+  const [, first, size] = /^xref\n(\d+) (\d+)\n/.exec(file.slice(start))!;
+  expect(first).toBe("0");
+  const table = file
+    .slice(start)
+    .split("\n")
+    .slice(2, 2 + Number(size));
+  expect(table[0]).toBe("0000000000 65535 f ");
+  table.slice(1).forEach((entry, i) => {
+    // Each entry is exactly 20 bytes with its end of line.
+    expect(entry).toMatch(/^\d{10} 00000 n $/);
+    const offset = Number(entry.slice(0, 10));
+    expect(file.slice(offset).startsWith(`${i + 1} 0 obj\n`)).toBe(true);
+  });
+  const trailer =
+    /trailer\n<< \/Size (\d+) \/Root 1 0 R \/Info (\d+) 0 R >>/.exec(file)!;
+  expect(Number(trailer[1])).toBe(Number(size));
+  for (const match of file.matchAll(
+    /<< \/Length (\d+) >>\nstream\n([\s\S]*?)\nendstream/g,
+  ))
+    expect(match[2]!.length).toBe(Number(match[1]));
+  const pages = [...file.matchAll(/\/Type \/Page /g)].length;
+  expect(
+    Number(/\/Type \/Pages \/Kids \[[^\]]*\] \/Count (\d+)/.exec(file)![1]),
+  ).toBe(pages);
+  const shown = [...file.matchAll(/\((.*?)(?<!\\)\) Tj/g)].map((m) =>
+    m[1]!
+      .replace(/\\([()\\])/g, "$1")
+      .replace(/\\(\d{3})/g, (_, octal: string) =>
+        String.fromCharCode(parseInt(octal, 8)),
+      ),
+  );
+  return { pages, text: shown.join("\n"), size: bytes.byteLength };
 }

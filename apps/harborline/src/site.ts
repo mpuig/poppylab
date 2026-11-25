@@ -88,6 +88,7 @@ const scopePurpose: Record<HarborlineScope, string> = {
   "fdx:ACCOUNT_BASIC": "FDX-shaped: chosen accounts, no balances",
   "fdx:ACCOUNT_DETAILED": "FDX-shaped: balances of chosen accounts",
   "fdx:TRANSACTIONS": "FDX-shaped: transactions of chosen accounts",
+  "fdx:STATEMENTS": "FDX-shaped: monthly PDF statements of chosen accounts",
   "fdx:CUSTOMER_CONTACT": "FDX-shaped: customer name and email",
   offline_access: "Refresh the fictional grant while away",
 };
@@ -156,6 +157,8 @@ const permissionText: Record<HarborlineScope, string> = {
     "Through the FDX-shaped API, also see current and available balances of the accounts you choose.",
   "fdx:TRANSACTIONS":
     "Through the FDX-shaped API, see transactions of the accounts you choose.",
+  "fdx:STATEMENTS":
+    "Through the FDX-shaped API, list and download monthly PDF statements of the accounts you choose: balances and posted transactions.",
   "fdx:CUSTOMER_CONTACT":
     "Through the FDX-shaped API, see the customer's name and email.",
   offline_access:

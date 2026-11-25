@@ -30,6 +30,32 @@ const accountId = {
   description: "An accountId from the account list",
   schema: { type: "string", maxLength: 80 },
 };
+const statementId = {
+  name: "statementId",
+  in: "path",
+  required: true,
+  description: "A statementId from the account's statement list",
+  schema: { type: "string", maxLength: 128 },
+};
+/** startTime, endTime, offset and limit, as on transactions. */
+const paging = (what: string, dates: string) => [
+  day("startTime", `First ${dates} included, YYYY-MM-DD`),
+  day("endTime", `Last ${dates} included, YYYY-MM-DD`),
+  {
+    name: "offset",
+    in: "query",
+    required: false,
+    description: `${what} to skip`,
+    schema: { type: "integer", minimum: 0, maximum: 1000000 },
+  },
+  {
+    name: "limit",
+    in: "query",
+    required: false,
+    description: `${what} per page, at most ${MAX_LIMIT}`,
+    schema: { type: "integer", minimum: 1, maximum: MAX_LIMIT },
+  },
+];
 const consentId = {
   name: "consentId",
   in: "path",
@@ -102,6 +128,25 @@ const transactionSchema = {
   },
 };
 
+const statementSchema = {
+  type: "object",
+  description:
+    "A fictional monthly statement: a closed cycle from the 21st of one month through the 20th of the next, in UTC days. startDate and endDate are Harborline's own fields.",
+  properties: {
+    statementId: { type: "string" },
+    accountId: { type: "string" },
+    statementDate: {
+      type: "string",
+      format: "date",
+      description: "The cycle's last day",
+    },
+    description: { type: "string" },
+    status: { type: "string", enum: ["AVAILABLE"] },
+    startDate: { type: "string", format: "date" },
+    endDate: { type: "string", format: "date" },
+  },
+};
+
 export const fdxPaths: Record<string, unknown> = {
   [`${FDX_BASE}/accounts`]: {
     get: {
@@ -134,28 +179,47 @@ export const fdxPaths: Record<string, unknown> = {
       operationId: "fdx_list_transactions",
       summary: `Page through a shared account's fictional transactions, newest first. Dates are inclusive UTC days. Pass page.nextOffset back as offset for the next page; limit defaults to ${DEFAULT_LIMIT} and is capped at ${MAX_LIMIT}.`,
       ...auth(["fdx:TRANSACTIONS"]),
-      parameters: [
-        accountId,
-        day("startTime", "First day included, YYYY-MM-DD"),
-        day("endTime", "Last day included, YYYY-MM-DD"),
-        {
-          name: "offset",
-          in: "query",
-          required: false,
-          description: "Transactions to skip",
-          schema: { type: "integer", minimum: 0, maximum: 1000000 },
-        },
-        {
-          name: "limit",
-          in: "query",
-          required: false,
-          description: `Transactions per page, at most ${MAX_LIMIT}`,
-          schema: { type: "integer", minimum: 1, maximum: MAX_LIMIT },
-        },
-      ],
+      parameters: [accountId, ...paging("Transactions", "day")],
       responses: {
         "200": response("One page of transactions, with page"),
         "404": notFound("Not found or not shared"),
+        ...errors,
+      },
+    },
+  },
+  [`${FDX_BASE}/accounts/{accountId}/statements`]: {
+    get: {
+      operationId: "fdx_list_statements",
+      summary: `List a shared account's fictional monthly statements, newest first: the closed cycles since the account opened, at most twelve. startTime and endTime select statement dates, inclusive. Paging works as for transactions.`,
+      ...auth(["fdx:STATEMENTS"]),
+      parameters: [accountId, ...paging("Statements", "statement date")],
+      responses: {
+        "200": response("One page of statements, with page"),
+        "404": notFound("Not found or not shared"),
+        ...errors,
+      },
+    },
+  },
+  [`${FDX_BASE}/accounts/{accountId}/statements/{statementId}`]: {
+    get: {
+      operationId: "fdx_get_statement",
+      summary:
+        "Download one statement as a PDF: the cycle's opening and closing balances and its posted transactions (at most 100 printed). Send Accept: application/pdf. The same statement is always the same bytes.",
+      ...auth(["fdx:STATEMENTS"]),
+      parameters: [accountId, statementId],
+      responses: {
+        "200": {
+          description: "The statement, as an attachment",
+          content: {
+            "application/pdf": {
+              schema: { type: "string", format: "binary" },
+            },
+          },
+        },
+        "404": response(
+          "Account not found or not shared (code 701), or no such statement (code statement_not_found)",
+        ),
+        "406": response("Accept names no PDF (code not_acceptable, as JSON)"),
         ...errors,
       },
     },
@@ -230,6 +294,7 @@ export const fdxOpenApi = (origin: string) => ({
       Error: errorSchema,
       Account: accountSchema,
       Transaction: transactionSchema,
+      Statement: statementSchema,
     },
   },
   paths: fdxPaths,

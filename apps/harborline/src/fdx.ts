@@ -1,6 +1,7 @@
 /**
  * Harborline's FDX-shaped, read-only API (`poppylab.dev/fdx` v1): accounts,
- * balances, transactions, the customer, and the consent behind the token.
+ * balances, transactions, statements, the customer, and the consent behind
+ * the token.
  * It reads the same fictional state as Harborline's own API and portal.
  *
  * FDX-shaped, not FDX-conformant or certified. Paths and field names follow
@@ -20,6 +21,8 @@ import {
   type Transaction,
 } from "./data.ts";
 import type { CustomerState } from "./harborline.ts";
+import { statementPdf } from "./statement-pdf.ts";
+import { statementsFor, type Statement } from "./statements.ts";
 
 /** The extension (§3.3) and where its routes live. */
 export const FDX = { name: "poppylab.dev/fdx", version: "1" } as const;
@@ -33,6 +36,7 @@ const ACCOUNT_CLUSTERS = [
   "ACCOUNT_BASIC",
   "ACCOUNT_DETAILED",
   "TRANSACTIONS",
+  "STATEMENTS",
 ] as const;
 
 type Mount = Parameters<CompanyDefinition["mount"]>[1];
@@ -90,13 +94,40 @@ export const fdxTransaction = (transaction: Transaction) => ({
 });
 
 /**
+ * A statement as a list item. `startDate` and `endDate`, the cycle's days,
+ * are Harborline's own fields; the document is served separately as a PDF.
+ */
+export const fdxStatement = (statement: Statement) => ({
+  statementId: statement.statementId,
+  accountId: statement.accountId,
+  statementDate: statement.endDate,
+  description: `Monthly statement, ${statement.startDate} to ${statement.endDate}`,
+  status: "AVAILABLE",
+  startDate: statement.startDate,
+  endDate: statement.endDate,
+});
+
+/** Whether an `Accept` header takes a PDF; none at all takes anything. */
+export function acceptsPdf(header: string | undefined) {
+  if (!header?.trim()) return true;
+  return header.split(",").some((range) => {
+    const [type, ...params] = range.split(";").map((p) => p.trim());
+    const q = params.find((p) => /^q=/i.test(p));
+    if (q && !(Number(q.slice(2)) > 0)) return false;
+    return ["application/pdf", "application/*", "*/*"].includes(
+      (type ?? "").toLowerCase(),
+    );
+  });
+}
+
+/**
  * An FDX-shaped error body. `701` (account not found) and `703` (invalid
  * date range) are FDX codes; `602` marks a request the token doesn't
  * authorize. The lowercase codes are Harborline's own.
  */
 const fail = (
   c: Context,
-  status: 400 | 401 | 404,
+  status: 400 | 401 | 404 | 406,
   code: string,
   message: string,
   debugMessage?: string,
@@ -128,6 +159,48 @@ const count = (value: string | undefined, fallback: number, max: number) => {
   if (!/^\d{1,7}$/.test(value)) return undefined;
   return Math.min(Number(value), max);
 };
+
+/**
+ * `startTime`, `endTime`, `offset` and `limit`, checked: dates as inclusive
+ * UTC days (`703` when malformed or inverted), and a bounded page.
+ */
+function pageQuery(c: Context) {
+  const query = c.req.query();
+  const start = query.startTime === undefined ? "" : date(query.startTime);
+  const end = query.endTime === undefined ? "9999-12-31" : date(query.endTime);
+  if (start === undefined || end === undefined)
+    return fail(
+      c,
+      400,
+      "703",
+      "Invalid date range",
+      "startTime and endTime are calendar dates, YYYY-MM-DD",
+    );
+  if (start > end)
+    return fail(
+      c,
+      400,
+      "703",
+      "Invalid date range",
+      "startTime is after endTime",
+    );
+  const offset = count(query.offset, 0, 1000000);
+  const limit = count(query.limit, DEFAULT_LIMIT, MAX_LIMIT);
+  if (offset === undefined || !limit)
+    return fail(
+      c,
+      400,
+      "invalid_parameter",
+      "Invalid page",
+      `offset is a whole number; limit is from 1 to ${MAX_LIMIT}`,
+    );
+  return { start, end, offset, limit };
+}
+/** `page`: the total, and the next offset unless this is the last page. */
+const page = (offset: number, limit: number, total: number) => ({
+  ...(offset + limit < total ? { nextOffset: String(offset + limit) } : {}),
+  totalElements: total,
+});
 
 export function mountFdx(
   app: Hono,
@@ -191,36 +264,9 @@ export function mountFdx(
       (item) => item.id === c.req.param("accountId"),
     );
     if (!account) return accountNotFound(c);
-    const query = c.req.query();
-    const start = query.startTime === undefined ? "" : date(query.startTime);
-    const end =
-      query.endTime === undefined ? "9999-12-31" : date(query.endTime);
-    if (start === undefined || end === undefined)
-      return fail(
-        c,
-        400,
-        "703",
-        "Invalid date range",
-        "startTime and endTime are calendar dates, YYYY-MM-DD",
-      );
-    if (start > end)
-      return fail(
-        c,
-        400,
-        "703",
-        "Invalid date range",
-        "startTime is after endTime",
-      );
-    const offset = count(query.offset, 0, 1000000);
-    const limit = count(query.limit, DEFAULT_LIMIT, MAX_LIMIT);
-    if (offset === undefined || !limit)
-      return fail(
-        c,
-        400,
-        "invalid_parameter",
-        "Invalid page",
-        `offset is a whole number; limit is from 1 to ${MAX_LIMIT}`,
-      );
+    const range = pageQuery(c);
+    if (range instanceof Response) return range;
+    const { start, end, offset, limit } = range;
     // Both dates are inclusive, as UTC calendar days; newest first.
     const matching = view.customer.transactions
       .filter((item) => item.account_id === account.id)
@@ -229,14 +275,76 @@ export function mountFdx(
         return day >= start && day <= end;
       })
       .sort((a, b) => b.occurred_at.localeCompare(a.occurred_at));
-    const next = offset + limit;
     return c.json({
-      page: {
-        ...(next < matching.length ? { nextOffset: String(next) } : {}),
-        totalElements: matching.length,
-      },
-      transactions: matching.slice(offset, next).map(fdxTransaction),
+      page: page(offset, limit, matching.length),
+      transactions: matching.slice(offset, offset + limit).map(fdxTransaction),
       note: FICTION_NOTICE,
+    });
+  });
+
+  /** A chosen account's statements as of now (`statements.ts`). */
+  const statementsOf = (c: Context) => {
+    const view = scope(c);
+    if (!view) return unauthorized(c);
+    const account = view.accounts.find(
+      (item) => item.id === c.req.param("accountId"),
+    );
+    if (!account) return accountNotFound(c);
+    return {
+      view,
+      account,
+      statements: statementsFor(
+        account,
+        view.customer.transactions,
+        new Date(),
+      ),
+    };
+  };
+
+  app.get(`${FDX_BASE}/accounts/:accountId/statements`, (c) => {
+    const found = statementsOf(c);
+    if (found instanceof Response) return found;
+    const range = pageQuery(c);
+    if (range instanceof Response) return range;
+    const { start, end, offset, limit } = range;
+    // The dates select statement dates, inclusive; newest first.
+    const matching = found.statements.filter(
+      (item) => item.endDate >= start && item.endDate <= end,
+    );
+    return c.json({
+      page: page(offset, limit, matching.length),
+      statements: matching.slice(offset, offset + limit).map(fdxStatement),
+      note: FICTION_NOTICE,
+    });
+  });
+
+  app.get(`${FDX_BASE}/accounts/:accountId/statements/:statementId`, (c) => {
+    const found = statementsOf(c);
+    if (found instanceof Response) return found;
+    const statement = found.statements.find(
+      (item) => item.statementId === c.req.param("statementId"),
+    );
+    // No verified FDX code covers this: Harborline's own.
+    if (!statement)
+      return fail(c, 404, "statement_not_found", "Statement not found");
+    if (!acceptsPdf(c.req.header("accept")))
+      return fail(
+        c,
+        406,
+        "not_acceptable",
+        "Not acceptable",
+        "Statements are served as application/pdf only",
+      );
+    const pdf = statementPdf(
+      statement,
+      found.account,
+      found.view.customer.name,
+    );
+    return c.body(pdf as Uint8Array<ArrayBuffer>, 200, {
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename="harborline-${statement.statementId}.pdf"`,
+      "Content-Length": String(pdf.byteLength),
+      "Cache-Control": "no-store",
     });
   });
 

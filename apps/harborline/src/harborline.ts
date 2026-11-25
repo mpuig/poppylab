@@ -426,6 +426,8 @@ const routeScopes = ({
   if (path.startsWith(`${FDX_BASE}/consents/`)) return [];
   if (/^\/fdx\/v6\/accounts\/[^/]+\/transactions$/.test(path))
     return ["fdx:TRANSACTIONS"];
+  if (/^\/fdx\/v6\/accounts\/[^/]+\/statements(\/[^/]+)?$/.test(path))
+    return ["fdx:STATEMENTS"];
   if (path === `${FDX_BASE}/customers/current`) return ["fdx:CUSTOMER_CONTACT"];
   if (path.startsWith("/fdx/")) return ["fdx:ACCOUNT_BASIC"];
   if (method === "GET") {
@@ -1111,6 +1113,8 @@ const scopeDescriptions: Record<HarborlineScope, string> = {
     "FDX-shaped API: add current and available balances to the accounts you choose. Needs fdx:ACCOUNT_BASIC to list them. Read only; includes personal financial data.",
   "fdx:TRANSACTIONS":
     "FDX-shaped API: see the transactions of the fictional accounts you choose. Read only; includes personal financial data.",
+  "fdx:STATEMENTS":
+    "FDX-shaped API: list and download monthly PDF statements of the fictional accounts you choose, with their balances and transactions. Read only; includes personal financial data.",
   "fdx:CUSTOMER_CONTACT":
     "FDX-shaped API: see the fictional customer's name and email. Read only; includes personal data.",
   offline_access:
@@ -1194,7 +1198,7 @@ export const harborline: CompanyDefinition = {
         type: "openapi",
         url: `${origin}${FDX_OPENAPI}`,
         description:
-          "FDX-shaped, read-only view of the same fictional accounts, balances, transactions and customer, with a consent API. Not FDX-conformant or certified. Requests must declare the poppylab.dev/fdx extension, version 1.",
+          "FDX-shaped, read-only view of the same fictional accounts, balances, transactions, monthly PDF statements and customer, with a consent API. Not FDX-conformant or certified. Requests must declare the poppylab.dev/fdx extension, version 1.",
       },
     ],
     agent: {
@@ -1216,7 +1220,7 @@ export const harborline: CompanyDefinition = {
           version: FDX.version,
           fdx_version: "6.4",
           base_url: `${origin}${FDX_BASE}`,
-          resources: ["customer", "accounts", "transactions"],
+          resources: ["customer", "accounts", "transactions", "statements"],
           consent_endpoint: `${origin}${FDX_BASE}/consents`,
         },
       ],
@@ -1234,7 +1238,8 @@ export const harborline: CompanyDefinition = {
     { task: "Create, edit or verify a payment recipient" },
     { task: "Deposit checks, cash or cryptocurrency" },
     { task: "Dispute a transaction or chargeback" },
-    { task: "Export statements or tax documents" },
+    // Monthly statements are served by the FDX-shaped API (fdx:STATEMENTS).
+    { task: "Export tax documents" },
     {
       task: "Send a payment to a new recipient",
       alternative: {

@@ -6,6 +6,7 @@ export const fdxScopes = [
   "fdx:ACCOUNT_BASIC",
   "fdx:ACCOUNT_DETAILED",
   "fdx:TRANSACTIONS",
+  "fdx:STATEMENTS",
   "fdx:CUSTOMER_CONTACT",
 ] as const;
 export const scopes = [

@@ -1,19 +1,27 @@
 /**
  * Harborline's FDX-shaped API (`poppylab.dev/fdx` v1): discovery, the
  * extension requirement (§3.3), scopes per data cluster, the accounts chosen
- * at consent, pagination and dates, the consent API and revocation both
- * ways, and parity with Harborline's own API.
+ * at consent, pagination and dates, statements and their PDF, the consent
+ * API and revocation both ways, and parity with Harborline's own API.
  */
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FICTION_NOTICE } from "./data.ts";
 import { decimal } from "./fdx.ts";
 import { fdxScopes, scopes } from "./scopes.ts";
-import { inject, origin, setup } from "./test-harness.ts";
+import { inject, origin, readPdf, setup } from "./test-harness.ts";
 
 const BOTH = '"operations";v="3", "poppylab.dev/fdx";v="1"';
 const declared = { "Poppy-Extensions": BOTH };
 const fdx = [...fdxScopes];
 type Harness = Awaited<ReturnType<typeof setup>>;
+/**
+ * Statements depend on the day: from here on it is 25 November 2026, when
+ * the cycles ending 20 September, October and November have closed.
+ */
+const onStatementDay = () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-25T12:00:00.000Z"));
+};
 
 /** A GET or PUT that declares the FDX extension. */
 const fdxCall =
@@ -50,6 +58,9 @@ describe("Harborline FDX-shaped API", () => {
     h = await setup();
     get = fdxCall(h);
   });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
   it("lists the extension, the FDX-shaped OpenAPI and its scopes in discovery, signed out", async () => {
     const discovery = (await inject("/.well-known/poppy.json")).json();
@@ -60,7 +71,7 @@ describe("Harborline FDX-shaped API", () => {
           version: "1",
           fdx_version: "6.4",
           base_url: `${origin}/fdx/v6`,
-          resources: ["customer", "accounts", "transactions"],
+          resources: ["customer", "accounts", "transactions", "statements"],
           consent_endpoint: `${origin}/fdx/v6/consents`,
         },
       ],
@@ -93,11 +104,26 @@ describe("Harborline FDX-shaped API", () => {
     expect(
       document.paths["/fdx/v6/consents/{consentId}/revocation"].put,
     ).toMatchObject({ operationId: "fdx_revoke_consent" });
-    // Statements and tax documents stay out of the protocol.
-    const tasks = (await inject("/poppy/tasks")).json();
+    for (const path of [
+      "/fdx/v6/accounts/{accountId}/statements",
+      "/fdx/v6/accounts/{accountId}/statements/{statementId}",
+    ])
+      expect(document.paths[path].get["x-poppy-scopes"]).toEqual([
+        "fdx:STATEMENTS",
+      ]);
     expect(
-      tasks.excluded_tasks.map((item: { task: string }) => item.task),
-    ).toContain("Export statements or tax documents");
+      Object.keys(
+        document.paths["/fdx/v6/accounts/{accountId}/statements/{statementId}"]
+          .get.responses["200"].content,
+      ),
+    ).toEqual(["application/pdf"]);
+    // Statements are served now; tax documents stay out of the protocol.
+    const tasks = (await inject("/poppy/tasks")).json();
+    const excluded = tasks.excluded_tasks.map(
+      (item: { task: string }) => item.task,
+    );
+    expect(excluded).toContain("Export tax documents");
+    expect(excluded.join(" ")).not.toMatch(/statement/i);
   });
 
   it("refuses FDX routes without the declaration, before the token, and verifies the Session there", async () => {
@@ -404,7 +430,12 @@ describe("Harborline FDX-shaped API", () => {
         {
           resourceType: "ACCOUNT",
           resourceId: "acc_HLB_A100",
-          dataClusters: ["ACCOUNT_BASIC", "ACCOUNT_DETAILED", "TRANSACTIONS"],
+          dataClusters: [
+            "ACCOUNT_BASIC",
+            "ACCOUNT_DETAILED",
+            "TRANSACTIONS",
+            "STATEMENTS",
+          ],
         },
       ],
       note: FICTION_NOTICE,
@@ -487,7 +518,10 @@ describe("Harborline FDX-shaped API", () => {
   });
 
   it("shows changes approved through Harborline's own API identically through FDX", async () => {
+    onStatementDay();
     const token = await h.sign("elena", [...scopes]);
+    const closed = `/fdx/v6/accounts/acc_HLB_A100/statements/stmt_acc_HLB_A100_20261120`;
+    const statementBefore = (await get(token.access_token, closed)).bytes;
     const transfer = {
       source_account_id: "acc_HLB_A100",
       destination_account_id: "acc_HLB_A200",
@@ -542,6 +576,10 @@ describe("Harborline FDX-shaped API", () => {
       ]),
     );
     expect(shaped[0].currentBalance).toBe(12344.99);
+    // A transfer posted today changes no closed statement.
+    expect((await get(token.access_token, closed)).bytes).toEqual(
+      statementBefore,
+    );
     const ownTransactions = (
       await h.call(token.access_token, "GET", "/api/account/transactions")
     ).json().transactions;
@@ -581,6 +619,180 @@ describe("Harborline FDX-shaped API", () => {
         (t: { transactionId: string }) => t.transactionId === "txn_HLB_A301",
       ).category,
     ).toBe("dining");
+  });
+
+  it("lists a chosen account's statements newest first, paged and by statement date", async () => {
+    onStatementDay();
+    const token = await h.sign("elena", fdx);
+    const url = "/fdx/v6/accounts/acc_HLB_A100/statements";
+    const listed = await get(token.access_token, url);
+    expect(listed.statusCode).toBe(200);
+    const body = listed.json();
+    expect(body.note).toBe(FICTION_NOTICE);
+    expect(body.page).toEqual({ totalElements: 3 });
+    expect(body.statements[0]).toEqual({
+      statementId: "stmt_acc_HLB_A100_20261120",
+      accountId: "acc_HLB_A100",
+      statementDate: "2026-11-20",
+      description: "Monthly statement, 2026-10-21 to 2026-11-20",
+      status: "AVAILABLE",
+      startDate: "2026-10-21",
+      endDate: "2026-11-20",
+    });
+    expect(
+      body.statements.map((s: { statementDate: string }) => s.statementDate),
+    ).toEqual(["2026-11-20", "2026-10-20", "2026-09-20"]);
+    const first = (await get(token.access_token, `${url}?limit=2`)).json();
+    expect(first.page).toEqual({ nextOffset: "2", totalElements: 3 });
+    const rest = (
+      await get(token.access_token, `${url}?offset=2&limit=2`)
+    ).json();
+    expect(
+      rest.statements.map((s: { statementId: string }) => s.statementId),
+    ).toEqual(["stmt_acc_HLB_A100_20260920"]);
+    const october = (
+      await get(
+        token.access_token,
+        `${url}?startTime=2026-10-01&endTime=2026-10-31`,
+      )
+    ).json();
+    expect(
+      october.statements.map((s: { statementDate: string }) => s.statementDate),
+    ).toEqual(["2026-10-20"]);
+    for (const [query, code] of [
+      ["startTime=2026-11-30&endTime=2026-11-01", "703"],
+      ["endTime=2026-13-01", "703"],
+      ["limit=0", "invalid_parameter"],
+    ] as const) {
+      const bad = await get(token.access_token, `${url}?${query}`);
+      expect(bad.statusCode).toBe(400);
+      expect(bad.json().code).toBe(code);
+    }
+  });
+
+  it("serves a statement as a deterministic PDF attachment, only to fdx:STATEMENTS and only as PDF", async () => {
+    onStatementDay();
+    const token = await h.sign("elena", fdx);
+    const url =
+      "/fdx/v6/accounts/acc_HLB_A100/statements/stmt_acc_HLB_A100_20261120";
+    const pdf = await get(token.access_token, url, "GET", undefined);
+    expect(pdf.statusCode).toBe(200);
+    expect(pdf.headers["content-type"]).toBe("application/pdf");
+    expect(pdf.headers["content-disposition"]).toBe(
+      'attachment; filename="harborline-stmt_acc_HLB_A100_20261120.pdf"',
+    );
+    expect(pdf.headers["cache-control"]).toBe("no-store");
+    expect(pdf.headers["x-content-type-options"]).toBe("nosniff");
+    expect(Number(pdf.headers["content-length"])).toBe(pdf.bytes.byteLength);
+    expect(String.fromCharCode(...pdf.bytes.slice(0, 5))).toBe("%PDF-");
+    const read = readPdf(pdf.bytes);
+    expect(read.pages).toBe(1);
+    expect(read.text).toContain("No real account exists.");
+    expect(read.text).toContain("Operating checking");
+    expect(read.text).toContain("USD 12,845.00");
+    // The same statement, the same bytes; and the same for another grant.
+    expect((await get(token.access_token, url)).bytes).toEqual(pdf.bytes);
+    const again = await h.sign("elena", fdx);
+    expect((await get(again.access_token, url)).bytes).toEqual(pdf.bytes);
+
+    // Accept: a PDF, any application type, anything, or nothing at all.
+    const accepting = (accept: string) =>
+      h.call(token.access_token, "GET", url, undefined, undefined, undefined, {
+        ...declared,
+        ...(accept ? { Accept: accept } : {}),
+      });
+    for (const accept of [
+      "application/pdf",
+      "*/*",
+      "application/*",
+      "text/html, application/pdf;q=0.5",
+      "",
+    ])
+      expect((await accepting(accept)).statusCode).toBe(200);
+    for (const accept of [
+      "application/json",
+      "text/html",
+      "application/pdf;q=0",
+    ]) {
+      const refused = await accepting(accept);
+      expect(refused.statusCode).toBe(406);
+      expect(refused.headers["content-type"]).toContain("application/json");
+      expect(refused.json()).toEqual({
+        code: "not_acceptable",
+        message: "Not acceptable",
+        debugMessage: "Statements are served as application/pdf only",
+        note: FICTION_NOTICE,
+      });
+    }
+
+    // Statements need their own data cluster, list and document alike.
+    const withoutStatements = await h.sign(
+      "elena",
+      fdx.filter((s) => s !== "fdx:STATEMENTS"),
+    );
+    for (const path of ["/fdx/v6/accounts/acc_HLB_A100/statements", url]) {
+      const refused = await get(withoutStatements.access_token, path);
+      expect(refused.statusCode).toBe(403);
+      expect(refused.json()).toEqual({ error: "insufficient_scope" });
+      expect(refused.headers["www-authenticate"]).toContain(
+        'scope="fdx:STATEMENTS"',
+      );
+    }
+    const only = await h.sign("elena", ["fdx:STATEMENTS"]);
+    expect((await get(only.access_token, url)).statusCode).toBe(200);
+    // And the extension declared, before the token.
+    const undeclared = await h.call(token.access_token, "GET", url);
+    expect(undeclared.statusCode).toBe(403);
+    expect(undeclared.json()).toMatchObject({ error: "extension_required" });
+  });
+
+  it("answers 701 for statements of unchosen accounts, and statement_not_found for unknown statements", async () => {
+    onStatementDay();
+    const token = await h.sign("elena", fdx, {
+      fdxAccounts: ["acc_HLB_A200"],
+    });
+    for (const url of [
+      "/fdx/v6/accounts/acc_HLB_A100/statements",
+      "/fdx/v6/accounts/acc_HLB_A100/statements/stmt_acc_HLB_A100_20261120",
+      "/fdx/v6/accounts/acc_HLB_J100/statements",
+      "/fdx/v6/accounts/acc_HLB_J100/statements/stmt_acc_HLB_J100_20261120",
+      "/fdx/v6/accounts/acc_nope/statements/stmt_acc_nope_20261120",
+    ]) {
+      const r = await get(token.access_token, url);
+      expect(r.statusCode).toBe(404);
+      expect(r.json()).toEqual({
+        code: "701",
+        message: "Account not found",
+        note: FICTION_NOTICE,
+      });
+    }
+    for (const id of [
+      // Another account's, a cycle not closed yet, one before the first,
+      // and nothing like an ID.
+      "stmt_acc_HLB_A100_20261120",
+      "stmt_acc_HLB_A200_20261220",
+      "stmt_acc_HLB_A200_20260820",
+      "nope",
+    ]) {
+      const r = await get(
+        token.access_token,
+        `/fdx/v6/accounts/acc_HLB_A200/statements/${id}`,
+      );
+      expect(r.statusCode).toBe(404);
+      expect(r.json()).toEqual({
+        code: "statement_not_found",
+        message: "Statement not found",
+        note: FICTION_NOTICE,
+      });
+    }
+    const savings = await get(
+      token.access_token,
+      "/fdx/v6/accounts/acc_HLB_A200/statements/stmt_acc_HLB_A200_20261120",
+    );
+    expect(savings.statusCode).toBe(200);
+    expect(readPdf(savings.bytes).text).toContain(
+      "No posted transactions in this period.",
+    );
   });
 
   it("keeps each visitor's FDX view to their own copy", async () => {
