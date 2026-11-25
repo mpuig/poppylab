@@ -33,11 +33,64 @@ const words = (value: string) =>
     .replace(/[^a-z0-9 ]+/g, " ")
     .split(" ")
     .filter((word) => word.length > 2);
-/** A number the User wrote, within bounds, or the default. */
-const count = (message: string, max: number, fallback = 1) => {
-  const found = Number(message.match(/\b([1-9])\b/)?.[1] ?? fallback);
-  return Math.min(Math.max(found, 1), max);
-};
+/**
+ * The message as words in order. "18:30", "2.50" and "1,000" stay whole, so
+ * a time or an amount is never read as a count.
+ */
+const tokens = (message: string) =>
+  message.toLowerCase().match(/[a-z0-9]+(?:[:.,]\d+)*|×/g) ?? [];
+const NUMBERS = [
+  "zero",
+  "one",
+  "two",
+  "three",
+  "four",
+  "five",
+  "six",
+  "seven",
+  "eight",
+  "nine",
+  "ten",
+];
+const numeral = (token?: string) =>
+  token === undefined
+    ? undefined
+    : /^\d+$/.test(token)
+      ? Number(token)
+      : NUMBERS.includes(token)
+        ? NUMBERS.indexOf(token)
+        : undefined;
+/** Words that may stand between a count and what it counts: "2 more of the…". */
+const BETWEEN = new Set([
+  "x",
+  "×",
+  "of",
+  "the",
+  "more",
+  "extra",
+  "additional",
+  "checked",
+  "portion",
+  "portions",
+  "serving",
+  "servings",
+]);
+/**
+ * How many the User asked for of the thing named at `start`…`end` in `said`:
+ * the number written right before it ("2 pork gyoza", "two more bags",
+ * "3 x edamame") or right after it ("edamame x2"). Undefined when they wrote
+ * none there: a number elsewhere in the message counts something else.
+ */
+function howMany(said: string[], start: number, end: number) {
+  let before = start - 1;
+  while (before >= 0 && BETWEEN.has(said[before]!)) before--;
+  const written = numeral(said[before]);
+  if (written !== undefined) return written;
+  const after = said[end + 1];
+  const times = after?.match(/^x(\d+)$/)?.[1];
+  if (times) return Number(times);
+  return after === "x" || after === "×" ? numeral(said[end + 2]) : undefined;
+}
 /** A flight number as people write it: "NA 118", "na118". */
 const flightNumber = (message: string) => {
   const match = message.match(/\b([a-z]{2})\s?(\d{2,4})\b/i);
@@ -46,7 +99,8 @@ const flightNumber = (message: string) => {
 
 /**
  * Names the User mentioned among `items`: a word only that item has, or
- * every word of its name ("vegetable gyoza" beside "pork gyoza").
+ * every word of its name ("vegetable gyoza" beside "pork gyoza"). Each comes
+ * with the words of its name (`own`) and those no other item shares (`unique`).
  */
 function mentioned<T extends Record<string, unknown>>(
   message: string,
@@ -55,17 +109,44 @@ function mentioned<T extends Record<string, unknown>>(
 ) {
   const said = new Set(words(message));
   const names = items.map((item) => words(nameOf(item)));
-  return items.filter((_, index) => {
-    const own = names[index]!;
-    if (!own.length) return false;
-    const unique = own.filter(
-      (word) => !names.some((other, i) => i !== index && other.includes(word)),
+  return items
+    .map((item, index) => {
+      const own = names[index]!;
+      const unique = own.filter(
+        (word) =>
+          !names.some((other, i) => i !== index && other.includes(word)),
+      );
+      return { item, own, unique };
+    })
+    .filter(
+      ({ own, unique }) =>
+        own.length > 0 &&
+        (unique.some((word) => said.has(word)) ||
+          own.every((word) => said.has(word))),
     );
-    return (
-      unique.some((word) => said.has(word)) ||
-      own.every((word) => said.has(word))
-    );
-  });
+}
+/**
+ * Where in `said` an item is named: the first run of its own words that has
+ * one only it has, or all of them. "Gyoza" in "pork gyoza" is not where
+ * "vegetable gyoza" is named.
+ */
+function namedAt(
+  said: string[],
+  { own, unique }: { own: string[]; unique: string[] },
+) {
+  for (let start = 0; start < said.length; start++) {
+    if (!own.includes(said[start]!)) continue;
+    let end = start;
+    while (end + 1 < said.length && own.includes(said[end + 1]!)) end++;
+    const run = said.slice(start, end + 1);
+    if (
+      unique.some((word) => run.includes(word)) ||
+      own.every((word) => run.includes(word))
+    )
+      return { start, end };
+    start = end;
+  }
+  return undefined;
 }
 
 const DAYS = [
@@ -150,21 +231,43 @@ async function orderChange(
     }
   }
   if (!named.length && !slot) return unclear;
-  const ids = named.map((dish) => text(dish.id));
-  const quantity = count(lowered, 5);
+  const ids = named.map(({ item }) => text(item.id));
+  // How many of each dish: the number beside its name, never one elsewhere
+  // in the message or the portion size in the name itself ("Pork gyoza (6)").
+  const said = tokens(lowered);
+  const adding = named.map((dish) => {
+    const at = namedAt(said, dish);
+    const sizes: string[] = text(dish.item.name).match(/\d+/g) ?? [];
+    let end = at?.end ?? 0;
+    while (at && sizes.includes(said[end + 1]!)) end++;
+    return {
+      dish_id: text(dish.item.id),
+      name: text(dish.item.name),
+      quantity: (at && howMany(said, at.start, end)) ?? 1,
+    };
+  });
+  const tooMany = adding.find(({ quantity }) => quantity < 1 || quantity > 5);
+  if (!removing && tooMany)
+    return {
+      say: `The demo adds 1 to 5 of a dish at a time; you asked for ${tooMany.quantity} × ${tooMany.name}.`,
+    };
   return {
     call: "change_order",
     args: {
       order_id: order.id,
       ...(slot ? { slot_id: slot.id } : {}),
       ...(ids.length && !removing
-        ? { add: ids.map((dish_id) => ({ dish_id, quantity })) }
+        ? {
+            add: adding.map(({ dish_id, quantity }) => ({ dish_id, quantity })),
+          }
         : {}),
       ...(ids.length && removing ? { remove: ids } : {}),
     },
     because: `The demo read your scheduled order ${text(order.id)}, the menu and the delivery slots, and asked for: ${[
       ids.length
-        ? `${removing ? "remove" : `add ${quantity} ×`} ${named.map((dish) => text(dish.name)).join(", ")}`
+        ? removing
+          ? `remove ${adding.map(({ name }) => name).join(", ")}`
+          : `add ${adding.map(({ name, quantity }) => `${quantity} × ${name}`).join(", ")}`
         : "",
       slot ? `move to ${text(slot.label)}` : "",
     ]
@@ -229,7 +332,8 @@ async function moneyChange(
   const paying = /\b(pay|send)\b/.test(lowered) && !!tools.request_payment;
   if (paying && tools.recipients) {
     const recipients = list(await tools.recipients.execute(), "recipients");
-    const to = mentioned(lowered, recipients, (item) => text(item.name))[0];
+    const to = mentioned(lowered, recipients, (item) => text(item.name))[0]
+      ?.item;
     if (!to)
       return {
         say: `Who should be paid? Your saved recipients are ${recipients.map((item) => text(item.name)).join(" and ") || "none"}.`,
@@ -288,6 +392,7 @@ async function moneyChange(
   };
 }
 
+const BAGS = /^(bag|bags|baggage|luggage|suitcase)$/;
 /** Flight bookings: accept an upgrade offer, or add checked bags. */
 async function tripChange(
   message: string,
@@ -323,10 +428,17 @@ async function tripChange(
     /\b(bag|bags|baggage|luggage|suitcase)\b/.test(lowered) &&
     tools.add_baggage
   ) {
+    // How many bags: the number beside the word, not one elsewhere ("on 18 May").
+    const said = tokens(lowered);
+    const bagAt = said.findIndex((word) => BAGS.test(word));
+    const pieces = howMany(said, bagAt, bagAt) ?? 1;
+    if (pieces < 1 || pieces > 2)
+      return {
+        say: `The demo adds 1 or 2 checked bags at a time; you asked for ${pieces}.`,
+      };
     for (const trip of trips) {
       const segment = segments(trip).find(onFlight);
       if (!segment) continue;
-      const pieces = count(lowered, 2);
       return {
         call: "add_baggage",
         args: {

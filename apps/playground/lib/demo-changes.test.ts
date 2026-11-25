@@ -135,6 +135,45 @@ it("moves an order to the day it should go to, not the day it is on", async () =
   expect(kept).not.toHaveProperty("args.slot_id");
 });
 
+it("reads how many of a dish from the number beside its name", async () => {
+  const added = async (message: string) =>
+    (
+      (await demoChange(message, restaurant(), key)) as {
+        args?: { add?: unknown };
+      }
+    ).args?.add;
+  // The portion size in the dish's own name is not a quantity.
+  expect(await added("Add a pork gyoza (6)")).toEqual([
+    { dish_id: "pork-gyoza", quantity: 1 },
+  ]);
+  // Nor is a time, wherever it is written.
+  expect(await added("add edamame and move it to Saturday at 7")).toEqual([
+    { dish_id: "edamame", quantity: 1 },
+  ]);
+  expect(await added("at 19:30 on Saturday, add 2 edamame")).toEqual([
+    { dish_id: "edamame", quantity: 2 },
+  ]);
+  // Each dish has its own number, in digits or in words, before or after.
+  expect(
+    await added("add 2 vegetable gyoza, three more pork gyoza and edamame x4"),
+  ).toEqual([
+    { dish_id: "pork-gyoza", quantity: 3 },
+    { dish_id: "veg-gyoza", quantity: 2 },
+    { dish_id: "edamame", quantity: 4 },
+  ]);
+  expect(await added("add 2 of the pork gyoza (6)")).toEqual([
+    { dish_id: "pork-gyoza", quantity: 2 },
+  ]);
+  // More than the demo adds: it says so instead of adding another number.
+  expect(await demoChange("add 10 edamame", restaurant(), key)).toEqual({
+    say: "The demo adds 1 to 5 of a dish at a time; you asked for 10 × Salted edamame.",
+  });
+  // Removing a dish takes no number.
+  expect(
+    await demoChange("remove the 2 pork gyoza", restaurant(), key),
+  ).toMatchObject({ args: { remove: ["pork-gyoza"] } });
+});
+
 it("asks instead of guessing a dish, a day or an order", async () => {
   expect(await demoChange("change my order", restaurant(), key)).toHaveProperty(
     "say",
@@ -246,6 +285,16 @@ it("accepts the upgrade offer on the flight named, and adds bags", async () => {
       flight_id: "flt_na402",
       additional_pieces: 2,
     },
+  });
+  // The number beside "bag", not a date or a time elsewhere in the message.
+  expect(
+    await demoChange("add a bag to NA 402 on May 5", airline(), key),
+  ).toMatchObject({ args: { flight_id: "flt_na402", additional_pieces: 1 } });
+  expect(
+    await demoChange("add two more checked bags to NA 118", airline(), key),
+  ).toMatchObject({ args: { flight_id: "flt_na118", additional_pieces: 2 } });
+  expect(await demoChange("add 3 bags to NA 402", airline(), key)).toEqual({
+    say: "The demo adds 1 or 2 checked bags at a time; you asked for 3.",
   });
 });
 
