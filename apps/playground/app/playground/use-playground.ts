@@ -297,8 +297,8 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     if (!next) return;
     addTrace([`Approved by your standing instruction · ${next.covered}`]);
     void accountAction("approve", next.op);
-    // accountAction is recreated each render and reads current state.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // accountAction is recreated each render and reads current state, so it
+    // is deliberately not a dependency.
   }, [operations, instruction, signedIn, busy]);
 
   const discover = (event: FormEvent<HTMLFormElement>) => {

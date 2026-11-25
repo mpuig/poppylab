@@ -16,7 +16,9 @@ function onWorkers() {
 
 it("on Workers, fetches public HTTPS hosts without redirects", async () => {
   const fetch = onWorkers();
-  expect(await protocolRequest("https://grocery-demo.poppylab.dev/api/x")).toEqual({
+  expect(
+    await protocolRequest("https://grocery-demo.poppylab.dev/api/x"),
+  ).toEqual({
     ok: true,
   });
   expect(fetch).toHaveBeenCalledOnce();

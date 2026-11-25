@@ -14,6 +14,7 @@
  * IMAGE_COMPRESSION (default 70) and IMAGE_SIZE (default 1024x1024) can be
  * overridden.
  */
+import { Buffer } from "node:buffer";
 import { mkdir, writeFile, access } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
@@ -93,10 +94,12 @@ for (const [company, items] of Object.entries(companies)) {
       console.log(`kept     ${company}/${id}`);
       continue;
     }
-    const response = await fetch(
+    const response = await globalThis.fetch(
       "https://api.openai.com/v1/images/generations",
       {
         method: "POST",
+        // A stuck request should fail the run, not hang it.
+        signal: globalThis.AbortSignal.timeout(180_000),
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${key}`,
