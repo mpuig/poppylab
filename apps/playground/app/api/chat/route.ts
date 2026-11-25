@@ -235,8 +235,18 @@ async function reply(request: Request, started: { id?: string }) {
           decline: `Iris told ${companyName} you're not available to talk directly right now.`,
           close: `You've left the direct conversation with ${companyName}. Iris is back.`,
         }[direct];
-      // Their words are kept for the page, never for the model.
-      recordDirect(run, companyName, direct, body.message, text);
+      // Their words are kept for the page, never for the model. They count
+      // as sent only when the Company answered and Iris has nothing to say
+      // about it: an error, or a note such as "this message wasn't sent",
+      // may mean they never reached the Company.
+      recordDirect(
+        run,
+        companyName,
+        direct,
+        body.message,
+        text,
+        !result.error && !result.note,
+      );
       run.history = run.history.slice(-10);
       return NextResponse.json(
         {

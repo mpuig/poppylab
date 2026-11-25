@@ -22,6 +22,10 @@ function show(run: Run, ...turns: Run["history"]) {
  * the transcript, for the page to show again after a reload, and never go
  * to the model. The model gets Iris's own line and that the User wrote to
  * the Company; when Iris said nothing, it gets nothing.
+ *
+ * `sent` says their words reached the Company. Iris's line is sometimes
+ * that they didn't (the thread had closed, sign-in was needed), and then
+ * neither the model nor the page is told they were said.
  */
 export function recordDirect(
   run: Run,
@@ -29,6 +33,7 @@ export function recordDirect(
   action: DirectAction,
   words: string,
   said: string,
+  sent: boolean,
 ) {
   const spoke = action === "say" || action === "start";
   const did = `(Direct conversation with ${company}: ${action})`;
@@ -42,9 +47,11 @@ export function recordDirect(
     run,
     {
       role: "user",
-      content: spoke
-        ? `(Said to ${company} directly, without Iris) ${words}`
-        : did,
+      content: !spoke
+        ? did
+        : sent
+          ? `(Said to ${company} directly, without Iris) ${words}`
+          : `(Written to ${company} directly, without Iris; it may not have been sent) ${words}`,
     },
     reply,
   );
@@ -52,9 +59,11 @@ export function recordDirect(
     run.history.push(
       {
         role: "user",
-        content: spoke
-          ? `(The user wrote to ${company} directly, without Iris.)`
-          : did,
+        content: !spoke
+          ? did
+          : sent
+            ? `(The user wrote to ${company} directly, without Iris.)`
+            : `(The user tried to write to ${company} directly, without Iris; it may not have been sent.)`,
       },
       reply,
     );
