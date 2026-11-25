@@ -602,8 +602,8 @@ it("reports an unsupported task once per Session, with the token when signed in,
   expect(await tool.execute(report)).toEqual({ sent: true });
 });
 
-it("sends a report with a date, an amount or a tool's name, and refuses one with an identifier (§9.3)", async () => {
-  const report = (description: string) => {
+it("sends a report with a date, a time, an amount or the name of one of the Company's tools, and refuses anything else that could be an identifier (§9.3)", async () => {
+  const report = (description: string, task = "Change it") => {
     const r = example();
     r.dpop = dpop;
     r.tasks = {
@@ -614,17 +614,25 @@ it("sends a report with a date, an amount or a tool's name, and refuses one with
         skills: 0,
       },
     };
-    return feedbackTool(r, []).execute({ task: "Change it", description });
+    const tools = new Set(["change_order", "my_basket"]);
+    return feedbackTool(r, [], tools).execute({ task, description });
   };
   transport.mockReset().mockResolvedValue(null);
   for (const description of [
     "Move the order to 2026-12-01; the change_order tool has no date field.",
-    "Pay with a gift_card at check_out.",
+    "The my_basket tool lists the basket; nothing in it takes a note.",
     "Transfer 10 000 000 in one payment, or 1 000 000 000 in ten.",
+    "Pay $1,250.00 now and 1250000.00 EUR later.",
     "Deliver between 18.00-20.00 from 2026-12-01 to 2026-12-05.",
+    "Deliver on 01.12.2026 between 18:00-20:00.",
     "Move flight 402 on 2027-05-18 09:30 (UTC+1) to 2027-05-19.",
+    "Start at 2027-05-18T09:30:00+01:00.",
   ])
     expect(await report(description), description).toEqual({ sent: true });
+  // The task ends in a date and the description starts with a number.
+  expect(await report("2 bowls were wanted.", "Deliver on 2026-12-01")).toEqual(
+    { sent: true },
+  );
   transport.mockClear();
   for (const description of [
     "Email elena@example.com about it.",
@@ -644,12 +652,67 @@ it("sends a report with a date, an amount or a tool's name, and refuses one with
     "Operation op_x7kq expired.",
     "Case case_QmFzZWxpbmVkYXRh stayed open.",
     "Booking NW7K2P can't be moved.",
+    // A phone or account number in any layout, not only the common ones.
+    "Call 612 34 56 78",
+    "Call 91 123 45 67",
+    "Call 44 20 7946 0958",
+    "Call 34 612 345 678 about it.",
+    "Sort code 12-34-56 account 1234 5678",
+    "Sort code 12-34-56.",
+    "Account 1234 5678 can't be closed.",
+    // A number that only starts or ends like a date, a time or an amount.
+    "The form asked for 1990-05-17-1234.",
+    "Call 12.34 56 78 about it.",
+    "Call 617 000 0001 about it.",
+    // An ID in small letters, and a name that isn't one of the tools.
+    "Account acc_checking",
+    "User usr_elena",
+    "sess_abcdef",
+    "Pay with a gift_card at check_out.",
   ])
     expect(await report(description), description).toMatchObject({
       sent: false,
       reason: expect.stringContaining("without identifiers"),
     });
   expect(transport).not.toHaveBeenCalled();
+});
+
+it("lets a report name the tools this run offers, and no other (§9.3)", async () => {
+  const r = example("shop", false);
+  const tasks = "https://shop.papsandbox.com/poppy/tasks";
+  const feedback = "https://shop.papsandbox.com/poppy/feedback";
+  r.company!.profile.tasksEndpoint = tasks;
+  vi.stubEnv("PAP_ACCOUNT_ORIGINS", "https://shop.papsandbox.com");
+  try {
+    rediscover.mockResolvedValueOnce(r.company!);
+    transport.mockImplementation(async (url) =>
+      url === tasks
+        ? { excluded_tasks: [], feedback: { endpoint: feedback } }
+        : url === feedback
+          ? null
+          : { paths: { "/orders": { get: { operationId: "my_orders" } } } },
+    );
+    const tools = await connect(r, []);
+    expect(tools.my_orders).toBeTruthy();
+    const sends = () =>
+      transport.mock.calls.filter(([url]) => url === feedback).length;
+    expect(
+      await tools.report_unsupported_task!.execute({
+        task: "Reorder",
+        description: "The my_orders tool lists orders; none places one again.",
+      }),
+    ).toEqual({ sent: true });
+    expect(sends()).toBe(1);
+    expect(
+      await tools.report_unsupported_task!.execute({
+        task: "Close an account",
+        description: "The my_account tool isn't offered here.",
+      }),
+    ).toMatchObject({ sent: false });
+    expect(sends()).toBe(1);
+  } finally {
+    vi.unstubAllEnvs();
+  }
 });
 
 it("reads the tasks again when a new Session started during the turn, before listing or reporting (§9)", async () => {

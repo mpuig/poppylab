@@ -157,7 +157,12 @@
 .operation-exact {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font-size: 13px;
+  margin: 8px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  font-size: 12px;
   line-height: 1.6;
   max-width: 100%;
 }
@@ -406,10 +411,42 @@ h1 {
   color: var(--ink);
 }
 .error-message {
-  color: var(--danger);
-  padding: 12px 0;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  margin: 12px 0;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--surface));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--danger) 5%, var(--surface));
+  color: var(--ink);
   font-size: 14px;
   line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.error-message::before {
+  content: "";
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  background: var(--danger);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M12 8v4M12 16h.01'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+/* Before a Company is picked, the error sits above the cards, next to the
+   address form that caused it, not below the fold of the picker. */
+.messages:has(> .company-picker) {
+  display: flex;
+  flex-direction: column;
+}
+.messages:has(> .company-picker) > .company-picker {
+  flex: 1;
+  min-height: 0;
+}
+.messages:has(> .company-picker) > .error-message {
+  order: -1;
+  margin-bottom: 0;
 }
 .conversation {
   border: 1px solid var(--line);
@@ -949,6 +986,7 @@ main {
 .model-config select {
   width: 100%;
   min-width: 0;
+  font-size: 14px;
   height: 44px;
   border: 1px solid var(--line);
   border-radius: 6px;

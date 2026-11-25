@@ -84,11 +84,12 @@ export function labPlaygroundUrl(origin: string) {
 /**
  * The strip above a fictional Company's own header. It carries its own
  * inline styles and a system font, so it looks the same on every site and
- * never borrows the Company's identity. No script, so it works under each
+ * never borrows the Company's identity. Its colours are Poppy Lab's own:
+ * graphite ink, with the lab's amber on the word "Demo". No script, so it works under each
  * site's Content-Security-Policy.
  */
 export function labBarHtml(origin: string, company: string) {
   const home = labSites(origin)[0]!.url;
   const link = "color:#fff;text-underline-offset:3px;white-space:nowrap";
-  return `<aside aria-label="About this demo" style="display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:4px 20px;margin:0;padding:8px 16px;background:#121a2b;color:#dfe3ea;font:400 13px/1.45 system-ui,-apple-system,'Segoe UI',sans-serif;text-align:center;letter-spacing:0;text-transform:none"><span><strong style="color:#f6c514;font-weight:700">Demo</strong> · ${escape(company)} is a fictional company in Poppy&nbsp;Lab. Nothing here is real.</span><span style="display:inline-flex;flex-wrap:wrap;justify-content:center;gap:4px 20px"><a href="${escape(labPlaygroundUrl(origin))}" style="${link};font-weight:600">Try it with an AI agent</a><a href="${escape(home)}" style="${link}">What is this?</a></span></aside>`;
+  return `<aside aria-label="About this demo" style="display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:4px 20px;margin:0;padding:8px 16px;background:#171a1f;color:#e3e6ea;font:400 13px/1.45 system-ui,-apple-system,'Segoe UI',sans-serif;text-align:center;letter-spacing:0;text-transform:none"><span><strong style="color:#f2b705;font-weight:600">Demo</strong> · ${escape(company)} is a fictional company in Poppy&nbsp;Lab. Nothing here is real.</span><span style="display:inline-flex;flex-wrap:wrap;justify-content:center;gap:4px 20px"><a href="${escape(labPlaygroundUrl(origin))}" style="${link};font-weight:600">Try it with an AI agent</a><a href="${escape(home)}" style="${link}">What is this?</a></span></aside>`;
 }

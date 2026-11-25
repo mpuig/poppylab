@@ -31,6 +31,17 @@ async function lab() {
     post,
     start,
     id,
+    /** A message that only sets context fields. */
+    send: async (context: Record<string, unknown>) =>
+      expect(
+        (
+          await post(`${BASE}/${id}/messages`, {
+            id: fresh(),
+            message: { author: { type: "agent" }, context },
+          })
+        ).status,
+      ).toBe(202),
+    conversation: () => tenant().conversations![id]!,
     /** Request IDs stored, and the conversation's last event number. */
     stored: () => Object.keys(tenant().requests!).length,
     events: () => tenant().conversations![id]!.seq,
@@ -100,29 +111,56 @@ it("keeps the ID of every message a conversation can take", async () => {
 
 it("keeps the newest context fields, and the older ones that fit, when the merged context is too large", async () => {
   const x = await lab();
-  const path = `${BASE}/${x.id}/messages`;
-  const send = async (context: Record<string, unknown>) =>
-    expect(
-      (
-        await x.post(path, {
-          id: fresh(),
-          message: { author: { type: "agent" }, context },
-        })
-      ).status,
-    ).toBe(202);
   const notes = "n".repeat(1900),
     more = "m".repeat(1500),
     extra = "e".repeat(1000);
-  await send({ locale: "en-US", notes });
-  await send({ more });
+  await x.send({ locale: "en-US", notes });
+  await x.send({ more });
   expect(x.context()).toEqual({ locale: "en-US", notes, more });
   // Over 4096 now: the oldest large field goes, not the one just sent.
-  await send({ extra });
+  await x.send({ extra });
   expect(x.context()).toEqual({ locale: "en-US", more, extra });
   // A field set again is new again, and null still clears one.
-  await send({ more, locale: null });
-  await send({ notes });
+  await x.send({ more, locale: null });
+  await x.send({ notes });
   expect(x.context()).toEqual({ more, notes });
+});
+
+it("keeps a context field just sent whose key is a number", async () => {
+  const x = await lab();
+  const first = "a".repeat(1900),
+    second = "b".repeat(1900),
+    year = "y".repeat(400);
+  await x.send({ first });
+  await x.send({ second });
+  // An object lists "2027" before the other keys: it is still the newest.
+  await x.send({ "2027": year });
+  expect(x.context()).toEqual({ second, "2027": year });
+});
+
+it("drops the oldest context fields first, whatever their keys look like", async () => {
+  const x = await lab();
+  const [a, b, c, d] = ["a", "b", "c", "d"].map((v) => v.repeat(1500));
+  await x.send({ "1": a });
+  await x.send({ name: b });
+  await x.send({ "0": c });
+  expect(x.context()).toEqual({ name: b, "0": c });
+  // Set again, "1" is the newest: "name" is now the oldest.
+  await x.send({ "1": a });
+  expect(x.context()).toEqual({ "0": c, "1": a });
+  await x.send({ locale: "en-US" });
+  await x.send({ name: d });
+  expect(x.context()).toEqual({ "1": a, locale: "en-US", name: d });
+});
+
+it("orders the context of a conversation stored without its fields' age as the object does", async () => {
+  const x = await lab();
+  const [a, b, c] = ["a", "b", "c"].map((v) => v.repeat(1500));
+  await x.send({ early: a });
+  await x.send({ late: b });
+  delete x.conversation().contextOrder;
+  await x.send({ "7": c });
+  expect(x.context()).toEqual({ late: b, "7": c });
 });
 
 it("keeps the 20 newest context fields", async () => {
@@ -141,4 +179,19 @@ it("keeps the 20 newest context fields", async () => {
   });
   expect(next.status).toBe(202);
   expect(x.context()).toEqual(fields);
+
+  // Keys that are numbers are as new as the message that sent them.
+  const numbered = Object.fromEntries(
+    Array.from({ length: 12 }, (_, i) => [String(i), i]),
+  );
+  await x.send(numbered);
+  expect(x.context()).toEqual({
+    ...numbered,
+    ...Object.fromEntries(Object.entries(fields).slice(-8)),
+  });
+  // A message with more fields than fit keeps 20 of its own.
+  await x.send({ ...fields, one_more: 1 });
+  expect(Object.keys(x.context())).toHaveLength(20);
+  expect(x.context()).toMatchObject({ field_19: 19, one_more: 1 });
+  expect(x.context()).not.toHaveProperty("0");
 });

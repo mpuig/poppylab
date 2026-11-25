@@ -45,20 +45,24 @@ export async function setup(
   const keys = await createIdentity();
   const dpop = await createIdentity();
   const store = memoryStore();
+  /** A test sets `wait` to hold metadata fetches, so requests interleave. */
+  const metadata: { wait?: () => Promise<void> } = {};
   const app = createCompany(
     { ...company, ...overrides },
     {
       origin,
       store,
-      fetchJson: async (url) =>
-        url === client
+      fetchJson: async (url) => {
+        await metadata.wait?.();
+        return url === client
           ? {
               client_id: client,
               client_name: "Agent",
               jwks_uri: "https://agent.test/jwks.json",
               redirect_uris: [redirect],
             }
-          : { keys: [keys.publicKey] },
+          : { keys: [keys.publicKey] };
+      },
       ...deploy,
     },
   );
@@ -202,5 +206,5 @@ export async function setup(
       ...(method !== "GET" ? { body: "{}" } : {}),
     });
   };
-  return { app, store, credentials, form, post, token, signIn, call };
+  return { app, store, metadata, credentials, form, post, token, signIn, call };
 }

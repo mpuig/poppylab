@@ -18,11 +18,12 @@ const request = {
 };
 
 /**
- * A Personal Agent that publishes `count` keys and signs with the first.
+ * A Personal Agent that publishes `count` keys and signs with the first;
+ * without `named`, the keys it publishes have no `kid` of their own.
  * `answers` sends an assertion with that `kid` header (or none) to the three
  * endpoints that take one, and says what each answered.
  */
-async function agent(count: number) {
+async function agent(count: number, named = true) {
   const keys = await Promise.all(
     Array.from({ length: count }, () => createIdentity()),
   );
@@ -35,7 +36,11 @@ async function agent(count: number) {
             jwks_uri: "https://agent.test/jwks.json",
             redirect_uris: [redirect],
           }
-        : { keys: keys.map((k) => k.publicKey) },
+        : {
+            keys: keys.map(({ publicKey: { kid, ...key } }) =>
+              named ? { ...key, kid } : key,
+            ),
+          },
   });
   const { kid: own, ...signer } = keys[0]!.privateKey;
   const answers = async (kid: string | undefined) => {
@@ -91,4 +96,12 @@ it("never picks one of several keys for an assertion without a kid", async () =>
   const x = await agent(2);
   expect(await x.answers(undefined)).toEqual(refused);
   expect(await x.answers(x.kid)).toEqual(accepted);
+});
+
+it("never picks one of several keys that have no kid themselves", async () => {
+  const x = await agent(2, false);
+  expect(await x.answers(undefined)).toEqual(refused);
+  // One such key is still the only key.
+  const only = await agent(1, false);
+  expect(await only.answers(undefined)).toEqual(accepted);
 });

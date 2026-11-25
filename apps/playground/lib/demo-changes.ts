@@ -491,16 +491,35 @@ async function moneyChange(
       };
     // What the payment is for is its memo: an account's word there ("for a
     // rainy day") is not where the money comes from, unless the memo goes
-    // on to say so ("for design work from savings").
-    const said = lowered.replace(
-      MEMO,
-      (_, what: string) => what.match(/\sfrom\s.*/)?.[0] ?? "",
-    );
+    // on to say so ("for design work from savings", "for rent using my
+    // savings").
+    const purpose = lowered.match(MEMO)?.[1] ?? "";
+    const paidAt = purpose.search(/\b(?:from|out of|using|with my)\s/);
+    const about = paidAt < 0 ? purpose : purpose.slice(0, paidAt);
+    const named = namedIn(
+      lowered.replace(MEMO, () => purpose.slice(about.length)),
+    )[0]?.account;
     const from =
-      namedIn(said)[0]?.account ??
+      named ??
       accounts.find((account) => account.type === "checking") ??
       accounts[0];
     if (!from) return { say: "There is no active account to pay from." };
+    // The rest of the memo may still name another account outright, by its
+    // type or its whole name ("for rent, savings account"), where a word of
+    // the name alone ("rainy") would not. It may be what pays or only what
+    // the payment is about, so the demo asks.
+    const outright = (account: Record<string, unknown>) =>
+      [text(account.type), text(account.name)].some((name) => {
+        const phrase = words(name).join(" ");
+        return phrase && ` ${words(about).join(" ")} `.includes(` ${phrase} `);
+      });
+    const other = named
+      ? undefined
+      : accounts.find((account) => account !== from && outright(account));
+    if (other)
+      return {
+        say: `Which account should pay, ${text(from.name)} or ${text(other.name)}? The message mentions ${text(other.name)} only in what the payment is for, and the demo doesn't guess. Nothing was sent; say it again with “from ${text(from.name)}” or “from ${text(other.name)}”.`,
+      };
     const over = overLimit(tools.request_payment, amount);
     if (over) return over;
     // What the payment is for; a memo of nothing but punctuation is none.

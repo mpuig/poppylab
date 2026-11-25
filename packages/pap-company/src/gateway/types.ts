@@ -125,6 +125,7 @@ export type Consent = {
 export type Pushed = {
   client: string;
   params: Record<string, string>;
+  /** Until when it can be opened; once used, its consent page decides. */
   expires: number;
   dpop?: string;
   /** Set on first use: the nonce of the one consent page it made. */
@@ -218,6 +219,12 @@ export type Conversation = {
   seq: number;
   events: ConversationEvent[];
   context: Record<string, unknown>;
+  /**
+   * The keys of `context`, oldest first. An object can't say that: it lists
+   * keys like "2027" first, whenever they were set. Conversations stored
+   * before this have none.
+   */
+  contextOrder?: string[];
   /** The Company Agent's own notes, such as a pending proposal. */
   memory: Record<string, unknown>;
   /** User messages accepted. */

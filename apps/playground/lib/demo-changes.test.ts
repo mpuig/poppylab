@@ -410,21 +410,46 @@ it("pays from the account the message names, not one a word of it resembles", as
       }
     ).args?.source_account_id;
   // "Day" is in Friday and today, and is no account's name on its own; what
-  // the payment is for is its memo. None of them names the savings account.
+  // the payment is for is its memo, where a word of a name ("rainy") or the
+  // default account itself is no reason to ask.
   for (const message of [
     "Pay Morrow Workshop $120 for Friday's class",
     "Pay Morrow Workshop $120 today",
     "Send Morrow Workshop $120 a day early",
     "Pay Morrow Workshop $120 for a rainy day",
-    "Pay Morrow Workshop $120 for savings advice",
+    "Pay Morrow Workshop $120 for checking the kiln",
   ])
     expect(await source(message), message).toBe("acc_B100");
+  // Named before the memo, or in it after a word that says it pays.
   for (const message of [
     "Pay Morrow Workshop $120 from savings",
     "Pay Morrow Workshop $120 from my rainy day savings for Friday's class",
     "Pay Morrow Workshop $120 for Friday's class from savings",
+    "Pay Morrow Workshop $120 for rent using my savings",
+    "Pay Morrow Workshop $120 for rent out of savings",
+    "Pay Morrow Workshop $120 for rent with my rainy day savings",
   ])
     expect(await source(message), message).toBe("acc_B200");
+  // Named outright in the memo and nothing says it pays: the demo asks, and
+  // the answer it asks for settles it either way.
+  for (const message of [
+    "Pay Morrow Workshop $120 for savings advice",
+    "Pay Morrow Workshop $120 for rent, savings account",
+    "Pay Morrow Workshop $120 for the rainy-day savings talk",
+  ])
+    expect(await demoChange(message, robin(), key), message).toEqual({
+      say: "Which account should pay, Everyday checking or Rainy day savings? The message mentions Rainy day savings only in what the payment is for, and the demo doesn't guess. Nothing was sent; say it again with “from Everyday checking” or “from Rainy day savings”.",
+    });
+  expect(
+    await source(
+      "Pay Morrow Workshop $120 for savings advice from Everyday checking",
+    ),
+  ).toBe("acc_B100");
+  expect(
+    await source(
+      "Pay Morrow Workshop $120 from Rainy day savings for savings advice",
+    ),
+  ).toBe("acc_B200");
   // A transfer names its accounts the same way.
   expect(
     await demoChange("Move $50 today from savings to checking", robin(), key),

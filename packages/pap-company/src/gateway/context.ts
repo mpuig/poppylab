@@ -37,10 +37,11 @@ export type ClientInfo = {
  */
 export function assertionKey(info: ClientInfo, assertion: string) {
   const { kid } = decodeProtectedHeader(assertion);
-  return (
-    info.keys.find((k) => k.kid === kid) ??
-    (kid === undefined && info.keys.length === 1 ? info.keys[0] : undefined)
-  );
+  // Without a `kid` nothing is looked up: a published key that has none
+  // itself would match, and be the first of several.
+  if (kid === undefined)
+    return info.keys.length === 1 ? info.keys[0] : undefined;
+  return info.keys.find((k) => k.kid === kid);
 }
 
 export function createContext(def: CompanyDefinition, deploy: Deployment) {

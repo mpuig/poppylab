@@ -432,8 +432,11 @@ async function act(request: Request, started: { id?: string }) {
         { status: 410, headers: { "Cache-Control": "no-store" } },
       );
     }
-    // Only an uncertain approval is resent, with the same approval (§7).
-    if (body.action === "retry" && op.state !== "uncertain") throw new Error();
+    // Only an uncertain approval is resent, and only the one that was sent
+    // (§7). Without it there is nothing to retry: a new approval, in the
+    // User's name or Iris's, is only ever made by "approve".
+    if (body.action === "retry" && (op.state !== "uncertain" || !op.approval))
+      throw new Error();
     // Operations v3 §5, agent approval: only on the User's own instruction,
     // checked here against these exact terms, never on the model's word,
     // and never again once the Company declined one for this operation or
@@ -514,6 +517,9 @@ async function act(request: Request, started: { id?: string }) {
               : {}),
           };
           delete op.approval;
+          // A declined retry is a known outcome too (§7). With no approval
+          // left to resend, it goes back to waiting for the User's Approve.
+          op.state = "proposed";
           record(run, {
             role: "assistant",
             content: `The Company declined the approval Iris sent on the user's standing instruction; nothing was performed, and it's waiting for the user.${error.declined?.reason ? ` Its reason: ${error.declined.reason}` : ""}`,
@@ -538,13 +544,19 @@ async function act(request: Request, started: { id?: string }) {
           { headers: { "Cache-Control": "no-store" } },
         );
       }
+      // §6: the Company returned other terms. Never approve them for the User.
+      let next: ReturnType<typeof recordOperation> | undefined;
       if (
         error instanceof ProtocolError &&
         error.status === 403 &&
         error.code === "approval_required"
-      ) {
-        // §6: the Company returned other terms. Never approve them for the User.
-        const next = recordOperation(run, error.operation, op.request!);
+      )
+        try {
+          next = recordOperation(run, error.operation, op.request!);
+        } catch {
+          // Terms Poppy can't show or that have expired: a refusal, below.
+        }
+      if (next) {
         if (next.revision === op.revision) {
           // §6 forbids this answer, so the approval is never sent again in
           // a loop. The Company performed nothing and the outcome is known
@@ -623,12 +635,35 @@ async function act(request: Request, started: { id?: string }) {
       if (
         !(error instanceof ProtocolError) ||
         error.status >= 500 ||
-        error.status === 429
+        error.status === 429 ||
+        // A timeout, even when the Company is the one reporting it.
+        error.status === 408 ||
+        // §8.3: a conversation accepts the message, then reads the reply.
+        // An error about the cursor comes after the approval was taken.
+        refusal === "invalid_cursor" ||
+        refusal === "cursor_expired"
       ) {
         // Lost response, timeout, 503 in progress: the outcome is unknown.
         op.state = "uncertain";
         // It may have been performed, so it uses the allowance now.
         countAgentApproval();
+      } else if (body.action === "approve" && !accountRecovery(error)) {
+        // Any other 4xx is the Company refusing the request: it performed
+        // nothing, and no allowance is used. The terms and the approval
+        // stay, so the User can send it again or ask for new terms. Only a
+        // first send is known this way: a refused retry doesn't say what
+        // became of the approval sent before it. Sign-in and permission
+        // errors keep their own answers.
+        return NextResponse.json(
+          {
+            code: "not_performed",
+            next: "review",
+            operation: op,
+            // The Company's status and error code, never its own words.
+            error: `${run.company?.document.organization.name ?? "The Company"} refused this request (HTTP ${error.status}${error.code ? `, ${error.code}` : ""}). Nothing was performed. The terms still wait for you: approve them again once what stopped it is sorted out, or ask for the change again to get fresh terms.`,
+          },
+          { status: 409, headers: { "Cache-Control": "no-store" } },
+        );
       }
       throw error;
     }

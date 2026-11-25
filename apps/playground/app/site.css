@@ -608,7 +608,7 @@ body:has(.site) {
   font-weight: 600;
 }
 .flow .t-sub {
-  font-size: 14px;
+  font-size: 15px;
   fill: var(--muted);
 }
 .flow .on-ink {
@@ -618,8 +618,12 @@ body:has(.site) {
   fill: #c4c9d0;
 }
 .flow .t-label {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
+}
+.flow .narrow .t-label,
+.flow .narrow .t-sub {
+  font-size: 14px;
 }
 .flow .t-tag {
   font-size: 15px;
@@ -1283,8 +1287,9 @@ body:has(.site) {
     margin-top: 36px;
   }
 }
-@media (max-width: 720px) {
-  /* Figure 3 turns upright: the same parties and connectors, stacked. */
+@media (max-width: 960px) {
+  /* Figure 3 turns upright: the same parties and connectors, stacked. The
+     wide drawing would scale its labels below a readable size. */
   .flow .wide {
     display: none;
   }
@@ -1319,7 +1324,7 @@ body:has(.site) {
     padding-right: 0;
   }
 }
-@media (max-width: 640px) {
+@media (max-width: 860px) {
   .legend.stack {
     overflow: visible;
   }
@@ -1363,6 +1368,8 @@ body:has(.site) {
     flex-wrap: wrap;
     gap: 6px 14px;
   }
+}
+@media (max-width: 640px) {
   .legend:not(.scroll):not(.stack) {
     overflow: visible;
   }

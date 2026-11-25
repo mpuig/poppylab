@@ -8,6 +8,27 @@ import {
   type ModelConfig,
 } from "@/lib/model-options";
 const storageKey = "poppy.model.v1";
+/**
+ * "Try the protocol demo" lasts for this tab. It is kept apart from the saved
+ * settings so it never replaces a saved key, and it survives a change of view,
+ * which mounts this component again.
+ */
+const demoKey = "poppy.model.demo.v1";
+function demoChosen() {
+  try {
+    return sessionStorage.getItem(demoKey) === "1";
+  } catch {
+    return false;
+  }
+}
+function rememberDemo(chosen: boolean) {
+  try {
+    if (chosen) sessionStorage.setItem(demoKey, "1");
+    else sessionStorage.removeItem(demoKey);
+  } catch {
+    // Without session storage the choice lasts until the view changes.
+  }
+}
 export function ModelSettings({
   onChange,
   disabled,
@@ -29,6 +50,12 @@ export function ModelSettings({
       .then((data) => {
         if (cancelled) return;
         setDefaults(data.providers ?? {});
+        if (demoChosen()) {
+          setConfig(initialModel);
+          onChange(initialModel);
+          setOpen(false);
+          return;
+        }
         try {
           const saved = restoreModel(
             JSON.parse(localStorage.getItem(storageKey) ?? "null"),
@@ -74,6 +101,7 @@ export function ModelSettings({
         "Not saved: browser storage is unavailable. Settings work for this tab.",
       );
     }
+    rememberDemo(false);
     onChange(config);
     setOpen(false);
   }
@@ -182,6 +210,7 @@ export function ModelSettings({
                   );
                   return;
                 }
+                rememberDemo(false);
                 setConfig(initialModel);
                 onChange(initialModel);
                 setOpen(false);
@@ -202,6 +231,7 @@ export function ModelSettings({
                     apiKey: "",
                     model: demo.model,
                   };
+                  rememberDemo(true);
                   setConfig(next);
                   onChange(next);
                   setOpen(false);

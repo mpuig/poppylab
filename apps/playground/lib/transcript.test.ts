@@ -18,9 +18,23 @@ describe("what a Direct Conversation leaves behind (§8.10)", () => {
       { role: "user", content: "My order never arrived" },
       { role: "assistant", content: "Lantern asks to talk with you." },
     );
-    recordDirect(r, company, "accept", "Talk to the Company directly", opened);
-    recordDirect(r, company, "say", secret, "");
-    recordDirect(r, company, "close", "Leave the direct conversation", "Left.");
+    recordDirect(
+      r,
+      company,
+      "accept",
+      "Talk to the Company directly",
+      opened,
+      false,
+    );
+    recordDirect(r, company, "say", secret, "", true);
+    recordDirect(
+      r,
+      company,
+      "close",
+      "Leave the direct conversation",
+      "Left.",
+      false,
+    );
 
     expect(forModel(r)).not.toContain("4417");
     expect(forModel(r)).not.toContain("door code");
@@ -37,7 +51,7 @@ describe("what a Direct Conversation leaves behind (§8.10)", () => {
 
   it("keeps the words that start one from the model too", () => {
     const r = run();
-    recordDirect(r, company, "start", secret, opened);
+    recordDirect(r, company, "start", secret, opened, true);
 
     expect(forModel(r)).not.toContain("4417");
     expect(r.history).toEqual([
@@ -52,10 +66,35 @@ describe("what a Direct Conversation leaves behind (§8.10)", () => {
   it("tells the model what Iris answered, without the User's words", () => {
     const r = run();
     const over = "That direct conversation is over, so nothing was sent.";
-    recordDirect(r, company, "say", secret, over);
+    recordDirect(r, company, "say", secret, over, false);
 
     expect(forModel(r)).not.toContain("4417");
     expect(r.history.at(-1)).toEqual({ role: "assistant", content: over });
+  });
+
+  it("doesn't say the User wrote to the Company when their words may not have been sent", () => {
+    const notes = {
+      start: `A direct conversation with ${company} was already open, and Iris had lost track of it. You're back in it now. This message wasn't sent: say it again if ${company} doesn't have it yet.`,
+      say: "This direct conversation needs you signed in, so nothing was sent. Use the Sign in control in the chat, then try again.",
+    } as const;
+    for (const action of ["start", "say"] as const) {
+      const r = run();
+      recordDirect(r, company, action, secret, notes[action], false);
+
+      expect(forModel(r)).not.toContain("4417");
+      expect(r.history).toEqual([
+        {
+          role: "user",
+          content: `(The user tried to write to ${company} directly, without Iris; it may not have been sent.)`,
+        },
+        { role: "assistant", content: notes[action] },
+      ]);
+      // The page still shows the words, and not as said to the Company.
+      expect(forPage(r)).toEqual([
+        `(Written to ${company} directly, without Iris; it may not have been sent) ${secret}`,
+        notes[action],
+      ]);
+    }
   });
 
   it("shows the User their own words again after a reload", () => {
@@ -65,8 +104,8 @@ describe("what a Direct Conversation leaves behind (§8.10)", () => {
       { role: "user", content: "My order never arrived" },
       { role: "assistant", content: "Lantern asks to talk with you." },
     );
-    recordDirect(r, company, "start", "It was order 12", opened);
-    recordDirect(r, company, "say", secret, "");
+    recordDirect(r, company, "start", "It was order 12", opened, true);
+    recordDirect(r, company, "say", secret, "", true);
 
     expect(forPage(r)).toEqual([
       "My order never arrived",
@@ -86,7 +125,7 @@ describe("what a Direct Conversation leaves behind (§8.10)", () => {
       { role: "assistant", content: "Lantern asks to talk with you." },
     );
     for (let line = 0; line < 8; line++)
-      recordDirect(r, company, "say", `line ${line}`, "");
+      recordDirect(r, company, "say", `line ${line}`, "", true);
 
     // The route cuts the history to its last ten after every turn.
     expect(r.history.slice(-10)[0]?.content).toBe("My order never arrived");
