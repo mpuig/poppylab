@@ -591,6 +591,25 @@ function mount(
       return c.json({ error: "invalid_payment" }, 400);
     if (!source) return c.json({ error: "account_not_found" }, 404);
     if (!recipient) return c.json({ error: "recipient_not_found" }, 404);
+    const request = {
+      source_account_id: source.id,
+      recipient_id: recipient.id,
+      amount_cents: amount,
+      memo,
+    };
+    const id = generatedId("pay_HLB", `${customer.id}:${key}`);
+    const result = (payment: Payment) => ({
+      summary: `Sent ${usd(payment.amount_cents)} to ${recipient.name}. Fictional only; no real money moved.`,
+      data: { payment, account: accountView(source) },
+    });
+    // A key that has paid is answered by its payment, before anything is
+    // asked of the account as it is now: the same request gets the first
+    // result again, with the account as it stands, and no new approval.
+    const paid = customer.payments.find((item) => item.id === id);
+    if (paid)
+      return sameRequest(paid, request)
+        ? c.json(result(paid))
+        : c.json({ error: "idempotency_conflict" }, 409);
     if (source.status !== "active")
       return c.json({ error: "account_inactive" }, 409);
     if (recipient.status !== "active")
@@ -611,19 +630,7 @@ function mount(
         },
         409,
       );
-    const request = {
-      source_account_id: source.id,
-      recipient_id: recipient.id,
-      amount_cents: amount,
-      memo,
-    };
-    const id = generatedId("pay_HLB", `${customer.id}:${key}`);
-    const paid = customer.payments.find((item) => item.id === id);
-    if (
-      paid
-        ? !sameRequest(paid, request)
-        : reservedForAnother(customer, `payment:${key}`, request)
-    )
+    if (reservedForAnother(customer, `payment:${key}`, request))
       return c.json({ error: "idempotency_conflict" }, 409);
     // The key reserves the request, not a balance: the terms describe the
     // account as it is now, so a reused key can still be approved.
@@ -646,8 +653,8 @@ function mount(
       terms,
       decline: ownApprovalForMoney,
       summary: `Send ${usd(amount)} from ${source.name} to ${recipient.name} (account ending ${recipient.account_last4}) for “${memo}”. Fee ${usd(0)}. Resulting fictional balance ${usd(source.balance_cents - amount)}. No real money moves.`,
-      // A key that has paid never pays again, even once the gateway has
-      // forgotten the operation and takes the request as a new one. The
+      // A key that has paid never pays again. A paid key is answered above
+      // and shouldn't get here, so this is the last line of defence. The
       // snapshot checks back up the gateway's own comparison of the terms.
       stale: (approved) =>
         customer.payments.some((item) => item.id === id) ||
@@ -678,10 +685,7 @@ function mount(
           "transfer",
           `payment:${key}`,
         );
-        return {
-          summary: `Sent ${usd(payment.amount_cents)} to ${recipient.name}. Fictional only; no real money moved.`,
-          data: { payment, account: accountView(source) },
-        };
+        return result(payment);
       },
     });
   });
@@ -716,6 +720,26 @@ function mount(
       return c.json({ error: "account_not_found" }, 404);
     if (source.id === destination.id)
       return c.json({ error: "same_account" }, 400);
+    const request = {
+      source_account_id: source.id,
+      destination_account_id: destination.id,
+      amount_cents: amount,
+    };
+    const id = generatedId("trf_HLB", `${customer.id}:${key}`);
+    const result = (transfer: Transfer) => ({
+      summary: `Transferred ${usd(transfer.amount_cents)} from ${source.name} to ${destination.name}. Fictional only; no real money moved.`,
+      data: {
+        transfer,
+        accounts: [accountView(source), accountView(destination)],
+      },
+    });
+    // As for payments: a key that has moved money is answered by its
+    // transfer, with the accounts as they stand.
+    const made = customer.transfers.find((item) => item.id === id);
+    if (made)
+      return sameRequest(made, request)
+        ? c.json(result(made))
+        : c.json({ error: "idempotency_conflict" }, 409);
     if (source.status !== "active" || destination.status !== "active")
       return c.json({ error: "account_inactive" }, 409);
     if (amount > 250000)
@@ -731,18 +755,7 @@ function mount(
         },
         409,
       );
-    const request = {
-      source_account_id: source.id,
-      destination_account_id: destination.id,
-      amount_cents: amount,
-    };
-    const id = generatedId("trf_HLB", `${customer.id}:${key}`);
-    const made = customer.transfers.find((item) => item.id === id);
-    if (
-      made
-        ? !sameRequest(made, request)
-        : reservedForAnother(customer, `transfer:${key}`, request)
-    )
+    if (reservedForAnother(customer, `transfer:${key}`, request))
       return c.json({ error: "idempotency_conflict" }, 409);
     // As for payments: the terms describe the accounts as they are now.
     const terms = {
@@ -765,6 +778,7 @@ function mount(
       decline: ownApprovalForMoney,
       summary: `Transfer ${usd(amount)} from ${source.name} to ${destination.name}. New fictional balances: ${source.name} ${usd(source.balance_cents - amount)}; ${destination.name} ${usd(destination.balance_cents + amount)}. No real money moves.`,
       // A key that has moved money never moves it again (see payments).
+      // It is answered above; this is the last line of defence.
       stale: (approved) =>
         customer.transfers.some((item) => item.id === id) ||
         source.version !== approved.source_version ||
@@ -807,13 +821,7 @@ function mount(
           "transfer",
           `transfer-in:${key}`,
         );
-        return {
-          summary: `Transferred ${usd(moved)} from ${source.name} to ${destination.name}. Fictional only; no real money moved.`,
-          data: {
-            transfer,
-            accounts: [accountView(source), accountView(destination)],
-          },
-        };
+        return result(transfer);
       },
     });
   });
@@ -972,17 +980,23 @@ function mount(
       month,
     };
     const id = generatedId("bdg_HLB", `${customer.id}:${key}`);
-    // A budget changed since it was created no longer shows the name and
-    // limit it was created with, so only what can't change is compared then.
+    const result = (budget: Budget) => ({
+      summary: `Created ${budget.name} with a ${usd(budget.limit_cents)} limit. Fictional budget only.`,
+      data: { budget: budgetView(budget) },
+    });
+    // A key that created a budget is answered with that budget as it is
+    // now, and no new approval. A budget changed since it was created no
+    // longer shows the name and limit it was created with, so only what
+    // can't change is compared then.
     const created = customer.budgets.find((budget) => budget.id === id);
-    if (
-      created
-        ? !sameRequest(
-            created,
-            created.version > 1 ? { category: nextCategory, month } : request,
-          )
-        : reservedForAnother(customer, `budget-create:${key}`, request)
-    )
+    if (created)
+      return sameRequest(
+        created,
+        created.version > 1 ? { category: nextCategory, month } : request,
+      )
+        ? c.json(result(created))
+        : c.json({ error: "idempotency_conflict" }, 409);
+    if (reservedForAnother(customer, `budget-create:${key}`, request))
       return c.json({ error: "idempotency_conflict" }, 409);
     const terms = {
       budget_id: id,
@@ -1008,10 +1022,7 @@ function mount(
           version: 1,
         };
         customer.budgets.push(budget);
-        return {
-          summary: `Created ${budget.name} with a ${usd(budget.limit_cents)} limit. Fictional budget only.`,
-          data: { budget: budgetView(budget) },
-        };
+        return result(budget);
       },
     });
   });

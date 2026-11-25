@@ -485,14 +485,18 @@ describe("Harborline Bank", () => {
     ]);
   });
 
-  it("never performs an idempotency key twice, even after the gateway has forgotten the operation", async () => {
-    const { sign, call } = await setup();
+  it("answers a performed idempotency key with its first result and no new approval, even after the gateway has forgotten the operation", async () => {
+    const store = memoryStore();
+    const { sign, call } = await setup({ store });
     const token = await sign("elena", all);
     const post = (
       url: string,
       payload: Record<string, unknown>,
       approval?: ReturnType<typeof operation>,
     ) => call(token.access_token, "POST", url, payload, approval);
+    const accounts = async () =>
+      (await call(token.access_token, "GET", "/api/account/accounts")).json()
+        .accounts;
     const requests: Array<[string, Record<string, unknown>]> = [
       [
         "/api/account/payments",
@@ -514,31 +518,144 @@ describe("Harborline Bank", () => {
         },
       ],
     ];
+    const performed = [];
     for (const [url, payload] of requests) {
       const op = operation(await post(url, payload));
-      expect((await post(url, payload, op)).statusCode).toBe(200);
+      const first = await post(url, payload, op);
+      expect(first.statusCode).toBe(200);
+      performed.push({ op, first: first.json() });
     }
+    const [paid, moved] = performed;
+    const after = await accounts();
+    expect(after).toMatchObject([
+      { id: "acc_HLB_A100", balance_cents: 1154500 },
+      { id: "acc_HLB_A200", balance_cents: 4350000 },
+    ]);
+    // What each replay says: the first result, with the accounts as they
+    // are now and without the operation the gateway no longer has.
+    const results = [
+      {
+        summary: paid!.first.summary,
+        data: { payment: paid!.first.data.payment, account: after[0] },
+      },
+      { summary: moved!.first.summary, data: moved!.first.data },
+    ];
     // A performed operation is only kept until its revision would expire.
     vi.useFakeTimers({ toFake: ["Date"] });
     try {
       vi.setSystemTime(Date.now() + 11 * 60000);
-      for (const [url, payload] of requests) {
+      // The gateway drops what has expired when it next gates a request.
+      const freeze = { status: "frozen", expected_version: 1 };
+      await post("/api/account/cards/card_HLB_A401/status", freeze);
+      const kept = Object.keys(store.value.tenants[SHARED_TENANT]!.operations);
+      expect(kept).toHaveLength(1);
+      expect(kept).not.toContain(paid!.op.operation_id);
+      expect(kept).not.toContain(moved!.op.operation_id);
+      for (const [index, [url, payload]] of requests.entries()) {
         const again = await post(url, payload);
-        // Not a replay: the gateway treats this as a new operation.
-        expect(again.statusCode).toBe(403);
-        const repeated = await post(url, payload, operation(again));
-        expect(repeated.statusCode).toBe(409);
-        expect(repeated.json().error).toBe("account_changed");
+        expect(again.statusCode).toBe(200);
+        expect(again.json()).toEqual(results[index]);
+        // The approval that performed it is answered the same way.
+        const approved = await post(url, payload, performed[index]!.op);
+        expect(approved.statusCode).toBe(200);
+        expect(approved.json()).toEqual(results[index]);
+        const conflict = await post(url, { ...payload, amount_cents: 500 });
+        expect(conflict.statusCode).toBe(409);
+        expect(conflict.json().error).toBe("idempotency_conflict");
       }
-      const accounts = await call(
+      expect(await accounts()).toEqual(after);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("answers a performed payment with its first result when the account no longer covers it", async () => {
+    const { sign, call } = await setup();
+    const token = await sign("robin", all);
+    const post = (approval?: ReturnType<typeof operation>) =>
+      call(
+        token.access_token,
+        "POST",
+        "/api/account/payments",
+        {
+          source_account_id: "acc_HLB_J100",
+          recipient_id: "rcp_HLB_J501",
+          amount_cents: 250000,
+          memo: "Workbench deposit",
+          idempotency_key: "payment-drained-001",
+        },
+        approval,
+      );
+    const first = await post(operation(await post()));
+    expect(first.statusCode).toBe(200);
+    expect(first.json().data.account.balance_cents).toBe(132740);
+    const again = await post();
+    expect(again.statusCode).toBe(200);
+    expect(again.json()).toEqual({
+      summary: first.json().summary,
+      data: first.json().data,
+    });
+  });
+
+  it("answers the key of a created budget with that budget and no new approval", async () => {
+    const { sign, call } = await setup();
+    const token = await sign("elena", all);
+    const post = (
+      url: string,
+      payload: Record<string, unknown>,
+      approval?: ReturnType<typeof operation>,
+    ) => call(token.access_token, "POST", url, payload, approval);
+    const create = {
+      name: "Harbor trips",
+      category: "travel",
+      limit_cents: 90000,
+      month: "2026-12",
+      idempotency_key: "budget-once-001",
+    };
+    const first = await post(
+      "/api/account/budgets",
+      create,
+      operation(await post("/api/account/budgets", create)),
+    );
+    expect(first.statusCode).toBe(200);
+    const { summary, data } = first.json();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(Date.now() + 11 * 60000);
+      const again = await post("/api/account/budgets", create);
+      expect(again.statusCode).toBe(200);
+      expect(again.json()).toEqual({ summary, data });
+      const renamed = { ...create, name: "Coastal travel" };
+      expect((await post("/api/account/budgets", renamed)).json().error).toBe(
+        "idempotency_conflict",
+      );
+      // Once the budget is changed, the key still answers with it as it is.
+      const update = { name: "Coastal travel", expected_version: 1 };
+      const url = `/api/account/budgets/${data.budget.id}`;
+      const updated = await post(
+        url,
+        update,
+        operation(await post(url, update)),
+      );
+      expect(updated.statusCode).toBe(200);
+      const later = await post("/api/account/budgets", create);
+      expect(later.statusCode).toBe(200);
+      expect(later.json()).toEqual({
+        summary:
+          "Created Coastal travel with a USD 900.00 limit. Fictional budget only.",
+        data: { budget: updated.json().data.budget },
+      });
+      expect(
+        (
+          await post("/api/account/budgets", { ...create, month: "2027-01" })
+        ).json().error,
+      ).toBe("idempotency_conflict");
+      const budgets = await call(
         token.access_token,
         "GET",
-        "/api/account/accounts",
+        "/api/account/budgets",
       );
-      expect(accounts.json().accounts).toMatchObject([
-        { id: "acc_HLB_A100", balance_cents: 1154500 },
-        { id: "acc_HLB_A200", balance_cents: 4350000 },
-      ]);
+      expect(budgets.json().budgets).toHaveLength(3);
     } finally {
       vi.useRealTimers();
     }
