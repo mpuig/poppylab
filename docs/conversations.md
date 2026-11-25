@@ -1,6 +1,6 @@
 # Conversations with the Company's own agent (Poppy 1.0 §8)
 
-All four Companies offer a conversation endpoint next to their APIs, and Iris can talk to it. The design rule: **the only model is the Personal Agent's.** Each Company Agent is deterministic code. It takes structured requests in `data` and answers with data and a short fixed sentence. It never reads free text and never needs a model key, so a public Company can't be made to spend money, and its answers are predictable and testable.
+All five Companies offer a conversation endpoint next to their APIs, and Iris can talk to it. The design rule: **the only model is the Personal Agent's.** Each Company Agent is deterministic code. It takes structured requests in `data` and answers with data and a short fixed sentence. It never reads free text and never needs a model key, so a public Company can't be made to spend money, and its answers are predictable and testable.
 
 ## What a conversation adds over the API
 

@@ -890,7 +890,8 @@ body:has(.site) {
   font-weight: 600;
 }
 
-/* The four companies: a card each, headed in that company's own colour. */
+/* The five companies: a card each, headed in that company's own colour. An
+   odd last card keeps one column's width. */
 .cases {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

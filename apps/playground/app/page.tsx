@@ -121,7 +121,7 @@ export default function Home() {
               Personal Agent Protocol, Poppy for short, is an open protocol for
               how personal agents and companies work together. Poppy Lab is an
               independent place to watch it work, with one agent, called Iris,
-              and four fictional companies.
+              and five fictional companies.
             </p>
             <div className="actions">
               <a className="button" href="/playground">
@@ -325,9 +325,9 @@ export default function Home() {
 
         <section id="try" className="sec" aria-labelledby="try-title">
           <div className="sec-head">
-            <h2 id="try-title">Try it in four industries</h2>
+            <h2 id="try-title">Try it in five industries</h2>
             <p>
-              Four companies that look nothing alike, and one agent that works
+              Five companies that look nothing alike, and one agent that works
               at all of them. Pick one, sign in as a test customer, ask Iris for
               a change and approve it yourself.
             </p>
@@ -376,7 +376,7 @@ export default function Home() {
             The companies are fictional: nothing is charged, shipped or
             transferred. Each visitor gets a private copy of the test customers,
             and an idle copy starts again after 24 hours. Never enter real
-            banking, travel or payment details.
+            banking, travel, utility or payment details.
           </p>
         </section>
 

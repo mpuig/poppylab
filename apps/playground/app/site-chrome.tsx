@@ -12,6 +12,8 @@ const harborline =
   process.env.NEXT_PUBLIC_HARBORLINE_URL ?? "http://harbor.localhost:4300";
 const northwind =
   process.env.NEXT_PUBLIC_NORTHWIND_URL ?? "http://northwind.localhost:4400";
+const fernwick =
+  process.env.NEXT_PUBLIC_FERNWICK_URL ?? "http://fernwick.localhost:4500";
 
 export { SPEC_URL };
 export const DEMOS_URL = "https://personalagentprotocol.org/docs/demos";
@@ -21,10 +23,13 @@ export const connect = (url: string) =>
   `/playground?company=${encodeURIComponent(url)}`;
 
 /**
- * The four fictional Companies. The home shows the plain-language fields and
+ * The five fictional Companies. The home shows the plain-language fields and
  * `change`, the exact change the visitor would approve (from each Company's
  * own data), and `brand`, the leading colour of that Company's own website;
- * `/developers` adds the host, scopes and agent-facing page.
+ * `/developers` adds the host, scopes and agent-facing page. Fernwick's
+ * `change` has no estimate: the utility prices the last closed bill on both
+ * plans (`estimate()` in `apps/fernwick/src/plans.ts`), so the figure moves
+ * every month, and this page is built once.
  */
 export const companies = [
   {
@@ -95,6 +100,25 @@ export const companies = [
     ],
     scopes: "bookings:read · bookings:change",
     site: { label: "Visit the airline", href: northwind },
+  },
+  {
+    id: "fernwick",
+    brand: "#2c5a41",
+    sector: "Utility",
+    name: "Fernwick Power & Light",
+    url: fernwick,
+    blurb:
+      "An electricity utility with hourly meter readings, monthly bills and two rate plans.",
+    ask: "Switch my EV charger to the flat rate.",
+    shows:
+      "The approval prices your last bill on both plans. Nothing changes before the next bill cycle.",
+    change: [
+      { what: "EV charger", before: "Time of use", after: "Flat rate" },
+      { what: "Starts", before: "", after: "1st of next month" },
+    ],
+    scopes:
+      "account:read · plan:write · espi:usage · espi:summary · espi:customer",
+    site: { label: "Visit the utility", href: fernwick },
   },
 ] as const;
 

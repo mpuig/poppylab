@@ -14,7 +14,7 @@ import "../site.css";
 export const metadata: Metadata = {
   title: "Developers · Poppy Lab",
   description:
-    "Endpoints, scopes and spec sections for the four fictional Poppy 1.0 Companies, and how to test your own Company or Personal Agent against the lab.",
+    "Endpoints, scopes and spec sections for the five fictional Poppy 1.0 Companies, and how to test your own Company or Personal Agent against the lab.",
 };
 
 const legend = [
@@ -107,7 +107,7 @@ export default function Developers() {
             <p className="lead">
               Poppy Lab runs both sides of Personal Agent Protocol 1.0 with
               Operations v3. Point Iris at your own Company, or point your own
-              Personal Agent at the four fictional ones.
+              Personal Agent at the five fictional ones.
             </p>
             <div className="actions">
               <a className="button" href="/playground">
@@ -118,7 +118,7 @@ export default function Developers() {
           <figure
             className="pairs"
             role="img"
-            aria-label="Two ways to test: Iris, the lab's agent, against your Company; or your Personal Agent against the lab's four Companies"
+            aria-label="Two ways to test: Iris, the lab's agent, against your Company; or your Personal Agent against the lab's five Companies"
           >
             <div className="pair">
               <span className="party">
@@ -135,8 +135,8 @@ export default function Developers() {
               </span>
               <span className="reach" />
               <span className="party company">
-                The four test Companies
-                <small>grocery, restaurant, bank, airline</small>
+                The five test Companies
+                <small>grocery, restaurant, bank, airline, utility</small>
               </span>
             </div>
             <figcaption>
@@ -186,7 +186,7 @@ export default function Developers() {
 
         <section className="agents" aria-labelledby="companies-title">
           <div className="agents-intro">
-            <h2 id="companies-title">The four test Companies</h2>
+            <h2 id="companies-title">The five test Companies</h2>
             <p>
               Each one is a separate deployment with its own scopes and consent
               page, and the same two fictional customers: Elena Maren and Robin
@@ -232,9 +232,9 @@ export default function Developers() {
           <div className="agents-intro">
             <h2 id="agents-title">Bring your own agent</h2>
             <p>
-              All four Companies accept any Personal Agent with an HTTPS{" "}
+              All five Companies accept any Personal Agent with an HTTPS{" "}
               <code>client_id</code> that serves its metadata and keys, with
-              redirect URIs from that metadata. All four speak Operations v3.
+              redirect URIs from that metadata. All five speak Operations v3.
               Replace <code>{"{company}"}</code> with one of the hosts above.
             </p>
           </div>

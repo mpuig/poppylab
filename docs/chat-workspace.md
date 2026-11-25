@@ -4,7 +4,7 @@ The playground at `/playground` is a chat with Iris, the lab's Personal Agent. I
 
 ## A first run
 
-Nothing needs to be set up. The page opens with four cards, one for each fictional Company, and a guide of four steps above the chat that says what to do next.
+Nothing needs to be set up. The page opens with five cards, one for each fictional Company, and a guide of four steps above the chat that says what to do next.
 
 1. **Pick a company.** Each card shows the Company, what it is and a request to try. Picking one connects to it; the row above the guide then says what discovery found ("Found Juniper Market · grocery-demo.poppylab.dev · 1 API · Company agent · Poppy 1.0"). **Use another address** opens a form for any other Company's URL.
 2. **Sign in.** The button in the chat opens the Company's own consent page in a new tab. You choose Elena or Robin, the two test customers every Company has, and allow read access. Iris never sees a password. Read access is all a first sign-in asks for.
