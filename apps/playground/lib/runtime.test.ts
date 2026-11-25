@@ -517,7 +517,7 @@ it("after version_unsupported, chooses again and resends once only if the versio
   expect(transport).toHaveBeenCalledTimes(1);
 });
 
-it("reports an unsupported task once per Session, signed out, and reads an alternative as Company content (§9.3)", async () => {
+it("reports an unsupported task once per Session, with the token when signed in, and reads an alternative as Company content (§9.3)", async () => {
   const r = example();
   r.dpop = dpop;
   const endpoint = "https://food.papsandbox.com/poppy/feedback";
@@ -560,8 +560,8 @@ it("reports an unsupported task once per Session, signed out, and reads an alter
   expect(JSON.parse(String((init as RequestInit).body))).toEqual(report);
   const h = headersOf(transport.mock.calls[0]!);
   expect(h["Poppy-Session"]).toBeTruthy();
-  expect(h).not.toHaveProperty("Authorization");
-  expect(dpopArg).toBeUndefined();
+  expect(h.Authorization).toBe("DPoP access-1");
+  expect(dpopArg).toMatchObject({ token: "access-1" });
   expect(options).toEqual({ acceptEmpty: true });
   expect(trace.at(-1)).toContain("200 with an alternative");
 

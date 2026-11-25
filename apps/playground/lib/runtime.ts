@@ -979,13 +979,15 @@ export function feedbackTool(run: Run, trace: string[]): ApiTool {
       if (before && before.sid === run.sessionId && before.tasks.includes(key))
         return { sent: false, reason: "Already reported in this Session." };
       const endpoint = run.tasks!.value.feedbackEndpoint!;
-      // No scope needed, so no access token (like the tasks request).
+      // No scope needed, but signed in it goes with the access token (§9.3
+      // allows it): the report is tied to the account, and the Company's
+      // website can show it to the customer who approved the consent.
       const reply = await papRequest(
         run,
         endpoint,
         "POST",
         { task: task.trim(), description: description.trim() },
-        { signedOut: true, acceptEmpty: true },
+        { acceptEmpty: true },
       );
       // Recorded for the Session it went in (sending may start a new one).
       if (run.reported?.sid !== run.sessionId)
