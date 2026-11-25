@@ -181,7 +181,8 @@ it("spends the allowance on what the Company performed on Iris's approval", () =
 it("spends nothing when the answer says nothing was performed", () => {
   const waiting = op("a", 100);
   for (const answer of [
-    // Not covered by the server's own check, new terms, a busy conversation.
+    // Not covered by the server's own check, new terms, a busy conversation,
+    // a request the Company refused (such as Harborline's insufficient_funds).
     { status: 409, operation: waiting },
     { status: 409 },
     // The Company declined Iris's approval (Harborline always does).

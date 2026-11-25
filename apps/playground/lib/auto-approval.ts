@@ -81,7 +81,7 @@ export type ApprovalAnswer =
  * answer, the route's 502 for a lost Company response, or its 429 while the
  * Company is still performing (the page can't tell that from Poppy's own
  * rate limit). An answer that says nothing was performed doesn't: not
- * covered, declined by the Company, new terms, expired.
+ * covered, declined or refused by the Company, new terms, expired.
  */
 export function usesAllowance(answer: ApprovalAnswer) {
   if (answer === "lost") return true;

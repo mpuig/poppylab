@@ -26,7 +26,7 @@ const state = vi.hoisted(() => ({
     },
     history: [] as unknown[],
     company: {
-      document: {},
+      document: { organization: { name: "Juniper" } },
       profile: {
         version: "1.0",
         identifier: "http://juniper.localhost:4100",
@@ -110,7 +110,7 @@ vi.mock("@/lib/runtime", async () => ({
 
 import { POST, GET } from "./route";
 import { seedRun } from "@/lib/runs";
-import { nextAutoApproval } from "@/lib/auto-approval";
+import { nextAutoApproval, usesAllowance } from "@/lib/auto-approval";
 import { ProtocolError } from "@poppy-lab/pap-client";
 function request(body: unknown, origin = "http://localhost:3000") {
   return new Request("http://localhost:3000/api/account", {
@@ -485,6 +485,113 @@ describe("Human-controlled account boundary", () => {
       });
     },
   );
+  const act = (action: string) =>
+    POST(request({ action, id: "op_test", revision: "r1" }));
+  it.each([
+    // A code this client doesn't know, such as Harborline's
+    // insufficient_funds, arrives without one.
+    [409, undefined],
+    [409, "request_id_conflict"],
+    [400, "invalid_request"],
+    [404, undefined],
+    [422, undefined],
+    // A 401 that doesn't ask for sign-in.
+    [401, "invalid_dpop_proof"],
+  ])(
+    "says nothing was performed when the Company refuses the approved request with %s %s",
+    async (status, code) => {
+      sendThenFail(() => new ProtocolError(status, code));
+      const r = await act("approve");
+      expect(r.status).toBe(409);
+      const body = await r.json();
+      expect(body.code).toBe("not_performed");
+      expect(body.next).toBe("review");
+      expect(body.error).toContain("Nothing was performed");
+      // The Company's status and code, never its own words.
+      expect(body.error).toContain(
+        `Juniper refused this request (HTTP ${status}${code ? `, ${code}` : ""})`,
+      );
+      // The page shows what the server holds: the terms, still waiting.
+      expect(body.operation).toMatchObject({
+        revision: "r1",
+        state: "proposed",
+      });
+      expect(state.run.operations.op_test.state).toBe("proposed");
+      // Nothing is uncertain, so there is nothing to retry…
+      expect((await act("retry")).status).toBe(400);
+      expect(state.request).toHaveBeenCalledTimes(1);
+      // …and the User can approve again: the same approval goes out (§7).
+      state.request.mockResolvedValueOnce({ summary: "Done" });
+      const again = await act("approve");
+      expect(again.status).toBe(200);
+      expect((await again.json()).operation.state).toBe("succeeded");
+      expect(state.request.mock.calls[1]![1]).toMatchObject({
+        approval: { approver: "user", reference: "a1" },
+      });
+    },
+  );
+  it("says nothing was performed when the Company answers an approval with terms it can't use", async () => {
+    sendThenFail(
+      () =>
+        new ProtocolError(403, "approval_required", undefined, undefined, {
+          operation_id: "op_test",
+          revision: "r2",
+          terms: { to: "Saturday" },
+          expires_at: new Date(Date.now() - 1000).toISOString(),
+        }),
+    );
+    const r = await act("approve");
+    expect(r.status).toBe(409);
+    const body = await r.json();
+    expect(body.code).toBe("not_performed");
+    expect(body.operation).toMatchObject({ revision: "r1", state: "proposed" });
+    expect(state.run.operations.op_test).toMatchObject({
+      revision: "r1",
+      state: "proposed",
+    });
+  });
+  it.each([
+    ["500", () => new ProtocolError(500, undefined)],
+    ["429", () => new ProtocolError(429, "rate_limited")],
+    ["408", () => new ProtocolError(408, undefined)],
+  ])(
+    "keeps the outcome unknown after a %s: that isn't a refusal",
+    async (_name, error) => {
+      sendThenFail(error);
+      const r = await act("approve");
+      expect(r.status).toBe(502);
+      expect((await r.json()).code).toBe("outcome_unknown");
+      expect(state.run.operations.op_test.state).toBe("uncertain");
+    },
+  );
+  it("keeps the outcome unknown when the Company refuses a retry", async () => {
+    sendThenFail(lost);
+    expect((await act("approve")).status).toBe(502);
+    // The refusal is of the retry. It doesn't say what became of the
+    // approval sent before it, so nothing new may be approved yet (§7).
+    sendThenFail(() => new ProtocolError(409, undefined));
+    const r = await act("retry");
+    expect(r.status).toBe(502);
+    expect((await r.json()).code).toBe("outcome_unknown");
+    expect(state.run.operations.op_test).toMatchObject({
+      state: "uncertain",
+      approval: { approver: "user", reference: "a1" },
+    });
+    expect((await act("approve")).status).toBe(410);
+  });
+  it.each([
+    [new ProtocolError(401, undefined), 401, "account_unavailable"],
+    [new ProtocolError(403, "insufficient_scope"), 403, "insufficient_scope"],
+  ])(
+    "still asks for sign-in or permission when the Company answers the approval with %s",
+    async (error, status, code) => {
+      sendThenFail(() => error);
+      const r = await act("approve");
+      expect(r.status).toBe(status);
+      expect((await r.json()).code).toBe(code);
+      expect(state.run.operations.op_test.state).toBe("proposed");
+    },
+  );
   it("marks unavailable access without retrying or deleting pending review", async () => {
     state.request.mockRejectedValue(new ProtocolError(401, "invalid_token"));
     const r = await POST(
@@ -647,6 +754,26 @@ describe("An operation whose conversation refuses the approval (§8.10, §8.12)"
     expect((await r.json()).code).toBe("outcome_unknown");
     expect(state.run.operations.op_test.state).toBe("uncertain");
   });
+
+  it.each([
+    [410, "cursor_expired"],
+    [400, "invalid_cursor"],
+  ])(
+    "keeps the outcome unknown after %s %s: the Company takes the message before it reads the reply (§8.3)",
+    async (status, code) => {
+      sendThenFail(() => new ProtocolError(status, code));
+      const r = await act("approve");
+      expect(r.status).toBe(502);
+      expect((await r.json()).code).toBe("outcome_unknown");
+      expect(state.run.operations.op_test.state).toBe("uncertain");
+      // Only the approval that was sent goes out again.
+      state.request.mockResolvedValueOnce({ summary: "Refunded." });
+      expect((await act("retry")).status).toBe(200);
+      expect(state.request.mock.calls[1]![1]).toMatchObject({
+        approval: { approver: "user", reference: "a1" },
+      });
+    },
+  );
 
   it("leaves it waiting while the User is in a Direct Conversation", async () => {
     state.request.mockRejectedValueOnce(
@@ -971,6 +1098,25 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
     expect((await retry()).status).toBe(400);
     expect(state.request).not.toHaveBeenCalled();
     expect(run.operations.op_rule!.state).toBe("uncertain");
+  });
+
+  it("spends none of the hour's allowance on an approval the Company refused", async () => {
+    // As Harborline's 409 insufficient_funds, once the balance has dropped.
+    sendThenFail(() => new ProtocolError(409, undefined));
+    const r = await approve(rule);
+    expect(r.status).toBe(409);
+    const body = await r.json();
+    expect(body.code).toBe("not_performed");
+    expect(body.operation).toMatchObject({ state: "proposed" });
+    // Neither the server's count nor the page's takes it for performed.
+    expect(run.agentApprovals).toEqual([]);
+    expect(usesAllowance({ status: r.status, operation: body.operation })).toBe(
+      false,
+    );
+    // It waits for the User, who can approve it themselves.
+    state.request.mockResolvedValueOnce({ summary: "Ordered." });
+    expect((await approve()).status).toBe(200);
+    expect(approvers()).toEqual(["agent", "user"]);
   });
 
   // Every answer an approval can get, sent first or retried, by the User
