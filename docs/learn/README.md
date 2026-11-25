@@ -18,12 +18,13 @@ doesn't repeat them; it links to them. Use it next to:
 What's here instead is what we wished we'd had on day one: real traffic,
 comparisons, working code and the mistakes we made.
 
-| Page                                        | For                                                                                                                                                  |
-| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [One task, request by request](one-task.md) | Anyone. A change to a noodle order, from the first fetch to the approved change, with the real requests and responses.                               |
-| [Poppy compared](compared.md)               | Deciding whether you need it. Poppy next to an API with OAuth, MCP, browser automation and UCP: what each one gives a Company and a user.            |
-| [Build a Personal Agent](build-an-agent.md) | Agent builders. The side the official kit doesn't cover: identity, users and Sessions, safe fetching, sign-in, approvals, and where the model stops. |
-| [Validator results](validator.md)           | Implementers. What the official validator checks, how we ran it against our Companies, and what it found.                                            |
+| Page                                        | For                                                                                                                                                     |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [One task, request by request](one-task.md) | Anyone. A change to a noodle order, from the first fetch to the approved change, with the real requests and responses.                                  |
+| [Poppy compared](compared.md)               | Deciding whether you need it. Poppy next to an API with OAuth, MCP, browser automation and UCP: what each one gives a Company and a user.               |
+| [Build a Company](build-a-company.md)       | Company implementers. The kit's milestones explained: from one static file to sign-in and approvals, with code to adapt and our gateway as a reference. |
+| [Build a Personal Agent](build-an-agent.md) | Agent builders. The side the official kit doesn't cover: identity, users and Sessions, safe fetching, sign-in, approvals, and where the model stops.    |
+| [Validator results](validator.md)           | Implementers. What the official validator checks, how we ran it against our Companies, and what it found.                                               |
 
 Everything here is about version 1.0 with Operations version 3. The examples
 come from the lab's fictional Companies; no real account, money or food is
