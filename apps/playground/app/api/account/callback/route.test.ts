@@ -154,6 +154,38 @@ it("exchanges the code with PKCE, no session_id, and starts a new Session", asyn
   expect(s.run.auth).toBeUndefined();
 });
 
+it("forgets the per-service tokens of the sign-in it replaces (§4.5)", async () => {
+  const run = s.run as { resourceTokens?: unknown };
+  const cached = {
+    "https://food.papsandbox.com/api": {
+      value: "old-service-token",
+      type: "DPoP",
+      expires: Date.now() + 3600000,
+    },
+  };
+  try {
+    // A failed exchange keeps the previous access, and so its tokens.
+    run.resourceTokens = structuredClone(cached);
+    s.request.mockResolvedValueOnce(success({ refresh_token: undefined }));
+    expect((await GET(req())).status).toBe(400);
+    expect(run.resourceTokens).toEqual(cached);
+    // They were issued to the old sign-in's account, scopes and DPoP key.
+    s.run.auth = {
+      state: "state_test",
+      verifier: "verifier_test",
+      issuer: "https://food.papsandbox.com",
+      scopes: "orders:read",
+      expires: Date.now() + 60000,
+      dpop: { kty: "EC" },
+    };
+    s.request.mockResolvedValueOnce(success());
+    expect((await GET(req())).status).toBe(200);
+    expect(run.resourceTokens).toBeUndefined();
+  } finally {
+    delete run.resourceTokens;
+  }
+});
+
 it("uses Bearer tokens when the issuer doesn't bind DPoP", async () => {
   s.dpop = false;
   s.request.mockResolvedValue(success({ token_type: "Bearer" }));

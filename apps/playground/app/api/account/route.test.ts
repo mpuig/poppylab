@@ -163,6 +163,23 @@ describe("Human-controlled account boundary", () => {
     expect(state.run.accountToken).toBeUndefined();
     expect(state.run.token).toBeUndefined();
   });
+  it("signs out of every service: no per-service token is kept (§4.5)", async () => {
+    const run = state.run as { resourceTokens?: unknown };
+    run.resourceTokens = {
+      "http://juniper.localhost:4100/api": {
+        value: "service-token",
+        type: "DPoP",
+        expires: Date.now() + 3600000,
+      },
+    };
+    try {
+      state.revoke.mockResolvedValue(undefined);
+      expect((await POST(request({ action: "signout" }))).status).toBe(200);
+      expect(run.resourceTokens).toBeUndefined();
+    } finally {
+      delete run.resourceTokens;
+    }
+  });
   it("asks for the Company's read-only scopes by default, with PKCE and a DPoP key", async () => {
     const r = await POST(request({ action: "signin" }));
     expect(r.status).toBe(200);

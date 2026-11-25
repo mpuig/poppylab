@@ -251,6 +251,8 @@ async function act(request: Request, started: { id?: string }) {
       delete run.token;
       delete run.tokenType;
       delete run.tokenExpires;
+      // §4.5: the tokens for single services go with the account's.
+      delete run.resourceTokens;
       delete run.scopes;
       delete run.auth;
       run.operations = {};
