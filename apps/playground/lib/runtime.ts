@@ -1019,9 +1019,37 @@ function feedbackEndpoint(run: Run) {
   return host === domain || host.endsWith(`.${domain}`) ? endpoint : undefined;
 }
 
-/** Identifiers a report must not carry (§9.3): emails, phone numbers, IDs. */
-const IDENTIFIERS =
-  /[^\s@]+@[^\s@]+\.[a-z]{2,}|\+?\d[\d\s().-]{6,}\d|\b[a-z]{2,5}_[a-z0-9]{3,}\b/i;
+/**
+ * Identifiers a report must not carry (§9.3): emails, phone numbers, IDs.
+ * A report may still say a date, an amount or a tool's name (2026-12-01,
+ * 10 000 000, change_order), so a number counts only when it is written the
+ * way a phone, card or account number is, and a word only with a digit or a
+ * capital in it. Anything in doubt is an identifier.
+ */
+const IDENTIFIERS = new RegExp(
+  [
+    // An email address.
+    /[^\s@]+@[^\s@]+\.[A-Za-z]{2,}/,
+    // A phone number: with a country code, ending in groups of three and
+    // four (555 010-0142), in three groups of three (612 345 678), or
+    // national with a leading zero (06 12 34 56 78).
+    /(?<!\w)\+\d[\d\s().-]{6,}\d/,
+    /\b\d{3}[\s.-]\d{4}\b(?!-\d)/,
+    /(?<!\d[\s.-])\b\d{3}[\s.-]\d{3}[\s.-]\d{3}\b(?![\s.-]\d)/,
+    /(?<!\d|\d[\s.-])0(?:[\s().-]{0,2}\d){8,}/,
+    // A card, account or social security number: groups of four, three
+    // digits, two and four, or eight digits in a row.
+    /\b\d{4}(?:[\s-]\d{4}){2,}\b/,
+    /\b\d{3}-\d{2}-\d{4}\b/,
+    /\d{8,}/,
+    // An ID with a prefix: ord_LNB1001, acc_A100, rcp_2.
+    /\b(?:[A-Za-z]{2,5}_[\w-]*\d|[a-z]{2,5}_[\w-]*[A-Z])/,
+    // A reference in capitals and digits: NW7K2P.
+    /\b(?=[A-Z]*\d)(?=\d*[A-Z])[A-Z\d]{6,}\b/,
+  ]
+    .map((pattern) => pattern.source)
+    .join("|"),
+);
 
 /**
  * §9.3: report a task the User wanted that can't be done here. Once per task
