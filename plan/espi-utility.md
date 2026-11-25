@@ -57,6 +57,8 @@ All with `scope_hints` `{ "changes": "none", "personal_data": true }`.
 | `Subscription/{sub}/UsagePoint/{up}/MeterReading` | `espi:usage` | Feed |
 | `…/MeterReading/{mr}/IntervalBlock` | `espi:usage` | Feed of IntervalBlocks (one per day) in the window |
 | `Subscription/{sub}/UsagePoint/{up}/UsageSummary` | `espi:summary` | Feed of bill summaries |
+
+`espi:summary` alone can also read the UsagePoint routes and `LocalTimeParameters/{id}`, to put the bills in local dates (decided when integrating the client). `published-max` is exclusive on both sides.
 | `ReadingType/{id}`, `LocalTimeParameters/{id}` | `espi:usage` | Entry |
 | `Authorization/{sub}` | any token of that grant | Entry with `status` (1 active), `authorizedPeriod`, `scope`, `resourceURI`, `authorizationURI` |
 | `DELETE Authorization/{sub}` | any token of that grant | `204`; revokes the grant (method chosen by us: ESPI says "update or delete", and the exact method is unconfirmed) |
