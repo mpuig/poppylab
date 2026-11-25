@@ -25,6 +25,15 @@ export function agentStep(entry: ProtocolEntry): AgentStep {
       : entry.outcome === "error"
         ? "failed"
         : "done";
+  // Iris stopped before asking the Company: never a request made.
+  const unsent = /^Not sent · (?:GET|POST) (\S+) · (.+)/.exec(text);
+  if (unsent)
+    return {
+      text: `Did not ask for ${unsent[1]} (${unsent[2]}); nothing was sent`,
+      how: "API",
+      access: null,
+      state,
+    };
   if (entry.method && entry.url) {
     const read = entry.method === "GET" || entry.method === "HEAD";
     return {

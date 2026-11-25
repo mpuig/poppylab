@@ -125,7 +125,10 @@ in the page; the server's approval endpoint is the one it always was.
     hour's record; the limits are only as strong as the browser that keeps them.
 - **What Iris did.** Under each answer, a list of its steps in plain words: what
   it read or sent, how (API, the Company's own agent, sign-in or setup) and
-  with what access (view, or view and change).
+  with what access (view, or view and change). A request Iris stops before
+  asking, because you are signed out or your sign-in lacks a permission, is
+  listed as not asked ("Did not ask for /api/account/orders (sign-in needed);
+  nothing was sent"), and the log has "Not sent" in place of the request.
 - **The log.** The inspector lists the session's events with a time, their spec
   section, the method and address without its query, and an outcome read from
   the event's own words. Times are when the page received each event, and one

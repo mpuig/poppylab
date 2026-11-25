@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { readable } from "./demo-text";
+import { notSentReply, readable } from "./demo-text";
 
 it("turns a catalogue into bullets led by each item's name, with money", () => {
   const text = readable({
@@ -149,11 +149,58 @@ it("says a held change and an error in words", () => {
   expect(unknown).toContain("Retry the same approval");
   expect(unknown).toContain("Transfer USD 500.00");
   expect(unknown).not.toContain("until you approve");
-  expect(readable({ error: "sign_in_required" })).toBe(
-    "The company answered with an error: sign in required.",
+  expect(readable({ error: "out_of_stock" })).toBe(
+    "The company answered with an error: out of stock.",
   );
   expect(readable({})).toBe("The company answered with no details.");
   expect(readable(null)).toBe("No data.");
+});
+
+it("never says the company answered when Iris stopped before asking", () => {
+  const changes = (scope: string) => scope === "poppy:write";
+  const signedOut = {
+    error: "sign_in_required",
+    sent: false,
+    instruction: "Ask the user to use the Sign in control in the chat.",
+  };
+  expect(readable(signedOut)).toBe(
+    "Iris did not ask the Company: this needs your account, and you are not signed in. Nothing was sent.",
+  );
+  expect(notSentReply(signedOut, "Juniper Market", changes)).toBe(
+    "This needs your account at Juniper Market, and you are not signed in. Iris did not ask: nothing was sent to the Company. Press “Sign in to Juniper Market”, then ask again.",
+  );
+  const readOnly = {
+    error: "insufficient_scope",
+    sent: false,
+    missing: ["poppy:write"],
+    instruction: "Ask the user to choose Request change permission.",
+  };
+  expect(readable(readOnly)).toBe(
+    "Iris did not ask the Company: your sign-in doesn't include a permission this needs. Nothing was sent.",
+  );
+  expect(notSentReply(readOnly, "Juniper Market", changes)).toBe(
+    "This needs the change permission, which your sign-in to Juniper Market doesn't include. Iris did not ask: nothing was sent to the Company. Press “Request change permission”, review the Company's consent, and ask again.",
+  );
+  // A read permission left unticked at consent: no change permission helps.
+  expect(
+    notSentReply(
+      { ...readOnly, missing: ["cards:read"] },
+      "Harborline Bank",
+      changes,
+    ),
+  ).toBe(
+    "This needs a permission your sign-in to Harborline Bank doesn't include. Iris did not ask: nothing was sent to the Company. Sign out, then sign in again and keep every permission ticked on the Company's consent page.",
+  );
+  // The words are for the customer: never the model's instruction.
+  for (const answer of [signedOut, readOnly])
+    expect(readable(answer)).not.toContain("Ask the user");
+  // An answer of the Company's, whatever its error, is not one of these.
+  expect(
+    notSentReply({ error: "sign_in_required" }, "Juniper Market", changes),
+  ).toBeUndefined();
+  expect(
+    notSentReply({ orders: [] }, "Juniper Market", changes),
+  ).toBeUndefined();
 });
 
 it("bounds long answers and points to the raw data", () => {

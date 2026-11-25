@@ -17,6 +17,22 @@ it("describes a read and a change in plain words with their access", () => {
   });
 });
 
+it("never says Iris read or sent a request it stopped before asking", () => {
+  expect(step("Not sent · GET /api/account/orders · sign-in needed")).toEqual({
+    text: "Did not ask for /api/account/orders (sign-in needed); nothing was sent",
+    how: "API",
+    access: null,
+    state: "done",
+  });
+  expect(
+    step(
+      "Not sent · POST /api/account/delivery-change · permission not granted",
+    ).text,
+  ).toBe(
+    "Did not ask for /api/account/delivery-change (permission not granted); nothing was sent",
+  );
+});
+
 it("says an approval is waiting and nothing was done", () => {
   expect(step("Approval required · nothing performed")).toMatchObject({
     state: "waiting",

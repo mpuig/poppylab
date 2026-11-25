@@ -23,7 +23,7 @@ import {
 } from "@/lib/runs";
 import { overBudget } from "@/lib/limits";
 import { pickDemoTool } from "@/lib/demo-tool";
-import { readable } from "@/lib/demo-text";
+import { notSentReply, readable } from "@/lib/demo-text";
 import {
   demoAside,
   demoChange,
@@ -33,7 +33,7 @@ import {
 import { demoFdxAnswer, demoFdxRead, demoFdxReply } from "@/lib/demo-fdx";
 import { demoEspiAnswer, demoEspiRead, demoEspiReply } from "@/lib/demo-espi";
 import { UserFacingError } from "@/lib/user-error";
-import { PapDiscoveryError } from "@poppy-lab/pap-core";
+import { companyProfile, PapDiscoveryError } from "@poppy-lab/pap-core";
 import { publicMode, serving } from "@/lib/deployment";
 import { runModel, ModelRequestError } from "@poppy-lab/llm-adapters/server";
 
@@ -426,7 +426,17 @@ async function reply(request: Request, started: { id?: string }) {
             Object.entries(args).filter(([key]) => Object.hasOwn(allowed, key)),
           ),
         );
-        text = `Protocol demo (no LLM). The company answered:\n\n${show(result)}\n\n${tools.my_basket ? "Try “my basket”, “set apples in my basket to 2”, “checkout on Saturday”, “my orders”, or “my deliveries”. Basket edits and checkout are proposals only until you click Approve. Demo quantities are absolute totals, not increments." : `The demo called ${fallback}, a tool that needs no arguments.`} For natural-language reasoning, select a model.`;
+        // Signed out, or without the permission, Iris stops before asking:
+        // there is no answer of the Company's to show, only what to press.
+        const hints = companyProfile(run.company!).scopeHints;
+        const unsent = notSentReply(
+          result,
+          companyName,
+          (scope) => hints[scope]?.changes !== "none",
+        );
+        text = unsent
+          ? `Protocol demo (no LLM). ${unsent}`
+          : `Protocol demo (no LLM). The company answered:\n\n${show(result)}\n\n${tools.my_basket ? "Try “my basket”, “set apples in my basket to 2”, “checkout on Saturday”, “my orders”, or “my deliveries”. Basket edits and checkout are proposals only until you click Approve. Demo quantities are absolute totals, not increments." : `The demo called ${fallback}, a tool that needs no arguments.`} For natural-language reasoning, select a model.`;
       }
     } else {
       stage = "provider";

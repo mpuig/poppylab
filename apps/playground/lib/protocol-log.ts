@@ -23,6 +23,9 @@ function bareUrl(value: string) {
 }
 
 function outcomeOf(text: string): ProtocolOutcome {
+  // Iris stopped before asking: nothing happened, whatever the address
+  // it names says.
+  if (/^Not sent\b/.test(text)) return "info";
   if (/approval required/i.test(text)) return "waiting";
   // The User's own revocation went through: done, not declined.
   if (/consent revoked/i.test(text)) return "ok";

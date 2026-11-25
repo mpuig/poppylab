@@ -41,6 +41,18 @@ it("reads an outcome from the words, not from the address", () => {
   expect(logEntry("GET /api/orders · request failed").outcome).toBe("error");
 });
 
+it("types a request Iris stopped before asking as a note, never as a request", () => {
+  const e = logEntry(
+    "Not sent · GET /api/payments/failed?cursor=x · sign-in needed",
+  );
+  expect(e).toMatchObject({
+    text: "Not sent · GET /api/payments/failed · sign-in needed",
+    outcome: "info",
+  });
+  expect(e).not.toHaveProperty("method");
+  expect(e).not.toHaveProperty("url");
+});
+
 it("reads the User's FDX consent revocation as done, and its failure as an error", () => {
   const done = logEntry(
     "PUT /fdx/v6/consents/grant_1/revocation · FDX consent revoked · 204",

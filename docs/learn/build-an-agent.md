@@ -242,9 +242,10 @@ sign-in they came from ends.
 
 **The line:** the sign-in control is a button in the interface, not a tool.
 When a tool needs a scope the agent doesn't have, it returns
-`sign_in_required` or `insufficient_scope` with an instruction for the model
-to ask the user. The model never sees the authorization URL, the code or the
-token.
+`sign_in_required` or `insufficient_scope` with `sent: false` and an
+instruction for the model to ask the user. Nothing is sent to the Company,
+and the log says "Not sent" rather than naming a request. The model never
+sees the authorization URL, the code or the token.
 
 ## 6. Approvals
 

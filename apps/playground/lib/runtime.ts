@@ -1144,7 +1144,7 @@ function fdxConnect(
     trace: (line) => trace.push(line),
     // The consent id the bank returned at sign-in: the model never names it.
     consentId: () => run.fdxConsent,
-    request: fdxRequest(run),
+    request: fdxRequest(run, trace),
   });
   // The User chose this API: steer the model to it. A preference, not a
   // block; the bank applies the accounts chosen at consent to both APIs.
@@ -1162,17 +1162,37 @@ function fdxConnect(
 
 const SIGN_IN_REQUIRED = {
   error: "sign_in_required",
+  // Iris answered this itself: nothing was sent to the Company.
+  sent: false,
   instruction: "Ask the user to use the Sign in control in the chat.",
 } as const;
 const FDX = DOMAIN_EXTENSIONS.find((e) => e.key === "fdx")!;
 const ESPI = DOMAIN_EXTENSIONS.find((e) => e.key === "espi")!;
 
 /**
+ * A request Iris stops before asking the Company: signed out, or without a
+ * permission the request needs. The adapter wrote the request's line just
+ * before calling; that line is replaced by one that says nothing was sent,
+ * so the log never shows a request that wasn't made.
+ */
+function notSent(trace: string[], reason: string) {
+  const asked = /^(GET|POST) (\S+) · /.exec(trace.at(-1) ?? "");
+  if (asked) trace.pop();
+  trace.push(
+    `Not sent${asked ? ` · ${asked[1]} ${asked[2]}` : ""} · ${reason}`,
+  );
+}
+
+/**
  * How a domain extension's native tools reach the Company: signed in,
  * within the granted scopes, through `papRequest`. The FDX-shaped tools ask
  * for JSON or a statement PDF, the ESPI-shaped ones for Atom XML.
  */
-function extensionRequest(run: Run, extension: DomainExtension) {
+function extensionRequest(
+  run: Run,
+  extension: DomainExtension,
+  trace: string[],
+) {
   return async (
     url: string,
     scopes: string[],
@@ -1180,17 +1200,23 @@ function extensionRequest(run: Run, extension: DomainExtension) {
   ) => {
     // Every route of a domain extension is account data, the consent and
     // authorization ones included.
-    if (!run.accountToken) return { outcome: SIGN_IN_REQUIRED };
+    if (!run.accountToken) {
+      notSent(trace, "sign-in needed");
+      return { outcome: SIGN_IN_REQUIRED };
+    }
     const granted = (run.scopes ?? "").split(" ");
     const missing = scopes.filter((s) => !granted.includes(s));
-    if (missing.length)
+    if (missing.length) {
+      notSent(trace, "permission not granted");
       return {
         outcome: {
           error: "insufficient_scope",
+          sent: false,
           missing,
           instruction: `This sign-in doesn't include these ${extension.shape} ${extension.key === "fdx" ? "data clusters" : "scopes"}. Ask the user to sign in again with Use ${extension.label} on; do not retry until then.`,
         },
       };
+    }
     try {
       // A document (a statement PDF, an Atom feed): its bytes, for the
       // adapter to check.
@@ -1233,7 +1259,8 @@ function extensionRequest(run: Run, extension: DomainExtension) {
     }
   };
 }
-const fdxRequest = (run: Run) => extensionRequest(run, FDX);
+const fdxRequest = (run: Run, trace: string[]) =>
+  extensionRequest(run, FDX, trace);
 
 /**
  * `poppylab.dev/fdx` v1: the native tools for the User's own actions in the
@@ -1247,7 +1274,7 @@ export function fdxUserTools(run: Run, trace: string[]) {
     entry,
     trace: (line) => trace.push(line),
     consentId: () => run.fdxConsent,
-    request: fdxRequest(run),
+    request: fdxRequest(run, trace),
   });
 }
 
@@ -1268,7 +1295,11 @@ export async function fdxStatementDownload(
   if (!validFdxId(accountId) || !validFdxId(statementId))
     throw new UserFacingError("That isn't a statement of a shared account.");
   return fdxStatementPdf(
-    { entry, request: fdxRequest(run), trace: (line) => trace.push(line) },
+    {
+      entry,
+      request: fdxRequest(run, trace),
+      trace: (line) => trace.push(line),
+    },
     accountId,
     statementId,
   );
@@ -1312,7 +1343,7 @@ export async function fdxConsentRecord(run: Run, trace: string[]) {
     entry: target.entry,
     trace: (line) => trace.push(line),
     consentId: () => target.id,
-    request: fdxRequest(run),
+    request: fdxRequest(run, trace),
   });
   return (await tools.fdx_consent_status!.execute({})) as Record<
     string,
@@ -1383,7 +1414,7 @@ function espiToolset(
   const tools = espiTools({
     entry,
     trace: (line) => trace.push(line),
-    request: extensionRequest(run, ESPI),
+    request: extensionRequest(run, ESPI, trace),
     resourceUri: () => run.espiResourceUri,
     authorizationUri: () => run.espiAuthorizationUri,
   });
@@ -1794,17 +1825,28 @@ async function openApiConnect(
     ],
     trace: (message) => trace.push(message),
     request: async (target, method, body, scopes) => {
-      if (scopes.length && !run.accountToken)
+      // Stopped here, before the Company is asked: `sent: false` tells the
+      // model and the demo that this is no answer of the Company's.
+      if (scopes.length && !run.accountToken) {
+        notSent(trace, "sign-in needed");
         return {
           error: "sign_in_required",
+          sent: false,
           instruction: "Ask the user to use the Sign in control in the chat.",
         };
-      if (scopes.some((s) => !run.scopes?.split(" ").includes(s)))
+      }
+      const granted = (run.scopes ?? "").split(" ");
+      const missing = scopes.filter((s) => !granted.includes(s));
+      if (missing.length) {
+        notSent(trace, "permission not granted");
         return {
           error: "insufficient_scope",
+          sent: false,
+          missing,
           instruction:
             "Ask the user to choose Request change permission. A new Company consent is required; do not retry or propose changes until it completes. Reading remains available.",
         };
+      }
       if (method !== "POST") return papRequest(run, target, method, body);
       try {
         return await papRequest(run, target, method, body);

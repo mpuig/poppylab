@@ -266,23 +266,32 @@ it("sends the token and Session header from the FDX tools, and the consent id th
 });
 
 it("leads to sign-in signed out, and asks for a new sign-in without the data clusters, sending nothing", async () => {
-  const out = await connected(bank({ fdx: true, signedIn: false }));
+  const trace: string[] = [];
+  const out = await connected(bank({ fdx: true, signedIn: false }), trace);
   transport.mockClear();
   for (const name of ["fdx_list_accounts", "fdx_consent_status"])
     expect(await out[name]!.execute({})).toMatchObject({
       error:
         name === "fdx_consent_status" ? "consent_unknown" : "sign_in_required",
     });
+  // The log says the read was not sent, never that it was made.
+  expect(trace.at(-1)).toBe("Not sent · GET /fdx/v6/accounts · sign-in needed");
   const run = bank({ fdx: true });
   run.scopes = "accounts:read fdx:ACCOUNT_BASIC";
-  const tools = await connected(run);
+  trace.length = 0;
+  const tools = await connected(run, trace);
   transport.mockClear();
   expect(await tools.fdx_list_accounts!.execute({ balances: true })).toEqual({
     error: "insufficient_scope",
+    sent: false,
     missing: ["fdx:ACCOUNT_DETAILED"],
     instruction: expect.stringContaining("sign in again with Use FDX on"),
   });
   expect(transport).not.toHaveBeenCalled();
+  expect(trace.at(-1)).toBe(
+    "Not sent · GET /fdx/v6/accounts · permission not granted",
+  );
+  expect(trace.filter((line) => line.startsWith("GET "))).toEqual([]);
 });
 
 it("gives the model an FDX-shaped error body as fdx_error, bounded", async () => {

@@ -954,6 +954,73 @@ it("tells the model the outcome is unknown, not that a proposal waits, when it a
   }
 });
 
+it("writes no request line for a request Iris stops before asking, signed out or without the permission", async () => {
+  const spec = {
+    paths: {
+      "/account/orders": {
+        get: { operationId: "my_orders", "x-poppy-scopes": ["orders:read"] },
+      },
+      "/account/delivery-change": {
+        post: {
+          operationId: "propose_delivery_change",
+          "x-poppy-proposal": true,
+          "x-poppy-scopes": ["orders:write"],
+          responses: { "403": {} },
+        },
+      },
+    },
+  };
+  vi.stubEnv("PAP_ACCOUNT_ORIGINS", "https://shop.papsandbox.com");
+  try {
+    // Signed out: an account read is never sent.
+    const out = example("shop", false);
+    rediscover.mockResolvedValueOnce(out.company!);
+    transport.mockResolvedValueOnce(spec);
+    const trace: string[] = [];
+    let tools = await connect(out, trace);
+    transport.mockClear();
+    expect(await tools.my_orders!.execute({})).toEqual({
+      error: "sign_in_required",
+      sent: false,
+      instruction: expect.stringContaining("Sign in"),
+    });
+    expect(transport).not.toHaveBeenCalled();
+    expect(trace.at(-1)).toBe(
+      "Not sent · GET /account/orders · sign-in needed",
+    );
+    expect(trace.filter((line) => /^(GET|POST) /.test(line))).toEqual([]);
+
+    // Signed in to read only: the read is sent, the change is not.
+    const reader = example("shop");
+    reader.scopes = "orders:read";
+    reader.dpop = dpop;
+    rediscover.mockResolvedValueOnce(reader.company!);
+    transport.mockResolvedValueOnce(spec);
+    trace.length = 0;
+    tools = await connect(reader, trace);
+    transport.mockClear();
+    expect(await tools.propose_delivery_change!.execute({})).toEqual({
+      error: "insufficient_scope",
+      sent: false,
+      missing: ["orders:write"],
+      instruction: expect.stringContaining("Request change permission"),
+    });
+    expect(transport).not.toHaveBeenCalled();
+    expect(trace.at(-1)).toBe(
+      "Not sent · POST /account/delivery-change · permission not granted",
+    );
+    await tools.my_orders!.execute({});
+    expect(transport.mock.calls.map(([url]) => url)).toContain(
+      "https://shop.papsandbox.com/account/orders",
+    );
+    expect(trace.filter((line) => /^(GET|POST) /.test(line))).toEqual([
+      "GET /account/orders · Poppy Session",
+    ]);
+  } finally {
+    vi.unstubAllEnvs();
+  }
+});
+
 it("approves as the agent without input_type, and a different approver is a new approval (Operations v3 §6)", () => {
   const op = {
     operation_id: "op_1",

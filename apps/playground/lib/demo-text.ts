@@ -171,11 +171,52 @@ function lines(
   return out;
 }
 
+/**
+ * Why Iris stopped before asking the Company, when a tool's answer says so
+ * (`sent: false`, from the runtime): signed out, or signed in without a
+ * permission the request needs. Undefined for an answer of the Company's.
+ */
+function notSent(value: unknown) {
+  if (!isObject(value) || value.sent !== false) return undefined;
+  return value.error === "sign_in_required"
+    ? ("sign_in" as const)
+    : value.error === "insufficient_scope"
+      ? ("permission" as const)
+      : undefined;
+}
+
+/**
+ * What the demo says when Iris stopped before asking: what the request
+ * needs, the control to press, and that nothing was sent. Undefined for an
+ * answer of the Company's. `changes` says whether a scope lets Iris propose
+ * changes (the Company's own hints): missing one, the control is “Request
+ * change permission”.
+ */
+export function notSentReply(
+  value: unknown,
+  company: string,
+  changes: (scope: string) => boolean,
+) {
+  const reason = notSent(value);
+  if (!reason) return undefined;
+  if (reason === "sign_in")
+    return `This needs your account at ${company}, and you are not signed in. Iris did not ask: nothing was sent to the Company. Press “Sign in to ${company}”, then ask again.`;
+  const missing = (value as Json).missing;
+  return Array.isArray(missing) &&
+    missing.some((scope) => typeof scope === "string" && changes(scope))
+    ? `This needs the change permission, which your sign-in to ${company} doesn't include. Iris did not ask: nothing was sent to the Company. Press “Request change permission”, review the Company's consent, and ask again.`
+    : `This needs a permission your sign-in to ${company} doesn't include. Iris did not ask: nothing was sent to the Company. Sign out, then sign in again and keep every permission ticked on the Company's consent page.`;
+}
+
 /** A Company's answer in plain lines. */
 export function readable(value: unknown): string {
   if (Array.isArray(value))
     return readable({ items: value }).replace(/^Items/, "Results");
   if (!isObject(value)) return value == null ? "No data." : String(value);
+  // Not an answer of the Company's: Iris never asked.
+  const stopped = notSent(value);
+  if (stopped)
+    return `Iris did not ask the Company: ${stopped === "sign_in" ? "this needs your account, and you are not signed in" : "your sign-in doesn't include a permission this needs"}. Nothing was sent.`;
   // A change the Company holds: its own summary says it best.
   if (value.status === "approval_required" && typeof value.summary === "string")
     return `The company is holding this change until you approve it:\n${value.summary}`;
