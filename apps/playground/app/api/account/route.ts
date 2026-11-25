@@ -332,6 +332,16 @@ async function act(request: Request, started: { id?: string }) {
       rule = covered.text;
       ruleCents = covered.cents;
     }
+    // An agent approval counts toward the hour's limits once, when it is
+    // first sent and performed or possibly performed. Its retry is the same
+    // approval (§7), not another one, and has no amount of its own.
+    const countAgentApproval = () => {
+      if (approver === "agent" && body.action === "approve")
+        run.agentApprovals = [
+          ...(run.agentApprovals ?? []),
+          { at: Date.now(), cents: ruleCents },
+        ].slice(-20);
+    };
     operationRequested = true;
     try {
       const result = (await sendApproval(run, op, approver)) as {
@@ -349,11 +359,7 @@ async function act(request: Request, started: { id?: string }) {
         ...(rule ? { rule } : {}),
         ...(op.approval?.reference ? { reference: op.approval.reference } : {}),
       };
-      if (approver === "agent")
-        run.agentApprovals = [
-          ...(run.agentApprovals ?? []),
-          { at: Date.now(), cents: ruleCents },
-        ].slice(-20);
+      countAgentApproval();
       delete op.request;
     } catch (error) {
       if (
@@ -477,9 +483,12 @@ async function act(request: Request, started: { id?: string }) {
         !(error instanceof ProtocolError) ||
         error.status >= 500 ||
         error.status === 429
-      )
+      ) {
         // Lost response, timeout, 503 in progress: the outcome is unknown.
         op.state = "uncertain";
+        // It may have been performed, so it uses the allowance now.
+        countAgentApproval();
+      }
       throw error;
     }
     record(run, {

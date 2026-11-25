@@ -656,20 +656,23 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
     operations: Record<string, Record<string, unknown>>;
     agentApprovals?: unknown[];
   };
-  beforeEach(() => {
-    delete run.agentApprovals;
+  const propose = (cents = 1200) => {
     run.operations.op_rule = {
       operation_id: "op_rule",
       revision: "r1",
       state: "proposed",
       summary: "Place the basket order.",
-      terms: { total_cents: 1200, currency: "USD" },
+      terms: { total_cents: cents, currency: "USD" },
       expires_at: new Date(Date.now() + 60000).toISOString(),
       request: {
         url: "http://juniper.localhost:4100/api/account/checkout",
         body: {},
       },
     };
+  };
+  beforeEach(() => {
+    delete run.agentApprovals;
+    propose();
   });
   const approve = (instruction?: unknown) =>
     POST(
@@ -723,6 +726,37 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
     expect(r.status).toBe(409);
     expect((await r.json()).error).toContain("last hour");
     expect(state.request).not.toHaveBeenCalled();
+  });
+
+  it("counts an approval with an unknown outcome once, at its amount, retried or not", async () => {
+    // Each is $20.00 under a $20.00 rule: three fit in the hour's total.
+    propose(2000);
+    state.request.mockImplementationOnce(
+      async (_run: unknown, op: Record<string, unknown>, approver: string) => {
+        // As sendApproval does: the approval stays with the operation.
+        op.approval = { approver, approved_at: 1791487260, reference: "a1" };
+        throw new Error("socket hang up");
+      },
+    );
+    expect((await approve(rule)).status).toBe(502);
+    // It may have been performed, so it counts before anyone retries it.
+    expect(run.agentApprovals).toMatchObject([{ cents: 2000 }]);
+    state.request.mockResolvedValue({ summary: "Ordered." });
+    const retried = await POST(
+      request({ action: "retry", id: "op_rule", revision: "r1" }),
+    );
+    expect(retried.status).toBe(200);
+    expect((await retried.json()).operation).toMatchObject({
+      state: "succeeded",
+      approvedBy: { approver: "agent" },
+    });
+    // The retry is the same approval: not zero cents, and not a second one.
+    expect(run.agentApprovals).toMatchObject([{ cents: 2000 }]);
+    for (const status of [200, 200, 409]) {
+      propose(2000);
+      expect((await approve(rule)).status).toBe(status);
+    }
+    expect(state.request).toHaveBeenCalledTimes(4);
   });
 
   it("gives the operation back to the User when the Company declines the agent's approval", async () => {
