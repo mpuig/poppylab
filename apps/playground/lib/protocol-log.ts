@@ -22,10 +22,28 @@ function bareUrl(value: string) {
   return value.replace(/[?#].*$/, "");
 }
 
+/**
+ * The line for a request the Company answered with an error: its status and
+ * its error code (the protocol's, or one short token of the Company's own),
+ * never its words, its body or a header. Below 500 the Company refused the
+ * request; from 500 on, the request failed.
+ */
+export function refusedLine(
+  method: string,
+  path: string,
+  status: number,
+  code?: string,
+) {
+  return `${method} ${path} · ${status < 500 ? "refused by the Company" : "request failed"} · HTTP ${status}${code ? ` ${code}` : ""}`;
+}
+
 function outcomeOf(text: string): ProtocolOutcome {
   // Iris stopped before asking: nothing happened, whatever the address
   // it names says.
   if (/^Not sent\b/.test(text)) return "info";
+  // A refusal (`refusedLine`), whatever words its error code is made of:
+  // `payment_failed` is still the Company saying no.
+  if (/^ · refused by the Company\b/.test(text)) return "refused";
   if (/approval required/i.test(text)) return "waiting";
   // The User's own revocation went through: done, not declined.
   if (/consent revoked/i.test(text)) return "ok";

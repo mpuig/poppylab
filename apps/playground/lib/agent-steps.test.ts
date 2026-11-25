@@ -33,6 +33,31 @@ it("never says Iris read or sent a request it stopped before asking", () => {
   );
 });
 
+it("says the Company refused a request, with its status and code", () => {
+  expect(
+    step(
+      "POST /api/account/payments · refused by the Company · HTTP 409 insufficient_funds",
+    ),
+  ).toEqual({
+    text: "The Company refused the request to /api/account/payments (HTTP 409 insufficient_funds)",
+    how: "API",
+    access: "view and change",
+    state: "failed",
+  });
+  expect(
+    step("GET /api/orders · refused by the Company · HTTP 404"),
+  ).toMatchObject({
+    text: "The Company refused the request to /api/orders (HTTP 404)",
+    access: "view",
+    state: "failed",
+  });
+  // The Company didn't answer the request: failed, not refused.
+  expect(step("GET /api/orders · request failed · HTTP 503")).toMatchObject({
+    text: "Read /api/orders",
+    state: "failed",
+  });
+});
+
 it("says an approval is waiting and nothing was done", () => {
   expect(step("Approval required · nothing performed")).toMatchObject({
     state: "waiting",

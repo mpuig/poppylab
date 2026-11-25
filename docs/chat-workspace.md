@@ -133,7 +133,12 @@ in the page; the server's approval endpoint is the one it always was.
   section, the method and address without its query, and an outcome read from
   the event's own words. Times are when the page received each event, and one
   turn's events arrive together. The trace can be copied or downloaded as text
-  for an interop report; it holds no headers, bodies, tokens or keys.
+  for an interop report; it holds no headers, bodies, tokens or keys. A request
+  the Company refuses is logged after the request itself, with its status and
+  error code and never the Company's words ("POST /api/account/payments ·
+  refused by the Company · HTTP 409 insufficient_funds", labelled Declined);
+  the chat's error names the same status and code, and the available balance
+  or the limit when the Company gave one as a number.
 - **Failed messages and links.** A message that fails offers Try again, which
   puts its text back in the composer, and Remove. A link that carries a token
   or signature in its query or fragment is shown with "…" in its place; a

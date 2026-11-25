@@ -30,6 +30,7 @@ vi.mock("@/lib/deployment", async (importOriginal) => ({
   isAccountCompany: () => true,
   proposalsAllowed: () => true,
 }));
+import { createIdentity, ProtocolError } from "@poppy-lab/pap-client";
 import { agentStep } from "@/lib/agent-steps";
 import { logEntry } from "@/lib/protocol-log";
 import { seedRun } from "@/lib/runs";
@@ -196,6 +197,89 @@ it("names the change permission, and says nothing was sent, when a read-only cus
     "Not sent · POST /api/account/delivery-change · permission not granted",
   );
   expect(turn.steps.join("\n")).not.toMatch(/^(Read|Sent a request to) /m);
+});
+
+/** The Company's error answer, as `protocolRequest` throws it. */
+const refusal = (status: number, body?: Record<string, unknown>) =>
+  new ProtocolError(
+    status,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    body,
+    typeof body?.error === "string" ? body.error : undefined,
+  );
+/** A change asked for with full permission, which the Company answers `error`. */
+async function refusedChange(error: Error) {
+  transport.mockImplementation(async (url) => {
+    if (url === origin + "/poppy/openapi.json") return api;
+    if (url === origin + "/api/account/delivery-change") throw error;
+    return { ok: true };
+  });
+  const run = shop("poppy:read poppy:write");
+  run.dpop = (await createIdentity()).privateKey;
+  return say(run, "Move my recurring delivery to Saturday.");
+}
+
+it("answers a refused request with the Company's status, code and a number it gave, and the log line for it", async () => {
+  const turn = await refusedChange(
+    refusal(409, {
+      error: "insufficient_funds",
+      available_cents: 321055,
+      message: "Words of the Company's own.",
+    }),
+  );
+  expect(turn.status).toBe(502);
+  expect(turn.answer).toMatchObject({
+    error:
+      "Juniper Market answered HTTP 409 insufficient_funds (available balance: 3,210.55). Nothing was retried; see the Inspector.",
+    code: "company_error",
+  });
+  // What "see the Inspector" points at: the request, then its refusal.
+  expect(turn.answer.trace!.slice(-2)).toEqual([
+    "POST /api/account/delivery-change · Poppy Session",
+    "POST /api/account/delivery-change · refused by the Company · HTTP 409 insufficient_funds",
+  ]);
+  expect(turn.steps.slice(-2)).toEqual([
+    "Sent a request to /api/account/delivery-change",
+    "The Company refused the request to /api/account/delivery-change (HTTP 409 insufficient_funds)",
+  ]);
+  expect(JSON.stringify(turn.answer)).not.toContain("Words of the Company");
+});
+
+it("says a limit the Company gave, and nothing of a body it doesn't know", async () => {
+  const limited = await refusedChange(
+    refusal(422, { error: "transfer_limit_exceeded", limit_cents: 250000 }),
+  );
+  expect(limited.answer.error).toBe(
+    "Juniper Market answered HTTP 422 transfer_limit_exceeded (limit: 2,500.00). Nothing was retried; see the Inspector.",
+  );
+  expect(limited.answer.trace!.at(-1)).toBe(
+    "POST /api/account/delivery-change · refused by the Company · HTTP 422 transfer_limit_exceeded",
+  );
+  // Not a whole number, or under another key: left out.
+  const odd = await refusedChange(
+    refusal(409, {
+      error: "account_inactive",
+      available_cents: "plenty",
+      limit_cents: 12.5,
+      balance: 7,
+      currency: "USD",
+    }),
+  );
+  expect(odd.answer.error).toBe(
+    "Juniper Market answered HTTP 409 account_inactive. Nothing was retried; see the Inspector.",
+  );
+  const bare = await refusedChange(refusal(503));
+  expect(bare.answer.error).toBe(
+    "Juniper Market answered HTTP 503. Nothing was retried; see the Inspector.",
+  );
+  expect(bare.answer.trace!.at(-1)).toBe(
+    "POST /api/account/delivery-change · request failed · HTTP 503",
+  );
 });
 
 it("still shows the Company's answer, and the request, for a read that was sent", async () => {

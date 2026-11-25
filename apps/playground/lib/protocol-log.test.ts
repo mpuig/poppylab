@@ -1,5 +1,11 @@
 import { expect, it } from "vitest";
-import { clock, logEntry, traceFileName } from "./protocol-log";
+import {
+  clock,
+  logEntry,
+  outcomeLabel,
+  refusedLine,
+  traceFileName,
+} from "./protocol-log";
 
 it("types a trace line with its section, request and outcome", () => {
   const e = logEntry("GET /api/orders?token=secret#x · Poppy Session", 1000);
@@ -51,6 +57,43 @@ it("types a request Iris stopped before asking as a note, never as a request", (
   });
   expect(e).not.toHaveProperty("method");
   expect(e).not.toHaveProperty("url");
+});
+
+it("labels a request the Company refused as declined, whatever its error code says", () => {
+  expect(
+    refusedLine("POST", "/api/account/payments", 409, "insufficient_funds"),
+  ).toBe(
+    "POST /api/account/payments · refused by the Company · HTTP 409 insufficient_funds",
+  );
+  expect(refusedLine("GET", "/api/orders", 404)).toBe(
+    "GET /api/orders · refused by the Company · HTTP 404",
+  );
+  for (const code of [
+    "insufficient_funds",
+    "transfer_limit_exceeded",
+    // Words that would read as another outcome on their own.
+    "payment_failed",
+    "unknown_recipient",
+    "internal_error",
+    "approval_required",
+    "consent_revoked",
+    undefined,
+  ]) {
+    const e = logEntry(
+      refusedLine("POST", "/api/account/transfers", 422, code),
+    );
+    expect(e).toMatchObject({
+      section: "§7",
+      method: "POST",
+      url: "/api/account/transfers",
+      outcome: "refused",
+    });
+    expect(outcomeLabel[e.outcome]).toBe("Declined");
+  }
+  // From 500 on the Company didn't refuse: the request failed.
+  const failed = logEntry(refusedLine("GET", "/api/orders", 503));
+  expect(failed.text).toBe("GET /api/orders · request failed · HTTP 503");
+  expect(outcomeLabel[failed.outcome]).toBe("Error");
 });
 
 it("reads the User's FDX consent revocation as done, and its failure as an error", () => {

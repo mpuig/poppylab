@@ -41,6 +41,41 @@ export const runtime = "nodejs";
 let active = 0;
 let count = 0;
 let windowStart = Date.now();
+/**
+ * A number the Company put in its refusal under a key we know, in our own
+ * words: the balance available, or a limit, in cents (Harborline's
+ * `insufficient_funds` and `transfer_limit_exceeded`). Only a whole number
+ * under such a key is shown, with the body's currency when that is a
+ * three-letter code: never the Company's free text.
+ */
+function refusalFacts(body: unknown) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return "";
+  const from = body as Record<string, unknown>;
+  const currency =
+    typeof from.currency === "string" && /^[A-Z]{3}$/.test(from.currency)
+      ? ` ${from.currency}`
+      : "";
+  const facts = (
+    [
+      ["available_cents", "available balance"],
+      ["limit_cents", "limit"],
+    ] as const
+  ).flatMap(([key, label]) => {
+    const cents = from[key];
+    return typeof cents === "number" &&
+      Number.isSafeInteger(cents) &&
+      cents >= 0 &&
+      cents <= 1e13
+      ? [
+          `${label}: ${(cents / 100).toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}${currency}`,
+        ]
+      : [];
+  });
+  return facts.length ? ` (${facts.join(", ")})` : "";
+}
 /** Names the conversation in a header, so the page can keep its address. */
 export async function POST(request: Request) {
   const started: { id?: string } = {};
@@ -75,6 +110,9 @@ async function reply(request: Request, started: { id?: string }) {
   let held: Held | undefined;
   let visitor: string | undefined;
   let stage = "request";
+  // What Iris did this turn. A turn that fails answers with it too, so the
+  // Inspector lists the request the Company refused.
+  const trace: string[] = [];
   try {
     if (!request.headers.get("content-type")?.startsWith("application/json"))
       throw new UserFacingError("Use JSON");
@@ -197,7 +235,6 @@ async function reply(request: Request, started: { id?: string }) {
       throw new UserFacingError(
         "This run reached its 20-turn limit. Connect again to start another run.",
       );
-    const trace: string[] = [];
     const shown: CompanyEntry[] = [];
     stage = "pap";
     const tools = await connect(run, trace, shown);
@@ -491,6 +528,7 @@ async function reply(request: Request, started: { id?: string }) {
             "The Company refused this signed-out Poppy 1.0 Session. It may implement another version of the protocol; check its discovery in the Inspector.",
           code: "session_refused",
           stage,
+          trace,
         },
         { status: 502, headers: { "Cache-Control": "no-store" } },
       );
@@ -503,19 +541,20 @@ async function reply(request: Request, started: { id?: string }) {
           code: "sign_in_required",
           next: "signin",
           stage,
+          trace,
         },
         { status: 401, headers: { "Cache-Control": "no-store" } },
       );
     if (recovery) {
       if (run && recovery.next === "signin") run.accountUnavailable = true;
       return NextResponse.json(
-        { ...recovery, stage },
+        { ...recovery, stage, trace },
         { status: recovery.status, headers: { "Cache-Control": "no-store" } },
       );
     }
     if (error instanceof ModelRequestError) {
       return NextResponse.json(
-        { error: error.message, code: error.code, stage: "provider" },
+        { error: error.message, code: error.code, stage: "provider", trace },
         { status: 502, headers: { "Cache-Control": "no-store" } },
       );
     }
@@ -530,9 +569,10 @@ async function reply(request: Request, started: { id?: string }) {
       const shown = code ?? error.companyCode;
       return NextResponse.json(
         {
-          error: `The Company answered HTTP ${error.status}${shown ? ` ${shown}` : ""}. Nothing was retried; see the Inspector.`,
+          error: `${run?.company?.document.organization.name ?? "The Company"} answered HTTP ${error.status}${shown ? ` ${shown}` : ""}${refusalFacts(error.body)}. Nothing was retried; see the Inspector.`,
           code: code ?? "company_error",
           stage,
+          trace,
         },
         { status: 502, headers: { "Cache-Control": "no-store" } },
       );
@@ -555,7 +595,7 @@ async function reply(request: Request, started: { id?: string }) {
         ? message
         : "Chat request failed. Check the Company is running and the selected provider is configured; retry with Protocol demo.";
     return NextResponse.json(
-      { error: safe, stage },
+      { error: safe, stage, trace },
       { status: 400, headers: { "Cache-Control": "no-store" } },
     );
   } finally {

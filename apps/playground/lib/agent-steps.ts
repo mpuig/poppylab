@@ -36,6 +36,17 @@ export function agentStep(entry: ProtocolEntry): AgentStep {
     };
   if (entry.method && entry.url) {
     const read = entry.method === "GET" || entry.method === "HEAD";
+    // The request was sent and the Company said no: its status and code.
+    const refused = / · refused by the Company · (HTTP \d{3}(?: \S+)?)$/.exec(
+      text,
+    );
+    if (refused)
+      return {
+        text: `The Company refused the request to ${entry.url} (${refused[1]})`,
+        how: "API",
+        access: read ? "view" : "view and change",
+        state: "failed",
+      };
     return {
       text: `${read ? "Read" : "Sent a request to"} ${entry.url}`,
       how: "API",

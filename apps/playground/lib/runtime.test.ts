@@ -1021,6 +1021,70 @@ it("writes no request line for a request Iris stops before asking, signed out or
   }
 });
 
+it("logs a request the Company refused with its status and error code, never its words", async () => {
+  const r = example("shop", false);
+  vi.stubEnv("PAP_ACCOUNT_ORIGINS", "https://shop.papsandbox.com");
+  try {
+    rediscover.mockResolvedValueOnce(r.company!);
+    transport.mockResolvedValueOnce({
+      paths: {
+        "/products": { get: { operationId: "list_products" } },
+        "/payments": {
+          post: {
+            operationId: "request_payment",
+            "x-poppy-proposal": true,
+            responses: { "403": {} },
+          },
+        },
+      },
+    });
+    const trace: string[] = [];
+    const tools = await connect(r, trace);
+    const body = {
+      error: "insufficient_funds",
+      available_cents: 321055,
+      message: "Words of the Company's own.",
+    };
+    const refused = new ProtocolError(
+      409,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      body,
+      "insufficient_funds",
+    );
+    transport.mockRejectedValueOnce(refused);
+    await expect(tools.request_payment!.execute({})).rejects.toBe(refused);
+    // The body is asked for, so a number in it can be shown (chat route).
+    expect(transport.mock.calls.at(-1)![4]).toEqual({ errorBody: true });
+    // A code of the protocol's own, and no code at all.
+    transport.mockRejectedValueOnce(new ProtocolError(400, "invalid_request"));
+    await expect(tools.list_products!.execute({})).rejects.toThrow();
+    transport.mockRejectedValueOnce(new ProtocolError(404, undefined));
+    await expect(tools.list_products!.execute({})).rejects.toThrow();
+    // Not a refusal: the Company failed to answer the request.
+    transport.mockRejectedValueOnce(new ProtocolError(503, undefined));
+    await expect(tools.list_products!.execute({})).rejects.toThrow();
+    expect(trace.slice(-8)).toEqual([
+      "POST /payments · Poppy Session",
+      "POST /payments · refused by the Company · HTTP 409 insufficient_funds",
+      "GET /products · Poppy Session",
+      "GET /products · refused by the Company · HTTP 400 invalid_request",
+      "GET /products · Poppy Session",
+      "GET /products · refused by the Company · HTTP 404",
+      "GET /products · Poppy Session",
+      "GET /products · request failed · HTTP 503",
+    ]);
+    expect(trace.join("\n")).not.toContain("Words of the Company");
+    expect(trace.join("\n")).not.toContain("321055");
+  } finally {
+    vi.unstubAllEnvs();
+  }
+});
+
 it("approves as the agent without input_type, and a different approver is a new approval (Operations v3 §6)", () => {
   const op = {
     operation_id: "op_1",

@@ -54,6 +54,7 @@ import {
 } from "./conversations";
 export { recordOperation };
 import { isSandbox } from "./company-policy";
+import { refusedLine } from "./protocol-log";
 import { UserFacingError } from "./user-error";
 import { isAccountCompany, localOrigins, proposalsAllowed } from "./deployment";
 export { localOrigins };
@@ -1847,17 +1848,33 @@ async function openApiConnect(
             "Ask the user to choose Request change permission. A new Company consent is required; do not retry or propose changes until it completes. Reading remains available.",
         };
       }
-      if (method !== "POST") return papRequest(run, target, method, body);
       try {
-        return await papRequest(run, target, method, body);
+        // An error body of the Company's own is kept on the error, so the
+        // chat can show a number from it (never its words).
+        return await papRequest(run, target, method, body, {
+          errorBody: true,
+        });
       } catch (error) {
         // Operations v3 §4: refused, nothing performed, operation attached.
         if (
+          method !== "POST" ||
           !(error instanceof ProtocolError) ||
           error.status !== 403 ||
           error.code !== "approval_required"
-        )
+        ) {
+          // Any other error answer is logged before it ends the turn: the
+          // chat points at the Inspector, which lists it.
+          if (error instanceof ProtocolError)
+            trace.push(
+              refusedLine(
+                method,
+                new URL(target).pathname,
+                error.status,
+                error.code ?? error.companyCode,
+              ),
+            );
           throw error;
+        }
         const op = recordOperation(run, error.operation, {
           url: target,
           body,
