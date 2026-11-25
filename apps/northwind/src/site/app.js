@@ -22,6 +22,18 @@ const activityNames = {
   expired: "Expired",
 };
 
+/** One row of agent activity: a state tag, what was proposed, the result. */
+const tones = { proposed: "pending", succeeded: "done", expired: "muted" };
+function record(item, label) {
+  const row = node("li", undefined, "record");
+  row.dataset.tone = tones[item.state] || "muted";
+  const head = node("div", undefined, "record-head");
+  head.append(node("span", label, "record-tag"));
+  row.append(head, node("p", item.summary || item.result, "record-title"));
+  if (item.result && item.summary && item.result !== item.summary)
+    row.append(node("p", item.result, "record-body"));
+  return row;
+}
 /** Airport local time, as printed on a ticket: the ISO string's own clock. */
 const localTime = (departure, arrival) =>
   new Date(departure.slice(0, 10) + "T12:00:00Z").toLocaleDateString("en-GB", {
@@ -161,13 +173,11 @@ function render(data) {
   activity.replaceChildren();
   if (!data.activity.length)
     activity.append(node("p", "No agent proposals yet.", "notice"));
-  for (const item of data.activity) {
-    const article = node("article", undefined, "activity");
-    article.append(
-      node("h3", activityNames[item.state] || item.state),
-      node("p", item.result || item.summary),
-    );
-    activity.append(article);
+  else {
+    const list = node("ol", undefined, "records");
+    for (const item of data.activity)
+      list.append(record(item, activityNames[item.state] || item.state));
+    activity.append(list);
   }
 }
 

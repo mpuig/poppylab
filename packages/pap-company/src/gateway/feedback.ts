@@ -50,6 +50,13 @@ export function mountFeedback(app: Hono, ctx: Ctx, tenancy: Tenancy) {
 
 const escapeHtml = (v: string) =>
   v.replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`);
+/** "Nov 25, 09:14 UTC": the same for every viewer. */
+const when = (iso: string) => {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? ""
+    : `${new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "UTC" }).format(d)} UTC`;
+};
 const agentHost = (client: string) => {
   try {
     return new URL(client).host;
@@ -76,10 +83,10 @@ export function feedbackSection(
   const notice = classes.notice ? ` class="${classes.notice}"` : "";
   const items = [...reports]
     .reverse()
-    .map(
-      (r) =>
-        `<li class="feedback-report"><p class="feedback-task"><strong>${escapeHtml(r.task)}</strong></p><p>${escapeHtml(r.description)}</p><p${notice}>From ${escapeHtml(agentHost(r.client))} · <time datetime="${escapeHtml(r.at)}">${escapeHtml(r.at.slice(0, 16).replace("T", " "))} UTC</time> · ${r.answer === "alternative" ? "We answered with another way to do it" : "Received, no alternative offered"}</p></li>`,
-    )
+    .map((r) => {
+      const offered = r.answer === "alternative";
+      return `<li class="record" data-tone="${offered ? "info" : "muted"}"><div class="record-head"><span class="record-tag">${offered ? "Alternative offered" : "Received"}</span><time class="record-when" datetime="${escapeHtml(r.at)}">${escapeHtml(when(r.at))}</time></div><p class="record-title">${escapeHtml(r.task)}</p><p class="record-body">${escapeHtml(r.description)}</p><p class="record-meta">From ${escapeHtml(agentHost(r.client))}</p></li>`;
+    })
     .join("");
-  return `<section${classes.section ? ` class="${classes.section}"` : ""} id="agent-feedback"><h2>Feedback from agents</h2><p${notice}>Tasks your agent couldn't do here and reported to us (Poppy §9.3). Reports describe the task, not you; their text is shown as written. Reload the page to see new ones.</p>${items ? `<ol class="feedback-list">${items}</ol>` : `<p${notice}>No reports yet. Ask your agent for something we don't offer through Poppy, such as ${escapeHtml(classes.example ?? "a task this Company doesn't handle")}.</p>`}</section>`;
+  return `<section${classes.section ? ` class="${classes.section}"` : ""} id="agent-feedback"><h2>Feedback from agents</h2><p${notice}>Tasks your agent couldn't do here and reported to us (Poppy §9.3). Reports describe the task, not you; their text is shown as written. Reload the page to see new ones.</p>${items ? `<ol class="records">${items}</ol>` : `<p${notice}>No reports yet. Ask your agent for something we don't offer through Poppy, such as ${escapeHtml(classes.example ?? "a task this Company doesn't handle")}.</p>`}</section>`;
 }

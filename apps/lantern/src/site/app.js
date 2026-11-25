@@ -26,6 +26,18 @@ const states = {
   succeeded: "Applied",
   expired: "Expired",
 };
+/** One row of agent activity: a state tag, what was proposed, the result. */
+const tones = { proposed: "pending", succeeded: "done", expired: "muted" };
+function record(item, label) {
+  const row = node("li", undefined, "record");
+  row.dataset.tone = tones[item.state] || "muted";
+  const head = node("div", undefined, "record-head");
+  head.append(node("span", label, "record-tag"));
+  row.append(head, node("p", item.summary || item.result, "record-title"));
+  if (item.result && item.summary && item.result !== item.summary)
+    row.append(node("p", item.result, "record-body"));
+  return row;
+}
 let snapshot = null;
 const editing = new Map();
 
@@ -239,13 +251,11 @@ function render(data) {
   activity.replaceChildren();
   if (!data.activity.length)
     activity.append(node("p", "No proposals yet.", "notice"));
-  for (const a of data.activity) {
-    const article = node("article", undefined, "activity");
-    article.append(
-      node("h3", states[a.state] || a.state),
-      node("p", a.result || a.summary),
-    );
-    activity.append(article);
+  else {
+    const list = node("ol", undefined, "records");
+    for (const a of data.activity)
+      list.append(record(a, states[a.state] || a.state));
+    activity.append(list);
   }
 }
 

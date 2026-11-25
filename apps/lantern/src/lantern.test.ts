@@ -578,7 +578,12 @@ it("customer website: shows the agent's feedback reports, newest first and escap
   expect(section.indexOf("chopsticks")).toBeLessThan(
     section.indexOf("Buy a gift card"),
   );
-  expect(section).toContain("We answered with another way to do it");
-  expect(section).toContain("Received, no alternative offered");
+  expect(section).toContain(
+    '<li class="record" data-tone="info"><div class="record-head"><span class="record-tag">Alternative offered</span>',
+  );
+  expect(section).toContain(
+    '<li class="record" data-tone="muted"><div class="record-head"><span class="record-tag">Received</span>',
+  );
+  expect(section).toMatch(/[A-Z][a-z]{2} \d{1,2}, \d{2}:\d{2} UTC/);
   expect(section).toContain("From localhost:3000");
 });

@@ -29,6 +29,18 @@ const states = {
   succeeded: "Applied once",
   expired: "Expired without change",
 };
+/** One row of agent activity: a state tag, what was proposed, the result. */
+const tones = { proposed: "pending", succeeded: "done", expired: "muted" };
+function record(item, label) {
+  const row = node("li", undefined, "record");
+  row.dataset.tone = tones[item.state] || "muted";
+  const head = node("div", undefined, "record-head");
+  head.append(node("span", label, "record-tag"));
+  row.append(head, node("p", item.summary || item.result, "record-title"));
+  if (item.result && item.summary && item.result !== item.summary)
+    row.append(node("p", item.result, "record-body"));
+  return row;
+}
 function render(data) {
   $("current-account").textContent =
     "Signed in as " +
@@ -106,17 +118,12 @@ function render(data) {
       ),
     ),
   );
-  const activity = data.activity.length
-    ? data.activity.map((item) => {
-        const article = node("article", undefined, "activity");
-        article.append(
-          node("strong", states[item.state] || item.state),
-          node("p", item.result || item.summary),
-        );
-        return article;
-      })
-    : [node("p", "No agent proposals yet.", "fine")];
-  $("activity").replaceChildren(...activity);
+  const list = node("ol", undefined, "records");
+  for (const item of data.activity)
+    list.append(record(item, states[item.state] || item.state));
+  $("activity").replaceChildren(
+    data.activity.length ? list : node("p", "No agent proposals yet.", "fine"),
+  );
 }
 let busy = false;
 let stopped = false;

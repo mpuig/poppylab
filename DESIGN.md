@@ -9,6 +9,8 @@ Each Company keeps its own visual world (below), because they stand for differen
 - **The same two people:** every Company has the same two test customers, Elena Maren (listed first) and Robin Ito, so a visitor is one person with one agent at four companies. Their account IDs are `elena` and `robin` everywhere.
 - **Plain account pages:** sign-in says there is no password and nobody's identity is checked; the page shows "Signed in as …, a test customer"; proposals are approved "in your agent"; grants are "connected agents" that can be disconnected. Entity versions, internal IDs and timestamps in the viewer's time zone are not shown.
 
+- **Agent records:** "Your agent's activity" and "Feedback from agents" use one row grammar (`.records` > `.record`): a state tag, the proposal or reported task as the title, the result or description as quieter body text at 65ch, and small metadata (the agent's host, a UTC time for reports). Tags carry tone, not icons: `pending` (awaiting approval) takes each site's action colour, `done` its healthy state, `info` (an alternative offered) a quiet tint, and `muted` (expired, received) only an outline. Each site draws the tag in its own lettering: Lantern's embossed mono labels, Harborline's notice-board capitals, Northwind's briefing codes and Juniper's soft grocer's labels with serif titles.
+
 The footer keeps each Company's fiction notice and the shared "Part of Poppy Lab" line.
 
 ## Northwind Air website: synoptic route chart
