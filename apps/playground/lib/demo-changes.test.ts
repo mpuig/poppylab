@@ -308,6 +308,14 @@ it("pays a saved recipient, never one it wasn't shown", async () => {
   expect(await demoChange("pay my landlord $900", bank(), key)).toMatchObject({
     say: expect.stringContaining("Beacon Studio LLC"),
   });
+  // An inactive recipient is neither matched (here on "old") nor offered.
+  for (const message of [
+    "pay my old landlord $900",
+    "Send Old Wharf Storage $50 for the unit",
+  ])
+    expect(await demoChange(message, bank(), key)).toEqual({
+      say: "Who should be paid? Your active saved recipients are Beacon Studio LLC.",
+    });
 });
 
 it("accepts the upgrade offer on the flight named, and adds bags", async () => {

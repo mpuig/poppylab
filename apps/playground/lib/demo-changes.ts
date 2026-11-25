@@ -367,12 +367,17 @@ async function moneyChange(
 
   const paying = /\b(pay|send)\b/.test(lowered) && !!tools.request_payment;
   if (paying && tools.recipients) {
-    const recipients = list(await tools.recipients.execute(), "recipients");
+    // Only a recipient the bank would pay: an inactive one is not offered,
+    // and a word of its name ("old") is not taken for it.
+    const recipients = list(
+      await tools.recipients.execute(),
+      "recipients",
+    ).filter((item) => item.status === "active");
     const to = mentioned(lowered, recipients, (item) => text(item.name))[0]
       ?.item;
     if (!to)
       return {
-        say: `Who should be paid? Your saved recipients are ${recipients.map((item) => text(item.name)).join(" and ") || "none"}.`,
+        say: `Who should be paid? Your active saved recipients are ${recipients.map((item) => text(item.name)).join(" and ") || "none"}.`,
       };
     const from =
       named[0]?.account ??
