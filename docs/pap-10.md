@@ -44,7 +44,14 @@ See [conversations](conversations.md). In short: every `POST` has a request `id`
 
 ## Not yet done
 
-Direct Conversations, streaming, browser join (`poppy:browser-sign-in`, `web.*`), operations on websites, Device and Mediated Sign-In, signed-in MCP with per-service tokens, approvals over MCP `_meta`, agent approvals, feedback reports, skills, operator signatures, and Agent IDs.
+Direct Conversations, streaming, browser join (`poppy:browser-sign-in`, `web.*`), operations on websites, Device and Mediated Sign-In, signed-in MCP, approvals over MCP `_meta`, agent approvals, feedback reports, skills, and Agent IDs.
+
+## Closed gaps (25 November 2026)
+
+- **Per-service tokens (§4.5).** Before its first signed-in call to an API or conversation endpoint, Iris reads that service's protected resource metadata (RFC 9728 §3.1) and uses it only if its `resource` is the service URL. A `resource` other than the domain's gets its own token from the refresh token, with `resource` and the same DPoP key; `invalid_target` means the service is used signed out. Our Companies need no separate tokens, so they get the default one.
+- **Choosing again (§3.4).** After `version_unsupported`, Iris fetches `poppy.json` again without a cached copy. If the chosen version changed, it starts a new Session and resends once; otherwise it stops.
+- **The domain with the name (§10.3).** Discovery proves which domain published the document, not who owns it, so the approval card and the Company profile show the domain next to the name.
+- **Operator signatures (§5.3).** Every request with the Session header also carries a Web Bot Auth signature (RFC 9421, `draft-ietf-webbotauth-httpsig-protocol-01`): `Signature-Agent` in its dictionary form, covering `@authority`, `@method`, `@path`, the `Signature-Agent` member, `poppy-session` and, when signed in, `authorization`, with `created`, `expires` (5 minutes), `keyid` (the JWK thumbprint), `alg="ed25519"`, a `nonce` and `tag="web-bot-auth"`. The Ed25519 key is derived from the identity secret (HKDF), apart from the `jwks_uri` and delegated keys, and published at `/.well-known/http-message-signatures-directory` with a possession signature over `@authority` and `Content-Digest`. The signer reproduces the RFC 9421 Ed25519 test vector byte for byte. The Companies don't verify it; the spec doesn't require them to.
 
 ## Evidence
 

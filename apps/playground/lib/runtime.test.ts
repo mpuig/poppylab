@@ -4,9 +4,11 @@ const transport = vi.hoisted(() =>
     .fn<(url: string, ...args: unknown[]) => Promise<unknown>>()
     .mockResolvedValue({ state: "succeeded" }),
 );
+const rediscover = vi.hoisted(() => vi.fn());
 vi.mock("@poppy-lab/pap-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@poppy-lab/pap-client")>()),
   protocolRequest: transport,
+  discoverCompany: rediscover,
 }));
 vi.mock("node:fs/promises", () => ({
   mkdir: vi.fn(async () => {}),
@@ -18,6 +20,7 @@ vi.mock("node:fs/promises", () => ({
 import {
   ProtocolError,
   createIdentity,
+  verifyEd25519,
   verifySessionHeader,
   type JWK,
 } from "@poppy-lab/pap-client";
@@ -25,6 +28,7 @@ import {
   accountConfiguration,
   sendApproval,
   identity,
+  operatorKey,
   papRequest,
   renewAccount,
   tokenResponse,
@@ -189,12 +193,13 @@ it("doesn't retry invalid_session, and stops on version_unsupported (§3.4, §5.
     papRequest(r, "https://food.papsandbox.com/poppy/products", "GET"),
   ).rejects.toThrow();
   expect(transport).toHaveBeenCalledTimes(1);
+  rediscover.mockResolvedValueOnce(r.company!);
   transport
     .mockReset()
     .mockRejectedValue(new ProtocolError(400, "version_unsupported"));
   await expect(
     papRequest(r, "https://food.papsandbox.com/poppy/products", "GET"),
-  ).rejects.toThrow("no longer serves PAP 1.0");
+  ).rejects.toThrow("no longer serves a protocol version");
   expect(transport).toHaveBeenCalledTimes(1);
 });
 
@@ -375,4 +380,138 @@ it("derives a stable User ID per visitor and Company, unlinkable across both", a
   expect(await userFor("visitor-a", "https://juniper.example")).toBe(a);
   expect(await userFor("visitor-b", "https://juniper.example")).not.toBe(a);
   expect(await userFor("visitor-a", "https://noodles.example")).not.toBe(a);
+});
+
+it("signs every Session request with the operator key, covering the Session JWT and the token (§5.3)", async () => {
+  const r = example();
+  r.dpop = dpop;
+  const url = "https://food.papsandbox.com/poppy/orders";
+  await papRequest(r, url, "GET");
+  const h = headersOf(transport.mock.calls[0]!);
+  expect(h["Signature-Agent"]).toBe(
+    'sig1="http://localhost:3000/.well-known/http-message-signatures-directory"',
+  );
+  const params = /^sig1=(.*)$/.exec(h["Signature-Input"]!)![1]!;
+  expect(params).toMatch(
+    /^\("@authority" "@method" "@path" "signature-agent";key="sig1" "poppy-session" "authorization"\);created=\d+;expires=\d+;keyid="[^"]+";alg="ed25519";nonce="[^"]+";tag="web-bot-auth"$/,
+  );
+  const base = [
+    '"@authority": food.papsandbox.com',
+    '"@method": GET',
+    '"@path": /poppy/orders',
+    `"signature-agent";key="sig1": "http://localhost:3000/.well-known/http-message-signatures-directory"`,
+    `"poppy-session": ${h["Poppy-Session"]}`,
+    `"authorization": ${h.Authorization}`,
+    `"@signature-params": ${params}`,
+  ].join("\n");
+  const sig = /^sig1=:(.*):$/.exec(h.Signature!)![1]!;
+  const key = await operatorKey();
+  expect(await verifyEd25519(key.publicKey, base, sig)).toBe(true);
+  // A separate key: never the jwks_uri key that signs delegations.
+  expect(key.keyid).not.toBe((await identity()).publicKey.kid);
+});
+
+it("uses a service's own token when its metadata names it, and the default token otherwise (§4.5)", async () => {
+  const r = example();
+  r.dpop = dpop;
+  const endpoint = "https://food.papsandbox.com/poppy/conversations";
+  r.conversation = { endpoint, seen: [] };
+  transport.mockReset().mockImplementation(async (url: string) => {
+    if (
+      url ===
+      "https://food.papsandbox.com/.well-known/oauth-protected-resource/poppy/conversations"
+    )
+      return { resource: endpoint, authorization_servers: [r.url] };
+    if (url === "https://food.papsandbox.com/oauth/token")
+      return {
+        access_token: "conversation-token",
+        token_type: "DPoP",
+        expires_in: 600,
+        scope: "orders:read",
+      };
+    return { ok: true };
+  });
+  await papRequest(r, `${endpoint}/cnv_1/events`, "GET");
+  const tokenCall = transport.mock.calls.find(
+    ([u]) => u === "https://food.papsandbox.com/oauth/token",
+  )!;
+  const form = new URLSearchParams(String((tokenCall[1] as RequestInit).body));
+  expect(form.get("grant_type")).toBe("refresh_token");
+  expect(form.get("resource")).toBe(endpoint);
+  const call = transport.mock.calls.at(-1)!;
+  expect(call[0]).toBe(`${endpoint}/cnv_1/events`);
+  expect(headersOf(call).Authorization).toBe("DPoP conversation-token");
+  // Cached: the next call fetches neither metadata nor a token.
+  const before = transport.mock.calls.length;
+  await papRequest(r, `${endpoint}/cnv_1/events`, "GET");
+  expect(transport.mock.calls.length).toBe(before + 1);
+
+  // Metadata for another resource, or none: the default token.
+  for (const meta of [
+    async () => ({ resource: "https://elsewhere.example/x" }),
+    async () => {
+      throw new ProtocolError(404, undefined);
+    },
+  ]) {
+    const d = example();
+    d.dpop = dpop;
+    d.conversation = { endpoint, seen: [] };
+    transport
+      .mockReset()
+      .mockImplementation(async (url: string) =>
+        url.includes("/.well-known/oauth-protected-resource")
+          ? meta()
+          : { ok: true },
+      );
+    await papRequest(d, `${endpoint}/cnv_1/events`, "GET");
+    expect(headersOf(transport.mock.calls.at(-1)!).Authorization).toBe(
+      "DPoP access-1",
+    );
+  }
+});
+
+it("calls a service signed out when the Company won't issue its token (invalid_target)", async () => {
+  const r = example();
+  r.dpop = dpop;
+  const endpoint = "https://food.papsandbox.com/poppy/conversations";
+  r.conversation = { endpoint, seen: [] };
+  transport.mockReset().mockImplementation(async (url: string) => {
+    if (url.includes("/.well-known/oauth-protected-resource"))
+      return { resource: endpoint };
+    if (url.endsWith("/oauth/token"))
+      throw new ProtocolError(400, "invalid_target");
+    return { ok: true };
+  });
+  await papRequest(r, `${endpoint}/cnv_1/events`, "GET");
+  expect(headersOf(transport.mock.calls.at(-1)!)).not.toHaveProperty(
+    "Authorization",
+  );
+});
+
+it("after version_unsupported, chooses again and resends once only if the version changed (§3.4)", async () => {
+  const r = example("food", false);
+  const url = "https://food.papsandbox.com/poppy/products";
+  // The Company now prefers 1.1: a new Session and one resend.
+  rediscover.mockResolvedValueOnce({
+    ...r.company!,
+    profile: { ...r.company!.profile, version: "1.1" },
+  });
+  transport
+    .mockReset()
+    .mockRejectedValueOnce(new ProtocolError(400, "version_unsupported"))
+    .mockResolvedValueOnce({ ok: true });
+  const sid = r.sessionId;
+  await papRequest(r, url, "GET");
+  expect(transport).toHaveBeenCalledTimes(2);
+  expect(r.company!.profile.version).toBe("1.1");
+  expect(r.sessionId).not.toBe(sid);
+  // Still the same version after fetching again: stop.
+  rediscover.mockResolvedValueOnce(r.company!);
+  transport
+    .mockReset()
+    .mockRejectedValue(new ProtocolError(400, "version_unsupported"));
+  await expect(papRequest(r, url, "GET")).rejects.toThrow(
+    "no longer serves a protocol version",
+  );
+  expect(transport).toHaveBeenCalledTimes(1);
 });

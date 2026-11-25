@@ -29,6 +29,17 @@ export function CompanyProfileView({
           <dd>PAP {profile.version}</dd>
         </div>
         <div>
+          <dt>Domain</dt>
+          <dd>
+            {company.document.organization.domain}
+            <small className="privacy-note">
+              {" "}
+              Discovery proves this domain published the document, not that it
+              belongs to “{company.document.organization.name}” (§10.3).
+            </small>
+          </dd>
+        </div>
+        <div>
           <dt>Identifier</dt>
           <dd>{profile.identifier}</dd>
         </div>

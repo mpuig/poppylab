@@ -15,6 +15,7 @@ export {
 } from "./protocol-error.ts";
 export { vault } from "./vault.ts";
 export * from "./headers.ts";
+export * from "./operator-signature.ts";
 export { openApiTools, type ApiTool } from "./openapi.ts";
 import { sseRpc } from "./mcp-wire.ts";
 export { mcpTools, mcpResourcePolicy } from "./mcp.ts";

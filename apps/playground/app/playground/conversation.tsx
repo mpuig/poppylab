@@ -156,6 +156,7 @@ export function Conversation({
             key={op.operation_id}
             op={op}
             company={result?.document.organization.name ?? "Company"}
+            domain={result?.document.organization.domain}
             busy={busy}
             signedIn={signedIn}
             onAction={(action, operation) =>

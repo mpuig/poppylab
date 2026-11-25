@@ -67,6 +67,21 @@ it("shows a summary as text: its Markdown, links and images never render", () =>
   expect(html).not.toContain("<img");
   expect(html).toContain("[Click](https://evil.example)");
 });
+it("shows the domain discovery proved next to the Company's claimed name (§10.3)", () => {
+  const html = renderToStaticMarkup(
+    createElement(OperationReview, {
+      op,
+      company: "Juniper Market",
+      domain: "juniper.poppylab.dev",
+      busy: false,
+      signedIn: true,
+      onAction: vi.fn(),
+    }),
+  );
+  expect(html).toContain(
+    "Juniper Market · juniper.poppylab.dev · terms revision",
+  );
+});
 it("labels a Company's decline", () => {
   const html = render("refused");
   expect(html).toContain("Declined by the Company");

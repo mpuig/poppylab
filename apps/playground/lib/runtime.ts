@@ -13,6 +13,10 @@ import {
   discoverCompany,
   extensionsHeader,
   POPPY_VERSION,
+  deriveOperatorKey,
+  operatorDirectory,
+  operatorSignatureHeaders,
+  type OperatorKey,
   openApiTools,
   mcpTools,
   mcpRequest,
@@ -74,6 +78,18 @@ let identityPromise: Promise<{ publicKey: JWK; privateKey: JWK }> | undefined;
  * §5.2). A deployment sets `POPPY_IDENTITY` (a Worker secret); otherwise a
  * local key file is created once.
  */
+/**
+ * §5.3: the Web Bot Auth operator key, derived from the identity secret so
+ * a deployment needs no other secret. It is not a jwks_uri key and never
+ * signs Session JWTs or assertions.
+ */
+let operator: Promise<OperatorKey> | undefined;
+export function operatorKey() {
+  return (operator ??= identity().then((keys) =>
+    deriveOperatorKey(Buffer.from(String(keys.privateKey.d), "base64url")),
+  ));
+}
+
 export function identity() {
   return (identityPromise ??= (async () => {
     if (process.env.POPPY_IDENTITY) {
@@ -165,6 +181,16 @@ export type Run = {
   sessionKey?: SessionKey;
   /** §9: the tasks response for the current Session only. */
   tasks?: { sid: string; value: TasksResponse };
+  /** §4.5: each service's own resource, from its metadata (absent = default token). */
+  services?: Record<string, { resource?: string; until: number }>;
+  /** §4.5: tokens for services with their own resource, or that refuse one. */
+  resourceTokens?: Record<
+    string,
+    | { value: string; type: "DPoP" | "Bearer"; expires: number }
+    | { unavailable: true; until: number }
+  >;
+  /** The OpenAPI server base, the service its tools call. */
+  apiBase?: string;
   /** DPoP key for access tokens, when the issuer binds them. */
   dpop?: JWK;
   token?: string;
@@ -284,17 +310,30 @@ async function sessionHeaders(
 ) {
   await ensureSession(run);
   const profile = companyProfile(run.company!);
+  const session = await signSessionHeader({
+    key: run.sessionKey!,
+    clientId: clientFor(run),
+    audience: profile.identifier,
+    sessionId: run.sessionId!,
+    userId: run.user,
+    method,
+    url,
+    ...(token ? { accessToken: token.value } : {}),
+  });
+  const authorization = token
+    ? `${token.type === "DPoP" ? "DPoP" : "Bearer"} ${token.value}`
+    : undefined;
   return {
-    "Poppy-Session": await signSessionHeader({
-      key: run.sessionKey!,
-      clientId: clientFor(run),
-      audience: profile.identifier,
-      sessionId: run.sessionId!,
-      userId: run.user,
+    "Poppy-Session": session,
+    // §5.3: the operator signature, last, over the Session JWT and token.
+    ...(await operatorSignatureHeaders({
+      key: await operatorKey(),
+      agent: operatorDirectory(agentFor(run)),
       method,
       url,
-      ...(token ? { accessToken: token.value } : {}),
-    }),
+      poppySession: session,
+      ...(authorization ? { authorization } : {}),
+    })),
     // §3.4: the same on every request in a Session. Extensions are declared
     // only when the Company lists them (guides: Versions).
     "Poppy-Version": POPPY_VERSION,
@@ -304,12 +343,128 @@ async function sessionHeaders(
     ...(token
       ? token.type === "DPoP"
         ? {
-            Authorization: `DPoP ${token.value}`,
+            Authorization: authorization!,
             DPoP: await proof(token.key!, url, method, token.value),
           }
-        : { Authorization: `Bearer ${token.value}` }
+        : { Authorization: authorization! }
       : {}),
   };
+}
+
+/** The headers a DPoP nonce retry signs again: the Session JWT and its operator signature. */
+const RESIGNED = [
+  "Poppy-Session",
+  "Signature",
+  "Signature-Input",
+  "Signature-Agent",
+] as const;
+
+/** The service a request URL belongs to: the conversation endpoint or the API base. */
+function serviceFor(run: Run, url: string) {
+  const endpoint = run.conversation?.endpoint;
+  const inside = (base: string) =>
+    url === base ||
+    url.startsWith(base.replace(/\/$/, "") + "/") ||
+    url.startsWith(base + "?");
+  if (endpoint && inside(endpoint)) return endpoint;
+  if (run.apiBase && inside(run.apiBase)) return run.apiBase;
+  return undefined;
+}
+const sameUrl = (a: string, b: string) => {
+  try {
+    const x = new URL(a),
+      y = new URL(b);
+    return (
+      x.protocol === y.protocol &&
+      x.host.toLowerCase() === y.host.toLowerCase() &&
+      x.pathname.replace(/\/$/, "") === y.pathname.replace(/\/$/, "") &&
+      !x.search &&
+      !x.hash
+    );
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * §4.5: before the first signed-in call to a service, its protected resource
+ * metadata (RFC 9728 §3.1), used only if its `resource` is the service URL.
+ * A `resource` other than the domain's means the service takes only its own
+ * tokens. Without usable metadata, the default token works there.
+ */
+async function serviceResource(run: Run, service: string) {
+  const cached = run.services?.[service];
+  if (cached && cached.until > Date.now()) return cached.resource;
+  const url = new URL(service);
+  const path = url.pathname.replace(/\/$/, "");
+  const metadata = `${url.origin}/.well-known/oauth-protected-resource${path}`;
+  let resource: string | undefined;
+  let ttl = 3600000;
+  try {
+    const value = (await protocolRequest(metadata, {}, localOrigins)) as {
+      resource?: unknown;
+    };
+    if (typeof value?.resource === "string" && sameUrl(value.resource, service))
+      resource = value.resource;
+  } catch (error) {
+    // A 404 means no metadata; other failures are retried sooner.
+    if (!(error instanceof ProtocolError && error.status === 404)) ttl = 300000;
+  }
+  const services = (run.services ??= {});
+  for (const k of Object.keys(services).slice(0, -15)) delete services[k];
+  services[service] = {
+    ...(resource ? { resource } : {}),
+    until: Date.now() + ttl,
+  };
+  return resource;
+}
+
+/**
+ * §4.5: a token for one service's resource, from the refresh token (no new
+ * sign-in), with the same DPoP key (§4.4). `invalid_target` means the
+ * Company doesn't offer that service signed in.
+ */
+async function resourceToken(run: Run, resource: string) {
+  const tokens = (run.resourceTokens ??= {});
+  const cached = tokens[resource];
+  if (
+    cached &&
+    ("unavailable" in cached ? cached.until : cached.expires - 60000) >
+      Date.now()
+  )
+    return cached;
+  if (!run.accountToken || !run.scopes) throw new Error("Sign in required");
+  const dpop = usesDpop(run) ? run.dpop : undefined;
+  if (usesDpop(run) && !dpop) throw new Error("Sign in required");
+  try {
+    const result = tokenResponse(
+      await tokenRequest(
+        run,
+        {
+          grant_type: "refresh_token",
+          refresh_token: run.accountToken,
+          resource,
+        },
+        dpop,
+      ),
+      run.scopes,
+      !!dpop,
+      false,
+    );
+    if (result.refreshToken) run.accountToken = result.refreshToken;
+    return (tokens[resource] = {
+      value: result.accessToken,
+      type: result.tokenType,
+      expires: result.expires,
+    });
+  } catch (error) {
+    if (error instanceof ProtocolError && error.code === "invalid_target")
+      return (tokens[resource] = {
+        unavailable: true as const,
+        until: Date.now() + 3600000,
+      });
+    throw error;
+  }
 }
 
 function markAccountFailure(run: Run, error: unknown) {
@@ -339,10 +494,28 @@ export async function papRequest(
   } = {},
 ) {
   if (run.accountToken && !options.signedOut) await renewIfNeeded(run);
-  const token =
+  let token =
     run.token && !options.signedOut && !run.accountUnavailable
-      ? { value: run.token, type: run.tokenType ?? "DPoP", key: run.dpop }
+      ? {
+          value: run.token,
+          type: run.tokenType ?? ("DPoP" as "DPoP" | "Bearer"),
+          key: run.dpop,
+        }
       : undefined;
+  // §4.5: a service with its own resource gets its own token.
+  const service = token ? serviceFor(run, url) : undefined;
+  const resource = service ? await serviceResource(run, service) : undefined;
+  if (
+    token &&
+    resource &&
+    !sameUrl(resource, new URL(run.company!.discoveryUrl).origin)
+  ) {
+    const own = await resourceToken(run, resource);
+    token =
+      "unavailable" in own
+        ? undefined
+        : { value: own.value, type: own.type, key: run.dpop };
+  }
   const send = async () => {
     const headers = {
       ...(await sessionHeaders(run, url, method, token)),
@@ -363,11 +536,12 @@ export async function papRequest(
         ? {
             key: token.key!,
             token: token.value,
-            resign: async () => ({
-              "Poppy-Session": (await sessionHeaders(run, url, method, token))[
-                "Poppy-Session"
-              ],
-            }),
+            resign: async () => {
+              const fresh = await sessionHeaders(run, url, method, token);
+              return Object.fromEntries(
+                RESIGNED.flatMap((k) => (fresh[k] ? [[k, fresh[k]]] : [])),
+              );
+            },
           }
         : undefined,
     );
@@ -391,10 +565,28 @@ export async function papRequest(
       error instanceof ProtocolError &&
       error.status === 400 &&
       error.code === "version_unsupported"
-    )
+    ) {
+      // §3.4: fetch poppy.json again, without a cached copy, and choose
+      // again. Another version: a new Session and the request once more.
+      // The same one: stop sending it.
+      const before = run.company!.profile.version;
+      const fresh = await discoverCompany(run.url, {
+        allowedPrivateOrigins: localOrigins,
+      });
+      if (fresh.profile.version !== before) {
+        run.company = fresh;
+        newSession(run);
+        try {
+          return await send();
+        } catch (again) {
+          markAccountFailure(run, again);
+          throw again;
+        }
+      }
       throw new UserFacingError(
-        "This Company no longer serves PAP 1.0, the version Poppy Lab implements. Connect again to check what it serves now.",
+        "This Company no longer serves a protocol version Poppy Lab implements (1.x). Nothing was sent again.",
       );
+    }
     markAccountFailure(run, error);
     throw error;
   }
@@ -720,6 +912,12 @@ async function openApiConnect(
   const profile = companyProfile(company);
   const api = { url };
   const spec = await protocolRequest(api.url, {}, localOrigins);
+  // §4.5: the service is the URL in the description's servers.
+  const server = (spec as { servers?: Array<{ url?: unknown }> })?.servers?.[0]
+    ?.url;
+  run.apiBase = new URL(
+    typeof server === "string" ? server : new URL(api.url).origin,
+  ).href.replace(/\/$/, "");
   const tools = openApiTools(spec, api.url, {
     // Proposals need an allowlisted account Company listing Operations v3.
     allowProposals:

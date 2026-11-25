@@ -32,12 +32,15 @@ const states: Record<string, string> = {
 export function OperationReview({
   op,
   company,
+  domain,
   busy,
   signedIn,
   onAction,
 }: {
   op: ReviewOperation;
   company: string;
+  /** §10.3: the name is the Company's claim; the domain is what discovery proved. */
+  domain?: string | undefined;
   busy: boolean;
   signedIn: boolean;
   onAction: (action: string, op: ReviewOperation) => void;
@@ -67,7 +70,8 @@ export function OperationReview({
       </summary>
       <div className="operation-content">
         <p className="quiet operation-company">
-          {company} · terms revision {op.revision}
+          {company}
+          {domain ? <> · {domain}</> : null} · terms revision {op.revision}
         </p>
         {op.summary ? (
           // Shown as text: a summary's Markdown, links or images never render.
