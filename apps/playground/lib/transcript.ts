@@ -1,5 +1,5 @@
 import type { DirectAction } from "./conversations";
-import type { Run } from "./runtime";
+import type { Operation, Run } from "./runtime";
 
 /**
  * Adds turns to the model's context (`history`, which callers cut to the
@@ -14,6 +14,33 @@ export function record(run: Run, ...turns: Run["history"]) {
 /** Adds turns to the transcript the page shows, and not to the model's. */
 function show(run: Run, ...turns: Run["history"]) {
   run.transcript = [...(run.transcript ?? run.history), ...turns].slice(-80);
+}
+
+/**
+ * How an approval ended, in a line that has the Company's words: its result,
+ * or why it declined. For an operation proposed in the User's Direct
+ * Conversation (§8.10) those words were said in a thread the page tells the
+ * User Iris doesn't read. The page keeps the line, and the model is told
+ * only that an operation there was approved or declined: no summary, terms,
+ * result or reason.
+ */
+export function recordOutcome(
+  run: Run,
+  op: Pick<Operation, "direct">,
+  outcome: "performed" | "declined",
+  content: string,
+) {
+  const turn = { role: "assistant" as const, content };
+  if (!op.direct) return record(run, turn);
+  const company = run.company?.document.organization.name ?? "the Company";
+  show(run, turn);
+  run.history.push({
+    role: "assistant",
+    content:
+      outcome === "performed"
+        ? `(An operation proposed in the user's direct conversation with ${company} was approved and performed.)`
+        : `(The Company declined an operation proposed in the user's direct conversation with ${company}. Nothing was performed.)`,
+  });
 }
 
 /**

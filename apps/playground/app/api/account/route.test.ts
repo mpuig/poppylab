@@ -826,6 +826,131 @@ describe("An operation whose conversation refuses the approval (§8.10, §8.12)"
   });
 });
 
+describe("An operation proposed in the User's Direct Conversation (§8.10)", () => {
+  const run = state.run as unknown as {
+    operations: Record<string, Record<string, unknown>>;
+    history: Array<{ role: string; content: string }>;
+    transcript?: Array<{ role: string; content: string }>;
+  };
+  const act = (revision = "r1", instruction?: unknown) =>
+    POST(
+      request({
+        action: "approve",
+        id: "op_test",
+        revision,
+        ...(instruction ? { instruction } : {}),
+      }),
+    );
+  /** Everything a model turn after this one would be sent. */
+  const forModel = () => JSON.stringify(run.history);
+  const forPage = () => JSON.stringify(run.transcript ?? []);
+  // What only the Company and the User said or agreed in that thread.
+  const theirs = ["ord_LNB0907", "37.00", "3700", "holder", "Refund"];
+  beforeEach(() => {
+    run.history.length = 0;
+    delete run.transcript;
+    Object.assign(run.operations.op_test!, {
+      summary: "Refund all of order ord_LNB0907 (USD 37.00).",
+      terms: { order_id: "ord_LNB0907", total_cents: 3700, currency: "USD" },
+      request: {
+        conversation: {
+          endpoint: "http://juniper.localhost:4100/agent",
+          id: "cnv_direct",
+        },
+      },
+      // Set when the operation arrived in the User's own thread.
+      direct: true,
+    });
+  });
+  const declined = () =>
+    new ProtocolError(
+      403,
+      "approval_declined",
+      undefined,
+      undefined,
+      undefined,
+      { reason: "Only the card holder can take a refund of USD 37.00." },
+    );
+
+  it("tells the model that one was approved, and keeps the Company's result for the page", async () => {
+    state.request.mockResolvedValue({
+      summary: "Refunded USD 37.00 for order ord_LNB0907.",
+    });
+    const r = await act();
+    expect(r.status).toBe(200);
+    // The card and the transcript show the User what the Company answered.
+    expect((await r.json()).operation.result.summary).toContain("ord_LNB0907");
+    expect(forPage()).toContain("Refunded USD 37.00 for order ord_LNB0907.");
+    for (const word of theirs) expect(forModel()).not.toContain(word);
+    expect(run.history).toEqual([
+      {
+        role: "assistant",
+        content:
+          "(An operation proposed in the user's direct conversation with Juniper was approved and performed.)",
+      },
+    ]);
+  });
+
+  it("tells the model that the Company declined one, without its reason", async () => {
+    state.request.mockRejectedValue(declined());
+    const r = await act();
+    expect((await r.json()).code).toBe("approval_declined");
+    expect(forPage()).toContain("Only the card holder can take a refund");
+    for (const word of theirs) expect(forModel()).not.toContain(word);
+    expect(run.history).toEqual([
+      {
+        role: "assistant",
+        content:
+          "(The Company declined an operation proposed in the user's direct conversation with Juniper. Nothing was performed.)",
+      },
+    ]);
+  });
+
+  it("keeps the reason from the model when the Company declines Iris's approval of one too", async () => {
+    state.request.mockRejectedValue(declined());
+    const r = await act("r1", { maxCents: 5000, currency: "USD" });
+    expect((await r.json()).code).toBe("agent_approval_declined");
+    expect(forPage()).toContain("Only the card holder can take a refund");
+    for (const word of theirs) expect(forModel()).not.toContain(word);
+    expect(run.history).toHaveLength(1);
+  });
+
+  it("keeps new terms the Company answers with in that thread, and their result, from the model", async () => {
+    state.request.mockRejectedValueOnce(
+      new ProtocolError(403, "approval_required", undefined, undefined, {
+        operation_id: "op_test",
+        revision: "r2",
+        summary: "Refund all of order ord_LNB0907 (USD 37.00), less a fee.",
+        terms: { order_id: "ord_LNB0907", total_cents: 3500, currency: "USD" },
+        expires_at: new Date(Date.now() + 60000).toISOString(),
+      }),
+    );
+    const changed = await (await act()).json();
+    expect(changed.code).toBe("terms_changed");
+    expect(changed.operation).toMatchObject({ revision: "r2", direct: true });
+    state.request.mockResolvedValueOnce({
+      summary: "Refunded USD 35.00 for order ord_LNB0907.",
+    });
+    expect((await act("r2")).status).toBe(200);
+    expect(forPage()).toContain("Refunded USD 35.00");
+    for (const word of [...theirs, "35.00"])
+      expect(forModel()).not.toContain(word);
+  });
+
+  it("still tells the model the result of an operation Iris's own conversation proposed", async () => {
+    delete run.operations.op_test!.direct;
+    state.request.mockResolvedValue({ summary: "Refunded USD 8.00." });
+    expect((await act()).status).toBe(200);
+    expect(run.history).toEqual([
+      {
+        role: "assistant",
+        content: "Company operation succeeded: Refunded USD 8.00.",
+      },
+    ]);
+    expect(run.transcript).toEqual(run.history);
+  });
+});
+
 describe("Agent approvals on a standing instruction (Operations v3 §5)", () => {
   const rule = { maxCents: 2000, currency: "USD" };
   const run = state.run as unknown as {

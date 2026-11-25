@@ -18,7 +18,7 @@ import {
   fdxConsentRecord,
   revokeFdxConsent,
 } from "@/lib/runtime";
-import { record } from "@/lib/transcript";
+import { recordOutcome } from "@/lib/transcript";
 import {
   accountRecovery,
   accountUnavailableNotice,
@@ -520,10 +520,12 @@ async function act(request: Request, started: { id?: string }) {
           // A declined retry is a known outcome too (§7). With no approval
           // left to resend, it goes back to waiting for the User's Approve.
           op.state = "proposed";
-          record(run, {
-            role: "assistant",
-            content: `The Company declined the approval Iris sent on the user's standing instruction; nothing was performed, and it's waiting for the user.${error.declined?.reason ? ` Its reason: ${error.declined.reason}` : ""}`,
-          });
+          recordOutcome(
+            run,
+            op,
+            "declined",
+            `The Company declined the approval Iris sent on the user's standing instruction; nothing was performed, and it's waiting for the user.${error.declined?.reason ? ` Its reason: ${error.declined.reason}` : ""}`,
+          );
           return NextResponse.json(
             { operation: op, code: "agent_approval_declined" },
             { headers: { "Cache-Control": "no-store" } },
@@ -535,10 +537,12 @@ async function act(request: Request, started: { id?: string }) {
           summary: `${run.company?.document.organization.name ?? "The Company"} declined this approval and did nothing.${error.declined?.reason ? ` Its reason: ${error.declined.reason}` : ""}`,
         };
         delete op.request;
-        record(run, {
-          role: "assistant",
-          content: `Company declined the approval; nothing was performed. ${op.result.summary}`,
-        });
+        recordOutcome(
+          run,
+          op,
+          "declined",
+          `Company declined the approval; nothing was performed. ${op.result.summary}`,
+        );
         return NextResponse.json(
           { operation: op, code: "approval_declined" },
           { headers: { "Cache-Control": "no-store" } },
@@ -557,6 +561,9 @@ async function act(request: Request, started: { id?: string }) {
           // Terms Poppy can't show or that have expired: a refusal, below.
         }
       if (next) {
+        // §8.10: terms that answer an approval sent to the User's Direct
+        // Conversation were proposed there too.
+        if (op.direct) next.direct = true;
         if (next.revision === op.revision) {
           // §6 forbids this answer, so the approval is never sent again in
           // a loop. The Company performed nothing and the outcome is known
@@ -667,10 +674,12 @@ async function act(request: Request, started: { id?: string }) {
       }
       throw error;
     }
-    record(run, {
-      role: "assistant",
-      content: `Company operation succeeded: ${op.result.summary}`,
-    });
+    recordOutcome(
+      run,
+      op,
+      "performed",
+      `Company operation succeeded: ${op.result.summary}`,
+    );
     return NextResponse.json(
       { operation: op },
       { headers: { "Cache-Control": "no-store" } },

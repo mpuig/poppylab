@@ -634,6 +634,44 @@ describe("Direct Conversations (§8.10) in Iris", () => {
     expect(run.conversation?.direct).toBeUndefined();
   });
 
+  it("marks an operation proposed in the User's own thread, and none from the conversation with the Company's agent", async () => {
+    const whole = { ...operation, operation_id: "op_whole" };
+    const { run, s } = session((url, body) => {
+      if ((body as Record<string, unknown>).parent_conversation_id)
+        return read([said("evt_d1", { text: "Did none of it arrive?" })], {
+          conversation_id: "cnv_d",
+        });
+      if (url.startsWith(`${endpoint}/cnv_d/messages`))
+        return read(
+          [
+            said("evt_d2", {
+              text: "I can refund USD 37.00 once you approve.",
+              extensions: { operations: { operation: whole } },
+            }),
+          ],
+          { conversation_id: "cnv_d" },
+        );
+      return read([
+        said("evt_1", {
+          text: "I can refund the gyoza once you approve.",
+          extensions: { operations: { operation } },
+        }),
+        invite,
+      ]);
+    });
+    await s.tools.company_agent_send!.execute({
+      data: { request: "missing_item" },
+    });
+    await s.direct("accept");
+    await s.direct("say", "Yes, nothing came.");
+    // The mark is on the operation, which outlasts the thread's own state.
+    expect(run.operations?.op_whole).toMatchObject({
+      direct: true,
+      request: { conversation: { id: "cnv_d" } },
+    });
+    expect(run.operations?.op_refund).not.toHaveProperty("direct");
+  });
+
   it("approves an operation from the Direct Conversation, ignoring the earlier proposal in the read", async () => {
     const run = newRun();
     run.conversation = {

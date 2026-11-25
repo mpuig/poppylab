@@ -205,6 +205,9 @@ export function conversationSession(run: Run, options: Options) {
               result.approval = { status: "invalid", note };
             }
             if (op) {
+              // §8.10: the mark outlasts the thread, which Iris forgets
+              // when the User leaves it.
+              if (inDirect) op.direct = true;
               options.trace(
                 "Conversation operation · approval required · nothing performed",
               );
