@@ -118,7 +118,7 @@ The same Next.js app runs with `next dev`/`next start` on Node and on Cloudflare
 - **Network** (`pap-client`): on Workers only public HTTPS hostnames or public IP literals are allowed, with no credentials, no `localhost`/`.local`/`.internal`/single-label names, and no redirects. `global_fetch_strictly_public` is enabled on the deployed Workers. Node still pins checked DNS answers; `node:dns` and `undici` are loaded lazily.
 - **Public mode** (`lib/deployment.ts`): `POPPY_PUBLIC=true` with an HTTPS `AGENT_PUBLIC_ORIGIN`.
   - Chat accepts only Protocol demo, OpenAI-compatible and Anthropic, each with the visitor's own key. The server keys are used only on localhost in development.
-  - Sign-in and proposals are allowed only for `PAP_ACCOUNT_ORIGINS` (Juniper, Lantern, Harborline and Northwind on poppylab.dev) and the PAP Sandbox. `client.json` always names the public origin.
+  - Sign-in and proposals are allowed only for `PAP_ACCOUNT_ORIGINS` (Juniper, Lantern, Harborline, Northwind and Fernwick on poppylab.dev; Fernwick's once it is deployed) and the PAP Sandbox. `client.json` always names the public origin.
 - **Budgets** (`lib/limits.ts`, public mode):
   - chat: 8/min and 150/day per visitor, 20/min per IP, 600/min global;
   - account: 20/min per visitor, 40/min per IP;
@@ -127,7 +127,7 @@ The same Next.js app runs with `next dev`/`next start` on Node and on Cloudflare
 - **Build:** `pnpm --filter @poppy-lab/playground build:worker` (`scripts/build-worker.mjs`).
   - OpenNext copies `.env*` values into `next-env.mjs`; the first build contained the local model keys and was deleted before any deployment.
   - The script now empties that file and scans the whole bundle for every local secret-like value and the local identity. If it finds one, it deletes the artifact and fails, printing names only.
-  - `NEXT_PUBLIC_JUNIPER_URL`, `NEXT_PUBLIC_LANTERN_URL`, `NEXT_PUBLIC_HARBORLINE_URL` and `NEXT_PUBLIC_NORTHWIND_URL` point the suggestions to poppylab.dev.
+  - `NEXT_PUBLIC_JUNIPER_URL`, `NEXT_PUBLIC_LANTERN_URL`, `NEXT_PUBLIC_HARBORLINE_URL`, `NEXT_PUBLIC_NORTHWIND_URL` and `NEXT_PUBLIC_FERNWICK_URL` point the suggestions to poppylab.dev.
   - **Prerendered pages.** The Learn pages are prerendered (`generateStaticParams`), and OpenNext serves such pages only through an incremental cache; without one every `/learn` page was a 404 in production. `open-next.config.ts` uses the read-only static-assets cache, and the script copies `.open-next/cache` into `.open-next/assets/cdn-cgi/_next_cache` after the secret check, so the pages ship as Workers static assets. The build ends with "Prerendered pages copied to static assets." Dynamic routes are unaffected. A new Learn page needs nothing more than a build and a deploy.
 - **Verified in production** (version deployed 2 Nov 2026):
   - JWKS without a private part; `client.json` with `https://poppylab.dev` and Operations v3.

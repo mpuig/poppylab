@@ -1,12 +1,10 @@
 # Fernwick Power & Light
 
-Fernwick Power & Light (`apps/fernwick`) is a standalone, deployable, fully fictional Personal Agent Protocol 1.0 Company: an electricity utility that reads its meters every hour and bills on the 1st. It shows a second domain standard used through a Poppy extension, after Harborline's FDX-shaped API: its usage and bill data are served as Atom XML shaped after NAESB REQ.21 ESPI, the standard behind Green Button™ data[^gb], through the `poppylab.dev/espi` extension.
+Fernwick Power & Light (`apps/fernwick`) is a standalone, deployable, fully fictional Personal Agent Protocol 1.0 Company: an electricity utility that reads its meters every hour and bills on the 1st. It shows a second domain standard used through a Poppy extension, after Harborline's FDX-shaped API: its usage and bill data are served as Atom XML shaped after NAESB REQ.21 ESPI, through the `poppylab.dev/espi` extension ([the extension](extensions/espi.md)).
 
 > **Safety notice:** no customer, meter, reading, plan or bill is real. Fernwick supplies, meters and bills no electricity. Never enter a real utility account number, address, password or bill.
 
-The ESPI-shaped API is **ESPI-shaped (modelled on NAESB REQ.21 ESPI), not certified**. Element names, codes and URL patterns follow the ESPI schemas, which NAESB publishes under the Apache License 2.0. Every rule, description, title and piece of data here is Fernwick's own; no REQ.21 text or table, schema file or sample feed is in this repository. Fernwick is not certified by or affiliated with the Green Button Alliance.
-
-[^gb]: GREEN BUTTON and the Green Button Logo are trademarks or registered trademarks owned by Departments of the U.S. Government and/or Green Button Alliance, Inc.
+The ESPI-shaped API is **ESPI-shaped (modelled on NAESB REQ.21 ESPI), not certified**. Element names, codes and URL patterns follow the ESPI schemas, which NAESB publishes under the Apache License 2.0. Every rule, description, title and piece of data here is Fernwick's own; no REQ.21 text or table, schema file or sample feed is in this repository. Fernwick is not certified by any ESPI certification programme; [the extension](extensions/espi.md) carries the trademark notice.
 
 ## Run it
 
@@ -154,6 +152,16 @@ A UsageSummary has `billingPeriod`, `billLastPeriod`, a `costAdditionalDetailLas
 
 A landing page with the last week and the last bill of a sample meter and the plans, `/for-agents` with endpoints, ESPI routes, customers and scopes, and the customer portal (`/account`): meters and this month, the last seven days, bills, agent activity, feedback reports and connected agents, refreshed every two seconds. `/how-it-works` shows, with the shared generator in `pap-core` (`how-it-works.ts`), the three steps as the site serves them: the discovery document, the own API's operations, and Elena's EV charger switching to the flat rate, priced on the last closed bill as the switch's terms price it; its questions say what the ESPI shape is and what is excluded. `src/how-it-works.test.ts` checks it against the served objects.
 
+## In the playground
+
+Fernwick is the fifth card in the playground (**Fernwick Power & Light**, Utility), with "How much electricity did my EV use last week?" and "my bills" among its suggestions and "Switch my EV charger to the flat rate." as its change. Its account row has **Use ESPI**, the switch Harborline has as **Use FDX** ([Use ESPI](openapi-tools.md#use-espi)):
+
+- With it on, Iris declares `poppylab.dev/espi` v1 in a new Session, asks at sign-in for `espi:usage` and `espi:summary` besides Fernwick's read scopes, keeps `resourceURI` and `authorizationURI` from the token response when they fit the entry, and offers four ESPI-shaped read tools that add up the hourly intervals before the model sees them. Fernwick's own API stays offered, with the meters chosen at consent applying to both.
+- The account row shows the subscription, its status, shared meters and expiry, with **Revoke ESPI access**, which sends `DELETE Authorization/{sub}` and signs the conversation out on `204`.
+- In demo mode, "usage", "consumo" or "kWh" read each shared meter's last seven days, and "bill", "factura" or "recibo" its bills.
+
+The playground trusts `https://energy-demo.poppylab.dev` for sign-in and proposals (`PAP_ACCOUNT_ORIGINS` in its `wrangler.toml`) and builds its card with `NEXT_PUBLIC_FERNWICK_URL`, ready for the deployment.
+
 ## Tests and scenarios
 
 ```sh
@@ -165,3 +173,5 @@ pnpm scenarios energy
 - `src/espi.test.ts`: discovery and scope descriptions, no forbidden names; `extension_required` before the token; consent with meters per person, refusal with none and with another person's meter; `resourceURI` and `authorizationURI` at sign-in and refresh; the batch, every route's XML (parsed by the test-only `xml-test.ts`), namespaces, links that resolve, units, `tou` and costs; identical bytes for the same request and the same hours on another day (fake timers); a bill summary added up from the IntervalBlocks the API serves; the window, offsets, paging and every `invalid_parameter`; bare 404s; scopes per route, `espi:summary` alone; the Authorization entry and `DELETE` revoking tokens and refresh.
 - `src/fernwick.test.ts`: discovery, OpenAPI and pages; consent subsets; the meter choice on the own API; bills; the plan switch: `approval_required` with exact terms, performed once, replay, the same request again, `idempotency_conflict`, `change_already_scheduled`, `plan_unchanged`, `meter_not_found`, Operations v3 required, a stale approval.
 - `src/conversations.test.ts`: help and sign-in events, the meter choice in the Company Agent, the plan change approved in a conversation, and the portal showing it and disconnecting the agent.
+- `src/how-it-works.test.ts`: the How it works page against the served discovery document, OpenAPI and tasks, and the example switch against the seeded meter's last bill on both plans.
+- In the playground, `lib/espi-fernwick.test.ts` checks the client's ESPI-shaped tools against Fernwick's own hours and bills, and `lib/use-espi-fernwick.test.ts` runs Iris with Use ESPI against this app in process ([Use ESPI](openapi-tools.md#use-espi)).

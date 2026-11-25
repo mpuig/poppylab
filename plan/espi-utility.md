@@ -93,12 +93,12 @@ Query: `published-min`, `published-max` (RFC 3339, the window of intervals and s
 
 1. **Fernwick (Company):** app, data, own API with Operations, consent with meter selection, ESPI API in XML, Authorization and revocation, tests, `docs/fernwick-power.md`. Lab registration: `pap-core` (`lab.ts`, `index.ts` allowlist), `package.json` (`dev`, `dev:fernwick`), `scripts/scenarios.mjs` (`energy` group), `wrangler.toml` (`energy-demo.poppylab.dev`, without deploying).
 2. **Client** (in parallel with 1, against this contract): `xml.ts`, `espi.ts`, hand-written fixtures, tests, `docs/openapi-tools.md`.
-3. **Playground:** card for the new Company (visual change: tell the `poppy-21` session before merging), generic toggle, revocation, demo mode, end-to-end test against Fernwick in process, `PAP_ACCOUNT_ORIGINS` and `NEXT_PUBLIC_*` for production.
-4. **Docs:** `docs/extensions/espi.md`, a second example in `docs/learn/extensions.md`, `coverage.md`, `scenario-lab.md`, README, index. The ™ mention and the note, once.
+3. **Playground:** card for the new Company (visual change: tell the `poppy-21` session before merging), generic toggle, revocation, demo mode, end-to-end test against Fernwick in process, `PAP_ACCOUNT_ORIGINS` and `NEXT_PUBLIC_*` for production. **Done:** Use ESPI shares Use FDX's code (`lib/domain-extension.ts`), revocation is `DELETE {authorizationURI}` from the account row, and `lib/espi-fernwick.test.ts` checks the client against Fernwick's own data. That check found two mismatches, fixed: the client printed Fernwick's UTC billing months in Pacific dates (now in UTC dates, `timeZone: "UTC"`), and Fernwick refused 92 local days across the November clock change (now an hour more is allowed). Fernwick also got its How it works page. The home page and `/developers` still list four Companies.
+4. **Docs:** `docs/extensions/espi.md`, a second example in `docs/learn/extensions.md`, `coverage.md`, `scenario-lab.md`, README, index. The ™ mention and the note, once. **Done:** the mention and the note are in `docs/extensions/espi.md` only; `docs/fernwick-power.md` links there.
 5. **Deploy** (with the user's OK): Fernwick creates the `energy-demo.poppylab.dev` domain; the playground with the new origin.
 
 ## Risks
 
 - **Visual changes** to the playground (new card) while another session captures screenshots: warn before merging.
-- **"How it works"** pages: the `poppy-ad` session is adding them to every Company; Fernwick won't have one until someone does.
+- **"How it works"** pages: Fernwick has one now, made with the shared generator in `pap-core`.
 - **Hand-written XML:** the parser must refuse anything outside the subset and is the most sensitive part; it gets more tests than the rest.

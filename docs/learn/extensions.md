@@ -377,15 +377,61 @@ website, ends the consent the same way.
    documents and data-recipient registration, plus open questions about field
    names we couldn't verify.
 
-Other domains where this pattern seems promising are health records (HL7 FHIR
-with SMART on FHIR, which already uses OAuth scopes), energy usage (Green
-Button), and telecom accounts (TM Forum Open APIs).
+We have now tried the pattern twice, on bank data and on energy usage (below).
+Other domains where it seems promising are health records (HL7 FHIR with SMART
+on FHIR, which already uses OAuth scopes) and telecom accounts (TM Forum Open
+APIs).
+
+## A second domain: energy usage
+
+[Fernwick Power & Light](https://energy-demo.poppylab.dev), our fictional
+electricity utility, serves hourly meter readings and bills in the shape of
+NAESB REQ.21 ESPI through `poppylab.dev/espi` v1. The pattern held: discovery,
+the Session, sign-in, a choice made at consent that holds for the whole grant,
+a domain consent that is the grant, writes left to Operations. Four things
+changed.
+
+> **ESPI-shaped (modelled on NAESB REQ.21 ESPI), not certified.** The ESPI
+> schemas are Apache-2.0, so we reuse their element names and codes; the
+> REQ.21 text is NAESB's, and none of it is here. The extension is written up
+> in [`poppylab.dev/espi` v1](../extensions/espi.md).
+
+- **It's XML.** ESPI has no JSON and no OpenAPI description: Atom feeds with
+  ESPI elements inside `<content>`, served as `application/atom+xml`. So there
+  is nothing for the generic adapter to read, and the agent needs a parser. We
+  wrote a strict one for the subset Atom uses, which refuses document type
+  declarations, any entity beyond the five predefined ones and processing
+  instructions, and bounds size, depth and element count. Company XML is
+  untrusted input, and an XML parser is where the old attacks live.
+- **The agent adds up before the model sees anything.** A meter reports an
+  interval an hour: 2,208 per reading over the longest window. The tools take
+  local dates and answer in kWh and dollars per day (or per hour, for three
+  days at most), with the total and the busiest hours. They decode the units
+  on the way (watt-hours times a power of ten, costs in hundred-thousandths of
+  a dollar, times in seconds since 1970) and put days in the utility's local
+  time, from its daylight saving rules. The model never sees a raw interval.
+- **The subscription arrives with the token.** The token response carries
+  ESPI's `resourceURI` and `authorizationURI`, the subscription and its
+  authorization, which here are the grant. The agent keeps them only if they
+  are exactly those two paths under the entry's `resource_endpoint`, and
+  builds every other URL itself.
+- **Revoking is a `DELETE`.** The User revokes from the account row, and the
+  agent sends `DELETE {authorizationURI}`. ESPI speaks of updating or deleting
+  the authorization without settling the method, so the method is ours.
+
+Checking the two sides against each other found two mismatches the separate
+test suites hadn't. Fernwick bills UTC months, and the agent printed them in
+Pacific dates, so September seemed to start on 31 August. And the default
+92-day window for bills crosses the November clock change, which makes it an
+hour longer than 92 × 24 hours: the utility refused it.
 
 ## Try it
 
 Open the [playground](https://poppylab.dev/playground), pick **Harborline
 Bank**, turn **Use FDX** on and sign in. Share one account, then ask for your
-balance, your transactions or your statements. The Inspector shows each
+balance, your transactions or your statements. Or pick **Fernwick Power &
+Light**, turn **Use ESPI** on, share the EV charger and ask how much
+electricity it used last week. The Inspector shows each
 request with the scopes it used. The full contract is in
 [the extension](../extensions/fdx.md), and Harborline's side is in
 [its design note](../harborline-bank.md#fdx-shaped-api).
