@@ -339,10 +339,10 @@ export default function Home() {
           <div className="agents-intro">
             <h2 id="agents-title">Bring your own agent</h2>
             <p>
-              Juniper, Lantern, Harborline and Northwind accept any Personal Agent with an
-              HTTPS <code>client_id</code> that serves its metadata and keys,
-              with redirect URIs from that metadata. Both speak Operations v3.
-              Replace <code>{"{company}"}</code> with{" "}
+              Juniper, Lantern, Harborline and Northwind accept any Personal
+              Agent with an HTTPS <code>client_id</code> that serves its
+              metadata and keys, with redirect URIs from that metadata. Both
+              speak Operations v3. Replace <code>{"{company}"}</code> with{" "}
               <code>{host(juniper)}</code>, <code>{host(lantern)}</code> or{" "}
               <code>{host(harborline)}</code> or <code>{host(northwind)}</code>.
             </p>

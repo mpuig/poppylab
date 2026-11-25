@@ -3,12 +3,7 @@
  * to its own footer. Local development links to the localhost addresses.
  */
 export type LabSite =
-  | "home"
-  | "playground"
-  | "juniper"
-  | "lantern"
-  | "harborline"
-  | "northwind";
+  "home" | "playground" | "juniper" | "lantern" | "harborline" | "northwind";
 export const LAB_REPOSITORY = "https://github.com/mpuig/poppylab";
 
 export function labSites(origin: string) {
