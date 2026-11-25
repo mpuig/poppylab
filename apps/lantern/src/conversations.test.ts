@@ -710,6 +710,85 @@ it("opens a Direct Conversation on Lantern's invitation and refunds a whole orde
   expect(refunds.length).toBeGreaterThan(0);
 });
 
+it("asks its question once in a Direct Conversation: after the answer, more words get the phone number (§8.10)", async () => {
+  const x = await lab();
+  const t = (await x.sign("elena", true)).access_token;
+  /** Opens a Direct Conversation on Lantern's invitation; returns how to speak in it. */
+  const open = async () => {
+    const started = await x.post(
+      t,
+      `${BASE}?wait=0`,
+      msg({
+        data: { request: "order_not_delivered", order_id: "ord_LNB0907" },
+      }),
+    );
+    const opened = await x.post(t, `${BASE}?wait=0`, {
+      id: `req_${++n}`,
+      parent_conversation_id: (started.body as Read).conversation_id,
+      user_requested_event_id: (started.body as Read).events.find(
+        (e) => e.type === "user_requested",
+      )!.id,
+    });
+    const direct = (opened.body as Read).conversation_id;
+    expect(x.company((opened.body as Read).events)[0]!.data).toMatchObject({
+      question: "order_not_delivered",
+    });
+    /** Lantern's replies to a message: the customer's own words, or a body. */
+    return async (said: string | Record<string, unknown>) => {
+      const r = await x.post(
+        t,
+        `${BASE}/${direct}/messages?wait=0&cursor=${(await x.events(t, direct)).cursor}`,
+        typeof said === "string"
+          ? {
+              id: `req_${++n}`,
+              message: { author: { type: "human" }, text: said },
+            }
+          : said,
+      );
+      return x.company((r.body as Read).events);
+    };
+  };
+  /** A reply that neither asks the question nor proposes anything. */
+  const onlyThePhone = (replies: Message[]) => {
+    expect(replies).toHaveLength(1);
+    expect(replies[0]!.text).toContain("+1 555-0142");
+    expect(replies[0]!.text).not.toContain("arrive?");
+    expect(replies[0]!.data!.question).toBeUndefined();
+    expect(replies[0]!.extensions).toBeUndefined();
+  };
+
+  // "No" is an answer: nothing after it asks again, and a late "yes" refunds nothing.
+  const afterNo = await open();
+  expect((await afterNo("no"))[0]!.data).toEqual({ answer: "no" });
+  onlyThePhone(await afterNo("ok thanks"));
+  onlyThePhone(await afterNo("yes"));
+
+  // "Yes" proposes the refund once: more words, or another "yes", propose nothing.
+  const afterYes = await open();
+  const op = (await afterYes("yes"))[0]!.extensions!.operations!.operation!;
+  onlyThePhone(await afterYes("is that all?"));
+  onlyThePhone(await afterYes("yes"));
+  onlyThePhone(await afterYes("yes"));
+  // The one proposal is still there to approve.
+  const done = await afterYes(
+    msg({
+      extensions: {
+        operations: {
+          approval: {
+            operation_id: op.operation_id,
+            revision: op.revision,
+            approver: "user",
+            approved_at: Math.floor(Date.now() / 1000),
+            input_type: "tap",
+          },
+        },
+      },
+    }),
+  );
+  expect(done[0]!.text).toContain("Refunded");
+  onlyThePhone(await afterYes("yes"));
+});
+
 it("lets the customer open a Direct Conversation themselves, and closes it with its parent (§8.10)", async () => {
   const x = await lab();
   const parent = (

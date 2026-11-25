@@ -329,6 +329,8 @@ export function lanternAgent(deps: Deps): ConversationHandler {
       typeof invite.order_id === "string"
         ? invite.order_id
         : undefined;
+    // `asked` is the order while the question is open and false once it's
+    // answered, so the question is asked once (unset means not asked yet).
     if (turn.opening || (orderId && turn.memory.asked === undefined)) {
       if (!orderId)
         return {
@@ -367,13 +369,14 @@ export function lanternAgent(deps: Deps): ConversationHandler {
         ],
       };
     if (/^(yes|y|yeah|yep|correct)\b/.test(said)) {
-      delete turn.memory.asked;
+      // Signed out, the question stays open: "yes" counts after signing in.
       const missing = needs(turn, ["orders:read", "orders:write"]);
       if (missing) return missing;
+      turn.memory.asked = false;
       return wholeRefund(turn, asked);
     }
     if (/^(no|n|nope)\b/.test(said)) {
-      delete turn.memory.asked;
+      turn.memory.asked = false;
       return {
         replies: [
           {
