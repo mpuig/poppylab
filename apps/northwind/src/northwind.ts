@@ -873,6 +873,17 @@ function mount(
       terms,
       summary: `Cancel booking ${booking.reference}. Refund ${usd(refund)} after a ${usd(fee)} fee. ${terms.finality} ${FICTION_NOTICE}`,
       perform: () => {
+        // Each segment's seat and its place in the cabin go back on sale.
+        for (const id of booking.flight_ids) {
+          const stock = inventory[id]!,
+            seat = booking.seats[id];
+          if (seat) stock.available_seats.push(seat);
+          delete booking.seats[id];
+          stock[
+            seatsLeft(booking.cabins[id] ?? fareBrands[booking.fare].cabin)
+          ]++;
+          stock.version++;
+        }
         booking.status = "cancelled";
         booking.version++;
         return {

@@ -344,6 +344,70 @@ it("moves an upgraded passenger back to the fare's cabin, says so, and keeps bot
   });
 });
 
+it("returns a cancelled booking's seats and cabin places to its flights", async () => {
+  const x = await setup();
+  const elena = await x.sign("elena", true);
+  const robin = await x.sign("robin", true);
+  await x.call(robin.access_token, "GET", "/api/account/bookings");
+  bookElenaOnNa274();
+  await approve(x, robin.access_token, "/api/account/bookings/NW4D8R/upgrade", {
+    offer_id: "upg_robin_1",
+  });
+  const seatUrl = "/api/account/bookings/NW4D8R/seat";
+  const elenasSeat = { flight_id: "flt_na274_20270603", seat: "14A" };
+  expect(
+    (await x.call(robin.access_token, "POST", seatUrl, elenasSeat)).json(),
+  ).toEqual({ error: "seat_unavailable" });
+  const cancelled = await approve(
+    x,
+    elena.access_token,
+    "/api/account/bookings/NW2E9S/cancel",
+    {},
+  );
+  // The seat Elena held is Robin's to choose now.
+  expect(
+    (await x.call(robin.access_token, "POST", seatUrl, elenasSeat)).json(),
+  ).toMatchObject({
+    error: "approval_required",
+    operation: { terms: { from_seat: "27D", to_seat: "14A" } },
+  });
+  expect(cancelled.done.json().data).toMatchObject({
+    status: "cancelled",
+    itinerary: [{ flight_number: "NA 274", seat: null }],
+    upgrade_offer: null,
+  });
+  // A cancelled booking's upgrade offer cannot be accepted.
+  expect(
+    (
+      await x.call(
+        elena.access_token,
+        "POST",
+        "/api/account/bookings/NW2E9S/upgrade",
+        { offer_id: "upg_robin_1" },
+      )
+    ).json(),
+  ).toEqual({ error: "booking_not_active" });
+  await approve(
+    x,
+    robin.access_token,
+    "/api/account/bookings/NW4D8R/cancel",
+    {},
+  );
+  // Both passengers are off NA 274: one more Economy place than at the start
+  // (Robin's own), and the Business place Robin's upgrade took is back.
+  const search = await x.call(
+    "",
+    "GET",
+    "/api/flights/search?origin=PAU&destination=SMR&date=2027-06-03",
+  );
+  const fares = search.json().itineraries[0].segments[0].fares;
+  expect(fares[0]).toMatchObject({ cabin: "Economy", seats_left: 19 });
+  expect(fares[2]).toMatchObject({ cabin: "Business", seats_left: 4 });
+  expect(business().inventory.flt_na274_20270603!.available_seats).toEqual(
+    expect.arrayContaining(["14A", "27D"]),
+  );
+});
+
 it("returns exact baggage, preference, upgrade and cancellation terms", async () => {
   const x = await setup();
   const elena = await x.sign("elena", true);
