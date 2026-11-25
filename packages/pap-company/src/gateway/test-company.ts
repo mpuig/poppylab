@@ -165,7 +165,7 @@ export async function setup(
   const call = async (
     path: string,
     options: {
-      method?: "GET" | "POST";
+      method?: "GET" | "POST" | "PUT";
       access?: string;
       extensions?: string;
       user?: string;
@@ -197,9 +197,9 @@ export async function setup(
               DPoP: await proof(dpop.privateKey, origin + path, method, access),
             }
           : {}),
-        ...(method === "POST" ? { "content-type": "application/json" } : {}),
+        ...(method !== "GET" ? { "content-type": "application/json" } : {}),
       },
-      ...(method === "POST" ? { body: "{}" } : {}),
+      ...(method !== "GET" ? { body: "{}" } : {}),
     });
   };
   return { app, store, credentials, form, post, token, signIn, call };

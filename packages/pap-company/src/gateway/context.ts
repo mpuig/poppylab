@@ -50,6 +50,20 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
     !scopes.includes(def.writeScope)
   )
     throw new Error("Company scopes must include readScope and writeScope");
+  // §7: account routes, never the sign-in, discovery or Poppy routes.
+  const accountPrefixes = [...(def.accountPrefixes ?? ["/api/account"])];
+  const reserved = ["/oauth/", "/.well-known/", "/poppy/"];
+  if (
+    !accountPrefixes.length ||
+    accountPrefixes.some(
+      (prefix) =>
+        !prefix.startsWith("/") ||
+        reserved.some((r) => r.startsWith(prefix) || prefix.startsWith(r)),
+    )
+  )
+    throw new Error(
+      "Company accountPrefixes must be paths outside /oauth, /.well-known and /poppy",
+    );
   const replay = new ReplayCache(new Map(state.replays));
   const secure = origin.startsWith("https:"),
     cookiePrefix = secure ? "__Host-" : "";
@@ -205,6 +219,7 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
     isolated,
     replay,
     both: scopes,
+    accountPrefixes,
     secure,
     cookiePrefix,
     flags,

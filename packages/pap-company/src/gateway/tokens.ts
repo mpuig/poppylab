@@ -20,10 +20,30 @@ import {
   TOKEN_MS,
   type Code,
   type Grant,
+  viewOf,
 } from "./types.ts";
 
+/** Token response fields `tokenFields` can't replace (RFC 6749 §5.1, §5.2). */
+const STANDARD = new Set([
+  "access_token",
+  "token_type",
+  "expires_in",
+  "scope",
+  "refresh_token",
+  "error",
+  "error_description",
+  "error_uri",
+]);
+
 export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
-  const { origin, state, replay } = ctx;
+  const { def, origin, state, replay } = ctx;
+  /** The Company's own fields for a grant's token response, string-valued. */
+  const extra = (grant: Grant) =>
+    Object.fromEntries(
+      Object.entries(def.tokenFields?.(viewOf(grant)) ?? {}).filter(
+        ([name, value]) => !STANDARD.has(name) && typeof value === "string",
+      ),
+    );
   app.post("/oauth/token", async (c) => {
     let fallback = "invalid_client";
     try {
@@ -109,6 +129,7 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
           id: randomId(),
           client: id,
           scopes: code.scopes,
+          created: now,
           expires: now + GRANT_MS,
           ...(code.browser ? { browser: code.browser } : {}),
           // §4.4: refreshed only with the DPoP key it was issued with.
@@ -149,6 +170,8 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
       };
       return c.json(
         {
+          // First, so the standard fields below always win (RFC 6749 §5.1).
+          ...extra(grant),
           access_token: token,
           token_type: "DPoP",
           expires_in: TOKEN_MS / 1000,

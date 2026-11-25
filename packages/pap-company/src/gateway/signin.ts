@@ -276,18 +276,34 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
       return c.json({ error: "invalid_scope" }, 400);
     // What else the User chose, such as accounts, kept by the code and then
     // the grant. Bounded, since the form is the browser's.
-    const resources =
+    const chosen =
       body.decision === "approve"
-        ? def.selectResources?.({ persona: selected!.id, body })
+        ? def.selectResources?.({
+            persona: selected!.id,
+            body,
+            scopes: scopes.split(" "),
+          })
         : undefined;
+    // The Company turns this approval down, say for an empty choice; the
+    // consent stays pending, so the User can go back and choose again.
+    if (chosen && !Array.isArray(chosen) && typeof chosen.refuse === "string")
+      return c.json(
+        {
+          error: "invalid_request",
+          error_description: chosen.refuse.slice(0, 300),
+        },
+        400,
+        { "Cache-Control": "no-store" },
+      );
     if (
-      resources &&
-      (!Array.isArray(resources) ||
-        resources.length > MAX_RESOURCES ||
-        new Set(resources).size !== resources.length ||
-        resources.some((r) => typeof r !== "string" || !r || r.length > 128))
+      chosen &&
+      (!Array.isArray(chosen) ||
+        chosen.length > MAX_RESOURCES ||
+        new Set(chosen).size !== chosen.length ||
+        chosen.some((r) => typeof r !== "string" || !r || r.length > 128))
     )
       return c.json({ error: "invalid_request" }, 400);
+    const resources = chosen as string[] | undefined;
     pending.delete(nonce);
     const redirect = new URL(p.redirect);
     redirect.searchParams.set("state", p.state);
