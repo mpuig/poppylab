@@ -1,0 +1,9 @@
+{
+  "client_id": "https://poppylab.dev/validator-agent/agent.json",
+  "client_name": "Poppy validator (test)",
+  "jwks_uri": "https://poppylab.dev/validator-agent/jwks.json",
+  "redirect_uris": [
+    "https://poppylab.dev/validator-agent/callback"
+  ],
+  "token_endpoint_auth_method": "private_key_jwt"
+}
