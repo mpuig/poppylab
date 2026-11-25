@@ -145,16 +145,35 @@ export interface FdxExtensionEntry {
   fdx_version?: string;
   resources?: string[];
 }
+/**
+ * `poppylab.dev/espi` version 1: a read-only API shaped like NAESB REQ.21
+ * ESPI (modelled on it, not certified), serving Atom XML. `resource_endpoint`
+ * is on the Company's own origin; `espi_version`, `resources` and
+ * `function_blocks` are informational.
+ */
+export const ESPI_EXTENSION = "poppylab.dev/espi";
+export interface EspiExtensionEntry {
+  version: "1";
+  /** Absolute, without a trailing slash; ESPI resource paths go under it. */
+  resource_endpoint: string;
+  espi_version?: string;
+  /** ESPI resource names, such as `UsagePoint`. */
+  resources?: string[];
+  /** ESPI function block numbers. */
+  function_blocks?: number[];
+}
 /** The extensions, and the version of each, that this client uses (§3.3). */
 export const SUPPORTED_EXTENSIONS = {
   operations: "3",
   [FDX_EXTENSION]: "1",
+  [ESPI_EXTENSION]: "1",
 } as const;
 /** Name → the entry of the version this client uses, when listed and valid. */
 export interface CompanyExtensions {
   /** Operations v3 defines no other fields (§2 of that extension). */
   operations?: { version: "3" };
   [FDX_EXTENSION]?: FdxExtensionEntry;
+  [ESPI_EXTENSION]?: EspiExtensionEntry;
 }
 export type ExtensionCheck<T> =
   { entry: T; reason?: undefined } | { entry?: undefined; reason: string };
@@ -192,6 +211,26 @@ function extensionUrl(
   return url.href.replace(/\/+$/, "");
 }
 
+/** Each named field as an `extensionUrl`, or the reason the first isn't. */
+function extensionUrls<F extends string>(
+  raw: Record<string, unknown>,
+  fields: readonly F[],
+  domain: string,
+  localOrigins: readonly string[],
+): Record<F, string> | { reason: string } {
+  const urls: Partial<Record<F, string>> = {};
+  for (const field of fields) {
+    if (raw[field] === undefined) return { reason: `${field} is missing` };
+    const url = extensionUrl(raw[field], domain, localOrigins);
+    if (!url)
+      return {
+        reason: `${field} is not an HTTPS URL on ${domain.slice(0, 260)}`,
+      };
+    urls[field] = url;
+  }
+  return urls as Record<F, string>;
+}
+
 /**
  * The `poppylab.dev/fdx` v1 entry, validated (§3.3, §3). Undefined when the
  * Company doesn't list version 1; a reason when it does but the entry can't be
@@ -206,18 +245,13 @@ export function fdxExtension(
     (e) => e.version === "1",
   );
   if (!raw) return undefined;
-  const domain = document.organization.domain;
-  const fields = ["base_url", "consent_endpoint"] as const;
-  const urls: Partial<Record<(typeof fields)[number], string>> = {};
-  for (const field of fields) {
-    if (raw[field] === undefined) return { reason: `${field} is missing` };
-    const url = extensionUrl(raw[field], domain, localOrigins);
-    if (!url)
-      return {
-        reason: `${field} is not an HTTPS URL on ${domain.slice(0, 260)}`,
-      };
-    urls[field] = url;
-  }
+  const urls = extensionUrls(
+    raw,
+    ["base_url", "consent_endpoint"],
+    document.organization.domain,
+    localOrigins,
+  );
+  if ("reason" in urls) return urls;
   const fdxVersion =
     typeof raw.fdx_version === "string" &&
     /^[0-9A-Za-z.]{1,16}$/.test(raw.fdx_version)
@@ -234,10 +268,68 @@ export function fdxExtension(
   return {
     entry: {
       version: "1",
-      base_url: urls.base_url!,
-      consent_endpoint: urls.consent_endpoint!,
+      base_url: urls.base_url,
+      consent_endpoint: urls.consent_endpoint,
       ...(fdxVersion ? { fdx_version: fdxVersion } : {}),
       ...(resources ? { resources } : {}),
+    },
+  };
+}
+
+/**
+ * The `poppylab.dev/espi` v1 entry, validated like FDX's (§3.3, §3):
+ * `resource_endpoint` is an HTTPS URL on `organization.domain`, or on a given
+ * development-only local origin that is the domain. Undefined when the
+ * Company doesn't list version 1; a reason when it does but the entry can't
+ * be used, which then counts as not listed.
+ */
+export function espiExtension(
+  document: Pick<PoppyDocument, "extensions" | "organization">,
+  /** Development-only plain-HTTP origins (the local example Companies). */
+  localOrigins: readonly string[] = [],
+): ExtensionCheck<EspiExtensionEntry> | undefined {
+  const raw = extensionEntries(document, ESPI_EXTENSION).find(
+    (e) => e.version === "1",
+  );
+  if (!raw) return undefined;
+  const urls = extensionUrls(
+    raw,
+    ["resource_endpoint"],
+    document.organization.domain,
+    localOrigins,
+  );
+  if ("reason" in urls) return urls;
+  const espiVersion =
+    typeof raw.espi_version === "string" &&
+    /^[0-9A-Za-z.]{1,16}$/.test(raw.espi_version)
+      ? raw.espi_version
+      : undefined;
+  const resources = Array.isArray(raw.resources)
+    ? raw.resources
+        .slice(0, 32)
+        .filter(
+          (r): r is string =>
+            typeof r === "string" && /^[A-Z][A-Za-z0-9]{0,63}$/.test(r),
+        )
+    : undefined;
+  const functionBlocks = Array.isArray(raw.function_blocks)
+    ? raw.function_blocks
+        .slice(0, 64)
+        .filter(
+          (b): b is number =>
+            typeof b === "number" &&
+            Number.isSafeInteger(b) &&
+            b >= 1 &&
+            b <= 999,
+        )
+    : undefined;
+  return {
+    entry: {
+      version: "1",
+      resource_endpoint: urls.resource_endpoint,
+      ...(espiVersion ? { espi_version: espiVersion } : {}),
+      ...(resources ? { resources } : {}),
+      ...(functionBlocks ? { function_blocks: functionBlocks } : {}),
     },
   };
 }
@@ -261,6 +353,10 @@ export function companyExtensions(
   if (fdx?.entry) extensions[FDX_EXTENSION] = fdx.entry;
   else if (fdx)
     rejected.push({ name: FDX_EXTENSION, version: "1", reason: fdx.reason });
+  const espi = espiExtension(document, localOrigins);
+  if (espi?.entry) extensions[ESPI_EXTENSION] = espi.entry;
+  else if (espi)
+    rejected.push({ name: ESPI_EXTENSION, version: "1", reason: espi.reason });
   return { extensions, rejected };
 }
 

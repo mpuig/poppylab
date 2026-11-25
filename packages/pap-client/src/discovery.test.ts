@@ -526,3 +526,54 @@ describe("poppylab.dev/fdx in the profile (§3.3)", () => {
     await expect(run([])).rejects.toThrow();
   });
 });
+
+describe("poppylab.dev/espi in the profile (§3.3)", () => {
+  const espi = {
+    version: "1",
+    espi_version: "4.0",
+    resource_endpoint: "https://company.example/espi/1_1/resource",
+    resources: ["UsagePoint", "MeterReading"],
+    function_blocks: [1, 3, 4],
+  };
+  const withEspi = (entry: unknown) => ({
+    ...document,
+    extensions: { ...document.extensions, "poppylab.dev/espi": [entry] },
+  });
+  it("keeps a valid v1 entry next to Operations, with a trace step", async () => {
+    const { result } = discover(
+      Response.json(withEspi(espi)),
+      Response.json(resource),
+      Response.json(metadata),
+    );
+    const company = await result;
+    expect(company.profile.extensions).toEqual({
+      operations: { version: "3" },
+      "poppylab.dev/espi": espi,
+    });
+    expect(company.trace).toContainEqual({
+      id: "extension",
+      label: "Extension poppylab.dev/espi v1",
+      detail: "https://company.example/espi/1_1/resource",
+      status: "passed",
+    });
+  });
+  it("treats an entry on another host as not listed, and says why", async () => {
+    const { result } = discover(
+      Response.json(
+        withEspi({ ...espi, resource_endpoint: "https://evil.example/espi" }),
+      ),
+      Response.json(resource),
+      Response.json(metadata),
+    );
+    const company = await result;
+    expect(company.profile.extensions).toEqual({
+      operations: { version: "3" },
+    });
+    expect(company.trace).toContainEqual({
+      id: "extension",
+      label: "Extension poppylab.dev/espi v1 ignored",
+      detail: "resource_endpoint is not an HTTPS URL on company.example",
+      status: "failed",
+    });
+  });
+});

@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   companyExtensions,
   compatibleVersion,
+  ESPI_EXTENSION,
+  espiExtension,
   fdxExtension,
+  SUPPORTED_EXTENSIONS,
   listsExtension,
   parseTasks,
   poppyDocumentSchema,
@@ -218,6 +221,150 @@ describe("poppylab.dev/fdx v1 entry (§3.3)", () => {
           name: "poppylab.dev/fdx",
           version: "1",
           reason: "base_url is not an HTTPS URL on test.example",
+        },
+      ],
+    });
+  });
+});
+
+describe("poppylab.dev/espi v1 entry (§3.3)", () => {
+  const entry = {
+    version: "1",
+    espi_version: "4.0",
+    resource_endpoint: "https://test.example/espi/1_1/resource",
+    resources: ["UsagePoint", "MeterReading", "IntervalBlock"],
+    function_blocks: [1, 3, 4],
+  };
+  const doc = (...entries: unknown[]) =>
+    poppyDocumentSchema.parse({
+      ...base,
+      extensions: { "poppylab.dev/espi": entries },
+    });
+  it("reads a valid entry, keeping only its known fields", () => {
+    expect(
+      espiExtension(
+        doc({
+          ...entry,
+          resource_endpoint: entry.resource_endpoint + "/",
+          x: 1,
+        }),
+      ),
+    ).toEqual({ entry });
+    expect(SUPPORTED_EXTENSIONS).toMatchObject({
+      [ESPI_EXTENSION]: "1",
+      "poppylab.dev/fdx": "1",
+      operations: "3",
+    });
+  });
+  it("is not listed without a version 1 entry", () => {
+    expect(espiExtension(doc({ ...entry, version: "2" }))).toBeUndefined();
+    expect(espiExtension(doc())).toBeUndefined();
+    expect(espiExtension(poppyDocumentSchema.parse(base))).toBeUndefined();
+  });
+  it.each([
+    [undefined, "resource_endpoint is missing"],
+    [7, "resource_endpoint is not"],
+    ["not a url", "resource_endpoint is not"],
+    ["http://test.example/espi", "resource_endpoint is not"],
+    ["https://api.test.example/espi", "resource_endpoint is not"],
+    ["https://test.example.evil/espi", "resource_endpoint is not"],
+    ["https://test.example:8443/espi", "resource_endpoint is not"],
+    ["https://user:pw@test.example/espi", "resource_endpoint is not"],
+    ["https://test.example/espi?x=1", "resource_endpoint is not"],
+    ["https://test.example/espi?", "resource_endpoint is not"],
+    ["https://test.example/espi#x", "resource_endpoint is not"],
+    ["https://test.example/espi%2F1_1", "resource_endpoint is not"],
+  ])("rejects resource_endpoint = %s", (value, reason) => {
+    const check = espiExtension(doc({ ...entry, resource_endpoint: value }));
+    expect(check?.entry).toBeUndefined();
+    expect(check?.reason).toContain(reason);
+  });
+  it("allows plain HTTP only on a given local origin that is the domain", () => {
+    const local = "http://fernwick.localhost:4500";
+    const document = poppyDocumentSchema.parse({
+      ...base,
+      organization: { name: "Fernwick", domain: "fernwick.localhost:4500" },
+      extensions: {
+        "poppylab.dev/espi": [
+          { ...entry, resource_endpoint: `${local}/espi/1_1/resource` },
+        ],
+      },
+    });
+    expect(espiExtension(document, [local])?.entry?.resource_endpoint).toBe(
+      `${local}/espi/1_1/resource`,
+    );
+    expect(espiExtension(document)?.entry).toBeUndefined();
+    expect(
+      espiExtension(
+        {
+          ...document,
+          organization: { ...document.organization, domain: "x.example" },
+        },
+        [local],
+      )?.entry,
+    ).toBeUndefined();
+  });
+  it("drops malformed informational fields instead of the entry", () => {
+    expect(
+      espiExtension(
+        doc({
+          ...entry,
+          espi_version: "<b>4</b>",
+          resources: ["UsagePoint", 3, "usage point", "<x>"],
+          function_blocks: [1, "3", 2.5, -1, 0, 1000, 15],
+        }),
+      ),
+    ).toEqual({
+      entry: {
+        version: "1",
+        resource_endpoint: entry.resource_endpoint,
+        resources: ["UsagePoint"],
+        function_blocks: [1, 15],
+      },
+    });
+  });
+  it("is listed with the other supported extensions, and rejected apart", () => {
+    const fdx = {
+      version: "1",
+      base_url: "https://test.example/fdx/v6",
+      consent_endpoint: "https://test.example/fdx/v6/consents",
+    };
+    const both = companyExtensions(
+      poppyDocumentSchema.parse({
+        ...base,
+        extensions: {
+          operations: [{ version: "3" }],
+          "poppylab.dev/fdx": [fdx],
+          "poppylab.dev/espi": [entry],
+        },
+      }),
+    );
+    expect(both).toEqual({
+      extensions: {
+        operations: { version: "3" },
+        "poppylab.dev/fdx": fdx,
+        "poppylab.dev/espi": entry,
+      },
+      rejected: [],
+    });
+    expect(
+      companyExtensions(
+        poppyDocumentSchema.parse({
+          ...base,
+          extensions: {
+            "poppylab.dev/espi": [
+              { ...entry, resource_endpoint: "https://x.example/espi" },
+            ],
+          },
+        }),
+      ),
+    ).toEqual({
+      extensions: {},
+      rejected: [
+        {
+          name: "poppylab.dev/espi",
+          version: "1",
+          reason: "resource_endpoint is not an HTTPS URL on test.example",
         },
       ],
     });

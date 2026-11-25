@@ -39,6 +39,7 @@ import {
   authorizationServerMetadataSchema,
   companyExtensions,
   compatibleVersion,
+  ESPI_EXTENSION,
   FDX_EXTENSION,
   IMPLEMENTED_VERSION,
   normalizeScopeHints,
@@ -674,6 +675,14 @@ async function discover10(
       id: "extension",
       label: `Extension ${FDX_EXTENSION} v1`,
       detail: fdx.base_url,
+      status: "passed",
+    });
+  const espi = extensions[ESPI_EXTENSION];
+  if (espi)
+    trace.push({
+      id: "extension",
+      label: `Extension ${ESPI_EXTENSION} v1`,
+      detail: espi.resource_endpoint,
       status: "passed",
     });
   const base = {
