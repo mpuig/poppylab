@@ -236,6 +236,11 @@ export const travelInformation = {
     text: "Breeze Saver has a USD 75.00 change fee plus fare difference; Gale Flex has no change fee; Aurora Business has no change fee and is fully refundable before departure.",
   },
 } as const;
+/** A listed topic's information: `constructor` is a key of every object too. */
+export const travelInformationFor = (topic: unknown) =>
+  typeof topic === "string" && Object.hasOwn(travelInformation, topic)
+    ? travelInformation[topic as keyof typeof travelInformation]
+    : undefined;
 
 export const PHONE = "+1 555-0168";
 export const PHONE_HOURS = "daily 06:00–22:00 fictional local time";

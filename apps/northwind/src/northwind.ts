@@ -22,7 +22,7 @@ import {
   northwindPersona,
   PHONE,
   PHONE_HOURS,
-  travelInformation,
+  travelInformationFor,
   type PassengerPreference,
   type SeedBooking,
 } from "./data.ts";
@@ -615,8 +615,8 @@ function mount(
       : c.json({ error: "flight_not_found" }, 404);
   });
   app.get("/api/travel-information", (c) => {
-    const topic = c.req.query("topic") as keyof typeof travelInformation;
-    const information = travelInformation[topic];
+    const topic = c.req.query("topic");
+    const information = travelInformationFor(topic);
     return information
       ? c.json({ topic, ...information, note: FICTION_NOTICE })
       : c.json({ error: "unknown_topic" }, 400);

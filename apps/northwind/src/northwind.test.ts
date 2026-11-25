@@ -73,6 +73,16 @@ it("serves signed-out search, cheapest dates, status, information and fictional 
     (await x.call("", "GET", "/api/travel-information?topic=baggage")).json()
       .text,
   ).toContain("USD 45.00");
+  // A topic is one of the listed ones, not any key an object inherits.
+  for (const topic of ["constructor", "toString", "__proto__", "visas"]) {
+    const unknown = await x.call(
+      "",
+      "GET",
+      `/api/travel-information?topic=${topic}`,
+    );
+    expect(unknown.statusCode).toBe(400);
+    expect(unknown.json()).toEqual({ error: "unknown_topic" });
+  }
   const lookup = await x.call(
     "",
     "GET",

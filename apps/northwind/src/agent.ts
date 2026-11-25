@@ -8,7 +8,7 @@ import {
   FICTION_NOTICE,
   PHONE,
   PHONE_HOURS,
-  travelInformation,
+  travelInformationFor,
 } from "./data.ts";
 
 type Deps = {
@@ -112,8 +112,8 @@ export function northwindAgent(deps: Deps): ConversationHandler {
             };
       }
       case "travel_information": {
-        const topic = data.topic as keyof typeof travelInformation;
-        const information = travelInformation[topic];
+        const topic = data.topic;
+        const information = travelInformationFor(topic);
         return information
           ? {
               replies: [
