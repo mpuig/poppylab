@@ -9,8 +9,8 @@
  * An `authorization` event (§8.11) becomes the usual Sign in instruction. An
  * operation in `extensions.operations` (Operations v3) becomes the usual
  * approval card; approving sends a message carrying the User's approval, with
- * a request ID derived from the revision, so a retry after a lost response is
- * the same request (§8.3).
+ * a request ID derived from that approval, so a retry after a lost response
+ * is the same request (§8.3).
  *
  * Direct Conversations (§8.10): the User talks with the Company themselves.
  * Iris never starts one on the model's say-so. A `user_requested` event
@@ -579,9 +579,26 @@ export function conversationSession(run: Run, options: Options) {
   return { tools, direct };
 }
 
-/** The request ID for one approval: the same for a retry (§8.3). */
-export const approvalRequestId = (op: Operation) =>
-  `apv_${createHash("sha256").update(`${op.operation_id}\n${op.revision}`).digest("base64url").slice(0, 24)}`;
+/**
+ * The request ID for one approval: the same for a retry of it (§8.3), and
+ * for nothing else. Another approval of the same revision, such as the
+ * User's own after the Company declined Iris's, is another message; with
+ * the same ID the Company would refuse it as a conflict.
+ */
+export const approvalRequestId = (approval: Approval) =>
+  `apv_${createHash("sha256")
+    .update(
+      [
+        approval.operation_id,
+        approval.revision,
+        approval.approver,
+        approval.approved_at,
+        approval.input_type,
+        approval.reference,
+      ].join("\n"),
+    )
+    .digest("base64url")
+    .slice(0, 24)}`;
 
 /**
  * Operations v3 in a conversation (§6): sends the User's approval in
@@ -609,7 +626,7 @@ export async function approveInConversation(
   // User's Direct Conversation (§8.10), each with its own read position.
   const thread: Thread | undefined =
     s.id === target.id ? s : s.direct?.id === target.id ? s.direct : undefined;
-  const requestId = approvalRequestId(op);
+  const requestId = approvalRequestId(approval);
   const url = new URL(`${target.endpoint}/${target.id}/messages`);
   url.searchParams.set("wait", "10");
   if (thread?.cursor) url.searchParams.set("cursor", thread.cursor);

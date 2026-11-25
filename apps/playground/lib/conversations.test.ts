@@ -296,7 +296,7 @@ describe("conversations (§8) in Iris", () => {
     });
   });
 
-  it("approves in a message with a request ID derived from the revision, and reports new terms or a decline", async () => {
+  it("approves in a message with a request ID derived from the approval, and reports new terms or a decline", async () => {
     const run = newRun();
     const op = {
       ...operation,
@@ -317,14 +317,16 @@ describe("conversations (§8) in Iris", () => {
     ];
     expect(url).toBe(`${endpoint}/cnv_1/messages?wait=10`);
     expect(body).toEqual({
-      id: approvalRequestId(op),
+      id: approvalRequestId(approval),
       message: {
         author: { type: "agent" },
         text: "The user approved this operation.",
         extensions: { operations: { approval } },
       },
     });
-    expect(approvalRequestId(op)).toBe(approvalRequestId({ ...op }));
+    expect(approvalRequestId(approval)).toBe(
+      approvalRequestId({ ...approval }),
+    );
     // A repeated approval adds no reply: already performed.
     const quiet = vi.fn(async () => read([]));
     expect(
@@ -368,6 +370,78 @@ describe("conversations (§8) in Iris", () => {
       code: "approval_declined",
       declined: { reason: "Refunds over $5 need a person." },
     });
+  });
+
+  it("sends the User's own approval as a new request after the Company declined Iris's, and a retry as the same one", async () => {
+    const op = {
+      ...operation,
+      state: "proposed" as const,
+      request: { conversation: { endpoint, id: "cnv_1" } },
+    };
+    const byIris = {
+      operation_id: "op_refund",
+      revision: "1793800000-abc",
+      approver: "agent" as const,
+      approved_at: 1793800090,
+      reference: "apr_iris",
+    };
+    // The Company, as §8.3 has it: an ID it accepted is good for that body only.
+    const accepted = new Map<string, string>();
+    const request = vi.fn(
+      async (_r: Run, _url: string, _m: string, body?: unknown) => {
+        const { id, message } = body as {
+          id: string;
+          message: {
+            extensions: { operations: { approval: { approver: string } } };
+          };
+        };
+        const sent = JSON.stringify(body);
+        if (accepted.has(id) && accepted.get(id) !== sent)
+          throw new ProtocolError(409, "request_id_conflict");
+        accepted.set(id, sent);
+        return read([
+          message.extensions.operations.approval.approver === "agent"
+            ? said("e11", {
+                as_of_request: id,
+                text: "I need the customer's own approval for a refund.",
+                extensions: {
+                  operations: {
+                    declined: {
+                      operation_id: "op_refund",
+                      revision: "1793800000-abc",
+                    },
+                  },
+                },
+              })
+            : said("e12", { as_of_request: id, text: "Refunded USD 8.00." }),
+        ]);
+      },
+    );
+    const ids = () =>
+      request.mock.calls.map((call) => (call[3] as { id: string }).id);
+    await expect(
+      approveInConversation(newRun(), op, byIris, request),
+    ).rejects.toMatchObject({ code: "approval_declined" });
+    // A lost response (Operations v3 §7): the same approval, the same request.
+    await expect(
+      approveInConversation(newRun(), op, byIris, request),
+    ).rejects.toMatchObject({ code: "approval_declined" });
+    expect(ids()[1]).toBe(ids()[0]);
+    // The User's approval of the same revision is another message.
+    await expect(
+      approveInConversation(newRun(), op, approval, request),
+    ).resolves.toEqual({ summary: "Refunded USD 8.00." });
+    expect(ids()[2]).not.toBe(ids()[0]);
+    // So is a second approval by the User, after one the Company didn't take.
+    await expect(
+      approveInConversation(
+        newRun(),
+        op,
+        { ...approval, approved_at: 1793800200, reference: "apr_again" },
+        request,
+      ),
+    ).resolves.toEqual({ summary: "Refunded USD 8.00." });
+    expect(new Set(ids()).size).toBe(3);
   });
 
   it("reads the four state fields, treats unknown values safely, and withdraws a handoff", async () => {
@@ -530,7 +604,7 @@ describe("Direct Conversations (§8.10) in Iris", () => {
         [
           proposal,
           said("evt_d4", {
-            as_of_request: approvalRequestId(op),
+            as_of_request: approvalRequestId(approval),
             text: "Refunded USD 37.00.",
           }),
         ],
