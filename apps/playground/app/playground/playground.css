@@ -1427,3 +1427,24 @@ footer .lab-links a:hover {
 .needs-you .operation-review {
   margin: 8px 0;
 }
+.standing-instruction {
+  flex-basis: 100%;
+  font-size: 14px;
+}
+.standing-instruction form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin-top: 8px;
+}
+.standing-instruction input {
+  width: 6rem;
+  padding: 6px 8px;
+  font: inherit;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.standing-instruction [role="alert"] {
+  color: var(--danger);
+}

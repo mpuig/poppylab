@@ -99,7 +99,9 @@ export default function PlaygroundPage() {
             <ConnectionSetup p={p} onInspect={() => setView("inspect")} />
             <Conversation p={p} transcript={transcript} taskInput={taskInput} />
             <p className="composer-note">
-              {"Your model · human approval for every change."}{" "}
+              {p.instruction
+                ? "Your model · you approve every change unless your standing instruction covers it."
+                : "Your model · human approval for every change."}{" "}
               <span>Enter to send · Shift + Enter for a new line</span>
             </p>
           </>

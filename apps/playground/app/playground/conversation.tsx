@@ -6,6 +6,7 @@ import { companyProfile } from "@poppy-lab/pap-core";
 import { needsYou } from "@/lib/operation-presentation";
 import { hideLinkSecrets } from "@/lib/link-display";
 import { OperationReview } from "../operation-review";
+import { StandingInstruction } from "./standing-instruction";
 import { accountCompany } from "./companies";
 import type { Playground } from "./use-playground";
 
@@ -214,6 +215,13 @@ export function Conversation({
                     ? "Retry sign-in"
                     : `Sign in to ${company.document.organization.name} · read only`}
               </button>
+              {signedIn && p.canWrite && (
+                <StandingInstruction
+                  instruction={p.instruction}
+                  currency={p.instruction?.currency ?? "USD"}
+                  onChange={p.setLimit}
+                />
+              )}
               {signedIn && p.moreAccess && (
                 <p className="permission-note">
                   This opens a new Company consent. Afterwards, ask for the

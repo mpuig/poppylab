@@ -5,7 +5,7 @@
  * Rendering lives in the components; nothing here touches the DOM except
  * the sign-in popup and the `?company=` query.
  */
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { companyProfile } from "@poppy-lab/pap-core";
 import type {
   DiscoveredCompany,
@@ -20,6 +20,12 @@ import {
 import type { ReviewOperation as Operation } from "@/lib/operation-presentation";
 import { agentStep } from "@/lib/agent-steps";
 import { logEntry, type ProtocolEntry } from "@/lib/protocol-log";
+import {
+  coveredBy,
+  loadInstruction,
+  saveInstruction,
+  type Instruction,
+} from "@/lib/standing-instructions";
 import { exampleUrl, historyToMessages, type Message } from "./companies";
 
 export function usePlayground(options: { onConnected?: () => void } = {}) {
@@ -47,7 +53,10 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
   const [accountBusy, setAccountBusy] = useState(false);
   const [waitingSignIn, setWaitingSignIn] = useState(false);
   const [operations, setOperations] = useState<Operation[]>([]);
+  const [instruction, setInstruction] = useState<Instruction | undefined>();
+  const decided = useRef(new Set<string>());
   const profile = result ? companyProfile(result) : undefined;
+  const origin = result ? new URL(result.requestedUrl).origin : "";
   // Scope meaning comes from the Company's own hints (§4.7).
   const canWrite = canChange(profile, scopes);
   const moreAccess = canRequestChanges(profile, scopes);
@@ -210,6 +219,34 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     }
   }
 
+  // The User's standing instruction for this Company, if they wrote one.
+  useEffect(() => {
+    setInstruction(origin ? loadInstruction(origin) : undefined);
+  }, [origin]);
+  function setLimit(next: Instruction | null) {
+    if (!origin) return;
+    saveInstruction(origin, next);
+    setInstruction(next ?? undefined);
+  }
+
+  // A fixed check against the exact terms; each revision is tried once.
+  // Anything it does not cover stays for the User in the Needs you panel.
+  useEffect(() => {
+    if (!signedIn || busy || !instruction) return;
+    for (const op of operations) {
+      const key = `${op.operation_id}:${op.revision}`;
+      if (decided.current.has(key)) continue;
+      const covered = coveredBy(op, instruction);
+      if (!covered) continue;
+      decided.current.add(key);
+      addTrace([`Approved by your standing instruction · ${covered}`]);
+      void accountAction("approve", op);
+      break;
+    }
+    // accountAction is recreated each render and reads current state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [operations, instruction, signedIn, busy]);
+
   async function discover(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
@@ -357,6 +394,8 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     send,
     retryMessage,
     removeMessage,
+    instruction,
+    setLimit,
   };
 }
 export type Playground = ReturnType<typeof usePlayground>;
