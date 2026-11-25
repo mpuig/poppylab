@@ -11,7 +11,7 @@ import {
 import { shoppingTarget } from "@/lib/shopping-context";
 import { cookies } from "next/headers";
 import { connect, directConversation, type Run } from "@/lib/runtime";
-import { record } from "@/lib/transcript";
+import { record, recordDirect } from "@/lib/transcript";
 import type { CompanyEntry, DirectAction } from "@/lib/conversations";
 import { directState } from "@/lib/direct-state";
 import {
@@ -235,22 +235,8 @@ async function reply(request: Request, started: { id?: string }) {
           decline: `Iris told ${companyName} you're not available to talk directly right now.`,
           close: `You've left the direct conversation with ${companyName}. Iris is back.`,
         }[direct];
-      record(
-        run,
-        {
-          role: "user",
-          content:
-            direct === "say" || direct === "start"
-              ? `(Said to ${companyName} directly, without Iris) ${body.message}`
-              : `(Direct conversation with ${companyName}: ${direct})`,
-        },
-        {
-          role: "assistant",
-          content:
-            text ||
-            "(No reply from Iris: the user was talking with the Company directly.)",
-        },
-      );
+      // Their words are kept for the page, never for the model.
+      recordDirect(run, companyName, direct, body.message, text);
       run.history = run.history.slice(-10);
       return NextResponse.json(
         {
