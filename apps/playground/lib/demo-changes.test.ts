@@ -174,6 +174,50 @@ it("reads how many of a dish from the number beside its name", async () => {
   ).toMatchObject({ args: { remove: ["pork-gyoza"] } });
 });
 
+it("adds and removes dishes in one message, each by its own verb", async () => {
+  const change = async (message: string) =>
+    (
+      (await demoChange(message, restaurant(), key)) as {
+        args?: Record<string, unknown>;
+      }
+    ).args;
+  expect(await change("Remove the edamame and add a matcha ice cream")).toEqual(
+    {
+      order_id: "ord_LNB1001",
+      add: [{ dish_id: "matcha-ice", quantity: 1 }],
+      remove: ["edamame"],
+    },
+  );
+  expect(
+    await change("add 2 pork gyoza, drop the edamame and the shoyu ramen"),
+  ).toEqual({
+    order_id: "ord_LNB1001",
+    add: [{ dish_id: "pork-gyoza", quantity: 2 }],
+    remove: ["shoyu-ramen", "edamame"],
+  });
+  expect(await change("swap the edamame for a matcha ice cream")).toEqual({
+    order_id: "ord_LNB1001",
+    add: [{ dish_id: "matcha-ice", quantity: 1 }],
+    remove: ["edamame"],
+  });
+  // Named before any verb: the first one after it decides.
+  expect(await change("The edamame, take it off")).toEqual({
+    order_id: "ord_LNB1001",
+    remove: ["edamame"],
+  });
+  expect(
+    await demoChange(
+      "Remove the edamame and add a matcha ice cream",
+      restaurant(),
+      key,
+    ),
+  ).toMatchObject({
+    because: expect.stringContaining(
+      "remove Salted edamame; add 1 × Matcha ice cream.",
+    ),
+  });
+});
+
 it("asks instead of guessing a dish, a day or an order", async () => {
   expect(await demoChange("change my order", restaurant(), key)).toHaveProperty(
     "say",

@@ -185,6 +185,40 @@ function destinationDay(
   return (left.find((day) => toAt >= 0 && day.at > toAt) ?? left.at(-1))?.name;
 }
 
+const REMOVE = new Set(["remove", "without", "drop", "cancel"]);
+const ADD = new Set(["add", "include", "plus"]);
+/**
+ * Whether the dish named at `start`…`end` in `said` is to be removed. Each
+ * dish follows the nearest verb before it, so "remove the edamame and add a
+ * matcha ice cream" does one of each; "swap X for Y" removes X and adds Y.
+ * A dish named before any verb ("the edamame, remove it") follows the first
+ * verb after it. Named with no verb at all, it is added.
+ */
+function removes(said: string[], start: number, end: number) {
+  const takeOff = said.includes("take") && said.includes("off");
+  const swapAt = said.indexOf("swap");
+  const asks = (index: number) => {
+    const word = said[index]!;
+    if (REMOVE.has(word) || word === "swap" || (word === "take" && takeOff))
+      return true;
+    if (
+      ADD.has(word) ||
+      ((word === "for" || word === "with") && swapAt >= 0 && swapAt < index)
+    )
+      return false;
+    return undefined;
+  };
+  for (let index = start - 1; index >= 0; index--) {
+    const asked = asks(index);
+    if (asked !== undefined) return asked;
+  }
+  for (let index = end + 1; index < said.length; index++) {
+    const asked = asks(index);
+    if (asked !== undefined) return asked;
+  }
+  return false;
+}
+
 /** Scheduled orders: add or remove dishes, move the delivery slot. */
 async function orderChange(
   message: string,
@@ -193,7 +227,6 @@ async function orderChange(
   const lowered = message.toLowerCase();
   const dishes = list(await tools.menu!.execute(), "dishes");
   const named = mentioned(lowered, dishes, (dish) => text(dish.name));
-  const removing = /\b(remove|without|drop|take off|cancel)\b/.test(lowered);
   const days = daysIn(lowered);
   const unclear = {
     say: "Which dish should be added or removed, or which day should the order move to? For example: “Add a matcha ice cream and move it to Sunday lunchtime.”",
@@ -231,11 +264,10 @@ async function orderChange(
     }
   }
   if (!named.length && !slot) return unclear;
-  const ids = named.map(({ item }) => text(item.id));
   // How many of each dish: the number beside its name, never one elsewhere
   // in the message or the portion size in the name itself ("Pork gyoza (6)").
   const said = tokens(lowered);
-  const adding = named.map((dish) => {
+  const picked = named.map((dish) => {
     const at = namedAt(said, dish);
     const sizes: string[] = text(dish.item.name).match(/\d+/g) ?? [];
     let end = at?.end ?? 0;
@@ -244,10 +276,13 @@ async function orderChange(
       dish_id: text(dish.item.id),
       name: text(dish.item.name),
       quantity: (at && howMany(said, at.start, end)) ?? 1,
+      remove: at ? removes(said, at.start, end) : removes(said, 0, -1),
     };
   });
-  const tooMany = adding.find(({ quantity }) => quantity < 1 || quantity > 5);
-  if (!removing && tooMany)
+  const add = picked.filter((dish) => !dish.remove);
+  const remove = picked.filter((dish) => dish.remove);
+  const tooMany = add.find(({ quantity }) => quantity < 1 || quantity > 5);
+  if (tooMany)
     return {
       say: `The demo adds 1 to 5 of a dish at a time; you asked for ${tooMany.quantity} × ${tooMany.name}.`,
     };
@@ -256,18 +291,19 @@ async function orderChange(
     args: {
       order_id: order.id,
       ...(slot ? { slot_id: slot.id } : {}),
-      ...(ids.length && !removing
-        ? {
-            add: adding.map(({ dish_id, quantity }) => ({ dish_id, quantity })),
-          }
+      ...(add.length
+        ? { add: add.map(({ dish_id, quantity }) => ({ dish_id, quantity })) }
         : {}),
-      ...(ids.length && removing ? { remove: ids } : {}),
+      ...(remove.length
+        ? { remove: remove.map(({ dish_id }) => dish_id) }
+        : {}),
     },
     because: `The demo read your scheduled order ${text(order.id)}, the menu and the delivery slots, and asked for: ${[
-      ids.length
-        ? removing
-          ? `remove ${adding.map(({ name }) => name).join(", ")}`
-          : `add ${adding.map(({ name, quantity }) => `${quantity} × ${name}`).join(", ")}`
+      remove.length
+        ? `remove ${remove.map(({ name }) => name).join(", ")}`
+        : "",
+      add.length
+        ? `add ${add.map(({ name, quantity }) => `${quantity} × ${name}`).join(", ")}`
         : "",
       slot ? `move to ${text(slot.label)}` : "",
     ]
