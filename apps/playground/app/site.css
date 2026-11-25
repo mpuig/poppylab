@@ -450,12 +450,30 @@ body:has(.site) {
 .seq-button:hover {
   background: var(--green-deep);
 }
-.seq-button.quiet {
+/* The caption keeps its height whether or not "Show it again" is beside it. */
+.seq figcaption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  min-height: 36px;
+}
+.seq-again {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 6px;
+  border: 1px solid var(--line-strong);
   background: var(--paper);
   color: var(--ink);
-  border-color: var(--line-strong);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
 }
-.seq-button.quiet:hover {
+.seq-again:hover {
   border-color: var(--ink);
 }
 @media (prefers-reduced-motion: no-preference) {
@@ -745,9 +763,10 @@ body:has(.site) {
   border-radius: 3px;
   color: var(--paper);
 }
+/* A screen is a picture: nothing in it takes the green of a working control. */
 .mini .box.on {
-  background: var(--green);
-  border-color: var(--green);
+  background: var(--ink-soft);
+  border-color: var(--ink-soft);
 }
 .mini .later {
   color: var(--muted);
@@ -766,15 +785,18 @@ body:has(.site) {
   min-height: 30px;
   padding: 0 12px;
   border-radius: 5px;
-  background: var(--green);
-  color: var(--paper);
-  font-weight: 600;
-  font-size: 14px;
-}
-.pill.quiet {
-  background: var(--paper);
+  background: var(--tint);
   color: var(--ink);
   box-shadow: inset 0 0 0 1px var(--line-strong);
+  font-weight: 500;
+  font-size: 14px;
+  cursor: default;
+}
+.pill.quiet {
+  background: transparent;
+  color: var(--muted);
+  box-shadow: none;
+  padding: 0 4px;
 }
 .waiting {
   display: inline-flex;
@@ -1243,12 +1265,6 @@ body:has(.site) {
   white-space: nowrap;
   overflow-wrap: normal;
 }
-.row-links a {
-  display: inline-block;
-  margin-right: 14px;
-  font-weight: 500;
-  white-space: nowrap;
-}
 
 /* Footer: what the lab is, then three groups of links. */
 .foot {
@@ -1435,17 +1451,6 @@ body:has(.site) {
     content: attr(data-label);
     font-size: 14px;
     color: var(--muted);
-  }
-  .legend.stack .row-links {
-    margin-top: 4px;
-  }
-  .legend.stack .row-links a {
-    display: inline;
-  }
-  .legend.stack .row-links span {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px 14px;
   }
 }
 @media (max-width: 640px) {

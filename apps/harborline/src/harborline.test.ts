@@ -85,6 +85,59 @@ describe("Harborline Bank", () => {
     expect(full.scope?.split(" ")).toEqual(requested);
   });
 
+  it("keeps the grant refreshable past its first access token only with offline access", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      const { sign, token, authorize, call } = await setup();
+      // The consent page offers offline access unticked.
+      const { page } = await authorize("elena", [...reads, "offline_access"]);
+      expect(page.body).toMatch(/<input[^>]*name="allow_offline"[^>]*>/);
+      expect(page.body).not.toMatch(
+        /<input[^>]*name="allow_offline"[^>]*checked/,
+      );
+      const start = Date.now();
+      const refresh = (refreshToken: string) =>
+        token({ grant_type: "refresh_token", refresh_token: refreshToken });
+      const once = await sign("elena", ["accounts:read", "offline_access"]);
+      const offline = await sign("robin", ["accounts:read", "offline_access"], {
+        allowOffline: true,
+      });
+      // Both get a refresh token (§4.4), and an hour-long access token.
+      expect(once.scope).toBe("accounts:read");
+      expect(once.refresh_token).toEqual(expect.any(String));
+      expect(offline.refresh_token).toEqual(expect.any(String));
+      // Within the hour, a refresh gets a token that ends with the grant.
+      vi.setSystemTime(start + 45 * 60000);
+      const early = await refresh(once.refresh_token);
+      expect(early.expires_in).toBe(15 * 60);
+      expect(
+        (await call(early.access_token, "GET", "/api/account/accounts"))
+          .statusCode,
+      ).toBe(200);
+      // After it, only the offline grant refreshes.
+      vi.setSystemTime(start + 3600000 + 1);
+      expect(await refresh(once.refresh_token)).toEqual({
+        error: "invalid_grant",
+      });
+      expect(
+        (await call(early.access_token, "GET", "/api/account/accounts"))
+          .statusCode,
+      ).toBe(401);
+      const later = await refresh(offline.refresh_token);
+      expect(later.expires_in).toBe(3600);
+      vi.setSystemTime(start + 6 * 86400000);
+      expect((await refresh(offline.refresh_token)).access_token).toEqual(
+        expect.any(String),
+      );
+      vi.setSystemTime(start + 7 * 86400000 + 1);
+      expect(await refresh(offline.refresh_token)).toEqual({
+        error: "invalid_grant",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("enforces route-specific scopes and returns each persona's matching reads", async () => {
     const { sign, call } = await setup();
     const token = await sign("robin", ["accounts:read"]);

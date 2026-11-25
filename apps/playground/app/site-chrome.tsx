@@ -41,10 +41,8 @@ export const companies = [
     change: [
       { what: "Recurring delivery", before: "Thursday", after: "Saturday" },
     ],
-    people: "Elena or Robin",
     scopes: "poppy:read · poppy:write",
     site: { label: "Visit the shop", href: juniper },
-    agents: { label: "For agents", path: "/for-agents" },
   },
   {
     id: "lantern",
@@ -60,10 +58,8 @@ export const companies = [
       { what: "Order", before: "", after: "+ 1 Matcha ice cream" },
       { what: "Delivery slot", before: "", after: "Sunday 13:00–13:30" },
     ],
-    people: "Elena or Robin",
     scopes: "orders:read · orders:write",
     site: { label: "Visit the restaurant", href: lantern },
-    agents: { label: "For agents", path: "/for-agents" },
   },
   {
     id: "harborline",
@@ -80,10 +76,8 @@ export const companies = [
       { what: "Operating checking", before: "", after: "− $500.00" },
       { what: "Reserve savings", before: "", after: "+ $500.00" },
     ],
-    people: "Elena or Robin",
     scopes: "Reads · reversible changes · payment requests",
     site: { label: "Visit the bank", href: harborline },
-    agents: { label: "For agents", path: "/for-agents" },
   },
   {
     id: "northwind",
@@ -99,10 +93,8 @@ export const companies = [
     change: [
       { what: "Flight NA 118", before: "Gale Flex", after: "Aurora Business" },
     ],
-    people: "Elena or Robin",
     scopes: "bookings:read · bookings:change",
     site: { label: "Visit the airline", href: northwind },
-    agents: { label: "For agents", path: "/for-agents" },
   },
 ] as const;
 

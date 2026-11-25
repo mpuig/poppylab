@@ -4,23 +4,45 @@ it("renders complete English consent with native accessible controls and no scri
   const html = consentPage("test_nonce", false);
   expect(html).toContain('<html lang="en">');
   for (const text of [
+    "Iris wants to connect to your Juniper account",
+    "<legend>Sign in as</legend>",
+    "What Iris may do",
+    "without asking you again",
     "Basket, orders and recurring deliveries",
     "Profile, address",
     "Support cases and their messages",
-    "read-only access",
-    "Each change needs your separate approval",
-    "without further approval",
-    "These are fictional accounts",
-    'value="elena"',
-    'value="robin"',
-    'name="write" value="yes" checked',
-    'value="approve">Allow access',
-    "Connecting Iris from poppylab.dev",
-    `value="decline" formnovalidate>Don't allow`,
+    "each one waits for your approval",
+    "Untick it to give read-only access",
+    "Test customers. Choosing one doesn&#39;t verify who you are.",
+    'type="radio" name="account" id="account-elena" value="elena" checked',
+    'type="radio" name="account" id="account-robin" value="robin">',
+    "Recurring delivery on Thursday",
+    'name="write" value="yes" checked>',
+    "Nothing changes when you allow.",
+    "Connected agents in your Juniper account",
+    'value="approve">Allow</button>',
+    `value="decline" formnovalidate>Don&#39;t allow</button>`,
+    "Juniper Market is a fictional company in Poppy&nbsp;Lab",
   ])
     expect(html).toContain(text);
   expect(html).not.toContain("<script");
   expect(html).not.toContain('type="password"');
+  // Nothing on the page leads away from the decision.
+  expect(html).not.toContain("<a ");
+});
+it("says so when nothing is read or no change can be proposed", () => {
+  const readOnly = consentPage("n", false, "poppy:read");
+  expect(readOnly).toContain(
+    "None. If you want a change later, your agent will ask you again.",
+  );
+  expect(readOnly).not.toContain('name="write"');
+  const writeOnly = consentPage("n", false, "poppy:write");
+  expect(writeOnly).toContain(
+    "No permission to read your account is requested.",
+  );
+  // All that was asked for can't be unticked and then allowed.
+  expect(writeOnly).toContain('name="write" value="yes" checked required>');
+  expect(writeOnly).toContain("It does not include read access.");
 });
 it("escapes consent nonce, retains password protection and allows declining without filling password", () => {
   const html = consentPage('"><script>alert(1)</script>', true);
@@ -28,7 +50,7 @@ it("escapes consent nonce, retains password protection and allows declining with
   expect(html).toContain("&#34;&#62;&#60;script&#62;");
   expect(html).toContain('name="password" required');
   expect(html).toContain('autocomplete="current-password"');
-  expect(html).toContain("It protects the whole environment");
+  expect(html).toContain("It protects the whole demo");
   expect(html).toContain('value="decline" formnovalidate');
   expect(html).not.toContain('value="approve" formnovalidate');
 });
@@ -41,7 +63,7 @@ it("shows the agent's self-asserted name with its verified host, escaped", () =>
     "agent.example",
   );
   expect(html).toContain(
-    "Connecting &#60;b&#62;Iris&#60;/b&#62; from agent.example",
+    '<strong>&#60;b&#62;Iris&#60;/b&#62;</strong><span>from agent.example</span><span class="sheet-verified">address verified</span>',
   );
   expect(html).not.toContain("<b>Iris");
 });

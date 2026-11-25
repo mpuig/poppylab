@@ -424,7 +424,8 @@ function consentRecord(view: {
   const clusters = ACCOUNT_CLUSTERS.filter((cluster) =>
     grant.scopes.includes(`fdx:${cluster}`),
   );
-  // A grant that can be refreshed lasts its lifetime; otherwise one token.
+  // With offline_access the grant is refreshed for its 7 days; without it,
+  // it ends with its first access token (`grantLifetime`), at expirationTime.
   const refreshable = grant.scopes.includes("offline_access");
   const days =
     grant.created_at &&

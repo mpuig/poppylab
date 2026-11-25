@@ -25,6 +25,7 @@ import { FDX_LIMITS, ProtocolError } from "@poppy-lab/pap-client";
 import type { CompanyProfile } from "@poppy-lab/pap-core";
 import {
   connect,
+  FDX_GUIDANCE,
   fdxStatementDownload,
   papRequest,
   renewAccount,
@@ -232,6 +233,19 @@ it("never gives the FDX-shaped description to the generic adapter, wherever it i
   await connected(run);
   expect(transport.mock.calls.map(([u]) => u)).not.toContain(
     `${origin}/fdx/v6/openapi.json`,
+  );
+});
+
+it("steers the model to the FDX tools for account data only with Use FDX on", async () => {
+  for (const fdx of [false, true]) {
+    const tools = await connected(bank({ fdx }));
+    const steering = Object.entries(tools)
+      .filter(([, tool]) => tool.description.includes(FDX_GUIDANCE))
+      .map(([name]) => name);
+    expect(steering).toEqual(fdx ? ["fdx_list_accounts"] : []);
+  }
+  expect(FDX_GUIDANCE).toBe(
+    "The User turned on Use FDX: for accounts, balances, transactions and statements, use these fdx_ tools rather than the Company's own API tools.",
   );
 });
 

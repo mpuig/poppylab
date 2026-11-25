@@ -315,6 +315,8 @@ export function mountConversations(app: Hono, ctx: Ctx, tenancy: Tenancy) {
       return;
     }
     const handler = entry.converse;
+    // What the consent granted beyond scopes, such as the accounts chosen.
+    const resources = who.account ? tenancy.grantOf(c)?.resources : undefined;
     const unavailable: TurnResult = {
       replies: [
         {
@@ -345,6 +347,7 @@ export function mountConversations(app: Hono, ctx: Ctx, tenancy: Tenancy) {
           ...(message ? {} : { opening: true }),
           ...(who.account ? { account: who.account } : {}),
           scopes: who.scopes,
+          ...(resources ? { resources } : {}),
           memory: conv.memory,
           ...(approval ? { approval } : {}),
           operations: who.operations,

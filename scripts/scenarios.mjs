@@ -66,19 +66,35 @@ const groups = {
     ["example-company", ["src/operations-v2.test.ts"]],
   ],
   banking: [
+    ["pap-company", ["src/gateway/grant-lifetime.test.ts"]],
     [
       "harborline",
       [
         "src/harborline.test.ts",
         "src/conversations.test.ts",
         "src/fdx.test.ts",
+        "src/account-choice.test.ts",
         "src/statements.test.ts",
       ],
     ],
   ],
   fdx: [
-    ["pap-company", ["src/gateway/account-routes.test.ts"]],
-    ["harborline", ["src/fdx.test.ts", "src/statements.test.ts"]],
+    [
+      "pap-company",
+      [
+        "src/gateway/account-routes.test.ts",
+        "src/gateway/extensions.test.ts",
+        "src/gateway/grant-lifetime.test.ts",
+      ],
+    ],
+    [
+      "harborline",
+      [
+        "src/fdx.test.ts",
+        "src/account-choice.test.ts",
+        "src/statements.test.ts",
+      ],
+    ],
     ["pap-client", ["src/fdx.test.ts", "src/protocol-error.test.ts"]],
     [
       "playground",
@@ -92,10 +108,23 @@ const groups = {
     ],
   ],
   airline: [["northwind", ["src/northwind.test.ts"]]],
+  energy: [
+    [
+      "fernwick",
+      [
+        "src/data.test.ts",
+        "src/espi.test.ts",
+        "src/fernwick.test.ts",
+        "src/conversations.test.ts",
+      ],
+    ],
+    ["pap-company", ["src/gateway/account-routes.test.ts"]],
+  ],
   conversations: [
     ["lantern", ["src/conversations.test.ts"]],
     ["harborline", ["src/conversations.test.ts"]],
     ["northwind", ["src/conversations.test.ts"]],
+    ["fernwick", ["src/conversations.test.ts"]],
     ["example-company", ["src/conversations.test.ts"]],
     ["playground", ["lib/conversations.test.ts"]],
   ],

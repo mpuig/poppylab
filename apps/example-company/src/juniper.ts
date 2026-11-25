@@ -11,8 +11,9 @@ import { servicePaths } from "./service-openapi.js";
 import { operations, type Commerce } from "./operations.js";
 import { website, type WebSession } from "./website.js";
 import { consentPage } from "./consent-page.js";
-import { persona } from "./personas.js";
+import { persona, personas } from "./personas.js";
 import { forAgentsPage, homePage } from "./home.js";
+import { howItWorksPage, type AgentGuide } from "./how-it-works.js";
 import { router } from "./router.js";
 import { juniperAgent, PHONE, PHONE_HOURS } from "./agent.js";
 
@@ -108,7 +109,34 @@ class ObjectMap<V> extends Map<string, V> {
 export function juniperCompany(options: {
   portal: boolean;
 }): CompanyDefinition {
-  return {
+  /** What "How it works" shows, read from this definition and the seed data. */
+  const guide = (publicOrigin: string): AgentGuide => {
+    const elena = personas[0]!;
+    return {
+      discovery: company.discovery(publicOrigin, new URL(publicOrigin).host),
+      paths: paths as unknown as AgentGuide["paths"],
+      excluded: (company.excludedTasks?.(publicOrigin) ?? []).map((task) =>
+        String(task.task),
+      ),
+      phone: PHONE,
+      example: {
+        ask: "Move my recurring delivery to Saturday.",
+        delivery: "delivery_001",
+        customer: elena.name,
+        fromDay: elena.day,
+        toDay: "Saturday",
+        items: Object.entries(elena.items).map(([id, quantity]) => {
+          const product = products.find((p) => p.id === id)!;
+          return {
+            name: product.name,
+            quantity,
+            cents: product.price * quantity,
+          };
+        }),
+      },
+    };
+  };
+  const company: CompanyDefinition = {
     name: "Juniper Market",
     readScope: "poppy:read",
     writeScope: "poppy:write",
@@ -203,7 +231,11 @@ export function juniperCompany(options: {
     },
     landing: (publicOrigin) =>
       homePage(publicOrigin, { products, delivery, policies }),
-    pages: { "/for-agents": forAgentsPage },
+    pages: {
+      "/for-agents": forAgentsPage,
+      "/how-it-works": (publicOrigin) =>
+        howItWorksPage(publicOrigin, guide(publicOrigin)),
+    },
     mount(app, ctx) {
       const r = router(app);
       const business = ctx.state as {
@@ -243,4 +275,5 @@ export function juniperCompany(options: {
       ctx.converse(juniperAgent(commerce, { ...policies, delivery }));
     },
   };
+  return company;
 }

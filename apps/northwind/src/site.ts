@@ -1,6 +1,9 @@
 /** Northwind Air website: a synoptic route chart, shared by landing, account and consent. */
 import {
+  consentSheetCss,
+  consentSheetHtml,
   labBarHtml,
+  labConsentBarHtml,
   labLineHtml,
   labPlaygroundUrl,
   specRefHtml,
@@ -39,23 +42,43 @@ header{background:var(--ink);color:var(--paper);border-bottom:4px solid var(--su
 .agent-strip{background:var(--sun);padding:clamp(34px,5vw,58px) 0}.agent-strip .wrap{display:grid;grid-template-columns:1fr auto;align-items:center;gap:30px}.agent-strip h2{font-size:clamp(38px,5vw,64px);line-height:.9;margin:0 0 12px}.agent-strip p{margin:0;max-width:64ch}.agent-strip .button{white-space:nowrap}
 .table-wrap{overflow-x:auto;border:1px solid var(--line);background:#fffdf6}table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:12px 14px;border-bottom:1px solid #c9d5d9;vertical-align:top}thead th{font:600 11px var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}tbody th{white-space:nowrap}.personas{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;list-style:none;padding:0;margin:0}.personas li{border-top:2px solid var(--ink);padding:18px 0}.personas strong{display:block;font:750 28px/1 var(--display);text-transform:uppercase}.personas span{color:var(--soft);font-size:14px}
 footer{background:#091c26;color:#c8d9df;padding:34px 0}.footer-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:30px}.footer-grid p{margin:0 0 10px;max-width:78ch;font-size:14px}.footer-grid .lab{border-top:1px solid #38515d;padding-top:12px;margin-top:16px}
-.consent main{width:min(760px,calc(100% - 36px));margin:auto;padding:clamp(38px,7vw,76px) 0}.consent h1{font-size:clamp(48px,7vw,80px);line-height:.88;margin:0 0 20px}.consent .requester{font:600 12px var(--mono);color:var(--wind)}.consent form{margin-top:28px;border-top:2px solid var(--ink);padding-top:24px}.scope-list{list-style:none;margin:18px 0;padding:0;border-top:1px solid var(--line)}.scope-list li{padding:14px 0;border-bottom:1px solid var(--line)}.scope-list code{display:block;color:var(--wind);margin-bottom:4px}.check{display:flex;align-items:flex-start;gap:12px;margin:22px 0}.check input{width:22px;min-height:22px;accent-color:var(--wind);margin:2px 0 0}.consent .actions{display:flex;justify-content:flex-end;gap:12px;margin-top:28px}.consent small{display:block;margin-top:24px;color:var(--muted)}
 .account-shell{padding-block:clamp(38px,6vw,70px)}.account-head{display:grid;grid-template-columns:1fr auto;gap:24px;align-items:end;border-bottom:2px solid var(--ink);padding-bottom:22px;margin-bottom:34px}.account-head h1{font-size:clamp(50px,7vw,84px);line-height:.88;margin:0 0 12px}.account-head p{margin:0;max-width:65ch;color:var(--soft)}.live-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.live-row p{width:100%;margin:0 0 4px;text-align:right}.account-grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(300px,.75fr);gap:clamp(28px,5vw,58px)}.account-grid section{margin-bottom:38px}.account-grid h2{font-size:34px;line-height:1;margin:0 0 14px;border-bottom:1px solid var(--line);padding-bottom:10px}.trip{border:1px solid var(--line);background:#fffdf6;margin-bottom:18px}.trip-head{display:flex;justify-content:space-between;gap:16px;align-items:baseline;padding:16px 18px;background:var(--sky);border-bottom:1px solid var(--line)}.trip-head h3{font-size:28px;line-height:1;margin:0}.trip-body{padding:18px}.segment{display:grid;grid-template-columns:90px 1fr auto;gap:14px;padding:13px 0;border-bottom:1px solid #d5dedf}.segment strong{font:750 22px var(--display)}.segment p{margin:0;color:var(--soft);font-size:14px}.segment .mono{text-align:right}.facts{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:18px}.fact{border-top:1px solid var(--line);padding-top:10px}.fact span{display:block;color:var(--muted);font-size:12px}.fact strong{font-size:16px}.activity{padding:13px 0;border-bottom:1px solid var(--line)}.activity h3{font-size:20px;line-height:1;margin:0 0 5px}.activity p{margin:0;color:var(--soft);font-size:14px}.records{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}.record{display:grid;gap:6px;padding:16px 0 18px;border-bottom:1px solid var(--line);overflow-wrap:anywhere}.record-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 16px}.record-when{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}.record-title{margin:4px 0 0;max-width:65ch}.record-body{margin:0;max-width:65ch;font-size:15px;line-height:1.55}.record-meta{margin:0;font-size:13px;color:var(--muted)}.record[data-tone=muted] .record-tag{background:transparent;color:var(--muted);box-shadow:inset 0 0 0 1px var(--line)}.record-tag{font:600 12px/1 var(--mono);letter-spacing:.03em;text-transform:uppercase;padding:6px 8px 5px;border-radius:2px;background:#d6eadf;color:var(--ok)}.record[data-tone=pending] .record-tag{background:var(--sun);color:var(--ink)}.record[data-tone=info] .record-tag{background:var(--sky);color:var(--wind)}.record-when{font-family:var(--mono);font-size:12px}.record-title{font:600 16px/1.4 var(--body);color:var(--ink)}.record-body{color:var(--soft);font-size:14px}.account-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
 @media(max-width:900px){.hero-grid{grid-template-columns:1fr;padding-block:56px}.chart-hero{min-height:0}.hero-copy h1{max-width:9ch}.band .wrap{grid-template-columns:1fr}.band article{padding:16px 0;border-right:0;border-bottom:1px solid #46606d}.band article:last-child{border-bottom:0}.info-grid{grid-template-columns:1fr}.agent-strip .wrap{grid-template-columns:1fr}.agent-strip .button{justify-self:start}.account-grid{grid-template-columns:1fr}.live-row p{text-align:left}.account-head{grid-template-columns:1fr}.flight-row{grid-template-columns:90px 1fr 110px}.flight-row .time{display:none}.results-grid{grid-template-columns:1fr}}
-@media(max-width:620px){header .wrap{min-height:62px}.brand{font-size:24px}.brand span{display:none}.nav{gap:11px}.nav a{font-size:11px}.hero-copy h1{font-size:58px}.search-grid{grid-template-columns:1fr}.search-grid .full{grid-column:auto}.route-note{display:block}.route-note span{display:block;margin-top:6px}.flight-row{grid-template-columns:72px 1fr}.flight-row .fare{grid-column:2;text-align:left}.personas{grid-template-columns:1fr}.footer-grid{grid-template-columns:1fr}.consent .actions{display:grid}.facts{grid-template-columns:1fr 1fr}.segment{grid-template-columns:72px 1fr}.segment .mono{grid-column:2;text-align:left}}
+@media(max-width:620px){header .wrap{min-height:62px;grid-template-columns:1fr;gap:8px;padding-block:12px}.brand{font-size:24px}.brand span{display:none}.nav{gap:16px}.nav a{font-size:12px;white-space:nowrap}.hero-copy h1{font-size:58px}.search-grid{grid-template-columns:1fr}.search-grid .full{grid-column:auto}.route-note{display:block}.route-note span{display:block;margin-top:6px}.flight-row{grid-template-columns:72px 1fr}.flight-row .fare{grid-column:2;text-align:left}.personas{grid-template-columns:1fr}.footer-grid{grid-template-columns:1fr}.facts{grid-template-columns:1fr 1fr}.segment{grid-template-columns:72px 1fr}.segment .mono{grid-column:2;text-align:left}}
+${consentSheetCss}.sheet{--sheet-rule:var(--line);--sheet-accent:var(--wind)}
+.sheet h1{font-size:clamp(40px,5.4vw,68px);line-height:.9}
+.sheet-agent{color:var(--soft)}.sheet-agent strong{color:var(--ink)}
+.sheet-verified{padding:4px 8px;background:var(--sun);color:var(--ink);font:600 11px var(--mono);text-transform:uppercase}
+.sheet legend,.sheet h2{font:800 30px/1 var(--display);text-transform:uppercase;letter-spacing:.005em}
+.sheet-cols{border-top:2px solid var(--ink)}
+.sheet-person,.sheet-option{font:inherit;letter-spacing:0;text-transform:none}
+.sheet-person{background:#fffdf6}
+.sheet-person strong{font:750 22px/1.05 var(--display);text-transform:uppercase}
+.sheet-person small{font:500 12px var(--mono);color:var(--muted);margin-top:4px}
+.sheet-note,.sheet-reads span,.sheet-option span span,.sheet-none,.sheet-foot p{color:var(--soft)}
+.sheet-note{font-size:14px}
+.sheet-group h3{font-size:23px;line-height:1}
+.sheet-group h3 span{font:500 11px var(--mono);letter-spacing:.02em;text-transform:none;color:var(--muted)}
+.sheet-reads strong,.sheet-option strong{font-weight:750}
+.sheet-reads span,.sheet-option span span{font-size:15px}
+.sheet-foot p{font-size:15px}
+.sheet-fine{font-size:13px;color:var(--muted)}
 `;
 
 export function shell(
   title: string,
   body: string,
-  current: "/" | "/for-agents" | "/account",
+  current: "/" | "/for-agents" | "/account" | "/how-it-works",
   origin: string,
+  /** Rules of one page only, after the site's own. */
+  style = "",
 ) {
   const nav = (
     [
       ["/", "Flights"],
       ["/for-agents", "For agents"],
       ["/account", "My Northwind"],
+      ["/how-it-works", "How it works"],
     ] as const
   )
     .map(
@@ -63,7 +86,7 @@ export function shell(
         `<a href="${href}"${current === href ? ' aria-current="page"' : ""}>${label}</a>`,
     )
     .join("");
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(title)}</title>${fonts}<style>${css}</style></head><body>${labBarHtml(origin, "Northwind Air")}<header><div class="wrap"><a class="brand" href="/">Northwind Air</a><nav class="nav" aria-label="Site">${nav}</nav></div></header>${body}<footer><div class="wrap footer-grid"><div><p>Northwind Air is a fictional airline for testing personal agents. No real flight, ticket, passenger record, loyalty balance, payment, cancellation or border advice exists.</p><p>Independent experiment, not affiliated with or endorsed by the authors of the Personal Agent Protocol. “Personal Agent Protocol” and “Poppy” are their names.</p>${labLineHtml(origin, "northwind")}</div><p>Fictional assistance desk: <span class="mono">${PHONE}</span>. Never enter a real booking reference, passport, payment card, medical record or account credential.</p></div></footer></body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(title)}</title>${fonts}<style>${css}${style}</style></head><body>${labBarHtml(origin, "Northwind Air")}<header><div class="wrap"><a class="brand" href="/">Northwind Air</a><nav class="nav" aria-label="Site">${nav}</nav></div></header>${body}<footer><div class="wrap footer-grid"><div><p>Northwind Air is a fictional airline for testing personal agents. No real flight, ticket, passenger record, loyalty balance, payment, cancellation or border advice exists.</p><p>Independent experiment, not affiliated with or endorsed by the authors of the Personal Agent Protocol. “Personal Agent Protocol” and “Poppy” are their names.</p>${labLineHtml(origin, "northwind")}</div><p>Fictional assistance desk: <span class="mono">${PHONE}</span>. Never enter a real booking reference, passport, payment card, medical record or account credential.</p></div></footer></body></html>`;
 }
 
 const city = (code: string) =>
@@ -112,7 +135,7 @@ export function homePage(origin: string) {
         `<article><h3>${escape(item.title)}</h3><p>${escape(item.text)}</p></article>`,
     )
     .join("");
-  const body = `<main><section class="chart-hero">${chart}<div class="wrap hero-grid"><div class="hero-copy"><h1>Follow the route. Keep control of the ticket.</h1><p>Search the Northwind network, manage your trip online, or hand the legwork to your personal agent. Seats, bags, upgrades and flight changes always show the exact price before you confirm.</p></div>${searchForm("PAU", "SMR", "2027-06-03", "Search flights")}</div></section><section class="band"><div class="wrap"><article><h3>Plan your trip</h3><p>Flights, cheapest dates, flight status, baggage and check-in rules. No account needed.</p></article><article><h3>My Northwind</h3><p>Your upcoming trips, seats and bags, Gale loyalty points and travel preferences.</p></article><article><h3>Changes on your terms</h3><p>A new seat, an extra bag, an upgrade or another flight: you see the exact cost first, and it is applied once.</p></article></div></section><section class="section wrap"><h2>Departures</h2><p class="section-lead">Next departures across the network. Fares are the lowest economy price for one passenger.</p><div class="departure-board">${board}</div></section><section class="section wrap"><h2>Before the airport</h2><div class="info-grid">${information}</div></section><section class="agent-strip"><div class="wrap"><div><h2>Travel with a personal agent.</h2><p>Northwind works with personal AI agents. Yours can look up flights, read your trips and get a seat, bag or flight change ready. You sign in on Northwind's own page, and you approve the exact fare difference yourself.</p></div><a class="button" href="${labPlaygroundUrl(origin)}">Try it with Iris, the demo agent</a></div></section></main>`;
+  const body = `<main><section class="chart-hero">${chart}<div class="wrap hero-grid"><div class="hero-copy"><h1>Follow the route. Keep control of the ticket.</h1><p>Search the Northwind network, manage your trip online, or hand the legwork to your personal agent. Seats, bags, upgrades and flight changes always show the exact price before you confirm.</p></div>${searchForm("PAU", "SMR", "2027-06-03", "Search flights")}</div></section><section class="band"><div class="wrap"><article><h3>Plan your trip</h3><p>Flights, cheapest dates, flight status, baggage and check-in rules. No account needed.</p></article><article><h3>My Northwind</h3><p>Your upcoming trips, seats and bags, Gale loyalty points and travel preferences.</p></article><article><h3>Changes on your terms</h3><p>A new seat, an extra bag, an upgrade or another flight: you see the exact cost first, and it is applied once.</p></article></div></section><section class="section wrap"><h2>Departures</h2><p class="section-lead">Next departures across the network. Fares are the lowest economy price for one passenger.</p><div class="departure-board">${board}</div></section><section class="section wrap"><h2>Before the airport</h2><div class="info-grid">${information}</div></section><section class="agent-strip"><div class="wrap"><div><h2>Travel with a personal agent.</h2><p>Northwind works with personal AI agents. Yours can look up flights, read your trips and get a seat, bag or flight change ready. You sign in on Northwind's own page, and you approve the exact fare difference yourself. <a href="/how-it-works">See each step as your agent sees it</a>.</p></div><a class="button" href="${labPlaygroundUrl(origin)}">Try it with Iris, the demo agent</a></div></section></main>`;
   return shell("Northwind Air · Flights", body, "/", origin);
 }
 
@@ -220,20 +243,52 @@ export function consentPage(input: {
   clientHost: string;
 }) {
   const requested = input.scopes.split(" ").filter(Boolean);
-  const descriptions: Record<string, string> = {
-    "flights:search":
-      "Search fictional flights. Search also works without account access.",
-    "bookings:read":
-      "See upcoming trips, booking details, seats, bags and fare terms.",
-    "profile:read":
-      "See loyalty tier, points, expiring points and passenger preferences.",
-    "preferences:write":
-      "Propose reversible seat, meal and supported non-medical assistance changes.",
-    "bookings:change":
-      "Propose paid baggage, cancellation, upgrades and flight changes.",
+  const reads: Record<string, { title: string; text: string }> = {
+    "flights:search": {
+      title: "Flights and fares",
+      text: "Search flights. Search also works without account access.",
+    },
+    "bookings:read": {
+      title: "Your trips",
+      text: "Upcoming trips, booking details, seats, bags and fare terms.",
+    },
+    "profile:read": {
+      title: "Your profile",
+      text: "Loyalty tier, points, expiring points and passenger preferences.",
+    },
   };
-  const write = requested.some((scope) =>
-    ["preferences:write", "bookings:change"].includes(scope),
-  );
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Allow ${escape(input.client)} · Northwind Air</title>${fonts}<style>${css}</style></head><body class="consent"><header><div class="wrap"><span class="brand">Northwind Air<span>Fictional consent</span></span><span class="requester">${escape(input.client)} from ${escape(input.clientHost)}</span></div></header><main><h1>Choose what travels with your agent.</h1><p>Northwind Air is a fictional test Company. Select a test passenger and review only the permissions requested by <strong>${escape(input.client)}</strong>.</p><form method="post" action="/oauth/authorize"><input type="hidden" name="nonce" value="${escape(input.nonce)}"><label for="account">Fictional passenger</label><select id="account" name="account">${customers.map((customer) => `<option value="${customer.id}">${escape(customer.name)} · ${customer.booking.reference}</option>`).join("")}</select>${input.passwordRequired ? '<label for="password">Demo password</label><input id="password" type="password" name="password" required maxlength="256">' : ""}<ul class="scope-list">${requested.map((scope) => `<li><code>${escape(scope)}</code>${escape(descriptions[scope] ?? "Permission requested by the agent.")}</li>`).join("")}</ul>${write ? '<label class="check" for="write"><input id="write" type="checkbox" name="write" value="yes" checked><span><strong>Allow change proposals</strong><br>Every seat, preference, bag, cancellation, upgrade or flight change still needs a separate approval with exact terms in your agent.</span></label>' : "<p><strong>Read only.</strong> This consent cannot propose account changes.</p>"}<div class="actions"><button class="secondary" name="decision" value="decline" formnovalidate>Don't allow</button><button name="decision" value="approve">Allow selected access</button></div></form><small>${escape(FICTION_NOTICE)} Never enter a real airline password, booking reference, passport, payment card or medical record.</small></main></body></html>`;
+  const changes: Record<string, string> = {
+    "preferences:write":
+      "Seat, meal and supported non-medical assistance preferences.",
+    "bookings:change":
+      "Paid baggage, cancellation, upgrades and flight changes.",
+  };
+  const proposed = requested.filter((scope) => scope in changes);
+  const sheet = consentSheetHtml({
+    company: "Northwind",
+    agent: input.client,
+    agentHost: input.clientHost,
+    nonce: input.nonce,
+    passwordRequired: input.passwordRequired,
+    personKind: "passenger",
+    people: customers.map((customer) => ({
+      id: customer.id,
+      name: customer.name,
+      note: `Booking ${customer.booking.reference}`,
+    })),
+    reads: requested.flatMap((scope) => (reads[scope] ? [reads[scope]] : [])),
+    changes: proposed.length
+      ? [
+          {
+            name: "write",
+            title: "Your trips and preferences",
+            text: proposed.map((scope) => changes[scope]).join(" "),
+            checked: true,
+          },
+        ]
+      : [],
+    disconnect: "You can take the permission away under My Northwind.",
+    fine: `${FICTION_NOTICE} Never enter a real airline password, booking reference, passport, payment card or medical record.`,
+  });
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Allow ${escape(input.client)} · Northwind Air</title>${fonts}<style>${css}</style></head><body>${labConsentBarHtml("Northwind Air")}<header><div class="wrap"><span class="brand">Northwind Air</span></div></header>${sheet}</body></html>`;
 }

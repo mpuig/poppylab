@@ -269,6 +269,11 @@ export type ConversationTurn = {
   /** Signed in: the token's account and scopes (none when signed out). */
   account?: string;
   scopes: string[];
+  /**
+   * The grant's resources (`selectResources`), such as the accounts the
+   * User chose at consent. Absent signed out and for a grant without them.
+   */
+  resources?: string[];
   /** Notes kept for this conversation; the Company Agent may change them. */
   memory: Record<string, unknown>;
   /** `extensions.operations.approval`, only when the request declares v3. */
@@ -404,9 +409,22 @@ export type CompanyDefinition = {
    * code exchange and at every refresh. RFC 6749 §5.1 lets a server add
    * parameters, and clients ignore those they don't know. Names of the
    * standard fields (`access_token`, `token_type`, `expires_in`, `scope`,
-   * `refresh_token`) and of errors are never replaced.
+   * `refresh_token`) and of errors are never replaced. `origin` is the
+   * deployment's, for fields that are absolute URLs.
    */
-  tokenFields?: (grant: GrantView) => Record<string, string>;
+  tokenFields?: (grant: GrantView, origin: string) => Record<string, string>;
+  /**
+   * How long a grant lasts, in milliseconds from the code exchange, given
+   * the scopes its consent granted. Without the hook every grant lasts
+   * `GRANT_MS` (7 days). The end is stored with the grant: a refresh after
+   * it gets `invalid_grant` (RFC 6749 §5.2), and no access token outlives
+   * it, so a refresh before it gets a token that ends with the grant. Sign-in
+   * still returns a refresh token (§4.4). For example, `TOKEN_MS` without
+   * `offline_access` ends the grant with its first access token, and
+   * `GRANT_MS` with it keeps it refreshable. A value that isn't a positive
+   * number fails the code exchange with `invalid_grant`.
+   */
+  grantLifetime?: (scopes: string[]) => number;
   consent: (input: {
     nonce: string;
     passwordRequired: boolean;

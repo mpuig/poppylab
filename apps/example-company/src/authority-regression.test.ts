@@ -461,8 +461,8 @@ async function setup(
       "simulated billing documents",
       "Support cases and their messages",
       ...(scope.includes("poppy:write")
-        ? ["Each change needs your separate approval"]
-        : ["Read only."]),
+        ? ['name="write" value="yes" checked']
+        : ["None. If you want a change later"]),
     ])
       expect(page.body).toContain(phrase);
     const cookie = String(page.headers["set-cookie"]).split(";")[0]!;

@@ -254,7 +254,8 @@ describe("Harborline FDX-shaped API", () => {
           note: FICTION_NOTICE,
         });
       }
-    // Harborline's own API isn't limited by the FDX choice.
+    // Harborline's own API needs its own scopes, and is limited by the same
+    // choice (see account-choice.test.ts).
     const own = await h.call(
       token.access_token,
       "GET",
@@ -265,9 +266,10 @@ describe("Harborline FDX-shaped API", () => {
       fdxAccounts: ["acc_HLB_A200"],
     });
     expect(
-      (await h.call(both.access_token, "GET", "/api/account/accounts")).json()
-        .accounts,
-    ).toHaveLength(2);
+      (await h.call(both.access_token, "GET", "/api/account/accounts"))
+        .json()
+        .accounts.map((item: { id: string }) => item.id),
+    ).toEqual(["acc_HLB_A200"]);
   });
 
   it("keeps only the chosen persona's accounts, and turns down an FDX consent with none", async () => {
@@ -298,7 +300,15 @@ describe("Harborline FDX-shaped API", () => {
 
   it("shows an account choice per persona on the consent page only for FDX scopes, without scripts", async () => {
     const { page } = await h.authorize("elena", ["accounts:read", ...fdx]);
-    expect(page.body).toContain("Accounts for the FDX-shaped API");
+    // Under the people, since the accounts are chosen with the person.
+    expect(page.body).toContain(
+      '<div class="sheet-accounts"><h3>Accounts to share</h3>',
+    );
+    // The choice limits the whole grant, and the page says so.
+    expect(page.body).toContain(
+      "The accounts you choose are the only ones the agent can see or act on, through Harborline's own API or the FDX-shaped one.",
+    );
+    expect(page.body).not.toContain("not limited by this choice");
     for (const id of [
       "acc_HLB_A100",
       "acc_HLB_A200",
@@ -308,7 +318,7 @@ describe("Harborline FDX-shaped API", () => {
       expect(page.body).toContain(`name="fdx_account_${id}" value="yes"`);
     expect(page.body).toContain('data-persona="robin"');
     expect(page.body).toContain(
-      'form:has(#account option[value="elena"]:checked) .fdx-persona[data-persona="elena"]{display:block}',
+      'form:has(#account-elena:checked) .fdx-persona[data-persona="elena"]{display:block}',
     );
     expect(page.body).not.toContain("<script");
     expect(page.headers["content-security-policy"]).toContain(
@@ -440,12 +450,18 @@ describe("Harborline FDX-shaped API", () => {
       ],
       note: FICTION_NOTICE,
     });
+    // Refreshable for its 7 days, and it says so.
+    const lasts = (r: { createdTime: string; expirationTime: string }) =>
+      Date.parse(r.expirationTime) - Date.parse(r.createdTime);
+    expect(lasts(record.json())).toBe(7 * 86400000);
+    // Without offline_access the grant ends with its first token, in 1 hour.
     const once = await h.sign("elena", ["fdx:ACCOUNT_BASIC"]);
     const onceRecord = (
       await get(once.access_token, `/fdx/v6/consents/${once.consent_id}`)
     ).json();
     expect(onceRecord.durationType).toBe("ONE_TIME");
     expect(onceRecord).not.toHaveProperty("durationPeriod");
+    expect(lasts(onceRecord)).toBe(3600000);
     // Another grant's consent, even the same User's: not found.
     const other = await get(
       once.access_token,

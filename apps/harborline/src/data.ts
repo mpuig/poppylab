@@ -284,6 +284,33 @@ export const accountLast4 = (id: string) => {
   for (const character of id) n = (n * 31 + character.charCodeAt(0)) % 10000;
   return String(n).padStart(4, "0");
 };
+/**
+ * What an agent's grant may see and act on of a customer's records. A grant
+ * with `resources`, the accounts the User chose at consent, gets only those
+ * accounts, their transactions and the cards linked to them, through either
+ * API and in the Company Agent. A grant without them (a sign-in that asked
+ * for no FDX scope, or one approved before accounts were chosen) gets every
+ * account, as before. The records are the customer's own, not copies.
+ */
+export function withinGrant(
+  records: { accounts: Account[]; transactions: Transaction[]; cards: Card[] },
+  chosen: readonly string[] | undefined,
+) {
+  if (!chosen)
+    return {
+      accounts: records.accounts,
+      transactions: records.transactions,
+      cards: records.cards,
+    };
+  const ids = new Set(chosen);
+  return {
+    accounts: records.accounts.filter((account) => ids.has(account.id)),
+    transactions: records.transactions.filter((transaction) =>
+      ids.has(transaction.account_id),
+    ),
+    cards: records.cards.filter((card) => ids.has(card.account_id)),
+  };
+}
 export const usd = (cents: number) => `USD ${(cents / 100).toFixed(2)}`;
 export const FICTION_NOTICE =
   "Fictional Harborline Bank data. No real money moves; never enter real banking data or credentials.";

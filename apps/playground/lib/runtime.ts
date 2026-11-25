@@ -1073,6 +1073,10 @@ function fdxShaped(spec: unknown, url: string, entry: FdxExtensionEntry) {
   );
 }
 
+/** With Use FDX on, the tools to use for account data (`fdxConnect`). */
+export const FDX_GUIDANCE =
+  "The User turned on Use FDX: for accounts, balances, transactions and statements, use these fdx_ tools rather than the Company's own API tools.";
+
 /**
  * `poppylab.dev/fdx` v1: the native, read-only FDX-shaped tools, with Use
  * FDX on. They send what other API tools send: the Session header and the
@@ -1091,6 +1095,14 @@ function fdxConnect(
     consentId: () => run.fdxConsent,
     request: fdxRequest(run),
   });
+  // The User chose this API: steer the model to it. A preference, not a
+  // block; the bank applies the accounts chosen at consent to both APIs.
+  const list = tools.fdx_list_accounts;
+  if (list)
+    tools.fdx_list_accounts = {
+      ...list,
+      description: `${FDX_GUIDANCE} ${list.description}`,
+    };
   trace.push(
     `Extension ${FDX_EXTENSION} v1 · native FDX-shaped adapter · ${Object.keys(tools).length} read tools`,
   );

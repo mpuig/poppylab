@@ -442,6 +442,18 @@ describe("tasks response (§9)", () => {
 });
 
 import { labBarHtml, labLineHtml, labSites } from "./lab.ts";
+import { isLocalCompany } from "./index";
+it("lets only the lab Companies' exact local origins use plain HTTP", () => {
+  expect(isLocalCompany("http://fernwick.localhost:4500")).toBe(true);
+  for (const origin of [
+    "https://fernwick.localhost:4500",
+    "http://fernwick.localhost:4501",
+    "http://fernwick.localhost",
+    "http://evil.fernwick.localhost:4500",
+    "http://fernwick.localhost:4500/",
+  ])
+    expect(isLocalCompany(origin)).toBe(false);
+});
 it("links the Poppy Lab sites, locally to localhost and the current one as text", () => {
   expect(labSites("https://food-demo.poppylab.dev").map((s) => s.url)).toEqual([
     "https://poppylab.dev",
@@ -450,6 +462,7 @@ it("links the Poppy Lab sites, locally to localhost and the current one as text"
     "https://food-demo.poppylab.dev",
     "https://bank-demo.poppylab.dev",
     "https://airline-demo.poppylab.dev",
+    "https://energy-demo.poppylab.dev",
   ]);
   expect(labSites("http://juniper.localhost:4100")[3]!.url).toBe(
     "http://noodles.localhost:4200",
@@ -459,6 +472,9 @@ it("links the Poppy Lab sites, locally to localhost and the current one as text"
   );
   expect(labSites("http://juniper.localhost:4100")[5]!.url).toBe(
     "http://northwind.localhost:4400",
+  );
+  expect(labSites("http://juniper.localhost:4100")[6]!.url).toBe(
+    "http://fernwick.localhost:4500",
   );
   const bar = labBarHtml(
     "https://food-demo.poppylab.dev",
