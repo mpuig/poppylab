@@ -23,6 +23,7 @@ export const LEARN_PAGES = [
     label: "Conversations",
   },
   { slug: "operations", file: "operations.md", label: "Approvals" },
+  { slug: "extensions", file: "extensions.md", label: "Domain extensions" },
   {
     slug: "build-a-company",
     file: "build-a-company.md",
