@@ -164,6 +164,12 @@ export type Conversation = {
   seq: number;
   events: ConversationEvent[];
   context: Record<string, unknown>;
+  /**
+   * The keys of `context`, oldest first. An object can't say that: it lists
+   * keys like "2027" first, whenever they were set. Conversations stored
+   * before this have none.
+   */
+  contextOrder?: string[];
   /** The Company Agent's own notes, such as a pending proposal. */
   memory: Record<string, unknown>;
   /** User messages accepted. */

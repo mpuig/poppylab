@@ -275,23 +275,33 @@ export function mountConversations(app: Hono, ctx: Ctx, tenancy: Tenancy) {
     }
     if (message?.context) {
       // Fields left out keep their values; null clears one (§8.4). A field
-      // set again counts as new: it moves to the end.
-      const merged = { ...conv.context };
-      for (const [k, v] of Object.entries(message.context)) {
-        delete merged[k];
-        if (v !== null) merged[k] = v;
-      }
+      // set again counts as new. The older ones come newest first, by the
+      // age kept with the context: the object can't tell, it lists keys
+      // like "2027" first. A field with no age kept counts as the oldest,
+      // in the object's order (a conversation stored before ages were).
+      const sent = message.context;
+      const age = conv.contextOrder ?? [];
+      const older = Object.keys(conv.context)
+        .filter((k) => !Object.hasOwn(sent, k))
+        .reverse()
+        .sort((a, b) => age.indexOf(b) - age.indexOf(a));
       // Bounded to 20 fields and 4096 bytes, newest first: this message's
       // fields (at most 2048 bytes, so they fit), then each older one that
       // still fits. The Company Agent never loses what was just sent.
       const kept: Array<[string, unknown]> = [];
-      for (const field of Object.entries(merged).reverse())
+      for (const field of [
+        ...Object.entries(sent).reverse(),
+        ...older.map((k): [string, unknown] => [k, conv.context[k]]),
+      ])
         if (
+          field[1] !== null &&
           kept.length < 20 &&
-          size(Object.fromEntries([field, ...kept])) <= 4096
+          size(Object.fromEntries([...kept, field])) <= 4096
         )
-          kept.unshift(field);
+          kept.push(field);
+      kept.reverse();
       conv.context = Object.fromEntries(kept);
+      conv.contextOrder = kept.map(([k]) => k);
     }
     // Operations v3 §2: extension content only when the request declares it.
     const approval =
