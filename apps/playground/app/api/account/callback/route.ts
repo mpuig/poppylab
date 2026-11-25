@@ -15,6 +15,7 @@ import { assertion, proof, protocolRequest } from "@poppy-lab/pap-client";
 import { keepTokenFields, tokenResponse } from "../../../../lib/token-response";
 import { serving } from "@/lib/deployment";
 import { acquireRun, releaseRun, runForState, visitorOf } from "@/lib/runs";
+import { keepSignedOutTranscript } from "@/lib/transcript";
 export const runtime = "nodejs";
 
 /**
@@ -138,7 +139,8 @@ export async function GET(request: Request) {
     delete run.accountUnavailable;
     run.consentVersion = (run.consentVersion ?? 0) + 1;
     run.history = structuredClone(run.publicHistory ?? []);
-    delete run.transcript;
+    // The page keeps that public part as it showed it, and nothing else.
+    keepSignedOutTranscript(run);
     run.operations = {};
     run.scopes = result.scope;
     run.token = result.accessToken;

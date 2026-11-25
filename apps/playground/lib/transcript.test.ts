@@ -2,13 +2,16 @@ import { describe, expect, it } from "vitest";
 import type { CompanyEntry } from "./conversations";
 import type { Run } from "./runtime";
 import {
+  keepSignedOutTranscript,
   record,
   recordDirect,
+  recordOutcome,
   recordTurn,
   TRANSCRIPT_LIMITS,
 } from "./transcript";
 
-const run = () => ({ history: [] }) as unknown as Run;
+/** Signed in, as most of a conversation is. */
+const run = () => ({ history: [], accountToken: "held" }) as unknown as Run;
 const company = "Lantern Noodle Bar";
 const opened = `You're talking with ${company} directly.`;
 const secret = "My door code is 4417, leave it inside";
@@ -358,5 +361,58 @@ describe("what the page shows again after a reload", () => {
       { role: "assistant", content: "An earlier answer." },
     ]);
     expect(r.transcript).toHaveLength(5);
+  });
+});
+
+describe("what a sign-in keeps of the transcript", () => {
+  const signedOut = () => ({ history: [] }) as unknown as Run;
+  const shown = (r: Run) => (r.transcript ?? []).map((entry) => entry.content);
+
+  it("keeps what was shown before any account access, as it was shown", () => {
+    const r = signedOut();
+    recordTurn(r, "When do you deliver?", "Tuesday and Saturday.", {
+      company: [{ author: company, human: false, text: "Any day but Sunday." }],
+      trace: ["Conversation started"],
+      demo: true,
+      data: '{"days":2}',
+    });
+    r.accountToken = "first-account";
+    recordTurn(r, "my orders", "Order ord_PRIVATE_1 for Elena.", {
+      company: [{ author: company, human: false, text: "ord_PRIVATE_2" }],
+      data: '{"order":"ord_PRIVATE_3"}',
+    });
+    recordDirect(r, company, "start", "my card ends 4417", "In.", true);
+    recordOutcome(r, {}, "performed", "Company operation succeeded: PRIVATE_4");
+
+    keepSignedOutTranscript(r);
+    expect(shown(r)).toEqual([
+      "When do you deliver?",
+      "Any day but Sunday.",
+      "Tuesday and Saturday.",
+    ]);
+    expect(r.transcript!.at(-1)).toMatchObject({
+      demo: true,
+      data: '{"days":2}',
+      steps: [{ text: "Talked to the Company's own agent" }],
+    });
+    // Nothing shown with the account survives: it may be another's now.
+    expect(JSON.stringify(r.transcript)).not.toMatch(/PRIVATE|4417|In\./);
+  });
+
+  it("drops a transcript that doesn't say what was shown signed out", () => {
+    const r = signedOut();
+    // Stored before entries said so: any of it may be an account's.
+    r.transcript = [
+      { role: "user", content: "When do you deliver?" },
+      { role: "assistant", content: "Private order details" },
+    ];
+    keepSignedOutTranscript(r);
+    expect(r).not.toHaveProperty("transcript");
+
+    // The same when everything was shown signed in.
+    r.accountToken = "held";
+    recordTurn(r, "my orders", "Private order details");
+    keepSignedOutTranscript(r);
+    expect(r).not.toHaveProperty("transcript");
   });
 });

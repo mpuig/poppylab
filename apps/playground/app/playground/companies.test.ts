@@ -8,7 +8,7 @@ const agent = `${company} · automated agent`;
 
 describe("a conversation restored from its transcript", () => {
   it("shows what the page showed: Company content, labels, steps and data", () => {
-    const run = { history: [] } as unknown as Run;
+    const run = { history: [], accountToken: "held" } as unknown as Run;
     recordTurn(run, "My order never arrived", "Protocol demo (no LLM). Told.", {
       company: [
         { author: agent, human: false, text: "Sorry to hear that." },

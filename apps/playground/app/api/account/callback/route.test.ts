@@ -467,3 +467,89 @@ it("is single use", async () => {
   expect(await landed()).toBe(FAILED);
   expect(s.request).toHaveBeenCalledTimes(1);
 });
+
+describe("what the page shows of the conversation after a sign-in", () => {
+  const run = s.run as typeof s.run & { transcript?: unknown[] };
+  // As the transcript keeps them: what the page showed while signed out…
+  const before = [
+    { role: "user", content: "When do you deliver?", signedOut: true },
+    {
+      role: "company",
+      content: "Any day but Sunday.",
+      author: "Lantern Noodle Bar · automated agent",
+      signedOut: true,
+    },
+    {
+      role: "assistant",
+      content: "Protocol demo (no LLM). Tuesday, Thursday and Saturday.",
+      demo: true,
+      steps: [
+        {
+          text: "Talked to the Company's own agent",
+          how: "Company's agent",
+          access: null,
+          state: "done",
+        },
+      ],
+      data: '{"days":3}',
+      signedOut: true,
+    },
+  ];
+  // …and what it showed with an account.
+  const withAccount = [
+    { role: "user", content: "my orders" },
+    { role: "company", content: "Private order ord_1", author: "Lantern" },
+    { role: "assistant", content: "Private order details", data: '{"o":1}' },
+  ];
+  const publicTurns = [
+    { role: "user" as const, content: "When do you deliver?" },
+    {
+      role: "assistant" as const,
+      content: "Protocol demo (no LLM). Tuesday, Thursday and Saturday.",
+    },
+  ];
+  beforeEach(() => {
+    s.request.mockResolvedValue(success());
+  });
+  afterEach(() => {
+    delete run.transcript;
+  });
+
+  it("keeps the public conversation as it was shown on first sign-in", async () => {
+    s.run.accountToken = undefined;
+    s.run.history = structuredClone(publicTurns);
+    run.transcript = structuredClone(before);
+    expect((await GET(req())).status).toBe(200);
+    // Company content, the answer's label, its steps and its data stay.
+    expect(run.transcript).toEqual(before);
+    // The model's context is the turns' words, as before.
+    expect(s.run.history).toEqual(publicTurns);
+  });
+
+  it("keeps only that part on a later consent, never what an account showed", async () => {
+    s.run.publicHistory = structuredClone(publicTurns);
+    s.run.history = [
+      ...publicTurns,
+      { role: "assistant", content: "Private order details" },
+    ];
+    run.transcript = structuredClone([...before, ...withAccount]);
+    expect((await GET(req())).status).toBe(200);
+    expect(run.transcript).toEqual(before);
+    expect(s.run.history).toEqual(publicTurns);
+    expect(JSON.stringify([run.transcript, s.run.history])).not.toContain(
+      "Private",
+    );
+  });
+
+  it("drops a transcript stored before entries said when they were shown", async () => {
+    s.run.publicHistory = structuredClone(publicTurns);
+    run.transcript = [
+      ...publicTurns,
+      { role: "assistant", content: "Private order details" },
+    ];
+    expect((await GET(req())).status).toBe(200);
+    // The page then shows the public history, as it did before.
+    expect(run.transcript).toBeUndefined();
+    expect(s.run.history).toEqual(publicTurns);
+  });
+});

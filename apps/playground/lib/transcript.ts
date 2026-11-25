@@ -23,6 +23,11 @@ export type TranscriptEntry = {
   note?: string;
   /** §8.10: said in the User's Direct Conversation, by them or the Company. */
   direct?: true;
+  /**
+   * Shown while no account was signed in, so nothing in it was read with
+   * one. Only these stay when a sign-in resets the conversation.
+   */
+  signedOut?: true;
 };
 
 /** What a turn put on the page besides the words. */
@@ -104,10 +109,24 @@ export function bounded(entries: TranscriptEntry[]): TranscriptEntry[] {
 
 /** Adds entries to the transcript the page shows, and not to the model's. */
 function show(run: Run, ...entries: TranscriptEntry[]) {
+  const signedOut = run.accountToken ? {} : { signedOut: true as const };
   run.transcript = bounded([
     ...(run.transcript ?? run.history),
-    ...entries.map(clipped),
+    ...entries.map((entry) => ({ ...clipped(entry), ...signedOut })),
   ]);
+}
+
+/**
+ * A sign-in may be for another account, so the conversation goes back to
+ * what it was before any account access, as `history` does. The page keeps
+ * that part as it showed it. Everything shown with an account goes, and so
+ * does an entry that doesn't say which it was: a transcript stored before
+ * entries said so is dropped whole, and the page shows `history` instead.
+ */
+export function keepSignedOutTranscript(run: Run) {
+  const kept = (run.transcript ?? []).filter((entry) => entry.signedOut);
+  if (kept.length) run.transcript = kept;
+  else delete run.transcript;
 }
 
 /** A turn's Company content, as the page showed it. */
