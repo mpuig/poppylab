@@ -633,8 +633,8 @@ export const approvalRequestId = (approval: Approval) =>
 /**
  * Operations v3 in a conversation (§6): sends the User's approval in
  * `extensions.operations.approval`. Returns the Company's reply as the
- * result. New terms come back as `approval_required`, and a decline as
- * `approval_declined`, as at an API.
+ * result. New terms come back as `approval_required`, and a decline, or an
+ * error in answer to the approval, as `approval_declined`, as at an API.
  */
 export async function approveInConversation(
   run: Run,
@@ -708,6 +708,21 @@ export async function approveInConversation(
         undefined,
         next,
       );
+    // An error in `data`, as the lab's Company Agents answer a stale or
+    // missing proposal: not a result. Nothing was performed (a Company that
+    // doesn't know says so, §7), and this approval isn't sent again, as
+    // with a decline. What the Company said goes to the User as the reason.
+    if (object(m.data) && m.data.error) {
+      const reason = clip(m.text, 500);
+      throw new ProtocolError(
+        403,
+        "approval_declined",
+        undefined,
+        undefined,
+        undefined,
+        reason ? { reason } : {},
+      );
+    }
     summary = clip(m.text, 2000) ?? summary;
   }
   if (thread && read.cursor) thread.cursor = read.cursor;

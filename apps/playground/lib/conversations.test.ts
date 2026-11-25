@@ -444,6 +444,63 @@ describe("conversations (§8) in Iris", () => {
     expect(new Set(ids()).size).toBe(3);
   });
 
+  it("reports an error in answer to an approval as nothing performed, never as the result", async () => {
+    const op = {
+      ...operation,
+      state: "proposed" as const,
+      request: { conversation: { endpoint, id: "cnv_1" } },
+    };
+    const answer = (message: Record<string, unknown>) =>
+      vi.fn(async (_r: Run, _url: string, _m: string, body?: unknown) =>
+        read([
+          said("e13", {
+            as_of_request: (body as { id: string }).id,
+            ...message,
+          }),
+        ]),
+      );
+    // What the lab's Company Agents say when the terms went stale.
+    await expect(
+      approveInConversation(
+        newRun(),
+        op,
+        approval,
+        answer({
+          text: "The order changed since I proposed that. Ask again for fresh terms.",
+          data: { error: "account_changed" },
+        }),
+      ),
+    ).rejects.toMatchObject({
+      status: 403,
+      code: "approval_declined",
+      declined: {
+        reason:
+          "The order changed since I proposed that. Ask again for fresh terms.",
+      },
+    });
+    // An error without words is still not a result.
+    await expect(
+      approveInConversation(
+        newRun(),
+        op,
+        approval,
+        answer({ data: { error: "no_pending_operation" } }),
+      ),
+    ).rejects.toMatchObject({ code: "approval_declined", declined: {} });
+    // Other data comes with the result.
+    await expect(
+      approveInConversation(
+        newRun(),
+        op,
+        approval,
+        answer({
+          text: "Refunded USD 8.00.",
+          data: { operation_id: "op_refund", refund: { amount_cents: 800 } },
+        }),
+      ),
+    ).resolves.toEqual({ summary: "Refunded USD 8.00." });
+  });
+
   it("reads the four state fields, treats unknown values safely, and withdraws a handoff", async () => {
     const run = newRun();
     run.conversation = { endpoint, id: "cnv_1", seen: [] };
