@@ -236,11 +236,18 @@ export function fdxTools({
   entry,
   request,
   trace,
+  consentId,
 }: {
   /** From `fdxExtension` in pap-core, already checked against the domain. */
   entry: FdxExtensionEntry;
   request: FdxRequest;
   trace: (line: string) => void;
+  /**
+   * The consent id the bank returned with the caller's token, when it keeps
+   * one. Then `fdx_consent_status` takes no id from the model: it reads that
+   * consent unless the model names another.
+   */
+  consentId?: () => string | undefined;
 }): Record<string, ApiTool> {
   const base = checkedBase(entry.base_url, "base_url");
   const consents = checkedBase(entry.consent_endpoint, "consent_endpoint");
@@ -445,12 +452,26 @@ export function fdxTools({
         type: "string",
         minLength: 1,
         maxLength: 128,
-        description: "The consent id the bank gave this agent at sign-in.",
+        description: consentId
+          ? "Leave it out: the consent of this sign-in is used."
+          : "The consent id the bank gave this agent at sign-in.",
       },
     },
-    ["consentId"],
+    consentId ? [] : ["consentId"],
     async (input) => {
-      const id = input.consentId as string;
+      const known = consentId?.();
+      const id =
+        typeof input.consentId === "string"
+          ? input.consentId
+          : validId(known)
+            ? known
+            : undefined;
+      if (!id)
+        return {
+          error: "consent_unknown",
+          instruction:
+            "No FDX-shaped consent is known for this sign-in. Ask the user to sign in and share accounts on the bank's consent page.",
+        };
       // The consent is the grant itself: it needs the access token, not a
       // data cluster.
       const r = await get(consents, [id], {}, []);
@@ -459,7 +480,7 @@ export function fdxTools({
       const c = consent(r.body);
       return c && c.id === id ? { ...c, ...notice(r.body) } : invalid;
     },
-    (input) => validId(input.consentId),
+    (input) => input.consentId === undefined || validId(input.consentId),
   );
   return tools;
 }

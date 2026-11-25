@@ -41,6 +41,12 @@ export class ProtocolError extends Error {
     public operation?: unknown,
     /** Operations v3: an approval_declined body (Company content). */
     public declined?: { reason?: string },
+    /**
+     * The parsed error body, only when the caller asked for it and the error
+     * is no Poppy or OAuth error: no known `error` code and no
+     * `WWW-Authenticate` challenge. Untrusted Company content.
+     */
+    public body?: unknown,
   ) {
     super(
       `Remote server returned HTTP ${status}${code ? ` (${code})` : ""}${retryAt ? " — retry after " + new Date(Math.min(retryAt, 8640000000000000)).toISOString() : ""}`,

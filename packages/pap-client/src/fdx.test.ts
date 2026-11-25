@@ -268,6 +268,39 @@ describe("FDX-shaped tools (poppylab.dev/fdx v1)", () => {
     );
   });
 
+  it("reads the caller's own consent when it keeps the id, so the model needn't name one", async () => {
+    let known: string | undefined = "grant_7Hk2";
+    const request = vi.fn(async (): Promise<FdxResponse> =>
+      ok(fixture.consent),
+    );
+    const tools = fdxTools({
+      entry,
+      request,
+      trace: vi.fn(),
+      consentId: () => known,
+    });
+    expect(tools.fdx_consent_status!.schema.required ?? []).toEqual([]);
+    expect(await tools.fdx_consent_status!.execute({})).toEqual(
+      fixture.consent,
+    );
+    expect(request).toHaveBeenLastCalledWith(
+      "https://bank.example/fdx/v6/consents/grant_7Hk2",
+      [],
+    );
+    // An id the model names still goes through the same checks.
+    await expect(
+      tools.fdx_consent_status!.execute({ consentId: "../accounts" }),
+    ).rejects.toBeInstanceOf(InvalidToolArguments);
+    // None kept, or one that couldn't be a path segment: nothing is sent.
+    for (const value of [undefined, "../x"]) {
+      known = value;
+      expect(await tools.fdx_consent_status!.execute({})).toMatchObject({
+        error: "consent_unknown",
+      });
+    }
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
   it("passes FDX error bodies on as structured, bounded errors", async () => {
     const { tools } = setup(
       { status: 404, body: fixture.errors.accountNotFound },

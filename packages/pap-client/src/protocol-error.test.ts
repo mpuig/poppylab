@@ -123,3 +123,56 @@ it("serializes and parses the Poppy-Approval dictionary (Operations v3, RFC 9651
     }),
   ).toThrow();
 });
+
+it("keeps an API's own error body only when asked, and never for a Poppy or OAuth error (§7)", async () => {
+  let status = 404,
+    body: unknown = { code: "701", message: "Account not found" },
+    challenge = "";
+  const server = createServer((_req, res) => {
+    res.writeHead(status, {
+      "content-type": "application/json",
+      ...(challenge ? { "WWW-Authenticate": challenge } : {}),
+    });
+    res.end(JSON.stringify(body));
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const origin = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+  const send = (errorBody?: boolean) =>
+    protocolRequest(
+      origin + "/x",
+      {},
+      [origin],
+      undefined,
+      errorBody ? { errorBody } : undefined,
+    ).then(
+      () => undefined,
+      (e: unknown) => e as ProtocolError,
+    );
+  try {
+    expect(await send(true)).toMatchObject({
+      status: 404,
+      code: undefined,
+      body: { code: "701", message: "Account not found" },
+    });
+    // Not asked: the body is dropped, as before.
+    expect((await send())?.body).toBeUndefined();
+    // A Poppy error code, or any challenge, keeps the protocol's handling.
+    status = 403;
+    body = { error: "extension_required", extension: "poppylab.dev/fdx" };
+    const declared = await send(true);
+    expect(declared).toMatchObject({ code: "extension_required" });
+    expect(declared?.body).toBeUndefined();
+    status = 401;
+    body = { code: "602", message: "Unauthorized" };
+    challenge = 'DPoP error="invalid_token"';
+    const token = await send(true);
+    expect(token).toMatchObject({ code: "invalid_token" });
+    expect(token?.body).toBeUndefined();
+    challenge = 'DPoP realm="x"';
+    const bare = await send(true);
+    expect(bare).toMatchObject({ status: 401, code: undefined });
+    expect(bare?.body).toBeUndefined();
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+});
