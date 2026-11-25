@@ -20,8 +20,8 @@ import {
 import type { ReviewOperation as Operation } from "@/lib/operation-presentation";
 import { agentStep } from "@/lib/agent-steps";
 import { logEntry, type ProtocolEntry } from "@/lib/protocol-log";
+import { nextAutoApproval } from "@/lib/auto-approval";
 import {
-  coveredBy,
   loadInstruction,
   saveInstruction,
   type Instruction,
@@ -232,17 +232,16 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
   // A fixed check against the exact terms; each revision is tried once.
   // Anything it does not cover stays for the User in the Needs you panel.
   useEffect(() => {
-    if (!signedIn || busy || !instruction) return;
-    for (const op of operations) {
-      const key = `${op.operation_id}:${op.revision}`;
-      if (decided.current.has(key)) continue;
-      const covered = coveredBy(op, instruction);
-      if (!covered) continue;
-      decided.current.add(key);
-      addTrace([`Approved by your standing instruction · ${covered}`]);
-      void accountAction("approve", op);
-      break;
-    }
+    const next = nextAutoApproval({
+      operations,
+      instruction,
+      signedIn,
+      busy,
+      decided: decided.current,
+    });
+    if (!next) return;
+    addTrace([`Approved by your standing instruction · ${next.covered}`]);
+    void accountAction("approve", next.op);
     // accountAction is recreated each render and reads current state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [operations, instruction, signedIn, busy]);
