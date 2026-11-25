@@ -38,7 +38,11 @@ async function setup() {
       origin,
       cookie: String(page.headers["set-cookie"]).split(";")[0]!,
     },
-    payload: {},
+    payload: {
+      login_token: String(page.headers["set-cookie"])
+        .split(";")[0]!
+        .split("=")[1],
+    },
   });
   const cookie = (login.headers["set-cookie"] as string[])
     .find((v) => v.startsWith("juniper_web="))!

@@ -4,6 +4,7 @@ import { createIdentity } from "@poppy-lab/pap-client/core";
 import {
   createCompany,
   memoryStore,
+  restartingStore,
   splitStore,
   type KeyValue,
 } from "@poppy-lab/pap-company";
@@ -514,7 +515,10 @@ async function webLogin(account: string) {
       origin,
       "content-type": "application/x-www-form-urlencoded",
     },
-    body: new URLSearchParams({ account }).toString(),
+    body: new URLSearchParams({
+      account,
+      login_token: login.split("=")[1]!,
+    }).toString(),
     redirect: "manual",
   });
   expect(entered.status).toBe(302);
@@ -527,6 +531,52 @@ async function webLogin(account: string) {
     headers: { cookie: web, origin, "X-Lantern-Account": account },
   };
 }
+
+it("accepts the login form after a restart, and gives a form without its token a page with a way back", async () => {
+  const load = restartingStore();
+  await setup({ store: load(), isolation: "visitor" });
+  // A browser the site has seen: opening the form again saves nothing.
+  const first = await lab.app.request("/site/login");
+  const browser = first.headers
+    .getSetCookie()
+    .find((entry) => entry.includes("pap_browser="))!
+    .split(";")[0]!;
+  const page = await lab.app.request("/site/login", {
+    headers: { cookie: browser },
+  });
+  const login = page.headers
+    .getSetCookie()
+    .find((entry) => entry.startsWith("lantern_login="))!
+    .split(";")[0]!;
+  const post = (fields: Record<string, string>) =>
+    lab.app.request("/site/login", {
+      method: "POST",
+      headers: {
+        cookie: `${browser}; ${login}`,
+        origin,
+        "content-type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({ account: "robin", ...fields }).toString(),
+    });
+  // The Durable Object was dropped from memory while the form was open.
+  await setup({ store: load(), isolation: "visitor" });
+  const refused = await post({});
+  expect(refused.status).toBe(403);
+  const html = await refused.text();
+  expect(html).toContain("This sign-in page has expired.");
+  expect(html).toContain(
+    '<a href="/site/login">Open the sign-in page again</a>',
+  );
+  const entered = await post({ login_token: login.split("=")[1]! });
+  expect(entered.status).toBe(302);
+  expect(entered.headers.get("location")).toBe("/account");
+  // The form is used up.
+  expect(
+    entered.headers
+      .getSetCookie()
+      .some((entry) => entry.startsWith("lantern_login=;")),
+  ).toBe(true);
+});
 
 it("customer website: signs in, shows the agent's orders, edits one and makes the pending proposal stale, revokes a grant", async () => {
   const x = await setup();

@@ -10,3 +10,20 @@ export const memoryStore = (): Store & { saves: number } => {
   };
   return store;
 };
+/**
+ * For tests of a restart: each call returns a store holding what the last
+ * save wrote, and nothing a request left only in memory, as a Durable Object
+ * that was dropped from memory loads it.
+ */
+export const restartingStore = () => {
+  let saved = emptyState();
+  return (): Store => {
+    const store = {
+      value: structuredClone(saved),
+      save() {
+        saved = structuredClone(store.value);
+      },
+    };
+    return store;
+  };
+};

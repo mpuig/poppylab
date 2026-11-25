@@ -162,6 +162,7 @@ export async function webLogin(
   const jar = [browser, ...set.map((c) => c.split(";")[0]!)]
     .filter(Boolean)
     .join("; ");
+  const token = /juniper_login=([^;]+)/.exec(jar)![1]!;
   const entered = await app.inject({
     method: "POST",
     url: "/site/login",
@@ -170,7 +171,7 @@ export async function webLogin(
       origin,
       "content-type": "application/x-www-form-urlencoded",
     },
-    payload: "account=elena",
+    payload: `account=elena&login_token=${token}`,
   });
   const web = ([] as string[])
     .concat(entered.headers["set-cookie"] ?? [])

@@ -1,5 +1,6 @@
 import { expect, it, vi } from "vitest";
 import { openApiTools } from "@poppy-lab/pap-client";
+import { restartingStore } from "@poppy-lab/pap-company";
 import { northwind } from "./northwind.ts";
 import {
   bookElenaOnNa274,
@@ -564,7 +565,10 @@ async function webLogin(account: string) {
       origin,
       "content-type": "application/x-www-form-urlencoded",
     },
-    body: new URLSearchParams({ account }).toString(),
+    body: new URLSearchParams({
+      account,
+      login_token: login.split("=")[1]!,
+    }).toString(),
     redirect: "manual",
   });
   const web = response.headers
@@ -576,6 +580,63 @@ async function webLogin(account: string) {
     headers: { cookie: web, origin, "X-Northwind-Account": account },
   };
 }
+
+it("accepts the login form for five minutes, across a restart, and gives an expired one a page with a way back", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  try {
+    const load = restartingStore();
+    await setup({ store: load(), isolation: "visitor" });
+    // A browser the site has seen: opening the form again saves nothing.
+    const first = await lab.app.request("/site/login");
+    const browser = first.headers
+      .getSetCookie()
+      .find((entry) => entry.includes("pap_browser="))!
+      .split(";")[0]!;
+    const page = await lab.app.request("/site/login", {
+      headers: { cookie: browser },
+    });
+    const login = page.headers
+      .getSetCookie()
+      .find((entry) => entry.startsWith("northwind_login="))!
+      .split(";")[0]!;
+    const token = login.split("=")[1]!;
+    expect(await page.text()).toContain(
+      `<input type="hidden" name="login_token" value="${token}">`,
+    );
+    const post = (fields: Record<string, string>, cookie = login) =>
+      lab.app.request("/site/login", {
+        method: "POST",
+        headers: {
+          cookie: `${browser}; ${cookie}`,
+          origin,
+          "content-type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({ account: "robin", ...fields }).toString(),
+      });
+    // The Durable Object was dropped from memory while the form was open.
+    await setup({ store: load(), isolation: "visitor" });
+    vi.setSystemTime(Date.now() + 4 * 60000 + 59000);
+    // A form that isn't this browser's own is refused.
+    expect((await post({})).status).toBe(403);
+    expect((await post({ login_token: token }, "")).status).toBe(403);
+    const entered = await post({ login_token: token });
+    expect(entered.status).toBe(302);
+    expect(entered.headers.get("location")).toBe("/account");
+
+    vi.setSystemTime(Date.now() + 2000);
+    const late = await post({ login_token: token });
+    expect(late.status).toBe(403);
+    expect(late.headers.get("content-type")).toContain("text/html");
+    const html = await late.text();
+    expect(html).toContain("This login page has expired.");
+    expect(html).toContain(
+      '<a href="/site/login">Open the login page again</a>',
+    );
+    expect(html).toContain('<a class="brand" href="/">Northwind Air</a>');
+  } finally {
+    vi.useRealTimers();
+  }
+});
 
 it("customer portal uses the same booking and loyalty state as the APIs and revokes grants", async () => {
   const x = await setup();

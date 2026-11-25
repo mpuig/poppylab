@@ -27,7 +27,10 @@ async function login(
     method: "POST",
     url: "/site/login",
     headers: { origin, cookie },
-    payload: password ? { password } : {},
+    payload: {
+      login_token: cookie.split("=")[1],
+      ...(password ? { password } : {}),
+    },
   });
 }
 it("switches browser personas without retaining the old session and rejects unknown accounts", async () => {
@@ -45,7 +48,10 @@ it("switches browser personas without retaining the old session and rejects unkn
           method: "POST",
           url: "/site/login",
           headers: { origin, cookie: challenge },
-          payload: { account: "unknown" },
+          payload: {
+            account: "unknown",
+            login_token: challenge.split("=")[1],
+          },
         })
       ).statusCode,
     ).toBe(400);
@@ -53,7 +59,7 @@ it("switches browser personas without retaining the old session and rejects unkn
       method: "POST",
       url: "/site/login",
       headers: { origin, cookie: challenge + "; " + old },
-      payload: { account: "robin" },
+      payload: { account: "robin", login_token: challenge.split("=")[1] },
     });
     const current = (next.headers["set-cookie"] as string[])
       .find((v) => v.startsWith("juniper_web="))!
@@ -88,20 +94,59 @@ it("requires customer sign-in; login is browser bound and rejects cross-origin s
           method: "POST",
           url: "/site/login",
           headers: { cookie, origin: "https://evil.example" },
-          payload: {},
+          payload: { login_token: cookie.split("=")[1] },
         })
       ).statusCode,
     ).toBe(403);
+    // A form without the browser's cookie, and one without its token.
     expect(
       (
         await app.inject({
           method: "POST",
           url: "/site/login",
           headers: { origin },
-          payload: {},
+          payload: { login_token: cookie.split("=")[1] },
         })
       ).statusCode,
     ).toBe(403);
+    const refused = await app.inject({
+      method: "POST",
+      url: "/site/login",
+      headers: { cookie, origin },
+      payload: {},
+    });
+    expect(refused.statusCode).toBe(403);
+    // A page of the site, with a way back to the form.
+    expect(refused.headers["content-type"]).toContain("text/html");
+    expect(refused.body).toContain("This sign-in page has expired.");
+    expect(refused.body).toContain(
+      '<a href="/site/login">Open the sign-in page again</a>',
+    );
+    expect(refused.body).toContain('<a class="brand" href="/">');
+  } finally {
+    await app.close();
+  }
+});
+it("accepts the login form after a restart", async () => {
+  const before = await setup();
+  const page = await before.inject("/site/login");
+  const cookie = String(page.headers["set-cookie"]).split(";")[0]!;
+  const token = cookie.split("=")[1]!;
+  expect(page.body).toContain(
+    `<input type="hidden" name="login_token" value="${token}">`,
+  );
+  await before.close();
+  // A new process, or a Durable Object loaded again: nothing is in memory.
+  const app = await setup();
+  try {
+    const entered = await app.inject({
+      method: "POST",
+      url: "/site/login",
+      headers: { origin, cookie },
+      payload: { login_token: token },
+    });
+    expect(entered.statusCode).toBe(302);
+    expect(entered.headers.location).toBe("/account");
   } finally {
     await app.close();
   }

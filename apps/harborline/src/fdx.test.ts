@@ -42,7 +42,7 @@ async function portal(account: "elena" | "robin") {
     method: "POST",
     url: "/site/login",
     headers: { cookie: loginCookie, origin },
-    payload: { account },
+    payload: { account, login_token: loginCookie.split("=")[1] },
   });
   return String(signed.headers["set-cookie"])
     .split(",")

@@ -12,6 +12,9 @@ import type { Context, Hono } from "hono";
 import { randomId, tokenHash } from "@poppy-lab/pap-client/core";
 import {
   feedbackSection,
+  LOGIN_FORM_MS,
+  loginFormToken,
+  loginFormValid,
   type FeedbackReport,
   type GrantAccess,
   type OperationRecord,
@@ -50,7 +53,8 @@ export function mountPortal(app: Hono, ctx: Ctx, deps: Deps) {
   const { origin } = ctx;
   const secure = origin.startsWith("https:");
   const sessions = (ctx.state.webSessions ??= {}) as Record<string, WebSession>;
-  const pending = (ctx.state.webLogins ??= {}) as Record<string, number>;
+  // The login form carries its own token now; the nonces kept here went.
+  delete ctx.state.webLogins;
   const setCookie = (name: string, value: string, maxAge: number) =>
     `${name}=${value}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${maxAge}${secure ? "; Secure" : ""}`;
   const pageHeaders = {
@@ -76,41 +80,43 @@ export function mountPortal(app: Hono, ctx: Ctx, deps: Deps) {
   const sameOrigin = (c: Context) => c.req.header("origin") === origin;
 
   app.get("/site/login", (c) => {
-    for (const [id, expires] of Object.entries(pending))
-      if (expires < Date.now()) delete pending[id];
-    if (Object.keys(pending).length >= 500)
-      return c.text("Too many attempts. Try again in a few minutes.", 429);
-    const nonce = randomId();
-    pending[tokenHash(nonce)] = Date.now() + 300000;
+    // In a cookie and in the form: the two must arrive equal (site-login.ts).
+    const token = loginFormToken();
     const options = customers
       .map((p) => `<option value="${p.id}">${escape(p.name)}</option>`)
       .join("");
     return c.html(
       shell(
         "Sign in · Lantern Noodle Bar",
-        `<main class="wrap"><section class="intro"><h1>Your orders, on the board.</h1><p>Sign in to see your scheduled orders, edit them, and manage which agents may act for you. A connected agent sees the same orders.</p></section><section class="plain"><form class="card form" method="post" action="/site/login"><label for="account">Test customer</label><select id="account" name="account">${options}</select><button type="submit">Sign in</button><p class="notice">There is no password: this is a demo, and nobody's identity is checked. Don't enter credentials from other services.</p></form></section></main>`,
+        `<main class="wrap"><section class="intro"><h1>Your orders, on the board.</h1><p>Sign in to see your scheduled orders, edit them, and manage which agents may act for you. A connected agent sees the same orders.</p></section><section class="plain"><form class="card form" method="post" action="/site/login"><input type="hidden" name="login_token" value="${token}"><label for="account">Test customer</label><select id="account" name="account">${options}</select><button type="submit">Sign in</button><p class="notice">There is no password: this is a demo, and nobody's identity is checked. Don't enter credentials from other services.</p></form></section></main>`,
         "/account",
         origin,
       ),
       200,
       {
         ...pageHeaders,
-        "Set-Cookie": setCookie("lantern_login", nonce, 300),
+        "Set-Cookie": setCookie("lantern_login", token, LOGIN_FORM_MS / 1000),
       },
     );
   });
   app.post("/site/login", async (c) => {
-    const key = tokenHash(cookie(c, "lantern_login")),
-      expires = pending[key];
-    if (!sameOrigin(c) || !expires || expires < Date.now())
-      return c.text(
-        "This sign-in has expired. Open /site/login and try again.",
-        403,
-      );
     const body = (await c.req.parseBody()) as Record<string, string>;
+    if (
+      !sameOrigin(c) ||
+      !loginFormValid(cookie(c, "lantern_login"), body.login_token)
+    )
+      return c.html(
+        shell(
+          "Sign in again · Lantern Noodle Bar",
+          `<main class="wrap"><section class="intro"><h1>This sign-in page has expired.</h1><p>A sign-in page works for five minutes after it opens, and this one is older. You aren't signed in, and nothing has changed.</p><p><a href="/site/login">Open the sign-in page again</a></p></section></main>`,
+          "/account",
+          origin,
+        ),
+        403,
+        pageHeaders,
+      );
     const selected = customers.find((p) => p.id === body.account);
     if (!selected) return c.json({ error: "invalid_account" }, 400);
-    delete pending[key];
     delete sessions[tokenHash(cookie(c, "lantern_web"))];
     for (const [id, s] of Object.entries(sessions))
       if (s.expires < Date.now()) delete sessions[id];

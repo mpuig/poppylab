@@ -5,7 +5,7 @@
  * (`@poppy-lab/pap-company`) in Node and in Cloudflare Workers.
  * Independent experiment, not affiliated with the protocol's authors.
  */
-import type { CompanyDefinition } from "@poppy-lab/pap-company";
+import { ObjectMap, type CompanyDefinition } from "@poppy-lab/pap-company";
 import { accountPaths } from "./openapi.js";
 import { servicePaths } from "./service-openapi.js";
 import { operations, type Commerce } from "./operations.js";
@@ -90,21 +90,6 @@ const policies = {
   returns:
     "Fresh produce issues can be reported within 48 hours for a replacement or refund.",
 };
-
-/** A Map persisted as a plain object inside the Company state. */
-class ObjectMap<V> extends Map<string, V> {
-  constructor(private target: Record<string, V>) {
-    super(Object.entries(target));
-  }
-  override set(key: string, value: V) {
-    if (this.target) this.target[key] = value;
-    return super.set(key, value);
-  }
-  override delete(key: string) {
-    delete this.target[key];
-    return super.delete(key);
-  }
-}
 
 export function juniperCompany(options: {
   portal: boolean;
@@ -261,6 +246,8 @@ export function juniperCompany(options: {
         r,
         ctx.origin,
         commerce.view,
+        // Read from the state each time: the gateway moves a browser's
+        // logins here when it starts to see this copy.
         new ObjectMap((business.webSessions ??= {})),
         commerce.services,
         ctx.grants,

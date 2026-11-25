@@ -484,6 +484,11 @@ export type CompanyDefinition = {
     app: Hono,
     ctx: {
       sessionFor: (c: Context) => RequestSession;
+      /**
+       * A website keeps its logins under `webSessions`, by the hash of each
+       * login's cookie: with `isolation: "visitor"` the gateway moves them
+       * with a browser that starts to see an agent user's copy.
+       */
       state: Record<string, unknown>;
       gate: Gate;
       grants: GrantAccess;

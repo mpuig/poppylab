@@ -169,10 +169,28 @@ export function createTenancy(ctx: Ctx) {
   // user's copy once that browser approved the agent's consent.
   const website = (path: string) =>
     path === "/account" || path.startsWith("/site/");
+  /**
+   * A browser that approved an agent's consent sees the agent user's copy
+   * from then on, and nothing leads back to its own. Its website logins
+   * (`webSessions` in a Company's state, see `mount`) move with it, so
+   * connecting an agent doesn't log the customer out of the website, and
+   * its own copy is dropped.
+   */
+  function follow(request: Request, own: string, to: Tenant) {
+    const from = state.tenants[own];
+    if (!from || from === to) return;
+    const logins = from.business.webSessions;
+    if (logins && typeof logins === "object")
+      Object.assign((to.business.webSessions ??= {}) as object, logins);
+    delete state.tenants[own];
+    apps.delete(own);
+    ctx.removed.push(own);
+    ctx.markDirty(request);
+  }
   function mountDispatch(app: Hono) {
     app.all("*", async (c) => {
       const path = new URL(c.req.url).pathname;
-      let cookie: string | undefined;
+      let cookie: string | undefined, own: string | undefined;
       if (isolated && website(path)) {
         let browser = ctx.browserOf(c);
         if (!browser) {
@@ -182,9 +200,12 @@ export function createTenancy(ctx: Ctx) {
         }
         const linked = state.links?.[browser];
         if (linked) linked.used = Date.now();
-        ctx.tenantKeys.set(c.req.raw, linked?.tenant ?? `browser:${browser}`);
+        own = `browser:${browser}`;
+        ctx.tenantKeys.set(c.req.raw, linked?.tenant ?? own);
       }
-      const response = await enter(c.req.raw).app.fetch(c.req.raw);
+      const entry = enter(c.req.raw);
+      if (own) follow(c.req.raw, own, entry.tenant);
+      const response = await entry.app.fetch(c.req.raw);
       if (!cookie) return response;
       const copy = new Response(response.body, response);
       copy.headers.append("Set-Cookie", cookie);

@@ -692,14 +692,12 @@ it("isolates profiles, orders, cases, Operations and browser grant revocation ac
     ).toEqual([]);
     const login = async (account: string) => {
       const start = await x.app.inject("/site/login");
+      const form = String(start.headers["set-cookie"]).split(";")[0]!;
       const response = await x.app.inject({
         method: "POST",
         url: "/site/login",
-        headers: {
-          origin,
-          cookie: String(start.headers["set-cookie"]).split(";")[0]!,
-        },
-        payload: { account },
+        headers: { origin, cookie: form },
+        payload: { account, login_token: form.split("=")[1] },
       });
       return (response.headers["set-cookie"] as string[])
         .find((v) => v.startsWith("juniper_web="))!

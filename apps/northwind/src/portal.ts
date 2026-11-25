@@ -3,6 +3,9 @@ import type { Context, Hono } from "hono";
 import { randomId, tokenHash } from "@poppy-lab/pap-client/core";
 import {
   feedbackSection,
+  LOGIN_FORM_MS,
+  loginFormToken,
+  loginFormValid,
   type FeedbackReport,
   type GrantAccess,
   type OperationRecord,
@@ -37,7 +40,8 @@ const cookie = (c: Context, name: string) =>
 export function mountPortal(app: Hono, ctx: Ctx, deps: Deps) {
   const secure = ctx.origin.startsWith("https:");
   const sessions = (ctx.state.webSessions ??= {}) as Record<string, WebSession>;
-  const pending = (ctx.state.webLogins ??= {}) as Record<string, number>;
+  // The login form carries its own token now; the nonces kept here went.
+  delete ctx.state.webLogins;
   const setCookie = (name: string, value: string, maxAge: number) =>
     `${name}=${value}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${maxAge}${secure ? "; Secure" : ""}`;
   const headers = {
@@ -61,33 +65,36 @@ export function mountPortal(app: Hono, ctx: Ctx, deps: Deps) {
   const sameOrigin = (c: Context) => c.req.header("origin") === ctx.origin;
 
   app.get("/site/login", (c) => {
-    for (const [id, expires] of Object.entries(pending))
-      if (expires < Date.now()) delete pending[id];
-    if (Object.keys(pending).length >= 500)
-      return c.text("Too many attempts. Try again shortly.", 429);
-    const nonce = randomId();
-    pending[tokenHash(nonce)] = Date.now() + 300000;
-    const body = `<main class="wrap account-shell"><section class="account-head"><div><h1>Log in to My Northwind.</h1><p>Choose a test passenger to see their trip, loyalty points and preferences. There is no password: this is a demo, and nobody's identity is checked. A connected agent sees the same account.</p></div></section><form class="search-panel" method="post" action="/site/login"><label for="account">Test passenger</label><select id="account" name="account">${customers.map((customer) => `<option value="${customer.id}">${escape(customer.name)} · ${customer.booking.reference}</option>`).join("")}</select><button type="submit">Log in</button><p class="notice">Never enter a real booking reference, passport or payment card.</p><p class="notice">${escape(FICTION_NOTICE)}</p></form></main>`;
+    // In a cookie and in the form: the two must arrive equal (site-login.ts).
+    const token = loginFormToken();
+    const body = `<main class="wrap account-shell"><section class="account-head"><div><h1>Log in to My Northwind.</h1><p>Choose a test passenger to see their trip, loyalty points and preferences. There is no password: this is a demo, and nobody's identity is checked. A connected agent sees the same account.</p></div></section><form class="search-panel" method="post" action="/site/login"><input type="hidden" name="login_token" value="${token}"><label for="account">Test passenger</label><select id="account" name="account">${customers.map((customer) => `<option value="${customer.id}">${escape(customer.name)} · ${customer.booking.reference}</option>`).join("")}</select><button type="submit">Log in</button><p class="notice">Never enter a real booking reference, passport or payment card.</p><p class="notice">${escape(FICTION_NOTICE)}</p></form></main>`;
     return c.html(
       shell("Sign in · Northwind Air", body, "/account", ctx.origin),
       200,
       {
         ...headers,
-        "Set-Cookie": setCookie("northwind_login", nonce, 300),
+        "Set-Cookie": setCookie("northwind_login", token, LOGIN_FORM_MS / 1000),
       },
     );
   });
   app.post("/site/login", async (c) => {
-    const loginKey = tokenHash(cookie(c, "northwind_login"));
-    if (!sameOrigin(c) || !pending[loginKey] || pending[loginKey] < Date.now())
-      return c.text(
-        "This sign-in expired. Open /site/login and try again.",
-        403,
-      );
     const form = (await c.req.parseBody()) as Record<string, string>;
+    if (
+      !sameOrigin(c) ||
+      !loginFormValid(cookie(c, "northwind_login"), form.login_token)
+    )
+      return c.html(
+        shell(
+          "Log in again · Northwind Air",
+          `<main class="wrap account-shell"><section class="account-head"><div><h1>This login page has expired.</h1><p>A login page works for five minutes after it opens, and this one is older. You are not logged in, and nothing has changed.</p><p><a href="/site/login">Open the login page again</a></p></div></section></main>`,
+          "/account",
+          ctx.origin,
+        ),
+        403,
+        headers,
+      );
     const selected = northwindPersona(form.account);
     if (!selected) return c.json({ error: "invalid_account" }, 400);
-    delete pending[loginKey];
     delete sessions[tokenHash(cookie(c, "northwind_web"))];
     for (const [id, session] of Object.entries(sessions))
       if (session.expires < Date.now()) delete sessions[id];

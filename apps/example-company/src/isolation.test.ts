@@ -56,3 +56,31 @@ it("shows a browser the agent user's copy once it approved that agent's consent,
   expect(theirs.body).toContain("Thursday");
   expect(theirs.body).not.toContain("Saturday");
 });
+
+it("keeps a customer logged in on the website when they connect an agent in the same browser", async () => {
+  const { app, visitor } = await visitors();
+  // Logged in on the website first, in the browser's own copy.
+  const jar = await webLogin(app);
+  const state = () =>
+    app.inject({ url: "/site/state", headers: { cookie: jar } });
+  expect((await state()).body).toContain("Thursday");
+  // The same browser approves the agent's consent, and the agent moves
+  // Elena's delivery in its user's copy.
+  const ana = await visitor("usr_ana", {
+    cookie: /[^ ;]*pap_browser=[^;]+/.exec(jar)![0],
+  });
+  const body = { delivery_id: "delivery_001", day: "Saturday" };
+  const op = (await ana("POST", "/api/account/delivery-change", body)).json()
+    .operation;
+  expect(
+    (await ana("POST", "/api/account/delivery-change", body, op)).statusCode,
+  ).toBe(200);
+  // The website shows that copy now, without asking to log in again.
+  const after = await state();
+  expect(after.statusCode).toBe(200);
+  expect(after.body).toContain("Saturday");
+  expect(
+    (await app.inject({ url: "/account", headers: { cookie: jar } }))
+      .statusCode,
+  ).toBe(200);
+});

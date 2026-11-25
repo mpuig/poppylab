@@ -5,6 +5,9 @@ import { randomId, tokenHash } from "@poppy-lab/pap-client";
 import { scryptSync, timingSafeEqual } from "node:crypto";
 import {
   feedbackSection,
+  LOGIN_FORM_MS,
+  loginFormToken,
+  loginFormValid,
   type FeedbackReport,
   type Session,
 } from "@poppy-lab/pap-company";
@@ -14,6 +17,13 @@ import type { operations } from "./operations.js";
 import { ShoppingConflict } from "./shopping-edits.js";
 import { persona, personaSelect } from "./personas.js";
 export type WebSession = { expires: number; account?: string };
+/** Where the website keeps its logins: a Map, or a view of the Company state. */
+export type WebSessions = Iterable<[string, WebSession]> & {
+  readonly size: number;
+  get(key: string): WebSession | undefined;
+  set(key: string, value: WebSession): unknown;
+  delete(key: string): boolean;
+};
 const cookie = (req: Req, name: string) =>
   String(req.headers.cookie ?? "")
     .split(/;\s*/)
@@ -84,7 +94,7 @@ export function website(
   app: Router,
   origin: string,
   view: (s: Session) => unknown,
-  sessions = new Map<string, WebSession>(),
+  sessions: WebSessions = new Map<string, WebSession>(),
   services?: Pick<
     ReturnType<typeof operations>["services"],
     "create" | "reply" | "updateProfile" | "updateBasket" | "updateDelivery"
@@ -111,7 +121,6 @@ export function website(
       reply.header("Referrer-Policy", "same-origin");
     }
   });
-  const pending = new Map<string, number>();
   let failures = 0,
     windowStart = Date.now();
   const active = (req: Req) => {
@@ -129,85 +138,81 @@ export function website(
     `${name}=${value}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${maxAge}${origin.startsWith("https:") ? "; Secure" : ""}`;
   app.get("/site/login", async (_req, reply) => {
     if (!portal) return reply.code(403).send({ error: "local_demo_only" });
-    for (const [id, expires] of pending)
-      if (expires < Date.now()) pending.delete(id);
-    if (pending.size >= 500)
-      return reply
-        .code(429)
-        .send("Too many attempts. Try again in a few minutes.");
-    const nonce = randomId();
-    pending.set(tokenHash(nonce), Date.now() + 300000);
+    // In a cookie and in the form: the two must arrive equal (site-login.ts).
+    const token = loginFormToken();
     reply
       .header("Cache-Control", "no-store")
-      .header("Set-Cookie", setCookie("juniper_login", nonce, 300));
+      .header(
+        "Set-Cookie",
+        setCookie("juniper_login", token, LOGIN_FORM_MS / 1000),
+      );
     return reply
       .type("text/html")
       .send(
         page(
           "Sign in",
-          `<div class="login"><h1>Welcome to Juniper.</h1><p class="intro">Sign in to see your shopping, deliveries, billing and profile, or to open a support case. Your agent in Poppy Lab sees the same data.</p><form method="post" action="/site/login">${personaSelect}${process.env.JUNIPER_PASSWORD_HASH ? '<label for="password">Demo environment password</label><input id="password" type="password" name="password" autocomplete="current-password" required maxlength="256">' : '<p class="notice">Choose a fictional account. This does not verify real identities. The optional password protects the whole environment.</p>'}<button type="submit">Sign in to the selected account</button></form><p class="notice">Don't enter credentials from other services. You approve your agent's proposals in Poppy Lab. You can open support cases directly on this website.</p></div>`,
+          `<div class="login"><h1>Welcome to Juniper.</h1><p class="intro">Sign in to see your shopping, deliveries, billing and profile, or to open a support case. Your agent in Poppy Lab sees the same data.</p><form method="post" action="/site/login"><input type="hidden" name="login_token" value="${token}">${personaSelect}${process.env.JUNIPER_PASSWORD_HASH ? '<label for="password">Demo environment password</label><input id="password" type="password" name="password" autocomplete="current-password" required maxlength="256">' : '<p class="notice">Choose a fictional account. This does not verify real identities. The optional password protects the whole environment.</p>'}<button type="submit">Sign in to the selected account</button></form><p class="notice">Don't enter credentials from other services. You approve your agent's proposals in Poppy Lab. You can open support cases directly on this website.</p></div>`,
         ),
       );
   });
-  app.post<{ Body: { password?: string; account?: string } }>(
-    "/site/login",
-    async (req, reply) => {
-      const key = tokenHash(cookie(req, "juniper_login")),
-        expires = pending.get(key);
-      if (
-        !portal ||
-        req.headers.origin !== origin ||
-        !expires ||
-        expires < Date.now()
-      )
-        return reply
-          .code(403)
-          .send("This sign-in has expired. Open /site/login and try again.");
-      if (Date.now() - windowStart > 60000) {
-        failures = 0;
-        windowStart = Date.now();
-      }
-      if (failures >= 10)
-        return reply.code(429).send("Too many attempts. Wait a minute.");
-      const configured = process.env.JUNIPER_PASSWORD_HASH;
-      if (configured) {
-        if (!/^[a-f0-9]{32}:[a-f0-9]{128}$/.test(configured))
-          throw new Error("Invalid password configuration");
-        const [salt, expected] = configured.split(":");
-        const actual = scryptSync(
-          String(req.body?.password ?? "").slice(0, 256),
-          salt!,
-          64,
-        );
-        if (!timingSafeEqual(actual, Buffer.from(expected!, "hex"))) {
-          failures++;
-          return reply
-            .code(401)
-            .send("Wrong password. Go back to /site/login.");
-        }
-      }
-      const selected = persona(req.body?.account ?? "elena");
-      if (!selected) return reply.code(400).send({ error: "invalid_account" });
-      pending.delete(key);
-      sessions.delete(tokenHash(cookie(req, "juniper_web")));
-      for (const [id, s] of sessions)
-        if (s.expires < Date.now()) sessions.delete(id);
-      if (sessions.size >= 1000)
-        return reply.code(429).send("Too many sessions.");
-      const token = randomId();
-      sessions.set(tokenHash(token), {
-        expires: Date.now() + 1800000,
-        account: selected.id,
-      });
+  app.post<{
+    Body: { password?: string; account?: string; login_token?: string };
+  }>("/site/login", async (req, reply) => {
+    if (!portal) return reply.code(403).send({ error: "local_demo_only" });
+    if (
+      req.headers.origin !== origin ||
+      !loginFormValid(cookie(req, "juniper_login"), req.body?.login_token)
+    )
       return reply
-        .header("Cache-Control", "no-store")
-        .header("Set-Cookie", [
-          setCookie("juniper_web", token, 1800),
-          setCookie("juniper_login", "", 0),
-        ])
-        .redirect("/account");
-    },
-  );
+        .code(403)
+        .type("text/html")
+        .send(
+          page(
+            "Sign in again",
+            `<div class="login"><h1>This sign-in page has expired.</h1><p class="intro">A sign-in page works for five minutes after it opens, and this one is older. You aren't signed in, and nothing has changed.</p><p><a href="/site/login">Open the sign-in page again</a></p></div>`,
+          ),
+        );
+    if (Date.now() - windowStart > 60000) {
+      failures = 0;
+      windowStart = Date.now();
+    }
+    if (failures >= 10)
+      return reply.code(429).send("Too many attempts. Wait a minute.");
+    const configured = process.env.JUNIPER_PASSWORD_HASH;
+    if (configured) {
+      if (!/^[a-f0-9]{32}:[a-f0-9]{128}$/.test(configured))
+        throw new Error("Invalid password configuration");
+      const [salt, expected] = configured.split(":");
+      const actual = scryptSync(
+        String(req.body?.password ?? "").slice(0, 256),
+        salt!,
+        64,
+      );
+      if (!timingSafeEqual(actual, Buffer.from(expected!, "hex"))) {
+        failures++;
+        return reply.code(401).send("Wrong password. Go back to /site/login.");
+      }
+    }
+    const selected = persona(req.body?.account ?? "elena");
+    if (!selected) return reply.code(400).send({ error: "invalid_account" });
+    sessions.delete(tokenHash(cookie(req, "juniper_web")));
+    for (const [id, s] of sessions)
+      if (s.expires < Date.now()) sessions.delete(id);
+    if (sessions.size >= 1000)
+      return reply.code(429).send("Too many sessions.");
+    const token = randomId();
+    sessions.set(tokenHash(token), {
+      expires: Date.now() + 1800000,
+      account: selected.id,
+    });
+    return reply
+      .header("Cache-Control", "no-store")
+      .header("Set-Cookie", [
+        setCookie("juniper_web", token, 1800),
+        setCookie("juniper_login", "", 0),
+      ])
+      .redirect("/account");
+  });
   app.post("/site/logout", async (req, reply) => {
     if (req.headers.origin !== origin)
       return reply.code(403).send({ error: "same_origin_required" });

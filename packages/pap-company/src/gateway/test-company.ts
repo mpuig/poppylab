@@ -118,10 +118,14 @@ export async function setup(
     if (r.status !== 200) throw new Error(`token: ${await r.text()}`);
     return (await r.json()) as Tokens;
   };
-  /** Direct Sign-In as Elena; `consent` adds fields to the consent form. */
+  /**
+   * Direct Sign-In as Elena; `consent` adds fields to the consent form, and
+   * `browser` is the `pap_browser` cookie of the browser that approves.
+   */
   const signIn = async (
     scope = "things:read",
     consent: Record<string, string> = {},
+    browser?: string,
   ) => {
     const verifier = "v".repeat(64);
     const page = await app.request(
@@ -136,6 +140,7 @@ export async function setup(
           .digest("base64url"),
         code_challenge_method: "S256",
       })}`,
+      browser ? { headers: { cookie: browser } } : {},
     );
     if (page.status !== 200) throw new Error(`authorize: ${page.status}`);
     // With visitor isolation a browser cookie comes first.
@@ -152,7 +157,7 @@ export async function setup(
         write: "yes",
         ...consent,
       },
-      { cookie, origin },
+      { cookie: browser ? `${cookie}; ${browser}` : cookie, origin },
     );
     const location = approved.headers.get("location");
     if (approved.status !== 302 || !location)

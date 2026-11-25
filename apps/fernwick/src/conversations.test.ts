@@ -4,7 +4,8 @@
  * plan change, and the portal reading the same state.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { inject, origin, setup } from "./test-harness.ts";
+import { restartingStore } from "@poppy-lab/pap-company";
+import { inject, lab, origin, setup } from "./test-harness.ts";
 
 type Harness = Awaited<ReturnType<typeof setup>>;
 type Message = {
@@ -176,7 +177,7 @@ describe("Fernwick conversations and portal", () => {
       method: "POST",
       url: "/site/login",
       headers: { cookie: loginCookie, origin },
-      payload: { account: "robin" },
+      payload: { account: "robin", login_token: loginCookie.split("=")[1] },
     });
     const web = String(signed.headers["set-cookie"]).split(";")[0]!;
     const state = (
@@ -206,5 +207,51 @@ describe("Fernwick conversations and portal", () => {
       (await h.call(tokens.access_token, "GET", "/api/account/account"))
         .statusCode,
     ).toBe(401);
+  });
+
+  it("accepts the login form after a restart, and gives a form without its token a page with a way back", async () => {
+    const load = restartingStore();
+    await setup({ store: load(), isolation: "visitor" });
+    // A browser the site has seen: opening the form again saves nothing.
+    const first = await lab.app.request("/site/login");
+    const browser = first.headers
+      .getSetCookie()
+      .find((entry) => entry.includes("pap_browser="))!
+      .split(";")[0]!;
+    const page = await lab.app.request("/site/login", {
+      headers: { cookie: browser },
+    });
+    const login = page.headers
+      .getSetCookie()
+      .find((entry) => entry.startsWith("fernwick_login="))!
+      .split(";")[0]!;
+    const post = (fields: Record<string, string>) =>
+      lab.app.request("/site/login", {
+        method: "POST",
+        headers: {
+          cookie: `${browser}; ${login}`,
+          origin,
+          "content-type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({ account: "robin", ...fields }).toString(),
+      });
+    // The Durable Object was dropped from memory while the form was open.
+    await setup({ store: load(), isolation: "visitor" });
+    const refused = await post({});
+    expect(refused.status).toBe(403);
+    const html = await refused.text();
+    expect(html).toContain("This sign-in page has expired.");
+    expect(html).toContain(
+      '<a href="/site/login">Open the sign-in page again</a>',
+    );
+    const entered = await post({ login_token: login.split("=")[1]! });
+    expect(entered.status).toBe(302);
+    expect(entered.headers.get("location")).toBe("/account");
+    // The form is used up.
+    expect(
+      entered.headers
+        .getSetCookie()
+        .some((entry) => entry.startsWith("fernwick_login=;")),
+    ).toBe(true);
   });
 });

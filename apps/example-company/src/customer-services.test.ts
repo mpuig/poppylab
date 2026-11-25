@@ -25,7 +25,9 @@ async function cookie(app: Awaited<ReturnType<typeof setup>>) {
     method: "POST",
     url: "/site/login",
     headers: { origin, cookie: String(p.headers["set-cookie"]).split(";")[0]! },
-    payload: {},
+    payload: {
+      login_token: String(p.headers["set-cookie"]).split(";")[0]!.split("=")[1],
+    },
   });
   return (entered.headers["set-cookie"] as string[])
     .find((c) => c.startsWith("juniper_web="))!

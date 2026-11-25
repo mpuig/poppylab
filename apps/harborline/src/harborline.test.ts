@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { memoryStore, SHARED_TENANT } from "@poppy-lab/pap-company";
+import {
+  memoryStore,
+  restartingStore,
+  SHARED_TENANT,
+} from "@poppy-lab/pap-company";
 import { scopes } from "./scopes.ts";
-import { inject, origin, setup } from "./test-harness.ts";
+import { inject, lab, origin, setup } from "./test-harness.ts";
 
 const reads = [
   "accounts:read",
@@ -1097,7 +1101,7 @@ describe("Harborline Bank", () => {
       method: "POST",
       url: "/site/login",
       headers: { cookie: loginCookie, origin },
-      payload: { account: "elena" },
+      payload: { account: "elena", login_token: loginCookie.split("=")[1] },
     });
     const portalCookie = String(signed.headers["set-cookie"])
       .split(",")
@@ -1115,5 +1119,51 @@ describe("Harborline Bank", () => {
     ]);
     expect(state.json().activity[0].state).toBe("succeeded");
     expect(state.json().note).toContain("No real money moves");
+  });
+
+  it("accepts the login form after a restart, and gives a form without its token a page with a way back", async () => {
+    const load = restartingStore();
+    await setup({ store: load(), isolation: "visitor" });
+    // A browser the site has seen: opening the form again saves nothing.
+    const first = await lab.app.request("/site/login");
+    const browser = first.headers
+      .getSetCookie()
+      .find((entry) => entry.includes("pap_browser="))!
+      .split(";")[0]!;
+    const page = await lab.app.request("/site/login", {
+      headers: { cookie: browser },
+    });
+    const login = page.headers
+      .getSetCookie()
+      .find((entry) => entry.startsWith("harborline_login="))!
+      .split(";")[0]!;
+    const post = (fields: Record<string, string>) =>
+      lab.app.request("/site/login", {
+        method: "POST",
+        headers: {
+          cookie: `${browser}; ${login}`,
+          origin,
+          "content-type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({ account: "robin", ...fields }).toString(),
+      });
+    // The Durable Object was dropped from memory while the form was open.
+    await setup({ store: load(), isolation: "visitor" });
+    const refused = await post({});
+    expect(refused.status).toBe(403);
+    const html = await refused.text();
+    expect(html).toContain("This login page has expired.");
+    expect(html).toContain(
+      '<a href="/site/login">Open the login page again</a>',
+    );
+    const entered = await post({ login_token: login.split("=")[1]! });
+    expect(entered.status).toBe(302);
+    expect(entered.headers.get("location")).toBe("/account");
+    // The form is used up.
+    expect(
+      entered.headers
+        .getSetCookie()
+        .some((entry) => entry.startsWith("harborline_login=;")),
+    ).toBe(true);
   });
 });

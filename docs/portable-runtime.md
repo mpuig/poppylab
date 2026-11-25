@@ -96,6 +96,7 @@ With `isolation: "visitor"` (the isolated Company Workers), the gateway gives ev
 - **Grant holder:** a grant serves only the (client, user) that first used it. Another user of the same client gets `invalid_token`.
 - Eviction: at most `maxTenants` (500), least recently used first, and a tenant idle for `tenantIdleMs` (24 h) starts again from the seed data.
 - Non-API routes (landing, discovery, consent) use the `shared` tenant. The Company website lists only grants held by the tenant itself.
+- **Website:** a browser on the Company website (`/account`, `/site/*`) gets its own copy until it approves an agent's consent; from that agent's first signed-in request it sees the agent user's copy. Its website logins (`webSessions` in the Company's state) move with it, so connecting an agent doesn't log the customer out, and the browser's own copy, which nothing leads to any more, is dropped. The login form keeps nothing on the server (`src/site-login.ts`: a token in a cookie and in the form), so a form opened before the move, or before the Durable Object was dropped from memory, still works.
 - **Storage:** `splitStore` (Durable Objects) keeps the protocol state under `state` and each tenant under `tenant:<hash>`, writing only what the request touched and deleting evicted tenants. Previous single-copy state is moved to `shared` on load.
 - Node defaults to `shared`, so the local Juniper portal shows the agent's changes; `COMPANY_ISOLATION=visitor` turns isolation on for a public VPS (one vault file, rewritten per request).
 
