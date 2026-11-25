@@ -1,12 +1,78 @@
 # Conversation-first Poppy Lab
 
-The playground offers exactly two model choices: **OpenAI compatible · gpt-6-luna / low** and **Anthropic · sonnet-5**. OpenAI uses Responses with `reasoningEffort: low` and `store: false`. Model names are fixed in the UI. Older browser settings retain their provider/key when supported, but migrate to these model names. Other adapters and the deterministic demo remain available internally for existing tests; they are not UI choices.
+The playground at `/playground` is a chat with Iris, the lab's Personal Agent. It offers three ways to answer: **Protocol demo** (no model, no key), **OpenAI compatible · gpt-6-luna / low** and **Anthropic · sonnet-5**. A first visit starts in the demo. OpenAI uses Responses with `reasoningEffort: low` and `store: false`. Model names are fixed in the UI. Older browser settings keep their provider and key when the provider is still offered, and move to these model names.
 
-## Setup
+## A first run
 
-1. Open Model settings, choose a provider, paste an API key and Save model. The form closes automatically.
-2. Enter the Company URL and Connect.
-3. Use the conversation. Sign-in, permission expansion, sign-out, recovery and Operation approval/status widgets are inside the chat. So is **Use FDX**, for a Company that lists the `poppylab.dev/fdx` extension (Harborline). It is off by default, kept with the conversation, and starts a new Session when changed ([Use FDX](openapi-tools.md#in-the-playground-use-fdx)). Signed in with it on, the account row shows the FDX consent (its id, status, shared accounts and expiry) and **Revoke FDX consent**. That button turns into **Confirm revoke** and **Cancel** in place, with no browser dialog. Once the bank revokes it, the conversation is signed out as after Sign out, and the row says so and offers sign-in again. Inspector and Identity remain optional views. Company OAuth consent still opens the Company's own tab; Poppy never collects Company credentials in chat.
+Nothing needs to be set up. The page opens with four cards, one for each fictional Company, and a guide of four steps above the chat that says what to do next.
+
+1. **Pick a company.** Each card shows the Company, what it is and a request to try. Picking one connects to it; the row above the guide then says what discovery found ("Found Juniper Market · grocery-demo.poppylab.dev · 1 API · Company agent · Poppy 1.0"). **Use another address** opens a form for any other Company's URL.
+2. **Sign in.** The button in the chat opens the Company's own consent page in a new tab. You choose Elena or Robin, the two test customers every Company has, and allow read access. Iris never sees a password. Read access is all a first sign-in asks for.
+3. **Ask for a change.** First press **Request change permission**, which opens the consent page again for the change scope. Then ask, in your own words or with the suggestion under the guide.
+4. **Approve it.** The Company answers with the exact terms and holds the change. It appears in the "Needs you" panel above the message box; you approve or decline it there. The guide ends with "Done: Juniper Market performed the change once. Its website shows the same data."
+
+A run at Juniper Market, in demo mode, is three messages and two consent pages:
+
+| You do                                          | What happens                                                                                            |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Pick **Juniper Market**                         | Discovery, a signed-out Session, the tasks and the API tools                                            |
+| Ask "What are your products?"                   | Iris reads the public catalogue; no sign-in is needed                                                   |
+| Press **Sign in to Juniper Market · read only** | Juniper's consent page; pick Elena, allow access                                                        |
+| Ask "my deliveries"                             | Iris reads Elena's recurring delivery: Thursday, oranges and coffee                                     |
+| Press **Request change permission**             | Juniper's consent page again, with "Allow change proposals" ticked                                      |
+| Ask "Move my recurring delivery to Saturday."   | Juniper answers `approval_required`: Thursday to Saturday, change fee $0.00. Nothing has changed.       |
+| Press **Approve this change**                   | Iris resends the same request with your approval. Juniper performs it once; its website shows Saturday. |
+
+Each conversation has its own address and is listed under **History**; see [chat continuity](chat-continuity.md).
+
+## Demo mode
+
+Demo mode answers without a model. Keyword rules choose one of the Company's tools, call it, and show the Company's answer as plain lines, with the exact JSON one click away under "Data". Every answer starts with "Protocol demo (no LLM)." It exists so the protocol can be watched with no key: discovery, Sessions, sign-in, proposals and approvals are the real ones.
+
+It reads at every Company and can propose one kind of change at each. A Company is recognised by the tools it offers, never by its name.
+
+| Company            | Reads                                                                                                                        | Changes it can propose                                                                                                                       |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Juniper Market     | "What are your products?", "When do you deliver?", "What are your opening hours?", "my basket", "my orders", "my deliveries" | "Move my recurring delivery to Saturday.", "set apples in my basket to 2", "remove coffee from my basket", "checkout on Saturday"            |
+| Lantern Noodle Bar | "my orders"                                                                                                                  | "add 2 vegetable gyoza", "remove the edamame", "move my order to Saturday dinner", "Add a matcha ice cream and move it to Sunday lunchtime." |
+| Harborline Bank    | "my account balances"                                                                                                        | "Transfer $500 from checking to savings.", "Pay Beacon Studio $125 for November design work"                                                 |
+| Northwind Air      | "my upcoming trips"                                                                                                          | "Upgrade my NA 118 flight to Business.", "add 2 bags to NA 402"                                                                              |
+
+How it reads a request:
+
+- **It reads the account first.** At Lantern, Harborline and Northwind the demo reads the orders, accounts, recipients or trips, and builds the request only from what it read. It never invents an identifier.
+- **It asks instead of guessing.** "change my order" gets a question back, as does a dish, a day or a flight it can't find. At Juniper, "set apples to 2" without saying basket or delivery gets "Do you mean your shopping basket or your recurring delivery?"
+- **A question is a question.** "Can you upgrade my NA 118 flight?" is answered by reading the trip, not by asking for the upgrade.
+- **Numbers.** "$1,000" is one amount. A count is the number beside the thing it counts ("add 2 vegetable gyoza"), and a time such as "18:30" is never a count. At Juniper a quantity is the new total, not an increase.
+- **Days.** An order moves to the day the message names as its destination ("to Friday"), not to the day it is on ("from Friday").
+- **Several things at once.** "Remove the edamame and add a matcha ice cream" removes and adds, each by its own verb. It removes only a dish the order has.
+- **Money.** A payment goes only to a saved, active recipient, from the account the message names. Words after "for" are the payment's memo.
+- **Flights.** A flight number is taken only from the flights that are booked.
+
+What it says when it can't:
+
+- Signed out: "Sign in first: the demo reads your account to prepare this change, and nothing changes until you approve it."
+- Signed in without change permission: it says your access doesn't include the permission the change needs.
+- When the Company's own description of a tool rejects the values the demo chose: it says nothing was sent.
+- Anything else: "The demo can't prepare that change here." A model can.
+
+Three more things a message can start, when the Company offers them:
+
+- **The Company's own agent.** "customer service", "support" or "talk to a person" sends the Company's agent a structured request, or asks it for a person.
+- **Feedback.** "gift card", "voucher" or "feedback" sends one fixed report about a task the Company doesn't offer (see [Build a Company](learn/build-a-company.md#feedback-on-the-wire)).
+- **A Direct Conversation.** "my order never arrived" tells the Company's agent, which may ask to talk with you directly; you accept or decline above the message box (see [Conversations](learn/conversations.md)).
+
+At Harborline, with **Use FDX** on, reads use the bank's FDX-shaped API and are worded as that API words them; see [the FDX extension](extensions/fdx.md).
+
+Choosing the demo with **No key? Try the protocol demo** lasts for that browser tab. It is kept apart from the saved settings, so it never replaces a saved key and it survives a change of view or a reload; saving a model or forgetting the settings ends it.
+
+The rules are in `apps/playground/lib/` (`demo-changes.ts`, `demo-tool.ts`, `demo-text.ts`, `demo-fdx.ts`, `guide.ts`), each with its tests, and Juniper's in `apps/playground/app/api/chat/route.ts`.
+
+## With your own model
+
+1. Open Model settings, choose a provider, paste an API key and Save model. The form closes.
+2. Pick a Company, or use another address.
+3. Use the conversation. Sign-in, permission expansion, sign-out, recovery and Operation approval/status widgets are inside the chat. Inspector, Identity and History remain optional views. Company OAuth consent still opens the Company's own tab; Poppy never collects Company credentials in chat.
 
 The API key and provider preference persist under `poppy.model.v1` in localStorage. This is **not encrypted**: scripts on the same origin and users of the browser profile can read it. Avoid shared devices; Forget saved settings removes this entry. It does not revoke the provider key or erase unrelated Poppy account grants.
 

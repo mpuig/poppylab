@@ -130,7 +130,8 @@ three things once per Session:
 2. **Reads the tasks endpoint**, signed out. Excluded tasks become a tool the
    model can check before hunting for a way to do something the Company
    chose not to offer; the feedback endpoint becomes a tool for reporting a
-   task that turned out to be impossible.
+   task that turned out to be impossible ([the request, the answers and the
+   rules Iris applies](build-a-company.md#feedback-on-the-wire)).
 3. **Builds tools from the interfaces.** Each OpenAPI operation becomes a
    tool with its parameters and the scopes it needs; the conversation endpoint
    becomes `send`, `read` and `handoff` tools. The model picks the interface
@@ -222,17 +223,17 @@ and response, with tokens, codes and signatures redacted.
 
 ## A checklist
 
-| Area            | Requirement                                                                | Spec                                                                             |
-| --------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Identity        | `client_id` URL with `jwks_uri`, `private_key_jwt`, ES256 or PS384         | [§4.1](https://personalagentprotocol.org/docs/1.0/spec#agent-identity)           |
-| Users           | Stable, pairwise, opaque user IDs, not derived from personal data          | [§5.1](https://personalagentprotocol.org/docs/1.0/spec#user-ids)   |
-| Sessions        | Session JWT on every request, delegated key per user, `ath` when signed in | [§5.2](https://personalagentprotocol.org/docs/1.0/spec#session-header)       |
-| Versions        | `Poppy-Version` on every request; choose again after `version_unsupported` | [§3.4](https://personalagentprotocol.org/docs/1.0/spec#versions)                 |
-| Transport       | HTTPS, no private addresses, no secrets across redirects                   | [§3](https://personalagentprotocol.org/docs/1.0/spec#discovery)                  |
-| Tasks           | Read the tasks endpoint per Session; don't report excluded tasks           | [§9](https://personalagentprotocol.org/docs/1.0/spec#task-coverage)              |
-| Sign-in         | Least privilege, PKCE, PAR when offered, DPoP key per user                 | [§4.2–4.4](https://personalagentprotocol.org/docs/1.0/spec#sign-in)           |
-| Approvals       | Exact terms shown, explicit user approval, identical resend, retries       | [Operations §5–7](https://personalagentprotocol.org/docs/1.0/extensions/operations#approval)         |
-| Company content | Shown as the Company's, never followed as instructions                     | [§10.1](https://personalagentprotocol.org/docs/1.0/spec#security) |
+| Area            | Requirement                                                                | Spec                                                                                         |
+| --------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Identity        | `client_id` URL with `jwks_uri`, `private_key_jwt`, ES256 or PS384         | [§4.1](https://personalagentprotocol.org/docs/1.0/spec#agent-identity)                       |
+| Users           | Stable, pairwise, opaque user IDs, not derived from personal data          | [§5.1](https://personalagentprotocol.org/docs/1.0/spec#user-ids)                             |
+| Sessions        | Session JWT on every request, delegated key per user, `ath` when signed in | [§5.2](https://personalagentprotocol.org/docs/1.0/spec#session-header)                       |
+| Versions        | `Poppy-Version` on every request; choose again after `version_unsupported` | [§3.4](https://personalagentprotocol.org/docs/1.0/spec#versions)                             |
+| Transport       | HTTPS, no private addresses, no secrets across redirects                   | [§3](https://personalagentprotocol.org/docs/1.0/spec#discovery)                              |
+| Tasks           | Read the tasks endpoint per Session; don't report excluded tasks           | [§9](https://personalagentprotocol.org/docs/1.0/spec#task-coverage)                          |
+| Sign-in         | Least privilege, PKCE, PAR when offered, DPoP key per user                 | [§4.2–4.4](https://personalagentprotocol.org/docs/1.0/spec#sign-in)                          |
+| Approvals       | Exact terms shown, explicit user approval, identical resend, retries       | [Operations §5–7](https://personalagentprotocol.org/docs/1.0/extensions/operations#approval) |
+| Company content | Shown as the Company's, never followed as instructions                     | [§10.1](https://personalagentprotocol.org/docs/1.0/spec#security)                            |
 
 ## Try it
 

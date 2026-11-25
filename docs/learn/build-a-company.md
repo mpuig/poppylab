@@ -174,6 +174,64 @@ Start signed out, with what anyone may see.
 - **MCP.** An existing MCP server can stay as it is and be listed in
   `poppy.json`; it takes ordinary OAuth access tokens issued for it.
 
+### Feedback, on the wire
+
+A report is one request to the address your tasks response gives in
+`feedback.endpoint`
+([§9.3](https://personalagentprotocol.org/docs/1.0/spec#feedback)). It
+carries the Session header, so you know which agent and which of its users it
+comes from, and needs no scope. This is the report Iris's keyless demo sends
+when a message mentions a gift card:
+
+```http
+POST https://food-demo.poppylab.dev/poppy/feedback
+Poppy-Version: 1.0
+Poppy-Session: eyJ0eXAiOiJwb3BweS1zZXNzaW9uK2p3dCIs…
+Content-Type: application/json
+
+{
+  "task": "Pay with a gift card",
+  "description": "The User wanted to pay with a gift card they were given. None of the Company's APIs or its agent's requests apply a gift card."
+}
+```
+
+Lantern's own code looks for words it knows another way for. This report
+matches, so the answer is an alternative
+([§9.2](https://personalagentprotocol.org/docs/1.0/spec#alternatives)):
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "instructions": "Gift cards, catering and large group orders are handled by phone at +1 555-0142 (fictional number)."
+}
+```
+
+A report that matches nothing is taken with `202 Accepted` and no body. One
+without a `task` (at most 200 characters) or a `description` (at most 2,000)
+gets `400` with `{"error": "invalid_request"}`.
+
+What our gateway does with a report, and what Iris does before sending one:
+
+| Side    | Rule                                                                                                                                                                                                                              |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Company | No model reads a report. It is matched by code and kept as data, the newest 50, in the copy of the customers that belongs to the reporting visitor.                                                                               |
+| Company | The customer's account page lists it under "Feedback from agents": the task, the description, the agent's host, the time, and whether an alternative was offered.                                                                 |
+| Agent   | Iris sends a task once per Session, and never one the Company already lists as excluded.                                                                                                                                          |
+| Agent   | It sends only to the Company's own domain or a subdomain of it, whatever the tasks response says.                                                                                                                                 |
+| Agent   | It doesn't send a report that holds an email, a reference such as `NW7K2P`, an ID such as `ord_LNB1001`, or a number as long as a phone number. A date, a time, an amount and the name of one of the Company's tools are allowed. |
+| Agent   | Signed in, it sends the access token too, so the report belongs to the account and the customer can see it.                                                                                                                       |
+
+When a report is refused, the model is told why and can word it again:
+
+```json
+{
+  "sent": false,
+  "reason": "The report contains what looks like an email, phone number or ID. Describe the task without identifiers and try again."
+}
+```
+
 ## Milestone 3: sign-in
 
 Sign-in is OAuth with a client you didn't register.
