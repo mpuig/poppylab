@@ -66,7 +66,18 @@ const groups = {
     ["example-company", ["src/operations-v2.test.ts"]],
   ],
   banking: [
-    ["harborline", ["src/harborline.test.ts", "src/conversations.test.ts"]],
+    [
+      "harborline",
+      [
+        "src/harborline.test.ts",
+        "src/conversations.test.ts",
+        "src/fdx.test.ts",
+      ],
+    ],
+  ],
+  fdx: [
+    ["pap-company", ["src/gateway/account-routes.test.ts"]],
+    ["harborline", ["src/fdx.test.ts"]],
   ],
   airline: [["northwind", ["src/northwind.test.ts"]]],
   conversations: [

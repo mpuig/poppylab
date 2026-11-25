@@ -15,7 +15,7 @@ import {
   memoryStore,
   type Deployment,
 } from "@poppy-lab/pap-company";
-import { harborline } from "./harborline.ts";
+import { bankPersona, harborline } from "./harborline.ts";
 
 export const origin = "http://harbor.localhost:4300";
 export const client = "http://localhost:3000/agent/client.json";
@@ -105,19 +105,30 @@ export async function setup(deploy: Partial<Deployment> = {}) {
         },
       })
     ).json();
-  const sign = async (
+  type SignOptions = {
+    allowOffline?: boolean;
+    allowChanges?: boolean;
+    /** Accounts ticked for the FDX-shaped API (default: all the persona's). */
+    fdxAccounts?: string[];
+  };
+  const verifier = "v".repeat(64);
+  /** The consent page and its form post; the post's response. */
+  const authorize = async (
     account: "elena" | "robin",
     requested: string[],
-    options: { allowOffline?: boolean; allowChanges?: boolean } = {},
+    options: SignOptions = {},
   ) => {
-    const verifier = "v".repeat(64);
     const page = await inject(
       `/oauth/authorize?${new URLSearchParams({ client_id: client, redirect_uri: redirect, response_type: "code", state: "s".repeat(32), scope: requested.join(" "), code_challenge_method: "S256", code_challenge: createHash("sha256").update(verifier).digest("base64url") })}`,
     );
     expect(page.statusCode).toBe(200);
     expect(page.body).toContain("Harborline Bank");
     expect(page.body).toContain("No real account exists");
-    const cookie = String(page.headers["set-cookie"]).split(";")[0]!;
+    // With visitor isolation a browser cookie comes first.
+    const cookie = String(page.headers["set-cookie"])
+      .split(/,\s*/)
+      .find((value) => value.includes("pap_consent_"))!
+      .split(";")[0]!;
     const payload: Record<string, string> = {
       nonce: cookie.split("=")[1]!,
       decision: "approve",
@@ -128,12 +139,26 @@ export async function setup(deploy: Partial<Deployment> = {}) {
         if (scope.endsWith(":write") || scope.endsWith(":request"))
           payload[`allow_${scope.replace(/[:_]/g, "_")}`] = "yes";
     if (options.allowOffline) payload.allow_offline = "yes";
-    const consent = await inject({
-      method: "POST",
-      url: "/oauth/authorize",
-      headers: { cookie, origin },
-      payload,
-    });
+    if (requested.some((scope) => scope.startsWith("fdx:")))
+      for (const id of options.fdxAccounts ??
+        bankPersona(account)!.accounts.map((item) => item.id))
+        payload[`fdx_account_${id}`] = "yes";
+    return {
+      page,
+      consent: await inject({
+        method: "POST",
+        url: "/oauth/authorize",
+        headers: { cookie, origin },
+        payload,
+      }),
+    };
+  };
+  const sign = async (
+    account: "elena" | "robin",
+    requested: string[],
+    options: SignOptions = {},
+  ) => {
+    const { consent } = await authorize(account, requested, options);
     expect(consent.statusCode).toBe(302);
     const code = new URL(String(consent.headers.location)).searchParams.get(
       "code",
@@ -149,11 +174,12 @@ export async function setup(deploy: Partial<Deployment> = {}) {
       access_token: string;
       refresh_token: string;
       scope?: string;
+      consent_id?: string;
     };
   };
   const call = async (
     access: string,
-    method: "GET" | "POST",
+    method: "GET" | "POST" | "PUT",
     url: string,
     payload?: Record<string, unknown>,
     approval?: {
@@ -205,5 +231,5 @@ export async function setup(deploy: Partial<Deployment> = {}) {
       },
       ...(payload ? { payload } : {}),
     });
-  return { sign, call, token, keys, dpop, sessionKey };
+  return { sign, authorize, call, token, keys, dpop, sessionKey };
 }

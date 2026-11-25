@@ -275,6 +275,15 @@ export const customers: readonly CustomerSeed[] = [
 
 export const bankPersona = (id: unknown) =>
   customers.find((customer) => customer.id === id);
+/**
+ * Fictional accounts have no numbers: four digits derived from the ID, the
+ * same wherever an account is shown masked (FDX-shaped API, consent page).
+ */
+export const accountLast4 = (id: string) => {
+  let n = 0;
+  for (const character of id) n = (n * 31 + character.charCodeAt(0)) % 10000;
+  return String(n).padStart(4, "0");
+};
 export const usd = (cents: number) => `USD ${(cents / 100).toFixed(2)}`;
 export const FICTION_NOTICE =
   "Fictional Harborline Bank data. No real money moves; never enter real banking data or credentials.";
