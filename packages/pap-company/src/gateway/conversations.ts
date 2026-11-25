@@ -38,10 +38,16 @@ import {
 const BASE = "/poppy/conversations";
 const ID = /^[A-Za-z0-9_-]{1,256}$/;
 const CURSOR = /^evt_(\d{1,9})_([A-Za-z0-9_-]{1,32})$/;
-/** Bounds: conversations per User and per tenant, and per conversation. */
+/**
+ * Bounds: conversations per User and per tenant, and per conversation.
+ * REQUESTS is how many request IDs a conversation keeps: more than its 40
+ * messages and the request that started it, so only one that also asks for
+ * a handoff or closes again and again drops its oldest.
+ */
 const PER_USER = 8,
   PER_TENANT = 200,
   MESSAGES = 40,
+  REQUESTS = 64,
   EVENTS = 120,
   BYTES = 64 * 1024,
   PAGE = 50;
@@ -426,12 +432,16 @@ export function mountConversations(app: Hono, ctx: Ctx, tenancy: Tenancy) {
     if (seen && (seen.path !== path || seen.digest !== digest))
       throw new Refusal(409, "request_id_conflict");
     const remember = (conv: Conversation, status: 201 | 202) => {
-      tenantOf(c).requests[key] = {
-        conversation: conv.id,
-        path,
-        digest,
-        status,
-      };
+      const { requests } = tenantOf(c);
+      requests[key] = { conversation: conv.id, path, digest, status };
+      // Bounded on every route, closed or not: the conversation's oldest IDs
+      // go first (records stay in the order they were accepted). A retry
+      // that arrives after that many newer requests finds no record, so it
+      // is taken as a new request, not replayed or checked for a conflict.
+      const kept = Object.keys(requests).filter(
+        (k) => requests[k]!.conversation === conv.id,
+      );
+      for (const k of kept.slice(0, -REQUESTS)) delete requests[k];
     };
     return { body, id: body.id, seen, remember };
   }
