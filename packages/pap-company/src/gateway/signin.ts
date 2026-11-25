@@ -2,7 +2,8 @@
  * Direct Sign-In (§4.2): Pushed Authorization Requests (RFC 9126, offered,
  * not required), the consent page and the one-time code. The consent page
  * always lists every requested scope, so `prompt=consent` needs nothing more
- * (§4.2, §10.8).
+ * (§4.2, §10.8). The Company chooses which scopes, and which resources such
+ * as accounts, an approval grants.
  */
 import type { Context, Hono } from "hono";
 import { scryptSync, timingSafeEqual } from "node:crypto";
@@ -22,6 +23,8 @@ import {
 } from "./types.ts";
 
 const REQUEST_URI = "urn:ietf:params:oauth:request_uri:";
+/** Resources one consent may grant (`selectResources`). */
+const MAX_RESOURCES = 100;
 
 export function mountSignIn(app: Hono, ctx: Ctx) {
   const { def, deploy, origin, state, both, isolated, cookiePrefix, secure } =
@@ -271,6 +274,20 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
       .join(" ");
     if (body.decision === "approve" && !scopes)
       return c.json({ error: "invalid_scope" }, 400);
+    // What else the User chose, such as accounts, kept by the code and then
+    // the grant. Bounded, since the form is the browser's.
+    const resources =
+      body.decision === "approve"
+        ? def.selectResources?.({ persona: selected!.id, body })
+        : undefined;
+    if (
+      resources &&
+      (!Array.isArray(resources) ||
+        resources.length > MAX_RESOURCES ||
+        new Set(resources).size !== resources.length ||
+        resources.some((r) => typeof r !== "string" || !r || r.length > 128))
+    )
+      return c.json({ error: "invalid_request" }, 400);
     pending.delete(nonce);
     const redirect = new URL(p.redirect);
     redirect.searchParams.set("state", p.state);
@@ -291,6 +308,7 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
         expires: Date.now() + 60000,
         ...(browser ? { browser } : {}),
         ...(p.dpop ? { dpop: p.dpop } : {}),
+        ...(resources ? { resources: [...resources] } : {}),
       });
       redirect.searchParams.set("code", code);
     } else redirect.searchParams.set("error", "access_denied");

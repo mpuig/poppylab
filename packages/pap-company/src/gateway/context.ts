@@ -19,7 +19,7 @@ import {
   type CompanyDefinition,
   type Deployment,
   type GatewayState,
-  type Session,
+  type RequestSession,
 } from "./types.ts";
 
 export type ClientInfo = {
@@ -189,7 +189,7 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
   };
 
   // ---- Per-request carriers ----------------------------------------------
-  const sessions = new WeakMap<object, Session>();
+  const sessions = new WeakMap<object, RequestSession>();
   const sessionFor = (c: Context) => {
     const s = sessions.get(c.req.raw);
     if (!s) throw new Error("Session context missing");

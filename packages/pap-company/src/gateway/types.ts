@@ -8,16 +8,35 @@ import { createHash } from "node:crypto";
 import type { Approval } from "@poppy-lab/pap-client/core";
 import type { Action, OperationRecord, Outcome } from "../approvals.ts";
 
-export type Session = {
+/** A Session as the gateway keeps it between requests (§5.3). */
+export type SessionRecord = {
   client: string;
   user: string;
   agent?: string;
   expires: number;
   account?: string;
+};
+/**
+ * The Session as one request sees it: its record, token and declarations.
+ * The gateway always sets `extensions` and `operations` (`RequestSession`);
+ * they are optional so a Company's own code can build a Session.
+ */
+export type Session = SessionRecord & {
+  /** The request's token: its grant (by key) and the token's own scopes. */
   grant?: string;
   scopes?: string;
-  /** The request declares Operations version 3 in `Poppy-Extensions`. */
+  /**
+   * §3.4: what this request declares in `Poppy-Extensions`, extension name
+   * → version. Empty without the header or when it fails to parse.
+   */
+  extensions?: Record<string, string>;
+  /** Derived from `extensions`: the request declares Operations version 3. */
   operations?: boolean;
+};
+/** A Session from `sessionFor`, as the Session middleware set it. */
+export type RequestSession = Session & {
+  extensions: Record<string, string>;
+  operations: boolean;
 };
 export type Grant = {
   account: string;
@@ -31,7 +50,29 @@ export type Grant = {
   expires: number;
   /** §4.4: the DPoP key the refresh token was issued with (thumbprint). */
   dpop?: string;
+  /**
+   * What the consent granted beyond scopes (`selectResources`), such as the
+   * accounts the User chose. A grant approved before this field existed, or
+   * at a Company without `selectResources`, has none: each route decides
+   * what that means.
+   */
+  resources?: string[];
 };
+/** A grant as a Company's routes see it (`grantFor`): a copy. */
+export type GrantView = {
+  id: string;
+  /** What the grant covers; the request's token may carry fewer. */
+  scopes: string[];
+  resources?: string[];
+  expires_at: string;
+};
+/** One version of an extension (§3.3). */
+export type ExtensionVersion = { name: string; version: string };
+/** Whether a request's declarations (§3.4) include that version. */
+export const declares = (
+  extensions: Record<string, string>,
+  { name, version }: ExtensionVersion,
+) => Object.hasOwn(extensions, name) && extensions[name] === version;
 export type Token = {
   client: string;
   binding: string;
@@ -41,7 +82,7 @@ export type Token = {
   grant: string;
 };
 export type GatewayState = {
-  sessions: Record<string, Session>;
+  sessions: Record<string, SessionRecord>;
   tokens: Record<string, Token>;
   grants: Record<string, Grant>;
   replays: Array<[string, number]>;
@@ -84,6 +125,8 @@ export type Code = {
   expires: number;
   browser?: string;
   dpop?: string;
+  /** What `selectResources` chose at consent, for the grant. */
+  resources?: string[];
 };
 export type Tenant = {
   business: Record<string, unknown>;
@@ -256,6 +299,7 @@ export type GrantAccess = {
     id: string;
     client: string;
     scopes: string;
+    resources?: string[];
     expires_at: string;
   }>;
   revoke: (account: string, id: string) => boolean;
@@ -284,6 +328,18 @@ export type CompanyDefinition = {
   /** Route-specific account scopes. Every returned scope is required. */
   requiredScopes?: (input: { path: string; method: string }) => string[];
   /**
+   * §3.3: the extension a route is handled only with, at the version this
+   * Company lists in `poppy.json`. A request that doesn't declare that
+   * version gets `extension_required` before its token is looked at. Asked
+   * for every request with the Session header (`/api/*`, conversations,
+   * feedback). Leave out routes a request can use the extension at without
+   * declaring it (§3.3). Operations v3 on account POSTs is built in.
+   */
+  requiredExtension?: (input: {
+    path: string;
+    method: string;
+  }) => ExtensionVersion | undefined;
+  /**
    * Chooses which requested scopes the consent form granted. The default keeps
    * every requested scope except writeScope unless the form posts write=yes.
    */
@@ -291,6 +347,17 @@ export type CompanyDefinition = {
     requested: string[];
     body: Record<string, string>;
   }) => string[];
+  /**
+   * What else an approved consent grants, such as the accounts the User
+   * chose for `persona`, from the consent form. The grant keeps it through
+   * refresh, for `grantFor`. Without the hook, or with `undefined`, the
+   * grant has no resources. The form comes from the browser: return only
+   * what `persona` owns.
+   */
+  selectResources?: (input: {
+    persona: string;
+    body: Record<string, string>;
+  }) => string[] | undefined;
   consent: (input: {
     nonce: string;
     passwordRequired: boolean;
@@ -342,10 +409,16 @@ export type CompanyDefinition = {
   mount: (
     app: Hono,
     ctx: {
-      sessionFor: (c: Context) => Session;
+      sessionFor: (c: Context) => RequestSession;
       state: Record<string, unknown>;
       gate: Gate;
       grants: GrantAccess;
+      /**
+       * The grant behind this request's access token, or `undefined` when
+       * signed out or outside the Session routes. Only this tenant's
+       * requests see one, and only the token's own client, User and account.
+       */
+      grantFor: (c: Context) => GrantView | undefined;
       origin: string;
       /** This tenant's Operations v3 records, read-only (for a website). */
       operations: () => Readonly<Record<string, OperationRecord>>;

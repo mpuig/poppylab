@@ -1,9 +1,10 @@
 /**
  * The Session header and access tokens at the APIs and conversations (§3.4,
  * §5.3, §7): checks `Poppy-Version`, reads `Poppy-Extensions`, verifies
- * `Poppy-Session`, finds the Session by client, `sid` and User ID, keeps one
- * account per Session, enforces scopes and Operations v3 on account routes,
- * and replays performed operations (Operations §7).
+ * `Poppy-Session`, finds the Session by client, `sid` and User ID, refuses
+ * routes that need an undeclared extension (§3.3), keeps one account per
+ * Session, enforces scopes and Operations v3 on account routes, and replays
+ * performed operations (Operations §7).
  */
 import type { Hono } from "hono";
 import {
@@ -12,8 +13,18 @@ import {
   verifySessionHeader,
 } from "@poppy-lab/pap-client/core";
 import type { Ctx } from "./context.ts";
-import { hash, isChallenge, SESSION_MS, type Token } from "./types.ts";
+import {
+  declares,
+  hash,
+  isChallenge,
+  SESSION_MS,
+  type ExtensionVersion,
+  type Token,
+} from "./types.ts";
 import type { Tenancy } from "./tenancy.ts";
+
+/** Operations v3 (Operations §2), which account POSTs always need. */
+const OPERATIONS: ExtensionVersion = { name: "operations", version: "3" };
 
 /** Session destinations (§5.2): the APIs and the conversation routes (§8.2). */
 const guarded = (path: string) =>
@@ -70,6 +81,21 @@ export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
     // Its Agent ID is fixed when it starts (guides: Sessions).
     if (session && (session.agent ?? null) !== (verified.agentId ?? null))
       return c.json({ error: "invalid_session" }, 400);
+    // §3.3: a route the Company handles only with an extension refuses a
+    // request that doesn't declare it, in a JSON body, not as a token error
+    // (§7). It comes after the version and the Session, which say what the
+    // declarations mean and whose they are, and before the access token:
+    // only a new Session that declares it can fix this (§3.4), so refreshing,
+    // a nonce retry or a sign-in in front of it would be wasted, and a
+    // refused request touches no grant or Session. Operations v3 on account
+    // POSTs keeps its own check below, after the scopes, as before.
+    const path = new URL(c.req.url).pathname;
+    const extension = def.requiredExtension?.({ path, method: c.req.method });
+    if (extension && !declares(declared, extension))
+      return c.json(
+        { error: "extension_required", extension: extension.name },
+        403,
+      );
     let record: Token | undefined;
     if (token) {
       record = state.tokens[tokenHash(token)];
@@ -138,10 +164,14 @@ export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
         c.req.raw,
         ctx.holderOf(verified.clientId, verified.userId),
       );
+    const operations = declares(declared, OPERATIONS);
     ctx.sessions.set(c.req.raw, {
       ...session,
+      // As this request declares them: §3.4 asks the agent, not the
+      // Company, to keep them the same throughout a Session.
+      extensions: declared,
       // Operations v3 §2: used only when this request declares version 3.
-      operations: declared.operations === "3",
+      operations,
       ...(record
         ? {
             account: record.accountId,
@@ -150,7 +180,6 @@ export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
           }
         : {}),
     });
-    const path = new URL(c.req.url).pathname;
     if (path.startsWith("/api/account")) {
       const needed = def.requiredScopes?.({ path, method: c.req.method }) ?? [
         c.req.method === "POST" ? def.writeScope : def.readScope,
@@ -169,9 +198,9 @@ export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
         });
       // Operations v3 §2: never return operations to a request that doesn't
       // declare version 3. A JSON body, not a token error (§3.3).
-      if (c.req.method === "POST" && declared.operations !== "3")
+      if (c.req.method === "POST" && !operations)
         return c.json(
-          { error: "extension_required", extension: "operations" },
+          { error: "extension_required", extension: OPERATIONS.name },
           403,
         );
       // §7: a retry of a performed operation gets its first response.

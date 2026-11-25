@@ -4,15 +4,18 @@ Goal: run the same code on **Cloudflare Workers + Durable Objects** (`poppylab.d
 
 ## Pattern
 
-The gateway (`packages/pap-company/src/gateway.ts`) is a 50-line composition of modules under `src/gateway/`: `types` (state, definition and deployment types), `context` (the shared state, replay cache, dirty flag, cookie and client-metadata helpers, DPoP helpers, per-request carriers), `persistence` (body limit, save-when-dirty, security headers), `discovery`, `signin` (Direct Sign-In), `tokens` (token and revocation endpoints), `sessions` (the `Poppy-Session` middleware for `/api/*`) and `tenancy` (one business app per tenant, the Operations v3 gate, grant access, website dispatch). Middleware order is fixed in `createCompany`: body limit and persistence first, the Session middleware before the business dispatch.
+The gateway (`packages/pap-company/src/gateway.ts`) is a 50-line composition of modules under `src/gateway/`: `types` (state, definition and deployment types), `context` (the shared state, replay cache, dirty flag, cookie and client-metadata helpers, DPoP helpers, per-request carriers), `persistence` (body limit, save-when-dirty, security headers), `discovery`, `signin` (Direct Sign-In), `tokens` (token and revocation endpoints), `sessions` (the `Poppy-Session` middleware for `/api/*`, with `extension_required`) and `tenancy` (one business app per tenant, the Operations v3 gate, grant access, website dispatch). Middleware order is fixed in `createCompany`: body limit and persistence first, the Session middleware before the business dispatch.
 
 - **`@poppy-lab/pap-client/core`** is the runtime-portable subset of the client library: Session header and delegations, DPoP proofs and assertions, the `Poppy-Approval` header. It uses Web APIs, `jose` and the parts of `node:crypto` that Workers provides with `nodejs_compat`. The DNS-pinned network client (undici) stays in the Node entry point.
 - **`@poppy-lab/pap-company`** is a Poppy 1.0 Company gateway on **Hono**:
   - discovery metadata (RFC 8414/9728), Direct Sign-In and DPoP access tokens, refresh and RFC 7009 revocation;
   - verification of the delegated `Poppy-Session` header and one account per Session;
+  - the extensions each request declares in `Poppy-Extensions` (`sessionFor(c).extensions`, name → version), and `extension_required` (HTTP 403, JSON body, §3.3) for a route the Company handles only with one;
   - Operations v3 through a pure engine (`approvals.ts`).
 
-  A Company supplies a `CompanyDefinition`: its scopes, consent page, test customers, `poppy.json`, excluded tasks, OpenAPI contract and Hono routes.
+  A Company supplies a `CompanyDefinition`: its scopes, consent page, test customers, `poppy.json`, excluded tasks, OpenAPI contract and Hono routes. Two optional hooks serve domain extensions:
+  - `requiredExtension({ path, method })` names the extension and version a route needs. The gateway checks it after `Poppy-Version` and the Session header and before the access token, since only a new Session that declares the extension can fix it. Operations v3 on account POSTs stays built in, checked after the scopes as before.
+  - `selectResources({ persona, body })` picks what else an approved consent grants, such as accounts, from the consent form. The code and then the grant keep the list, and refreshes don't change it. In `mount`, `grantFor(c)` returns the grant behind the request's token (`id`, `scopes`, `resources`, `expires_at`), or nothing when signed out, on the website or in another tenant. Grants approved before `resources` existed have none; each route decides what that means.
 
 - **Adapters per runtime:**
 
