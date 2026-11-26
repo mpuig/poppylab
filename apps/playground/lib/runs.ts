@@ -567,10 +567,11 @@ export async function releaseRun(visitor: string, held: Held) {
 }
 
 /**
- * A new, locked run, connected to one Company. The visitor keeps at most
- * five running; the oldest idle ones end (and stay readable) to make room.
+ * A new, locked run, connected to one Company, or to none yet when no
+ * address is given. The visitor keeps at most five running; the oldest
+ * idle ones end (and stay readable) to make room.
  */
-export async function createRun(visitor: string, url: string): Promise<Held> {
+export async function createRun(visitor: string, url?: string): Promise<Held> {
   const b = backend();
   const running: Held[] = [];
   for (const held of await sweep(visitor, 1)) {
@@ -600,7 +601,10 @@ export async function createRun(visitor: string, url: string): Promise<Held> {
     calls: 0,
     busy: true,
     busyUntil: Date.now() + BUSY_MS,
-    connections: [newConnection({ visitor, ...(epoch ? { epoch } : {}) }, url)],
+    connections:
+      url === undefined
+        ? []
+        : [newConnection({ visitor, ...(epoch ? { epoch } : {}) }, url)],
     history: [],
     visitor,
     created: Date.now(),

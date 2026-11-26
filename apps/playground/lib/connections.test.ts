@@ -20,6 +20,7 @@ import {
   forgetCompany,
   forgetLostAccount,
   keepPublicHistory,
+  recordOwn,
   recordTurn,
   removeConnection,
   shownTranscript,
@@ -305,6 +306,59 @@ it("takes back what names no Company at any Company's sign-in: it can't be told 
   });
   backToPublic(run, b);
   expect(words(run)).toContain("Which Company?");
+});
+
+describe("a turn Iris answered by itself", () => {
+  const question = ["What do you sell?", "Which company is this for?"];
+  const connecting = ["connect with Lantern", "Connected to Lantern."];
+
+  it("is the conversation's own when it is about no Company: it stays through every sign-in and sign-out", () => {
+    const { run, a, b } = conversation();
+    recordOwn(run, undefined, question[0]!, question[1]!, false);
+    expect(run.transcript!.slice(-2)).toEqual([
+      { role: "user", content: question[0], signedOut: true, accounts: [] },
+      {
+        role: "assistant",
+        content: question[1],
+        signedOut: true,
+        accounts: [],
+      },
+    ]);
+    // A question the next message answers is no part of what the model is told.
+    expect(told(run)).not.toContain(question[1]);
+    backToPublic(run, a);
+    forgetCompany(run, b);
+    forgetCompany(run, a);
+    expect(words(run)).toEqual(question);
+    // The page is answered it with no Company to name.
+    for (const entry of shownTranscript(run))
+      expect(entry).not.toHaveProperty("from");
+  });
+
+  it("goes where a Company's signed-out entries go when it is about that Company", () => {
+    const { run, a, b } = conversation();
+    recordOwn(run, b, connecting[0]!, connecting[1]!, "Connected.");
+    expect(run.transcript!.at(-1)).toMatchObject({
+      company: lantern,
+      signedOut: true,
+      accounts: [],
+    });
+    // The model gets the answer in the words meant for it.
+    expect(told(run).slice(-2)).toEqual([connecting[0], "Connected."]);
+    expect(run.history.at(-1)).toMatchObject({
+      company: lantern,
+      accounts: [],
+    });
+    backToPublic(run, a);
+    backToPublic(run, b);
+    expect(words(run)).toEqual([
+      ...juniperPublic,
+      ...lanternPublic,
+      ...connecting,
+    ]);
+    forgetCompany(run, b);
+    expect(words(run)).toEqual(juniperPublic);
+  });
 });
 
 /**

@@ -62,6 +62,12 @@ export type Shown = {
    * Company's account can be in its answer (`accountsIn`).
    */
   context?: readonly Turn[] | undefined;
+  /**
+   * What the User typed, when that isn't the request the turn answered:
+   * the name of a Company, in answer to Iris asking which one a request
+   * was for. The page showed these words, and the model gets the request.
+   */
+  typed?: string | undefined;
 };
 
 /**
@@ -167,7 +173,7 @@ export const accountsIn = (
  */
 function show(
   run: Run,
-  connection: Connection,
+  connection: Pick<Connection, "url"> | undefined,
   accounts: readonly string[],
   ...entries: TranscriptEntry[]
 ) {
@@ -177,7 +183,8 @@ function show(
     ...entries.map((entry) => ({
       ...clipped(entry),
       ...signedOut,
-      ...from(connection),
+      // A turn Iris answered by itself may be about no Company.
+      ...(connection ? from(connection) : {}),
       accounts: [...accounts],
     })),
   ]);
@@ -399,14 +406,14 @@ export function record(run: Run, connection: Connection, ...turns: Turn[]) {
  */
 function tell(
   run: Run,
-  connection: Connection,
+  connection: Pick<Connection, "url"> | undefined,
   accounts: readonly string[],
   ...turns: Turn[]
 ) {
   run.history.push(
     ...turns.map((turn) => ({
       ...turn,
-      ...from(connection),
+      ...(connection ? from(connection) : {}),
       accounts: [...accounts],
     })),
   );
@@ -432,7 +439,7 @@ export function recordTurn(
     run,
     connection,
     accounts,
-    user,
+    shown.typed === undefined ? user : { ...user, content: shown.typed },
     ...companyEntries(shown),
     answerEntry(answer, shown),
   );
@@ -440,6 +447,33 @@ export function recordTurn(
     role: "assistant",
     content: answer,
   });
+}
+
+/**
+ * A turn Iris answered by itself, with nothing read from any Company: it
+ * connected or removed one, asked which Company a request is for, or said
+ * that there is none to ask. `about` is the Company the turn was about, if
+ * one: the entries then go where that Company's signed-out entries go.
+ * About none, they are the conversation's own and stay through every
+ * Company's sign-in and sign-out. No account is in such a turn.
+ *
+ * `told` is the answer as the model gets it, when that isn't the answer
+ * the page shows: words of a Company's own, such as how its discovery
+ * describes it, are for the User to read and not for the model to take as
+ * Iris's. `false` leaves the turn out of the model's context: a question
+ * of Iris's that the next message answers is no part of what was asked.
+ */
+export function recordOwn(
+  run: Run,
+  about: Pick<Connection, "url"> | undefined,
+  said: string,
+  answer: string,
+  told: string | false = answer,
+) {
+  const user = { role: "user" as const, content: said };
+  show(run, about, [], user, { role: "assistant", content: answer });
+  if (told !== false)
+    tell(run, about, [], user, { role: "assistant", content: told });
 }
 
 /**

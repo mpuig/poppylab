@@ -73,6 +73,7 @@ import {
 } from "@poppy-lab/pap-core";
 import type { Approval } from "@poppy-lab/pap-client";
 import type { KeptLine } from "./inspector-log";
+import type { OfferedTool } from "./routing";
 import type { TranscriptEntry } from "./transcript";
 
 export const agentOrigin = (
@@ -261,6 +262,11 @@ export type Connection = {
   agentApprovals?: Array<{ at: number; cents: number }>;
   /** §9: the tasks response for the current Session only. */
   tasks?: { sid: string; value: TasksResponse };
+  /**
+   * The tools its last turn loaded, by name and description, for working
+   * out which Company the next turn is for (`routing.ts`).
+   */
+  offered?: OfferedTool[];
   /** §9.3: tasks reported in this Session, so each is reported once. */
   reported?: { sid: string; tasks: string[] };
   /** §4.5: each service's own resource, from its metadata (absent = default token). */
@@ -381,6 +387,11 @@ export type Run = {
    * them, each with the Company it was written for.
    */
   log?: KeptLine[];
+  /**
+   * A request Iris couldn't tell the Company of, kept while it asks the
+   * User which one: their next message can say it (`routing.ts`).
+   */
+  waiting?: string;
   /** When the conversation started, and its first request, for the list. */
   created?: number;
   title?: string;
