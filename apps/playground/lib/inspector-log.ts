@@ -28,15 +28,17 @@ export type KeptLine = {
  * Bounds of the kept lines. A turn writes about five to ten, a request of
  * the account row one or two, and a run has twenty turns at most, so a
  * whole walk-through fits in the count. The lines are sealed into the same
- * stored value as the transcript (`transcript.ts`), and stay a quarter of
- * its size at most whatever a path or an error code holds.
+ * stored value as the transcript (`transcript.ts`), and stay under a third
+ * of its size whatever a path or an error code holds. Each line names its
+ * Company, about fifty bytes, and the bound has room for that: the count,
+ * not the bytes, is what limits an ordinary conversation.
  */
 export const LOG_LIMITS = {
   lines: 400,
   /** Characters of one line; the lab's own lines are shorter. */
   text: 300,
   /** UTF-8 bytes of all the lines as JSON. */
-  bytes: 64 * 1024,
+  bytes: 80 * 1024,
 } as const;
 
 const encoder = new TextEncoder();
