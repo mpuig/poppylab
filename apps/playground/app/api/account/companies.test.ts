@@ -91,7 +91,7 @@ async function conversation(change: (run: Run) => void = () => {}) {
   await seedRun("v".repeat(43), id, run);
   return run;
 }
-const act = (body: Record<string, unknown>) =>
+const act = (body: Record<string, unknown>, shown?: string) =>
   POST(
     new Request("http://localhost:3000/api/account", {
       method: "POST",
@@ -99,6 +99,8 @@ const act = (body: Record<string, unknown>) =>
         origin: "http://localhost:3000",
         "Content-Type": "application/json",
         "X-Poppy-Conversation": id,
+        // The Company the page shows, as a page with one Company sends it.
+        ...(shown ? { "X-PAP-Company": shown } : {}),
       },
       body: JSON.stringify(body),
     }),
@@ -149,9 +151,31 @@ describe("an account action in a conversation with several Companies", () => {
           "This conversation works with Juniper Market, Lantern Noodle Bar. Choose which one this is for.",
       });
     }
+    // Nor does the Company the page shows, when it isn't one of them.
+    const stale = await act(
+      { action: "decline", id: "op_1", revision: "r1" },
+      "https://bank.example",
+    );
+    expect((await stale.json()).code).toBe("company_required");
     expect(run.connections).toEqual(before);
     expect(transport).not.toHaveBeenCalled();
     expect(run.busy).toBe(false);
+  });
+
+  it("takes the Company the page shows for one that names none, as a page with one Company sends it", async () => {
+    const run = await conversation();
+    const declined = await act(
+      { action: "decline", id: "op_1", revision: "r1" },
+      `${food}/`,
+    );
+    expect(declined.status).toBe(200);
+    expect(run.connections[1]!.operations!.op_1!.state).toBe("declined");
+    expect(run.connections[0]!.operations!.op_1!.state).toBe("proposed");
+    // What the request says in `company` comes first.
+    const out = await act({ action: "signout", company: shop }, food);
+    expect(out.status).toBe(200);
+    expect(run.connections[0]!.accountToken).toBeUndefined();
+    expect(run.connections[1]!.accountToken).toBe("refresh-food.example");
   });
 
   it("is refused for a Company the conversation isn't connected to", async () => {

@@ -25,7 +25,7 @@ import {
   espiAuthorizationRecord,
   revokeEspiAuthorization,
 } from "@/lib/runtime";
-import { connectionNamed } from "@/lib/connections";
+import { connectionAt, connectionNamed } from "@/lib/connections";
 import {
   companiesView,
   connectionState,
@@ -421,8 +421,14 @@ async function act(request: Request, started: { id?: string }) {
   }
   // The Company this action is for: the one the request names, so a
   // sign-in or an approval goes to the Company the User was looking at.
-  // A conversation with one Company may leave it out.
-  const connection = connectionNamed(run, body.company);
+  // `company` names it; without it, the Company the page shows does, which
+  // a page with one Company has always sent in this header. A
+  // conversation with one Company may leave both out.
+  const shown = request.headers.get("x-pap-company");
+  const connection = connectionNamed(
+    run,
+    body.company ?? (shown && connectionAt(run, shown) ? shown : undefined),
+  );
   if ("code" in connection) {
     await releaseRun(visitor, held);
     return NextResponse.json(connection, {
