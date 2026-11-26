@@ -40,8 +40,8 @@ const named = (key: string) => fieldLabel(key).toLowerCase();
  */
 function amounts(
   terms: Record<string, unknown>,
-): { label: string; cents: number }[] | { why: string } {
-  const found: { label: string; cents: number }[] = [];
+): { label: string; cents: number; balance?: true }[] | { why: string } {
+  const found: { label: string; cents: number; balance?: true }[] = [];
   let visited = 0,
     why = "";
   const fail = (reason: string) => {
@@ -92,6 +92,7 @@ function amounts(
         found.push({
           label: `the change to the ${named(side.name)}`,
           cents: Math.abs(after - before),
+          balance: true,
         });
     }
     return true;
@@ -114,6 +115,13 @@ function amounts(
  * change to each balance. The terms must be in the instruction's currency,
  * hold no refund, and agree with the Company's summary.
  *
+ * An amount due and a total say by their names that they are paid. A bare
+ * `amount_cents` does not: it is taken as moved only where the terms show a
+ * balance changing with it, as Harborline's payment and transfer do. Its
+ * category change names the amount of a transaction already posted, beside
+ * no balance, and approving it moves nothing; a credit there is a small
+ * positive amount, which the limit alone would let through.
+ *
  * Terms the check doesn't understand are not covered: no amount to pay or
  * move, an amount it can't read, a balance it can't follow. Nor are terms
  * with an amount below zero, which it reads and says so.
@@ -130,6 +138,14 @@ function check(
   // A refund of zero is all these terms name.
   if (!total || total.key === "refund_cents" || !wholeCents(cents))
     return { why: "the terms name no amount to pay or move" };
+  // An amount that names no payment, beside no balance that changes.
+  if (
+    total.key === "amount_cents" &&
+    !all.some((amount) => amount.balance && amount.cents > 0)
+  )
+    return {
+      why: `it can't tell from the terms that the amount, ${money(cents, terms.currency)}, is paid or moved`,
+    };
   if (terms.currency !== instruction.currency)
     return {
       why: `the terms ${typeof terms.currency === "string" ? `are in ${terms.currency.slice(0, 12)}` : "name no currency"} and your limit is in ${instruction.currency}`,

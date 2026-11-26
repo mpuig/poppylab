@@ -253,6 +253,51 @@ it("does not cover terms it does not understand, and says which", () => {
   ).toBe("the Company's summary names an amount its terms don't hold");
 });
 
+it("does not take a bare amount for one paid or moved unless a balance changes with it", () => {
+  // Harborline's category change of a posted credit, as its own code
+  // writes it: the amount is the transaction's, and approving moves nothing.
+  const credit = {
+    transaction_id: "txn_HLB_1",
+    description: "Transfer from Everyday Checking",
+    amount_cents: 2500,
+    currency: "USD",
+    from_category: "transfer",
+    to_category: "income",
+    transaction_version: 1,
+    notice: "Fictional Harborline Bank data. No real money moves.",
+  };
+  expect(coveredBy(op(credit), upTo(50))).toBeNull();
+  expect(notCovered(op(credit), upTo(50))).toBe(
+    "it can't tell from the terms that the amount, $25.00, is paid or moved",
+  );
+  // Over the limit or not, the reason is the same: it is not a payment.
+  expect(notCovered(op(credit), upTo(20))).toBe(
+    "it can't tell from the terms that the amount, $25.00, is paid or moved",
+  );
+  // A balance that stays as it was shows nothing moving either.
+  expect(
+    notCovered(
+      op({
+        ...credit,
+        balance_before_cents: 5000,
+        balance_after_cents: 5000,
+      }),
+      upTo(50),
+    ),
+  ).toBe(
+    "it can't tell from the terms that the amount, $25.00, is paid or moved",
+  );
+  // The same amount beside the balances it changes is a transfer.
+  expect(coveredBy(op(transfer), upTo(50))?.cents).toBe(2500);
+  // An amount due or a total says by its name that it is paid.
+  expect(
+    coveredBy(op({ amount_due_cents: 2500, currency: "USD" }), upTo(50)),
+  ).not.toBeNull();
+  expect(
+    coveredBy(op({ total_cents: 2500, currency: "USD" }), upTo(50)),
+  ).not.toBeNull();
+});
+
 it("reads an amount below zero, and says it approves only what is paid or moved", () => {
   const below = (what: string) =>
     `${what}, is below zero, and it approves only amounts you pay or move`;

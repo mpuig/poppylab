@@ -308,3 +308,69 @@ describe("A standing instruction at Harborline, end to end", () => {
     });
   });
 });
+
+describe("A category change at Harborline, which moves no money", () => {
+  it("is left to the User, though it names a small amount and the bank takes an agent approval of it", async () => {
+    const { sign, call } = await setup();
+    const token = (
+      await sign("elena", [
+        "accounts:read",
+        "transactions:read",
+        "transactions:write",
+        "transfers:request",
+      ])
+    ).access_token;
+    const ask = async (
+      path: string,
+      payload: Record<string, unknown>,
+      approval?: Parameters<typeof call>[4],
+    ) => call(token, "POST", path, payload, approval);
+    // Elena's own transfer posts a $25.00 credit to her savings.
+    const transfer = {
+      source_account_id: "acc_HLB_A100",
+      destination_account_id: "acc_HLB_A200",
+      amount_cents: 2500,
+      idempotency_key: "category-credit-001",
+    };
+    const held = (await ask("/api/account/transfers", transfer)).json()
+      .operation as ReviewOperation;
+    expect(
+      (await ask("/api/account/transfers", transfer, held)).statusCode,
+    ).toBe(200);
+    const credit = (
+      (await call(token, "GET", "/api/account/transactions")).json() as {
+        transactions: Array<{ id: string; amount_cents: number }>;
+      }
+    ).transactions.find((item) => item.amount_cents === 2500)!;
+    // Its category change names that amount, and no balance.
+    const path = `/api/account/transactions/${credit.id}/category`;
+    const change = { category: "income", expected_version: 1 };
+    const proposed = (await ask(path, change)).json().operation as Pick<
+      ReviewOperation,
+      "operation_id" | "revision" | "terms" | "summary" | "expires_at"
+    >;
+    expect(proposed.terms).toMatchObject({
+      amount_cents: 2500,
+      currency: "USD",
+      from_category: "transfer",
+      to_category: "income",
+    });
+    const op: ReviewOperation = { ...proposed, state: "proposed" };
+    expect(
+      nextAutoApproval({
+        operations: [op],
+        instruction: upTo(50),
+        signedIn: true,
+        busy: false,
+        decided: new Set(),
+      }),
+    ).toBeNull();
+    expect(leftToUser(op, upTo(50), "Harborline Bank")).toBe(
+      "it can't tell from the terms that the amount, $25.00, is paid or moved",
+    );
+    // Harborline declines agent approvals only of payments and transfers:
+    // it would have performed this one on Iris's approval.
+    const byAgent = await ask(path, change, { ...op, approver: "agent" });
+    expect(byAgent.statusCode).toBe(200);
+  });
+});

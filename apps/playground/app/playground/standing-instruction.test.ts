@@ -15,6 +15,12 @@ const op = (id: string, terms: Record<string, unknown>, extra = {}) => ({
   terms: { ...terms, currency: "USD" },
   ...extra,
 });
+/** An amount beside the balance it leaves, as Harborline's transfer has it. */
+const moved = (amount_cents: number) => ({
+  amount_cents,
+  source_balance_before_cents: 500000,
+  source_balance_after_cents: 500000 - amount_cents,
+});
 const render = (operations: ReviewOperation[], held = {}) =>
   renderToStaticMarkup(
     createElement(StandingInstruction, {
@@ -35,15 +41,21 @@ const render = (operations: ReviewOperation[], held = {}) =>
 it("says, for each waiting change it left to the User, which reason applies", () => {
   const html = render(
     [
-      op("over", { amount_cents: 12500 }),
+      op("over", moved(12500)),
       op("unread", { limit_cents: 4000 }),
+      // Harborline's category change of a credit: nothing is paid or moved.
+      op("category", {
+        amount_cents: 2500,
+        from_category: "transfer",
+        to_category: "income",
+      }),
       // Lantern's order with a dish removed: $6.00 comes back.
       op("cheaper", {
         before_total_cents: 4300,
         new_total_cents: 3700,
         price_difference_cents: -600,
       }),
-      op("hour", { amount_cents: 1000 }),
+      op("hour", moved(1000)),
       op(
         "declined",
         { amount_cents: 2500 },
@@ -62,6 +74,7 @@ it("says, for each waiting change it left to the User, which reason applies", ()
   for (const line of [
     "Left to you: the amount, $125.00, is over your limit of $50.00.",
     "Left to you: the terms name no amount to pay or move.",
+    "Left to you: it can&#x27;t tell from the terms that the amount, $25.00, is paid or moved.",
     "Left to you: the price difference, -$6.00, is below zero, and it approves only amounts you pay or move.",
     "Left to you: it already approved 5 changes in the last hour.",
     "Left to you: Harborline Bank declined the approval Iris sent on it. It says: “Approve money moves yourself.”",
@@ -73,7 +86,7 @@ it("says, for each waiting change it left to the User, which reason applies", ()
 
 it("lists what Iris approved, and nothing for a change the instruction is about to approve", () => {
   const html = render([
-    op("covered", { amount_cents: 2500 }),
+    op("covered", moved(2500)),
     op(
       "done",
       { total_cents: 1450 },

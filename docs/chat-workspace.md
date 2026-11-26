@@ -144,6 +144,13 @@ in the page; the server's approval endpoint is the one it always was.
     only as a pair, before and after, and the change between the two must be
     within the limit. That is what lets the rule cover a bank transfer, whose
     terms hold the amount moved and four balances.
+  - A bare `amount_cents` counts as moved only beside a balance that changes
+    with it. An amount due and a total say by their names that they are
+    paid; "amount" alone does not. Harborline's category change names the
+    amount of a transaction already posted and no balance, and approving it
+    moves nothing, so the rule leaves it to you: "Your standing instruction
+    did not apply: it can't tell from the terms that the amount, $25.00, is
+    paid or moved. It's up to you now."
   - It never covers a refund (a refund of zero, or a refund policy in words,
     is not one), terms with no amount to pay or move, an amount or a balance
     it can't read, an amount or a balance below zero (a price difference of
