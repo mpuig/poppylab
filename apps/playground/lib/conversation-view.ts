@@ -15,7 +15,7 @@ import {
   type Run,
 } from "./runtime";
 import { shownSkills, shownTasks } from "./shown-tasks";
-import { shownTranscript } from "./transcript";
+import { forgetLostAccount, shownTranscript } from "./transcript";
 
 /**
  * What the page shows of one Company. With no connection these are the
@@ -112,3 +112,29 @@ export const wordsView = (run: Run) => ({
   history: shownTranscript(run),
   log: shownLog(run),
 });
+
+/**
+ * What an answer carries besides its own when a reset of one Company's
+ * account took back proposals at other Companies (`withdrew`): every
+ * Company as it is now, so the page drops those cards. Iris's line about
+ * it is in `history`. Nothing otherwise, and never in a conversation with
+ * one Company.
+ */
+export const afterReset = (run: Run, withdrew: boolean) =>
+  withdrew ? companiesView(run) : {};
+
+/**
+ * `forgetLostAccount` as an answer carries it: what the page shows now
+ * and that Company's proposals, and every Company as it is now when
+ * proposals at others went too.
+ */
+export function lostAccess(
+  run: Run,
+  connection: Connection,
+  knewBefore: boolean,
+) {
+  const lost = forgetLostAccount(run, connection, knewBefore);
+  if (!lost) return undefined;
+  const { withdrew, ...shown } = lost;
+  return { ...shown, ...afterReset(run, withdrew) };
+}

@@ -27,10 +27,16 @@ import {
 } from "@/lib/runtime";
 import { connectionAt, connectionNamed } from "@/lib/connections";
 import {
+  afterReset,
   companiesView,
   connectionState,
+  lostAccess,
   wordsView,
 } from "@/lib/conversation-view";
+import {
+  inheritOperationAccounts,
+  operationAccounts,
+} from "@/lib/operation-store";
 import { removeCompany } from "@/lib/removing";
 import { extensionByKey, extensionsOn } from "@/lib/domain-extension";
 import { fdxStatementsByAccount } from "@/lib/demo-fdx";
@@ -87,7 +93,8 @@ const issuer = "http://juniper.localhost:4100";
  * tokens, scopes, FDX consent or ESPI subscription in its connection, and
  * nothing Iris read with them. What the conversation holds from that
  * Company is emptied, what was said signed out included, and the
- * Inspector's lines with it. The Session continues signed out.
+ * Inspector's lines with it. The Session continues signed out. Returns
+ * whether proposals at other Companies went with it (`forgetCompany`).
  */
 function signedOutLocally(run: Run, connection: Connection) {
   delete connection.accountToken;
@@ -103,13 +110,15 @@ function signedOutLocally(run: Run, connection: Connection) {
   delete connection.espiAuthorizationUri;
   delete connection.auth;
   connection.operations = {};
+  delete connection.operationAccounts;
   // The words, and the Inspector's lines with them: none of an exchange
   // the page no longer shows. The lines of this request are kept after it.
   // History lists the conversation under its first request, which is gone
   // with the rest.
-  forgetCompany(run, connection);
+  const withdrew = forgetCompany(run, connection);
   // Iris forgets it; the Company keeps the conversation open (§5.5).
   delete connection.conversation;
+  return withdrew;
 }
 
 /**
@@ -224,7 +233,7 @@ async function revocationAnswer(
     // The Company no longer takes this sign-in's tokens: the grant has
     // ended already. Its refresh token is dead too, so it isn't revoked.
     if (accessEnded(error)) {
-      signedOutLocally(run, connection);
+      const withdrew = signedOutLocally(run, connection);
       trace.push(`${what.name} already ended · signed out`);
       return NextResponse.json(
         {
@@ -233,6 +242,7 @@ async function revocationAnswer(
           ...what.named,
           trace,
           ...wordsView(run),
+          ...afterReset(run, withdrew),
         },
         { headers: { "Cache-Control": "no-store" } },
       );
@@ -255,7 +265,7 @@ async function revocationAnswer(
   }
   // The consent or authorization was the grant: its access and refresh
   // tokens are gone at the Company, so sign-out has nothing left to revoke.
-  signedOutLocally(run, connection);
+  const withdrew = signedOutLocally(run, connection);
   return NextResponse.json(
     {
       signedIn: false,
@@ -263,6 +273,7 @@ async function revocationAnswer(
       ...what.named,
       trace,
       ...wordsView(run),
+      ...afterReset(run, withdrew),
     },
     { headers: { "Cache-Control": "no-store" } },
   );
@@ -478,6 +489,9 @@ async function act(request: Request, started: { id?: string }) {
   // Iris already knew that the Company no longer takes the sign-in. An
   // action in which it learns that drops what it showed with the account.
   const knewLost = !!connection.accountUnavailable;
+  // The other Companies whose accounts could be in the proposal the
+  // action is about: its lines are kept as holding them too.
+  let others: readonly string[] = [];
   try {
     const extension = extensionByKey(body.action);
     if (extension) {
@@ -799,19 +813,23 @@ async function act(request: Request, started: { id?: string }) {
       // §5.5: sign-out revokes every refresh token held for the account.
       if (connection.accountToken)
         await revokeRefreshToken(connection, connection.accountToken);
-      signedOutLocally(run, connection);
+      const withdrew = signedOutLocally(run, connection);
       return NextResponse.json({
         signedIn: false,
         trace: said("Account grant revoked · Session signed out"),
         // What the conversation still shows: with other Companies, what
         // came from them. This request's own lines are kept after it.
         ...wordsView(run),
+        // And the Companies as they are now, when a proposal at another
+        // one went with this account.
+        ...afterReset(run, withdrew),
       });
     }
     if (!["approve", "decline", "retry", "not_applied"].includes(body.action))
       throw new Error();
     const op = connection.operations?.[body.id ?? ""];
     if (!op || body.revision !== op.revision) throw new Error();
+    others = operationAccounts(connection, op.operation_id);
     if (body.action === "not_applied") {
       // The User's standing instruction lives in the browser, so the page
       // is the one to see that it leaves these terms to the User. The check
@@ -1109,6 +1127,13 @@ async function act(request: Request, started: { id?: string }) {
           );
           // That other operation offers nothing to approve: a refusal, below.
           if (next.state === "uncertain") next = undefined;
+          // The new terms answer the request the approved ones were for.
+          else
+            inheritOperationAccounts(
+              connection,
+              op.operation_id,
+              next.operation_id,
+            );
         } catch {
           // Terms Poppy can't show or that have expired: a refusal, below.
         }
@@ -1296,7 +1321,7 @@ async function act(request: Request, started: { id?: string }) {
       // With the message about the lost access goes what the page still
       // shows: the answers and proposals Iris got with the account are gone.
       return NextResponse.json(
-        { ...recovery, trace, ...forgetLostAccount(run, connection, knewLost) },
+        { ...recovery, trace, ...lostAccess(run, connection, knewLost) },
         {
           status: recovery.status,
           headers: { "Cache-Control": "no-store" },
@@ -1343,7 +1368,14 @@ async function act(request: Request, started: { id?: string }) {
       },
     );
   } finally {
-    keepLines(run, connection, [...written, ...trace], Date.now(), withAccount);
+    keepLines(
+      run,
+      connection,
+      [...written, ...trace],
+      Date.now(),
+      withAccount,
+      others,
+    );
     // However the action ended: a request inside it may have been the one
     // in which the Company refused the sign-in. After the lines are kept,
     // so those written with the account go with the rest.

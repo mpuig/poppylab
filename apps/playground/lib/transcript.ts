@@ -11,6 +11,7 @@ import {
   type FromCompany,
 } from "./connections";
 import { dropLines, keepSignedOutLines } from "./inspector-log";
+import { operationAccounts } from "./operation-store";
 import { logEntry } from "./protocol-log";
 import type { Connection, Operation, Run, Turn } from "./runtime";
 
@@ -258,12 +259,84 @@ export function keepPublicHistory(run: Run, connection: Connection) {
 }
 
 /**
+ * What Iris says when a reset of one Company's account takes back
+ * proposals at another: the cards are gone from the page, and this is the
+ * line that says why. It names the two Companies and nothing an account
+ * holds.
+ */
+function withdrawnNote(
+  from: string,
+  account: string,
+  waited: number,
+  ended: number,
+) {
+  const count = waited || ended;
+  const many = count > 1;
+  return `${many ? `${count} proposals` : "A proposal"} from ${from} that ${
+    waited ? "waited for your approval" : "Iris showed here"
+  } no longer ${many ? "show: they" : "shows: it"} could hold details from your ${account} account, which Iris no longer keeps. ${
+    waited
+      ? `Nothing was approved. Ask ${from} for the ${many ? "changes again if you still want them" : "change again if you still want it"}.`
+      : `What ${from} already performed is not undone.`
+  }`;
+}
+
+/**
+ * Takes back the proposals at other Companies that this Company's account
+ * could be in (`Connection.operationAccounts`): the summary, terms, result
+ * and stored request of such a proposal can repeat what a model read with
+ * this account. One whose approval was sent with an unknown outcome
+ * stays, as it does at its own Company's reset: the User must still find
+ * it, and not ask for the same change a second time.
+ *
+ * The page is told why the cards went, in a line of Iris's about the
+ * Company that made them. No account is in that line, so it stays through
+ * every sign-in. Returns whether anything was taken back.
+ */
+function withdrawProposals(run: Run, connection: Connection) {
+  const origin = originOf(connection);
+  let withdrew = false;
+  for (const other of run.connections) {
+    if (other === connection || !other.operationAccounts) continue;
+    let waited = 0;
+    let ended = 0;
+    for (const id of Object.keys(other.operationAccounts)) {
+      if (!operationAccounts(other, id).includes(origin)) continue;
+      const op = other.operations?.[id];
+      if (op?.state === "uncertain") continue;
+      if (op) {
+        if (op.state === "proposed") waited++;
+        else ended++;
+        delete other.operations![id];
+      }
+      delete other.operationAccounts[id];
+    }
+    if (!Object.keys(other.operationAccounts).length)
+      delete other.operationAccounts;
+    if (!waited && !ended) continue;
+    withdrew = true;
+    show(run, other, [], {
+      role: "assistant",
+      content: withdrawnNote(
+        companyName(other),
+        companyName(connection),
+        waited,
+        ended,
+      ),
+    });
+  }
+  return withdrew;
+}
+
+/**
  * The conversation as it was before any access to this Company's account:
  * the model's turns with it from then, what the page showed from it while
  * signed out, and no proposal of its own. For a sign-in that may be for
  * another account, and for an access the Company took back. The turns the
  * model still has with other Companies follow those that come back, less
- * the ones this Company's account could be in.
+ * the ones this Company's account could be in. Another Company's
+ * proposals that this account could be in go too (`withdrawProposals`):
+ * returns whether any did.
  */
 export function backToPublic(run: Run, connection: Connection) {
   run.history = [
@@ -272,6 +345,8 @@ export function backToPublic(run: Run, connection: Connection) {
   ];
   keepSignedOutTranscript(run, connection);
   connection.operations = {};
+  delete connection.operationAccounts;
+  return withdrawProposals(run, connection);
 }
 
 /** From this Company, or with its account in it. */
@@ -282,13 +357,16 @@ const ofCompany = (entry: FromCompany, connection: Connection) =>
  * Sign-out at a Company (§5.5) empties what the conversation holds from
  * it, what was said signed out included: the model's turns with it, what
  * the page showed from it and the Inspector's lines for it. What came from
- * another Company stays, unless this Company's account could be in it.
+ * another Company stays, unless this Company's account could be in it:
+ * another Company's proposals that it could be in go as well
+ * (`withdrawProposals`), and this returns whether any did.
  */
 export function forgetCompany(run: Run, connection: Connection) {
   run.history = run.history.filter((turn) => !ofCompany(turn, connection));
   delete connection.publicHistory;
   keepEntriesWhere(run, (entry) => !ofCompany(entry, connection));
   dropLines(run, connection);
+  return withdrawProposals(run, connection);
 }
 
 /**
@@ -344,9 +422,11 @@ export function removeConnection(run: Run, connection: Connection) {
  * access is back, and not ask for the same change a second time.
  *
  * Returns what the page shows now, for the answer to carry, and nothing
- * when this request changed nothing. What is said afterwards stays until
- * the next sign-in: the connection still holds an account, so it isn't
- * marked as shown signed out.
+ * when this request changed nothing. `withdrew` says that proposals at
+ * other Companies went with it (`withdrawProposals`); `lostAccess` in
+ * `conversation-view.ts` turns that into what the page is told. What is
+ * said afterwards stays until the next sign-in: the connection still
+ * holds an account, so it isn't marked as shown signed out.
  */
 export function forgetLostAccount(
   run: Run,
@@ -358,11 +438,18 @@ export function forgetLostAccount(
   const unknown = Object.entries(connection.operations ?? {}).filter(
     ([, op]) => op.state === "uncertain",
   );
-  backToPublic(run, connection);
+  const accounts = connection.operationAccounts;
+  const withdrew = backToPublic(run, connection);
   connection.operations = Object.fromEntries(unknown);
+  // What is listed for the approvals that stay, stays with them.
+  const listed = Object.fromEntries(
+    unknown.flatMap(([id]) => (accounts?.[id] ? [[id, accounts[id]]] : [])),
+  );
+  if (Object.keys(listed).length) connection.operationAccounts = listed;
   return {
     history: shownTranscript(run),
     operations: Object.values(connection.operations),
+    withdrew,
   };
 }
 
@@ -497,17 +584,26 @@ export function recordOwn(
  * words were said in a thread the page tells the User Iris doesn't read.
  * The model is then told only that an operation there was approved or
  * declined: no summary, terms, result or reason.
+ *
+ * The line holds what the operation holds: this Company's account, and
+ * any other the operation is listed with (`operationAccounts`), since its
+ * result can repeat terms a model wrote from what it read elsewhere.
  */
 export function recordOutcome(
   run: Run,
   connection: Connection,
-  op: Pick<Operation, "direct">,
+  op: Partial<Pick<Operation, "direct" | "operation_id">>,
   outcome: "performed" | "declined",
   content: string,
 ) {
   // A run with no transcript yet is restored from `history`: keep what the
   // page showed so far before the model's line joins it.
-  const accounts = accountsIn(run, connection);
+  const accounts = [
+    ...new Set([
+      ...accountsIn(run, connection),
+      ...operationAccounts(connection, op.operation_id),
+    ]),
+  ];
   show(run, connection, accounts);
   let line = content;
   if (op.direct) {

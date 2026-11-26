@@ -320,6 +320,15 @@ export type Connection = {
       }
     | undefined;
   operations?: Record<string, Operation>;
+  /**
+   * For each of its proposals that could hold another Company's account
+   * data, by operation ID: the origins of the Companies whose accounts
+   * could be in it (`operation-store.ts`). A reset of one of those
+   * accounts takes the proposal back (`transcript.ts`). Kept beside the
+   * proposals and not in them: the page is sent each proposal whole, and
+   * is never told whose accounts are in anything.
+   */
+  operationAccounts?: Record<string, string[]>;
   /** The conversation with the Company's own agent (§8), if any. */
   conversation?: ConversationState;
   /**

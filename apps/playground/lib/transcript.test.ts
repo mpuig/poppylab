@@ -556,9 +556,11 @@ describe("what stays when the Company takes the access back (§5.5)", () => {
     expect(shown(r)).toEqual(["When do you deliver?", "Tuesday and Saturday."]);
     expect(r.history).toEqual(at(r).publicHistory);
     // What the answer carries for the page is what a reload would show.
+    // With one Company, no other's proposals can have gone with it.
     expect(left).toEqual({
       history: transcript.shownTranscript(r),
       operations: [{ operation_id: "sent", state: "uncertain" }],
+      withdrew: false,
     });
     // An approval that is out may have been performed: it stays, so the
     // same one can be retried. A proposal that only waited goes.

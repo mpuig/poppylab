@@ -569,6 +569,12 @@ export async function releaseRun(visitor: string, held: Held) {
   for (const theirs of latest.connections) {
     const mine = run.connections.find((c) => originOf(c) === originOf(theirs));
     theirs.operations = { ...mine?.operations, ...theirs.operations };
+    // And whose accounts could be in each, for the ones merged in.
+    const accounts = {
+      ...mine?.operationAccounts,
+      ...theirs.operationAccounts,
+    };
+    if (Object.keys(accounts).length) theirs.operationAccounts = accounts;
   }
   latest.calls = Math.max(latest.calls, run.calls);
   await b.put(visitor, `run:${held.id}`, latest, current.version);

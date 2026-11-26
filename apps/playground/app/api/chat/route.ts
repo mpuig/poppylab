@@ -14,9 +14,11 @@ import {
   connect,
   directConversation,
   type Connection,
+  type Operation,
   type Run,
   type Turn,
 } from "@/lib/runtime";
+import { noteOperationAccounts } from "@/lib/operation-store";
 import {
   companyName as nameOf,
   companyRef,
@@ -32,7 +34,7 @@ import {
   type Performed,
 } from "@/lib/company-commands";
 import { connectCommand } from "@/lib/connect-command";
-import { companiesView } from "@/lib/conversation-view";
+import { companiesView, lostAccess } from "@/lib/conversation-view";
 import { labCompanies, nameable } from "@/lib/lab-companies";
 import { directConnection, offeredTools, turnConnection } from "@/lib/routing";
 import {
@@ -134,6 +136,9 @@ async function reply(request: Request, started: { id?: string }) {
   // the sign-in. A turn in which it learns that drops what it showed with
   // the account (`forgetLostAccount`).
   let knewLost = false;
+  // The proposals the turn's Company had when the turn began: the ones it
+  // leaves besides are this turn's (`noteOperationAccounts`).
+  let proposals: Set<Operation> | undefined;
   // What Iris did this turn. A turn that fails answers with it too, so the
   // Inspector lists the request the Company refused. Every answer of a run
   // carries it, and the run keeps it (`finally`).
@@ -425,6 +430,7 @@ async function reply(request: Request, started: { id?: string }) {
     }
     if (!connection) throw new Error("No connection for the turn");
     knewLost = !!connection.accountUnavailable;
+    proposals = new Set(Object.values(connection.operations ?? {}));
     const shown: CompanyEntry[] = [];
     stage = "pap";
     const tools = await connect(connection, trace, shown);
@@ -488,7 +494,7 @@ async function reply(request: Request, started: { id?: string }) {
         { company: shown, trace },
       );
       run.history = run.history.slice(-10);
-      const lost = forgetLostAccount(run, connection, knewLost);
+      const lost = lostAccess(run, connection, knewLost);
       return NextResponse.json(
         {
           text,
@@ -714,7 +720,7 @@ async function reply(request: Request, started: { id?: string }) {
     run.history = run.history.slice(-10);
     // The turn ended with an answer though the access went during it: what
     // the page showed with the account goes all the same, this turn too.
-    const lost = forgetLostAccount(run, connection, knewLost);
+    const lost = lostAccess(run, connection, knewLost);
     return NextResponse.json(
       {
         text,
@@ -785,9 +791,7 @@ async function reply(request: Request, started: { id?: string }) {
       // With the message about the lost access goes what the page still
       // shows: the answers Iris read with the account are gone from it.
       const lost =
-        run && connection
-          ? forgetLostAccount(run, connection, knewLost)
-          : undefined;
+        run && connection ? lostAccess(run, connection, knewLost) : undefined;
       return NextResponse.json(
         { ...recovery, stage, trace, ...turn, ...lost },
         { status: recovery.status, headers: { "Cache-Control": "no-store" } },
@@ -849,6 +853,15 @@ async function reply(request: Request, started: { id?: string }) {
       { status: 400, headers: { "Cache-Control": "no-store" } },
     );
   } finally {
+    // A proposal this turn left can hold what a model read with another
+    // Company's account, as the turn's answer can: it is listed with the
+    // same accounts, and goes when one of them is reset.
+    if (run && connection && proposals)
+      noteOperationAccounts(
+        connection,
+        proposals,
+        accountsIn(run, connection, context),
+      );
     // The lines stay with the conversation, for a reload and History.
     if (run && connection)
       keepLines(
