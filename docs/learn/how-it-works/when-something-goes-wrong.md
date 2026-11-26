@@ -201,7 +201,7 @@ would refuse.
 
 ### 10. Approve a payment the balance no longer covers
 
-![The card for a payment of 4,000 dollars to Beacon Studio still waits. Above its buttons a note reads: Harborline Bank refused this request (HTTP 409, insufficient_funds; available balance: $2,845.00). Nothing was performed](../../../apps/playground/public/learn-media/how-it-works/when-something-goes-wrong/10-bank-refuses.webp "Harborline refused the approved payment and gave its reason as a code and a balance. No money moved.")
+![The panel counts two requests. A closed line reads Review Company proposal, Approval required, Amount $500.00. Under it the card for a payment of 4,000 dollars to Beacon Studio is open and still waits. Above its buttons a note reads: Harborline Bank refused this request (HTTP 409, insufficient_funds; available balance: $2,845.00). Nothing was performed](../../../apps/playground/public/learn-media/how-it-works/when-something-goes-wrong/10-bank-refuses.webp "Harborline refused the approved payment and gave its reason as a code and a balance. No money moved.")
 
 Elena asks for a payment of 4,000 dollars to Beacon Studio for November's
 design work. Harborline answers with its terms and moves no money. The terms
@@ -209,6 +209,12 @@ state the balance the checking account would have afterwards, worked out from
 the 12,845 dollars it holds at that moment. Elena leaves the card waiting, and
 in the same conversation she asks for two other payments of 5,000 dollars each
 and approves those. The account is down to 2,845 dollars.
+
+Several proposals can wait at once. The panel keeps one card open and lists
+each of the others as a closed line with its amount, and opening a line closes
+the open card. Elena opens each payment of 5,000 dollars that way to approve
+it. The line for 500 dollars is a transfer to her savings account that she
+asked for as well and has not decided yet.
 
 Then she approves the payment of 4,000 dollars. Iris sends her approval, and
 Harborline checks the account as it is now. The balance does not cover the
@@ -250,9 +256,8 @@ she approved, less than the payment. The other is the proposal itself, which
 shows as awaiting approval until its time runs out. After that it leaves the
 list, and the Not applied entry stays.
 
-The transfer of 500 dollars is another request from the same conversation, and
-it waited in the same panel, which is why the panel in step 10 counts two.
-Its first terms quoted a balance that the two payments made out of date. When
+The transfer of 500 dollars is the closed line in the panel in step 10. Its
+first terms quoted a balance that the two payments made out of date. When
 Elena approved it, Harborline returned new terms as Lantern did in step 7, and
 it made the transfer once she approved those. The list shows it once.
 
