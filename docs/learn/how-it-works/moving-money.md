@@ -8,8 +8,8 @@ approved them. Later she asks for a payment her balance does not cover, and
 Harborline refuses it.
 
 This page follows those three requests screen by screen, on Iris's side and on
-Harborline's. Every screenshot is from the live lab, taken on 25 and 26
-November 2026. Harborline is fictional, and no real money exists or moves.
+Harborline's. Every screenshot is from the live lab, taken on
+26 November 2026. Harborline is fictional, and no real money exists or moves.
 
 ## Who does what
 
@@ -101,13 +101,13 @@ Harborline's answer to the request, as Iris received it:
 ```json
 {
   "status": "approval_required",
-  "operation_id": "op_KO-kj0gObiPEE0Hglf5ENSgo",
+  "operation_id": "op_FCLXWbEyRrj51RgRibpjDNJe",
   "summary": "Transfer USD 1000.00 from Operating checking to Reserve savings. New fictional balances: Operating checking USD 11845.00; Reserve savings USD 43500.00. No real money moves.",
   "terms": {
     "source_account_id": "acc_HLB_A100",
     "destination_account_id": "acc_HLB_A200",
     "amount_cents": 100000,
-    "idempotency_key": "Gi0_k_BsGcQrC2kR8vcknwdNQRDVsstx",
+    "idempotency_key": "KqH1PkPA_IZCQzErKNyH3h-GdE51Xlrr",
     "source_name": "Operating checking",
     "destination_name": "Reserve savings",
     "source_version": 1,
@@ -119,7 +119,7 @@ Harborline's answer to the request, as Iris received it:
     "currency": "USD",
     "notice": "Fictional Harborline Bank data. No real money moves; never enter real banking data or credentials."
   },
-  "expires_at": "2026-11-25T21:09:05.183Z"
+  "expires_at": "2026-11-26T08:29:56.868Z"
 }
 ```
 
@@ -127,13 +127,14 @@ Harborline's answer to the request, as Iris received it:
 
 ### 4. Read what you are approving
 
-![The approval panel: the amount in large type, each balance before and after, both accounts by name, and under All exact terms the same facts as data](../../../apps/playground/public/learn-media/how-it-works/moving-money/04-exact-terms.webp "The terms come from Harborline. Iris shows them and adds nothing of its own.")
+![The approval panel: the amount in large type, each balance before and after, both accounts by name, under All exact terms the same facts as data, and at the foot the buttons Approve 1,000 dollars and Decline](../../../apps/playground/public/learn-media/how-it-works/moving-money/04-exact-terms.webp "The terms come from Harborline. Iris shows them and adds nothing of its own.")
 
 The panel shows what Harborline will do if Elena approves, and it leads with
 the amount. The paragraph that begins "Harborline Bank says" is the bank's own
 description, and the rows below it give each balance before and after and the
 two accounts by name. Harborline worked out the balances. Iris asked only for
-an amount and two accounts.
+an amount and two accounts. The Approve and Decline buttons stay at the foot
+of the panel while the terms scroll above them.
 
 Under All exact terms are the same facts as data, with the amount in cents.
 The line called `idempotency_key` is a label Iris made up for this one
@@ -241,7 +242,7 @@ The terms in Harborline's answer:
   "recipient_id": "rcp_HLB_A501",
   "amount_cents": 12500,
   "memo": "the quarterly report",
-  "idempotency_key": "u7_T3Tw3-GpetMsbcfY3EaHgziHo4uhN",
+  "idempotency_key": "lPcA6J-4Q9sHf-AsKdJXVVJkLdLpy2oi",
   "source_account_version": 2,
   "source_balance_before_cents": 1184500,
   "source_balance_after_cents": 1172000,
@@ -267,11 +268,11 @@ the account's history, with the memo, and checking stands at 11,720 dollars.
 
 ### 10. When the bank says no
 
-![Elena asks to send Beacon Studio 4,500 dollars, and Iris shows an error: Harborline Bank answered insufficient funds, available balance 4,220.00, and nothing was retried](../../../apps/playground/public/learn-media/how-it-works/moving-money/10-bank-refuses.webp "Harborline refused the payment and gave its reason. Iris did not try again.")
+![Elena asks to send Beacon Studio 4,500 dollars, and Iris shows an error: Harborline Bank answered insufficient funds, available balance 4,220 dollars, and nothing was retried](../../../apps/playground/public/learn-media/how-it-works/moving-money/10-bank-refuses.webp "Harborline refused the payment and gave its reason. Iris did not try again.")
 
-The next morning Elena has paid Beacon Studio a larger invoice and moved more
-money to savings, and checking holds 4,220 dollars. She asks Iris to send
-Beacon Studio 4,500 dollars.
+By now Elena has paid Beacon Studio a larger invoice and moved more money to
+savings, and checking holds 4,220 dollars. She asks Iris to send Beacon
+Studio 4,500 dollars.
 
 Harborline refuses. There are no terms to approve this time, because the bank
 does not offer a payment the account cannot cover. Iris shows the bank's
@@ -298,23 +299,37 @@ POST /api/account/payments · refused by the Company · HTTP 409 insufficient_fu
 ```
 
 Harborline gave the same answer when Elena approved a payment of 4,000
-dollars after her balance had dropped to 3,220. The panel kept the terms and
-showed the refusal above its buttons.
+dollars after another transfer had left 3,220 dollars in checking. The
+proposal stayed in the panel, and under its terms the card carried the bank's
+answer:
+
+```text
+Harborline Bank refused this request (HTTP 409, insufficient_funds; available balance: $3,220.00). Nothing was performed.
+```
+
+Step 11 shows Harborline's own record of that payment.
 
 </details>
 
 ### 11. See what the agent did
 
-![Harborline's record of the agent's activity: the payment and the transfer, each applied once on 25 November at 20:59 UTC and approved by you in your agent](../../../apps/playground/public/learn-media/how-it-works/moving-money/11-agent-activity-at-harborline.webp "Harborline lists what the agent asked for, when it was applied and who approved it.")
+![Harborline's record of the agent's activity: a payment of 4,000 dollars awaiting approval, the same payment marked Not applied on 26 November at 08:32 UTC because checking had 3,220 dollars available, and a transfer of 1,000 dollars applied once, both approved by you in your agent](../../../apps/playground/public/learn-media/how-it-works/moving-money/11-agent-activity-at-harborline.webp "Harborline lists what the agent asked for, what became of each request and who approved it.")
 
 Lower on its account page, Harborline lists what Elena's agent asked for and
-what became of each request. The entries for the transfer and the payment say
-that each was applied once, at what time, and that Elena approved it in her
-agent.
+what became of each request. A request it carried out is marked Applied once,
+with the time and the line "Approved by you, in your agent". The transfer of
+step 6 and the payment of step 9 are further down the same list, each applied
+once.
 
-Harborline keeps an applied request in this list. The screenshot is from the
-next morning, and both entries of the evening before are there. The money
-movements themselves stay in the account's history, as in step 9.
+The screenshot was taken shortly after the refused approval described in
+step 10. The payment of 4,000 dollars is there twice. One entry is marked Not
+applied, with the time, who approved and the reason in words: checking had
+3,220 dollars available when Elena approved, less than the payment. The other
+is the proposal itself, which still awaits approval because its terms stay
+open until their time runs out. Harborline then marks it Expired without
+change.
+
+The money movements themselves stay in the account's history, as in step 9.
 
 ## What Harborline controls
 
