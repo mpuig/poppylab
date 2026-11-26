@@ -231,7 +231,13 @@ real shipment affected."), and who approved ("Approved by you." or "Approved
 by Iris on your standing instruction."). A declined, refused, replaced or
 expired entry says why nothing was done and what to do next; an expired one
 reads "This proposal ran out before it was approved, so nothing was done. Ask
-for the change again to get new terms." While a card still waits, what became
+for the change again to get new terms." If an approval was sent before the
+terms ran out, the entry says so instead: "This proposal was approved, but
+Harborline Bank refused the approval and did nothing. Its terms then ran
+out." or, for new terms nobody approved in time, "Harborline Bank returned
+these terms instead of performing the ones that were approved. These terms
+ran out before they were approved, so nothing was done." The guide's line
+says the same about the last proposal. While a card still waits, what became
 of an approval already sent (the Company refused the request) is a notice
 right above its buttons.
 

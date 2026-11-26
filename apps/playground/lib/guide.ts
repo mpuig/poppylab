@@ -24,6 +24,7 @@ export type GuideState = {
   /**
    * Why the waiting proposal that changed last waits again: an approval of
    * it was sent and the Company refused it, or answered with these new terms.
+   * It stays when that proposal's terms ran out since and none waits.
    */
   again?: "refused" | "new_terms" | undefined;
   /**
@@ -38,7 +39,6 @@ export type GuideState = {
  * `runtime.ts`).
  */
 export type GuideOperation = ReviewOperation & {
-  notPerformed?: "refused" | "new_terms";
   changed?: number;
 };
 
@@ -75,7 +75,9 @@ export function guideProposals(
     proposals: operations.length,
     // "succeeded" is the state the page labels Completed.
     completed: operations.filter((op) => op.state === "succeeded").length,
-    again: newest(waiting, now)?.notPerformed,
+    // Of the proposal that waits, or of the one whose terms ran out.
+    again: (newest(waiting, now) ?? (ended === "expired" ? last : undefined))
+      ?.notPerformed,
     ended:
       !waiting.length &&
       (ended === "declined" ||
@@ -175,7 +177,12 @@ function endedHint(state: GuideState, company: string) {
     case "declined":
       return `You declined the last proposal, so nothing was sent to ${company}. Ask for the change again if you still want it.`;
     case "expired":
-      return "The last proposal expired before it was approved, so nothing was performed. Ask for the change again to get fresh terms.";
+      // An approval sent before the terms ran out is part of what happened.
+      return state.again === "refused"
+        ? `The last proposal was approved, but ${company} refused the approval and performed nothing. Its terms then expired. Ask for the change again to get fresh terms.`
+        : state.again === "new_terms"
+          ? `${company} answered the approval with new terms and performed nothing, and the new terms expired before they were approved. Ask for the change again to get fresh terms.`
+          : "The last proposal expired before it was approved, so nothing was performed. Ask for the change again to get fresh terms.";
     case "refused":
       return `${company} declined the approval and performed nothing; the proposal shows its reason, if it gave one. You can ask for a different change.`;
     case "superseded":

@@ -18,6 +18,12 @@ export type ReviewOperation = {
   agentDeclined?: { reason?: string };
   /** The Company answered one with new terms instead (§5). */
   agentSuperseded?: true;
+  /**
+   * An approval was sent and nothing was performed: the Company `refused`
+   * it, or answered it with these `new_terms` (see `Operation` in
+   * `runtime.ts`).
+   */
+  notPerformed?: "refused" | "new_terms";
 };
 /**
  * The Company's reason for declining Iris's approval, quoted as a sentence
@@ -422,11 +428,19 @@ export function outcome(
     };
   // A refusal, new terms or an ended conversation: the route's own sentence
   // says what happened. A proposal that ran out on its own clock has none,
-  // or only one about an approval refused while it still waited.
+  // or only one about an approval sent while it still waited.
   if (result && op.state !== "proposed") return { note: result };
-  return state === "expired"
-    ? {
-        note: "This proposal ran out before it was approved, so nothing was done. Ask for the change again to get new terms.",
-      }
-    : {};
+  if (state !== "expired") return {};
+  // That sentence says the terms still wait, so it isn't shown. The
+  // approval it was about is part of what happened: these terms didn't run
+  // out with nothing approved.
+  const next = "Ask for the change again to get new terms.";
+  return {
+    note:
+      op.notPerformed === "refused"
+        ? `This proposal was approved, but ${company} refused the approval and did nothing. Its terms then ran out. ${next}`
+        : op.notPerformed === "new_terms"
+          ? `${company} returned these terms instead of performing the ones that were approved. These terms ran out before they were approved, so nothing was done. ${next}`
+          : `This proposal ran out before it was approved, so nothing was done. ${next}`,
+  };
 }

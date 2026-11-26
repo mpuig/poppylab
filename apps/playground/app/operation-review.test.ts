@@ -262,6 +262,42 @@ it("tells the customer what an expired proposal means", () => {
   expect(html).toContain(ended);
   expect(html).not.toContain(ranOut);
 });
+it("says on an expired entry what became of an approval sent before the terms ran out", () => {
+  const expires_at = new Date(Date.now() - 1000).toISOString();
+  // Approved, refused by the Company, and then out of time. The refusal's
+  // own sentence says the terms still wait, so the entry has its own.
+  const refused = entry({
+    expires_at,
+    notPerformed: "refused",
+    result: {
+      summary:
+        "Lantern Noodle Bar refused this request (HTTP 409, kitchen_closed). Nothing was performed. The terms still wait for you: approve them again once what stopped it is sorted out, or ask for the change again to get fresh terms.",
+    },
+  });
+  expect(refused).toContain("Expired");
+  expect(refused).toContain(
+    "This proposal was approved, but Lantern Noodle Bar refused the approval and did nothing. Its terms then ran out. Ask for the change again to get new terms.",
+  );
+  expect(refused).not.toContain("before it was approved");
+  expect(refused).not.toContain("still wait");
+  // Terms that answered an approval and were never approved themselves,
+  // with the route's sentence or, after Iris's approval, without one.
+  for (const marks of [
+    {
+      result: {
+        summary:
+          "Lantern Noodle Bar returned these new terms instead of performing the ones you approved. Nothing was performed. Approve them if you still want this, or decline.",
+      },
+    },
+    { agentSuperseded: true },
+  ]) {
+    const newTerms = entry({ expires_at, notPerformed: "new_terms", ...marks });
+    expect(newTerms).toContain(
+      "Lantern Noodle Bar returned these terms instead of performing the ones that were approved. These terms ran out before they were approved, so nothing was done. Ask for the change again to get new terms.",
+    );
+    expect(newTerms).not.toContain("Approve them if you still want this");
+  }
+});
 it("shows what became of a refused approval as a notice above the controls of a waiting card", () => {
   const refusal =
     "Juniper Market refused the approved request, and nothing was performed. Approve again or ask for new terms.";

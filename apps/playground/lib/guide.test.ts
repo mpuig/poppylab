@@ -274,6 +274,38 @@ it("counts a proposal that ran out as ended when its terms expired", () => {
   );
 });
 
+it("says what became of an approval when the terms ran out after it", () => {
+  const now = Date.parse("2026-11-26T10:00:00Z");
+  const ranOut = (notPerformed: "refused" | "new_terms") =>
+    proposal("proposed", {
+      notPerformed,
+      changed: now - 60_000,
+      expires_at: new Date(now - 1000).toISOString(),
+    });
+  const hint = (...operations: GuideOperation[]) =>
+    guideHint({ ...asked, ...guideProposals(operations, now) }, juniper);
+  // Approved, refused by the Company, and then out of time.
+  expect(hint(ranOut("refused"))).toBe(
+    "The last proposal was approved, but Juniper Market refused the approval and performed nothing. Its terms then expired. Ask for the change again to get fresh terms.",
+  );
+  // The terms that ran out answered an approval and were never approved.
+  expect(hint(ranOut("new_terms"))).toBe(
+    "Juniper Market answered the approval with new terms and performed nothing, and the new terms expired before they were approved. Ask for the change again to get fresh terms.",
+  );
+  // Another proposal's refusal says nothing about the one that ran out.
+  expect(
+    hint(
+      proposal("declined", { notPerformed: "refused", changed: now - 90_000 }),
+      proposal("proposed", {
+        changed: now - 60_000,
+        expires_at: new Date(now - 1000).toISOString(),
+      }),
+    ),
+  ).toBe(
+    "The last proposal expired before it was approved, so nothing was performed. Ask for the change again to get fresh terms.",
+  );
+});
+
 it("says when to look again: the moment the next waiting proposal runs out", () => {
   const now = Date.parse("2026-11-26T10:00:00Z");
   const at = (minutes: number) => new Date(now + minutes * 60000).toISOString();
