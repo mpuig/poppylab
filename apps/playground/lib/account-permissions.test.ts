@@ -80,6 +80,34 @@ it("asks for the FDX-shaped data clusters only with Use FDX on (RFC 9700 §2.3)"
   ]);
   expect(missingFdxScopes(profile, "orders:read")).toEqual([]);
 });
+it("never asks for the scope that signs a browser in, since Iris doesn't browse", () => {
+  // As the lab's Companies advertise it: it changes nothing.
+  const browsing: CompanyProfile = {
+    ...profile,
+    scopes: [...profile.scopes, "poppy:browser-sign-in"],
+    scopeHints: {
+      ...profile.scopeHints,
+      "poppy:browser-sign-in": { changes: "none", personal_data: true },
+    },
+  };
+  expect(consentScopes(browsing)).toBe("orders:read");
+  expect(consentScopes(browsing, "write")).toBe(
+    "orders:read orders:write addresses",
+  );
+  // Without hints it is neither asked for nor counted as a change left to
+  // ask for.
+  const unhinted = { ...browsing, scopeHints: profile.scopeHints };
+  expect(consentScopes(unhinted, "write")).toBe(
+    "orders:read orders:write addresses",
+  );
+  expect(
+    canRequestChanges(unhinted, "orders:read orders:write addresses"),
+  ).toBe(false);
+  // Alone, it isn't a reason to sign in.
+  expect(() =>
+    consentScopes({ ...browsing, scopes: ["poppy:browser-sign-in"] }),
+  ).toThrow("read-only");
+});
 it("never treats a scope without hints as read-only", () => {
   expect(() => consentScopes({ ...profile, scopeHints: {} }, "read")).toThrow(
     "read-only",

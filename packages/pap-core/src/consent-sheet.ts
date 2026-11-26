@@ -129,6 +129,52 @@ export function consentWords(
   ];
 }
 
+/** §4.7: the protocol's own scope, which signs an agent's browser in (§6). */
+export const BROWSER_SIGN_IN = "poppy:browser-sign-in";
+
+/**
+ * The sheet's line for `poppy:browser-sign-in`, when `scopes` ask for it:
+ * a choice of its own, ticked when the page opens, after the Company's own
+ * further choices (`extras`). The gateway grants the scope only when the
+ * form posts `allow_browser=yes`. The words are the same at every Company,
+ * because the Companies' websites do the same with it: a joined browser
+ * sees what the grant's read scopes cover and can change nothing. Spread it
+ * into the sheet, and into `consentWords` for the list of connected agents.
+ */
+export function browserAccess(
+  scopes: string,
+  extras: NonNullable<ConsentSheet["extras"]> = [],
+): Pick<ConsentSheet, "extras"> {
+  const requested = scopes.split(" ").filter(Boolean);
+  if (!requested.includes(BROWSER_SIGN_IN))
+    return extras.length ? { extras } : {};
+  return {
+    extras: [
+      ...extras,
+      {
+        heading: "On this website",
+        option: {
+          name: "allow_browser",
+          title: "Browse signed in, read only",
+          text: "The agent's own browser may open this website signed in to your account. It sees what the read permissions above cover, and can't change anything here.",
+          checked: true,
+          // Nothing else was asked for, so allowing means allowing this.
+          required: requested.length === 1,
+        },
+      },
+    ],
+  };
+}
+
+/** `poppy:browser-sign-in` in a Company's `auth.scopes`, said one way. */
+export const browserSignInScope = (company: string) => ({
+  [BROWSER_SIGN_IN]: `Open ${company}'s website in the agent's own browser, signed in to your account. The website shows what the read permissions you grant cover, and nothing can be changed there. Not needed for the API or for ${company}'s own agent.`,
+});
+/** Its `auth.scope_hints` entry: it shows personal data and changes nothing. */
+export const browserSignInHint = {
+  [BROWSER_SIGN_IN]: { changes: "none", personal_data: true },
+} as const;
+
 /**
  * The strip above a Company's header on its consent page: the same graphite
  * and amber as `labBarHtml`, without its links, so nothing on the page leads

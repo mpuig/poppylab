@@ -1,4 +1,4 @@
-import type { CompanyProfile } from "@poppy-lab/pap-core";
+import { BROWSER_SIGN_IN, type CompanyProfile } from "@poppy-lab/pap-core";
 import {
   asksFor,
   DOMAIN_EXTENSIONS,
@@ -39,6 +39,8 @@ export const missingFdxScopes = (
  * A domain extension's scopes (the FDX-shaped data clusters, the ESPI-shaped
  * scopes its tools use) are asked for only with Use FDX or Use ESPI on, when
  * the tools that use them exist; never otherwise, whatever their hints.
+ * `poppy:browser-sign-in` signs an agent's browser in on the Company's
+ * website (§6). Iris has no browser, so it never asks for it.
  */
 export function consentScopes(
   profile: CompanyProfile,
@@ -52,6 +54,7 @@ export function consentScopes(
   const scopes = (
     access === "read" ? readOnlyScopes(profile) : profile.scopes
   ).filter((s) => {
+    if (s === BROWSER_SIGN_IN) return false;
     const extension = extensionOfScope(s);
     return !extension || (!!options[extension.key] && asksFor(extension, s));
   });
@@ -87,7 +90,11 @@ export function canRequestChanges(
   if (!profile?.signIn.direct) return false;
   const have = granted.split(" ");
   return profile.scopes.some(
-    (s) => !have.includes(s) && profile.scopeHints[s]?.changes !== "none",
+    (s) =>
+      // Never asked for (`consentScopes`), so never left to ask for.
+      s !== BROWSER_SIGN_IN &&
+      !have.includes(s) &&
+      profile.scopeHints[s]?.changes !== "none",
   );
 }
 

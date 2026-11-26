@@ -1,4 +1,8 @@
-import { companyProfile, type DiscoveredCompany } from "@poppy-lab/pap-core";
+import {
+  BROWSER_SIGN_IN,
+  companyProfile,
+  type DiscoveredCompany,
+} from "@poppy-lab/pap-core";
 import type { ShownSkill, ShownTask } from "@/lib/shown-tasks";
 import { SpecRef } from "./spec-ref";
 
@@ -142,6 +146,8 @@ export function CompanyProfileView({
                     {hint
                       ? `${changeLabel[hint.changes]}${hint.personal_data ? " · personal data" : ""}`
                       : "No hints: treat as consequential"}
+                    {scope === BROWSER_SIGN_IN &&
+                      " · Iris has no browser, so it doesn't ask for this"}
                   </small>
                 </li>
               );

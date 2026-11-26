@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  BROWSER_SIGN_IN,
+  browserAccess,
+  browserSignInHint,
+  browserSignInScope,
   consentExpiredHtml,
   consentSheetCss,
   consentSheetHtml,
@@ -162,6 +166,61 @@ describe("the consent sheet the Companies share", () => {
       "Read: Basket and orders; Support cases.",
       "While you're away: Keep the agent connected.",
     ]);
+  });
+
+  it("gives the agent's browser its own line, ticked, that the customer can untick", () => {
+    // Not asked for, no line.
+    expect(browserAccess("orders:read orders:write")).toEqual({});
+    const asked = browserAccess(`orders:read ${BROWSER_SIGN_IN}`);
+    expect(asked).toEqual({
+      extras: [
+        {
+          heading: "On this website",
+          option: {
+            name: "allow_browser",
+            title: "Browse signed in, read only",
+            text: "The agent's own browser may open this website signed in to your account. It sees what the read permissions above cover, and can't change anything here.",
+            checked: true,
+            required: false,
+          },
+        },
+      ],
+    });
+    const html = consentSheetHtml({ ...sheet, ...asked });
+    expect(html).toContain(
+      '<div class="sheet-group"><h3>On this website</h3><label class="sheet-option"><input type="checkbox" name="allow_browser" value="yes" checked><span><strong>Browse signed in, read only</strong>',
+    );
+    // The same words under Connected agents.
+    expect(consentWords({ ...sheet, ...asked })).toEqual([
+      "Read: Your orders.",
+      "Propose changes: Your orders.",
+      "On this website: Browse signed in, read only.",
+    ]);
+    // All that was asked for: allowing means allowing it.
+    expect(browserAccess(BROWSER_SIGN_IN).extras![0]!.option.required).toBe(
+      true,
+    );
+    // It goes after a Company's own further choices.
+    const own = {
+      heading: "While you're away",
+      option: { name: "o", title: "Keep the agent connected", text: "" },
+    };
+    expect(
+      browserAccess(`a ${BROWSER_SIGN_IN}`, [own]).extras!.map(
+        (extra) => extra.heading,
+      ),
+    ).toEqual(["While you're away", "On this website"]);
+    expect(browserAccess("a", [own])).toEqual({ extras: [own] });
+  });
+
+  it("describes the scope the same way for every Company's poppy.json", () => {
+    expect(browserSignInScope("Shop")).toEqual({
+      "poppy:browser-sign-in":
+        "Open Shop's website in the agent's own browser, signed in to your account. The website shows what the read permissions you grant cover, and nothing can be changed there. Not needed for the API or for Shop's own agent.",
+    });
+    expect(browserSignInHint).toEqual({
+      "poppy:browser-sign-in": { changes: "none", personal_data: true },
+    });
   });
 
   it("says in the sheet's place that the page ran out, that nothing was allowed and what to do", () => {

@@ -28,10 +28,11 @@ it("shows 1.0 scopes with descriptions, hints, PAR, extensions and the tasks end
         endpoint: "https://auth.company.example/par",
         required: false,
       },
-      scopes: ["orders:read", "orders:write"],
+      scopes: ["orders:read", "orders:write", "poppy:browser-sign-in"],
       scopeDescriptions: { "orders:read": "See <b>orders</b>" },
       scopeHints: {
         "orders:read": { changes: "none", personal_data: true },
+        "poppy:browser-sign-in": { changes: "none", personal_data: true },
       },
       tasksEndpoint: "https://company.example/poppy/tasks",
       operations: true,
@@ -45,7 +46,12 @@ it("shows 1.0 scopes with descriptions, hints, PAR, extensions and the tasks end
   expect(html).toContain("not that it belongs to “Company”");
   expect(html).toContain("Direct · PAR offered");
   expect(html).toContain("Operations v3");
-  expect(html).toContain("No changes · personal data");
+  expect(html).toContain("<small>No changes · personal data</small>");
+  // The scope that signs a browser in is the Company's to list, and one
+  // Iris never asks for (`consentScopes`).
+  expect(html).toContain(
+    "<code>poppy:browser-sign-in</code><small>No changes · personal data · Iris has no browser, so it doesn&#x27;t ask for this</small>",
+  );
   // A scope with no hint is never presented as safe.
   expect(html).toContain("No hints: treat as consequential");
   expect(html).toContain("https://company.example/poppy/tasks");
