@@ -215,6 +215,7 @@ Part of the first answer:
     "id": "ord_LNB0907",
     "status": "delivered",
     "delivered_at": "Friday 31 October, 19:12",
+    "currency": "USD",
     "items": [
       { "name": "Shoyu ramen", "quantity": 2, "refunded_quantity": 0 },
       { "name": "Pork gyoza (6)", "quantity": 1, "refunded_quantity": 0 }
