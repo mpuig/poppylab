@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 450" font-family="'Hanken Grotesk','Helvetica Neue',Arial,sans-serif">
+  <rect x="1" y="1" width="358" height="56" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="180" y="27" text-anchor="middle" font-size="15" font-weight="600" fill="#171a1f">Personal Agent</text>
+  <text x="180" y="43" text-anchor="middle" font-size="13" font-weight="400" fill="#5b626c">acting for a user</text>
+  <path d="M180 65L180 77" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M180 85L175.5 77L184.5 77Z" fill="#0d5c4a"/>
+  <path d="M180 57L184.5 65L175.5 65Z" fill="#0d5c4a"/>
+  <rect x="1" y="85" width="358" height="176" rx="8" fill="#eaf3f0" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="17" y="109" font-size="15" font-weight="600" fill="#0d5c4a">Poppy settles</text>
+  <text x="17" y="128" font-size="13" font-weight="400" fill="#3a4049">wraps the interfaces and replaces none</text>
+  <rect x="17" y="141" width="158" height="48" rx="6" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="96" y="169.9" text-anchor="middle" font-size="14" font-weight="500" fill="#171a1f">Who the agent is</text>
+  <rect x="185" y="141" width="158" height="48" rx="6" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="264" y="160.9" text-anchor="middle" font-size="14" font-weight="500" fill="#171a1f">Which user it</text>
+  <text x="264" y="178.9" text-anchor="middle" font-size="14" font-weight="500" fill="#171a1f">acts for</text>
+  <rect x="17" y="197" width="158" height="48" rx="6" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="96" y="216.9" text-anchor="middle" font-size="14" font-weight="500" fill="#171a1f">What that user</text>
+  <text x="96" y="234.9" text-anchor="middle" font-size="14" font-weight="500" fill="#171a1f">allowed</text>
+  <rect x="185" y="197" width="158" height="48" rx="6" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="264" y="216.9" text-anchor="middle" font-size="14" font-weight="500" fill="#171a1f">When a person</text>
+  <text x="264" y="234.9" text-anchor="middle" font-size="14" font-weight="500" fill="#171a1f">has to say yes</text>
+  <circle cx="332" cy="208" r="4" fill="#f2b705"/>
+  <path d="M96 269L96 281" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M96 289L91.5 281L100.5 281Z" fill="#0d5c4a"/>
+  <path d="M96 261L100.5 269L91.5 269Z" fill="#0d5c4a"/>
+  <path d="M264 269L264 281" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M264 289L259.5 281L268.5 281Z" fill="#0d5c4a"/>
+  <path d="M264 261L268.5 269L259.5 269Z" fill="#0d5c4a"/>
+  <rect x="1" y="289" width="358" height="160" rx="8" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="17" y="313" font-size="15" font-weight="600" fill="#171a1f">The Company's interfaces, unchanged</text>
+  <text x="17" y="332" font-size="13" font-weight="400" fill="#5b626c">all listed in /.well-known/poppy.json</text>
+  <rect x="17" y="345" width="158" height="40" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="96" y="369.9" text-anchor="middle" font-size="14" font-weight="600" fill="#171a1f">OpenAPI</text>
+  <rect x="185" y="345" width="158" height="40" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="264" y="369.9" text-anchor="middle" font-size="14" font-weight="600" fill="#171a1f">MCP</text>
+  <rect x="17" y="393" width="158" height="40" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="96" y="417.9" text-anchor="middle" font-size="14" font-weight="600" fill="#171a1f">Support chat</text>
+  <rect x="185" y="393" width="158" height="40" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="264" y="417.9" text-anchor="middle" font-size="14" font-weight="600" fill="#171a1f">Website</text>
+</svg>

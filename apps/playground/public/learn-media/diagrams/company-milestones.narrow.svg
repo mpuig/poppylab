@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 575" font-family="'Hanken Grotesk','Helvetica Neue',Arial,sans-serif">
+  <text x="359" y="14" text-anchor="end" font-size="13" font-weight="400" fill="#5b626c">each adds to the ones before</text>
+  <circle cx="23" cy="58" r="21.25" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.5"/>
+  <text x="23" y="65.5" text-anchor="middle" font-family="'STIX Two Text',Georgia,serif" font-size="21" font-weight="500" fill="#0d5c4a">0</text>
+  <text x="64" y="63.25" font-size="15" font-weight="600" fill="#171a1f">Be found</text>
+  <text x="64" y="82.4" font-size="14" font-weight="400" fill="#3a4049">One static file, with no sign-in, that</text>
+  <text x="64" y="101.4" font-size="14" font-weight="400" fill="#3a4049">tells agents who you are and what</text>
+  <text x="64" y="120.4" font-size="14" font-weight="400" fill="#3a4049">exists.</text>
+  <text x="64" y="138.05" font-size="13" font-weight="400" fill="#5b626c">Stop here if you only want to be found.</text>
+  <rect x="296" y="53" width="10" height="10" rx="3" fill="#0d5c4a"/>
+  <line x1="23" y1="88" x2="23" y2="140" stroke="#c9ced5" stroke-width="1.5"/>
+  <circle cx="23" cy="170" r="21.25" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.5"/>
+  <text x="23" y="177.5" text-anchor="middle" font-family="'STIX Two Text',Georgia,serif" font-size="21" font-weight="500" fill="#0d5c4a">1</text>
+  <text x="64" y="175.25" font-size="15" font-weight="600" fill="#171a1f">Foundation</text>
+  <text x="64" y="194.4" font-size="14" font-weight="400" fill="#3a4049">Agents become identifiable: your</text>
+  <text x="64" y="213.4" font-size="14" font-weight="400" fill="#3a4049">metadata, a verified Session header</text>
+  <text x="64" y="232.4" font-size="14" font-weight="400" fill="#3a4049">and a record of each Session.</text>
+  <rect x="296" y="165" width="10" height="10" rx="3" fill="#9cc7bb"/>
+  <rect x="309" y="165" width="10" height="10" rx="3" fill="#0d5c4a"/>
+  <line x1="23" y1="200" x2="23" y2="252" stroke="#c9ced5" stroke-width="1.5"/>
+  <circle cx="23" cy="282" r="21.25" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.5"/>
+  <text x="23" y="289.5" text-anchor="middle" font-family="'STIX Two Text',Georgia,serif" font-size="21" font-weight="500" fill="#0d5c4a">2</text>
+  <text x="64" y="287.25" font-size="15" font-weight="600" fill="#171a1f">Interfaces</text>
+  <text x="64" y="306.4" font-size="14" font-weight="400" fill="#3a4049">Anyone may see what you offer, signed</text>
+  <text x="64" y="325.4" font-size="14" font-weight="400" fill="#3a4049">out, through the interfaces you</text>
+  <text x="64" y="344.4" font-size="14" font-weight="400" fill="#3a4049">already have.</text>
+  <rect x="296" y="277" width="10" height="10" rx="3" fill="#9cc7bb"/>
+  <rect x="309" y="277" width="10" height="10" rx="3" fill="#9cc7bb"/>
+  <rect x="322" y="277" width="10" height="10" rx="3" fill="#0d5c4a"/>
+  <line x1="23" y1="312" x2="23" y2="364" stroke="#c9ced5" stroke-width="1.5"/>
+  <circle cx="23" cy="394" r="21.25" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.5"/>
+  <text x="23" y="401.5" text-anchor="middle" font-family="'STIX Two Text',Georgia,serif" font-size="21" font-weight="500" fill="#0d5c4a">3</text>
+  <text x="64" y="399.25" font-size="15" font-weight="600" fill="#171a1f">Sign-in</text>
+  <text x="64" y="418.4" font-size="14" font-weight="400" fill="#3a4049">A user can connect an agent you never</text>
+  <text x="64" y="437.4" font-size="14" font-weight="400" fill="#3a4049">registered, with OAuth on your own</text>
+  <text x="64" y="456.4" font-size="14" font-weight="400" fill="#3a4049">pages.</text>
+  <rect x="296" y="389" width="10" height="10" rx="3" fill="#9cc7bb"/>
+  <rect x="309" y="389" width="10" height="10" rx="3" fill="#9cc7bb"/>
+  <rect x="322" y="389" width="10" height="10" rx="3" fill="#9cc7bb"/>
+  <rect x="335" y="389" width="10" height="10" rx="3" fill="#0d5c4a"/>
+  <line x1="23" y1="424" x2="23" y2="476" stroke="#c9ced5" stroke-width="1.5"/>
+  <circle cx="23" cy="506" r="21.25" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.5"/>
+  <text x="23" y="513.5" text-anchor="middle" font-family="'STIX Two Text',Georgia,serif" font-size="21" font-weight="500" fill="#0d5c4a">4</text>
+  <text x="64" y="511.25" font-size="15" font-weight="600" fill="#171a1f">Operations</text>
+  <text x="64" y="530.4" font-size="14" font-weight="400" fill="#3a4049">Every consequential change waits for</text>
+  <text x="64" y="549.4" font-size="14" font-weight="400" fill="#3a4049">the user's approval of its exact</text>
+  <text x="64" y="568.4" font-size="14" font-weight="400" fill="#3a4049">terms.</text>
+  <rect x="296" y="501" width="10" height="10" rx="3" fill="#9cc7bb"/>
+  <rect x="309" y="501" width="10" height="10" rx="3" fill="#9cc7bb"/>
+  <rect x="322" y="501" width="10" height="10" rx="3" fill="#9cc7bb"/>
+  <rect x="335" y="501" width="10" height="10" rx="3" fill="#9cc7bb"/>
+  <rect x="348" y="501" width="10" height="10" rx="3" fill="#0d5c4a"/>
+</svg>

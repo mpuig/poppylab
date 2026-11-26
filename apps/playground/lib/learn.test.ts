@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -285,6 +285,32 @@ describe("learn links", () => {
         "![x](../../apps/playground/public/learn-media/diagrams/missing.svg)",
       ),
     ).toThrow();
+  });
+
+  it("uses every figure in a page, and has a narrow drawing for each", () => {
+    const diagrams = path.join(
+      process.cwd(),
+      "public",
+      "learn-media",
+      "diagrams",
+    );
+    const files = readdirSync(diagrams).filter((f) => f.endsWith(".svg"));
+    const wide = files.filter((f) => !f.endsWith(".narrow.svg"));
+    expect(wide.length).toBeGreaterThan(0);
+    const pages = LEARN_PAGES.map((p) =>
+      readFileSync(
+        path.join(process.cwd(), "..", "..", "docs", "learn", p.file),
+        "utf8",
+      ),
+    ).join("\n");
+    for (const file of wide) {
+      expect(files, `${file} has no narrow drawing`).toContain(
+        file.replace(/\.svg$/, ".narrow.svg"),
+      );
+      expect(pages, `${file} is in no Learn page`).toContain(
+        `diagrams/${file}`,
+      );
+    }
   });
 
   it("wraps code in a Learn page instead of scrolling it sideways", () => {

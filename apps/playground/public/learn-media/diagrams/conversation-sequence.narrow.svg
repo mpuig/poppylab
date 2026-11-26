@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 970" font-family="'Hanken Grotesk','Helvetica Neue',Arial,sans-serif">
+  <line x1="56" y1="44" x2="56" y2="966" stroke="#c9ced5" stroke-width="1.2"/>
+  <line x1="180" y1="44" x2="180" y2="966" stroke="#c9ced5" stroke-width="1.2"/>
+  <line x1="304" y1="44" x2="304" y2="966" stroke="#c9ced5" stroke-width="1.2"/>
+  <rect x="6" y="0.6" width="100" height="42.8" rx="6" fill="#171a1f" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="56" y="26.9" text-anchor="middle" font-size="15" font-weight="600" fill="#ffffff">User</text>
+  <rect x="130" y="0.6" width="100" height="42.8" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="180" y="26.9" text-anchor="middle" font-size="15" font-weight="600" fill="#171a1f">Agent</text>
+  <rect x="254" y="0.6" width="100" height="42.8" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="304" y="19" text-anchor="middle" font-size="15" font-weight="600" fill="#171a1f">Company</text>
+  <text x="304" y="35" text-anchor="middle" font-size="15" font-weight="600" fill="#171a1f">Agent</text>
+  <line x1="180" y1="94" x2="296" y2="94" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M304 94L296 89.5L296 98.5Z" fill="#0d5c4a"/>
+  <rect x="140" y="62" width="203" height="28" rx="4" fill="#ffffff"/>
+  <text x="336" y="82" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">1 · Starts a conversation</text>
+  <line x1="304" y1="170" x2="188" y2="170" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M180 170L188 165.5L188 174.5Z" fill="#0d5c4a"/>
+  <rect x="177.8" y="120" width="165.2" height="46" rx="4" fill="#ffffff"/>
+  <text x="336" y="140" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">2 · Text for people,</text>
+  <text x="336" y="158" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">data for agents</text>
+  <line x1="180" y1="228" x2="296" y2="228" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M304 228L296 223.5L296 232.5Z" fill="#0d5c4a"/>
+  <rect x="117.32" y="196" width="225.68" height="28" rx="4" fill="#ffffff"/>
+  <text x="336" y="216" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">3 · Reports the missing dish</text>
+  <line x1="304" y1="286" x2="188" y2="286" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M180 286L188 281.5L188 290.5Z" fill="#0d5c4a"/>
+  <rect x="109.76" y="254" width="233.24" height="28" rx="4" fill="#ffffff"/>
+  <text x="336" y="274" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">4 · Asks the agent to sign in</text>
+  <rect x="12" y="314" width="336" height="46" rx="8" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <circle cx="32" cy="337" r="4" fill="#f2b705"/>
+  <text x="46" y="341.9" font-size="14" font-weight="600" fill="#171a1f">User signs in on the Company's page</text>
+  <line x1="180" y1="410" x2="296" y2="410" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M304 410L296 405.5L296 414.5Z" fill="#0d5c4a"/>
+  <rect x="124.88" y="378" width="218.12" height="28" rx="4" fill="#ffffff"/>
+  <text x="336" y="398" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">5 · Sends the request again</text>
+  <line x1="304" y1="486" x2="188" y2="486" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M180 486L188 481.5L188 490.5Z" fill="#0d5c4a"/>
+  <rect x="162.68" y="436" width="180.32" height="46" rx="4" fill="#ffffff"/>
+  <text x="336" y="456" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">6 · A proposal, inside</text>
+  <text x="336" y="474" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">a message</text>
+  <rect x="12" y="514" width="336" height="46" rx="8" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <circle cx="32" cy="537" r="4" fill="#f2b705"/>
+  <text x="46" y="541.9" font-size="14" font-weight="600" fill="#171a1f">Waiting for the user to approve</text>
+  <line x1="56" y1="610" x2="172" y2="610" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M180 610L172 605.5L172 614.5Z" fill="#0d5c4a"/>
+  <rect x="17" y="578" width="142.52" height="28" rx="4" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <text x="24" y="598" text-anchor="start" font-size="14" font-weight="600" fill="#171a1f">7 · User approves</text>
+  <line x1="180" y1="686" x2="296" y2="686" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M304 686L296 681.5L296 690.5Z" fill="#0d5c4a"/>
+  <rect x="200.48" y="636" width="142.52" height="46" rx="4" fill="#ffffff"/>
+  <text x="336" y="656" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">8 · The approval,</text>
+  <text x="336" y="674" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">as a message</text>
+  <line x1="304" y1="762" x2="188" y2="762" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M180 762L188 757.5L188 766.5Z" fill="#0d5c4a"/>
+  <rect x="208.04" y="712" width="134.96" height="46" rx="4" fill="#ffffff"/>
+  <text x="336" y="732" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">9 · Answers that</text>
+  <text x="336" y="750" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">it is done</text>
+  <rect x="24" y="801.6" width="218.6" height="19" rx="6" fill="#ffffff"/>
+  <text x="28" y="814.6" font-size="13" fill="#5b626c">If the agent asks for a person</text>
+  <line x1="180" y1="860" x2="296" y2="860" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M304 860L296 855.5L296 864.5Z" fill="#0d5c4a"/>
+  <rect x="200.48" y="828" width="142.52" height="28" rx="4" fill="#ffffff"/>
+  <text x="336" y="848" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">Asks for a person</text>
+  <line x1="304" y1="936" x2="188" y2="936" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M180 936L188 931.5L188 940.5Z" fill="#0d5c4a"/>
+  <rect x="170.24" y="886" width="172.76" height="46" rx="4" fill="#ffffff"/>
+  <text x="336" y="906" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">A person joins, or it</text>
+  <text x="336" y="924" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">says how to call</text>
+  <rect x="12" y="788" width="336" height="172" rx="8" fill="none" stroke="#c9ced5" stroke-width="1" stroke-dasharray="5 4"/>
+</svg>

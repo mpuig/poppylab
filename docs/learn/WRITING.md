@@ -22,12 +22,12 @@ Each page is exactly one kind, and its place in the navigation says which. If a
 section needs another kind, link to a page of that kind instead of including
 it.
 
-| Kind (nav group)                 | The reader wants to…                         | The page                                                         | Pages today                                                     |
-| -------------------------------- | -------------------------------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------- |
-| **Follow a process** (tutorial)  | Watch one thing get done, start to finish    | Walks one concrete case in order, with what the reader sees      | How it works, One task, the worked examples under extensions    |
-| **Understand** (explanation)     | Know why it is built this way                | Discusses an idea, weighs alternatives, makes connections        | Poppy compared, Conversations, Approvals, Domain extensions     |
-| **Build** (how-to guide)         | Get a real job done                          | Gives the steps to reach one goal, and nothing the steps don't need | Build a Company, Build a Personal Agent, Write a domain extension |
-| **Look up** (reference)          | Check a fact while working                   | Lists the facts, in a fixed pattern, without opinion             | Glossary, Validator results                                     |
+| Kind (nav group)                | The reader wants to…                      | The page                                                            | Pages today                                                       |
+| ------------------------------- | ----------------------------------------- | ------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| **Follow a process** (tutorial) | Watch one thing get done, start to finish | Walks one concrete case in order, with what the reader sees         | How it works, One task, the worked examples under extensions      |
+| **Understand** (explanation)    | Know why it is built this way             | Discusses an idea, weighs alternatives, makes connections           | Poppy compared, Conversations, Approvals, Domain extensions       |
+| **Build** (how-to guide)        | Get a real job done                       | Gives the steps to reach one goal, and nothing the steps don't need | Build a Company, Build a Personal Agent, Write a domain extension |
+| **Look up** (reference)         | Check a fact while working                | Lists the facts, in a fixed pattern, without opinion                | Glossary, Validator results                                       |
 
 To classify a page, or a single section, ask two questions. Does it tell the
 reader what to do, or what is true? And is the reader studying, or working?
@@ -119,6 +119,23 @@ Austere and neutral. It lists, in the same pattern every time.
   and not again for the same rule.
 - Say what a page doesn't cover where a reader might expect it.
 
+## Concision
+
+A page is as short as it can be while a reader loses nothing but padding.
+
+- Say each thing once. When a table, a code block or a figure carries it, the
+  prose doesn't repeat it, and the page doesn't point at the figure ("above",
+  "below", "the diagram shows").
+- No signposting ("This page explains…", "Note that…", "As we saw"), no hedges,
+  no intensifiers. An opening is at most three sentences.
+- One example carries an idea. A Build page gives a reason in a clause and
+  links the Understand page for more.
+- A `## Go deeper` has at most four bullets, each a link and at most a clause.
+- Compress phrasing, never content: every rule, field name, header, error code,
+  number and limit stays, and a rule is stated once, where it is needed.
+- A figure replaces the prose that narrates it. If the figure says "A sends X to
+  B, then B answers Y", the paragraph that says the same goes.
+
 ## Words
 
 - "Personal Agent Protocol" or "Poppy", never the three-letter abbreviation.
@@ -141,16 +158,17 @@ Austere and neutral. It lists, in the same pattern every time.
   wraps them, so a reader never scrolls sideways. Trim long values with `…`.
 - **No ASCII art.** A picture is an SVG figure, never characters in a code
   block (see Diagrams).
-- **Diagrams.** Draw one only when it shows something a paragraph can't, such
-  as who talks to whom in what order, or where a flow forks. Put the file in
+- **Diagrams.** Draw one when it shows something a paragraph takes longer to
+  say: who talks to whom in what order, where a flow forks, how an operation
+  ends, what sits above what. Then cut the paragraph. Put the file in
   `apps/playground/public/learn-media/diagrams/` as `name.svg` (and `name.narrow.svg`
   for screens under 640px) and embed it with
   `![What the figure shows, in full](path "One-sentence caption")`. The caption
   says what the figure shows, with no number and no label. Draw it as
-  [DESIGN.md](../../DESIGN.md) says figures are drawn. A sequence figure is
-  described in [`scripts/learn-diagrams.mjs`](../../scripts/learn-diagrams.mjs)
-  and drawn with `pnpm learn:diagrams`; `pnpm learn:diagrams:check` fails when a
-  file is not what the script draws. Edit the description, never the SVG.
+  [DESIGN.md](../../DESIGN.md) says figures are drawn. A figure is
+  one file in [`scripts/learn-diagrams/figures`](../../scripts/learn-diagrams/figures),
+  drawn with `pnpm learn:diagrams`; `pnpm learn:diagrams:check` fails when an
+  SVG is not what its figure draws. Edit the figure, never the SVG.
 - **Screenshots.** As in How it works: one per step, from the live lab, with the
   date in the opening.
 - **Tables.** For comparison and lookup. Never to lay out prose.
@@ -167,6 +185,6 @@ Austere and neutral. It lists, in the same pattern every time.
 - No ASCII art, and no code line that needs a sideways scroll to be understood.
 - Every term is the glossary's term, every rule cites the specification once,
   and every relative link works (`pnpm test` checks them).
-- It stays one kind from top to bottom. Past about 2,500 words, or 3,500 for a
-  Build guide with a lot of code, it probably holds two kinds or two goals:
-  split it.
+- It stays one kind from top to bottom. Past about 2,000 words of prose
+  (code not counted) it probably holds two kinds or two goals, or is saying
+  something twice: split it, or cut.

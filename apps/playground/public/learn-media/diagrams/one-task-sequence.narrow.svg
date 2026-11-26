@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 1086" font-family="'Hanken Grotesk','Helvetica Neue',Arial,sans-serif">
+  <line x1="44" y1="44" x2="44" y2="1082" stroke="#c9ced5" stroke-width="1.2"/>
+  <line x1="132" y1="44" x2="132" y2="1082" stroke="#c9ced5" stroke-width="1.2"/>
+  <line x1="220" y1="44" x2="220" y2="1082" stroke="#c9ced5" stroke-width="1.2"/>
+  <line x1="308" y1="44" x2="308" y2="1082" stroke="#c9ced5" stroke-width="1.2"/>
+  <rect x="3" y="0.6" width="82" height="42.8" rx="6" fill="#171a1f" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="44" y="26.9" text-anchor="middle" font-size="15" font-weight="600" fill="#ffffff">User</text>
+  <rect x="91" y="0.6" width="82" height="42.8" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="132" y="26.9" text-anchor="middle" font-size="15" font-weight="600" fill="#171a1f">Agent</text>
+  <rect x="179" y="0.6" width="82" height="42.8" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="220" y="26.9" text-anchor="middle" font-size="15" font-weight="600" fill="#171a1f">Company</text>
+  <rect x="267" y="0.6" width="82" height="42.8" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="308" y="26.9" text-anchor="middle" font-size="15" font-weight="600" fill="#171a1f">Issuer</text>
+  <rect x="24" y="57.6" width="169.46" height="19" rx="6" fill="#ffffff"/>
+  <text x="28" y="70.6" font-size="13" fill="#5b626c">Without an access token</text>
+  <line x1="132" y1="116" x2="212" y2="116" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M220 116L212 111.5L212 120.5Z" fill="#0d5c4a"/>
+  <rect x="120.88" y="84" width="218.12" height="28" rx="4" fill="#ffffff"/>
+  <text x="332" y="104" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">1 · Find out what it offers</text>
+  <line x1="132" y1="192" x2="212" y2="192" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M220 192L212 187.5L212 196.5Z" fill="#0d5c4a"/>
+  <rect x="173.8" y="142" width="165.2" height="46" rx="4" fill="#ffffff"/>
+  <text x="332" y="162" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">2 · Find the</text>
+  <text x="332" y="180" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">authorization server</text>
+  <line x1="132" y1="250" x2="300" y2="250" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M308 250L300 245.5L300 254.5Z" fill="#0d5c4a"/>
+  <rect x="128.44" y="218" width="210.56" height="28" rx="4" fill="#ffffff"/>
+  <text x="332" y="238" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">Read the issuer's metadata</text>
+  <line x1="132" y1="326" x2="212" y2="326" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M220 326L212 321.5L212 330.5Z" fill="#0d5c4a"/>
+  <rect x="181.36" y="276" width="157.64" height="46" rx="4" fill="#ffffff"/>
+  <text x="332" y="296" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">3 · Open a Session,</text>
+  <text x="332" y="314" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">signed out</text>
+  <line x1="132" y1="384" x2="212" y2="384" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M220 384L212 379.5L212 388.5Z" fill="#0d5c4a"/>
+  <rect x="173.8" y="352" width="165.2" height="28" rx="4" fill="#ffffff"/>
+  <text x="332" y="372" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">4 · Read public data</text>
+  <line x1="132" y1="442" x2="300" y2="442" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M308 442L300 437.5L300 446.5Z" fill="#0d5c4a"/>
+  <rect x="188.92" y="410" width="150.08" height="28" rx="4" fill="#ffffff"/>
+  <text x="332" y="430" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">5 · Ask for access</text>
+  <line x1="44" y1="518" x2="300" y2="518" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M308 518L300 513.5L300 522.5Z" fill="#0d5c4a"/>
+  <rect x="21" y="468" width="112.28" height="46" rx="4" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <text x="28" y="488" text-anchor="start" font-size="14" font-weight="600" fill="#171a1f">User signs in</text>
+  <text x="28" y="506" text-anchor="start" font-size="14" font-weight="600" fill="#171a1f">and allows</text>
+  <line x1="132" y1="576" x2="300" y2="576" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M308 576L300 571.5L300 580.5Z" fill="#0d5c4a"/>
+  <rect x="211.6" y="544" width="127.4" height="28" rx="4" fill="#ffffff"/>
+  <text x="332" y="564" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">6 · Get a token</text>
+  <line x1="12" y1="606" x2="348" y2="606" stroke="#e3e6ea" stroke-width="1"/>
+  <rect x="24" y="613.6" width="148.4" height="19" rx="6" fill="#ffffff"/>
+  <text x="28" y="626.6" font-size="13" fill="#5b626c">With an access token</text>
+  <line x1="132" y1="672" x2="212" y2="672" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M220 672L212 667.5L212 676.5Z" fill="#0d5c4a"/>
+  <rect x="188.92" y="640" width="150.08" height="28" rx="4" fill="#ffffff"/>
+  <text x="332" y="660" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">7 · Read the order</text>
+  <line x1="132" y1="730" x2="212" y2="730" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M220 730L212 725.5L212 734.5Z" fill="#0d5c4a"/>
+  <rect x="158.68" y="698" width="180.32" height="28" rx="4" fill="#ffffff"/>
+  <text x="332" y="718" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">8 · Propose the change</text>
+  <line x1="220" y1="806" x2="140" y2="806" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M132 806L140 801.5L140 810.5Z" fill="#0d5c4a"/>
+  <rect x="188.92" y="756" width="150.08" height="46" rx="4" fill="#ffffff"/>
+  <text x="332" y="776" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">approval_required,</text>
+  <text x="332" y="794" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">with the terms</text>
+  <rect x="12" y="834" width="336" height="46" rx="8" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <circle cx="32" cy="857" r="4" fill="#f2b705"/>
+  <text x="46" y="861.9" font-size="14" font-weight="600" fill="#171a1f">Waiting for the user to approve</text>
+  <line x1="44" y1="930" x2="124" y2="930" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M132 930L124 925.5L124 934.5Z" fill="#0d5c4a"/>
+  <rect x="21" y="898" width="142.52" height="28" rx="4" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <text x="28" y="918" text-anchor="start" font-size="14" font-weight="600" fill="#171a1f">9 · User approves</text>
+  <line x1="132" y1="1006" x2="212" y2="1006" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M220 1006L212 1001.5L212 1010.5Z" fill="#0d5c4a"/>
+  <rect x="196.48" y="956" width="142.52" height="46" rx="4" fill="#ffffff"/>
+  <text x="332" y="976" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">The same request,</text>
+  <text x="332" y="994" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">with the approval</text>
+  <line x1="220" y1="1064" x2="140" y2="1064" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M132 1064L140 1059.5L140 1068.5Z" fill="#0d5c4a"/>
+  <rect x="188.92" y="1032" width="150.08" height="28" rx="4" fill="#ffffff"/>
+  <text x="332" y="1052" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">The change is made</text>
+</svg>

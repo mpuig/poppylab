@@ -2,20 +2,16 @@
 
 Elena Maren is a customer of
 [Fernwick Power & Light](https://energy-demo.poppylab.dev), an electricity
-utility and one of Poppy Lab's fictional Companies. Her electric-vehicle
-charger has a meter of its own. She asks Iris, a Personal Agent, how much
-electricity the charger used last week and what her bills say, and she shares
-that meter and not her home meter. Fernwick answers from hourly readings and
-bills shaped like NAESB REQ.21 ESPI, which it lists as the extension
-`poppylab.dev/espi` v1.
+utility and one of Poppy Lab's fictional Companies. She asks Iris, a Personal
+Agent, how much electricity her electric-vehicle charger used last week and what
+her bills say, and shares the charger's meter and not her home meter. Fernwick
+answers from hourly readings and bills shaped like NAESB REQ.21 ESPI, listed as
+the extension `poppylab.dev/espi` v1.
 
-This page follows that request, one request at a time, for implementers.
-[FDX: bank data through Poppy](fdx.md) follows the same pattern with JSON.
-
-The traffic is from 25 November 2026. The discovery document comes from the
-live site. The signed-in steps come from the same Fernwick code run in-process,
-because they need a fictional customer's consent. URLs are shown as the live
-ones, tokens are redacted and long values are trimmed with `…`.
+The traffic is from 25 November 2026. The discovery document comes from the live
+site, and the signed-in steps from the same Fernwick code run in-process,
+because they need a fictional customer's consent. URLs are the live ones, and
+tokens and long values are trimmed with `…`.
 
 > **ESPI-shaped (modelled on NAESB REQ.21 ESPI), not certified.** The ESPI
 > schemas are Apache-2.0, so Fernwick reuses their element names and codes. The
@@ -23,28 +19,24 @@ ones, tokens are redacted and long values are trimmed with `…`.
 
 ## Who does what
 
-| Who                   | What they do in this process                                                                                                              |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| Elena, the user       | Signs in on Fernwick's page, chooses which meters to share and revokes the access from the agent when she wants to.                       |
-| Iris, the agent       | Declares the extension, reads the meter's feeds, adds up the hourly intervals and keeps the subscription that arrives with the token.     |
-| Fernwick, the Company | Lists the extension, asks Elena which meters to share, serves the feeds of those meters and no others, and ends the access when she asks. |
+| Who                   | What they do in this process                                                                    |
+| --------------------- | ----------------------------------------------------------------------------------------------- |
+| Elena, the user       | Signs in, chooses which meters to share and revokes the access.                                 |
+| Iris, the agent       | Declares the extension, reads the feeds, adds up the intervals and keeps the subscription.      |
+| Fernwick, the Company | Lists the extension, asks which meters to share, serves those only, ends the access on request. |
+
+![The utility lists the extension poppylab.dev/espi in its poppy.json. The Personal Agent declares the extension on every request, and a request that does not is refused with extension_required. The user signs in on the utility's page and picks the meters to share, and the token the agent receives carries the subscription. The agent finds the meter, reads last week's usage and reads the bills, and only the shared meter is listed; asking for a meter that was not shared gets a 404, as if it did not exist. The user revokes the access in the agent, and the agent deletes the authorization at the utility.](../../../apps/playground/public/learn-media/diagrams/espi-sequence.svg "Nine steps of one request for energy data, laid out like the bank's, with the two things only the user does.")
 
 ## Which request carries what
 
-The model sees none of the credentials. Each request below carries a different
-mix:
+The model sees none of the credentials.
 
-| Step | Request                                        | Session header | Access token | Who decides                |
-| ---- | ---------------------------------------------- | -------------- | ------------ | -------------------------- |
-| 1    | `GET /.well-known/poppy.json`                  | no             | no           |                            |
-| 2    | any `/espi/1_1/resource/...`, undeclared       | yes            | yes          |                            |
-| 3    | `POST /oauth/par`, consent                     | no             | no           | **the user**, at Fernwick  |
-| 4    | `POST /oauth/token`                            | no             | no           |                            |
-| 5    | `GET …/UsagePoint`                             | yes            | yes          |                            |
-| 6    | `GET …/IntervalBlock`                          | yes            | yes          |                            |
-| 7    | `GET …/UsageSummary`                           | yes            | yes          |                            |
-| 8    | a meter the user didn't share                  | yes            | yes          |                            |
-| 9    | `DELETE /espi/1_1/resource/Authorization/{id}` | yes            | yes          | **the user**, in the agent |
+| Request                                               | Session header | Access token | Who decides                |
+| ----------------------------------------------------- | -------------- | ------------ | -------------------------- |
+| `GET /.well-known/poppy.json`                         | no             | no           |                            |
+| `POST /oauth/par`, consent, `POST /oauth/token`       | no             | no           | **the user**, at Fernwick  |
+| any `/espi/1_1/resource/...` request, declared or not | yes            | yes          |                            |
+| `DELETE /espi/1_1/resource/Authorization/{id}`        | yes            | yes          | **the user**, in the agent |
 
 ## 1. The utility lists the extension
 
@@ -100,30 +92,28 @@ GET https://energy-demo.poppylab.dev/.well-known/poppy.json
 }
 ```
 
-- **The name carries a domain.** Names without one are reserved for extensions
-  defined with the protocol, so anyone else's extension starts with a domain
-  they control
+- **The name carries a domain.** Names without one are reserved for the
+  protocol's own extensions
   ([§3.3](https://personalagentprotocol.org/docs/1.0/spec#extensions)).
-- **The agent checks the entry before using it.** `resource_endpoint` must be
-  an HTTPS URL on `organization.domain`, with no credentials, query or
-  fragment. An entry that fails counts as not listed, and the Inspector says
-  why. `espi_version`, `resources` and `function_blocks` are informational.
+- **The agent checks the entry before using it.** `resource_endpoint` must be an
+  HTTPS URL on `organization.domain`, with no credentials, query or fragment. A
+  failing entry counts as not listed, and the Inspector says why.
+  `espi_version`, `resources` and `function_blocks` are informational.
 - **There is no OpenAPI description of the ESPI-shaped API.** `apis` lists only
-  Fernwick's own API. ESPI serves Atom XML, so the entry under `extensions` is
-  the one place that says the API exists and where it is.
-- **Each scope has hints.** The three `espi:` scopes read, and what they read is
-  personal
+  Fernwick's own, and ESPI serves Atom XML, so the entry under `extensions` is
+  the one place that says the API exists and where.
+- **Each scope has hints.** The three `espi:` scopes read personal data
   ([§4.7](https://personalagentprotocol.org/docs/1.0/spec#scopes)). Their
-  descriptions, trimmed here, name the ESPI function blocks each covers in
-  Fernwick's own words: blocks 1, 3, 4, 5, 12 and 13 for `espi:usage`, 15 and 16
-  for `espi:summary`, and 51, 53, 54 and 55 for `espi:customer`.
+  descriptions, trimmed here, name the ESPI function blocks each covers: blocks
+  1, 3, 4, 5, 12 and 13 for `espi:usage`, 15 and 16 for `espi:summary`, and 51,
+  53, 54 and 55 for `espi:customer`.
 
 ## 2. Declare the extension, or be refused
 
 The agent declares the extension on every request of the Session, next to
 Operations
-([§3.4](https://personalagentprotocol.org/docs/1.0/spec#versions)). This
-request reads the utility's local-time rules:
+([§3.4](https://personalagentprotocol.org/docs/1.0/spec#versions)). This one
+reads the utility's local-time rules:
 
 ```http
 GET https://energy-demo.poppylab.dev/espi/1_1/resource/LocalTimeParameters/LTP-PACIFIC
@@ -143,27 +133,22 @@ Content-Type: application/json
 { "error": "extension_required", "extension": "poppylab.dev/espi" }
 ```
 
-The order matters. Only a new Session that declares the extension can fix this,
-so a refresh, a DPoP nonce retry or a fresh sign-in in front of it would be
-wasted, and a refused request shouldn't touch any grant or Session. In Iris,
-turning **Use ESPI** on or off starts a new Session for the same reason.
+Only a new Session that declares the extension fixes this, so a refresh, a DPoP
+nonce retry or a fresh sign-in first would be wasted, and a refused request
+touches no grant or Session.
 
 ## 3. Sign in and choose the meters
 
 The sign-in is Poppy's usual Direct Sign-In with PAR, PKCE and DPoP
 ([§4.2](https://personalagentprotocol.org/docs/1.0/spec#direct-sign-in)). Only
-the scopes and the consent page change. Iris asks for the scopes its ESPI tools
-use, `espi:usage` and `espi:summary`, besides Fernwick's own `account:read`. It
-never asks for `espi:customer`, the customer's name and service address,
-because it has no tool that reads them.
+the scopes and the consent page change. Iris asks for `espi:usage` and
+`espi:summary`, the scopes its ESPI tools use, besides Fernwick's own
+`account:read`, and never for `espi:customer` (the customer's name and service
+address), which no tool reads.
 
-Fernwick's consent page adds a "Meters to share" list under the test customers.
-Elena's two meters are ticked by default: Home, on a flat rate, and EV charger,
-on time of use. She unticks Home. Approving with no meter ticked is turned down
-(`400 invalid_request`) rather than granted empty.
-
-The choice holds for the whole grant. Fernwick's own API and its Company Agent
-see the EV charger only.
+Fernwick's consent page adds a "Meters to share" list, with Elena's two ticked
+by default: Home and EV charger. She unticks Home. Approving with no meter
+ticked is turned down (`400 invalid_request`).
 
 ## 4. The token carries the subscription
 
@@ -181,8 +166,8 @@ see the EV charger only.
 
 In ESPI a third party reads a customer's data through a subscription and
 manages it through an authorization. Here both are the Poppy grant, and the ID
-at the end of each URI is the grant's ID. Every token response of the grant
-carries the two fields, at the code exchange and at every refresh. Other agents
+at the end of each URI is the grant's ID. Every token response of the grant, at
+the code exchange and at every refresh, carries the two fields. Other agents
 ignore a field they don't know (RFC 6749 §5.1).
 
 Iris keeps a URI only when it is exactly
@@ -218,20 +203,14 @@ GET https://energy-demo.poppylab.dev/espi/1_1/resource/Subscription/_mY5zLlQUROT
 </feed>
 ```
 
-The answer is an Atom feed, served as `application/atom+xml`. It is indented
-and trimmed here: Fernwick serves it without indentation, with `rights`,
-`updated` and dates besides. Each entry has an `id`, a `title`, links and a
-`<content>` whose one child is the ESPI object.
-
-Only the EV charger is listed. The `related` links tell the agent where the
-meter's readings, bills and local time are. A reading links to a ReadingType
-that says what it measures: `uom` 72 is watt-hours, `intervalLength` 3600 is an
-hour and `currency` 840 is US dollars.
+The answer is an Atom feed (`application/atom+xml`), indented and trimmed here.
+Only the EV charger is listed. A reading links to a ReadingType that says what
+it measures: `uom` 72 is watt-hours, `intervalLength` 3600 is an hour and
+`currency` 840 is US dollars.
 
 ## 6. Read last week's usage
 
-Elena asks for last week. The model calls Iris's `espi_usage` tool with local
-dates:
+The model calls Iris's `espi_usage` tool with local dates:
 
 ```json
 { "usagePointId": "UP-E2", "from": "2026-11-18", "to": "2026-11-24" }
@@ -244,9 +223,9 @@ the interval blocks in that window:
 GET https://energy-demo.poppylab.dev/espi/1_1/resource/Subscription/_mY5zLlQUROTfgo7jufBY2oPhKe6RHZp/UsagePoint/UP-E2/MeterReading/MR-E2/IntervalBlock?published-min=2026-11-18T08%3A00%3A00Z&published-max=2026-11-25T08%3A00%3A00Z&start-index=1&max-results=31
 ```
 
-Fernwick answers a feed with one `IntervalBlock` entry for each UTC day that
-overlaps the window. This is the entry for 20 November, trimmed to two of its
-24 readings:
+Fernwick answers with one `IntervalBlock` entry for each UTC day that overlaps
+the window. This is the entry for 20 November, trimmed to one of its 24
+readings:
 
 ```xml
 <entry>
@@ -256,12 +235,6 @@ overlaps the window. This is the entry for 20 November, trimmed to two of its
     <espi:IntervalBlock>
       <espi:interval><espi:duration>86400</espi:duration><espi:start>1795132800</espi:start></espi:interval>
       …
-      <espi:IntervalReading>
-        <espi:cost>68</espi:cost>
-        <espi:timePeriod><espi:duration>3600</espi:duration><espi:start>1795150800</espi:start></espi:timePeriod>
-        <espi:value>4</espi:value>
-        <espi:tou>1</espi:tou>
-      </espi:IntervalReading>
       <espi:IntervalReading>
         <espi:cost>122400</espi:cost>
         <espi:timePeriod><espi:duration>3600</espi:duration><espi:start>1795154400</espi:start></espi:timePeriod>
@@ -278,16 +251,14 @@ The charger drew 7,200 Wh in the hour that starts at 1795154400 seconds since
 1970, which is 06:00 UTC and 22:00 on the 19th in Pacific time. `cost` is in
 hundred-thousandths of a dollar, so 122400 is USD 1.224. `tou` 1 is off-peak.
 
-The model sees none of this. A meter reports an interval every hour: 24
-readings a day and 2,208 over the longest window of 92 days. The agent decodes
-the units on the way. Values are watt-hours times a power of ten, costs are in
-hundred-thousandths of a dollar and times are seconds since 1970.
+The model sees none of this. The agent decodes the units, with values in
+watt-hours times a power of ten.
 
 The agent also puts days in the utility's local time, from the
 `LocalTimeParameters` it read: a `tzOffset` of -28800, a `dstOffset` of 3600
 and the rules `360E2000` and `B40E2000`. The tool answers in kWh and dollars
-per local day, or per hour for at most three days, with the total and the hours
-of highest use:
+per local day, or per hour for at most three days, trimmed here to two of the
+seven days and the highest hour:
 
 ```json
 {
@@ -316,12 +287,10 @@ of highest use:
 }
 ```
 
-The answer is trimmed to two of the seven days and the highest hour.
-
 ## 7. Read the bills
 
-Fernwick bills on the 1st, for a UTC month. The tool `espi_bills` asks for the
-bill summaries published in the last 92 days:
+The tool `espi_bills` asks for the bill summaries published in the last 92
+days:
 
 ```http
 GET https://energy-demo.poppylab.dev/espi/1_1/resource/Subscription/_mY5zLlQUROTfgo7jufBY2oPhKe6RHZp/UsagePoint/UP-E2/UsageSummary?published-min=2026-08-26T07%3A00%3A00Z&published-max=2026-11-26T08%3A00%3A00Z&start-index=1&max-results=31
@@ -365,9 +334,9 @@ trimmed:
 468,197 Wh. The bill has one `costAdditionalDetailLastPeriod` for each line: the
 service charge (`itemKind` 2) and the energy in each price band (`itemKind` 3).
 
-The tool adds the lines up and answers in kWh and dollars. Fernwick closes its
-bills at UTC midnight on the 1st, so the agent dates a bill's period in UTC.
-In Pacific dates October would seem to start on 30 September.
+The tool answers in kWh and dollars, trimmed here to the October bill. Fernwick bills for a UTC month, closing at UTC midnight on the 1st, so the
+agent dates a bill's period in UTC: in Pacific dates October would seem to start on 30
+September.
 
 ```json
 {
@@ -400,8 +369,6 @@ In Pacific dates October would seem to start on 30 September.
 }
 ```
 
-The answer is trimmed to the October bill, and September's is the other.
-
 ## 8. Ask for a meter that wasn't shared
 
 Elena's home meter is `UP-E1`. She didn't share it:
@@ -432,22 +399,22 @@ Content-Type: application/json
 { "error": "invalid_parameter", "description": "published-min must be an RFC 3339 date-time, such as 2026-11-01T00:00:00Z" }
 ```
 
-These are the API's own errors, and they go to the model, bounded, as
-`{ "error": "espi_error", "status": 404 }`. A bare `404` has no body to pass on,
-so the model gets only the status.
+Domain errors like these go to the model, bounded, as
+`{ "error": "espi_error", "status": 404 }`. A bare `404` has no body, so the
+model gets only the status.
 
-Protocol errors never reach the model as ESPI ones: `invalid_session`,
+Protocol errors never reach it as ESPI ones: `invalid_session`,
 `session_ended`, `extension_required`, `insufficient_scope` and token challenges
-in `WWW-Authenticate` keep their own path. The transport tells them apart by the
+in `WWW-Authenticate`. The transport tells them apart by the
 known Poppy and OAuth codes and the challenge header, and for ESPI also by the
 bare `404`.
 
 ## 9. Revoke the access
 
 Revoking is Elena's action, not a tool the model has. Iris shows the
-subscription in the account row: its status, the shared meters and its expiry.
-The status comes from the Authorization at `authorizationURI`, which Iris reads
-with its `espi_authorization` tool:
+subscription's status in the account row, reading it from the Authorization at
+`authorizationURI` with its `espi_authorization` tool, trimmed here to the
+grant's status, end and scope:
 
 ```json
 {
@@ -460,9 +427,8 @@ with its `espi_authorization` tool:
 }
 ```
 
-The answer is trimmed to the grant's status, end and scope. This grant lasts one
-hour, because it has no `offline_access`. The row also has a **Revoke ESPI
-access** button that asks again in the page. Elena confirms, and Iris sends:
+The row also has a **Revoke ESPI access** button that asks again in the page.
+Elena confirms, and Iris sends:
 
 ```http
 DELETE https://energy-demo.poppylab.dev/espi/1_1/resource/Authorization/_mY5zLlQUROTfgo7jufBY2oPhKe6RHZp
@@ -473,7 +439,7 @@ HTTP/1.1 204 No Content
 ```
 
 That ends the grant, its access tokens and its refresh token, on the
-ESPI-shaped API and on Fernwick's own API alike. The next request gets
+ESPI-shaped API and on Fernwick's own API alike, and the next request gets
 `401 invalid_token`:
 
 ```http
@@ -484,40 +450,31 @@ Content-Type: application/json
 { "error": "invalid_token" }
 ```
 
-ESPI speaks of updating or deleting the authorization without settling the
-method, so `DELETE` is the extension's own choice. Revoking the refresh token
+Revoking the refresh token
 ([§4.6](https://personalagentprotocol.org/docs/1.0/spec#revocation)), or
 disconnecting the agent in Fernwick's customer portal, ends the subscription the
 same way. After the `204`, Iris signs the conversation out.
 
 ## What Fernwick controls
 
-Fernwick stays in charge of its own business throughout.
-
-- It decides which scopes exist, what each unlocks and what each changes. The
-  three `espi:` scopes only read.
-- The sign-in and the choice of meters happen on its own page. An approval with
-  no meter is turned down.
-- It applies the choice to the whole grant: the ESPI-shaped API, its own API and
-  its Company Agent. A meter outside the choice doesn't exist for the agent.
-- It decides what a day and a bill are. Days and billing months are UTC, and a
-  window is the last 31 days unless the agent asks for more, up to 92 days and
-  an hour.
+- It decides which scopes exist, what each unlocks and what each changes, runs
+  the sign-in and the choice of meters on its own page, and applies the choice
+  to the whole grant: the ESPI-shaped API, its own API and its Company Agent.
+- It decides what a day and a bill are: both are UTC, and a window is the last
+  31 days unless the agent asks for more, up to 92 days and an hour.
 - It ends the grant. Without `offline_access` the grant ends with its first
   access token. With it, the grant refreshes for 7 days.
-- It keeps writes out of this API. A switch between its plans stays on its own
+- It keeps writes out of this API: a switch between its plans stays on its own
   API, with approval of the exact terms.
 
 ## For the technical reader
 
-[Domain extensions](README.md) explains why an extension exists and what
-changed between this example and the bank's.
-[Write a domain extension](../write-an-extension.md) gives the steps to define
-one. The contract is [`poppylab.dev/espi` v1](../../extensions/espi.md), and
-Fernwick's side is in
-[its design note](../../fernwick-power.md#espi-shaped-api).
+[Domain extensions](README.md) explains why the extension exists, and
+[FDX: bank data through Poppy](fdx.md) follows the same pattern with JSON.
+[Write a domain extension](../write-an-extension.md) shows how to define one.
+The contract is [`poppylab.dev/espi` v1](../../extensions/espi.md), and
+Fernwick's side is in [its design note](../../fernwick-power.md#espi-shaped-api).
 
-To run it yourself, open the [playground](https://poppylab.dev/playground), pick
-**Fernwick Power & Light**, turn **Use ESPI** on and sign in. Share the EV
-charger, then ask how much electricity it used last week. The Inspector shows
-each request with the scopes it used.
+To run it, pick **Fernwick Power & Light** in the
+[playground](https://poppylab.dev/playground), turn **Use ESPI** on, sign in and
+share the EV charger.

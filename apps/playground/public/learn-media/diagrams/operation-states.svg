@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 442" font-family="'Hanken Grotesk','Helvetica Neue',Arial,sans-serif">
+  <line x1="121" y1="119" x2="312" y2="119" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M312 119L312 45Q312 37 320 37L451 37" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M459 37L451 41.5L451 32.5Z" fill="#0d5c4a"/>
+  <path d="M312 119LNaN NaNQ312 119 312 119L451 119" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M459 119L451 123.5L451 114.5Z" fill="#0d5c4a"/>
+  <path d="M312 119L312 193Q312 201 320 201L451 201" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M459 201L451 205.5L451 196.5Z" fill="#0d5c4a"/>
+  <circle cx="312" cy="119" r="3.5" fill="#0d5c4a"/>
+  <path d="M88 163L88 291Q88 299 96 299L451 299" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M459 299L451 303.5L451 294.5Z" fill="#0d5c4a"/>
+  <path d="M40 163L40 397Q40 405 48 405L451 405" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M459 405L451 409.5L451 400.5Z" fill="#0d5c4a"/>
+  <path d="M487 335L487 357" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M487 365L482.5 357L491.5 357Z" fill="#0d5c4a"/>
+  <rect x="1" y="75" width="120" height="88" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="17" y="110.8" font-size="16" font-weight="600" fill="#171a1f">Proposed</text>
+  <text x="17" y="130.4" font-size="14" font-weight="400" fill="#5b626c">waiting for</text>
+  <text x="17" y="148.4" font-size="14" font-weight="400" fill="#5b626c">approval</text>
+  <rect x="463" y="1" width="256" height="72" rx="6" fill="#eaf3f0" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="479" y="37.8" font-size="16" font-weight="600" fill="#171a1f">Made once</text>
+  <text x="479" y="57.4" font-size="14" font-weight="400" fill="#3a4049">the change is performed</text>
+  <rect x="463" y="83" width="256" height="72" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="479" y="110.8" font-size="16" font-weight="600" fill="#171a1f">Declined by the Company</text>
+  <text x="479" y="130.4" font-size="14" font-weight="400" fill="#5b626c">approval_declined</text>
+  <text x="479" y="148.4" font-size="14" font-weight="400" fill="#5b626c">final for that approval</text>
+  <rect x="463" y="165" width="256" height="72" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="479" y="192.8" font-size="16" font-weight="600" fill="#171a1f">A new revision</text>
+  <text x="479" y="212.4" font-size="14" font-weight="400" fill="#5b626c">the old approval</text>
+  <text x="479" y="230.4" font-size="14" font-weight="400" fill="#5b626c">no longer applies</text>
+  <rect x="463" y="263" width="256" height="72" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="479" y="299.8" font-size="16" font-weight="600" fill="#171a1f">Declined in the agent</text>
+  <text x="479" y="319.4" font-size="14" font-weight="400" fill="#5b626c">the Company is not told</text>
+  <rect x="463" y="369" width="256" height="72" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="479" y="396.8" font-size="16" font-weight="600" fill="#171a1f">Expired</text>
+  <text x="479" y="416.4" font-size="14" font-weight="400" fill="#5b626c">nothing was done;</text>
+  <text x="479" y="434.4" font-size="14" font-weight="400" fill="#5b626c">it can't be approved late</text>
+  <text x="216.5" y="57" text-anchor="middle" font-size="14" font-weight="400" fill="#5b626c">or the agent, on</text>
+  <text x="216.5" y="75" text-anchor="middle" font-size="14" font-weight="400" fill="#5b626c">an instruction</text>
+  <text x="216.5" y="93" text-anchor="middle" font-size="14" font-weight="400" fill="#5b626c">the user gave it</text>
+  <rect x="135.1" y="105" width="162.8" height="28" rx="4" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <text x="216.5" y="124.25" text-anchor="middle" font-size="15" font-weight="600" fill="#171a1f">The user approves</text>
+  <text x="216.5" y="155" text-anchor="middle" font-size="14" font-weight="400" fill="#5b626c">then the Company</text>
+  <text x="216.5" y="173" text-anchor="middle" font-size="14" font-weight="400" fill="#5b626c">checks the approval</text>
+  <text x="328" y="29" font-size="14" font-weight="400" fill="#5b626c">terms still match</text>
+  <text x="328" y="111" font-size="14" font-weight="400" fill="#5b626c">Company declines</text>
+  <text x="328" y="193" font-size="14" font-weight="400" fill="#5b626c">terms changed</text>
+  <rect x="194.1" y="285" width="162.8" height="28" rx="4" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <text x="275.5" y="304.25" text-anchor="middle" font-size="15" font-weight="600" fill="#171a1f">The user declines</text>
+  <text x="251.5" y="397" text-anchor="middle" font-size="14" font-weight="400" fill="#5b626c">the time runs out</text>
+  <text x="499" y="357" font-size="14" font-weight="400" fill="#5b626c">waits until it expires</text>
+</svg>

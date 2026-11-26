@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 956" font-family="'Hanken Grotesk','Helvetica Neue',Arial,sans-serif">
+  <line x1="56" y1="44" x2="56" y2="952" stroke="#c9ced5" stroke-width="1.2"/>
+  <line x1="180" y1="44" x2="180" y2="952" stroke="#c9ced5" stroke-width="1.2"/>
+  <line x1="304" y1="44" x2="304" y2="952" stroke="#c9ced5" stroke-width="1.2"/>
+  <rect x="6" y="0.6" width="100" height="42.8" rx="6" fill="#171a1f" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="56" y="26.9" text-anchor="middle" font-size="15" font-weight="600" fill="#ffffff">User</text>
+  <rect x="130" y="0.6" width="100" height="42.8" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="180" y="26.9" text-anchor="middle" font-size="15" font-weight="600" fill="#171a1f">Agent</text>
+  <rect x="254" y="0.6" width="100" height="42.8" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="304" y="26.9" text-anchor="middle" font-size="15" font-weight="600" fill="#171a1f">Fernwick</text>
+  <line x1="304" y1="112" x2="188" y2="112" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M180 112L188 107.5L188 116.5Z" fill="#0d5c4a"/>
+  <rect x="182.24" y="62" width="172.76" height="46" rx="4" fill="#ffffff"/>
+  <text x="348" y="82" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">1 · The utility lists</text>
+  <text x="348" y="100" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">poppylab.dev/espi</text>
+  <line x1="180" y1="188" x2="296" y2="188" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M304 188L296 183.5L296 192.5Z" fill="#0d5c4a"/>
+  <rect x="197.36" y="138" width="157.64" height="46" rx="4" fill="#ffffff"/>
+  <text x="348" y="158" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">2 · Declares it, on</text>
+  <text x="348" y="176" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">every request</text>
+  <line x1="304" y1="264" x2="188" y2="264" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M180 264L188 259.5L188 268.5Z" fill="#0d5c4a"/>
+  <rect x="204.92" y="214" width="150.08" height="46" rx="4" fill="#ffffff"/>
+  <text x="348" y="234" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">If undeclared:</text>
+  <text x="348" y="252" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">extension_required</text>
+  <line x1="56" y1="340" x2="296" y2="340" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M304 340L296 335.5L296 344.5Z" fill="#0d5c4a"/>
+  <rect x="5" y="290" width="150.08" height="46" rx="4" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <text x="12" y="310" text-anchor="start" font-size="14" font-weight="600" fill="#171a1f">3 · User signs in,</text>
+  <text x="12" y="328" text-anchor="start" font-size="14" font-weight="600" fill="#171a1f">picks meters</text>
+  <line x1="304" y1="416" x2="188" y2="416" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M180 416L188 411.5L188 420.5Z" fill="#0d5c4a"/>
+  <rect x="182.24" y="366" width="172.76" height="46" rx="4" fill="#ffffff"/>
+  <text x="348" y="386" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">4 · The token carries</text>
+  <text x="348" y="404" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">the subscription</text>
+  <line x1="180" y1="474" x2="296" y2="474" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M304 474L296 469.5L296 478.5Z" fill="#0d5c4a"/>
+  <rect x="197.36" y="442" width="157.64" height="28" rx="4" fill="#ffffff"/>
+  <text x="348" y="462" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">5 · Finds the meter</text>
+  <line x1="304" y1="550" x2="188" y2="550" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M180 550L188 545.5L188 554.5Z" fill="#0d5c4a"/>
+  <rect x="197.36" y="500" width="157.64" height="46" rx="4" fill="#ffffff"/>
+  <text x="348" y="520" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">Only the EV charger</text>
+  <text x="348" y="538" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">is listed</text>
+  <line x1="180" y1="608" x2="296" y2="608" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M304 608L296 603.5L296 612.5Z" fill="#0d5c4a"/>
+  <rect x="136.88" y="576" width="218.12" height="28" rx="4" fill="#ffffff"/>
+  <text x="348" y="596" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">6 · Reads last week's usage</text>
+  <line x1="180" y1="666" x2="296" y2="666" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M304 666L296 661.5L296 670.5Z" fill="#0d5c4a"/>
+  <rect x="197.36" y="634" width="157.64" height="28" rx="4" fill="#ffffff"/>
+  <text x="348" y="654" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">7 · Reads the bills</text>
+  <line x1="180" y1="742" x2="296" y2="742" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M304 742L296 737.5L296 746.5Z" fill="#0d5c4a"/>
+  <rect x="189.8" y="692" width="165.2" height="46" rx="4" fill="#ffffff"/>
+  <text x="348" y="712" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">8 · Asks for a meter</text>
+  <text x="348" y="730" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">not shared</text>
+  <line x1="304" y1="800" x2="188" y2="800" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M180 800L188 795.5L188 804.5Z" fill="#0d5c4a"/>
+  <rect x="144.44" y="768" width="210.56" height="28" rx="4" fill="#ffffff"/>
+  <text x="348" y="788" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">404, as if it didn't exist</text>
+  <line x1="56" y1="876" x2="172" y2="876" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M180 876L172 871.5L172 880.5Z" fill="#0d5c4a"/>
+  <rect x="5" y="826" width="142.52" height="46" rx="4" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <text x="12" y="846" text-anchor="start" font-size="14" font-weight="600" fill="#171a1f">9 · User revokes,</text>
+  <text x="12" y="864" text-anchor="start" font-size="14" font-weight="600" fill="#171a1f">in the agent</text>
+  <line x1="180" y1="934" x2="296" y2="934" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M304 934L296 929.5L296 938.5Z" fill="#0d5c4a"/>
+  <rect x="152" y="902" width="203" height="28" rx="4" fill="#ffffff"/>
+  <text x="348" y="922" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">Deletes the authorization</text>
+</svg>

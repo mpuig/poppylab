@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 362" font-family="'Hanken Grotesk','Helvetica Neue',Arial,sans-serif">
+  <rect x="1" y="1" width="718" height="64" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="360" y="31" text-anchor="middle" font-size="16" font-weight="600" fill="#171a1f">Personal Agent</text>
+  <text x="360" y="48" text-anchor="middle" font-size="14" font-weight="400" fill="#5b626c">acting for a user</text>
+  <path d="M360 73L360 89" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M360 97L355.5 89L364.5 89Z" fill="#0d5c4a"/>
+  <path d="M360 65L364.5 73L355.5 73Z" fill="#0d5c4a"/>
+  <rect x="1" y="97" width="718" height="124" rx="8" fill="#eaf3f0" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="21" y="125" font-size="16" font-weight="600" fill="#0d5c4a">Poppy settles</text>
+  <text x="699" y="125" text-anchor="end" font-size="14" font-weight="400" fill="#3a4049">wraps the interfaces and replaces none</text>
+  <rect x="21" y="141" width="162" height="64" rx="6" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="102" y="178.25" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">Who the agent is</text>
+  <rect x="193" y="141" width="162" height="64" rx="6" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="274" y="168.75" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">Which user it</text>
+  <text x="274" y="187.75" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">acts for</text>
+  <rect x="365" y="141" width="162" height="64" rx="6" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="446" y="168.75" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">What that user</text>
+  <text x="446" y="187.75" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">allowed</text>
+  <rect x="537" y="141" width="162" height="64" rx="6" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="618" y="168.75" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">When a person</text>
+  <text x="618" y="187.75" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">has to say yes</text>
+  <circle cx="687" cy="153" r="4" fill="#f2b705"/>
+  <path d="M102 229L102 245" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M102 253L97.5 245L106.5 245Z" fill="#0d5c4a"/>
+  <path d="M102 221L106.5 229L97.5 229Z" fill="#0d5c4a"/>
+  <path d="M274 229L274 245" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M274 253L269.5 245L278.5 245Z" fill="#0d5c4a"/>
+  <path d="M274 221L278.5 229L269.5 229Z" fill="#0d5c4a"/>
+  <path d="M446 229L446 245" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M446 253L441.5 245L450.5 245Z" fill="#0d5c4a"/>
+  <path d="M446 221L450.5 229L441.5 229Z" fill="#0d5c4a"/>
+  <path d="M618 229L618 245" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M618 253L613.5 245L622.5 245Z" fill="#0d5c4a"/>
+  <path d="M618 221L622.5 229L613.5 229Z" fill="#0d5c4a"/>
+  <rect x="1" y="253" width="718" height="108" rx="8" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="21" y="281" font-size="16" font-weight="600" fill="#171a1f">The Company's interfaces, unchanged</text>
+  <text x="699" y="281" text-anchor="end" font-size="14" font-weight="400" fill="#5b626c">all listed in /.well-known/poppy.json</text>
+  <rect x="21" y="297" width="162" height="48" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="102" y="326.25" text-anchor="middle" font-size="15" font-weight="600" fill="#171a1f">OpenAPI</text>
+  <rect x="193" y="297" width="162" height="48" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="274" y="326.25" text-anchor="middle" font-size="15" font-weight="600" fill="#171a1f">MCP</text>
+  <rect x="365" y="297" width="162" height="48" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="446" y="326.25" text-anchor="middle" font-size="15" font-weight="600" fill="#171a1f">Support chat</text>
+  <rect x="537" y="297" width="162" height="48" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="618" y="326.25" text-anchor="middle" font-size="15" font-weight="600" fill="#171a1f">Website</text>
+</svg>

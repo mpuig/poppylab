@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 896" font-family="'Hanken Grotesk','Helvetica Neue',Arial,sans-serif">
+  <line x1="96" y1="48" x2="96" y2="892" stroke="#c9ced5" stroke-width="1.2"/>
+  <line x1="360" y1="48" x2="360" y2="892" stroke="#c9ced5" stroke-width="1.2"/>
+  <line x1="624" y1="48" x2="624" y2="892" stroke="#c9ced5" stroke-width="1.2"/>
+  <rect x="12" y="0.6" width="168" height="46.8" rx="6" fill="#171a1f" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="96" y="29.25" text-anchor="middle" font-size="16" font-weight="600" fill="#ffffff">The user</text>
+  <rect x="276" y="0.6" width="168" height="46.8" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="360" y="29.25" text-anchor="middle" font-size="16" font-weight="600" fill="#171a1f">Personal Agent</text>
+  <rect x="540" y="0.6" width="168" height="46.8" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="624" y="29.25" text-anchor="middle" font-size="16" font-weight="600" fill="#171a1f">Company Agent</text>
+  <line x1="360" y1="99" x2="616" y2="99" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M624 99L616 94.5L616 103.5Z" fill="#0d5c4a"/>
+  <rect x="383.75" y="66" width="216.5" height="29" rx="4" fill="#ffffff"/>
+  <text x="492" y="87" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">1 · Starts a conversation</text>
+  <line x1="624" y1="158" x2="368" y2="158" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M360 158L368 153.5L368 162.5Z" fill="#0d5c4a"/>
+  <rect x="339.2" y="125" width="305.6" height="29" rx="4" fill="#ffffff"/>
+  <text x="492" y="146" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">2 · Text for people, data for agents</text>
+  <line x1="360" y1="217" x2="616" y2="217" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M624 217L616 212.5L616 221.5Z" fill="#0d5c4a"/>
+  <rect x="371.6" y="184" width="240.8" height="29" rx="4" fill="#ffffff"/>
+  <text x="492" y="205" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">3 · Reports the missing dish</text>
+  <line x1="624" y1="276" x2="368" y2="276" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M360 276L368 271.5L368 280.5Z" fill="#0d5c4a"/>
+  <rect x="367.55" y="243" width="248.9" height="29" rx="4" fill="#ffffff"/>
+  <text x="492" y="264" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">4 · Asks the agent to sign in</text>
+  <rect x="12" y="304" width="696" height="46" rx="8" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <circle cx="32" cy="327" r="4" fill="#f2b705"/>
+  <text x="46" y="332.25" font-size="15" font-weight="600" fill="#171a1f">Waiting while the user signs in on the Company's own page</text>
+  <line x1="360" y1="401" x2="616" y2="401" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M624 401L616 396.5L616 405.5Z" fill="#0d5c4a"/>
+  <rect x="375.65" y="368" width="232.7" height="29" rx="4" fill="#ffffff"/>
+  <text x="492" y="389" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">5 · Sends the request again</text>
+  <line x1="624" y1="460" x2="368" y2="460" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M360 460L368 455.5L368 464.5Z" fill="#0d5c4a"/>
+  <rect x="355.4" y="427" width="273.2" height="29" rx="4" fill="#ffffff"/>
+  <text x="492" y="448" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">6 · A proposal, inside a message</text>
+  <rect x="12" y="488" width="696" height="46" rx="8" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <circle cx="32" cy="511" r="4" fill="#f2b705"/>
+  <text x="46" y="516.25" font-size="15" font-weight="600" fill="#171a1f">Waiting for the user to approve the terms</text>
+  <line x1="96" y1="585" x2="352" y2="585" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M360 585L352 580.5L352 589.5Z" fill="#0d5c4a"/>
+  <rect x="135.95" y="552" width="184.1" height="29" rx="4" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <text x="228" y="573" text-anchor="middle" font-size="15" font-weight="600" fill="#171a1f">7 · The user approves</text>
+  <line x1="360" y1="644" x2="616" y2="644" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M624 644L616 639.5L616 648.5Z" fill="#0d5c4a"/>
+  <rect x="363.5" y="611" width="257" height="29" rx="4" fill="#ffffff"/>
+  <text x="492" y="632" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">8 · The approval, as a message</text>
+  <line x1="624" y1="703" x2="368" y2="703" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M360 703L368 698.5L368 707.5Z" fill="#0d5c4a"/>
+  <rect x="375.65" y="670" width="232.7" height="29" rx="4" fill="#ffffff"/>
+  <text x="492" y="691" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">9 · Answers that it is done</text>
+  <rect x="24" y="742.5" width="234.8" height="20" rx="6" fill="#ffffff"/>
+  <text x="28" y="756.5" font-size="14" fill="#5b626c">If the agent asks for a person</text>
+  <line x1="360" y1="803" x2="616" y2="803" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M624 803L616 798.5L616 807.5Z" fill="#0d5c4a"/>
+  <rect x="416.15" y="770" width="151.7" height="29" rx="4" fill="#ffffff"/>
+  <text x="492" y="791" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">Asks for a person</text>
+  <line x1="624" y1="862" x2="368" y2="862" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M360 862L368 857.5L368 866.5Z" fill="#0d5c4a"/>
+  <rect x="331.1" y="829" width="321.8" height="29" rx="4" fill="#ffffff"/>
+  <text x="492" y="850" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">A person joins, or it says how to call</text>
+  <rect x="12" y="729" width="696" height="157" rx="8" fill="none" stroke="#c9ced5" stroke-width="1" stroke-dasharray="5 4"/>
+</svg>

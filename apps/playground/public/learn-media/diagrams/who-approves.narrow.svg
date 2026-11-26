@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 664" font-family="'Hanken Grotesk','Helvetica Neue',Arial,sans-serif">
+  <path d="M25 65L25 93" fill="none" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M25 101L20.5 93L29.5 93Z" fill="#0d5c4a"/>
+  <path d="M229 137L213 137" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M205 137L213 132.5L213 141.5Z" fill="#0d5c4a"/>
+  <path d="M25 169L25 366Q25 374 33 374L45 374" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M53 374L45 378.5L45 369.5Z" fill="#0d5c4a"/>
+  <path d="M25 260L45 260" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M53 260L45 264.5L45 255.5Z" fill="#0d5c4a"/>
+  <path d="M89 404L89 464" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M89 472L84.5 464L93.5 464Z" fill="#0d5c4a"/>
+  <rect x="1" y="1" width="200" height="64" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="17" y="33.8" font-size="16" font-weight="600" fill="#171a1f">Company</text>
+  <text x="17" y="53.4" font-size="14" font-weight="400" fill="#5b626c">sends the terms</text>
+  <rect x="1" y="105" width="200" height="64" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="17" y="137.8" font-size="16" font-weight="600" fill="#171a1f">Agent</text>
+  <text x="17" y="157.4" font-size="14" font-weight="400" fill="#5b626c">approves, or asks the user</text>
+  <rect x="57" y="230" width="302" height="60" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="73" y="260.8" font-size="16" font-weight="600" fill="#171a1f">Agent approved</text>
+  <text x="73" y="280.4" font-size="14" font-weight="400" fill="#5b626c">on the user's instruction</text>
+  <rect x="57" y="344" width="302" height="60" rx="6" fill="#171a1f" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="73" y="374.8" font-size="16" font-weight="600" fill="#ffffff">The user</text>
+  <text x="73" y="394.4" font-size="14" font-weight="400" fill="#c4c9d0">sees the Company's name and the terms</text>
+  <rect x="57" y="476" width="302" height="60" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="73" y="506.8" font-size="16" font-weight="600" fill="#171a1f">User approved</text>
+  <text x="73" y="526.4" font-size="14" font-weight="400" fill="#5b626c">in the agent's own interface</text>
+  <text x="35" y="89" font-size="14" font-weight="500" fill="#171a1f">the terms</text>
+  <rect x="229" y="113" width="130" height="48" rx="4" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <text x="294" y="133" text-anchor="middle" font-size="14" font-weight="600" fill="#171a1f">An instruction</text>
+  <text x="294" y="151" text-anchor="middle" font-size="14" font-weight="600" fill="#171a1f">the user wrote</text>
+  <text x="233" y="181" font-size="13" font-weight="400" fill="#5b626c">not from anything</text>
+  <text x="233" y="198" font-size="13" font-weight="400" fill="#5b626c">the agent read</text>
+  <text x="57" y="222" font-size="13" font-weight="400" fill="#5b626c">code finds the exact terms inside it</text>
+  <text x="57" y="320" font-size="13" font-weight="400" fill="#5b626c">not covered, can't tell,</text>
+  <text x="57" y="337" font-size="13" font-weight="400" fill="#5b626c">or a new revision</text>
+  <rect x="101" y="426" width="153.28" height="28" rx="4" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <text x="177.64" y="444.9" text-anchor="middle" font-size="14" font-weight="600" fill="#171a1f">The user approves</text>
+  <rect x="1" y="564" width="358" height="98" rx="8" fill="none" stroke="#c9ced5" stroke-width="1" stroke-dasharray="5 4"/>
+  <text x="17" y="590" font-size="13" font-weight="600" fill="#3a4049">Never an approval</text>
+  <line x1="17" y1="611" x2="27" y2="611" stroke="#c9ced5" stroke-width="1"/>
+  <text x="35" y="616" font-size="13" font-weight="400" fill="#5b626c">A Company message saying the user agreed</text>
+  <line x1="17" y1="637" x2="27" y2="637" stroke="#c9ced5" stroke-width="1"/>
+  <text x="35" y="642" font-size="13" font-weight="400" fill="#5b626c">The model deciding the user would agree</text>
+</svg>

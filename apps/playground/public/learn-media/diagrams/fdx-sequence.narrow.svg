@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 992" font-family="'Hanken Grotesk','Helvetica Neue',Arial,sans-serif">
+  <line x1="56" y1="44" x2="56" y2="988" stroke="#c9ced5" stroke-width="1.2"/>
+  <line x1="180" y1="44" x2="180" y2="988" stroke="#c9ced5" stroke-width="1.2"/>
+  <line x1="304" y1="44" x2="304" y2="988" stroke="#c9ced5" stroke-width="1.2"/>
+  <rect x="6" y="0.6" width="100" height="42.8" rx="6" fill="#171a1f" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="56" y="26.9" text-anchor="middle" font-size="15" font-weight="600" fill="#ffffff">User</text>
+  <rect x="130" y="0.6" width="100" height="42.8" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="180" y="26.9" text-anchor="middle" font-size="15" font-weight="600" fill="#171a1f">Agent</text>
+  <rect x="254" y="0.6" width="100" height="42.8" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="304" y="26.9" text-anchor="middle" font-size="15" font-weight="600" fill="#171a1f">Harborline</text>
+  <line x1="304" y1="112" x2="188" y2="112" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M180 112L188 107.5L188 116.5Z" fill="#0d5c4a"/>
+  <rect x="204.92" y="62" width="150.08" height="46" rx="4" fill="#ffffff"/>
+  <text x="348" y="82" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">1 · The bank lists</text>
+  <text x="348" y="100" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">poppylab.dev/fdx</text>
+  <line x1="180" y1="188" x2="296" y2="188" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M304 188L296 183.5L296 192.5Z" fill="#0d5c4a"/>
+  <rect x="197.36" y="138" width="157.64" height="46" rx="4" fill="#ffffff"/>
+  <text x="348" y="158" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">2 · Declares it, on</text>
+  <text x="348" y="176" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">every request</text>
+  <line x1="304" y1="264" x2="188" y2="264" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M180 264L188 259.5L188 268.5Z" fill="#0d5c4a"/>
+  <rect x="204.92" y="214" width="150.08" height="46" rx="4" fill="#ffffff"/>
+  <text x="348" y="234" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">If undeclared:</text>
+  <text x="348" y="252" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">extension_required</text>
+  <line x1="56" y1="340" x2="296" y2="340" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M304 340L296 335.5L296 344.5Z" fill="#0d5c4a"/>
+  <rect x="5" y="290" width="150.08" height="46" rx="4" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <text x="12" y="310" text-anchor="start" font-size="14" font-weight="600" fill="#171a1f">3 · User signs in,</text>
+  <text x="12" y="328" text-anchor="start" font-size="14" font-weight="600" fill="#171a1f">picks accounts</text>
+  <line x1="304" y1="398" x2="188" y2="398" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M180 398L188 393.5L188 402.5Z" fill="#0d5c4a"/>
+  <rect x="144.44" y="366" width="210.56" height="28" rx="4" fill="#ffffff"/>
+  <text x="348" y="386" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">A token, with a consent ID</text>
+  <line x1="180" y1="474" x2="296" y2="474" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M304 474L296 469.5L296 478.5Z" fill="#0d5c4a"/>
+  <rect x="204.92" y="424" width="150.08" height="46" rx="4" fill="#ffffff"/>
+  <text x="348" y="444" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">4 · Reads accounts</text>
+  <text x="348" y="462" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">and transactions</text>
+  <line x1="304" y1="550" x2="188" y2="550" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M180 550L188 545.5L188 554.5Z" fill="#0d5c4a"/>
+  <rect x="167.12" y="500" width="187.88" height="46" rx="4" fill="#ffffff"/>
+  <text x="348" y="520" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">Only the shared account</text>
+  <text x="348" y="538" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">comes back</text>
+  <line x1="180" y1="626" x2="296" y2="626" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M304 626L296 621.5L296 630.5Z" fill="#0d5c4a"/>
+  <rect x="167.12" y="576" width="187.88" height="46" rx="4" fill="#ffffff"/>
+  <text x="348" y="596" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">5 · Asks for an account</text>
+  <text x="348" y="614" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">not shared</text>
+  <line x1="304" y1="684" x2="188" y2="684" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M180 684L188 679.5L188 688.5Z" fill="#0d5c4a"/>
+  <rect x="144.44" y="652" width="210.56" height="28" rx="4" fill="#ffffff"/>
+  <text x="348" y="672" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">404, as if it didn't exist</text>
+  <line x1="56" y1="760" x2="296" y2="760" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M304 760L296 755.5L296 764.5Z" fill="#0d5c4a"/>
+  <rect x="5" y="710" width="150.08" height="46" rx="4" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <text x="12" y="730" text-anchor="start" font-size="14" font-weight="600" fill="#171a1f">6 · User downloads</text>
+  <text x="12" y="748" text-anchor="start" font-size="14" font-weight="600" fill="#171a1f">a statement</text>
+  <line x1="304" y1="836" x2="64" y2="836" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M56 836L64 831.5L64 840.5Z" fill="#0d5c4a"/>
+  <rect x="5" y="786" width="203" height="46" rx="4" fill="#ffffff"/>
+  <text x="12" y="806" text-anchor="start" font-size="14" font-weight="500" fill="#171a1f">The PDF goes to the user,</text>
+  <text x="12" y="824" text-anchor="start" font-size="14" font-weight="500" fill="#171a1f">not the model</text>
+  <line x1="56" y1="912" x2="172" y2="912" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M180 912L172 907.5L172 916.5Z" fill="#0d5c4a"/>
+  <rect x="5" y="862" width="142.52" height="46" rx="4" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <text x="12" y="882" text-anchor="start" font-size="14" font-weight="600" fill="#171a1f">7 · User revokes,</text>
+  <text x="12" y="900" text-anchor="start" font-size="14" font-weight="600" fill="#171a1f">in the agent</text>
+  <line x1="180" y1="970" x2="296" y2="970" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M304 970L296 965.5L296 974.5Z" fill="#0d5c4a"/>
+  <rect x="197.36" y="938" width="157.64" height="28" rx="4" fill="#ffffff"/>
+  <text x="348" y="958" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">Revokes the consent</text>
+</svg>

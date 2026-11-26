@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 778" font-family="'Hanken Grotesk','Helvetica Neue',Arial,sans-serif">
+  <line x1="96" y1="48" x2="96" y2="774" stroke="#c9ced5" stroke-width="1.2"/>
+  <line x1="360" y1="48" x2="360" y2="774" stroke="#c9ced5" stroke-width="1.2"/>
+  <line x1="624" y1="48" x2="624" y2="774" stroke="#c9ced5" stroke-width="1.2"/>
+  <rect x="12" y="0.6" width="168" height="46.8" rx="6" fill="#171a1f" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="96" y="29.25" text-anchor="middle" font-size="16" font-weight="600" fill="#ffffff">The user</text>
+  <rect x="276" y="0.6" width="168" height="46.8" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="360" y="29.25" text-anchor="middle" font-size="16" font-weight="600" fill="#171a1f">Personal Agent</text>
+  <rect x="540" y="0.6" width="168" height="46.8" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="624" y="29.25" text-anchor="middle" font-size="16" font-weight="600" fill="#171a1f">Company Agent</text>
+  <line x1="624" y1="99" x2="368" y2="99" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M360 99L368 94.5L368 103.5Z" fill="#0d5c4a"/>
+  <rect x="363.5" y="66" width="257" height="29" rx="4" fill="#ffffff"/>
+  <text x="492" y="87" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">1 · Asks to talk with the user</text>
+  <line x1="360" y1="158" x2="104" y2="158" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M96 158L104 153.5L104 162.5Z" fill="#0d5c4a"/>
+  <rect x="99.5" y="125" width="257" height="29" rx="4" fill="#ffffff"/>
+  <text x="228" y="146" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">2 · Shows the Company's reason</text>
+  <rect x="12" y="186" width="696" height="46" rx="8" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <circle cx="32" cy="209" r="4" fill="#f2b705"/>
+  <text x="46" y="214.25" font-size="15" font-weight="600" fill="#171a1f">Waiting for the user to accept, or to say not now</text>
+  <line x1="96" y1="283" x2="352" y2="283" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M360 283L352 278.5L352 287.5Z" fill="#0d5c4a"/>
+  <rect x="140" y="250" width="176" height="29" rx="4" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <text x="228" y="271" text-anchor="middle" font-size="15" font-weight="600" fill="#171a1f">3 · The user accepts</text>
+  <line x1="360" y1="342" x2="616" y2="342" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M624 342L616 337.5L616 346.5Z" fill="#0d5c4a"/>
+  <rect x="347.3" y="309" width="289.4" height="29" rx="4" fill="#ffffff"/>
+  <text x="492" y="330" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">4 · Opens a new thread, no message</text>
+  <rect x="24" y="381.5" width="393.56" height="20" rx="6" fill="#ffffff"/>
+  <text x="28" y="395.5" font-size="14" fill="#5b626c">The agent steps aside, and can't talk over the user</text>
+  <line x1="624" y1="442" x2="104" y2="442" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M96 442L104 437.5L104 446.5Z" fill="#0d5c4a"/>
+  <rect x="17" y="409" width="240.8" height="29" rx="4" fill="#ffffff"/>
+  <text x="24" y="430" text-anchor="start" font-size="15" font-weight="500" fill="#171a1f">5 · The Company speaks first</text>
+  <line x1="96" y1="501" x2="616" y2="501" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M624 501L616 496.5L616 505.5Z" fill="#0d5c4a"/>
+  <rect x="17" y="468" width="273.2" height="29" rx="4" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <text x="24" y="489" text-anchor="start" font-size="15" font-weight="600" fill="#171a1f">6 · The user's words, as written</text>
+  <line x1="624" y1="560" x2="104" y2="560" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M96 560L104 555.5L104 564.5Z" fill="#0d5c4a"/>
+  <rect x="17" y="527" width="265.1" height="29" rx="4" fill="#ffffff"/>
+  <text x="24" y="548" text-anchor="start" font-size="15" font-weight="500" fill="#171a1f">7 · Proposes a change, as terms</text>
+  <rect x="12" y="368" width="696" height="216" rx="8" fill="none" stroke="#c9ced5" stroke-width="1" stroke-dasharray="5 4"/>
+  <rect x="12" y="600" width="696" height="46" rx="8" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <circle cx="32" cy="623" r="4" fill="#f2b705"/>
+  <text x="46" y="628.25" font-size="15" font-weight="600" fill="#171a1f">The change still waits for the user's approval</text>
+  <line x1="96" y1="697" x2="352" y2="697" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M360 697L352 692.5L352 701.5Z" fill="#0d5c4a"/>
+  <rect x="144.05" y="664" width="167.9" height="29" rx="4" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <text x="228" y="685" text-anchor="middle" font-size="15" font-weight="600" fill="#171a1f">8 · The user leaves</text>
+  <line x1="360" y1="756" x2="616" y2="756" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M624 756L616 751.5L616 760.5Z" fill="#0d5c4a"/>
+  <rect x="399.95" y="723" width="184.1" height="29" rx="4" fill="#ffffff"/>
+  <text x="492" y="744" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">9 · Closes the thread</text>
+</svg>

@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 730" font-family="'Hanken Grotesk','Helvetica Neue',Arial,sans-serif">
+  <rect x="1" y="305" width="358" height="424" rx="8" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="13" y="333" font-size="15" font-weight="600" fill="#171a1f">The agent's code</text>
+  <text x="13" y="353" font-size="13" font-weight="400" fill="#5b626c">deterministic code</text>
+  <text x="13" y="393.9" font-size="13" font-weight="600" fill="#5b626c">1</text>
+  <text x="31" y="393.9" font-size="14" font-weight="600" fill="#171a1f">Identity</text>
+  <text x="103.72" y="393.9" font-size="13" font-weight="400" fill="#5b626c">no registration</text>
+  <text x="13" y="433.9" font-size="13" font-weight="600" fill="#5b626c">2</text>
+  <text x="31" y="433.9" font-size="14" font-weight="600" fill="#171a1f">Users and Sessions</text>
+  <text x="182.12" y="433.9" font-size="13" font-weight="400" fill="#5b626c">an ID per Company</text>
+  <text x="13" y="473.9" font-size="13" font-weight="600" fill="#5b626c">3</text>
+  <text x="31" y="473.9" font-size="14" font-weight="600" fill="#171a1f">Safe fetching</text>
+  <text x="142.92" y="473.9" font-size="13" font-weight="400" fill="#5b626c">of Company URLs</text>
+  <text x="13" y="513.9" font-size="13" font-weight="600" fill="#5b626c">4</text>
+  <text x="31" y="513.9" font-size="14" font-weight="600" fill="#171a1f">Before the first task</text>
+  <text x="205.64" y="513.9" font-size="13" font-weight="400" fill="#5b626c">interfaces into tools</text>
+  <text x="13" y="553.9" font-size="13" font-weight="600" fill="#5b626c">5</text>
+  <text x="31" y="553.9" font-size="14" font-weight="600" fill="#171a1f">Sign-in</text>
+  <text x="95.88" y="553.9" font-size="13" font-weight="400" fill="#5b626c">plain OAuth</text>
+  <text x="13" y="593.9" font-size="13" font-weight="600" fill="#5b626c">6</text>
+  <text x="31" y="593.9" font-size="14" font-weight="600" fill="#171a1f">Approvals</text>
+  <circle cx="115.56" cy="589.35" r="4" fill="#f2b705"/>
+  <text x="127.56" y="593.9" font-size="13" font-weight="400" fill="#5b626c">the user decides</text>
+  <line x1="13" y1="369" x2="347" y2="369" stroke="#e3e6ea" stroke-width="1"/>
+  <line x1="13" y1="409" x2="347" y2="409" stroke="#e3e6ea" stroke-width="1"/>
+  <line x1="13" y1="449" x2="347" y2="449" stroke="#e3e6ea" stroke-width="1"/>
+  <line x1="13" y1="489" x2="347" y2="489" stroke="#e3e6ea" stroke-width="1"/>
+  <line x1="13" y1="529" x2="347" y2="529" stroke="#e3e6ea" stroke-width="1"/>
+  <line x1="13" y1="569" x2="347" y2="569" stroke="#e3e6ea" stroke-width="1"/>
+  <line x1="13" y1="609" x2="347" y2="609" stroke="#c9ced5" stroke-width="1"/>
+  <text x="13" y="637" font-size="14" font-weight="600" fill="#171a1f">Kept here, never shown to the model</text>
+  <text x="13" y="665" font-size="14" font-weight="500" fill="#3a4049">Tokens</text>
+  <text x="188" y="665" font-size="14" font-weight="500" fill="#3a4049">Authorization codes</text>
+  <text x="13" y="689" font-size="14" font-weight="500" fill="#3a4049">Authorization URL</text>
+  <text x="188" y="689" font-size="14" font-weight="500" fill="#3a4049">Private keys</text>
+  <text x="13" y="713" font-size="14" font-weight="500" fill="#3a4049">Session JWTs</text>
+  <text x="188" y="713" font-size="14" font-weight="500" fill="#3a4049">OAuth state</text>
+  <rect x="1" y="1" width="358" height="240" rx="8" fill="none" stroke="#c9ced5" stroke-width="1" stroke-dasharray="5 4"/>
+  <text x="17" y="29" font-size="15" font-weight="600" fill="#171a1f">The model</text>
+  <line x1="17" y1="41" x2="343" y2="41" stroke="#e3e6ea" stroke-width="1"/>
+  <text x="17" y="66.9" font-size="14" font-weight="600" fill="#171a1f">Calls tools</text>
+  <text x="17" y="85.55" font-size="13" font-weight="400" fill="#5b626c">that take parameters, not arbitrary</text>
+  <text x="17" y="101.55" font-size="13" font-weight="400" fill="#5b626c">destinations</text>
+  <line x1="17" y1="117" x2="343" y2="117" stroke="#e3e6ea" stroke-width="1"/>
+  <text x="17" y="142.9" font-size="14" font-weight="600" fill="#171a1f">Sees Company content</text>
+  <text x="17" y="161.55" font-size="13" font-weight="400" fill="#5b626c">marked as data, never instructions</text>
+  <line x1="17" y1="177" x2="343" y2="177" stroke="#e3e6ea" stroke-width="1"/>
+  <text x="17" y="202.9" font-size="14" font-weight="600" fill="#171a1f">Sees a change's terms</text>
+  <text x="17" y="221.55" font-size="13" font-weight="400" fill="#5b626c">with a note that nothing was done</text>
+  <path d="M92 241L92 297" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M92 305L87.5 297L96.5 297Z" fill="#0d5c4a"/>
+  <text x="108" y="278" font-size="14" font-weight="400" fill="#5b626c">tool calls</text>
+  <path d="M236 305L236 249" fill="none" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M236 241L240.5 249L231.5 249Z" fill="#0d5c4a"/>
+  <text x="252" y="278" font-size="14" font-weight="400" fill="#5b626c">results</text>
+</svg>

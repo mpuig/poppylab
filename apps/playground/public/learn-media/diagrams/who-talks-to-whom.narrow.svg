@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 411" font-family="'Hanken Grotesk','Helvetica Neue',Arial,sans-serif">
+  <path d="M221 37L287 37Q295 37 295 45L295 365Q295 373 287 373L233 373" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M225 373L233 368.5L233 377.5Z" fill="#0d5c4a"/>
+  <path d="M25 73L25 157" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M25 165L20.5 157L29.5 157Z" fill="#0d5c4a"/>
+  <path d="M125 73L125 157" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M125 165L120.5 157L129.5 157Z" fill="#0d5c4a"/>
+  <path d="M25 241L25 325" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M25 333L20.5 325L29.5 325Z" fill="#0d5c4a"/>
+  <path d="M149 337L149 253" fill="none" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M149 245L153.5 253L144.5 253Z" fill="#0d5c4a"/>
+  <rect x="1" y="1" width="220" height="72" rx="6" fill="#171a1f" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="17" y="33" font-size="16" font-weight="600" fill="#ffffff">You</text>
+  <text x="17" y="55" font-size="14" font-weight="400" fill="#c4c9d0">the customer</text>
+  <rect x="1" y="169" width="220" height="72" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="17" y="201" font-size="16" font-weight="600" fill="#171a1f">Your agent</text>
+  <text x="17" y="223" font-size="14" font-weight="400" fill="#5b626c">Iris</text>
+  <rect x="1" y="337" width="220" height="72" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="17" y="369" font-size="16" font-weight="600" fill="#171a1f">The company</text>
+  <text x="17" y="391" font-size="14" font-weight="400" fill="#5b626c">its own website</text>
+  <text x="35" y="126" font-size="14" font-weight="500" fill="#171a1f">1 · You ask</text>
+  <text x="35" y="292" font-size="14" font-weight="500" fill="#171a1f">signed requests</text>
+  <text x="159" y="283" font-size="14" font-weight="500" fill="#171a1f">changes held</text>
+  <text x="159" y="301" font-size="14" font-weight="500" fill="#171a1f">for approval</text>
+  <rect x="135" y="107" width="137.6" height="28" rx="4" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <text x="203.8" y="125.9" text-anchor="middle" font-size="14" font-weight="600" fill="#171a1f">3 · You approve</text>
+  <rect x="231" y="181" width="128" height="48" rx="4" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <text x="295" y="201" text-anchor="middle" font-size="14" font-weight="600" fill="#171a1f">2 · You sign in</text>
+  <text x="295" y="219" text-anchor="middle" font-size="14" font-weight="600" fill="#171a1f">at the company</text>
+</svg>
