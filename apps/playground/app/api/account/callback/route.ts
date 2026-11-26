@@ -215,10 +215,17 @@ export async function GET(request: Request) {
     // revoking a replaced token isn't sign-out).
     if (replaced) void revokeRefreshToken(run, replaced).catch(() => undefined);
     // The Inspector's line for it, which the page lists once it sees the
-    // sign-in is complete.
-    keepLines(run, [
-      `Direct Sign-In completed · PKCE + issuer validation · ${dpop ? "DPoP" : "Bearer"} account Session`,
-    ]);
+    // sign-in is complete. It says only that a sign-in happened, and how:
+    // nothing an account holds. So it is kept as a line written signed
+    // out is, and a later sign-in lists it whoever that one is for.
+    keepLines(
+      run,
+      [
+        `Direct Sign-In completed · PKCE + issuer validation · ${dpop ? "DPoP" : "Bearer"} account Session`,
+      ],
+      Date.now(),
+      false,
+    );
     return leave("done");
   } catch {
     return leave("failed");

@@ -517,7 +517,7 @@ it("is single use", async () => {
   expect(s.request).toHaveBeenCalledTimes(1);
 });
 
-it("lists in the Inspector what was written before any account, then the sign-in, and nothing of the account before", async () => {
+it("lists in the Inspector what was written before any account, then each sign-in, and nothing of the account before", async () => {
   const run = s.run as typeof s.run & {
     log?: Array<{ at: number; text: string; signedOut?: true }>;
   };
@@ -534,14 +534,19 @@ it("lists in the Inspector what was written before any account, then the sign-in
   try {
     s.request.mockResolvedValue(success());
     expect(await landed()).toBe(DONE);
+    // The sign-in's own line says only that it happened, and how: it names
+    // nothing an account holds, so it is kept as the public lines are.
     expect(run.log).toEqual([
       before,
       {
         at: expect.any(Number),
         text: "Direct Sign-In completed · PKCE + issuer validation · DPoP account Session",
+        signedOut: true,
       },
     ]);
-    // Bearer tokens are said to be that.
+    // A second consent with no message in between, as "Request change
+    // permission" is: both sign-ins are listed. Bearer tokens are said to
+    // be that.
     s.dpop = false;
     s.run.auth = {
       state: "state_test",
@@ -554,6 +559,7 @@ it("lists in the Inspector what was written before any account, then the sign-in
     expect(await landed()).toBe(DONE);
     expect(run.log.map((line) => line.text)).toEqual([
       before.text,
+      "Direct Sign-In completed · PKCE + issuer validation · DPoP account Session",
       "Direct Sign-In completed · PKCE + issuer validation · Bearer account Session",
     ]);
     // A sign-in that fails changes nothing.
@@ -566,7 +572,7 @@ it("lists in the Inspector what was written before any account, then the sign-in
       expires: Date.now() + 60000,
     };
     expect(await landed()).toBe(FAILED);
-    expect(run.log).toHaveLength(2);
+    expect(run.log).toHaveLength(3);
   } finally {
     delete run.log;
   }
@@ -763,6 +769,47 @@ describe("what the page shows of the conversation after a sign-in", () => {
       expect((await GET(req())).status).toBe(303);
       reset();
       expect(talking.conversation).toBeUndefined();
+    });
+
+    it("lists the first sign-in in the Inspector whoever the second is for", async () => {
+      const kept = s.run as typeof s.run & {
+        log?: Array<{ at: number; text: string; signedOut?: true }>;
+      };
+      const first = {
+        at: 1000,
+        text: "Direct Sign-In completed · PKCE + issuer validation · DPoP account Session",
+        signedOut: true as const,
+      };
+      const read = { at: 2000, text: "GET /api/account/orders/ord_7" };
+      const second = expect.objectContaining({ text: first.text });
+      try {
+        for (const [account, lines] of [
+          ["elena", [first, read, second]],
+          ["robin", [first, second]],
+        ] as const) {
+          kept.log = [first, read];
+          companyKeeping("elena", {
+            "old-access": "elena",
+            "new-access": account,
+          });
+          expect((await GET(req())).status).toBe(303);
+          expect(kept.log).toEqual(lines);
+          // The next sign-in replaces this one, as in every test here.
+          Object.assign(s.run, { accountToken: "old-refresh" });
+          s.run.token = "old-access";
+          talking.conversation = thread();
+          s.run.auth = {
+            state: "state_test",
+            verifier: "verifier_test",
+            issuer: "https://food.papsandbox.com",
+            scopes: "orders:read",
+            expires: Date.now() + 60000,
+            dpop: { kty: "EC" },
+          };
+        }
+      } finally {
+        delete kept.log;
+      }
     });
 
     it("keeps only the public part when no account has used the conversation: it says nothing about the sign-in", async () => {

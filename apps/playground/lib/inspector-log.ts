@@ -14,8 +14,9 @@ export type KeptLine = {
   at: number;
   text: string;
   /**
-   * Written by a request made while no account was signed in. Only these
-   * stay when a sign-in resets the conversation.
+   * Names nothing an account holds: written by a request made while no
+   * account was signed in, or the line that says a sign-in completed. Only
+   * these stay when a sign-in resets the conversation.
    */
   signedOut?: true;
 };
@@ -51,6 +52,8 @@ function bounded(lines: KeptLine[]): KeptLine[] {
  * Keeps the lines a request wrote for the Inspector, in the words the page
  * shows them in. `withAccount` says an account was signed in when the
  * request began: a request that signs it out still wrote its lines with it.
+ * The sign-in callback passes false for its one line, which names no
+ * account data.
  */
 export function keepLines(
   run: Run,
@@ -73,7 +76,8 @@ export function keepLines(
 /**
  * A sign-in may be for another account, and a path can name what an account
  * holds (an order, a consent). So the lines go back to those written before
- * any account access, as the transcript does (`keepSignedOutTranscript`).
+ * any account access, as the transcript does (`keepSignedOutTranscript`),
+ * and those that say a sign-in completed.
  */
 export function keepSignedOutLines(run: Run) {
   const kept = (run.log ?? []).filter((line) => line.signedOut);
