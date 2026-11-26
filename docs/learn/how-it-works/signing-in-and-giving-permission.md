@@ -8,7 +8,7 @@ and later to propose changes. At the end she takes it back.
 
 This page follows the access from the first sign-in to the sign-out, in
 Iris's conversation and on Juniper's website. Every screenshot is from the
-live lab, taken on 25 November 2026.
+live lab, taken on 26 November 2026.
 
 ## Who does what
 
@@ -31,7 +31,8 @@ and orders belong to her account, and Iris has no access to it.
 contact.
 
 The green button says what Iris will ask for: access to read, and nothing
-more.
+more. Before she presses it, Elena asks what the shop sells, and Iris answers
+with Juniper's four products.
 
 ### 2. Sign in at Juniper
 
@@ -72,10 +73,10 @@ shows these requests.
 ![Iris shows Elena's recurring delivery: every Thursday, oranges and coffee, 23 dollars 50](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/03-iris-reads-the-delivery.webp "With read-only access Iris can see the delivery and cannot propose a change to it.")
 
 The tab that held Juniper's page now shows a page of the lab that reads
-"Signed in." and offers to close the tab. Back in the conversation, Elena
-asks for her deliveries and Iris reads them from Juniper: one delivery every
-Thursday, with oranges and coffee. She asks for her orders too, and Juniper
-answers that there are none yet.
+"Signed in to Juniper Market." and offers to close the tab. Back in the
+conversation, Elena asks for her deliveries and Iris reads them from Juniper:
+one delivery every Thursday, with oranges and coffee. She asks for her orders
+too, and Juniper answers that there are none yet.
 
 The line under the answer states what Iris may do at this point: read-only
 access. Next to it are the two things Elena can do about that. She can ask
@@ -128,12 +129,12 @@ the token allows `poppy:read` before it answered.
 
 ### 4. Juniper lists the agent
 
-![Juniper's account page, section Your agent's access: one entry with the agent's address, poppy:read, an expiry date and a Disconnect button](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/04-agent-listed-at-juniper.webp "Juniper shows Elena which agent is connected and what it may do.")
+![Juniper's account page, section Connected agents: one entry that reads Iris from poppylab.dev, then what it may read, the date the access ends, the agent's address and a Disconnect button](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/04-agent-listed-at-juniper.webp "Juniper shows Elena which agent is connected and what it may do.")
 
-Elena opens Juniper's website herself, looks at her account and presses Show
-grants. Under Your agent's access, Juniper lists the agent she connected: its
-address, the one permission it holds, and the date on which the access
-expires.
+Elena opens Juniper's website herself and looks at her account. Under
+Connected agents, Juniper lists the agent that has been reading it, in the
+words of its consent page: Iris from poppylab.dev, what it may read, and the
+date on which the access ends. The agent's address stands next to that date.
 
 The record of who may reach her account is kept by Juniper, where Elena
 would look for it. The Disconnect button ends the access from Juniper's side.
@@ -200,8 +201,8 @@ A bank or an airline would draw the lines elsewhere.
 <summary>What travelled</summary>
 
 The same three requests as in step 2. Iris asked for both permissions
-together, and the new access replaced the old one: afterwards Juniper listed
-one entry for Iris, with both permissions.
+together, and the new access replaced the old one. Step 10 shows the one
+entry Juniper lists for Iris afterwards, with both permissions.
 
 </details>
 
@@ -211,9 +212,10 @@ one entry for Iris, with both permissions.
 
 The line under the conversation now reads "Reading and change proposals".
 Elena asks again for Saturday, and this time Iris sends the request. Iris
-does not repeat the earlier request by itself. When the access changed, the
-answers that held account data left the conversation, and the answers to
-public questions stayed.
+does not repeat the earlier request by itself. When the access changed, what
+had been said since the sign-in left the conversation: her deliveries, her
+orders and the request Iris had not sent. Her question from before the
+sign-in stayed, with its answer.
 
 Juniper does not make the change. It answers that the change needs the
 customer's approval and sends back the terms it would apply: the delivery
@@ -237,7 +239,7 @@ Juniper's answer to the request, as Iris received it:
 ```json
 {
   "status": "approval_required",
-  "operation_id": "op_CdIqbgjum0Ju9jljvG2ftaxE",
+  "operation_id": "op_eV-2oYC-g9rLk80kY4vyLGin",
   "summary": "Move Elena Maren’s fictional delivery delivery_001 from Thursday to Saturday, recurring weekly. No charge (USD 0.00). No real shipment is affected.",
   "terms": {
     "kind": "delivery",
@@ -248,7 +250,7 @@ Juniper's answer to the request, as Iris received it:
     "fee_cents": 0,
     "currency": "USD"
   },
-  "expires_at": "2026-11-25T21:17:30.995Z"
+  "expires_at": "2026-11-26T08:39:19.266Z"
 }
 ```
 
@@ -278,11 +280,12 @@ Elena approved it in her agent.
 
 ### 10. See what the agent may do now
 
-![Your agent's access now shows one entry with poppy:read and poppy:write](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/10-permissions-at-juniper.webp "One agent, two permissions, and the same Disconnect button.")
+![Connected agents now shows one entry for Iris with two lines, Read and Propose changes, and a later date for the end of the access](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/10-permissions-at-juniper.webp "One agent, two permissions, and the same Disconnect button.")
 
-Elena presses Show grants again. Under Your agent's access, Juniper lists the
-same agent with both permissions. There is one entry, because the second
-consent replaced the first.
+Under Connected agents, Juniper now lists the same agent with both
+permissions, each in the words of its consent page. Elena presses nothing:
+the page keeps the list current while it is open. There is one entry, because
+the second consent replaced the first.
 
 ### 11. Sign out
 
@@ -305,15 +308,16 @@ shows the effect on Juniper's side.
 
 ### 12. Check at Juniper that the access ended
 
-![Your agent's access on Juniper's page now reads: No agents connected](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/12-juniper-after-sign-out.webp "Juniper no longer lists the agent.")
+![Connected agents on Juniper's page now reads: No agents connected](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/12-juniper-after-sign-out.webp "Juniper no longer lists the agent.")
 
-Elena looks at Juniper's page once more and presses Show grants to reload
-the list. It reads "No agents connected". The delivery she moved stays on
-Saturday, because signing out ends the access and undoes nothing.
+Elena looks at Juniper's page once more. The list has updated itself and
+reads "No agents connected". The delivery she moved stays on Saturday,
+because signing out ends the access and undoes nothing.
 
-Elena can also end the access from Juniper's side. In the same run she
-signed in again and pressed Disconnect on this page. Iris's next request was
-refused, and Iris told her that Juniper no longer accepted the access.
+Elena can also end the access from Juniper's side, with the Disconnect button
+on this page. When she does, Juniper refuses Iris's next request. Iris tells
+her that Juniper no longer accepts the access, and the answers it got with
+her account leave the conversation.
 
 ## What Juniper controls
 
