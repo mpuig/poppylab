@@ -3,7 +3,9 @@
  * proposals that wait for an approval, from the gate's operation records,
  * and the requests the gate finished (applied, declined by the Company, or
  * refused because the account had changed), with who approved each and
- * when.
+ * when. An approved request the Company refused itself before the gate, for
+ * a reason of its own, is listed with them once the Company says so
+ * (`ctx.refused`).
  *
  * The gate forgets an operation once its approved revision expires, about
  * ten minutes on (Operations §7). The change it made stays, so the record

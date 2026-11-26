@@ -525,6 +525,29 @@ function mount(app: Hono, ctx: Parameters<CompanyDefinition["mount"]>[1]) {
             !sameRequest(revision.terms, request),
         ),
     );
+  /**
+   * The answer to a payment or transfer the account can't cover. With an
+   * approval of a proposal that still waits, the balance fell after it was
+   * proposed: the attempt goes on the customer's record with the reason,
+   * and the proposal stays to be approved while it lasts.
+   */
+  const insufficient = (
+    c: Context,
+    action: string,
+    request: Record<string, unknown>,
+    source: Account,
+    what: "payment" | "transfer",
+  ) => {
+    ctx.refused(c, {
+      key: action,
+      terms: request,
+      reason: `${source.name} had ${usd(source.available_cents)} available when this was approved, less than the ${what}. No fictional state changed.`,
+    });
+    return c.json(
+      { error: "insufficient_funds", available_cents: source.available_cents },
+      409,
+    );
+  };
   const findAccount = (reach: { accounts: Account[] }, id: string) =>
     reach.accounts.find((item) => item.id === id);
   const addTransaction = (
@@ -658,13 +681,7 @@ function mount(app: Hono, ctx: Parameters<CompanyDefinition["mount"]>[1]) {
         422,
       );
     if (amount > source.available_cents)
-      return c.json(
-        {
-          error: "insufficient_funds",
-          available_cents: source.available_cents,
-        },
-        409,
-      );
+      return insufficient(c, `payment:${key}`, request, source, "payment");
     if (reservedForAnother(customer, `payment:${key}`, request))
       return c.json({ error: "idempotency_conflict" }, 409);
     // The key reserves the request, not a balance: the terms describe the
@@ -784,13 +801,7 @@ function mount(app: Hono, ctx: Parameters<CompanyDefinition["mount"]>[1]) {
         422,
       );
     if (amount > source.available_cents)
-      return c.json(
-        {
-          error: "insufficient_funds",
-          available_cents: source.available_cents,
-        },
-        409,
-      );
+      return insufficient(c, `transfer:${key}`, request, source, "transfer");
     if (reservedForAnother(customer, `transfer:${key}`, request))
       return c.json({ error: "idempotency_conflict" }, 409);
     // As for payments: the terms describe the accounts as they are now.

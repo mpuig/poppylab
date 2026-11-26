@@ -6,7 +6,12 @@
 import type { Context, Hono } from "hono";
 import { createHash } from "node:crypto";
 import type { Approval } from "@poppy-lab/pap-client/core";
-import type { Action, OperationRecord, Outcome } from "../approvals.ts";
+import type {
+  Action,
+  OperationRecord,
+  Outcome,
+  Refusal,
+} from "../approvals.ts";
 import type { ActivityEntry, ActivityItem } from "./activity.ts";
 
 /** A Session as the gateway keeps it between requests (§5.3). */
@@ -330,6 +335,12 @@ export interface Store {
 export type FetchJson = (url: string) => Promise<unknown>;
 
 export type Gate = (c: Context, action: Action) => Response;
+/**
+ * Puts on record, for the website, an approved request the Company answers
+ * with a refusal of its own before the gate. It records nothing unless the
+ * request's `Poppy-Approval` names a waiting revision of that action.
+ */
+export type Refused = (c: Context, refusal: Refusal) => void;
 /** The account's own grants, for a Company website's "connected agents". */
 export type GrantAccess = {
   list: (account: string) => Array<{
@@ -499,6 +510,7 @@ export type CompanyDefinition = {
        */
       state: Record<string, unknown>;
       gate: Gate;
+      refused: Refused;
       grants: GrantAccess;
       /**
        * The grant behind this request's access token, or `undefined` when

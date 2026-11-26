@@ -1201,6 +1201,114 @@ describe("Harborline Bank", () => {
     }
   });
 
+  it("records an approved payment the balance no longer covers, and leaves the proposal to be approved once", async () => {
+    const { sign, call } = await setup();
+    const token = await sign("robin", all);
+    const pay = (approval?: Parameters<typeof call>[4]) =>
+      call(
+        token.access_token,
+        "POST",
+        "/api/account/payments",
+        {
+          source_account_id: "acc_HLB_J100",
+          recipient_id: "rcp_HLB_J501",
+          amount_cents: 200000,
+          memo: "Deposit",
+          idempotency_key: "payment-refused-01",
+        },
+        approval,
+      );
+    /** An approved transfer of USD 2,500.00 between Robin's accounts. */
+    const move = async (from: string, to: string, key: string) => {
+      const payload = {
+        source_account_id: from,
+        destination_account_id: to,
+        amount_cents: 250000,
+        idempotency_key: key,
+      };
+      const op = operation(
+        await call(
+          token.access_token,
+          "POST",
+          "/api/account/transfers",
+          payload,
+        ),
+      );
+      expect(
+        (
+          await call(
+            token.access_token,
+            "POST",
+            "/api/account/transfers",
+            payload,
+            op,
+          )
+        ).statusCode,
+      ).toBe(200);
+    };
+    const login = await inject("/site/login");
+    const loginCookie = String(login.headers["set-cookie"]).split(";")[0]!;
+    const signed = await inject({
+      method: "POST",
+      url: "/site/login",
+      headers: { cookie: loginCookie, origin },
+      payload: { account: "robin", login_token: loginCookie.split("=")[1] },
+    });
+    const cookie = String(signed.headers["set-cookie"])
+      .split(",")
+      .find((value) => value.includes("harborline_web="))!
+      .trim()
+      .split(";")[0]!;
+    const activity = async () =>
+      (await inject({ url: "/site/state", headers: { cookie } })).json()
+        .activity as Array<Record<string, unknown>>;
+
+    // Proposed with USD 3,827.40 in the account; USD 1,327.40 is left when
+    // Robin approves it.
+    const op = operation(await pay());
+    await move("acc_HLB_J100", "acc_HLB_J200", "refused-out-01");
+    const refused = await pay(op);
+    expect(refused.statusCode).toBe(409);
+    expect(refused.json()).toEqual({
+      error: "insufficient_funds",
+      available_cents: 132740,
+    });
+    const attempt = {
+      state: "refused",
+      approver: "user",
+      summary: op.summary,
+      result:
+        "Everyday checking had USD 1327.40 available when this was approved, less than the payment. No fictional state changed.",
+      when: expect.stringMatching(/^[A-Z][a-z]{2} \d{1,2}, \d{2}:\d{2} UTC$/),
+    };
+    expect(await activity()).toMatchObject([
+      // The proposal still waits: it can be approved until it expires.
+      { state: "proposed", summary: op.summary },
+      attempt,
+      { state: "succeeded" },
+    ]);
+    // The same request without an approval is not an attempt to record.
+    expect((await pay()).statusCode).toBe(409);
+    expect(await activity()).toHaveLength(3);
+
+    // With the money back, the payment is proposed on the account as it is
+    // now and made once: the refused attempt used nothing up.
+    await move("acc_HLB_J200", "acc_HLB_J100", "refused-back-01");
+    const again = await pay(op);
+    expect(again.statusCode).toBe(403);
+    const paid = await pay(operation(again));
+    expect(paid.statusCode).toBe(200);
+    expect(paid.json().data.account.balance_cents).toBe(182740);
+    expect((await pay(operation(again))).json()).toEqual(paid.json());
+    expect((await activity()).map((item) => item.state)).toEqual([
+      "succeeded",
+      "succeeded",
+      "refused",
+      "succeeded",
+    ]);
+    expect((await activity())[2]).toMatchObject(attempt);
+  });
+
   it("accepts the login form after a restart, and gives a form without its token a page with a way back", async () => {
     const load = restartingStore();
     await setup({ store: load(), isolation: "visitor" });

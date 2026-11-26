@@ -17,6 +17,7 @@ import {
   type Gate,
   type GrantAccess,
   type GrantView,
+  type Refused,
   type Tenant,
   viewOf,
 } from "./types.ts";
@@ -25,19 +26,28 @@ export function createTenancy(ctx: Ctx) {
   const { def, deploy, origin, state, isolated } = ctx;
   const maxTenants = deploy.maxTenants ?? 500,
     idleMs = deploy.tenantIdleMs ?? 86400000;
-  const gate: Gate = (c, action) => {
+  const ownerOf = (c: Context) => {
     const s = ctx.sessionFor(c);
+    return {
+      client: s.client,
+      user: s.user,
+      account: s.account ?? def.defaultAccount,
+    };
+  };
+  const gate: Gate = (c, action) => {
     const outcome = enter(c.req.raw).engine.gate(
-      {
-        client: s.client,
-        user: s.user,
-        account: s.account ?? def.defaultAccount,
-      },
+      ownerOf(c),
       c.req.header("poppy-approval"),
       action,
     );
     return c.json(outcome.body, outcome.status);
   };
+  const refused: Refused = (c, refusal) =>
+    enter(c.req.raw).engine.refused(
+      ownerOf(c),
+      c.req.header("poppy-approval"),
+      refusal,
+    );
   // Grants visible to a tenant's website: all in shared mode, else its own.
   const grantsOf = (tenant: string): GrantAccess => ({
     list: (account) =>
@@ -157,6 +167,7 @@ export function createTenancy(ctx: Ctx) {
         sessionFor: ctx.sessionFor,
         state: tenant.business,
         gate,
+        refused,
         grants: grantsOf(key),
         grantFor: grantFor(key),
         origin,

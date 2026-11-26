@@ -7,7 +7,9 @@
  * Both user and agent approvals are accepted, and recorded with their
  * `approver` and `reference` (§6, §8.1). An action may decline an approval
  * that passed every check, for its own reasons (§6, "Declining"): nothing
- * is performed and no new operation is returned.
+ * is performed and no new operation is returned. A Company that refuses an
+ * approved request before asking the gate, because of something the terms
+ * don't hold, tells the gate (`refused`) so the attempt is on record.
  */
 import { createHash } from "node:crypto";
 import {
@@ -82,6 +84,15 @@ export type Action = {
     terms: Record<string, unknown>,
   ) => { reason?: string; alternative?: Record<string, unknown> } | undefined;
 };
+/** An approved request the Company refused itself, for `refused`. */
+export type Refusal = {
+  /** The action's `key`. */
+  key: string;
+  /** What the request asks, in the names its terms use. */
+  terms: Record<string, unknown>;
+  /** Why, for the User: a short sentence with no codes. */
+  reason: string;
+};
 export type Outcome = {
   status: 200 | 403 | 409 | 429;
   body: unknown;
@@ -101,6 +112,15 @@ const PER_ACCOUNT = 100,
 
 const same = (a: Owner, r: OperationRecord) =>
   r.client === a.client && r.user === a.user && r.account === a.account;
+const idOf = (owner: Owner, key: string) =>
+  `op_${createHash("sha256")
+    .update([owner.client, owner.user, owner.account, key].join("\n"))
+    .digest("base64url")
+    .slice(0, 24)}`;
+const approvalOf = (approval: string | Approval | undefined) =>
+  typeof approval === "string" || approval === undefined
+    ? parseApprovalHeader(approval)
+    : approval;
 
 export function approvals(
   records: Record<string, OperationRecord>,
@@ -139,18 +159,10 @@ export function approvals(
           ),
         );
       prune(at);
-      const id = `op_${createHash("sha256")
-        .update(
-          [owner.client, owner.user, owner.account, action.key].join("\n"),
-        )
-        .digest("base64url")
-        .slice(0, 24)}`;
+      const id = idOf(owner, action.key);
       let r = records[id];
       if (r && !same(owner, r)) r = undefined;
-      const approval =
-        typeof approvalIn === "string" || approvalIn === undefined
-          ? parseApprovalHeader(approvalIn)
-          : approvalIn;
+      const approval = approvalOf(approvalIn);
       // 1. Only this account's Sessions can approve it; otherwise ignore it.
       if (approval?.operation_id === id && r) {
         // 2. Already performed: the first response, never a second action.
@@ -247,6 +259,45 @@ export function approvals(
           operation: { operation_id: id, ...revision },
         },
       };
+    },
+    /**
+     * Records an approved request the Company refused itself, before the
+     * gate, for a reason of its own (say, the balance has since fallen
+     * below the payment). Told to `finished` only when the approval names
+     * a revision of this owner's operation that still waits and holds what
+     * the request asks. The operation is left as it is: the revision can
+     * be approved until it expires, and is performed once.
+     */
+    refused(
+      owner: Owner,
+      approvalIn: string | Approval | undefined,
+      refusal: Refusal,
+    ) {
+      const at = now();
+      const id = idOf(owner, refusal.key);
+      const r = records[id];
+      const approval = approvalOf(approvalIn);
+      if (!r || !same(owner, r) || r.performed) return;
+      if (approval?.operation_id !== id) return;
+      const approved = r.revisions.find(
+        (v) =>
+          v.revision === approval.revision &&
+          Date.parse(v.expires_at) > at &&
+          Object.entries(refusal.terms).every(
+            ([k, asked]) =>
+              JSON.stringify(v.terms[k]) === JSON.stringify(asked),
+          ),
+      );
+      if (!approved) return;
+      options.finished?.({
+        id,
+        account: owner.account,
+        outcome: "refused",
+        summary: approved.summary,
+        result: refusal.reason,
+        approver: approval.approver,
+        at: new Date(at).toISOString(),
+      });
     },
   };
 }

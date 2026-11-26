@@ -123,6 +123,62 @@ it("lists an approval the Company declined and one the account no longer matched
   ]);
 });
 
+it("lists an approved request the Company refused for a reason of its own, and leaves the operation to be approved", () => {
+  const x = gate();
+  const header = approval(x.propose("pay"));
+  const attempt = {
+    key: "pay",
+    terms: { key: "pay" },
+    reason: "The balance is too low.",
+  };
+  // The Company answers the approved request itself, before the gate.
+  x.ops.refused(owner, header, attempt);
+  const refused = {
+    state: "refused",
+    summary: "Do pay",
+    result: "The balance is too low.",
+    approver: "user",
+    when: "Nov 25, 12:00 UTC",
+  };
+  expect(x.activity()).toMatchObject([
+    { state: "proposed", summary: "Do pay" },
+    refused,
+  ]);
+  // Told once, by its last answer.
+  x.clock.now += 60000;
+  x.ops.refused(owner, header, attempt);
+  expect(x.activity()).toMatchObject([
+    { state: "proposed" },
+    { ...refused, when: "Nov 25, 12:01 UTC" },
+  ]);
+  // Nothing is recorded without an approval of a waiting revision of this
+  // owner's that describes the request.
+  x.ops.refused(owner, undefined, attempt);
+  x.ops.refused({ ...owner, account: "robin" }, header, attempt);
+  x.ops.refused(
+    owner,
+    header.replace(/revision="[^"]+"/, 'revision="x"'),
+    attempt,
+  );
+  x.ops.refused(owner, header, { ...attempt, terms: { key: "other" } });
+  x.ops.refused(owner, header, { ...attempt, key: "other" });
+  expect(x.kept).toHaveLength(1);
+  expect(x.kept[0]!.at).toBe("2026-11-25T12:01:00.000Z");
+  // The operation is as it was: the same approval performs it, once.
+  expect(x.ops.gate(owner, header, x.action("pay")).status).toBe(200);
+  expect(x.performed()).toBe(1);
+  expect(x.activity().map((item) => item.state)).toEqual([
+    "succeeded",
+    "refused",
+  ]);
+  // A performed operation has its answer, and an expired one none to give.
+  x.ops.refused(owner, header, attempt);
+  const late = approval(x.propose("late"));
+  x.clock.now += 11 * 60000;
+  x.ops.refused(owner, late, { ...attempt, key: "late", terms: {} });
+  expect(x.kept).toHaveLength(2);
+});
+
 it("keeps the newest 20 per account for 90 days, at most 5 of them requests that changed nothing", () => {
   const x = gate();
   for (let i = 1; i <= 25; i++) {
