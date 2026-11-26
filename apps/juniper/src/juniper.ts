@@ -77,6 +77,11 @@ const paths = {
     },
   },
 };
+/** The API's entry in `apis`; a reference to it repeats this URL (§9.2). */
+const openapiUrl = (publicOrigin: string) => `${publicOrigin}/openapi.json`;
+/** The operation that proposes a support case, for the customer to approve. */
+const SUPPORT_CASE_OPERATION =
+  servicePaths["/api/account/case-proposal"].post.operationId;
 
 const delivery = {
   days: ["Tuesday", "Thursday", "Saturday"],
@@ -179,7 +184,7 @@ export function juniperCompany(options: {
         apis: [
           {
             type: "openapi",
-            url: `${publicOrigin}/openapi.json`,
+            url: openapiUrl(publicOrigin),
             description:
               "Products, delivery information, opening hours, and returns policies",
           },
@@ -208,7 +213,9 @@ export function juniperCompany(options: {
         { task: "Delete my account" },
       ];
     },
-    // §9.3: Juniper's own matching, no model. Other reports get a plain 202.
+    // §9.3: Juniper's own matching, no model. A report it has no particular
+    // answer for is still something its staff can take up, so every report
+    // gets an alternative and none a plain 202.
     feedback: ({ task, description }, publicOrigin) => {
       const said = `${task} ${description}`.toLowerCase();
       if (/gift ?card|voucher|business account|bulk|invoice address/.test(said))
@@ -216,7 +223,17 @@ export function juniperCompany(options: {
           instructions: `Gift cards, business accounts and bulk orders are handled by customer service at ${PHONE} (fictional number). The help page lists the frequent questions.`,
           references: [{ type: "web", url: `${publicOrigin}/help` }],
         };
-      return undefined;
+      return {
+        instructions:
+          "What Juniper's API, agent and website can't do can be asked of its staff in a support case. Opening one needs the customer signed in with the permission to propose changes (poppy:write), and the customer approves the case's exact words before it is created. A person reviews the case; in this demo the first reply is an automatic test reply.",
+        references: [
+          {
+            type: "openapi",
+            url: openapiUrl(publicOrigin),
+            operation_id: SUPPORT_CASE_OPERATION,
+          },
+        ],
+      };
     },
     // The home page shows product photos from its own origin, nothing else.
     pageHeaders: {
