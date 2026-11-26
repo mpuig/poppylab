@@ -171,13 +171,13 @@ it("speaks about the proposal something happened to last, not the last in the li
   // The list keeps the order the proposals came in; the decline is still
   // the news when the declined proposal came first.
   expect(hintFor(proposal("declined", { changed: 2000 }), done)).toBe(declined);
-  // All four steps stay ticked: a change did go through.
+  // "Approve it" is not ticked beside it: that proposal wasn't approved.
   expect(
     guideStep({
       ...asked,
       ...guideProposals([done, proposal("declined", { changed: 2000 })]),
     }),
-  ).toBe(4);
+  ).toBe(3);
   // A change that went through after the decline is the news again.
   expect(
     hintFor(
@@ -216,6 +216,44 @@ it("speaks about the proposal something happened to last, not the last in the li
   expect(hintFor(refused, proposal("declined", { changed: 5000 }))).toContain(
     "refused the approval and performed nothing",
   );
+});
+
+it("ticks Approve it only beside a change that went through", () => {
+  const done = proposal("succeeded", { changed: 1000 });
+  const state = (...operations: GuideOperation[]) => ({
+    ...asked,
+    ...guideProposals(operations),
+  });
+  expect(guideStep(state(done))).toBe(4);
+  // The markers follow the proposal something happened to last, as the
+  // sentence does: one that ended with nothing performed is not ticked,
+  // with or without an earlier change that went through.
+  for (const how of ["declined", "expired", "refused", "superseded"])
+    for (const earlier of [[done], []]) {
+      const now = state(...earlier, proposal(how, { changed: 2000 }));
+      expect(guideStep(now)).toBe(3);
+      expect(guideHint(now, juniper)).not.toContain("Done");
+    }
+  // Terms that ran out while the server still calls them proposed.
+  expect(
+    guideStep(
+      state(
+        done,
+        proposal("proposed", {
+          changed: 2000,
+          expires_at: new Date(Date.now() - 1).toISOString(),
+        }),
+      ),
+    ),
+  ).toBe(3);
+  // A change that went through since is ticked again, and says Done.
+  const again = state(
+    done,
+    proposal("declined", { changed: 2000 }),
+    proposal("succeeded", { changed: 3000 }),
+  );
+  expect(guideStep(again)).toBe(4);
+  expect(guideHint(again, juniper)).toContain("performed the change once");
 });
 
 it("counts a proposal that ran out as ended when its terms expired", () => {

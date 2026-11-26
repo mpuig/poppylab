@@ -114,13 +114,16 @@ export type GuideContext = {
 
 /**
  * The step the visitor is on, 0 to 3, or 4 once a change went through and
- * no other proposal waits for them.
+ * no other proposal waits for them. The markers follow the proposal
+ * something happened to last, as the sentence does: "Approve it" is not
+ * ticked beside a sentence about a proposal that ended with nothing
+ * performed, whatever went through before it.
  */
 export function guideStep(state: GuideState) {
   if (!state.connected) return 0;
   if (!state.signedIn) return 1;
   if (!state.proposals) return 2;
-  if (state.waiting || !state.completed) return 3;
+  if (state.waiting || state.ended || !state.completed) return 3;
   return 4;
 }
 
