@@ -347,7 +347,12 @@ export type Gate = (c: Context, action: Action) => Response;
  * request's `Poppy-Approval` names a waiting revision of that action.
  */
 export type Refused = (c: Context, refusal: Refusal) => void;
-/** The account's own grants, for a Company website's "connected agents". */
+/**
+ * The account's own grants, for a Company website's "connected agents".
+ * With `isolation: "visitor"` they are the ones the tenant's agent user
+ * holds and, until an agent first uses it, the one the browser of the
+ * request approved: call it while answering that browser's request.
+ */
 export type GrantAccess = {
   list: (account: string) => Array<{
     id: string;

@@ -5,6 +5,7 @@
  * request's own grant, and the final dispatch that routes website browsers
  * to their copy.
  */
+import { AsyncLocalStorage } from "node:async_hooks";
 import { Hono, type Context } from "hono";
 import { randomId } from "@poppy-lab/pap-client/core";
 import { approvals } from "../approvals.ts";
@@ -16,6 +17,7 @@ import {
   SHARED_TENANT,
   type ConversationHandler,
   type Gate,
+  type Grant,
   type GrantAccess,
   type GrantView,
   type Refused,
@@ -49,15 +51,32 @@ export function createTenancy(ctx: Ctx) {
       c.req.header("poppy-approval"),
       refusal,
     );
-  // Grants visible to a tenant's website: all in shared mode, else its own.
+  /**
+   * The browser a website request comes from (hash of `pap_browser`), while
+   * the tenant's routes answer it. A tenant's routes are mounted once and
+   * answer every browser that sees that copy, so what only one of those
+   * browsers may see can't go by tenant.
+   */
+  const viewer = new AsyncLocalStorage<string | undefined>();
+  /**
+   * Whether a tenant's website has that grant: all in shared mode, else
+   * the tenant's own. A grant has no holder until the agent first uses it;
+   * until then only the browser that approved its consent has it, so the
+   * customer sees the agent they allowed without waiting for its next
+   * request, and nobody else's copy shows a grant that isn't theirs yet.
+   */
+  const has = (tenant: string, g: Grant) =>
+    !isolated ||
+    (g.holder
+      ? g.holder === tenant
+      : !!g.browser && g.browser === viewer.getStore());
+  // Grants on a tenant's website, for the account its browser is logged in to.
   const grantsOf = (tenant: string): GrantAccess => ({
     list: (account) =>
       Object.values(state.grants)
         .filter(
           (g) =>
-            g.account === account &&
-            g.expires > Date.now() &&
-            (!isolated || g.holder === tenant),
+            g.account === account && g.expires > Date.now() && has(tenant, g),
         )
         .map((g) => {
           const expires_at = new Date(g.expires).toISOString();
@@ -74,10 +93,7 @@ export function createTenancy(ctx: Ctx) {
         }),
     revoke(account, id) {
       const found = Object.entries(state.grants).find(
-        ([, g]) =>
-          g.account === account &&
-          g.id === id &&
-          (!isolated || g.holder === tenant),
+        ([, g]) => g.account === account && g.id === id && has(tenant, g),
       );
       if (!found) return false;
       delete state.grants[found[0]];
@@ -213,9 +229,11 @@ export function createTenancy(ctx: Ctx) {
   function mountDispatch(app: Hono) {
     app.all("*", async (c) => {
       const path = new URL(c.req.url).pathname;
-      let cookie: string | undefined, own: string | undefined;
+      let cookie: string | undefined,
+        own: string | undefined,
+        browser: string | undefined;
       if (isolated && website(path)) {
-        let browser = ctx.browserOf(c);
+        browser = ctx.browserOf(c);
         if (!browser) {
           const raw = randomId();
           cookie = ctx.browserCookie(raw);
@@ -228,7 +246,9 @@ export function createTenancy(ctx: Ctx) {
       }
       const entry = enter(c.req.raw);
       if (own) follow(c.req.raw, own, entry.tenant);
-      const response = await entry.app.fetch(c.req.raw);
+      const response = await viewer.run(browser, () =>
+        entry.app.fetch(c.req.raw),
+      );
       if (!cookie) return response;
       const copy = new Response(response.body, response);
       copy.headers.append("Set-Cookie", cookie);
