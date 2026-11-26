@@ -72,6 +72,7 @@ import {
   type TasksResponse,
 } from "@poppy-lab/pap-core";
 import type { Approval } from "@poppy-lab/pap-client";
+import type { Removing } from "./company-commands";
 import type { KeptLine } from "./inspector-log";
 import type { OfferedTool } from "./routing";
 import type { TranscriptEntry } from "./transcript";
@@ -401,6 +402,11 @@ export type Run = {
    * User which one: their next message can say it (`routing.ts`).
    */
   waiting?: string;
+  /**
+   * A removal Iris asked the User to confirm, kept while it asks: their
+   * next message, or a button, says yes or no (`company-commands.ts`).
+   */
+  removing?: Removing;
   /** When the conversation started, and its first request, for the list. */
   created?: number;
   title?: string;

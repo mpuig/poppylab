@@ -5,22 +5,50 @@
  *
  * Connecting is discovery and nothing else: no sign-in is started and
  * nothing is sent on the User's behalf. Removing a signed-in Company
- * revokes its grant there, as the page's own button does.
+ * revokes its grant there, as the page's own button does, and drops its
+ * waiting proposals. So Iris asks before it removes one that is signed in
+ * or has a proposal waiting, and before any removal the User asked for in
+ * words that are also said about an order ("remove Lantern"): nothing is
+ * revoked or removed until the User confirms.
  */
 import { PapDiscoveryError } from "@poppy-lab/pap-core";
 import type { Nameable } from "./company-names";
 import type { ConnectCommand } from "./connect-command";
 import { connectCompany } from "./connecting";
-import { companyName, connectionAt } from "./connections";
+import {
+  companyName,
+  connectionAt,
+  MAX_CONNECTIONS,
+  nameFor,
+  originOf,
+} from "./connections";
 import { keepLines } from "./inspector-log";
-import { removeCompany, type Removal } from "./removing";
+import { removalRefusal, removeCompany, type Removal } from "./removing";
 import type { Connection, Run } from "./runtime";
 
 /**
- * A reply the page can offer as a button: pressing it sends `say` as the
- * User's next message, as if they had typed it.
+ * What a button of Iris's answers when it is pressed. It names Companies
+ * by origin and is never words to read again: `remove` confirms taking
+ * these Companies out of the conversation, `keep` leaves them in.
  */
-export type Choice = { label: string; say: string };
+export type Answer = { remove: string[] } | { keep: string[] };
+
+/**
+ * A reply the page can offer as a button. Pressing one with `say` sends
+ * those words as the User's next message, as if they had typed them. One
+ * with `answer` sends that back to the chat route in place of a message,
+ * and the page shows `label` as what the User said.
+ */
+export type Choice =
+  { label: string; say: string } | { label: string; answer: Answer };
+
+/** A removal Iris asked the User to confirm, kept until they answer. */
+export type Removing = {
+  /** The Companies to remove, by origin. */
+  remove: string[];
+  /** What else the message asked, to ask once they are removed. */
+  rest?: string;
+};
 
 export type Performed = {
   /** Iris's answer as the page shows it. */
@@ -44,6 +72,8 @@ export type Performed = {
   rest?: string;
   /** The Company to ask it of, when connecting one settled that. */
   at?: Connection;
+  /** Iris asked whether to remove these: nothing was removed yet. */
+  ask?: Removing;
 };
 
 /** "A", "A and B", "A, B and C". */
@@ -71,11 +101,130 @@ const labLine = (lab: readonly Nameable[]) =>
     "and",
   )}. To connect another company, type its address in the address box.`;
 
+/**
+ * An answer as a request carries it: one kind, and one to three origins.
+ * Nothing for anything else, words included.
+ */
+export function readAnswer(value: unknown): Answer | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    return undefined;
+  const [[kind, origins] = [], ...more] = Object.entries(value);
+  if (
+    more.length ||
+    (kind !== "remove" && kind !== "keep") ||
+    !Array.isArray(origins) ||
+    !origins.length ||
+    origins.length > MAX_CONNECTIONS ||
+    !origins.every(
+      (origin): origin is string =>
+        typeof origin === "string" && !!origin && origin.length <= 2048,
+    )
+  )
+    return undefined;
+  return kind === "remove" ? { remove: origins } : { keep: origins };
+}
+
+/** What the button for an answer says, which is also the User's line. */
+export function answerLabel(
+  run: Pick<Run, "connections" | "former">,
+  answer: Answer,
+) {
+  const names = ("remove" in answer ? answer.remove : answer.keep).map(
+    (origin) => nameFor(run, originOf({ url: origin })),
+  );
+  return `${"remove" in answer ? "Remove" : "Keep"} ${listed(names, "and")}`;
+}
+
+/** The Companies an answer names, as a request to remove them names them. */
+export const companiesAt = (
+  run: Pick<Run, "connections" | "former">,
+  origins: readonly string[],
+): Nameable[] =>
+  origins.map((origin) => ({
+    url: origin,
+    name: nameFor(run, originOf({ url: origin })),
+  }));
+
+/** Whether an answer names the Companies Iris asked about, all of them. */
+export const answers = (asked: Removing, origins: readonly string[]) => {
+  const named = new Set(origins.map((origin) => originOf({ url: origin })));
+  return (
+    named.size === asked.remove.length &&
+    asked.remove.every((origin) => named.has(origin))
+  );
+};
+
+/**
+ * "yes" or "no", typed in answer to Iris asking whether to remove a
+ * Company. Only these few: any other message is a message, and the
+ * question is dropped.
+ */
+export function typedAnswer(
+  message: string,
+  asked: Removing,
+): Answer | undefined {
+  const said = message
+    .trim()
+    .toLowerCase()
+    .replace(/[.!]+$/, "")
+    .replace(/[,’']/g, "")
+    .replace(/\s+/g, " ")
+    .replace(/ please$/, "");
+  if (
+    /^(?:yes|yes remove (?:it|them)|remove (?:it|them)|confirm|go ahead)$/.test(
+      said,
+    )
+  )
+    return { remove: asked.remove };
+  if (
+    /^(?:no|no thanks|no keep (?:it|them)|keep (?:it|them)|cancel|dont|never mind)$/.test(
+      said,
+    )
+  )
+    return { keep: asked.remove };
+  return undefined;
+}
+
+/** The User chose to keep the Companies Iris asked about. */
+export function keepCompanies(
+  run: Run,
+  origins: readonly string[],
+  rest?: string,
+): Performed {
+  const kept = origins.flatMap((origin) => {
+    const connection = connectionAt(run, origin);
+    return connection ? [connection] : [];
+  });
+  const names = kept.map(companyName);
+  const say = [
+    ...(kept.length
+      ? [
+          `${listed(names, "and")} ${kept.length > 1 ? "stay" : "stays"} connected. Nothing was removed${kept.some((c) => c.accountToken) ? " or revoked" : ""}.`,
+        ]
+      : ["Nothing was removed."]),
+    ...(rest ? ["The rest of your message wasn't asked of anyone."] : []),
+  ].join(" ");
+  const about = kept.at(-1);
+  return {
+    say,
+    told: say,
+    ...(about ? { about } : {}),
+    changed: false,
+    trace: [],
+  };
+}
+
+/**
+ * Carries out a request about the conversation's Companies. `confirmed`
+ * says the User answered Iris's question about this very removal: without
+ * it a removal that needs asking is asked, not done.
+ */
 export async function performCommand(
   run: Run,
   command: ConnectCommand,
   lab: readonly Nameable[],
   allowedPrivateOrigins: string[],
+  confirmed = false,
 ): Promise<Performed> {
   const connecting = command.verb === "connect";
   if ("which" in command) {
@@ -117,7 +266,40 @@ export async function performCommand(
   }
   return connecting
     ? connect(run, command.companies, command.rest, allowedPrivateOrigins)
-    : remove(run, command.companies, command.rest);
+    : remove(run, command.companies, command.rest, command.sure, confirmed);
+}
+
+/** The proposals of a Company that still wait for the User. */
+const waitingAt = (connection: Connection) =>
+  Object.values(connection.operations ?? {}).filter(
+    (op) => op.state === "proposed" && Date.parse(op.expires_at) > Date.now(),
+  ).length;
+
+/**
+ * Iris's question before a removal, with what the removal takes with it:
+ * the access the User gave, what was read with it, a waiting proposal.
+ */
+function removalQuestion(found: readonly Connection[], rest: string) {
+  const one = found.length === 1;
+  const signedIn = found.filter((c) => c.accountToken).map(companyName);
+  const waiting = found.reduce((sum, c) => sum + waitingAt(c), 0);
+  return [
+    `Remove ${listed(found.map(companyName), "and")} from this conversation?`,
+    ...(signedIn.length
+      ? [
+          `That revokes the access you gave Iris ${one ? "there" : `at ${listed(signedIn, "and")}`}, and what Iris read with your account there no longer shows.`,
+        ]
+      : []),
+    ...(waiting
+      ? [
+          `${waiting > 1 ? `${waiting} proposals that wait for your approval are` : "A proposal that waits for your approval is"} dropped with ${one ? "it" : "them"}.`,
+        ]
+      : []),
+    ...(!signedIn.length && !waiting
+      ? [`You can connect ${one ? "it" : "them"} again at any time.`]
+      : []),
+    ...(rest ? ["Iris asks the rest of your message after that."] : []),
+  ].join(" ");
 }
 
 async function connect(
@@ -203,6 +385,8 @@ async function remove(
   run: Run,
   companies: readonly Nameable[],
   rest: string,
+  sure: boolean,
+  confirmed: boolean,
 ): Promise<Performed> {
   const notes: string[] = [];
   const trace: string[] = [];
@@ -210,12 +394,46 @@ async function remove(
   let left: Performed["left"];
   let withAccount = false;
   let removed = 0;
+  // The ones that can be removed: connected, and with no approval out.
+  const found: Connection[] = [];
   for (const company of companies) {
     const connection = connectionAt(run, company.url);
-    if (!connection) {
+    const refusal = connection && removalRefusal(connection);
+    if (!connection)
       notes.push(`This conversation isn't connected to ${company.name}.`);
-      continue;
-    }
+    else if (refusal) notes.push(refusal.refused.error);
+    else if (!found.includes(connection)) found.push(connection);
+  }
+  // Asked first, all of them in one question: on words that are also
+  // said about an order, and whenever access would be revoked or a
+  // waiting proposal dropped. Nothing is sent or removed until then.
+  if (
+    found.length &&
+    !confirmed &&
+    (!sure || found.some((c) => c.accountToken || waitingAt(c)))
+  ) {
+    const origins = found.map(originOf);
+    const say = [...notes, removalQuestion(found, rest)].join(" ");
+    return {
+      say,
+      told: say,
+      about: { url: found.at(-1)!.url },
+      changed: false,
+      trace,
+      choices: [
+        {
+          label: answerLabel(run, { remove: origins }),
+          answer: { remove: origins },
+        },
+        {
+          label: answerLabel(run, { keep: origins }),
+          answer: { keep: origins },
+        },
+      ],
+      ask: { remove: origins, ...(rest ? { rest } : {}) },
+    };
+  }
+  for (const connection of found) {
     const name = companyName(connection);
     const removal = await removeCompany(run, connection);
     if (removal.refused) {

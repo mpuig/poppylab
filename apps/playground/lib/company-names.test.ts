@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { answeredWith, namedBy, namedIn, plain } from "./company-names";
+import {
+  answeredWith,
+  namedBy,
+  namedIn,
+  namedPlainly,
+  plain,
+} from "./company-names";
 
 const lantern = {
   url: "https://food.example",
   name: "Lantern Noodle Bar",
-  words: ["restaurant", "noodles", "the noodle bar"],
+  words: ["restaurant", "the noodle bar"],
 };
 const harborline = {
   url: "https://bank.example",
@@ -31,16 +37,13 @@ describe("the Companies a person names", () => {
     ["Lantern Noodle Bar", "Lantern Noodle Bar"],
     ["lantern", "Lantern Noodle Bar"],
     ["LANTERN NOODLE", "Lantern Noodle Bar"],
-    ["the restaurant", "Lantern Noodle Bar"],
-    ["The Noodle Bar.", "Lantern Noodle Bar"],
+    ["the Lantern", "Lantern Noodle Bar"],
     ["Harborline", "Harborline Bank"],
-    ["the bank", "Harborline Bank"],
-    ["my bank", "Harborline Bank"],
     ["Fernwick Power & Light", "Fernwick Power & Light"],
     ["fernwick power and light", "Fernwick Power & Light"],
-    ["the power company", "Fernwick Power & Light"],
   ])("takes “%s” for %s", (said, name) => {
     expect(names(namedBy(said, all))).toEqual([name]);
+    expect(names(namedPlainly(said, all))).toEqual([name]);
   });
 
   it.each([
@@ -54,8 +57,50 @@ describe("the Companies a person names", () => {
     "harbor",
     "bank-demo.poppylab.dev",
     "https://food.example",
+    // What kind of company it is, is no name for it.
+    "the restaurant",
+    "The Noodle Bar.",
+    "the bank",
+    "my bank",
+    "the power company",
   ])("takes “%s” for none: a name, and nothing more than a name", (said) => {
     expect(namedBy(said, all)).toEqual([]);
+  });
+
+  it.each([
+    ["the restaurant", "Lantern Noodle Bar"],
+    ["The Noodle Bar.", "Lantern Noodle Bar"],
+    ["the bank", "Harborline Bank"],
+    ["my bank", "Harborline Bank"],
+    ["the power company", "Fernwick Power & Light"],
+  ])(
+    "takes “%s” for %s where the words can only mean a Company",
+    (said, name) => {
+      expect(names(namedPlainly(said, all))).toEqual([name]);
+    },
+  );
+
+  it("goes by the lab's name for it as well as its own", () => {
+    const juniper = {
+      url: "https://shop.example",
+      name: "Juniper",
+      alias: "Juniper Market",
+    };
+    for (const said of ["Juniper", "Juniper Market", "juniper market."])
+      expect(names(namedBy(said, [juniper, ...all]))).toEqual(["Juniper"]);
+  });
+
+  it("takes a host that stands in for a name in full only", () => {
+    // Not read yet, so it goes by its host: "noodles" is no name for it.
+    const unread = {
+      url: "http://noodles.localhost:4200",
+      name: "noodles.localhost:4200",
+    };
+    expect(namedBy("noodles", [unread])).toEqual([]);
+    expect(namedIn("remove the noodles", [unread])).toEqual([]);
+    expect(names(namedBy("noodles.localhost:4200", [unread]))).toEqual([
+      "noodles.localhost:4200",
+    ]);
   });
 
   it("finds every Company named somewhere in the words, a name before a plain word", () => {
@@ -77,7 +122,7 @@ describe("the Companies a person names", () => {
     expect(namedIn("lanterns and banking", all)).toEqual([]);
   });
 
-  it("gives two when the words fit two", () => {
+  it("gives two when the words fit two, and one for a name said in full", () => {
     const twin = { url: "https://trust.example", name: "Harborline Trust" };
     expect(names(namedBy("Harborline", [...all, twin]))).toEqual([
       "Harborline Bank",
@@ -85,6 +130,14 @@ describe("the Companies a person names", () => {
     ]);
     expect(names(namedBy("Harborline Trust", [...all, twin]))).toEqual([
       "Harborline Trust",
+    ]);
+    // One Company's whole name is the start of another's.
+    const short = { url: "https://h.example", name: "Harborline" };
+    expect(names(namedBy("Harborline", [...all, short]))).toEqual([
+      "Harborline",
+    ]);
+    expect(names(namedBy("Harborline Bank", [...all, short]))).toEqual([
+      "Harborline Bank",
     ]);
   });
 });
@@ -94,10 +147,10 @@ describe("an answer to “Which company is this for?”", () => {
     ["Lantern", "Lantern Noodle Bar"],
     ["Lantern Noodle Bar", "Lantern Noodle Bar"],
     ["for Lantern", "Lantern Noodle Bar"],
-    ["It's for the bank, please", "Harborline Bank"],
-    ["the bank.", "Harborline Bank"],
+    ["It's for Harborline, please", "Harborline Bank"],
+    ["Harborline Bank.", "Harborline Bank"],
     ["ask Harborline", "Harborline Bank"],
-    ["that's the utility", "Fernwick Power & Light"],
+    ["that's Fernwick", "Fernwick Power & Light"],
   ])("takes “%s” for %s", (said, name) => {
     expect(answeredWith(said, all)?.name).toBe(name);
   });
@@ -108,6 +161,11 @@ describe("an answer to “Which company is this for?”", () => {
     "both",
     "the first one",
     "Lantern, and show me the menu",
+    // Only a name answers: these are also said about an order.
+    "the bank",
+    "It's for the bank, please",
+    "the restaurant",
+    "that's the utility",
   ])("takes “%s” for no answer", (said) => {
     expect(answeredWith(said, all)).toBeUndefined();
   });

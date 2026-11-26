@@ -29,6 +29,11 @@ export const LAB_AUTHOR = {
  * person may use for it instead of its name, such as "the bank": Iris
  * matches what they type in the chat against these and the names here,
  * and never against anything else. No two Companies share a word.
+ *
+ * Each word says what kind of company it is, never what it sells: "remove
+ * the noodles" and "add flights" are what a person says to a Company
+ * about an order, and Iris reads these words only after "connect with",
+ * "connect to" and "disconnect from".
  */
 export function labSites(origin: string) {
   const local = /(^|\.)localhost$/.test(new URL(origin).hostname);
@@ -48,7 +53,7 @@ export function labSites(origin: string) {
     {
       id: "juniper" as const,
       label: "Juniper Market",
-      words: ["grocery", "groceries", "grocery store", "supermarket"],
+      words: ["grocery store", "supermarket"],
       url: local
         ? "http://juniper.localhost:4100"
         : "https://grocery-demo.poppylab.dev",
@@ -56,7 +61,7 @@ export function labSites(origin: string) {
     {
       id: "lantern" as const,
       label: "Lantern Noodle Bar",
-      words: ["restaurant", "noodles", "noodle bar", "takeaway"],
+      words: ["restaurant", "noodle bar"],
       url: local
         ? "http://noodles.localhost:4200"
         : "https://food-demo.poppylab.dev",
@@ -72,7 +77,7 @@ export function labSites(origin: string) {
     {
       id: "northwind" as const,
       label: "Northwind Air",
-      words: ["airline", "flights"],
+      words: ["airline"],
       url: local
         ? "http://northwind.localhost:4400"
         : "https://airline-demo.poppylab.dev",
@@ -80,7 +85,7 @@ export function labSites(origin: string) {
     {
       id: "fernwick" as const,
       label: "Fernwick Power & Light",
-      words: ["utility", "power company", "electricity", "energy company"],
+      words: ["utility", "power company", "energy company"],
       url: local
         ? "http://fernwick.localhost:4500"
         : "https://energy-demo.poppylab.dev",

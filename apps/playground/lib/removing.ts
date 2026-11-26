@@ -56,6 +56,25 @@ export type Removal =
     };
 
 /**
+ * Why this Company can't be removed yet, if it can't: asked before the
+ * User is asked to confirm a removal, and again when it is carried out.
+ */
+export function removalRefusal(
+  connection: Connection,
+): Extract<Removal, { operations: Operation[] }> | undefined {
+  const waiting = unsettled(connection);
+  return waiting.length
+    ? {
+        refused: {
+          code: "approval_unsettled",
+          error: unsettledRefusal(companyName(connection)),
+        },
+        operations: waiting,
+      }
+    : undefined;
+}
+
+/**
  * Removes a Company from the conversation (`removeConnection`). Signed in,
  * its grant is revoked there first, as sign-out does (§5.5). A Company
  * that can't be reached is removed all the same, so the User is never
@@ -72,12 +91,8 @@ export async function removeCompany(
   connection: Connection,
 ): Promise<Removal> {
   const name = companyName(connection);
-  const waiting = unsettled(connection);
-  if (waiting.length)
-    return {
-      refused: { code: "approval_unsettled", error: unsettledRefusal(name) },
-      operations: waiting,
-    };
+  const refusal = removalRefusal(connection);
+  if (refusal) return refusal;
   let revoked: boolean | undefined;
   if (connection.accountToken) {
     try {

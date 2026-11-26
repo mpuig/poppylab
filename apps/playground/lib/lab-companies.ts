@@ -20,8 +20,8 @@ export const labCompanies = (origin: string): Nameable[] =>
 
 /**
  * A connected Company as the User may name it: by its own name, and when
- * it is one of the lab's, by the lab's name and plain words for it too
- * ("the bank").
+ * it is one of the lab's, by the lab's name for it too, with the lab's
+ * plain words for the kind of company it is ("the bank").
  */
 export function nameable(
   connection: Pick<Connection, "url" | "company">,
@@ -31,6 +31,8 @@ export function nameable(
   return {
     url: connection.url,
     name: companyName(connection),
-    ...(listed ? { words: [listed.name, ...(listed.words ?? [])] } : {}),
+    ...(listed
+      ? { alias: listed.name, ...(listed.words ? { words: listed.words } : {}) }
+      : {}),
   };
 }

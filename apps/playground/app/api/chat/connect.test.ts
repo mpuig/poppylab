@@ -41,6 +41,7 @@ vi.mock("@/lib/deployment", async (importOriginal) => ({
 }));
 import { createIdentity } from "@poppy-lab/pap-client";
 import { PapDiscoveryError } from "@poppy-lab/pap-core";
+import { labCompanies as cards } from "@/app/playground/companies";
 import { connected, discovered } from "@/lib/company-fixture";
 import { seedRun } from "@/lib/runs";
 import type { Run } from "@/lib/runtime";
@@ -52,11 +53,13 @@ const shop = "http://juniper.localhost:4100";
 const food = "http://noodles.localhost:4200";
 const bank = "http://harbor.localhost:4300";
 const air = "http://northwind.localhost:4400";
+const power = "http://fernwick.localhost:4500";
 const names: Record<string, string> = {
   [shop]: "Juniper Market",
   [food]: "Lantern Noodle Bar",
   [bank]: "Harborline Bank",
   [air]: "Northwind Air",
+  [power]: "Fernwick Power & Light",
 };
 const juniper = { origin: shop, name: "Juniper Market" };
 const lantern = { origin: food, name: "Lantern Noodle Bar" };
@@ -91,7 +94,7 @@ async function conversation(origins = [shop], signedIn: string[] = []) {
   await seedRun("v".repeat(43), id, run);
   return run;
 }
-const say = async (message: string, more: Record<string, unknown> = {}) => {
+const post = async (body: Record<string, unknown>) => {
   const response = await POST(
     new Request("http://localhost:3000/api/chat", {
       method: "POST",
@@ -100,16 +103,15 @@ const say = async (message: string, more: Record<string, unknown> = {}) => {
         "Content-Type": "application/json",
         "X-Poppy-Conversation": id,
       },
-      body: JSON.stringify({
-        message,
-        provider: "demo",
-        companies: true,
-        ...more,
-      }),
+      body: JSON.stringify({ provider: "demo", companies: true, ...body }),
     }),
   );
   return { status: response.status, answer: await response.json() };
 };
+const say = (message: string, more: Record<string, unknown> = {}) =>
+  post({ message, ...more });
+/** Presses one of the buttons under Iris's answer: its `answer` goes back. */
+const press = (choice: { answer: unknown }) => post({ answer: choice.answer });
 const sent = () =>
   transport.mock.calls.map(([url, init]) => ({
     url,
@@ -251,7 +253,7 @@ describe("“connect with <Company>”, typed in the chat", () => {
 
   it("connects several at once, up to three in the conversation", async () => {
     const run = await conversation();
-    const turn = await say("add Lantern, the bank and the airline");
+    const turn = await say("connect with Lantern, the bank and the airline");
     expect(turn.answer.text).toBe(
       `Connected to Lantern Noodle Bar and Harborline Bank. Lantern Noodle Bar describes what it offers as ${offers("Lantern Noodle Bar")}. Harborline Bank describes what it offers as ${offers("Harborline Bank")}. A conversation works with at most 3 companies. Remove one to connect another. You can ask them something now. Signing in is offered when a request needs your account at one of them.`,
     );
@@ -386,11 +388,34 @@ describe("“connect with <Company>”, typed in the chat", () => {
 });
 
 describe("“disconnect from <Company>”, typed in the chat", () => {
-  it("revokes a signed-in Company's grant there and removes it, saying what is left", async () => {
+  it("asks before it removes a signed-in Company, then revokes its grant there and removes it, saying what is left", async () => {
     const run = await conversation([shop, food], [shop, food]);
     recordTurn(run, run.connections[0]!, "my orders", "Order 7 for Elena.");
     recordTurn(run, run.connections[1]!, "my orders", "Order 12 for Dana.");
-    const turn = await say("disconnect from Juniper");
+    const asked = await say("disconnect from Juniper");
+    expect(asked.status).toBe(200);
+    const question =
+      "Remove Juniper Market from this conversation? That revokes the access you gave Iris there, and what Iris read with your account there no longer shows.";
+    expect(asked.answer).toMatchObject({
+      text: question,
+      mode: "iris",
+      trace: [],
+      choices: [
+        { label: "Remove Juniper Market", answer: { remove: [shop] } },
+        { label: "Keep Juniper Market", answer: { keep: [shop] } },
+      ],
+    });
+    expect(asked.answer).not.toHaveProperty("connections");
+    // Nothing was sent, revoked or removed.
+    expect(transport).not.toHaveBeenCalled();
+    expect(run.connections.map((c) => c.url)).toEqual([shop, food]);
+    expect(run.connections[0]!.accountToken).toBe(
+      "refresh-juniper.localhost:4100",
+    );
+    expect(JSON.stringify(run.transcript)).toContain("Elena");
+
+    // The User presses "Remove Juniper Market".
+    const turn = await press(asked.answer.choices[0]);
     expect(turn.status).toBe(200);
     const text =
       "Juniper Market was removed from this conversation, and the access you gave Iris there was revoked. What Iris read with your account there no longer shows. You can connect it again at any time.";
@@ -413,11 +438,17 @@ describe("“disconnect from <Company>”, typed in the chat", () => {
     // What the page still shows from before this turn.
     expect(
       turn.answer.history.map((e: { content: string }) => e.content),
-    ).toEqual(["my orders", "Order 12 for Dana."]);
+    ).toEqual([
+      "my orders",
+      "Order 12 for Dana.",
+      "disconnect from Juniper",
+      question,
+    ]);
     expect(run.connections.map((c) => c.url)).toEqual([food]);
     expect(JSON.stringify(run)).not.toMatch(/Elena|refresh-juniper/);
+    // The page showed the button's label as the User's line.
     expect(shown(run).slice(-2)).toEqual([
-      ["user", "disconnect from Juniper", shop],
+      ["user", "Remove Juniper Market", shop],
       ["assistant", text, shop],
     ]);
     // The line is kept once.
@@ -428,7 +459,9 @@ describe("“disconnect from <Company>”, typed in the chat", () => {
 
   it("removes a signed-out Company without sending anything, and goes on with the rest", async () => {
     const run = await conversation([shop, food]);
-    const turn = await say("remove Juniper and what are your products?");
+    const turn = await say(
+      "disconnect from Juniper and what are your products?",
+    );
     expect(turn.answer).toMatchObject({
       before:
         "Juniper Market was removed from this conversation. You can connect it again at any time.",
@@ -442,7 +475,9 @@ describe("“disconnect from <Company>”, typed in the chat", () => {
 
   it("asks which Company the rest is for when two are left, and shows the message once", async () => {
     const run = await conversation([shop, food, bank]);
-    const turn = await say("remove Juniper and what are your products?");
+    const turn = await say(
+      "disconnect from Juniper and what are your products?",
+    );
     expect(turn.answer).toMatchObject({
       before:
         "Juniper Market was removed from this conversation. You can connect it again at any time.",
@@ -453,12 +488,12 @@ describe("“disconnect from <Company>”, typed in the chat", () => {
     expect(turn.answer.connections).toHaveLength(2);
     expect(transport).not.toHaveBeenCalled();
     expect(shown(run)).toEqual([
-      ["user", "remove Juniper and what are your products?", shop],
+      ["user", "disconnect from Juniper and what are your products?", shop],
       ["assistant", turn.answer.before, shop],
       ["assistant", turn.answer.text, undefined],
     ]);
     // The rest waits for the name of one of them.
-    const answered = await say("the bank");
+    const answered = await say("Harborline");
     expect(answered.answer.from).toEqual({
       origin: bank,
       name: "Harborline Bank",
@@ -488,7 +523,7 @@ describe("“disconnect from <Company>”, typed in the chat", () => {
 
   it("says so for a Company the conversation isn't connected to", async () => {
     const run = await conversation([shop, food]);
-    expect((await say("remove the bank")).answer.text).toBe(
+    expect((await say("disconnect from the bank")).answer.text).toBe(
       "This conversation isn't connected to Harborline Bank.",
     );
     expect((await say("disconnect from Acme")).answer.text).toBe(
@@ -507,5 +542,257 @@ describe("“disconnect from <Company>”, typed in the chat", () => {
     expect(turn.answer.connections).toEqual([]);
     expect(turn.answer.signedIn).toBe(false);
     expect(run.connections).toEqual([]);
+  });
+});
+
+describe("words a person says to a Company about an order", () => {
+  it.each([
+    "remove the noodles",
+    "remove noodles",
+    "drop the noodles",
+    "remove the takeaway",
+    "remove groceries",
+    "leave the restaurant",
+    "remove the noodles and add an iced tea",
+    "add noodles",
+    "add groceries",
+    "also noodles",
+    "noodles too",
+    "add flights",
+  ])(
+    "go to the Company: “%s” removes and connects nothing",
+    async (message) => {
+      const run = await conversation([shop, food], [food]);
+      // The User is looking at Lantern, signed in there.
+      const turn = await say(message, { company: food });
+      expect(turn.status).toBe(200);
+      expect(turn.answer.from).toEqual(lantern);
+      expect(turn.answer.mode).toBe("demo");
+      expect(turn.answer).not.toHaveProperty("before");
+      expect(turn.answer).not.toHaveProperty("choices");
+      expect(turn.answer).not.toHaveProperty("connections");
+      // Lantern is still connected and signed in: nothing was revoked, and
+      // no other Company was read.
+      expect(run.connections.map((c) => c.url)).toEqual([shop, food]);
+      expect(run.connections[1]!.accountToken).toBe(
+        "refresh-noodles.localhost:4200",
+      );
+      expect(discover).not.toHaveBeenCalledWith(air, expect.anything());
+      expect(sent().length).toBeGreaterThan(0);
+      for (const request of sent()) {
+        expect(new URL(request.url).origin).toBe(food);
+        expect(request.url).not.toContain("/oauth/revoke");
+      }
+      expect(run.history.at(-2)).toMatchObject({ content: message });
+    },
+  );
+
+  it("go to the Company for every request the page's cards suggest", async () => {
+    for (const card of cards) {
+      const run = await conversation(
+        card.url === shop ? [shop] : [shop, card.url],
+        [card.url],
+      );
+      for (const phrase of [...card.open, ...card.account, card.ask]) {
+        vi.setSystemTime((now += 61_000));
+        const turn = await say(phrase, { company: card.url });
+        expect(turn.answer.from, phrase).toEqual({
+          origin: card.url,
+          name: card.name,
+        });
+        expect(turn.answer, phrase).not.toHaveProperty("before");
+        expect(turn.answer, phrase).not.toHaveProperty("choices");
+      }
+      expect(run.connections.map((c) => c.url)).toContain(card.url);
+      expect(run).not.toHaveProperty("removing");
+    }
+    expect(JSON.stringify(sent())).not.toContain("/oauth/revoke");
+  });
+});
+
+describe("removing a Company on words that could also be about an order", () => {
+  const question =
+    "Remove Lantern Noodle Bar from this conversation? That revokes the access you gave Iris there, and what Iris read with your account there no longer shows.";
+  const choices = [
+    { label: "Remove Lantern Noodle Bar", answer: { remove: [food] } },
+    { label: "Keep Lantern Noodle Bar", answer: { keep: [food] } },
+  ];
+  const removed =
+    "Lantern Noodle Bar was removed from this conversation, and the access you gave Iris there was revoked. What Iris read with your account there no longer shows. You can connect it again at any time.";
+
+  it.each(["remove Lantern", "drop Lantern Noodle Bar", "leave Lantern"])(
+    "asks first for “%s”, and removes nothing until the User confirms",
+    async (message) => {
+      const run = await conversation([shop, food], [food]);
+      const asked = await say(message);
+      expect(asked.answer).toMatchObject({
+        text: question,
+        mode: "iris",
+        choices,
+      });
+      expect(asked.answer).not.toHaveProperty("from");
+      expect(asked.answer).not.toHaveProperty("connections");
+      expect(transport).not.toHaveBeenCalled();
+      expect(run.connections.map((c) => c.url)).toEqual([shop, food]);
+      expect(run.connections[1]!.accountToken).toBe(
+        "refresh-noodles.localhost:4200",
+      );
+      // The button removes it, by the Company's origin.
+      const turn = await press(asked.answer.choices[0]);
+      expect(turn.answer).toMatchObject({ text: removed, mode: "iris" });
+      expect(run.connections.map((c) => c.url)).toEqual([shop]);
+      expect(sent().map((request) => request.url)).toEqual([
+        `${food}/oauth/revoke`,
+      ]);
+      expect(shown(run).slice(-4)).toEqual([
+        ["user", message, food],
+        ["assistant", question, food],
+        ["user", "Remove Lantern Noodle Bar", food],
+        ["assistant", removed, food],
+      ]);
+    },
+  );
+
+  it("asks for a signed-out Company too, and says it can be connected again", async () => {
+    const run = await conversation([shop, food]);
+    const asked = await say("remove Lantern");
+    expect(asked.answer).toMatchObject({
+      text: "Remove Lantern Noodle Bar from this conversation? You can connect it again at any time.",
+      choices,
+    });
+    expect(run.connections).toHaveLength(2);
+    const turn = await press(asked.answer.choices[0]);
+    expect(turn.answer.text).toBe(
+      "Lantern Noodle Bar was removed from this conversation. You can connect it again at any time.",
+    );
+    expect(run.connections.map((c) => c.url)).toEqual([shop]);
+    expect(transport).not.toHaveBeenCalled();
+  });
+
+  it("keeps the Company when the User says so, with the button or in words", async () => {
+    const run = await conversation([shop, food], [food]);
+    const kept =
+      "Lantern Noodle Bar stays connected. Nothing was removed or revoked.";
+    const asked = await say("remove Lantern");
+    const turn = await press(asked.answer.choices[1]);
+    expect(turn.answer).toMatchObject({ text: kept, mode: "iris" });
+    expect(turn.answer).not.toHaveProperty("choices");
+    expect(shown(run).slice(-2)).toEqual([
+      ["user", "Keep Lantern Noodle Bar", food],
+      ["assistant", kept, food],
+    ]);
+    for (const no of ["no", "No, keep it.", "cancel"]) {
+      await say("remove Lantern");
+      expect((await say(no)).answer.text).toBe(kept);
+    }
+    expect(run.connections.map((c) => c.url)).toEqual([shop, food]);
+    expect(run.connections[1]!.accountToken).toBe(
+      "refresh-noodles.localhost:4200",
+    );
+    expect(transport).not.toHaveBeenCalled();
+    expect(run).not.toHaveProperty("removing");
+  });
+
+  it.each(["yes", "Yes, remove it.", "remove it", "go ahead"])(
+    "takes “%s”, typed, as the confirmation",
+    async (yes) => {
+      const run = await conversation([shop, food], [food]);
+      await say("remove Lantern");
+      const turn = await say(yes);
+      expect(turn.answer.text).toBe(removed);
+      expect(run.connections.map((c) => c.url)).toEqual([shop]);
+      expect(shown(run).at(-2)).toEqual(["user", yes, food]);
+    },
+  );
+
+  it("drops the question when the next message is something else", async () => {
+    const run = await conversation([shop, food], [food]);
+    await say("remove Lantern");
+    const turn = await say("What are your products?", { company: shop });
+    expect(turn.answer.from).toEqual(juniper);
+    expect(run).not.toHaveProperty("removing");
+    // "yes" now confirms nothing: it is a message like any other.
+    const later = await say("yes", { company: shop });
+    expect(later.answer.from).toEqual(juniper);
+    expect(run.connections.map((c) => c.url)).toEqual([shop, food]);
+    expect(JSON.stringify(sent())).not.toContain("/oauth/revoke");
+  });
+
+  it("asks again for a button pressed after its question was dropped", async () => {
+    const run = await conversation([shop, food], [food]);
+    const asked = await say("remove Lantern");
+    await say("What are your products?", { company: shop });
+    const turn = await press(asked.answer.choices[0]);
+    expect(turn.answer).toMatchObject({ text: question, choices });
+    expect(run.connections).toHaveLength(2);
+    expect(JSON.stringify(sent())).not.toContain("/oauth/revoke");
+  });
+
+  it("says what a removal drops when a proposal waits there, and asks the rest after it", async () => {
+    const run = await conversation([shop, food], [shop]);
+    run.connections[0]!.operations = {
+      op_1: {
+        operation_id: "op_1",
+        revision: "r1",
+        state: "proposed",
+        expires_at: "2030-01-01T00:00:00Z",
+      },
+    };
+    const asked = await say(
+      "disconnect from Juniper and what are your products?",
+    );
+    expect(asked.answer).toMatchObject({
+      text: "Remove Juniper Market from this conversation? That revokes the access you gave Iris there, and what Iris read with your account there no longer shows. A proposal that waits for your approval is dropped with it. Iris asks the rest of your message after that.",
+      mode: "iris",
+    });
+    expect(asked.answer).not.toHaveProperty("from");
+    expect(transport).not.toHaveBeenCalled();
+    const turn = await press(asked.answer.choices[0]);
+    expect(turn.answer).toMatchObject({
+      before:
+        "Juniper Market was removed from this conversation, and the access you gave Iris there was revoked. What Iris read with your account there no longer shows. You can connect it again at any time.",
+      from: lantern,
+      mode: "demo",
+    });
+    expect(run.connections.map((c) => c.url)).toEqual([food]);
+    expect(run.history.at(-2)!.content).toBe("what are your products?");
+  });
+
+  it("asks about several at once, and removes all of them or none", async () => {
+    const run = await conversation([shop, food, bank], [food]);
+    const asked = await say("remove Juniper and Lantern");
+    expect(asked.answer).toMatchObject({
+      text: "Remove Juniper Market and Lantern Noodle Bar from this conversation? That revokes the access you gave Iris at Lantern Noodle Bar, and what Iris read with your account there no longer shows.",
+      choices: [
+        {
+          label: "Remove Juniper Market and Lantern Noodle Bar",
+          answer: { remove: [shop, food] },
+        },
+        {
+          label: "Keep Juniper Market and Lantern Noodle Bar",
+          answer: { keep: [shop, food] },
+        },
+      ],
+    });
+    expect(run.connections).toHaveLength(3);
+    await press(asked.answer.choices[0]);
+    expect(run.connections.map((c) => c.url)).toEqual([bank]);
+  });
+
+  it("refuses a request that carries both a message and an answer, or an answer it doesn't know", async () => {
+    const run = await conversation([shop, food]);
+    for (const body of [
+      { message: "hello", answer: { remove: [food] } },
+      { answer: { remove: food } },
+      { answer: { remove: [] } },
+      { answer: { erase: [food] } },
+      { answer: "Remove Lantern Noodle Bar" },
+      {},
+    ]) {
+      const turn = await post(body);
+      expect(turn.status, JSON.stringify(body)).toBe(400);
+    }
+    expect(run.connections).toHaveLength(2);
+    expect(run.transcript).toBeUndefined();
   });
 });

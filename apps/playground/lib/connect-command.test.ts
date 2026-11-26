@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { labCompanies as cards } from "../app/playground/companies";
 import { connectCommand } from "./connect-command";
-import { labCompanies } from "./lab-companies";
+import { labCompanies, nameable } from "./lab-companies";
 
 const lab = labCompanies("http://localhost:3000");
 const url = (name: string) => lab.find((c) => c.name.startsWith(name))!.url;
@@ -20,6 +20,9 @@ const read = (message: string, known = { connected, lab }) => {
     return [command.verb, "which", command.which.map((c) => c.name)];
   return [command.verb, "unknown", command.unknown];
 };
+/** Whether the words are only ever meant for this. */
+const sure = (message: string, known = { connected, lab }) =>
+  connectCommand(message, known)?.sure;
 
 describe("the lab's Companies, as a person may name them", () => {
   it("are the lab's five, with a few plain words each and none shared", () => {
@@ -42,9 +45,23 @@ describe("the lab's Companies, as a person may name them", () => {
       "https://energy-demo.poppylab.dev",
     ]);
   });
+
+  it("lists kinds of company for them, and nothing a Company sells", () => {
+    expect(lab.flatMap((c) => c.words ?? [])).toEqual([
+      "grocery store",
+      "supermarket",
+      "restaurant",
+      "noodle bar",
+      "bank",
+      "airline",
+      "utility",
+      "power company",
+      "energy company",
+    ]);
+  });
 });
 
-describe("a request to connect a Company, in the User's words", () => {
+describe("a request to connect a Company, in words only ever meant for that", () => {
   it.each([
     ["connect with Lantern", "Lantern Noodle Bar"],
     ["Connect with Lantern Noodle Bar.", "Lantern Noodle Bar"],
@@ -52,27 +69,22 @@ describe("a request to connect a Company, in the User's words", () => {
     ["connect to Harborline Bank please", "Harborline Bank"],
     ["Please connect with the airline", "Northwind Air"],
     ["Can you connect with Fernwick Power & Light?", "Fernwick Power & Light"],
-    ["Iris, connect me to the restaurant", "Lantern Noodle Bar"],
     ["hey Iris could you connect with Northwind", "Northwind Air"],
     ["I'd like to connect to the utility", "Fernwick Power & Light"],
-    ["connect Lantern", "Lantern Noodle Bar"],
-    ["add Northwind", "Northwind Air"],
-    ["add the bank too", "Harborline Bank"],
-    ["let's add the grocery store", "Juniper"],
-    ["also Harborline Bank", "Harborline Bank"],
-    ["also add Lantern", "Lantern Noodle Bar"],
     ["also connect with Lantern", "Lantern Noodle Bar"],
-    ["plus the airline", "Northwind Air"],
-    ["Harborline too", "Harborline Bank"],
-    ["the bank as well", "Harborline Bank"],
-    ["include Fernwick", "Fernwick Power & Light"],
-    ["bring in Northwind Air", "Northwind Air"],
-    ["link with Lantern", "Lantern Noodle Bar"],
-    // A name inside a few words, after words only ever meant for this.
+    // The plain words name a kind of company, after these words only.
+    ["connect to the restaurant", "Lantern Noodle Bar"],
+    ["connect with the noodle bar", "Lantern Noodle Bar"],
+    ["connect to the grocery store", "Juniper"],
+    ["connect with the supermarket", "Juniper"],
+    ["connect to the power company", "Fernwick Power & Light"],
+    ["connect with my energy company", "Fernwick Power & Light"],
+    // A name inside a few words.
     ["connect with the Lantern restaurant", "Lantern Noodle Bar"],
     ["connect to my Harborline account", "Harborline Bank"],
   ])("takes “%s” for %s", (message, name) => {
     expect(read(message)).toEqual(["connect", name, ""]);
+    expect(sure(message)).toBe(true);
   });
 
   it("takes several Companies at once, each once", () => {
@@ -81,7 +93,7 @@ describe("a request to connect a Company, in the User's words", () => {
       "Lantern Noodle Bar + Harborline Bank",
       "",
     ]);
-    expect(read("add Lantern, the bank and Northwind")).toEqual([
+    expect(read("connect with Lantern, the bank and Northwind")).toEqual([
       "connect",
       "Lantern Noodle Bar + Harborline Bank + Northwind Air",
       "",
@@ -97,7 +109,10 @@ describe("a request to connect a Company, in the User's words", () => {
     ["connect with Lantern and show me the menu", "show me the menu"],
     ["Connect with Lantern. What's on the menu?", "What's on the menu?"],
     ["connect to Lantern, then show me the menu", "show me the menu"],
-    ["add Lantern and then what's on the menu", "what's on the menu"],
+    [
+      "also connect to Lantern and then what's on the menu",
+      "what's on the menu",
+    ],
     ["connect with Lantern; which slots are there?", "which slots are there?"],
   ])("keeps what else “%s” asks, in the User's words", (message, rest) => {
     expect(read(message)).toEqual(["connect", "Lantern Noodle Bar", rest]);
@@ -133,6 +148,11 @@ describe("a request to connect a Company, in the User's words", () => {
       "which",
       ["Harborline Bank", "Harborline Trust"],
     ]);
+    // A whole name is that Company, though another's begins with it.
+    const short = [...lab, { url: "https://h.example", name: "Harborline" }];
+    expect(
+      read("connect with Harborline", { connected: [], lab: short }),
+    ).toEqual(["connect", "Harborline", ""]);
   });
 
   it.each([
@@ -141,12 +161,77 @@ describe("a request to connect a Company, in the User's words", () => {
     ["connect with food-demo.poppylab.dev", "food-demo.poppylab.dev"],
     ["connect to https://evil.example/", "https://evil.example/"],
     ["connect with Lantern show me the menu now", "Lantern show me the menu"],
+    // What a Company sells is no name for it.
+    ["connect with noodles", "noodles"],
+    ["connect to flights", "flights"],
+    ["connect with groceries", "groceries"],
+    ["connect to electricity", "electricity"],
+    ["connect with the takeaway", "the takeaway"],
     ["connect", ""],
     ["Connect.", ""],
     ["connect with a company", ""],
     ["connect to another one", ""],
   ])("says “%s” names no Company it knows", (message, unknown) => {
     expect(read(message)).toEqual(["connect", "unknown", unknown]);
+  });
+});
+
+describe("a request to connect a Company, in words a person also says to a Company", () => {
+  it.each([
+    ["connect Lantern", "Lantern Noodle Bar"],
+    ["Iris, connect me to Lantern", "Lantern Noodle Bar"],
+    ["add Northwind", "Northwind Air"],
+    ["add Harborline too", "Harborline Bank"],
+    ["let's add Juniper", "Juniper"],
+    ["add Juniper Market", "Juniper"],
+    ["also Harborline Bank", "Harborline Bank"],
+    ["also add Lantern", "Lantern Noodle Bar"],
+    ["plus Northwind", "Northwind Air"],
+    ["Harborline too", "Harborline Bank"],
+    ["Harborline Bank as well", "Harborline Bank"],
+    ["include Fernwick", "Fernwick Power & Light"],
+    ["bring in Northwind Air", "Northwind Air"],
+    ["link with Lantern", "Lantern Noodle Bar"],
+    ["add Lantern please", "Lantern Noodle Bar"],
+  ])(
+    "takes “%s” for %s: a Company's name and nothing else",
+    (message, name) => {
+      expect(read(message)).toEqual(["connect", name, ""]);
+      expect(sure(message)).toBe(false);
+    },
+  );
+
+  it("takes several names, and nothing but names", () => {
+    expect(read("add Lantern, Harborline and Northwind")).toEqual([
+      "connect",
+      "Lantern Noodle Bar + Harborline Bank + Northwind Air",
+      "",
+    ]);
+    expect(read("add Lantern, the bank and Northwind")).toBeUndefined();
+    expect(read("add Lantern and then what's on the menu")).toBeUndefined();
+    expect(read("add Lantern and an iced tea")).toBeUndefined();
+  });
+
+  it.each([
+    // A kind of company is no name after these words.
+    "Iris, connect me to the restaurant",
+    "add the bank too",
+    "let's add the grocery store",
+    "plus the airline",
+    "the bank as well",
+    "include the utility",
+    // Nor is what a Company sells.
+    "add noodles",
+    "add noodles please",
+    "add groceries",
+    "add flights",
+    "also noodles",
+    "plus noodles",
+    "noodles too",
+    "include noodles",
+    "add electricity",
+  ])("leaves “%s” as it is", (message) => {
+    expect(read(message)).toBeUndefined();
   });
 });
 
@@ -162,20 +247,39 @@ describe("a request to remove a Company, in the User's words", () => {
   it.each([
     ["disconnect from Juniper", "Juniper"],
     ["Disconnect from the bank, please", "Harborline Bank"],
+    ["disconnect from the grocery store", "Juniper"],
+    ["please disconnect from Juniper Market", "Juniper"],
+    // Not connected: the caller says so.
+    ["disconnect from Lantern", "Lantern Noodle Bar"],
+    ["disconnect from the restaurant", "Lantern Noodle Bar"],
+  ])(
+    "takes “%s” for %s, in words only ever meant for that",
+    (message, name) => {
+      expect(read(message, both)).toEqual(["remove", name, ""]);
+      expect(sure(message, both)).toBe(true);
+    },
+  );
+
+  it.each([
     ["remove Harborline", "Harborline Bank"],
-    ["remove the grocery store", "Juniper"],
+    ["Remove Harborline Bank.", "Harborline Bank"],
     ["drop Juniper", "Juniper"],
     ["disconnect Harborline Bank", "Harborline Bank"],
-    ["stop using the bank", "Harborline Bank"],
+    ["stop using Harborline", "Harborline Bank"],
+    ["leave Juniper", "Juniper"],
     ["please remove Juniper Market", "Juniper"],
-    // Not connected: the caller says so.
     ["remove Lantern", "Lantern Noodle Bar"],
-  ])("takes “%s” for %s", (message, name) => {
-    expect(read(message, both)).toEqual(["remove", name, ""]);
-  });
+  ])(
+    "takes “%s” for %s: a Company's name and nothing else",
+    (message, name) => {
+      expect(read(message, both)).toEqual(["remove", name, ""]);
+      // The caller asks before it removes anything on words like these.
+      expect(sure(message, both)).toBe(false);
+    },
+  );
 
   it("keeps what else the message asks, and takes several at once", () => {
-    expect(read("remove Juniper and show my balances", both)).toEqual([
+    expect(read("disconnect from Juniper and show my balances", both)).toEqual([
       "remove",
       "Juniper",
       "show my balances",
@@ -185,6 +289,13 @@ describe("a request to remove a Company, in the User's words", () => {
       "Juniper + Harborline Bank",
       "",
     ]);
+    expect(read("remove Juniper and Harborline", both)).toEqual([
+      "remove",
+      "Juniper + Harborline Bank",
+      "",
+    ]);
+    // Something else after a name: the message is for a Company.
+    expect(read("remove Juniper and show my balances", both)).toBeUndefined();
   });
 
   it("says a name fits no Company only for words that are only ever meant for this", () => {
@@ -193,8 +304,41 @@ describe("a request to remove a Company, in the User's words", () => {
       "unknown",
       "Acme",
     ]);
+    expect(read("disconnect from the noodles", both)).toEqual([
+      "remove",
+      "unknown",
+      "the noodles",
+    ]);
     expect(read("remove Acme", both)).toBeUndefined();
   });
+
+  // Lantern and Juniper connected, each under the lab's name and words.
+  const eating = {
+    connected: [
+      nameable({ url: url("Lantern") }, lab),
+      nameable({ url: url("Juniper") }, lab),
+    ],
+    lab,
+  };
+  it.each([
+    "remove the noodles",
+    "remove noodles",
+    "drop the noodles",
+    "remove the takeaway",
+    "remove groceries",
+    "leave the restaurant",
+    "remove the noodles and add an iced tea",
+    "remove the grocery store",
+    "stop using the bank",
+    "stop using electricity",
+    "Remove the bank",
+    "drop the restaurant",
+  ])(
+    "leaves “%s” as it is: an order is edited in the same words",
+    (message) => {
+      expect(read(message, eating)).toBeUndefined();
+    },
+  );
 });
 
 describe("a message that is for a Company, and no request about the Companies", () => {

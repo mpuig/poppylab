@@ -28,12 +28,18 @@ import {
 } from "@/lib/connections";
 import { answeredWith } from "@/lib/company-names";
 import {
+  answerLabel,
+  answers,
+  companiesAt,
+  keepCompanies,
   listed,
   performCommand,
+  readAnswer,
+  typedAnswer,
   type Choice,
   type Performed,
 } from "@/lib/company-commands";
-import { connectCommand } from "@/lib/connect-command";
+import { connectCommand, type ConnectCommand } from "@/lib/connect-command";
 import { companiesView, lostAccess } from "@/lib/conversation-view";
 import { labCompanies, nameable } from "@/lib/lab-companies";
 import { directConnection, offeredTools, turnConnection } from "@/lib/routing";
@@ -192,6 +198,12 @@ async function reply(request: Request, started: { id?: string }) {
       /** The Company this turn is for, by origin, when the User chose it. */
       company?: unknown;
       message?: unknown;
+      /**
+       * In place of `message`: what one of the buttons under Iris's own
+       * answer carries (`Choice.answer`). It names Companies by origin and
+       * is never read as words.
+       */
+      answer?: unknown;
       provider?: unknown;
       apiKey?: unknown;
       model?: unknown;
@@ -220,12 +232,21 @@ async function reply(request: Request, started: { id?: string }) {
     const address = (value: unknown): value is string | undefined =>
       value === undefined ||
       (typeof value === "string" && value.length <= 2048);
+    // A button's answer comes in place of a message, never with one, and
+    // never as one of the User's own Direct Conversation actions.
+    const pressed = readAnswer(body.answer);
+    if (
+      body.answer !== undefined &&
+      (!pressed || body.message !== undefined || direct)
+    )
+      throw new UserFacingError(
+        "Send a message, or the answer one of Iris's buttons carries, and not both.",
+      );
+    const written = typeof body.message === "string" ? body.message : "";
     if (
       !address(body.url) ||
       !address(body.company) ||
-      typeof body.message !== "string" ||
-      !body.message.trim() ||
-      body.message.length > 2000
+      (!pressed && (!written.trim() || written.length > 2000))
     )
       throw new UserFacingError(
         "Enter a Company URL and a message of at most 2000 characters.",
@@ -297,7 +318,10 @@ async function reply(request: Request, started: { id?: string }) {
     started.id = held.id;
     run = held.run;
     const conversation = run;
-    run.title ??= body.message.trim().slice(0, 80);
+    // What the User said: their words, or the label of the button they
+    // pressed, which the page showed as their line.
+    const message = pressed ? answerLabel(run, pressed) : written;
+    if (!pressed) run.title ??= message.trim().slice(0, 80);
     if (run.calls >= 20)
       throw new UserFacingError(
         "This run reached its 20-turn limit. Connect again to start another run.",
@@ -338,11 +362,15 @@ async function reply(request: Request, started: { id?: string }) {
     // say which, and otherwise that request is dropped.
     const waiting = run.waiting;
     delete run.waiting;
+    // The removal Iris asked the User to confirm: this message or button
+    // may answer it, and otherwise the question is dropped.
+    const removing = run.removing;
+    delete run.removing;
     // The request this turn answers, and what the User typed when that is
     // something else: a Company's name in answer to Iris's question, or
     // nothing more (`null`), when the request is the rest of a message the
     // page already shows.
-    let asked = body.message;
+    let asked = message;
     let typed: string | null | undefined;
     if (direct) {
       // §8.10: the User's own words or choice. Never worked out from them.
@@ -358,23 +386,56 @@ async function reply(request: Request, started: { id?: string }) {
       // read here, before any model or rule of the demo, and nothing else
       // is ever read for it: not Company content, not a model's answer.
       const lab = labCompanies(new URL(request.url).origin);
-      const command =
-        body.companies === true
-          ? connectCommand(body.message, {
+      // What the User answers about a removal: a button, by origin, or
+      // "yes" or "no" typed while Iris's question is open.
+      const decided =
+        pressed ?? (removing ? typedAnswer(message, removing) : undefined);
+      if (decided && "keep" in decided) {
+        const done = keepCompanies(
+          run,
+          decided.keep,
+          removing && answers(removing, decided.keep)
+            ? removing.rest
+            : undefined,
+        );
+        recordOwn(run, done.about, message, done.say, done.told);
+        run.history = run.history.slice(-10);
+        return own(done.say);
+      }
+      // Confirmed only when it is the removal Iris asked about. A button
+      // of a question that is no longer open asks again when it has to.
+      const confirmed =
+        !!decided && !!removing && answers(removing, decided.remove);
+      const command: ConnectCommand | undefined = decided
+        ? {
+            verb: "remove",
+            sure: true,
+            companies: companiesAt(run, decided.remove),
+            rest: (confirmed && removing?.rest) || "",
+          }
+        : body.companies === true
+          ? connectCommand(message, {
               connected: run.connections.map((c) => nameable(c, lab)),
               lab,
             })
           : undefined;
       if (command) {
         stage = "connect";
-        const done = await performCommand(run, command, lab, localOrigins);
+        const done = await performCommand(
+          run,
+          command,
+          lab,
+          localOrigins,
+          confirmed,
+        );
+        if (done.ask) run.removing = done.ask;
         trace.push(...done.trace);
         Object.assign(did, {
           changed: done.changed,
           ...(done.left ? { left: done.left } : {}),
           kept: trace.length,
         });
-        recordOwn(run, done.about, body.message, done.say, done.told);
+        recordOwn(run, done.about, message, done.say, done.told);
         run.history = run.history.slice(-10);
         if (!done.rest) return own(done.say, done.choices);
         // The message asks for something else: carry on with that.
@@ -398,14 +459,14 @@ async function reply(request: Request, started: { id?: string }) {
       const answered =
         waiting && !command
           ? answeredWith(
-              body.message,
+              message,
               run.connections.map((c) => nameable(c, lab)),
             )
           : undefined;
       if (answered) {
         connection = connectionAt(run, answered.url);
         asked = waiting!;
-        typed = body.message;
+        typed = message;
       } else if (!connection) {
         const route = await turnConnection(
           run,
@@ -465,7 +526,7 @@ async function reply(request: Request, started: { id?: string }) {
       const result = (await directConversation(
         connection,
         direct,
-        direct === "say" || direct === "start" ? body.message : undefined,
+        direct === "say" || direct === "start" ? message : undefined,
         trace,
         shown,
       )) as { note?: string; error?: string };
@@ -487,7 +548,7 @@ async function reply(request: Request, started: { id?: string }) {
         connection,
         companyName,
         direct,
-        body.message,
+        message,
         text,
         !result.error && !result.note,
         // What the page shows this turn, to show it again after a reload.

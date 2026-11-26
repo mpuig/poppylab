@@ -12,19 +12,30 @@
  * English only. Two kinds of wording:
  *
  * - "connect with …", "connect to …" and "disconnect from …" are only
- *   ever meant for this, so with a name that fits no Company the User is
- *   told so.
- * - "add …", "also …", "remove …" and the like are also what a person
- *   says to a Company ("add a matcha ice cream", "remove the oranges"),
- *   so they count only when what follows is a Company's name and nothing
- *   else. Otherwise the message is left as it is.
+ *   ever meant for this (`sure`). After them a Company can be named by
+ *   its name or by a plain word for the kind of company it is ("the
+ *   bank"), the message can go on to ask something else, and with words
+ *   that fit no Company the User is told so.
+ * - "add …", "also …", "remove …", "drop …", "leave …", "… too" and the
+ *   like are also what a person says to a Company about an order ("add a
+ *   matcha ice cream", "remove the noodles", "leave the restaurant"). They
+ *   count only when everything that follows is the name of a Company, or
+ *   several names: never a plain word, and never with something else
+ *   asked. Otherwise the message is left as it is. The caller asks before
+ *   it removes a Company on words like these.
  *
  * Plain data and no I/O.
  */
-import { namedBy, namedIn, type Nameable } from "./company-names";
+import { namedBy, namedIn, namedPlainly, type Nameable } from "./company-names";
 
 export type ConnectCommand = {
   verb: "connect" | "remove";
+  /**
+   * The words are only ever meant for connecting or removing a Company.
+   * When they are not, they counted because nothing but a Company's name
+   * followed, and a person may still have meant an order.
+   */
+  sure: boolean;
 } & (
   | {
       /** The Companies named, each one of those given, in order. */
@@ -102,17 +113,27 @@ function distinct(found: Nameable[]): Nameable[] {
 }
 
 /**
- * The Companies the words begin with ("Lantern and the bank"), then
- * whatever else is asked ("and show me the menu"). With `sure`, a name
- * inside a few first words will do ("the Lantern restaurant").
+ * The Companies the words begin with ("Lantern and Harborline"), then
+ * whatever else is asked ("and show me the menu").
+ *
+ * With `sure`, a plain word for a kind of company names one too ("the
+ * bank"), and so does a name inside a few first words ("the Lantern
+ * restaurant"). Without it only names count, and only when nothing else
+ * is asked: anything left over means the message is no request about the
+ * Companies.
  */
 function named(words: string, pool: readonly Nameable[], sure: boolean) {
+  const fit = (text: string) =>
+    distinct((sure ? namedPlainly : namedBy)(tidy(text), pool));
+  // One name can hold an "and": everything said, as one name, comes first.
+  const whole = fit(words);
+  if (whole.length === 1) return { companies: whole, rest: "" };
   const companies: Nameable[] = [];
   let left = words;
   while (left.trim()) {
     const next = NEXT.exec(left);
     const first = next ? left.slice(0, next.index) : left;
-    let fits = distinct(namedBy(tidy(first), pool));
+    let fits = fit(first);
     if (
       !fits.length &&
       !companies.length &&
@@ -131,7 +152,7 @@ function named(words: string, pool: readonly Nameable[], sure: boolean) {
   const rest = /^(?:please|thanks|thank you|now)[.!]*$/i.test(left.trim())
     ? ""
     : left.trim();
-  return companies.length ? { companies, rest } : undefined;
+  return companies.length && (sure || !rest) ? { companies, rest } : undefined;
 }
 
 /**
@@ -153,7 +174,11 @@ export function connectCommand(
     ...known.connected.map((c) => {
       const listed = labAt(c.url);
       return listed
-        ? { ...c, words: [listed.name, ...(listed.words ?? [])] }
+        ? {
+            ...c,
+            alias: listed.name,
+            ...(listed.words ? { words: listed.words } : {}),
+          }
         : c;
     }),
     ...known.lab.filter(
@@ -165,15 +190,19 @@ export function connectCommand(
     if (!begins) continue;
     const words = text.slice(begins[0].length);
     const found = named(words, pool, sure);
-    if (found) return { verb, ...found };
+    if (found) return { verb, sure, ...found };
     if (!sure) continue;
     const said = tidy(words.split(NEXT)[0] ?? "");
-    return { verb, unknown: NOTHING.test(said) ? "" : said.slice(0, 80) };
+    return {
+      verb,
+      sure,
+      unknown: NOTHING.test(said) ? "" : said.slice(0, 80),
+    };
   }
   // "Harborline too": a Company's name and nothing else.
   const too = /^(.+?)\s+(?:too|as well)[.!]?$/i.exec(text);
   const also = too ? distinct(namedBy(tidy(too[1]!), pool)) : [];
   return also.length === 1
-    ? { verb: "connect", companies: also, rest: "" }
+    ? { verb: "connect", sure: false, companies: also, rest: "" }
     : undefined;
 }
