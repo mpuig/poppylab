@@ -185,12 +185,6 @@ The demo sends only the gift-card report, which Juniper recognises and answers
 with a phone number. With a model the label on the messages reads Iris, and
 Iris gives Juniper's answer in its own sentences.
 
-![Juniper's account page: under Feedback from agents the report Pay with airline loyalty points, marked Alternative offered, and under Your agent's activity a support case marked Applied and approved by Elena in her agent](../../../apps/playground/public/learn-media/how-it-works/when-the-company-cant-do-it/07-case-at-juniper.webp "Juniper's website shows the report and the support case that followed it.")
-
-Elena then asks Iris to open the case. Juniper proposes it with its exact
-words, she approves it in Iris, and Juniper's website shows both the report
-and the case.
-
 <details>
 <summary>What travelled</summary>
 
@@ -214,6 +208,17 @@ recognise and checks the alternative that comes back. The
 [validator results](../validator.md) record that run.
 
 </details>
+
+### 7. Find the report and the case at Juniper
+
+![Juniper's account page: under Feedback from agents the report Pay with airline loyalty points, marked Alternative offered, and under Your agent's activity a support case marked Applied and approved by Elena in her agent](../../../apps/playground/public/learn-media/how-it-works/when-the-company-cant-do-it/07-case-at-juniper.webp "Juniper's website shows the report and the support case that followed it.")
+
+Elena asks Iris to open the case. Juniper proposes it with its exact words,
+and she approves it in Iris.
+
+Her account page on Juniper's website then shows both. The report is under
+Feedback from agents, marked Alternative offered, and the case is under Your
+agent's activity, approved by her in her agent.
 
 ## What Lantern controls
 
