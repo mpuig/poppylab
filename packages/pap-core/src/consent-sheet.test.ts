@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  consentExpiredHtml,
+  consentSheetCss,
   consentSheetHtml,
   consentWords,
   labConsentBarHtml,
@@ -160,6 +162,16 @@ describe("the consent sheet the Companies share", () => {
       "Read: Basket and orders; Support cases.",
       "While you're away: Keep the agent connected.",
     ]);
+  });
+
+  it("says in the sheet's place that the page ran out, that nothing was allowed and what to do", () => {
+    const html = consentExpiredHtml("Shop & Co");
+    expect(html).toBe(
+      '<main class="sheet"><div class="sheet-head"><h1>This page has expired</h1></div><div class="sheet-expired"><p>A page that asks whether an agent may connect to your Shop &#38; Co account works for five minutes after it opens, and this one is older. Your answer arrived too late, so nothing was allowed and nothing has changed.</p><p>To connect the agent, go back to it and start the sign-in again.</p></div></main>',
+    );
+    // Nothing to answer and nothing that leads anywhere.
+    expect(html).not.toMatch(/<form|<a |<input|<button/);
+    expect(consentSheetCss).toContain(".sheet-expired");
   });
 
   it("has a demo strip without links, so nothing leads away from the decision", () => {

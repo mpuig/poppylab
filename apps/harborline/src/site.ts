@@ -1,5 +1,6 @@
 /** Harborline Bank public, consent and shared portal visual system. */
 import {
+  consentExpiredHtml,
   consentSheetCss,
   consentSheetHtml,
   labBarHtml,
@@ -288,6 +289,10 @@ export function permissions(scopes: string) {
   };
 }
 
+/** The consent page's frame: the bank's header without links, then the sheet. */
+const consentFrame = (title: string, sheet: string, style = "") =>
+  `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(title)} · Harborline Bank</title>${fonts}<style>${css}${style}</style></head><body>${labConsentBarHtml("Harborline Bank")}<header class="mast"><div class="wrap"><span class="brand">Harborline Bank</span></div></header>${sheet}</body></html>`;
+
 export function consentPage(input: {
   nonce: string;
   passwordRequired: boolean;
@@ -314,5 +319,9 @@ export function consentPage(input: {
     disconnect: "You can disconnect the agent in the customer portal.",
     fine: `No real account exists. Never enter a real banking password, account number, card number or financial information. ${FICTION_NOTICE} Independent experiment; no claim of banking or Poppy conformance.`,
   });
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Allow ${escape(input.client)} · Harborline Bank</title>${fonts}<style>${css}${fdx ? fdxStyle() : ""}</style></head><body>${labConsentBarHtml("Harborline Bank")}<header class="mast"><div class="wrap"><span class="brand">Harborline Bank</span></div></header>${sheet}</body></html>`;
+  return consentFrame(`Allow ${input.client}`, sheet, fdx ? fdxStyle() : "");
 }
+
+/** In the consent page's place, when it is answered after its five minutes. */
+export const consentExpiredPage = () =>
+  consentFrame("This page has expired", consentExpiredHtml("Harborline"));

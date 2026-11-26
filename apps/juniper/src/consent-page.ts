@@ -1,4 +1,5 @@
 import {
+  consentExpiredHtml,
   consentSheetCss,
   consentSheetHtml,
   labConsentBarHtml,
@@ -58,6 +59,10 @@ export function permissions(scopes: string) {
       : [],
   };
 }
+/** The consent page's frame: the shop's header without links, then the sheet. */
+const consentFrame = (title: string, sheet: string) =>
+  `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title)} · Juniper Market</title><style>${css}</style></head><body>${labConsentBarHtml("Juniper Market")}<header><span class="brand">Juniper Market</span></header>${sheet}</body></html>`;
+
 /** Server-rendered consent: no scripts, remote assets or credential values. */
 export function consentPage(
   nonce: string,
@@ -89,5 +94,9 @@ export function consentPage(
       "You can take the permission away under Connected agents in your Juniper account.",
     fine: "Juniper Market is a fictional shop. Nothing is charged or shipped.",
   });
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Allow ${escapeHtml(client)} · Juniper Market</title><style>${css}</style></head><body>${labConsentBarHtml("Juniper Market")}<header><span class="brand">Juniper Market</span></header>${sheet}</body></html>`;
+  return consentFrame(`Allow ${client}`, sheet);
 }
+
+/** In the consent page's place, when it is answered after its five minutes. */
+export const consentExpiredPage = () =>
+  consentFrame("This page has expired", consentExpiredHtml("Juniper"));

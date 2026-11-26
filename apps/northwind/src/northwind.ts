@@ -27,6 +27,7 @@ import {
   type SeedBooking,
 } from "./data.ts";
 import {
+  consentExpiredPage,
   consentPage,
   fontSources,
   flightsPage,
@@ -1164,6 +1165,7 @@ export const northwind: CompanyDefinition = {
     return ["bookings:change"];
   },
   consent: consentPage,
+  consentExpired: consentExpiredPage,
   persona: northwindPersona,
   defaultAccount: "elena",
   paths: northwindPaths,

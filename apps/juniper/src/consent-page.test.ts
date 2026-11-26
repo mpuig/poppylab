@@ -1,6 +1,7 @@
 import { it, expect } from "vitest";
 import { consentPage } from "./consent-page.js";
 import { personas } from "./personas.js";
+import { juniperApp, localClient } from "./test-app.js";
 it("renders complete English consent with native accessible controls and no scripts", () => {
   const html = consentPage("test_nonce", false);
   expect(html).toContain('<html lang="en">');
@@ -77,4 +78,33 @@ it("opens the consent page on the customer the gateway names, else on the first"
   expect(page("robin")).toContain('id="account-robin" value="robin" checked>');
   expect(page("robin")).not.toContain('value="elena" checked');
   expect(page()).toContain('id="account-elena" value="elena" checked>');
+});
+it("answers a consent page that ran out with a page of the shop, and a tool with the error", async () => {
+  const origin = "http://juniper.localhost:4100";
+  const app = juniperApp({ fetchJson: async () => localClient });
+  // A page the shop no longer holds, from a browser without its cookie.
+  const allow = (headers: Record<string, string>) =>
+    app.inject({
+      method: "POST",
+      url: "/oauth/authorize",
+      headers,
+      payload: { nonce: "n".repeat(32), decision: "approve", account: "elena" },
+    });
+  const page = await allow({ origin, accept: "text/html,*/*;q=0.8" });
+  expect(page.statusCode).toBe(400);
+  expect(page.headers["content-type"]).toContain("text/html");
+  expect(page.body).toContain(
+    "<title>This page has expired · Juniper Market</title>",
+  );
+  expect(page.body).toContain('<span class="brand">Juniper Market</span>');
+  expect(page.body).toContain(
+    "connect to your Juniper account works for five minutes after it opens, and this one is older. Your answer arrived too late, so nothing was allowed and nothing has changed.</p><p>To connect the agent, go back to it and start the sign-in again.</p>",
+  );
+  expect(page.body).not.toMatch(/<form|<script|<button|<a |n{32}/);
+  expect(page.headers["content-security-policy"]).toContain(
+    "style-src 'unsafe-inline'; form-action 'none'",
+  );
+  const tool = await allow({ origin });
+  expect(tool.statusCode).toBe(400);
+  expect(tool.json()).toEqual({ error: "invalid_request" });
 });

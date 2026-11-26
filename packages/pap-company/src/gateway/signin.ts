@@ -38,6 +38,8 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
   /** Whether that consent page is still open: not answered, not expired. */
   const live = (nonce: string) =>
     (pending.get(nonce)?.expires ?? 0) >= Date.now();
+  /** What a consent page may load: its own styles and the Company's faces. */
+  const styles = `default-src 'none'; style-src 'unsafe-inline'${def.fontSources ? ` ${def.fontSources.style}; font-src ${def.fontSources.font}` : ""}`;
 
   /** The authorization request's checks, for a query or a pushed request. */
   async function check(q: Record<string, string | undefined>) {
@@ -263,7 +265,7 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
       200,
       {
         "Cache-Control": "no-store",
-        "Content-Security-Policy": `default-src 'none'; style-src 'unsafe-inline'${def.fontSources ? ` ${def.fontSources.style}; font-src ${def.fontSources.font}` : ""}; form-action 'self' ${new URL(redirect).origin}; frame-ancestors 'none'; base-uri 'none'`,
+        "Content-Security-Policy": `${styles}; form-action 'self' ${new URL(redirect).origin}; frame-ancestors 'none'; base-uri 'none'`,
         "Referrer-Policy": "same-origin",
       },
     );
@@ -272,13 +274,35 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
     const body = (await c.req.parseBody()) as Record<string, string>;
     const nonce = String(body.nonce ?? "");
     const p = pending.get(nonce);
+    const own = c.req.header("origin") === origin;
     if (
       !p ||
       consentCookie(c, nonce) !== nonce ||
       p.expires < Date.now() ||
-      c.req.header("origin") !== origin
-    )
+      !own
+    ) {
+      // The page ran out before its answer: the consent's five minutes are
+      // over or, once it is forgotten, the browser no longer holds its
+      // cookie, which lasts as long. An answered page posted again still
+      // has the cookie, and did not run out.
+      const ended = p ? p.expires < Date.now() : !consentCookie(c, nonce);
+      // A person gets a page of the Company. That is a browser posting the
+      // sheet's form: `Origin` is this Company's, which no other site's
+      // page can send, and the browser asks for HTML. Anything else gets
+      // the error as JSON.
+      if (
+        ended &&
+        own &&
+        def.consentExpired &&
+        (c.req.header("accept") ?? "").includes("text/html")
+      )
+        return c.html(def.consentExpired(), 400, {
+          "Cache-Control": "no-store",
+          "Content-Security-Policy": `${styles}; form-action 'none'; frame-ancestors 'none'; base-uri 'none'`,
+          "Referrer-Policy": "same-origin",
+        });
       return c.json({ error: "invalid_request" }, 400);
+    }
     if (Date.now() - windowStart > 60000) {
       failures = 0;
       windowStart = Date.now();

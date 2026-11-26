@@ -45,6 +45,7 @@ import {
 import { fernwickAgent } from "./agent.ts";
 import { mountPortal } from "./portal.ts";
 import {
+  consentExpiredPage,
   consentPage,
   fontSources,
   forAgentsPage,
@@ -388,6 +389,7 @@ export const fernwick: CompanyDefinition = {
       return true;
     }),
   consent: consentPage,
+  consentExpired: consentExpiredPage,
   // The consent page loads the same faces: without this its policy blocks them.
   fontSources,
   persona: energyPersona,

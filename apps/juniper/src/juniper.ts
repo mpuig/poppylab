@@ -10,7 +10,7 @@ import { accountPaths } from "./openapi.js";
 import { servicePaths } from "./service-openapi.js";
 import { operations, type Commerce } from "./operations.js";
 import { website, type WebSession } from "./website.js";
-import { consentPage } from "./consent-page.js";
+import { consentExpiredPage, consentPage } from "./consent-page.js";
 import { persona, personas } from "./personas.js";
 import { forAgentsPage, homePage } from "./home.js";
 import { howItWorksPage, type AgentGuide } from "./how-it-works.js";
@@ -134,6 +134,7 @@ export function juniperCompany(options: {
       account,
     }) =>
       consentPage(nonce, passwordRequired, scopes, client, clientHost, account),
+    consentExpired: consentExpiredPage,
     persona,
     defaultAccount: "elena",
     paths,

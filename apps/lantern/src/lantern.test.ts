@@ -455,6 +455,35 @@ it("serves the website pages with their own headers and fonts allowed on consent
   );
 });
 
+it("answers a consent page that ran out with a page of the shop, and a tool with the error", async () => {
+  await setup();
+  // A page the shop no longer holds, from a browser without its cookie.
+  const allow = (headers: Record<string, string>) =>
+    inject({
+      method: "POST",
+      url: "/oauth/authorize",
+      headers,
+      payload: { nonce: "n".repeat(32), decision: "approve", account: "elena" },
+    });
+  const page = await allow({ origin, accept: "text/html,*/*;q=0.8" });
+  expect(page.statusCode).toBe(400);
+  expect(page.headers["content-type"]).toContain("text/html");
+  expect(page.body).toContain(
+    "<title>This page has expired · Lantern Noodle Bar</title>",
+  );
+  expect(page.body).toContain('<span class="brand">Lantern Noodle Bar</span>');
+  expect(page.body).toContain(
+    "connect to your Lantern account works for five minutes after it opens, and this one is older. Your answer arrived too late, so nothing was allowed and nothing has changed.</p><p>To connect the agent, go back to it and start the sign-in again.</p>",
+  );
+  expect(page.body).not.toMatch(/<form|<script|<button|n{32}/);
+  expect(page.headers["content-security-policy"]).toContain(
+    "font-src https://fonts.gstatic.com; form-action 'none'",
+  );
+  const tool = await allow({ origin });
+  expect(tool.statusCode).toBe(400);
+  expect(tool.json()).toEqual({ error: "invalid_request" });
+});
+
 it("explains on How it works what its own endpoints serve, not a copy of it", async () => {
   await setup();
   const page = await lab.app.request("/how-it-works");

@@ -29,6 +29,7 @@ import {
   type Transaction,
 } from "./data.ts";
 import {
+  consentExpiredPage,
   consentPage,
   fontSources,
   forAgentsPage,
@@ -1251,6 +1252,7 @@ export const harborline: CompanyDefinition = {
       return !hint || body[`allow_${scope.replace(/[:_]/g, "_")}`] === "yes";
     }),
   consent: consentPage,
+  consentExpired: consentExpiredPage,
   persona: bankPersona,
   defaultAccount: "elena",
   paths: bankPaths,

@@ -6,6 +6,7 @@
  */
 import { GRANT_MS, TOKEN_MS } from "@poppy-lab/pap-company";
 import {
+  consentExpiredHtml,
   consentSheetCss,
   consentSheetHtml,
   labBarHtml,
@@ -334,6 +335,10 @@ export function permissions(scopes: string) {
   };
 }
 
+/** The consent page's frame: the utility's header without links, then the sheet. */
+const consentFrame = (title: string, sheet: string, style = "") =>
+  `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(title)} · Fernwick Power &amp; Light</title>${fonts}<style>${css}${sheetCss}${style}</style></head><body>${labConsentBarHtml("Fernwick Power & Light")}<header class="mast"><div class="wrap"><span class="brand">Fernwick Power &amp; Light</span></div></header>${sheet}</body></html>`;
+
 export function consentPage(input: {
   nonce: string;
   passwordRequired: boolean;
@@ -362,5 +367,13 @@ export function consentPage(input: {
     disconnect: "You can disconnect the agent in your Fernwick account.",
     fine: `No real account exists. Never enter a real utility account number, password, address or bill. ${FICTION_NOTICE} The usage data API is ${ESPI_SHAPED}. Independent experiment; no claim of utility or Poppy conformance.`,
   });
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Allow ${escape(input.client)} · Fernwick Power &amp; Light</title>${fonts}<style>${css}${sheetCss}${meters ? meterStyle() : ""}</style></head><body>${labConsentBarHtml("Fernwick Power & Light")}<header class="mast"><div class="wrap"><span class="brand">Fernwick Power &amp; Light</span></div></header>${sheet}</body></html>`;
+  return consentFrame(
+    `Allow ${input.client}`,
+    sheet,
+    meters ? meterStyle() : "",
+  );
 }
+
+/** In the consent page's place, when it is answered after its five minutes. */
+export const consentExpiredPage = () =>
+  consentFrame("This page has expired", consentExpiredHtml("Fernwick"));

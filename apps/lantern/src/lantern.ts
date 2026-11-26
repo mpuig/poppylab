@@ -18,6 +18,7 @@ import type {
 } from "@poppy-lab/pap-company";
 import type { Context } from "hono";
 import {
+  consentExpiredPage,
   consentPage,
   fontSources,
   forAgentsPage,
@@ -422,6 +423,7 @@ export const lantern: CompanyDefinition = {
   readScope: "orders:read",
   writeScope: "orders:write",
   consent: consentPage,
+  consentExpired: consentExpiredPage,
   persona: noodlePersona,
   defaultAccount: "elena",
   paths: noodlePaths,

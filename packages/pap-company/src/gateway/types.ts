@@ -478,6 +478,15 @@ export type CompanyDefinition = {
      */
     account?: string;
   }) => string;
+  /**
+   * The page for a browser that answers a consent page after its five
+   * minutes: it says the page ran out, that nothing was allowed, and to
+   * start the sign-in again from the agent. It gets no input, so it can
+   * name no agent and hold no code, token or `request_uri`. Without it the
+   * browser gets what every other caller gets, the `invalid_request` error
+   * as JSON.
+   */
+  consentExpired?: () => string;
   persona: (id: unknown) => { id: string } | undefined;
   defaultAccount: string;
   /** `poppy.json` for this origin (the gateway adds nothing to it). */

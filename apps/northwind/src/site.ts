@@ -1,5 +1,6 @@
 /** Northwind Air website: a synoptic route chart, shared by landing, account and consent. */
 import {
+  consentExpiredHtml,
   consentSheetCss,
   consentSheetHtml,
   labBarHtml,
@@ -277,6 +278,10 @@ export function permissions(scopes: string) {
   };
 }
 
+/** The consent page's frame: the airline's header without links, then the sheet. */
+const consentFrame = (title: string, sheet: string) =>
+  `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(title)} · Northwind Air</title>${fonts}<style>${css}</style></head><body>${labConsentBarHtml("Northwind Air")}<header><div class="wrap"><span class="brand">Northwind Air</span></div></header>${sheet}</body></html>`;
+
 export function consentPage(input: {
   nonce: string;
   passwordRequired: boolean;
@@ -302,5 +307,9 @@ export function consentPage(input: {
     disconnect: "You can take the permission away under My Northwind.",
     fine: `${FICTION_NOTICE} Never enter a real airline password, booking reference, passport, payment card or medical record.`,
   });
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Allow ${escape(input.client)} · Northwind Air</title>${fonts}<style>${css}</style></head><body>${labConsentBarHtml("Northwind Air")}<header><div class="wrap"><span class="brand">Northwind Air</span></div></header>${sheet}</body></html>`;
+  return consentFrame(`Allow ${input.client}`, sheet);
 }
+
+/** In the consent page's place, when it is answered after its five minutes. */
+export const consentExpiredPage = () =>
+  consentFrame("This page has expired", consentExpiredHtml("Northwind"));

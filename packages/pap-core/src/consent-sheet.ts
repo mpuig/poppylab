@@ -97,6 +97,16 @@ export function consentSheetHtml(sheet: ConsentSheet) {
 }
 
 /**
+ * What stands in the sheet's place when its answer arrives after the page's
+ * five minutes, as the page's `<main>`: the same words at every Company. It
+ * names no agent, since the Company may have forgotten the request by then,
+ * and links nowhere: the sign-in starts again at the agent.
+ */
+export function consentExpiredHtml(company: string) {
+  return `<main class="sheet"><div class="sheet-head"><h1>This page has expired</h1></div><div class="sheet-expired"><p>A page that asks whether an agent may connect to your ${escape(company)} account works for five minutes after it opens, and this one is older. Your answer arrived too late, so nothing was allowed and nothing has changed.</p><p>To connect the agent, go back to it and start the sign-in again.</p></div></main>`;
+}
+
+/**
  * What a permission allows, in the sheet's words, for the list of connected
  * agents on a Company's website: a line for what is read, one for the
  * changes that may be proposed and one for each further choice. Each part
@@ -163,5 +173,7 @@ export const consentSheetCss = `.sheet{width:min(1040px,100% - 2*clamp(18px,4vw,
 .sheet-actions{display:flex;gap:12px;margin-left:auto}
 .sheet button{min-height:48px;padding:0 26px;cursor:pointer}
 .sheet-fine{margin:28px 0 0;max-width:84ch}
+.sheet-expired{padding-top:clamp(20px,3vw,30px);border-top:1px solid var(--sheet-rule)}
+.sheet-expired p{margin:0 0 12px;max-width:65ch}
 @media(max-width:760px){.sheet-cols{grid-template-columns:minmax(0,1fr)}.sheet-actions{width:100%}.sheet-actions button{flex:1}}
 `;

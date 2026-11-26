@@ -160,6 +160,79 @@ it("shows a pushed request's consent page again for as long as the page lasts", 
   expect(x.store.value.codes).toEqual({});
 });
 
+it("answers a consent page that ran out with a page of the Company, and a tool with the error", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  const expired = "<h1>This page has expired</h1>";
+  const x = await setup({}, { consentExpired: () => expired });
+  const start = Date.now();
+  /** Opens a consent page; the cookie its browser holds for five minutes. */
+  const open = async (company = x) =>
+    (
+      await company.app.request(
+        `/oauth/authorize?${new URLSearchParams({ ...request, client_id: client })}`,
+      )
+    ).headers
+      .getSetCookie()[0]!
+      .split(";")[0]!;
+  const answerOf = (cookie: string) => ({
+    nonce: cookie.split("=")[1]!,
+    decision: "approve",
+    account: "elena",
+  });
+  const cookie = await open();
+  const answer = answerOf(cookie);
+  /** The sheet's form, as a browser posts it. */
+  const browser = { origin, accept: "text/html,application/xhtml+xml" };
+  const page = async (r: Response) => {
+    expect(r.status).toBe(400);
+    expect(r.headers.get("content-type")).toContain("text/html");
+    expect(r.headers.get("cache-control")).toBe("no-store");
+    expect(r.headers.get("content-security-policy")).toContain(
+      "default-src 'none'",
+    );
+    expect(await r.text()).toBe(expired);
+  };
+
+  // 540 seconds on: the browser has dropped the page's cookie (Max-Age=300).
+  vi.setSystemTime(start + 540000);
+  await page(await x.form("/oauth/authorize", answer, browser));
+  // A browser that still sends the cookie gets the same page.
+  await page(await x.form("/oauth/authorize", answer, { ...browser, cookie }));
+  // The next consent page drops the one that ended: still that page.
+  const second = await open();
+  expect(x.store.value.consents).not.toHaveProperty(answer.nonce);
+  await page(await x.form("/oauth/authorize", answer, browser));
+  expect(x.store.value.codes).toEqual({});
+
+  // Not a browser's post from the sheet: the protocol's error, as before.
+  for (const headers of [
+    {},
+    { origin },
+    { accept: "text/html" },
+    { ...browser, origin: "https://other.test" },
+  ]) {
+    const refused = await x.form("/oauth/authorize", answer, headers);
+    expect(refused.status).toBe(400);
+    expect(await error(refused)).toBe("invalid_request");
+  }
+
+  // A page answered in time and posted again did not run out.
+  const held = { ...browser, cookie: second };
+  const allowed = await x.form("/oauth/authorize", answerOf(second), held);
+  expect(allowed.status).toBe(302);
+  const twice = await x.form("/oauth/authorize", answerOf(second), held);
+  expect(twice.status).toBe(400);
+  expect(await error(twice)).toBe("invalid_request");
+
+  // A Company without that page answers as before.
+  const y = await setup();
+  const other = await open(y);
+  vi.setSystemTime(start + 1080000);
+  const plain = await y.form("/oauth/authorize", answerOf(other), browser);
+  expect(plain.status).toBe(400);
+  expect(await error(plain)).toBe("invalid_request");
+});
+
 it("keeps a used pushed request only while its consent page is open", async () => {
   vi.useFakeTimers({ toFake: ["Date"] });
   const x = await pushed();

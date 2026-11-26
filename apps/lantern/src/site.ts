@@ -8,6 +8,7 @@ import {
   annotatedJsonHtml,
   approvalSequenceSvg,
   breakablePath,
+  consentExpiredHtml,
   consentSheetCss,
   consentSheetHtml,
   guideOperations,
@@ -527,6 +528,10 @@ export function permissions(scopes: string) {
   };
 }
 
+/** The consent page's frame: the shop's header without links, then the sheet. */
+const consentFrame = (title: string, sheet: string) =>
+  `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escape(title)} · Lantern Noodle Bar</title>${fonts}<style>${css}</style></head><body>${labConsentBarHtml("Lantern Noodle Bar")}<header class="strip"><div class="wrap"><span class="brand">Lantern Noodle Bar</span></div></header>${sheet}</body></html>`;
+
 /** Server-rendered consent (§4.2) in the shop's own visual system. */
 export function consentPage(input: {
   nonce: string;
@@ -554,5 +559,9 @@ export function consentPage(input: {
     disconnect: "You can take the permission away under Your account.",
     fine: "Lantern Noodle Bar is a fictional restaurant: no food, charges or deliveries. Independent experiment, not affiliated with or endorsed by the authors of the Personal Agent Protocol.",
   });
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Allow ${escape(input.client)} · Lantern Noodle Bar</title>${fonts}<style>${css}</style></head><body>${labConsentBarHtml("Lantern Noodle Bar")}<header class="strip"><div class="wrap"><span class="brand">Lantern Noodle Bar</span></div></header>${sheet}</body></html>`;
+  return consentFrame(`Allow ${input.client}`, sheet);
 }
+
+/** In the consent page's place, when it is answered after its five minutes. */
+export const consentExpiredPage = () =>
+  consentFrame("This page has expired", consentExpiredHtml("Lantern"));
