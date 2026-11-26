@@ -1,4 +1,4 @@
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, Heart } from "lucide-react";
 import { LAB_REPOSITORY, SPEC_URL, labSites } from "@poppy-lab/pap-core";
 import { BarNav } from "./bar-nav";
 import { specLink } from "./spec-ref";
@@ -150,6 +150,13 @@ export function SiteFoot() {
           with or endorsed by the protocol&apos;s authors; “Personal Agent
           Protocol” and “Poppy” are their names. It makes no claim of
           conformance or production security.
+        </p>
+        <p className="foot-credit">
+          With <Heart size={14} fill="currentColor" aria-hidden="true" />
+          <span className="sr-only">love</span> by{" "}
+          <a href="https://x.com/mpuig" rel="noopener">
+            @mpuig
+          </a>
         </p>
       </div>
       <nav aria-labelledby="foot-lab">

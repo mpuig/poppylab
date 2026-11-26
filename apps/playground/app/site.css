@@ -1288,6 +1288,29 @@ body:has(.site) {
   color: var(--ink);
   margin: 0;
 }
+/* The signature: one quiet line under the paragraph, in the muted ink of a caption. */
+.foot-about .foot-credit {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 18px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.foot-credit svg {
+  flex: none;
+}
+.foot-credit a {
+  color: var(--ink-soft);
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 3px;
+}
+.foot-credit a:hover {
+  color: var(--ink);
+  text-decoration-color: currentColor;
+}
 .foot nav {
   display: grid;
   gap: 10px;
