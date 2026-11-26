@@ -15,14 +15,29 @@ export const MAX_CONNECTIONS = 3;
 /**
  * What names a connection: its Company's origin. Discovery reads a Company
  * at its origin (`/.well-known/poppy.json`), so one origin is one Company.
+ * A conversation can be started at an address that isn't one, which
+ * discovery then refuses: such an address names only itself.
  */
-export const originOf = (connection: Pick<Connection, "url">) =>
-  new URL(connection.url).origin;
+export function originOf(connection: Pick<Connection, "url">) {
+  try {
+    return new URL(connection.url).origin;
+  } catch {
+    return connection.url;
+  }
+}
+
+/** An address's host, or the address itself when it isn't one. */
+function hostOf(url: string) {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url;
+  }
+}
 
 /** The Company's name as the page says it: its own, or else its host. */
 export const companyName = (connection: Pick<Connection, "url" | "company">) =>
-  connection.company?.document.organization.name ??
-  new URL(connection.url).host;
+  connection.company?.document.organization.name ?? hostOf(connection.url);
 
 /**
  * What the conversation keeps says which Company it came from: an entry of
@@ -73,21 +88,35 @@ export function nameFor(
   const of = (c: Pick<Connection, "url">) => originOf(c) === origin;
   const connected = run.connections.find(of);
   if (connected) return companyName(connected);
-  return run.former?.find(of)?.name ?? new URL(origin).host;
+  return run.former?.find(of)?.name ?? hostOf(origin);
 }
 
 /** The conversation's connection to the Company at this address, if any. */
 export const connectionAt = (run: Pick<Run, "connections">, url: string) => {
-  const origin = new URL(url).origin;
+  const origin = originOf({ url });
   return run.connections.find((c) => originOf(c) === origin);
 };
 
 /**
- * Connects the conversation to one more Company, at any moment of it. The
- * new connection is signed out and has no Session yet: `ensureSession`
- * gives it the User ID for this Company, which no other Company sees. What
- * the conversation already holds is left as it is, each entry still saying
- * which Company it came from.
+ * A connection for the conversation to a Company: signed out, and with no
+ * Session yet. `ensureSession` gives it the User ID for this Company from
+ * the conversation's visitor, which no other Company sees. The address is
+ * taken as it was typed: discovery says whether there is a Company there.
+ */
+export const newConnection = (
+  run: Pick<Run, "visitor" | "epoch">,
+  url: string,
+): Connection => ({
+  url,
+  user: "",
+  ...(run.visitor ? { visitor: run.visitor } : {}),
+  ...(run.epoch ? { epoch: run.epoch } : {}),
+});
+
+/**
+ * Connects the conversation to one more Company, at any moment of it, with
+ * a new connection (`newConnection`). What the conversation already holds
+ * is left as it is, each entry still saying which Company it came from.
  *
  * A Company that was removed and is connected again starts the same way.
  * An approval it was left with an unknown outcome stays where it is
@@ -98,12 +127,7 @@ export function addConnection(run: Run, url: string): Connection {
     throw new Error("The conversation is already connected to this Company");
   if (run.connections.length >= MAX_CONNECTIONS)
     throw new Error("The conversation has its three Companies already");
-  const connection: Connection = {
-    url,
-    user: "",
-    ...(run.visitor ? { visitor: run.visitor } : {}),
-    ...(run.epoch ? { epoch: run.epoch } : {}),
-  };
+  const connection = newConnection(run, url);
   run.connections.push(connection);
   // Its name comes from the connection again.
   const former = run.former?.filter(

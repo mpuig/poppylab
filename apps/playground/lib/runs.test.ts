@@ -14,7 +14,8 @@ import {
   runForState,
   visitorOf,
 } from "./runs";
-import { onlyConnection } from "./connections";
+import { addConnection, connectionAt, onlyConnection } from "./connections";
+import { recordTurn, removeConnection } from "./transcript";
 
 function jar(initial: Record<string, string> = {}) {
   const values = new Map(Object.entries(initial));
@@ -260,6 +261,14 @@ it("starts the demo over: running conversations end and new ones carry a new epo
   expect(again.run.epoch).not.toBe(after.run.epoch);
 });
 
+it("starts a conversation at whatever address was typed: discovery says whether a Company is there", async () => {
+  configureBackend(memoryBackend());
+  const held = await createRun("v", "juniper.example");
+  expect(held.run.connections).toEqual([
+    { url: "juniper.example", user: "", visitor: "v" },
+  ]);
+});
+
 it("leaves no trail of conversations nothing was said in", async () => {
   configureBackend(memoryBackend());
   const first = await createRun("v", "https://juniper.example");
@@ -299,4 +308,97 @@ it("doesn't list an ended conversation that has no words left to read", async ()
   vi.setSystemTime(start + 31 * 60000);
   // Ended, there is nothing in it to open.
   expect(await listConversations("v")).toEqual([]);
+});
+
+it("holds a conversation's Companies in one run: one lock, one lifetime, and each Company's part where it belongs when it ends", async () => {
+  configureBackend(memoryBackend());
+  const start = Date.now();
+  vi.useFakeTimers({ now: start });
+  const held = await createRun("v", "https://juniper.example");
+  const juniper = onlyConnection(held.run);
+  const lantern = addConnection(held.run, "https://lantern.example");
+  const harbor = addConnection(held.run, "https://harborline.example");
+  // The User ID for each Company comes from the conversation's visitor.
+  expect(held.run.connections.map((c) => c.visitor)).toEqual(["v", "v", "v"]);
+  recordTurn(held.run, lantern, "What's on the menu?", "Ramen.");
+  held.run.title = "What's on the menu?";
+  Object.assign(juniper, {
+    accountToken: "refresh-juniper",
+    sessionId: "sid-juniper",
+    operations: {
+      waiting: {
+        operation_id: "waiting",
+        state: "proposed",
+        request: { url: "https://juniper.example/api", body: {} },
+      },
+    },
+  });
+  // Harborline leaves the conversation with an approval out.
+  harbor.operations = {
+    sent: {
+      operation_id: "sent",
+      revision: "r1",
+      state: "uncertain",
+      expires_at: "2030-01-01T00:00:00Z",
+      approval: { approved_at: 1, reference: "apr_1" },
+      request: { url: "https://harborline.example/api/pay", body: {} },
+    },
+  };
+  removeConnection(held.run, harbor);
+  await releaseRun("v", held);
+
+  // A sign-in under way at one of them finds the run it is in.
+  const again = await acquireRun("v", held.id);
+  if (!again || again === "busy") throw new Error("not held");
+  connectionAt(again.run, "https://lantern.example")!.auth = {
+    state: "s".repeat(32),
+    verifier: "v",
+    expires: start + 60000,
+    issuer: "https://lantern.example",
+    scopes: "",
+  };
+  await releaseRun("v", again);
+  expect((await runForState("v", "s".repeat(32)))?.id).toBe(held.id);
+  // Listed once, under its Companies' names and its first one's address.
+  expect(await listConversations("v")).toEqual([
+    expect.objectContaining({
+      id: held.id,
+      company: "juniper.example, lantern.example",
+      url: "https://juniper.example",
+      active: true,
+    }),
+  ]);
+
+  vi.setSystemTime(start + 31 * 60000);
+  const read = (await readConversation("v", held.id))!;
+  expect(read.archived).toBe(true);
+  expect(JSON.stringify(read)).not.toMatch(/refresh-juniper|sid-juniper/);
+  // Each Company's proposals as they ended, none of them to send again.
+  expect(read.connections).toEqual([
+    {
+      url: "https://juniper.example",
+      user: "",
+      operations: { waiting: { operation_id: "waiting", state: "proposed" } },
+    },
+    { url: "https://lantern.example", user: "", operations: {} },
+  ]);
+  expect(read.former).toEqual([
+    {
+      url: "https://harborline.example",
+      name: "harborline.example",
+      operations: {
+        sent: {
+          operation_id: "sent",
+          revision: "r1",
+          state: "uncertain",
+          expires_at: "2030-01-01T00:00:00Z",
+          approval: { approved_at: 1, reference: "apr_1" },
+        },
+      },
+    },
+  ]);
+  expect(read.transcript!.map((entry) => entry.company)).toEqual([
+    "https://lantern.example",
+    "https://lantern.example",
+  ]);
 });

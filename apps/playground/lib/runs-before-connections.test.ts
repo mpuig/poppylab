@@ -152,6 +152,34 @@ it("reads a running conversation as one with a single connection, losing nothing
   expect(readRun({ epoch: "epoch_1" })).toBeUndefined();
 });
 
+it("reads one that was started at an address that isn't one", async () => {
+  // Discovery refused it, and it waits in storage for its thirty minutes.
+  const typed = {
+    protocol: "1.0",
+    visitor: "v",
+    url: "not an address",
+    user: "",
+    expires: now + 600000,
+    calls: 0,
+    busy: false,
+    history: [{ role: "user", content: "hello" }],
+  };
+  await backend.put("v", "run:conversation_0006", typed, null);
+  const { run } = (await loadRun("v", "conversation_0006"))!;
+  expect(onlyConnection(run).url).toBe("not an address");
+  expect(run.history).toEqual([
+    { role: "user", content: "hello", company: "not an address" },
+  ]);
+  // History lists it under what was typed, and goes on listing the rest.
+  await backend.put("v", "run:conversation_0007", running(), null);
+  expect(
+    (await listConversations("v")).map((c) => [c.id, c.company]).sort(),
+  ).toEqual([
+    ["conversation_0006", "not an address"],
+    ["conversation_0007", "Juniper Market"],
+  ]);
+});
+
 it("goes on in a running one, and saves it with its connection", async () => {
   await backend.put("v", "run:conversation_0001", running(), null);
   expect((await loadRun("v", "conversation_0001"))?.run.calls).toBe(3);

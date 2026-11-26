@@ -13,10 +13,10 @@ import { onWorkers, randomId, vault } from "@poppy-lab/pap-client";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import type { Connection, Run } from "./runtime";
 import {
-  addConnection,
   companyName,
   connectionForState,
   from,
+  newConnection,
   originOf,
 } from "./connections";
 import { importStateKey, sealedBackend } from "./sealed";
@@ -600,13 +600,12 @@ export async function createRun(visitor: string, url: string): Promise<Held> {
     calls: 0,
     busy: true,
     busyUntil: Date.now() + BUSY_MS,
-    connections: [],
+    connections: [newConnection({ visitor, ...(epoch ? { epoch } : {}) }, url)],
     history: [],
     visitor,
     created: Date.now(),
     ...(epoch ? { epoch } : {}),
   };
-  addConnection(run, url);
   if (!(await b.put(visitor, `run:${id}`, run, null)))
     throw new Error("Run conflict");
   return { id, run, version: 1 };
