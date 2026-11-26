@@ -109,8 +109,9 @@ export type Message = {
 /**
  * A turn of a transcript stored before it kept what the page showed: the
  * notes written for the model stood in for the User's own direct lines and
- * buttons. Ended conversations are kept for seven days, so these lines are
- * still read for that long after the change.
+ * buttons, and the line that tells the model how an approval ended was kept
+ * as an answer of Iris's. Ended conversations are kept for seven days, so
+ * these lines are still read for that long after the change.
  */
 function earlierTurn(m: TranscriptEntry): Message[] | undefined {
   if (m.role === "user") {
@@ -134,6 +135,16 @@ function earlierTurn(m: TranscriptEntry): Message[] | undefined {
     m.role === "assistant" &&
     m.content ===
       "(No reply from Iris: the user was talking with the Company directly.)"
+  )
+    return [];
+  // The page showed an approval's outcome on the operation's entry only.
+  // An answer of Iris's to the User has steps; this line never had any.
+  if (
+    m.role === "assistant" &&
+    !m.steps &&
+    /^(Company operation succeeded: |Company declined the approval; nothing was performed\. |The Company declined the approval Iris sent on the user's standing instruction; nothing was performed, )/.test(
+      m.content,
+    )
   )
     return [];
   return undefined;

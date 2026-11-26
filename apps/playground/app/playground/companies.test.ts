@@ -153,4 +153,35 @@ describe("a conversation restored from its transcript", () => {
     ]);
     expect(historyToMessages(undefined)).toEqual([]);
   });
+
+  it("leaves out the model's line about an approval that a stored transcript kept", () => {
+    // The page showed each outcome on the operation's entry, never as a
+    // message under Iris's name.
+    expect(
+      historyToMessages([
+        { role: "user", content: "Refund my order", signedOut: true },
+        { role: "assistant", content: "Lantern proposes a refund." },
+        {
+          role: "assistant",
+          content:
+            "Company operation succeeded: Refunded USD 37.00 for order ord_LNB0907.",
+        },
+        {
+          role: "assistant",
+          content:
+            "Company declined the approval; nothing was performed. Lantern Noodle Bar declined this approval and did nothing.",
+        },
+        {
+          role: "assistant",
+          content:
+            "The Company declined the approval Iris sent on the user's standing instruction; nothing was performed, and it's waiting for the user.",
+        },
+        { role: "user", content: "Thanks" },
+      ]),
+    ).toEqual([
+      { role: "You", text: "Refund my order" },
+      { role: "Agent", text: "Lantern proposes a refund." },
+      { role: "You", text: "Thanks" },
+    ]);
+  });
 });

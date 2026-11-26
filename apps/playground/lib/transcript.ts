@@ -185,12 +185,15 @@ export function recordTurn(
 }
 
 /**
- * How an approval ended, in a line that has the Company's words: its result,
- * or why it declined. For an operation proposed in the User's Direct
- * Conversation (§8.10) those words were said in a thread the page tells the
- * User Iris doesn't read. The page keeps the line, and the model is told
- * only that an operation there was approved or declined: no summary, terms,
- * result or reason.
+ * How an approval ended, in a line for the model that has the Company's
+ * words: its result, or why it declined. The page never showed that line.
+ * It shows the outcome on the operation's own entry, and gets it again with
+ * the run's operations, so the transcript takes nothing here.
+ *
+ * For an operation proposed in the User's Direct Conversation (§8.10) those
+ * words were said in a thread the page tells the User Iris doesn't read.
+ * The model is then told only that an operation there was approved or
+ * declined: no summary, terms, result or reason.
  */
 export function recordOutcome(
   run: Run,
@@ -198,17 +201,18 @@ export function recordOutcome(
   outcome: "performed" | "declined",
   content: string,
 ) {
-  const turn = { role: "assistant" as const, content };
-  if (!op.direct) return record(run, turn);
-  const company = run.company?.document.organization.name ?? "the Company";
-  show(run, turn);
-  run.history.push({
-    role: "assistant",
-    content:
+  // A run with no transcript yet is restored from `history`: keep what the
+  // page showed so far before the model's line joins it.
+  show(run);
+  let line = content;
+  if (op.direct) {
+    const company = run.company?.document.organization.name ?? "the Company";
+    line =
       outcome === "performed"
         ? `(An operation proposed in the user's direct conversation with ${company} was approved and performed.)`
-        : `(The Company declined an operation proposed in the user's direct conversation with ${company}. Nothing was performed.)`,
-  });
+        : `(The Company declined an operation proposed in the user's direct conversation with ${company}. Nothing was performed.)`;
+  }
+  run.history.push({ role: "assistant", content: line });
 }
 
 /**

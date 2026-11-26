@@ -343,6 +343,46 @@ describe("what the page shows again after a reload", () => {
     expect(forPage(r)).toContain("later 399");
   });
 
+  it("tells the model how an approval ended, and adds no line the page never showed", () => {
+    const r = run();
+    turn(r);
+    const before = structuredClone(r.transcript);
+    const succeeded =
+      "Company operation succeeded: Refunded USD 37.00 for order ord_LNB0907.";
+    const declined = "Company declined the approval; nothing was performed.";
+    recordOutcome(r, {}, "performed", succeeded);
+    recordOutcome(r, {}, "declined", declined);
+    recordOutcome(r, { direct: true }, "performed", succeeded);
+
+    // The page showed each on the operation's own entry, which it gets
+    // again with the run's operations: no line of Iris's said it.
+    expect(r.transcript).toEqual(before);
+    expect(r.history.slice(2)).toEqual([
+      { role: "assistant", content: succeeded },
+      { role: "assistant", content: declined },
+      {
+        role: "assistant",
+        content:
+          "(An operation proposed in the user's direct conversation with the Company was approved and performed.)",
+      },
+    ]);
+  });
+
+  it("doesn't restore the model's line where no transcript was kept yet", () => {
+    // Stored before the transcript: the page restores the model's turns.
+    const r = run();
+    r.history.push(
+      { role: "user", content: "Refund my order" },
+      { role: "assistant", content: "Lantern proposes a refund." },
+    );
+    recordOutcome(r, {}, "performed", "Company operation succeeded: Refunded.");
+    expect(forPage(r)).toEqual([
+      "Refund my order",
+      "Lantern proposes a refund.",
+    ]);
+    expect(r.history).toHaveLength(3);
+  });
+
   it("goes on from a transcript stored before, which had words only", () => {
     const r = run();
     r.transcript = [

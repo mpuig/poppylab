@@ -1528,9 +1528,12 @@ describe("An operation proposed in the User's Direct Conversation (§8.10)", () 
     });
     const r = await act();
     expect(r.status).toBe(200);
-    // The card and the transcript show the User what the Company answered.
-    expect((await r.json()).operation.result.summary).toContain("ord_LNB0907");
-    expect(forPage()).toContain("Refunded USD 37.00 for order ord_LNB0907.");
+    // The operation's entry shows the User what the Company answered. No
+    // line of Iris's says it, under a bar that says Iris isn't reading.
+    expect((await r.json()).operation.result.summary).toBe(
+      "Refunded USD 37.00 for order ord_LNB0907.",
+    );
+    expect(forPage()).toBe("[]");
     for (const word of theirs) expect(forModel()).not.toContain(word);
     expect(run.history).toEqual([
       {
@@ -1543,9 +1546,12 @@ describe("An operation proposed in the User's Direct Conversation (§8.10)", () 
 
   it("tells the model that the Company declined one, without its reason", async () => {
     state.request.mockRejectedValue(declined());
-    const r = await act();
-    expect((await r.json()).code).toBe("approval_declined");
-    expect(forPage()).toContain("Only the card holder can take a refund");
+    const body = await (await act()).json();
+    expect(body.code).toBe("approval_declined");
+    expect(body.operation.result.summary).toContain(
+      "Only the card holder can take a refund",
+    );
+    expect(forPage()).toBe("[]");
     for (const word of theirs) expect(forModel()).not.toContain(word);
     expect(run.history).toEqual([
       {
@@ -1558,9 +1564,14 @@ describe("An operation proposed in the User's Direct Conversation (§8.10)", () 
 
   it("keeps the reason from the model when the Company declines Iris's approval of one too", async () => {
     state.request.mockRejectedValue(declined());
-    const r = await act("r1", { maxCents: 5000, currency: "USD" });
-    expect((await r.json()).code).toBe("agent_approval_declined");
-    expect(forPage()).toContain("Only the card holder can take a refund");
+    const body = await (
+      await act("r1", { maxCents: 5000, currency: "USD" })
+    ).json();
+    expect(body.code).toBe("agent_approval_declined");
+    expect(body.operation.agentDeclined.reason).toContain(
+      "Only the card holder can take a refund",
+    );
+    expect(forPage()).toBe("[]");
     for (const word of theirs) expect(forModel()).not.toContain(word);
     expect(run.history).toHaveLength(1);
   });
@@ -1581,8 +1592,11 @@ describe("An operation proposed in the User's Direct Conversation (§8.10)", () 
     state.request.mockResolvedValueOnce({
       summary: "Refunded USD 35.00 for order ord_LNB0907.",
     });
-    expect((await act("r2")).status).toBe(200);
-    expect(forPage()).toContain("Refunded USD 35.00");
+    const done = await act("r2");
+    expect(done.status).toBe(200);
+    expect((await done.json()).operation.result.summary).toContain(
+      "Refunded USD 35.00",
+    );
     for (const word of [...theirs, "35.00"])
       expect(forModel()).not.toContain(word);
   });
@@ -1597,7 +1611,22 @@ describe("An operation proposed in the User's Direct Conversation (§8.10)", () 
         content: "Company operation succeeded: Refunded USD 8.00.",
       },
     ]);
-    expect(run.transcript).toEqual(run.history);
+    // A reload shows what the page showed: the result on the operation's
+    // entry, and no message of Iris's with the model's line.
+    const restored = await (
+      await GET(
+        new Request(
+          "http://localhost:3000/api/account?conversation=run_fixture_0001",
+        ),
+      )
+    ).json();
+    expect(restored.history).toEqual([]);
+    expect(restored.operations).toEqual([
+      expect.objectContaining({
+        state: "succeeded",
+        result: { summary: "Refunded USD 8.00." },
+      }),
+    ]);
   });
 });
 
