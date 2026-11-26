@@ -8,7 +8,7 @@ Lantern has its own automated agent, the kind of support chat many companies
 already run, and Iris talks to it on Elena's behalf.
 
 This page follows that conversation screen by screen, on Iris's side and on
-Lantern's. Every screenshot is from the live lab, taken on 25 November 2026.
+Lantern's. Every screenshot is from the live lab, taken on 26 November 2026.
 The lab ran in demo mode, without an AI model, so Iris sent fixed requests in
 answer to Elena's messages, and each step says which. No refund is proposed
 on this page. [Talking to the company yourself](talking-to-the-company-yourself.md)
@@ -170,8 +170,8 @@ be allowed to do: read Elena's scheduled orders, and propose no changes. Elena
 chooses Allow, and Iris receives a permission from Lantern that Elena can
 withdraw at Lantern whenever she likes. Iris never sees a password.
 
-The tab then shows a short page of the lab that says she is signed in and can
-close it.
+The tab then shows a short page of the lab that says she is signed in to
+Lantern Noodle Bar and can close it.
 
 [Changing an order](changing-an-order.md#3-sign-in-at-lantern) explains this
 page and what travels when Elena allows it.
@@ -190,7 +190,8 @@ this request needs more than Elena has allowed. Its sentence says "Sign in"
 although Elena is already signed in. The event that comes with it names the
 two permissions the request needs. Elena has given the first, so Iris shows
 its Request change permission button for the second. Elena decides not to
-give it for the moment.
+give it for the moment. If she presses it later and allows it as the same
+customer, this conversation stays on the screen with its answers.
 
 <details>
 <summary>What travelled</summary>
@@ -272,15 +273,17 @@ call. The phone number is fictional.
 
 ### 8. Lantern's website afterwards
 
-![Lantern's account page: the last delivery is unchanged, the agent's activity says no proposals yet, and the connected agents list shows one agent with orders:read](../../../apps/playground/public/learn-media/how-it-works/getting-help-from-the-company/08-lantern-afterwards.webp "Nothing changed at Lantern except that an agent is now connected, with read-only access.")
+![Lantern's account page: the last delivery is unchanged, the agent's activity says no proposals yet, and the connected agents list shows Iris from poppylab.dev, which may read her scheduled orders, with the date its access ends and a Disconnect button](../../../apps/playground/public/learn-media/how-it-works/getting-help-from-the-company/08-lantern-afterwards.webp "Nothing changed at Lantern except that an agent is now connected, with read-only access.")
 
 Lantern's website shows the same delivery as before, with nothing refunded,
 and no proposals from the agent. Asking questions and asking for a person
 changed nothing in Elena's account.
 
-One thing is new. Under Connected agents, Lantern lists Iris by the web
-address that identifies it, with the one permission Elena gave in step 5.
-She can disconnect it there.
+One thing is new, and it appeared without a reload. Under Connected agents,
+Lantern lists Iris from poppylab.dev in the words of its sign-in page: Iris
+may read her scheduled orders. The entry gives the day and time the access
+ends, a week after Elena allowed it, and the web address that identifies
+Iris. She can disconnect it there.
 
 ## What Lantern controls
 
