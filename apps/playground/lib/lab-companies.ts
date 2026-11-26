@@ -10,7 +10,8 @@ import type { Nameable } from "./company-names";
 /** `origin` is this playground's own, from the request. */
 export const labCompanies = (origin: string): Nameable[] =>
   labSites(origin).flatMap((site) =>
-    site.id === "home" || site.id === "playground"
-      ? []
-      : [{ url: site.url, name: site.label }],
+    // The lab's own pages have no words: only its Companies are named.
+    "words" in site
+      ? [{ url: site.url, name: site.label, words: site.words }]
+      : [],
   );

@@ -24,6 +24,12 @@ export const LAB_AUTHOR = {
   url: "https://x.com/mpuig",
 } as const;
 
+/**
+ * The lab's sites. Each Company also lists a few plain words (`words`) a
+ * person may use for it instead of its name, such as "the bank": Iris
+ * matches what they type in the chat against these and the names here,
+ * and never against anything else. No two Companies share a word.
+ */
 export function labSites(origin: string) {
   const local = /(^|\.)localhost$/.test(new URL(origin).hostname);
   return [
@@ -42,6 +48,7 @@ export function labSites(origin: string) {
     {
       id: "juniper" as const,
       label: "Juniper Market",
+      words: ["grocery", "groceries", "grocery store", "supermarket"],
       url: local
         ? "http://juniper.localhost:4100"
         : "https://grocery-demo.poppylab.dev",
@@ -49,6 +56,7 @@ export function labSites(origin: string) {
     {
       id: "lantern" as const,
       label: "Lantern Noodle Bar",
+      words: ["restaurant", "noodles", "noodle bar", "takeaway"],
       url: local
         ? "http://noodles.localhost:4200"
         : "https://food-demo.poppylab.dev",
@@ -56,6 +64,7 @@ export function labSites(origin: string) {
     {
       id: "harborline" as const,
       label: "Harborline Bank",
+      words: ["bank"],
       url: local
         ? "http://harbor.localhost:4300"
         : "https://bank-demo.poppylab.dev",
@@ -63,6 +72,7 @@ export function labSites(origin: string) {
     {
       id: "northwind" as const,
       label: "Northwind Air",
+      words: ["airline", "flights"],
       url: local
         ? "http://northwind.localhost:4400"
         : "https://airline-demo.poppylab.dev",
@@ -70,6 +80,7 @@ export function labSites(origin: string) {
     {
       id: "fernwick" as const,
       label: "Fernwick Power & Light",
+      words: ["utility", "power company", "electricity", "energy company"],
       url: local
         ? "http://fernwick.localhost:4500"
         : "https://energy-demo.poppylab.dev",

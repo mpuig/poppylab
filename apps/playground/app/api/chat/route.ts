@@ -25,6 +25,13 @@ import {
   originOf,
 } from "@/lib/connections";
 import { answeredWith, type Nameable } from "@/lib/company-names";
+import {
+  listed,
+  performCommand,
+  type Choice,
+  type Performed,
+} from "@/lib/company-commands";
+import { connectCommand } from "@/lib/connect-command";
 import { companiesView } from "@/lib/conversation-view";
 import { labCompanies } from "@/lib/lab-companies";
 import { directConnection, offeredTools, turnConnection } from "@/lib/routing";
@@ -60,16 +67,10 @@ import { demoEspiAnswer, demoEspiRead, demoEspiReply } from "@/lib/demo-espi";
 import { UserFacingError } from "@/lib/user-error";
 import { refusalFacts } from "@/lib/protocol-log";
 import { companyProfile, PapDiscoveryError } from "@poppy-lab/pap-core";
-import { publicMode, serving } from "@/lib/deployment";
+import { localOrigins, publicMode, serving } from "@/lib/deployment";
 import { runModel, ModelRequestError } from "@poppy-lab/llm-adapters/server";
 
 export const runtime = "nodejs";
-
-/**
- * A reply the page can offer as a button: pressing it sends `say` as the
- * User's next message, as if they had typed it.
- */
-type Choice = { label: string; say: string };
 
 /**
  * One Company's state as a chat answer carries it: its Session, sign-in,
@@ -94,12 +95,6 @@ const nameable = (connection: Connection): Nameable => ({
   url: connection.url,
   name: nameOf(connection),
 });
-
-/** "A", "A and B", "A, B and C". */
-const listed = (names: readonly string[], last: "and" | "or") =>
-  names.length < 2
-    ? (names[0] ?? "")
-    : `${names.slice(0, -1).join(", ")} ${last} ${names.at(-1)}`;
 
 let active = 0;
 let count = 0;
@@ -151,6 +146,18 @@ async function reply(request: Request, started: { id?: string }) {
   const trace: string[] = [];
   // The turns a model was sent this turn; the demo's rules are sent none.
   let context: Turn[] | undefined;
+  // What the User's words did to the conversation's Companies before the
+  // turn was asked of one ("connect with Lantern and show me the menu"):
+  // Iris's line about it, whether the Companies changed, what the
+  // conversation still shows after a removal, and how many of the trace's
+  // lines are kept with the conversation already. Every answer carries
+  // these, a failed turn's too.
+  const did: {
+    before?: string;
+    changed: boolean;
+    left?: Performed["left"];
+    kept: number;
+  } = { changed: false, kept: 0 };
   try {
     if (!request.headers.get("content-type")?.startsWith("application/json"))
       throw new UserFacingError("Use JSON");
@@ -290,22 +297,28 @@ async function reply(request: Request, started: { id?: string }) {
       throw new UserFacingError(
         "This run reached its 20-turn limit. Connect again to start another run.",
       );
+    // What an answer says of the conversation's Companies when the User's
+    // words changed them: Iris's line about it when the turn went on to a
+    // Company, the Companies as they are now, and what the conversation
+    // still shows after a removal.
+    const companies = () => ({
+      ...(did.changed ? companiesView(conversation) : {}),
+      ...did.left,
+    });
     // An answer of Iris's own, about the conversation and from no Company.
     // The page that shows one Company gets the first one's state with it,
-    // as a reload does, and the Companies themselves when they changed.
-    const own = (
-      text: string,
-      more: { choices?: Choice[]; changed?: boolean } = {},
-    ) =>
+    // as a reload does.
+    const own = (text: string, choices: Choice[] = []) =>
       NextResponse.json(
         {
           text,
+          ...(did.before ? { before: did.before } : {}),
           trace,
           mode: "iris",
-          ...(more.choices?.length ? { choices: more.choices } : {}),
+          ...(choices.length ? { choices } : {}),
           ...turnState(conversation.connections[0]),
           company: [],
-          ...(more.changed ? companiesView(conversation) : {}),
+          ...companies(),
         },
         { headers: { "Cache-Control": "no-store" } },
       );
@@ -321,9 +334,11 @@ async function reply(request: Request, started: { id?: string }) {
     const waiting = run.waiting;
     delete run.waiting;
     // The request this turn answers, and what the User typed when that is
-    // something else.
+    // something else: a Company's name in answer to Iris's question, or
+    // nothing more (`null`), when the request is the rest of a message the
+    // page already shows.
     let asked = body.message;
-    let typed: string | undefined;
+    let typed: string | null | undefined;
     if (direct) {
       // §8.10: the User's own words or choice. Never worked out from them.
       const target = directConnection(run, direct, hint);
@@ -334,33 +349,70 @@ async function reply(request: Request, started: { id?: string }) {
         });
       connection = target;
     } else {
-      if (!run.connections.length) {
+      // The User's own words can connect a Company or remove one. They are
+      // read here, before any model or rule of the demo, and nothing else
+      // is ever read for it: not Company content, not a model's answer.
+      const lab = labCompanies(new URL(request.url).origin);
+      const command = connectCommand(body.message, {
+        connected: run.connections.map(nameable),
+        lab,
+      });
+      if (command) {
+        stage = "connect";
+        const done = await performCommand(run, command, lab, localOrigins);
+        trace.push(...done.trace);
+        Object.assign(did, {
+          changed: done.changed,
+          ...(done.left ? { left: done.left } : {}),
+          kept: trace.length,
+        });
+        recordOwn(run, done.about, body.message, done.say, done.told);
+        run.history = run.history.slice(-10);
+        if (!done.rest) return own(done.say, done.choices);
+        // The message asks for something else: carry on with that.
+        did.before = done.say;
+        asked = done.rest;
+        typed = null;
+        connection = done.at;
+      }
+      if (!connection && !run.connections.length) {
         const say = `This conversation isn't connected to a company yet, so nothing was sent. Connect one first: ${listed(
-          labCompanies(new URL(request.url).origin).map((c) => c.name),
+          lab.map((c) => c.name),
           "or",
         )} from the lab, or another company by typing its address in the address box.`;
-        recordOwn(run, undefined, body.message, say);
-        return own(say);
+        recordOwn(run, undefined, asked, say);
+        run.history = run.history.slice(-10);
+        return own(
+          say,
+          lab.map((c) => ({ label: c.name, say: `Connect with ${c.name}` })),
+        );
       }
-      const answered = waiting
-        ? answeredWith(body.message, run.connections.map(nameable))
-        : undefined;
-      if (waiting && answered) {
+      const answered =
+        waiting && !command
+          ? answeredWith(body.message, run.connections.map(nameable))
+          : undefined;
+      if (answered) {
         connection = connectionAt(run, answered.url);
-        asked = waiting;
+        asked = waiting!;
         typed = body.message;
-      } else {
-        const route = await turnConnection(run, asked, hint);
+      } else if (!connection) {
+        const route = await turnConnection(
+          run,
+          asked,
+          // The Company the page had chosen may be the one just removed.
+          hint !== undefined && connectionAt(run, hint) ? hint : undefined,
+        );
         if ("ask" in route) {
           // Nothing is sent to any Company. The request waits for the
           // answer, which a button or the User's own words can give.
           const names = route.ask.map(nameOf);
           const say = `Which company is this for? This conversation is connected to ${listed(names, "and")}.`;
           run.waiting = asked;
-          recordOwn(run, undefined, body.message, say, false);
-          return own(say, {
-            choices: names.map((name) => ({ label: name, say: name })),
-          });
+          recordOwn(run, undefined, asked, say, false);
+          return own(
+            say,
+            names.map((name) => ({ label: name, say: name })),
+          );
         }
         connection = route.connection;
       }
@@ -666,17 +718,27 @@ async function reply(request: Request, started: { id?: string }) {
         // The Company the turn was with: the answer came from there, and
         // the state that follows is that Company's.
         from,
+        // Iris's own line from before it asked the Company, to show first.
+        ...(did.before ? { before: did.before } : {}),
         ...turnState(connection),
         company: shown.map((entry) => ({ ...entry, from })),
+        ...companies(),
         ...lost,
       },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
     const recovery = accountRecovery(error);
-    // The Company the turn that failed was with, when it had got to one.
-    const turn =
-      run && connection ? { from: companyRef(run, originOf(connection)) } : {};
+    // The Company the turn that failed was with, when it had got to one,
+    // and what the User's words had done to the Companies before it.
+    const turn = {
+      ...(run && connection
+        ? { from: companyRef(run, originOf(connection)) }
+        : {}),
+      ...(did.before ? { before: did.before } : {}),
+      ...(run && did.changed ? companiesView(run) : {}),
+      ...did.left,
+    };
     // Signed out, a token error means the Company refused the Session
     // itself: there is no account access to renew (often a different draft).
     if (
@@ -786,7 +848,7 @@ async function reply(request: Request, started: { id?: string }) {
       keepLines(
         run,
         connection,
-        trace,
+        trace.slice(did.kept),
         Date.now(),
         !!connection.accountToken,
         accountsIn(run, connection, context),

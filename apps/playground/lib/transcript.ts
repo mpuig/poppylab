@@ -66,8 +66,10 @@ export type Shown = {
    * What the User typed, when that isn't the request the turn answered:
    * the name of a Company, in answer to Iris asking which one a request
    * was for. The page showed these words, and the model gets the request.
+   * `null` when the page showed nothing more: the request is the rest of
+   * a message it already shows ("connect with Lantern and show the menu").
    */
-  typed?: string | undefined;
+  typed?: string | null | undefined;
 };
 
 /**
@@ -439,7 +441,9 @@ export function recordTurn(
     run,
     connection,
     accounts,
-    shown.typed === undefined ? user : { ...user, content: shown.typed },
+    ...(shown.typed === null
+      ? []
+      : [shown.typed === undefined ? user : { ...user, content: shown.typed }]),
     ...companyEntries(shown),
     answerEntry(answer, shown),
   );
