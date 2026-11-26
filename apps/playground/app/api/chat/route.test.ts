@@ -149,6 +149,7 @@ async function say(run: Run, message: string) {
     error?: string;
     data?: string;
     trace?: string[];
+    excludedTasks?: Array<{ task: string; alternative?: string }>;
   };
   return {
     status: response.status,
@@ -351,4 +352,49 @@ it("keeps a turn's lines with the conversation, as the Inspector listed them and
   const asked = await say(visitor, "my orders");
   expect(visitor.log!.map((line) => line.text)).toEqual(asked.answer.trace);
   expect(visitor.log!.every((line) => line.signedOut)).toBe(true);
+});
+
+it("answers with the tasks the Company excludes, and says whether a feedback report was sent (§9)", async () => {
+  transport.mockImplementation(async (url) => {
+    if (url === origin + "/poppy/openapi.json") return api;
+    if (url === origin + "/poppy/tasks")
+      return {
+        excluded_tasks: [
+          { task: "Cancel an order by phone" },
+          {
+            task: "Change the delivery address",
+            alternative: { instructions: "Use the website's account page." },
+          },
+        ],
+        feedback: { endpoint: origin + "/poppy/feedback" },
+      };
+    return { ok: true };
+  });
+  const run = shop();
+  run.company!.profile.tasksEndpoint = origin + "/poppy/tasks";
+  const first = await say(run, "Can I pay with a gift card?");
+  // For the Inspector's "Tasks not offered".
+  expect(first.answer.excludedTasks).toEqual([
+    { task: "Cancel an order by phone" },
+    {
+      task: "Change the delivery address",
+      alternative: "Use the website's account page.",
+    },
+  ]);
+  expect(first.answer.trace).toContain(
+    "POST /poppy/feedback · feedback · 202 accepted",
+  );
+  expect(first.answer.text).toContain(
+    "Feedback report sent to the Company (§9.3):\n\nSent: yes",
+  );
+  // The same report in the same Session isn't sent, and the answer says so.
+  const again = await say(run, "Can I pay with a gift card?");
+  expect(again.answer.text).toContain(
+    "Feedback report not sent to the Company (§9.3):\n\nSent: no",
+  );
+  expect(again.answer.text).toContain("Already reported in this Session");
+  expect(again.answer.text).not.toContain("Feedback report sent");
+  expect(
+    again.asked.filter((url) => url === origin + "/poppy/feedback"),
+  ).toHaveLength(1);
 });

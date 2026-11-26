@@ -13,6 +13,7 @@ import {
   traceFileName,
   type ProtocolEntry,
 } from "@/lib/protocol-log";
+import type { ShownTask } from "@/lib/shown-tasks";
 import { CompanyProfileView } from "../company-profile";
 
 /** Discovery steps and API events with their spec sections, and the document. */
@@ -20,11 +21,14 @@ export function Inspector({
   result,
   trace,
   chatLog,
+  excludedTasks,
   companyUrl,
 }: {
   result: DiscoveredCompany | null;
   trace: DiscoveryTraceStep[];
   chatLog: ProtocolEntry[];
+  /** §9.1: the tasks the Company doesn't offer, once a Session read them. */
+  excludedTasks: ShownTask[];
   companyUrl: string;
 }) {
   const [copied, setCopied] = useState(false);
@@ -155,7 +159,9 @@ export function Inspector({
           </ol>
         </>
       )}
-      {result && <CompanyProfileView company={result} />}
+      {result && (
+        <CompanyProfileView company={result} excludedTasks={excludedTasks} />
+      )}
       {result && (
         <details className="raw-document">
           <summary>Discovery document</summary>

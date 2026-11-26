@@ -29,6 +29,7 @@ import { fdxStatementsByAccount } from "@/lib/demo-fdx";
 import { recordOutcome } from "@/lib/transcript";
 import { refusalFacts } from "@/lib/protocol-log";
 import { applyingLine, keepLines, statementLine } from "@/lib/inspector-log";
+import { shownTasks } from "@/lib/shown-tasks";
 import {
   accountRecovery,
   accountUnavailableNotice,
@@ -250,6 +251,8 @@ export async function GET(request: Request) {
       history: run?.transcript ?? run?.history ?? [],
       // The Inspector's "Session & API calls" lines, to list again.
       log: run?.log ?? [],
+      // §9.1: the tasks its current Session read, for "Tasks not offered".
+      excludedTasks: run ? shownTasks(run) : [],
       url: run?.url,
       scopes: run?.scopes,
       // Use FDX (poppylab.dev/fdx v1), a setting of this conversation.

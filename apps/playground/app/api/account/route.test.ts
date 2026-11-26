@@ -239,7 +239,7 @@ describe("The Inspector's lines, kept with the conversation", () => {
         body: { message: "Call us on 555-0100", authorization: "Bearer x" },
       }),
     );
-    const refused =(await (await act()).json()).trace as string[];
+    const refused = (await (await act()).json()).trace as string[];
     state.request.mockResolvedValueOnce({ summary: "Done" });
     const performed = (await (await act()).json()).trace as string[];
     expect((await reloaded()).map((line) => line.text)).toEqual([
@@ -255,6 +255,36 @@ describe("The Inspector's lines, kept with the conversation", () => {
     );
     for (const line of run.log!)
       expect(Object.keys(line).sort()).toEqual(["at", "text"]);
+  });
+
+  it("answers a reload with the tasks the current Session read, and none of an earlier Session's (§9)", async () => {
+    const session = state.run as typeof state.run & {
+      sessionId?: string;
+      tasks?: unknown;
+    };
+    const tasks = async () =>
+      (
+        await (
+          await GET(
+            new Request(
+              "http://localhost:3000/api/account?conversation=run_fixture_0001",
+            ),
+          )
+        ).json()
+      ).excludedTasks;
+    session.sessionId = "sid_1";
+    session.tasks = {
+      sid: "sid_1",
+      value: { excludedTasks: [{ task: "Cancel by phone" }], skills: 0 },
+    };
+    try {
+      expect(await tasks()).toEqual([{ task: "Cancel by phone" }]);
+      session.sessionId = "sid_2";
+      expect(await tasks()).toEqual([]);
+    } finally {
+      delete session.tasks;
+      delete session.sessionId;
+    }
   });
 
   it("says the account was signed out, as a line of the account it was", async () => {

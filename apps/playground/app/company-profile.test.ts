@@ -51,4 +51,32 @@ it("shows 1.0 scopes with descriptions, hints, PAR, extensions and the tasks end
   expect(html).toContain("https://company.example/poppy/tasks");
   expect(html).toContain("See &lt;b&gt;orders&lt;/b&gt;");
   expect(html).not.toContain("<b>orders</b>");
+  // No Session has read the tasks yet: where they are read, and no heading
+  // over a list the page doesn't have.
+  expect(html).toContain("Task coverage");
+  expect(html).not.toContain("Tasks not offered");
+  expect(
+    renderToStaticMarkup(
+      createElement(CompanyProfileView, { company, excludedTasks: [] }),
+    ),
+  ).not.toContain("Tasks not offered");
+
+  // Once a Session has read them, the Company's list, as plain text.
+  const listed = renderToStaticMarkup(
+    createElement(CompanyProfileView, {
+      company,
+      excludedTasks: [
+        { task: "Cancel an order by phone" },
+        {
+          task: "Change the <i>delivery</i> address",
+          alternative: "Use the website's account page.",
+        },
+      ],
+    }),
+  );
+  expect(listed).toContain("<h3>Tasks not offered</h3>");
+  expect(listed).toContain("Cancel an order by phone");
+  expect(listed).toContain("Change the &lt;i&gt;delivery&lt;/i&gt; address");
+  expect(listed).toContain("Use the website&#x27;s account page.");
+  expect(listed).toContain("https://company.example/poppy/tasks");
 });

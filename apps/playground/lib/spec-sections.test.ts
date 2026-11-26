@@ -30,6 +30,19 @@ it("labels discovery and API steps with their Poppy 1.0 sections", () => {
       "Conversation operation · approval required · nothing performed",
     ),
   ).toBe("§8.4 · Operations §4");
+  // Task coverage (§9): the tasks response, and a feedback report (§9.3),
+  // which is a request to the Company but not one of its APIs (§7).
+  expect(
+    apiSection("GET /poppy/tasks · tasks for this Session · 3 excluded"),
+  ).toBe("§9");
+  expect(apiSection("POST /poppy/feedback · feedback · 202 accepted")).toBe(
+    "§9.3",
+  );
+  expect(
+    apiSection("POST /poppy/feedback · feedback · 200 with an alternative"),
+  ).toBe("§9.3");
+  // An API of the Company's own that has the word in its path is still §7.
+  expect(apiSection("POST /api/feedback · Poppy Session")).toBe("§7");
 });
 
 it("builds a plain-text report for interop issues", () => {

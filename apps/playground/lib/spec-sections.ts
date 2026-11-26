@@ -24,6 +24,8 @@ const api: Array<[RegExp, string]> = [
   [/Company Agent conversations/i, "§8.1"],
   [/Conversation (started|message)/i, "§8.3"],
   [/tasks for this Session|Tasks unavailable|excluded tasks/i, "§9"],
+  // A feedback report (`feedbackTool`), not a request to one of its APIs.
+  [/ · feedback · /, "§9.3"],
   [/^(GET|POST|PUT|PATCH|DELETE) |API tools|OpenAPI/i, "§7"],
   [/MCP/, "§7"],
   [/Session header|Poppy Session|Session (signed|started)/i, "§5.2"],

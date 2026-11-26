@@ -39,6 +39,7 @@ import {
   shownLines,
   statementLine,
 } from "@/lib/inspector-log";
+import type { ShownTask } from "@/lib/shown-tasks";
 import {
   nextAutoApproval,
   usesAllowance,
@@ -141,6 +142,11 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     setChatLog((old) =>
       [...old, ...lines.map((line) => logEntry(line))].slice(-LOG_LIMITS.lines),
     );
+  /**
+   * §9.1: the tasks the Company doesn't offer, as the conversation's current
+   * Session read them. The server sends them; none until a Session has.
+   */
+  const [excludedTasks, setExcludedTasks] = useState<ShownTask[]>([]);
   const [sending, setSending] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
   const [scopes, setScopes] = useState("");
@@ -252,6 +258,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
         applyDirect(data.directConversation);
         setMessages(historyToMessages(data.history));
         setChatLog(shownLines(data.log));
+        setExcludedTasks(data.excludedTasks ?? []);
       })
       .catch(() => {});
     return () => {
@@ -284,6 +291,8 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
             // The lines follow the conversation: those written before any
             // account stay, then the server's line for this sign-in.
             setChatLog(shownLines(data.log));
+            // A sign-in starts a new Session, which reads its own tasks.
+            setExcludedTasks(data.excludedTasks ?? []);
           } else if (outcome === "not_completed") {
             setWaitingSignIn(false);
             setError(
@@ -427,6 +436,8 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
       addTrace(data.trace ?? []);
       if (!response.ok) throw new Error(data.error);
       setExtensionOn(!!data[key]);
+      // The new Session hasn't read its tasks yet.
+      setExcludedTasks([]);
     } catch (caught) {
       setError(
         caught instanceof Error && caught.message
@@ -684,6 +695,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     setFailedTrace([]);
     setMessages([]);
     setChatLog([]);
+    setExcludedTasks([]);
     setSignedIn(false);
     setWaitingSignIn(false);
     setOperations([]);
@@ -820,6 +832,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
           : []),
       ]);
       addTrace(data.trace);
+      setExcludedTasks(data.excludedTasks ?? []);
       setSignedIn(!!data.signedIn);
       setScopes(data.scopes ?? "");
       setError(data.recovery?.error ?? "");
@@ -871,6 +884,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     setTask,
     messages,
     chatLog,
+    excludedTasks,
     sending,
     signedIn,
     scopes,

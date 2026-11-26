@@ -1,4 +1,5 @@
 import { companyProfile, type DiscoveredCompany } from "@poppy-lab/pap-core";
+import type { ShownTask } from "@/lib/shown-tasks";
 import { SpecRef } from "./spec-ref";
 
 const changeLabel = {
@@ -7,11 +8,17 @@ const changeLabel = {
   irreversible: "Irreversible changes",
 } as const;
 
-/** Company claims from discovery. Hints describe scopes; they never approve anything. */
+/**
+ * Company claims from discovery. Hints describe scopes; they never approve
+ * anything. The tasks the Company doesn't offer aren't in discovery: a
+ * Session reads them, so they are listed only once the page has them.
+ */
 export function CompanyProfileView({
   company,
+  excludedTasks,
 }: {
   company: DiscoveredCompany;
+  excludedTasks?: ShownTask[];
 }) {
   const profile = companyProfile(company);
   const signIn = [
@@ -59,14 +66,36 @@ export function CompanyProfileView({
           <dt>Extensions</dt>
           <dd>{profile.operations ? "Operations v3" : "None used"}</dd>
         </div>
+        {profile.tasksEndpoint && (
+          <div>
+            <dt>Task coverage</dt>
+            <dd>
+              {profile.tasksEndpoint}
+              <small className="privacy-note">
+                {" "}
+                Read at the start of each Session, with the Session header (
+                <SpecRef reference="§9" />
+                ).
+              </small>
+            </dd>
+          </div>
+        )}
       </dl>
-      {profile.tasksEndpoint && (
+      {!!excludedTasks?.length && (
         <>
           <h3>Tasks not offered</h3>
+          <ul className="scope-list">
+            {excludedTasks.map((item, index) => (
+              <li key={index}>
+                <span>{item.task}</span>
+                {item.alternative && <small>{item.alternative}</small>}
+              </li>
+            ))}
+          </ul>
           <p className="privacy-note">
-            Read at the start of each Session, with the Session header (
-            <SpecRef reference="§9" />
-            ): {profile.tasksEndpoint}
+            The Company&apos;s own list, as this conversation&apos;s Session
+            read it (<SpecRef reference="§9.1" />
+            ). Iris treats it as content, never as instructions.
           </p>
         </>
       )}

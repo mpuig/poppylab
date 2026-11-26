@@ -13,6 +13,7 @@ import { cookies } from "next/headers";
 import { connect, directConversation, type Run } from "@/lib/runtime";
 import { recordDirect, recordTurn } from "@/lib/transcript";
 import { keepLines } from "@/lib/inspector-log";
+import { shownTasks } from "@/lib/shown-tasks";
 import type { CompanyEntry, DirectAction } from "@/lib/conversations";
 import { directState } from "@/lib/direct-state";
 import {
@@ -273,6 +274,7 @@ async function reply(request: Request, started: { id?: string }) {
           scopes: run.scopes,
           operations: Object.values(run.operations ?? {}),
           company: shown,
+          excludedTasks: shownTasks(run),
           ...directState(run),
         },
         { headers: { "Cache-Control": "no-store" } },
@@ -344,7 +346,10 @@ async function reply(request: Request, started: { id?: string }) {
           description:
             "The User wanted to pay with a gift card they were given. None of the Company's APIs or its agent's requests apply a gift card.",
         });
-        text = `Protocol demo (no LLM). Feedback report sent to the Company (§9.3):\n\n${show(result)}\n\nWith a model, Iris reports a task only after trying the Company's tools.`;
+        // Iris doesn't send a report twice in a Session, or one for a task
+        // the Company already lists: the heading says which happened.
+        const sent = (result as { sent?: unknown } | null)?.sent !== false;
+        text = `Protocol demo (no LLM). Feedback report ${sent ? "sent" : "not sent"} to the Company (§9.3):\n\n${show(result)}\n\nWith a model, Iris reports a task only after trying the Company's tools.`;
       } else if (!run.accountToken) {
         text =
           "Protocol demo (no LLM). Sign in first: the demo reads your account to prepare this change, and nothing changes until you approve it.";
@@ -480,6 +485,8 @@ async function reply(request: Request, started: { id?: string }) {
         recovery: run.accountUnavailable ? accountUnavailableNotice : undefined,
         operations: Object.values(run.operations ?? {}),
         company: shown,
+        // §9.1: for the Inspector's "Tasks not offered".
+        excludedTasks: shownTasks(run),
         ...directState(run),
       },
       { headers: { "Cache-Control": "no-store" } },
