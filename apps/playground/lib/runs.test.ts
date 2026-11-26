@@ -359,15 +359,32 @@ it("holds a conversation's Companies in one run: one lock, one lifetime, and eac
   };
   await releaseRun("v", again);
   expect((await runForState("v", "s".repeat(32)))?.id).toBe(held.id);
-  // Listed once, under its Companies' names and its first one's address.
+  // Listed once: under its Companies' names and its first one's address,
+  // for a list that shows one of each, and with each Company on its own.
+  const listed = {
+    id: held.id,
+    company: "juniper.example, lantern.example",
+    url: "https://juniper.example",
+    companies: [
+      {
+        origin: "https://juniper.example",
+        name: "juniper.example",
+        url: "https://juniper.example",
+      },
+      {
+        origin: "https://lantern.example",
+        name: "lantern.example",
+        url: "https://lantern.example",
+      },
+    ],
+  };
   expect(await listConversations("v")).toEqual([
-    expect.objectContaining({
-      id: held.id,
-      company: "juniper.example, lantern.example",
-      url: "https://juniper.example",
-      active: true,
-    }),
+    expect.objectContaining({ ...listed, active: true }),
   ]);
+  // A Company that left the conversation is not one of them.
+  expect(JSON.stringify(await listConversations("v"))).not.toContain(
+    "harborline",
+  );
 
   vi.setSystemTime(start + 31 * 60000);
   const read = (await readConversation("v", held.id))!;
@@ -401,4 +418,33 @@ it("holds a conversation's Companies in one run: one lock, one lifetime, and eac
     "https://lantern.example",
     "https://lantern.example",
   ]);
+  // Ended, it is still listed with its Companies.
+  expect(await listConversations("v")).toEqual([
+    expect.objectContaining({ ...listed, active: false }),
+  ]);
+});
+
+it("lists a conversation with no Company, by its words", async () => {
+  configureBackend(memoryBackend());
+  const held = await createRun("v");
+  expect(held.run.connections).toEqual([]);
+  held.run.title = "What's on the menu?";
+  await releaseRun("v", held);
+  expect(await listConversations("v")).toEqual([
+    expect.objectContaining({
+      id: held.id,
+      title: "What's on the menu?",
+      company: "",
+      url: "",
+      companies: [],
+    }),
+  ]);
+  // One in which nothing was said doesn't outlive the next, as before.
+  const empty = await createRun("v");
+  await releaseRun("v", empty);
+  const next = await createRun("v", "https://juniper.example");
+  await releaseRun("v", next);
+  expect((await listConversations("v")).map((c) => c.id).sort()).toEqual(
+    [held.id, next.id].sort(),
+  );
 });

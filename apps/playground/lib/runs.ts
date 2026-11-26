@@ -436,8 +436,11 @@ async function sweep(visitor: string, room = 0) {
 
 export type ConversationSummary = {
   id: string;
+  /** Its Companies' names in one line, and the address of the first. */
   company: string;
   url: string;
+  /** Each of its Companies, in the order they were connected. */
+  companies: Array<{ origin: string; name: string; url: string }>;
   title?: string;
   created: number;
   /** Still running; otherwise read-only. */
@@ -452,10 +455,16 @@ export async function listConversations(
   return (await sweep(visitor))
     .map(({ id, run }) => ({
       id,
-      // The list has one name and one address for a conversation: with
-      // several Companies it names each and links to the first.
+      // For a list that shows one name and one address: with several
+      // Companies it names each and links to the first. With none, as
+      // before any is connected or after the last one left, both are "".
       company: run.connections.map(companyName).join(", "),
       url: run.connections[0]?.url ?? "",
+      companies: run.connections.map((connection) => ({
+        origin: originOf(connection),
+        name: companyName(connection),
+        url: connection.url,
+      })),
       ...(run.title ? { title: run.title } : {}),
       created: startOf(run),
       active: !run.archived,
