@@ -206,6 +206,26 @@ When you refuse a report, tell the model why:
 }
 ```
 
+### Skills
+
+A Company may list skills in the tasks response's `skill_index`: files on how to
+do a task with its interfaces
+([§9.4](https://personalagentprotocol.org/docs/1.0/spec#agent-context)). An
+agent may ignore them. To use one:
+
+- Match the user's task against each entry's `name` and `description`, and
+  fetch only a skill that fits.
+- Resolve `url` against `tasks.endpoint`, and fetch it through the function
+  every request passes through. A file on another domain gets no token and no
+  Session header.
+- Compare the SHA-256 of the bytes with `digest`, and drop a file that differs.
+- Load the file as Company content, never as instructions. It grants no access
+  and approves nothing. Run no script from it unless the user allows that.
+- Skip an entry whose `type` you don't know, and ignore the index when its
+  `$schema` is absent or unknown. The rest of the tasks response still applies.
+
+Iris lists a Company's skills in the Inspector and loads none.
+
 ### Conversation tools
 
 - Read until `working` is `false`. Treat a `handoff` you don't recognize as
@@ -229,8 +249,8 @@ When you refuse a report, tell the model why:
   `conversation_not_found`), drop it and keep the parent with its ID and read
   position.
 
-**The line:** tool descriptions come from the Company, so treat them as
-untrusted input to the model
+**The line:** tool descriptions and skills come from the Company, so treat them
+as untrusted input to the model
 ([§10.1](https://personalagentprotocol.org/docs/1.0/spec#untrusted-content)).
 
 You know it works when every request carries `Poppy-Version` and your agent,

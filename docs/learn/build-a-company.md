@@ -190,6 +190,9 @@ Offer what anyone may see, signed out, through the interfaces you already have.
   protocol at `tasks.endpoint`, with an alternative where there is one, and take
   feedback reports
   ([§9](https://personalagentprotocol.org/docs/1.0/spec#task-coverage)).
+- **Skills.** Where a task takes several calls in a set order, publish a skill
+  that says how
+  ([§9.4](https://personalagentprotocol.org/docs/1.0/spec#agent-context)).
 - **Conversations.** If you have a support chat or a Company Agent, offer the
   conversation endpoint
   ([§8](https://personalagentprotocol.org/docs/1.0/spec#conversations)).
@@ -246,6 +249,53 @@ with `400` and `{"error": "invalid_request"}`. For the reports you keep:
 
 You know it works when a report that matches nothing answers `202` and one
 without a `task` answers `400`.
+
+### Skills, in the tasks response
+
+A skill is a file you write for agents on how to do one task with your API.
+List each one in `skill_index` in your tasks response, so an agent finds it
+before it starts the task. Lantern lists one, with the two members an index
+needs and the five every entry needs:
+
+```json
+"skill_index": {
+  "$schema": "https://schemas.agentskills.io/discovery/0.2.0/schema.json", // (1)
+  "skills": [
+    {
+      "name": "change-scheduled-order", // (2)
+      "description": "Change a customer's scheduled Lantern Noodle Bar order through Lantern's API: move it to another delivery slot, add dishes or remove dishes. Use it when the customer asks to move an order that hasn't been delivered yet, or to change what is in it.",
+      "type": "skill-md", // (3)
+      "url": "/poppy/skills/change-scheduled-order/SKILL.md", // (4)
+      "digest": "sha256:b282bf11a838b35b4215b9d55f499d09f1f8b1d1aa9d844cf61b7d885d3691e2" // (5)
+    }
+  ]
+}
+```
+
+1. **`$schema`** names the index format the specification pins. Send this
+   value: an agent ignores an index whose `$schema` it doesn't know.
+2. **`name` and `description`** are what an agent matches a task against. Say
+   in the description what the skill does and when to use it.
+3. **`type`** is `skill-md` for one `SKILL.md` file, or `archive` for a skill
+   with supporting files.
+4. **`url`** is where you serve the file. An agent resolves it against
+   `tasks.endpoint`, so a path from your origin is enough.
+5. **`digest`** is `sha256:` and the SHA-256 of the file's bytes, as 64
+   lowercase hex characters.
+
+- Serve each file from your own origin. Lantern serves its file to anyone, with
+  no Session header and no token.
+- Compute the digest from the exact bytes you serve, so the index and the file
+  can't disagree. An agent that computes another digest doesn't use the file.
+- Write the file in the [Agent Skills format](https://agentskills.io/specification):
+  frontmatter with the same `name` and `description`, then Markdown. Give the
+  prerequisites (sign-in, scopes, extensions), the calls in order by
+  `operationId`, and the outcomes: new terms, a refusal, an expired proposal.
+- Write it as content. A skill grants no access, adds no scope and approves
+  nothing: the change it describes still waits for the user's approval.
+
+You know it works when the validator's `tasks.skill-index` check passes and the
+SHA-256 of the bytes each `url` returns equals that entry's `digest`.
 
 ### The conversation endpoint
 
@@ -382,13 +432,13 @@ scopes, consent page, OpenAPI paths and business routes; the gateway does the
 protocol. [`apps/lantern`](../../apps/lantern) is one, in about 500 lines of
 business code.
 
-| Milestone  | Where                                                                                                                                                                                                                                            |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Foundation | [`discovery.ts`](../../packages/pap-company/src/gateway/discovery.ts), [`sessions.ts`](../../packages/pap-company/src/gateway/sessions.ts)                                                                                                       |
-| Interfaces | [`conversations.ts`](../../packages/pap-company/src/gateway/conversations.ts), [`feedback.ts`](../../packages/pap-company/src/gateway/feedback.ts), Lantern's Company Agent [`agent.ts`](../../apps/lantern/src/agent.ts), each Company's routes |
-| Sign-in    | [`signin.ts`](../../packages/pap-company/src/gateway/signin.ts) (authorize, PAR, consent), [`tokens.ts`](../../packages/pap-company/src/gateway/tokens.ts) (token, refresh, revoke)                                                              |
-| Operations | [`approvals.ts`](../../packages/pap-company/src/approvals.ts)                                                                                                                                                                                    |
-| A Company  | [`apps/lantern/src/lantern.ts`](../../apps/lantern/src/lantern.ts)                                                                                                                                                                               |
+| Milestone  | Where                                                                                                                                                                                                                                                                                                             |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Foundation | [`discovery.ts`](../../packages/pap-company/src/gateway/discovery.ts), [`sessions.ts`](../../packages/pap-company/src/gateway/sessions.ts)                                                                                                                                                                        |
+| Interfaces | [`conversations.ts`](../../packages/pap-company/src/gateway/conversations.ts), [`feedback.ts`](../../packages/pap-company/src/gateway/feedback.ts), [`skills.ts`](../../packages/pap-company/src/gateway/skills.ts), Lantern's Company Agent [`agent.ts`](../../apps/lantern/src/agent.ts), each Company's routes |
+| Sign-in    | [`signin.ts`](../../packages/pap-company/src/gateway/signin.ts) (authorize, PAR, consent), [`tokens.ts`](../../packages/pap-company/src/gateway/tokens.ts) (token, refresh, revoke)                                                                                                                               |
+| Operations | [`approvals.ts`](../../packages/pap-company/src/approvals.ts)                                                                                                                                                                                                                                                     |
+| A Company  | [`apps/lantern/src/lantern.ts`](../../apps/lantern/src/lantern.ts)                                                                                                                                                                                                                                                |
 
 The gateway is lab code: its state lives in memory or a Durable Object, its
 customers are fictional and nobody has reviewed it for production.
