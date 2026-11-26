@@ -2,9 +2,16 @@ import { discoverCompany } from "@poppy-lab/pap-client";
 import { LOCAL_COMPANY_ORIGINS, PapDiscoveryError } from "@poppy-lab/pap-core";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { createRun, releaseRun, visitorOf } from "@/lib/runs";
+import {
+  acquireRun,
+  createRun,
+  releaseRun,
+  visitorOf,
+  type Held,
+} from "@/lib/runs";
 import { connectionAt } from "@/lib/connections";
-import { overBudget } from "@/lib/limits";
+import { connectCompany } from "@/lib/connecting";
+import { conversationEnded, overBudget } from "@/lib/limits";
 import { publicMode } from "@/lib/deployment";
 
 export const runtime = "nodejs";
@@ -42,6 +49,30 @@ async function readBody(request: Request): Promise<unknown> {
   } finally {
     clearTimeout(timer!);
     void reader.cancel();
+  }
+}
+
+/**
+ * Connects one more Company to a conversation that is going on, and
+ * answers with its discovery as a new conversation's is answered. What
+ * the conversation holds stays as it is: its words, its other Companies,
+ * a sign-in under way at one of them. Refused, with words the page can
+ * show, for a Company it is already connected to and for a fourth one.
+ */
+async function addTo(
+  held: Held,
+  visitor: string,
+  url: string,
+  allowedPrivateOrigins: string[],
+) {
+  try {
+    const added = await connectCompany(held.run, url, allowedPrivateOrigins);
+    if ("code" in added) return json(added, 409);
+    const response = json(added.company);
+    response.headers.set("X-Poppy-Conversation", held.id);
+    return response;
+  } finally {
+    await releaseRun(visitor, held).catch(() => {});
   }
 }
 
@@ -98,6 +129,23 @@ export async function POST(request: Request) {
       process.env.PAP_ALLOW_PRIVATE_NETWORK === "true"
         ? [...LOCAL_COMPANY_ORIGINS]
         : [];
+    // A request that names a running conversation adds the Company to it.
+    // One that names none, or one unknown here, starts a conversation.
+    const named = request.headers.get("x-poppy-conversation");
+    if (named) {
+      const visitor = visitorOf(await cookies(), true);
+      const held = await acquireRun(visitor, named);
+      if (held === "busy")
+        return json(
+          { error: "Wait for the current response.", code: "busy" },
+          409,
+        );
+      if (held) return await addTo(held, visitor, url, allowedPrivateOrigins);
+      // One that ended is still on the page that names it: the page is
+      // told, and no new conversation starts in its place.
+      const over = await conversationEnded(visitor, named);
+      if (over) return over;
+    }
     // §9: tasks need a Session, so Iris reads them when it connects.
     const result = await discoverCompany(url, { allowedPrivateOrigins });
     const response = json(result);

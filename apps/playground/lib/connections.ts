@@ -245,9 +245,10 @@ export function noteFormer(run: Run, left: FormerConnection) {
 }
 
 /**
- * The connection of a conversation that has exactly one, for the routes
- * that don't yet say which Company a request is for. Each use is a place
- * where a conversation with several Companies must choose one instead.
+ * The connection of a conversation that has exactly one, and an error for
+ * any other. The routes no longer take it: each request says which Company
+ * it is for (`connectionNamed`, `turnConnection`). It is left for the tests
+ * of a conversation with one Company.
  */
 export function onlyConnection(run: Pick<Run, "connections">): Connection {
   const [only, ...others] = run.connections;

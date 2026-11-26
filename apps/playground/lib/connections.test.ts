@@ -1,7 +1,7 @@
 /**
- * One conversation with two Companies. No route makes one yet, so each is
- * built here by hand: connected, talked to signed out, signed in, talked
- * to again. What happens at one Company must leave the other's alone.
+ * One conversation with two Companies, each built here by hand: connected,
+ * talked to signed out, signed in, talked to again. What happens at one
+ * Company must leave the other's alone.
  */
 import { describe, expect, it } from "vitest";
 import {
