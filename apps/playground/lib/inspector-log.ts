@@ -1,4 +1,4 @@
-import { cameFrom, from } from "./connections";
+import { cameFrom, from, holdsAccount } from "./connections";
 import { logEntry, type ProtocolEntry } from "./protocol-log";
 import type { Connection, Run } from "./runtime";
 
@@ -16,12 +16,18 @@ export type KeptLine = {
   text: string;
   /**
    * Names nothing an account holds: written by a request made while no
-   * account was signed in, or the line that says a sign-in completed. Only
+   * account could be in it, or the line that says a sign-in completed. Only
    * these stay when a sign-in resets the conversation.
    */
   signedOut?: true;
   /** The origin of the Company the request was for (`connections.ts`). */
   company?: string;
+  /**
+   * The origins of the Companies whose accounts could be in the line,
+   * listed only when one is another Company's: a model can put what it
+   * read with one Company's account into the path of a request to another.
+   */
+  accounts?: string[];
 };
 
 /**
@@ -59,7 +65,8 @@ function bounded(lines: KeptLine[]): KeptLine[] {
  * `withAccount` says its account was signed in when the request began: a
  * request that signs it out still wrote its lines with it.
  * The sign-in callback passes false for its one line, which names no
- * account data.
+ * account data. `others` are the Companies whose accounts could be in
+ * the turns a model was sent with the request (`accountsIn`).
  */
 export function keepLines(
   run: Run,
@@ -67,16 +74,24 @@ export function keepLines(
   lines: readonly string[],
   at = Date.now(),
   withAccount = !!connection.accountToken,
+  others: readonly string[] = [],
 ) {
   if (!lines.length) return;
-  const signedOut = withAccount ? {} : { signedOut: true as const };
+  const own = from(connection);
+  const foreign = others.filter((origin) => origin !== own.company);
+  const signedOut =
+    withAccount || foreign.length ? {} : { signedOut: true as const };
+  const accounts = foreign.length
+    ? { accounts: [...(withAccount ? [own.company] : []), ...foreign] }
+    : {};
   run.log = bounded([
     ...(run.log ?? []),
     ...lines.map((line) => ({
       at,
       text: logEntry(line).text.slice(0, LOG_LIMITS.text),
       ...signedOut,
-      ...from(connection),
+      ...own,
+      ...accounts,
     })),
   ]);
 }
@@ -86,18 +101,27 @@ export function keepLines(
  * holds (an order, a consent). So this Company's lines go back to those
  * written before any access to its account, as the transcript does
  * (`keepSignedOutTranscript`), and those that say a sign-in completed.
- * Another Company's lines stay as they are.
+ * Another Company's lines stay as they are, unless this Company's account
+ * could be in them.
  */
 export function keepSignedOutLines(run: Run, connection: Connection) {
   keepLinesWhere(
     run,
-    (line) => !cameFrom(line, connection) || !!line.signedOut,
+    (line) =>
+      !holdsAccount(line, connection) &&
+      (!cameFrom(line, connection) || !!line.signedOut),
   );
 }
 
-/** Sign-out at a Company: none of its lines stay, signed out or not. */
+/**
+ * Sign-out at a Company: none of its lines stay, signed out or not, nor
+ * another Company's that its account could be in.
+ */
 export function dropLines(run: Run, connection: Connection) {
-  keepLinesWhere(run, (line) => !cameFrom(line, connection));
+  keepLinesWhere(
+    run,
+    (line) => !cameFrom(line, connection) && !holdsAccount(line, connection),
+  );
 }
 
 function keepLinesWhere(run: Run, keep: (line: KeptLine) => boolean) {

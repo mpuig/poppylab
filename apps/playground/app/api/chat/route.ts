@@ -15,9 +15,15 @@ import {
   directConversation,
   type Connection,
   type Run,
+  type Turn,
 } from "@/lib/runtime";
 import { onlyConnection } from "@/lib/connections";
-import { forgetLostAccount, recordDirect, recordTurn } from "@/lib/transcript";
+import {
+  accountsIn,
+  forgetLostAccount,
+  recordDirect,
+  recordTurn,
+} from "@/lib/transcript";
 import { keepLines } from "@/lib/inspector-log";
 import { shownSkills, shownTasks } from "@/lib/shown-tasks";
 import type { CompanyEntry, DirectAction } from "@/lib/conversations";
@@ -95,6 +101,8 @@ async function reply(request: Request, started: { id?: string }) {
   // Inspector lists the request the Company refused. Every answer of a run
   // carries it, and the run keeps it (`finally`).
   const trace: string[] = [];
+  // The turns a model was sent this turn; the demo's rules are sent none.
+  let context: Turn[] | undefined;
   try {
     if (!request.headers.get("content-type")?.startsWith("application/json"))
       throw new UserFacingError("Use JSON");
@@ -476,13 +484,15 @@ async function reply(request: Request, started: { id?: string }) {
       }
     } else {
       stage = "provider";
+      // The model is sent the last turns of the whole conversation, so what
+      // it read with any Company's account can be in this answer and in the
+      // requests it makes: both are kept as holding those accounts.
+      context = run.history.slice(-10);
       text = await runModel(
         provider,
         // The roles and the words, without the Company each turn was with.
         [
-          ...run.history
-            .slice(-10)
-            .map(({ role, content }) => ({ role, content })),
+          ...context.map(({ role, content }) => ({ role, content })),
           { role: "user", content: body.message },
         ],
         tools,
@@ -501,6 +511,7 @@ async function reply(request: Request, started: { id?: string }) {
       trace,
       demo: provider === "demo",
       data: exact,
+      context,
     });
     run.history = run.history.slice(-10);
     // The turn ended with an answer though the access went during it: what
@@ -627,7 +638,15 @@ async function reply(request: Request, started: { id?: string }) {
     );
   } finally {
     // The lines stay with the conversation, for a reload and History.
-    if (run && connection) keepLines(run, connection, trace);
+    if (run && connection)
+      keepLines(
+        run,
+        connection,
+        trace,
+        Date.now(),
+        !!connection.accountToken,
+        accountsIn(run, connection, context),
+      );
     // However the turn ended: an error of another kind can follow the
     // request in which the Company refused the sign-in. After the lines
     // are kept, so those written with the account go with the rest.

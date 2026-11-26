@@ -325,12 +325,15 @@ export type Connection = {
 /**
  * One turn of the model's context. `company` is the origin of the Company
  * the turn was with, so a sign-in or sign-out there takes back its turns
- * and no other Company's. The model is sent the role and the words only.
+ * and no other Company's. `accounts` lists the Companies whose accounts
+ * could be in the turn (`connections.ts`): a sign-in or sign-out at any
+ * of them takes it back too. The model is sent the role and the words only.
  */
 export type Turn = {
   role: "user" | "assistant";
   content: string;
   company?: string;
+  accounts?: string[];
 };
 /**
  * A Company the conversation was connected to and no longer is. Its name

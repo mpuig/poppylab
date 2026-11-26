@@ -901,6 +901,7 @@ describe("Human-controlled account boundary", () => {
       expect(state.run.history.at(-1)).toEqual({
         role: "assistant",
         company: "http://juniper.localhost:4100",
+        accounts: ["http://juniper.localhost:4100"],
         content:
           "Company declined the approval; nothing was performed. Juniper declined this approval and did nothing. Its reason: The kitchen has closed.",
       });
@@ -1892,6 +1893,7 @@ describe("An operation proposed in the User's Direct Conversation (§8.10)", () 
       {
         role: "assistant",
         company: "http://juniper.localhost:4100",
+        accounts: ["http://juniper.localhost:4100"],
         content:
           "(An operation proposed in the user's direct conversation with Juniper was approved and performed.)",
       },
@@ -1911,6 +1913,7 @@ describe("An operation proposed in the User's Direct Conversation (§8.10)", () 
       {
         role: "assistant",
         company: "http://juniper.localhost:4100",
+        accounts: ["http://juniper.localhost:4100"],
         content:
           "(The Company declined an operation proposed in the user's direct conversation with Juniper. Nothing was performed.)",
       },
@@ -1964,6 +1967,7 @@ describe("An operation proposed in the User's Direct Conversation (§8.10)", () 
       {
         role: "assistant",
         company: "http://juniper.localhost:4100",
+        accounts: ["http://juniper.localhost:4100"],
         content: "Company operation succeeded: Refunded USD 8.00.",
       },
     ]);
@@ -2278,6 +2282,7 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
       expect(state.run.history.at(-1)).toEqual({
         role: "assistant",
         company: "http://juniper.localhost:4100",
+        accounts: ["http://juniper.localhost:4100"],
         content:
           "The Company declined the approval Iris sent on the user's standing instruction; nothing was performed, and it's waiting for the user. Its reason: Approve money moves yourself.",
       });

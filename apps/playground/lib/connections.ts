@@ -46,8 +46,16 @@ export const companyName = (connection: Pick<Connection, "url" | "company">) =>
  * the list of connections: it still says where an entry came from after
  * the Company was removed (`nameFor`), and a Company connected again finds
  * its own entries.
+ *
+ * An entry and a turn also list the Companies whose accounts could be in
+ * them (`accounts`, by origin): each Company that was signed in and whose
+ * words could have reached it. For an answer of the demo's rules that is
+ * the Company the turn was with. A model is sent the last turns of the
+ * whole conversation, so its answer to a turn with one Company can repeat
+ * what it read with another's account, and then lists both. What was
+ * stored before entries listed them has no `accounts`.
  */
-export type FromCompany = { company?: string };
+export type FromCompany = { company?: string; accounts?: string[] };
 
 /** The tag for what comes from this connection's Company. */
 export const from = (connection: Pick<Connection, "url">) => ({
@@ -56,24 +64,40 @@ export const from = (connection: Pick<Connection, "url">) => ({
 
 /**
  * Whether something the conversation keeps came from this Company. What
- * names no Company can't be told apart from this Company's, so it counts:
- * a sign-in, a sign-out or a lost access at any Company takes it back.
+ * names no Company, and was stored before entries listed their accounts,
+ * can't be told apart from this Company's, so it counts: a sign-in, a
+ * sign-out or a lost access at any Company takes it back. What lists its
+ * accounts and names no Company is Iris's own and came from none.
  */
 export const cameFrom = (
   entry: FromCompany,
   connection: Pick<Connection, "url">,
-) => entry.company === undefined || entry.company === originOf(connection);
+) =>
+  entry.company === undefined
+    ? entry.accounts === undefined
+    : entry.company === originOf(connection);
 
 /**
- * The entries as the page gets them, without the Company each came from:
- * with one Company the page has no use for it.
+ * Whether this Company's account could be in something the conversation
+ * keeps, whichever Company it came from. A sign-in, a sign-out or a lost
+ * access at this Company takes that back with the Company's own.
+ */
+export const holdsAccount = (
+  entry: FromCompany,
+  connection: Pick<Connection, "url">,
+) => !!entry.accounts?.includes(originOf(connection));
+
+/**
+ * The entries as the page gets them, without the Company each came from
+ * or the accounts in it: with one Company the page has no use for them.
  */
 export const untagged = <T extends FromCompany>(
   entries: readonly T[],
-): Array<Omit<T, "company">> =>
+): Array<Omit<T, "company" | "accounts">> =>
   entries.map((entry) => {
-    const rest: Omit<T, "company"> & FromCompany = { ...entry };
+    const rest: Omit<T, "company" | "accounts"> & FromCompany = { ...entry };
     delete rest.company;
+    delete rest.accounts;
     return rest;
   });
 

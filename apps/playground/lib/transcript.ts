@@ -4,8 +4,11 @@ import {
   cameFrom,
   companyName,
   from,
+  holdsAccount,
   noteFormer,
+  originOf,
   untagged,
+  type FromCompany,
 } from "./connections";
 import { dropLines, keepSignedOutLines } from "./inspector-log";
 import { logEntry } from "./protocol-log";
@@ -32,13 +35,16 @@ export type TranscriptEntry = {
   /** §8.10: said in the User's Direct Conversation, by them or the Company. */
   direct?: true;
   /**
-   * Shown while no account was signed in at the Company it came from, so
-   * nothing in it was read with one. Only these stay when a sign-in there
-   * resets the conversation.
+   * Shown while no account could be in it: none was signed in at the
+   * Company it came from, and a model that wrote it was sent nothing read
+   * with another Company's. Only these stay when a sign-in at the Company
+   * it came from resets the conversation.
    */
   signedOut?: true;
   /** The origin of the Company the entry came from (`connections.ts`). */
   company?: string;
+  /** The origins of the Companies whose accounts could be in it. */
+  accounts?: string[];
 };
 
 /** What a turn put on the page besides the words. */
@@ -51,6 +57,11 @@ export type Shown = {
   demo?: boolean;
   /** The Company's exact answer, as the page got it for "Data". */
   data?: string | undefined;
+  /**
+   * The turns a model was sent with this one. What they hold of any
+   * Company's account can be in its answer (`accountsIn`).
+   */
+  context?: readonly Turn[] | undefined;
 };
 
 /**
@@ -119,18 +130,55 @@ export function bounded(entries: TranscriptEntry[]): TranscriptEntry[] {
 }
 
 /**
- * Adds entries to the transcript the page shows, and not to the model's.
- * `connection` is the Company the turn was with: each entry says so, and
- * whether that Company's account was signed in.
+ * The Companies whose accounts could be in a turn of the model's context.
+ * A turn stored before turns listed them is taken to hold its own
+ * Company's, when that one is signed in now.
  */
-function show(run: Run, connection: Connection, ...entries: TranscriptEntry[]) {
-  const signedOut = connection.accountToken ? {} : { signedOut: true as const };
+const accountsOf = (run: Pick<Run, "connections">, turn: Turn) =>
+  turn.accounts ??
+  run.connections
+    .filter((c) => c.accountToken && cameFrom(turn, c))
+    .map(originOf);
+
+/**
+ * The Companies whose accounts could be in what a turn with `connection`
+ * says: its own, when it is signed in, and those of the turns a model was
+ * sent with it (`context`). A model is sent the last turns of the whole
+ * conversation, whichever Company each was with, so its answer to a turn
+ * with one Company can repeat what it read with another's account. The
+ * demo's rules are sent none, and answer from the turn's own Company.
+ */
+export const accountsIn = (
+  run: Pick<Run, "connections">,
+  connection: Connection,
+  context: readonly Turn[] = [],
+) => [
+  ...new Set([
+    ...(connection.accountToken ? [originOf(connection)] : []),
+    ...context.flatMap((turn) => accountsOf(run, turn)),
+  ]),
+];
+
+/**
+ * Adds entries to the transcript the page shows, and not to the model's.
+ * `connection` is the Company the turn was with, and `accounts` the
+ * Companies whose accounts could be in it: each entry says both, and is
+ * marked as shown signed out only when there are none.
+ */
+function show(
+  run: Run,
+  connection: Connection,
+  accounts: readonly string[],
+  ...entries: TranscriptEntry[]
+) {
+  const signedOut = accounts.length ? {} : { signedOut: true as const };
   run.transcript = bounded([
     ...(run.transcript ?? run.history),
     ...entries.map((entry) => ({
       ...clipped(entry),
       ...signedOut,
       ...from(connection),
+      accounts: [...accounts],
     })),
   ]);
 }
@@ -170,12 +218,16 @@ function keepEntriesWhere(run: Run, keep: (entry: TranscriptEntry) => boolean) {
  * it. Everything shown with that Company's account goes, and so does an
  * entry that doesn't say which it was: a transcript stored before entries
  * said so is dropped whole, and the page shows `history` instead. What
- * came from another Company stays, with or without that one's account.
+ * came from another Company stays, with or without that one's account,
+ * unless this Company's account could be in it: a model's answer to a
+ * turn with another Company can repeat what it read with this one's.
  */
 export function keepSignedOutTranscript(run: Run, connection: Connection) {
   keepEntriesWhere(
     run,
-    (entry) => !cameFrom(entry, connection) || !!entry.signedOut,
+    (entry) =>
+      !holdsAccount(entry, connection) &&
+      (!cameFrom(entry, connection) || !!entry.signedOut),
   );
   // The Inspector's lines follow the same rule.
   keepSignedOutLines(run, connection);
@@ -184,11 +236,14 @@ export function keepSignedOutTranscript(run: Run, connection: Connection) {
 /**
  * A first sign-in at a Company: what the model was told of it so far is
  * from before any access to its account, and safe to go back to. Its own
- * turns among the model's last ten, as they are now.
+ * turns among the model's last ten, as they are now, without those any
+ * other Company's account could be in.
  */
 export function keepPublicHistory(run: Run, connection: Connection) {
   connection.publicHistory = structuredClone(
-    run.history.slice(-10).filter((turn) => cameFrom(turn, connection)),
+    run.history
+      .slice(-10)
+      .filter((turn) => cameFrom(turn, connection) && !turn.accounts?.length),
   );
 }
 
@@ -197,27 +252,32 @@ export function keepPublicHistory(run: Run, connection: Connection) {
  * the model's turns with it from then, what the page showed from it while
  * signed out, and no proposal of its own. For a sign-in that may be for
  * another account, and for an access the Company took back. The turns the
- * model still has with other Companies follow those that come back.
+ * model still has with other Companies follow those that come back, less
+ * the ones this Company's account could be in.
  */
 export function backToPublic(run: Run, connection: Connection) {
   run.history = [
     ...structuredClone(connection.publicHistory ?? []),
-    ...run.history.filter((turn) => !cameFrom(turn, connection)),
+    ...run.history.filter((turn) => !ofCompany(turn, connection)),
   ];
   keepSignedOutTranscript(run, connection);
   connection.operations = {};
 }
 
+/** From this Company, or with its account in it. */
+const ofCompany = (entry: FromCompany, connection: Connection) =>
+  cameFrom(entry, connection) || holdsAccount(entry, connection);
+
 /**
  * Sign-out at a Company (§5.5) empties what the conversation holds from
  * it, what was said signed out included: the model's turns with it, what
  * the page showed from it and the Inspector's lines for it. What came from
- * another Company stays.
+ * another Company stays, unless this Company's account could be in it.
  */
 export function forgetCompany(run: Run, connection: Connection) {
-  run.history = run.history.filter((turn) => !cameFrom(turn, connection));
+  run.history = run.history.filter((turn) => !ofCompany(turn, connection));
   delete connection.publicHistory;
-  keepEntriesWhere(run, (entry) => !cameFrom(entry, connection));
+  keepEntriesWhere(run, (entry) => !ofCompany(entry, connection));
   dropLines(run, connection);
 }
 
@@ -327,13 +387,28 @@ const answerEntry = (content: string, shown: Shown): TranscriptEntry => ({
  * conversation up to a bound. `connection` is the Company they were with.
  */
 export function record(run: Run, connection: Connection, ...turns: Turn[]) {
-  show(run, connection, ...turns);
-  tell(run, connection, ...turns);
+  const accounts = accountsIn(run, connection);
+  show(run, connection, accounts, ...turns);
+  tell(run, connection, accounts, ...turns);
 }
 
-/** Adds turns to the model's context, each with the Company it was with. */
-function tell(run: Run, connection: Connection, ...turns: Turn[]) {
-  run.history.push(...turns.map((turn) => ({ ...turn, ...from(connection) })));
+/**
+ * Adds turns to the model's context, each with the Company it was with
+ * and the Companies whose accounts could be in it.
+ */
+function tell(
+  run: Run,
+  connection: Connection,
+  accounts: readonly string[],
+  ...turns: Turn[]
+) {
+  run.history.push(
+    ...turns.map((turn) => ({
+      ...turn,
+      ...from(connection),
+      accounts: [...accounts],
+    })),
+  );
 }
 
 /**
@@ -350,14 +425,20 @@ export function recordTurn(
   shown: Shown = {},
 ) {
   const user = { role: "user" as const, content: said };
+  // The User's own words too: they are kept or dropped with the answer.
+  const accounts = accountsIn(run, connection, shown.context);
   show(
     run,
     connection,
+    accounts,
     user,
     ...companyEntries(shown),
     answerEntry(answer, shown),
   );
-  tell(run, connection, user, { role: "assistant", content: answer });
+  tell(run, connection, accounts, user, {
+    role: "assistant",
+    content: answer,
+  });
 }
 
 /**
@@ -380,7 +461,8 @@ export function recordOutcome(
 ) {
   // A run with no transcript yet is restored from `history`: keep what the
   // page showed so far before the model's line joins it.
-  show(run, connection);
+  const accounts = accountsIn(run, connection);
+  show(run, connection, accounts);
   let line = content;
   if (op.direct) {
     const company =
@@ -390,7 +472,7 @@ export function recordOutcome(
         ? `(An operation proposed in the user's direct conversation with ${company} was approved and performed.)`
         : `(The Company declined an operation proposed in the user's direct conversation with ${company}. Nothing was performed.)`;
   }
-  tell(run, connection, { role: "assistant", content: line });
+  tell(run, connection, accounts, { role: "assistant", content: line });
 }
 
 /**
@@ -421,9 +503,12 @@ export function recordDirect(
   shown: Shown = {},
 ) {
   const spoke = action === "say" || action === "start";
+  // No model reads or writes here: the Company's own account at most.
+  const accounts = accountsIn(run, connection);
   show(
     run,
     connection,
+    accounts,
     ...(spoke
       ? [{ role: "user" as const, content: words, direct: true as const }]
       : []),
@@ -434,6 +519,7 @@ export function recordDirect(
     tell(
       run,
       connection,
+      accounts,
       {
         role: "user",
         content: !spoke

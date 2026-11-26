@@ -14,6 +14,7 @@ import {
 import { keepLines } from "./inspector-log";
 import type { Connection, Operation, Run } from "./runtime";
 import {
+  accountsIn,
   backToPublic,
   forgetCompany,
   forgetLostAccount,
@@ -282,6 +283,158 @@ it("takes back what names no Company at any Company's sign-in: it can't be told 
   });
   backToPublic(run, b);
   expect(words(run)).toContain("Which Company?");
+});
+
+/**
+ * A model is sent the last turns of the whole conversation. Juniper is
+ * signed in and Iris read the account there; a turn with Lantern, signed
+ * out, then repeats what it read. That answer came from Lantern, and
+ * Juniper's account is in it.
+ */
+describe("a model's answer with one Company that repeats what it read with another's account", () => {
+  const repeated = ["And my delivery?", "Elena, it comes on Thursday."];
+  function leaked() {
+    const run = empty();
+    const a = addConnection(run, juniper);
+    a.company = named("Juniper Market")!;
+    const b = addConnection(run, lantern);
+    b.company = named("Lantern Noodle Bar")!;
+    recordTurn(run, a, "When do you deliver?", "Tuesday and Saturday.");
+    recordTurn(run, b, "What's on the menu?", "Ramen.");
+    keepPublicHistory(run, a);
+    a.accountToken = "refresh-juniper";
+    recordTurn(run, a, "my deliveries", "Elena's delivery is on Thursday.");
+    // The turn with Lantern: the model is sent the turns so far.
+    const context = run.history.slice(-10);
+    recordTurn(run, b, repeated[0]!, repeated[1]!, { context });
+    keepLines(
+      run,
+      b,
+      ["GET /api/orders/elena-thursday · 404"],
+      6000,
+      false,
+      accountsIn(run, b, context),
+    );
+    run.title = "When do you deliver?";
+    return { run, a, b, context };
+  }
+  const kept = (run: Run) =>
+    JSON.stringify([run.transcript, run.log, run.history]);
+
+  it("says the turn came from one Company and holds the other's account, and not that it was shown signed out", () => {
+    const { run } = leaked();
+    expect(
+      run
+        .transcript!.slice(-2)
+        .map((e) => [e.content, e.company, e.accounts, !!e.signedOut]),
+    ).toEqual([
+      [repeated[0], lantern, [juniper], false],
+      [repeated[1], lantern, [juniper], false],
+    ]);
+    expect(
+      run.history.slice(-2).map((t) => [t.content, t.company, t.accounts]),
+    ).toEqual([
+      [repeated[0], lantern, [juniper]],
+      [repeated[1], lantern, [juniper]],
+    ]);
+    expect(run.log!.at(-1)).toEqual({
+      at: 6000,
+      text: "GET /api/orders/elena-thursday · 404",
+      company: lantern,
+      accounts: [juniper],
+    });
+    // What holds no account says so, and is the only part marked signed out.
+    expect(
+      run.transcript!.slice(0, 4).map((e) => [e.accounts, e.signedOut]),
+    ).toEqual(Array(4).fill([[], true]));
+    expect(run.transcript![5]).toMatchObject({ accounts: [juniper] });
+    expect(run.transcript![5]).not.toHaveProperty("signedOut");
+    // The page is answered none of it.
+    for (const entry of shownTranscript(run))
+      expect(entry).not.toHaveProperty("accounts");
+  });
+
+  it("drops it at a sign-out at the Company whose account it holds", () => {
+    const { run, a } = leaked();
+    forgetCompany(run, a);
+    expect(words(run)).toEqual(lanternPublic);
+    expect(told(run)).toEqual(lanternPublic);
+    expect(lines(run)).toEqual([]);
+    expect(kept(run)).not.toMatch(/Elena|Thursday|elena/);
+  });
+
+  it("drops it at a new sign-in at that Company, which may be for another account", () => {
+    const { run, a } = leaked();
+    backToPublic(run, a);
+    expect(words(run)).toEqual([...juniperPublic, ...lanternPublic]);
+    expect(told(run)).toEqual([...juniperPublic, ...lanternPublic]);
+    expect(lines(run)).toEqual([]);
+    expect(kept(run)).not.toMatch(/Elena|Thursday|elena/);
+  });
+
+  it("drops it when that Company takes the access back", () => {
+    const { run, a } = leaked();
+    a.accountUnavailable = true;
+    const left = forgetLostAccount(run, a, false)!;
+    expect(words(run)).toEqual([...juniperPublic, ...lanternPublic]);
+    expect(told(run)).toEqual([...juniperPublic, ...lanternPublic]);
+    expect(JSON.stringify(left)).not.toMatch(/Elena|Thursday/);
+    expect(kept(run)).not.toMatch(/Elena|Thursday|elena/);
+  });
+
+  it("drops it when that Company is removed from the conversation", () => {
+    const { run, a } = leaked();
+    removeConnection(run, a);
+    expect(words(run)).toEqual([...juniperPublic, ...lanternPublic]);
+    expect(kept(run)).not.toMatch(/Elena|Thursday|elena/);
+  });
+
+  it("doesn't take it for a turn from before the other Company's account, at that one's first sign-in", () => {
+    const { run, b } = leaked();
+    keepPublicHistory(run, b);
+    expect(b.publicHistory!.map((turn) => turn.content)).toEqual(lanternPublic);
+    // So a later sign-in at Lantern can't bring it back either.
+    b.accountToken = "refresh-lantern";
+    backToPublic(run, b);
+    expect(told(run)).not.toContain(repeated[1]);
+    expect(words(run)).not.toContain(repeated[1]);
+  });
+
+  it("follows it into the next answer that was sent it, with a third Company", () => {
+    const { run, a } = leaked();
+    const c = addConnection(run, "https://harborline.example");
+    recordTurn(run, c, "Can I afford it?", "Thursday's delivery costs $40.", {
+      context: run.history.slice(-10),
+    });
+    expect(run.history.at(-1)).toMatchObject({
+      company: "https://harborline.example",
+      accounts: [juniper],
+    });
+    forgetCompany(run, a);
+    expect(words(run)).toEqual(lanternPublic);
+  });
+
+  it("keeps the demo's answer as its own Company's only: the rules are sent no turns", () => {
+    const { run, a, b } = leaked();
+    recordTurn(run, b, "Which slots?", "Noon.", { demo: true });
+    expect(run.transcript!.at(-1)).toMatchObject({
+      company: lantern,
+      accounts: [],
+      signedOut: true,
+    });
+    forgetCompany(run, a);
+    expect(words(run)).toEqual([...lanternPublic, "Which slots?", "Noon."]);
+  });
+
+  it("takes a turn stored before turns listed their accounts to hold its Company's, when that one is signed in", () => {
+    const { run, a, b } = leaked();
+    for (const turn of run.history) delete turn.accounts;
+    expect(accountsIn(run, b, run.history)).toEqual([juniper]);
+    delete a.accountToken;
+    expect(accountsIn(run, b, run.history)).toEqual([]);
+    b.accountToken = "refresh-lantern";
+    expect(accountsIn(run, b)).toEqual([lantern]);
+  });
 });
 
 describe("a Company removed from the conversation", () => {
