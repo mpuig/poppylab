@@ -61,6 +61,7 @@ import {
   labCompany,
   type Message,
 } from "./companies";
+import { rememberSignInCompany } from "./sign-in/company";
 
 /**
  * A proposal as the page holds it: what its card shows, and why its terms
@@ -405,6 +406,8 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
         setConsentVersion(data.consentVersion ?? 0);
         if (popup) {
           popup.opener = null;
+          // For the page that tab lands on, which names the Company.
+          rememberSignInCompany(result?.document.organization.name);
           popup.location.href = data.url;
           setWaitingSignIn(true);
         } else

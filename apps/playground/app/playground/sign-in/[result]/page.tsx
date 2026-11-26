@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { CloseTab } from "../close-tab";
+import { signedInText } from "../company";
+import { SignedIn } from "../signed-in";
 
 /**
  * Where the sign-in tab lands after the Company sent it back
@@ -8,11 +10,14 @@ import { CloseTab } from "../close-tab";
  * leaves for this address, which carries nothing from it. Each outcome is a
  * fixed word in the address with fixed text here; nothing is read from a
  * query. The playground tab learns of the sign-in by asking the server.
+ *
+ * A completed sign-in names its Company once the browser has loaded the
+ * page: the playground tab left the name in this browser (`../company`).
  */
 const results: Record<string, { title: string; text: string }> = {
   done: {
     title: "Signed in.",
-    text: "Signed in to the Company account. Close this tab and return to Poppy Lab.",
+    text: signedInText(undefined),
   },
   failed: {
     title: "Sign-in not completed.",
@@ -47,7 +52,11 @@ export default async function SignInResult({
       <main>
         <section className="intro">
           <h1>{outcome.title}</h1>
-          <p role="status">{outcome.text}</p>
+          {result === "done" ? (
+            <SignedIn />
+          ) : (
+            <p role="status">{outcome.text}</p>
+          )}
         </section>
         <div className="list-actions">
           <CloseTab />

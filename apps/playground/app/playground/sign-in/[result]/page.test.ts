@@ -8,6 +8,8 @@ const html = async (result: string) =>
   );
 
 it("says how the sign-in went in fixed words, with a control to close the tab", async () => {
+  // As the server sends it. The browser then puts the Company's name in
+  // this sentence, when it knows it (`../company`): never the address.
   const done = await html("done");
   expect(done).toContain(
     "Signed in to the Company account. Close this tab and return to Poppy Lab.",
