@@ -423,6 +423,32 @@ describe("“disconnect from <Company>”, typed in the chat", () => {
       expect(new URL(request.url).origin).toBe(food);
   });
 
+  it("asks which Company the rest is for when two are left, and shows the message once", async () => {
+    const run = await conversation([shop, food, bank]);
+    const turn = await say("remove Juniper and what are your products?");
+    expect(turn.answer).toMatchObject({
+      before:
+        "Juniper Market was removed from this conversation. You can connect it again at any time.",
+      text: "Which company is this for? This conversation is connected to Lantern Noodle Bar and Harborline Bank.",
+      mode: "iris",
+    });
+    expect(turn.answer).not.toHaveProperty("from");
+    expect(turn.answer.connections).toHaveLength(2);
+    expect(transport).not.toHaveBeenCalled();
+    expect(shown(run)).toEqual([
+      ["user", "remove Juniper and what are your products?", shop],
+      ["assistant", turn.answer.before, shop],
+      ["assistant", turn.answer.text, undefined],
+    ]);
+    // The rest waits for the name of one of them.
+    const answered = await say("the bank");
+    expect(answered.answer.from).toEqual({
+      origin: bank,
+      name: "Harborline Bank",
+    });
+    expect(run.history.at(-2)!.content).toBe("what are your products?");
+  });
+
   it("is refused while an approval sent there has an unknown outcome", async () => {
     const run = await conversation([shop, food], [shop]);
     run.connections[0]!.operations = {

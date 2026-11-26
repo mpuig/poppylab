@@ -81,7 +81,7 @@ export function answeredWith<T extends Nameable>(
   companies: readonly T[],
 ): T | undefined {
   const said = plain(text)
-    .replace(/^(?:it is|its|it s|that is|thats|this is|this one is)? ?/, "")
+    .replace(/^(?:it is|its|that is|thats|this is|this one is) /, "")
     .replace(/^(?:for|at|to|with|use|ask) /, "")
     .replace(/ (?:please|thanks|thank you)$/, "");
   const [one, ...more] = namedBy(said, companies);

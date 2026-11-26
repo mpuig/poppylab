@@ -92,13 +92,16 @@ export function candidates(run: Pick<Run, "connections">): Candidate[] {
 
 /**
  * The Company the last turn was with, when it is still connected: the one
- * the last entry the page showed came from. A turn Iris answered by itself
- * names none, and neither does what was kept before entries said so.
+ * the last entry the page showed from any Company came from. What Iris
+ * said by itself about no Company in between (a question, a name it
+ * didn't know) changes nothing about that.
  */
 export function lastTurnCompany(
   run: Pick<Run, "connections" | "transcript" | "history">,
 ): Connection | undefined {
-  const last = (run.transcript ?? run.history).at(-1)?.company;
+  const last = (run.transcript ?? run.history)
+    .filter((entry) => entry.company !== undefined)
+    .at(-1)?.company;
   return last === undefined ? undefined : connectionAt(run, last);
 }
 

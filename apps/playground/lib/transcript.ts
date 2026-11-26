@@ -466,6 +466,9 @@ export function recordTurn(
  * describes it, are for the User to read and not for the model to take as
  * Iris's. `false` leaves the turn out of the model's context: a question
  * of Iris's that the next message answers is no part of what was asked.
+ *
+ * `shown` is false when the page already shows the User's words: `said`
+ * is then the rest of a message it showed whole.
  */
 export function recordOwn(
   run: Run,
@@ -473,9 +476,13 @@ export function recordOwn(
   said: string,
   answer: string,
   told: string | false = answer,
+  shown = true,
 ) {
   const user = { role: "user" as const, content: said };
-  show(run, about, [], user, { role: "assistant", content: answer });
+  show(run, about, [], ...(shown ? [user] : []), {
+    role: "assistant",
+    content: answer,
+  });
   if (told !== false)
     tell(run, about, [], user, { role: "assistant", content: told });
 }

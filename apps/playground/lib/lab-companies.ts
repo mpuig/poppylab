@@ -6,6 +6,8 @@
  */
 import { labSites } from "@poppy-lab/pap-core";
 import type { Nameable } from "./company-names";
+import { companyName, originOf } from "./connections";
+import type { Connection } from "./runtime";
 
 /** `origin` is this playground's own, from the request. */
 export const labCompanies = (origin: string): Nameable[] =>
@@ -15,3 +17,20 @@ export const labCompanies = (origin: string): Nameable[] =>
       ? [{ url: site.url, name: site.label, words: site.words }]
       : [],
   );
+
+/**
+ * A connected Company as the User may name it: by its own name, and when
+ * it is one of the lab's, by the lab's name and plain words for it too
+ * ("the bank").
+ */
+export function nameable(
+  connection: Pick<Connection, "url" | "company">,
+  lab: readonly Nameable[],
+): Nameable {
+  const listed = lab.find((c) => originOf(c) === originOf(connection));
+  return {
+    url: connection.url,
+    name: companyName(connection),
+    ...(listed ? { words: [listed.name, ...(listed.words ?? [])] } : {}),
+  };
+}

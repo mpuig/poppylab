@@ -24,7 +24,7 @@ import {
   connectionNamed,
   originOf,
 } from "@/lib/connections";
-import { answeredWith, type Nameable } from "@/lib/company-names";
+import { answeredWith } from "@/lib/company-names";
 import {
   listed,
   performCommand,
@@ -33,7 +33,7 @@ import {
 } from "@/lib/company-commands";
 import { connectCommand } from "@/lib/connect-command";
 import { companiesView } from "@/lib/conversation-view";
-import { labCompanies } from "@/lib/lab-companies";
+import { labCompanies, nameable } from "@/lib/lab-companies";
 import { directConnection, offeredTools, turnConnection } from "@/lib/routing";
 import {
   accountsIn,
@@ -88,12 +88,6 @@ const turnState = (connection: Connection | undefined) => ({
   excludedTasks: connection ? shownTasks(connection) : [],
   skills: connection ? shownSkills(connection) : [],
   ...directState(connection ?? {}),
-});
-
-/** A connected Company as the User may name it: by its own name. */
-const nameable = (connection: Connection): Nameable => ({
-  url: connection.url,
-  name: nameOf(connection),
 });
 
 let active = 0;
@@ -354,7 +348,7 @@ async function reply(request: Request, started: { id?: string }) {
       // is ever read for it: not Company content, not a model's answer.
       const lab = labCompanies(new URL(request.url).origin);
       const command = connectCommand(body.message, {
-        connected: run.connections.map(nameable),
+        connected: run.connections.map((c) => nameable(c, lab)),
         lab,
       });
       if (command) {
@@ -380,7 +374,7 @@ async function reply(request: Request, started: { id?: string }) {
           lab.map((c) => c.name),
           "or",
         )} from the lab, or another company by typing its address in the address box.`;
-        recordOwn(run, undefined, asked, say);
+        recordOwn(run, undefined, asked, say, say, typed !== null);
         run.history = run.history.slice(-10);
         return own(
           say,
@@ -389,7 +383,10 @@ async function reply(request: Request, started: { id?: string }) {
       }
       const answered =
         waiting && !command
-          ? answeredWith(body.message, run.connections.map(nameable))
+          ? answeredWith(
+              body.message,
+              run.connections.map((c) => nameable(c, lab)),
+            )
           : undefined;
       if (answered) {
         connection = connectionAt(run, answered.url);
@@ -408,7 +405,7 @@ async function reply(request: Request, started: { id?: string }) {
           const names = route.ask.map(nameOf);
           const say = `Which company is this for? This conversation is connected to ${listed(names, "and")}.`;
           run.waiting = asked;
-          recordOwn(run, undefined, asked, say, false);
+          recordOwn(run, undefined, asked, say, false, typed !== null);
           return own(
             say,
             names.map((name) => ({ label: name, say: name })),

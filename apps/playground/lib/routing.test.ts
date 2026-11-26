@@ -53,6 +53,14 @@ describe("the Company a turn is for", () => {
       connection: run.connections[1],
     });
     expect(lastTurnCompany(run)).toBe(run.connections[1]);
+    // What Iris said by itself about no Company since changes nothing.
+    recordOwn(run, undefined, "connect with Acme", "There is no such company.");
+    expect(lastTurnCompany(run)).toBe(run.connections[1]);
+    // What it said about one does: the User just connected it.
+    recordOwn(run, run.connections[0], "connect with Juniper", "Connected.");
+    expect(await turnConnection(run, "What do you sell?")).toEqual({
+      connection: run.connections[0],
+    });
   });
 
   it("asks, with every Company to choose from, when nothing says which", async () => {
@@ -60,14 +68,13 @@ describe("the Company a turn is for", () => {
     expect(await turnConnection(run, "What do you sell?")).toEqual({
       ask: run.connections,
     });
-    // The last turn was Iris's own, about no Company.
-    recordTurn(run, run.connections[0]!, "When do you deliver?", "Tuesday.");
+    // Iris's own question since is no turn with a Company.
     recordOwn(run, undefined, "hello", "Which company is this for?", false);
     expect(lastTurnCompany(run)).toBeUndefined();
     expect(await turnConnection(run, "What do you sell?")).toEqual({
       ask: run.connections,
     });
-    // Or with a Company that has left the conversation since.
+    // Nor is a turn with a Company that has left the conversation since.
     const three = conversation(shop, food, bank);
     recordTurn(three, three.connections[2]!, "my balance", "$12.");
     three.connections.pop();
