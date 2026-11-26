@@ -34,6 +34,7 @@ const GRANT_WORDS = {
   },
 } as const;
 import { accountCompany, labCompanies, labCompany } from "./companies";
+import { useProposalClock } from "./guide";
 import type { Playground } from "./use-playground";
 
 /** The currency the Company's own proposals use; USD until it has made one. */
@@ -65,17 +66,12 @@ export function Conversation({
 }) {
   const { result, connected, busy, messages, signedIn, waitingSignIn } = p;
   const companyName = result?.document.organization.name ?? "the Company";
-  const [now, setNow] = useState(() => Date.now());
+  // An open proposal expires on its own clock, which the guide reads too.
+  const now = useProposalClock(p.operations);
   const [panelOpen, setPanelOpen] = useState(true);
   const panel = useRef<HTMLElement>(null);
   const waiting = p.operations.filter((op) => needsYou(op, now));
   const settled = p.operations.filter((op) => !needsYou(op, now));
-  // An open proposal expires on its own clock.
-  useEffect(() => {
-    if (!waiting.length) return;
-    const timer = setInterval(() => setNow(Date.now()), 15000);
-    return () => clearInterval(timer);
-  }, [waiting.length]);
   // A new proposal opens the panel again.
   const waitingKey = waiting
     .map((op) => `${op.operation_id}:${op.revision}`)

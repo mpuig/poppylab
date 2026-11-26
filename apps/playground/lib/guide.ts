@@ -62,6 +62,17 @@ export function guideProposals(
         : undefined,
   };
 }
+/**
+ * When the next waiting proposal runs out, if one has a clock. Nothing tells
+ * the page that a proposal expired: it has to look again at that moment.
+ */
+export function nextExpiry(operations: GuideOperation[], now = Date.now()) {
+  const times = operations
+    .filter((op) => op.state === "proposed")
+    .map((op) => Date.parse(op.expires_at))
+    .filter((time) => time > now);
+  return times.length ? Math.min(...times) : undefined;
+}
 export type GuideContext = {
   /** The Company's display name, once connected. */
   company?: string;

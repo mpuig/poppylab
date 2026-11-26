@@ -3,6 +3,7 @@ import {
   guideHint,
   guideProposals,
   guideStep,
+  nextExpiry,
   type GuideContext,
   type GuideOperation,
   type GuideState,
@@ -158,6 +159,30 @@ it("agrees with the card of a proposal whose approval wasn't performed", () => {
   expect(hintFor(done, proposal("proposed"))).toContain("approve it yourself");
   expect(hintFor(proposal("declined"), done)).toContain(
     "performed the change once",
+  );
+});
+
+it("says when to look again: the moment the next waiting proposal runs out", () => {
+  const now = Date.parse("2026-11-26T10:00:00Z");
+  const at = (minutes: number) => new Date(now + minutes * 60000).toISOString();
+  const operations = [
+    proposal("proposed", { expires_at: at(10) }),
+    proposal("proposed", { expires_at: at(4) }),
+    // Already over, or with no clock of its own.
+    proposal("proposed", { expires_at: at(-1) }),
+    proposal("uncertain", { expires_at: at(2) }),
+    proposal("succeeded", { expires_at: at(1) }),
+  ];
+  expect(nextExpiry(operations, now)).toBe(now + 4 * 60000);
+  expect(nextExpiry(operations, now + 4 * 60000)).toBe(now + 10 * 60000);
+  expect(nextExpiry([proposal("declined")], now)).toBeUndefined();
+  // Read again at that moment, the line says what the card now says.
+  const held = [proposal("proposed", { expires_at: at(10) })];
+  const hint = (time: number) =>
+    guideHint({ ...asked, ...guideProposals(held, time) }, juniper);
+  expect(hint(now)).toContain("is holding the change");
+  expect(hint(nextExpiry(held, now)!)).toContain(
+    "expired before it was approved",
   );
 });
 
