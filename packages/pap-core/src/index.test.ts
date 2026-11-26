@@ -9,6 +9,7 @@ import {
   listsExtension,
   parseTasks,
   poppyDocumentSchema,
+  SKILL_INDEX_SCHEMA,
 } from "./index";
 
 const base = {
@@ -382,7 +383,7 @@ describe("tasks response (§9)", () => {
       },
     ],
   });
-  it("reads excluded tasks, alternatives, feedback and the skill count", () => {
+  it("reads excluded tasks, alternatives and feedback, and no skills from an index it doesn't know", () => {
     const tasks = parseTasks(
       {
         excluded_tasks: [
@@ -434,10 +435,95 @@ describe("tasks response (§9)", () => {
         { task: "Close an account" },
       ],
       feedbackEndpoint: "https://test.example/poppy/feedback",
-      skills: 2,
+      // §9.4: without `$schema` the index is ignored; the rest is used.
+      skills: [],
     });
-    expect(parseTasks({}, doc)).toEqual({ excludedTasks: [], skills: 0 });
+    expect(parseTasks({}, doc)).toEqual({ excludedTasks: [], skills: [] });
     expect(() => parseTasks([], doc)).toThrow();
+  });
+
+  it("reads a skill index it knows, each URL resolved against tasks.endpoint (§9.4)", () => {
+    const listed = poppyDocumentSchema.parse({
+      ...base,
+      tasks: { endpoint: "https://test.example/poppy/tasks" },
+    });
+    const digest = `sha256:${"a1".repeat(32)}`;
+    const entry = {
+      name: "manage-bookings",
+      description: "Manage the User's bookings with this Company.",
+      type: "skill-md",
+      url: "skills/manage-bookings/SKILL.md",
+      digest,
+    };
+    const index = (skills: unknown[], schema: unknown = SKILL_INDEX_SCHEMA) =>
+      parseTasks({ skill_index: { $schema: schema, skills } }, listed).skills;
+    expect(SKILL_INDEX_SCHEMA).toBe(
+      "https://schemas.agentskills.io/discovery/0.2.0/schema.json",
+    );
+    // A relative reference, one from the origin and a full URL elsewhere.
+    expect(
+      index([
+        { ...entry, later_field: true },
+        { ...entry, name: "from-origin", url: "/skills/x/SKILL.md" },
+        {
+          ...entry,
+          name: "elsewhere",
+          type: "archive",
+          url: "https://cdn.example/skills/x.tar.gz",
+        },
+      ]),
+    ).toEqual([
+      {
+        name: "manage-bookings",
+        description: "Manage the User's bookings with this Company.",
+        type: "skill-md",
+        url: "https://test.example/poppy/skills/manage-bookings/SKILL.md",
+        digest,
+      },
+      {
+        ...entry,
+        name: "from-origin",
+        url: "https://test.example/skills/x/SKILL.md",
+      },
+      {
+        ...entry,
+        name: "elsewhere",
+        type: "archive",
+        url: "https://cdn.example/skills/x.tar.gz",
+      },
+    ]);
+    // Skipped: an unknown type, a missing field, a digest that isn't one,
+    // and a URL that isn't HTTPS once resolved or carries credentials.
+    expect(
+      index([
+        { ...entry, type: "plugin" },
+        { ...entry, name: "" },
+        { ...entry, name: "n".repeat(65) },
+        { ...entry, description: undefined },
+        { ...entry, url: "" },
+        { ...entry, digest: "sha256:abc" },
+        { ...entry, digest: digest.toUpperCase() },
+        { ...entry, url: "http://test.example/skills/x/SKILL.md" },
+        { ...entry, url: "javascript:alert(1)" },
+        { ...entry, url: "https://user:secret@test.example/SKILL.md" },
+        "manage-bookings",
+        null,
+      ]),
+    ).toEqual([]);
+    // An absent or unknown `$schema`: the whole index is ignored.
+    expect(
+      parseTasks({ skill_index: { skills: [entry] } }, listed).skills,
+    ).toEqual([]);
+    expect(
+      index([entry], "https://schemas.agentskills.io/discovery/9.0.0/x.json"),
+    ).toEqual([]);
+    // Without a tasks endpoint there is nothing to resolve against.
+    expect(
+      parseTasks(
+        { skill_index: { $schema: SKILL_INDEX_SCHEMA, skills: [entry] } },
+        doc,
+      ).skills,
+    ).toEqual([]);
   });
 });
 

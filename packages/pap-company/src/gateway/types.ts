@@ -186,6 +186,23 @@ export type Alternative = {
   instructions?: string;
   references?: Array<Record<string, string>>;
 };
+/**
+ * §9.4: a skill the Company publishes for Personal Agents, as one
+ * `SKILL.md` in the Agent Skills format. It says how to do a task the
+ * Company supports with its own interfaces: the prerequisites, the order of
+ * calls and the common outcomes. It grants nothing and approves nothing.
+ */
+export type SkillDefinition = {
+  /**
+   * The skill's identifier and the folder of its URL: at most 64 lowercase
+   * letters, digits and single hyphens, as the format requires.
+   */
+  name: string;
+  /** What the skill does and when to use it: one line, at most 1,024 characters. */
+  description: string;
+  /** The Markdown after the frontmatter, which the gateway writes. */
+  body: string;
+};
 
 // ---- Conversations (§8) ----------------------------------------------------
 export type ConversationMessage = {
@@ -502,6 +519,13 @@ export type CompanyDefinition = {
     report: { task: string; description: string },
     origin: string,
   ) => Alternative | undefined;
+  /**
+   * §9.4: the skills this Company publishes. The gateway serves each as
+   * `/poppy/skills/{name}/SKILL.md` and lists them in the tasks response's
+   * `skill_index`, with the digest of the bytes it serves. The same for
+   * every Session, like the rest of the tasks response.
+   */
+  skills?: SkillDefinition[];
   landing?: (origin: string) => string;
   /** Further server-rendered pages of the Company website, by path. */
   pages?: Record<string, (origin: string) => string>;

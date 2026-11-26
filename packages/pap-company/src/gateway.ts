@@ -19,8 +19,8 @@
  *
  * The sections live under `gateway/`: `context` (shared state and helpers),
  * `persistence`, `discovery`, `signin`, `tokens`, `sessions`, `tenancy`,
- * `conversations` (§8, when the Company defines an `agent`) and `feedback`
- * (§9.3).
+ * `conversations` (§8, when the Company defines an `agent`), `feedback`
+ * (§9.3) and `skills` (§9.4, when the Company publishes any).
  * Middleware order matters: body limit and persistence first, the Session
  * middleware before the business dispatch.
  */

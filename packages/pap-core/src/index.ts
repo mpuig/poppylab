@@ -473,12 +473,32 @@ export type ExcludedTask = {
   alternative?: { instructions?: string; references: AlternativeReference[] };
 };
 
+/**
+ * §9.4: the schema identifier of the skill index this client knows, from the
+ * Agent Skills discovery proposal the spec pins. Opaque; never fetched.
+ */
+export const SKILL_INDEX_SCHEMA =
+  "https://schemas.agentskills.io/discovery/0.2.0/schema.json";
+/** §9.4: a skill a Company lists. Company content, never instructions. */
+export type PublishedSkill = {
+  name: string;
+  description: string;
+  type: "skill-md" | "archive";
+  /** The entry's `url` resolved against `tasks.endpoint`: HTTPS, any host. */
+  url: string;
+  /** `sha256:` and the 64 hex characters of the artifact's bytes. */
+  digest: string;
+};
+
 export type TasksResponse = {
   excludedTasks: ExcludedTask[];
   /** §9.3, an HTTPS endpoint for feedback reports. */
   feedbackEndpoint?: string;
-  /** §9.4: skills listed; this client doesn't load them. */
-  skills: number;
+  /**
+   * §9.4: the skills listed, none when the index is absent or isn't one this
+   * client knows. This client lists them and doesn't load their contents.
+   */
+  skills: PublishedSkill[];
 };
 const clean = (v: unknown, max: number) =>
   typeof v === "string" && v.trim() ? v.trim().slice(0, max) : undefined;
@@ -576,12 +596,69 @@ export function parseTasks(
   }
   const feedback = body.feedback as { endpoint?: unknown } | undefined;
   const endpoint = allowedUrl(feedback?.endpoint, localOrigins);
-  const index = body.skill_index as { skills?: unknown } | undefined;
   return {
     excludedTasks: tasks,
     ...(endpoint ? { feedbackEndpoint: endpoint.href } : {}),
-    skills: Array.isArray(index?.skills) ? index.skills.length : 0,
+    skills: parseSkillIndex(
+      body.skill_index,
+      document.tasks?.endpoint,
+      localOrigins,
+    ),
   };
+}
+/**
+ * §9.4: the entries of a skill index. An index without the `$schema` this
+ * client knows is ignored, and so is an entry with an unknown `type`, without
+ * a name, description or well-formed digest, or whose `url`, resolved against
+ * `tasks.endpoint`, isn't HTTPS. Another host is allowed: listing an artifact
+ * there gives that host no credentials and no Session header.
+ */
+function parseSkillIndex(
+  value: unknown,
+  tasksEndpoint: string | undefined,
+  localOrigins: readonly string[],
+): PublishedSkill[] {
+  if (!tasksEndpoint || !value || typeof value !== "object") return [];
+  const index = value as Record<string, unknown>;
+  if (index.$schema !== SKILL_INDEX_SCHEMA || !Array.isArray(index.skills))
+    return [];
+  const skills: PublishedSkill[] = [];
+  for (const raw of index.skills.slice(0, 32)) {
+    if (!raw || typeof raw !== "object") continue;
+    const entry = raw as Record<string, unknown>;
+    // A name or a reference that is too long is skipped, not cut: a cut
+    // one would name another skill or another file.
+    const whole = (v: unknown, max: number) =>
+      typeof v === "string" && v.trim().length <= max
+        ? clean(v, max)
+        : undefined;
+    const name = whole(entry.name, 64);
+    const description = clean(entry.description, 1024);
+    const reference = whole(entry.url, 2048);
+    if (!name || !description || !reference) continue;
+    if (entry.type !== "skill-md" && entry.type !== "archive") continue;
+    if (
+      typeof entry.digest !== "string" ||
+      !/^sha256:[0-9a-f]{64}$/.test(entry.digest)
+    )
+      continue;
+    let resolved: string;
+    try {
+      resolved = new URL(reference, tasksEndpoint).href;
+    } catch {
+      continue;
+    }
+    const url = allowedUrl(resolved, localOrigins);
+    if (!url) continue;
+    skills.push({
+      name,
+      description,
+      type: entry.type,
+      url: url.href,
+      digest: entry.digest,
+    });
+  }
+  return skills;
 }
 
 /** The Company's normalized profile. */

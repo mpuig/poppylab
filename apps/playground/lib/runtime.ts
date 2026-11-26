@@ -1587,7 +1587,9 @@ export async function directConversation(
 /**
  * §9: the tasks response, early in each Session, with the Session header and
  * no access token, used only in that Session. Without a response, Iris
- * carries on as if the Company listed nothing.
+ * carries on as if the Company listed nothing. §9.4: the skills it lists
+ * are kept for the Inspector only: Iris fetches no skill file, and neither
+ * the list nor a skill's contents reach the model.
  */
 async function readTasks(run: Run, trace: string[]) {
   const endpoint = companyProfile(run.company!).tasksEndpoint;
@@ -1600,13 +1602,14 @@ async function readTasks(run: Run, trace: string[]) {
       sid: run.sessionId!,
       value: parseTasks(value, run.company!.document, localOrigins),
     };
+    const skills = run.tasks.value.skills.length;
     trace.push(
-      `GET ${new URL(endpoint).pathname} · tasks for this Session · ${run.tasks.value.excludedTasks.length} excluded`,
+      `GET ${new URL(endpoint).pathname} · tasks for this Session · ${run.tasks.value.excludedTasks.length} excluded${skills ? ` · ${skills} ${skills === 1 ? "skill" : "skills"} listed` : ""}`,
     );
   } catch {
     run.tasks = {
       sid: run.sessionId!,
-      value: { excludedTasks: [], skills: 0 },
+      value: { excludedTasks: [], skills: [] },
     };
     trace.push("Tasks unavailable · carrying on as if none are excluded");
   }

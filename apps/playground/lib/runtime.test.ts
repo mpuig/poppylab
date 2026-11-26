@@ -570,7 +570,7 @@ it("reports an unsupported task once per Session, with the token when signed in,
     value: {
       excludedTasks: [{ task: "Cancel an order" }],
       feedbackEndpoint: endpoint,
-      skills: 0,
+      skills: [],
     },
   };
   const trace: string[] = [];
@@ -643,7 +643,7 @@ it("sends a report with a date, a time, an amount or the name of one of the Comp
       value: {
         excludedTasks: [],
         feedbackEndpoint: "https://food.papsandbox.com/poppy/feedback",
-        skills: 0,
+        skills: [],
       },
     };
     const tools = new Set(["change_order", "my_basket"]);
@@ -770,7 +770,7 @@ it("reads the tasks again when a new Session started during the turn, before lis
     value: {
       excludedTasks: [{ task: "Cancel an order" }],
       feedbackEndpoint: feedback,
-      skills: 0,
+      skills: [],
     },
   };
   const trace: string[] = [];
@@ -820,7 +820,7 @@ it("sends no report, Session header or token to a feedback endpoint outside the 
     r.dpop = dpop;
     r.tasks = {
       sid: "",
-      value: { excludedTasks: [], feedbackEndpoint: endpoint, skills: 0 },
+      value: { excludedTasks: [], feedbackEndpoint: endpoint, skills: [] },
     };
     return feedbackTool(r, []).execute(report);
   };

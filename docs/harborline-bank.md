@@ -125,7 +125,7 @@ When a sign-in asks for any `fdx:*` scope, the User picks accounts on the consen
 
 `/poppy/conversations` exposes a deterministic Company Agent. Structured `data.request` values cover help, cash position, spending summary, card status, and approval-gated card freezing. Handoff returns an explicit fictional-demo response; no banker can join.
 
-`/poppy/tasks` excludes account opening/closure, recipient creation or verification, deposits, disputes, tax documents, and payment to a new recipient. Statements are no longer excluded: the FDX-shaped API serves them. Where useful, alternatives point back to the OpenAPI operations.
+`/poppy/tasks` excludes account opening/closure, recipient creation or verification, deposits, disputes, tax documents, and payment to a new recipient. Statements are no longer excluded: the FDX-shaped API serves them. Where useful, alternatives point back to the OpenAPI operations. The same response lists one skill in its `skill_index` (§9.4), `pay-saved-recipient`, a `SKILL.md` served at `/poppy/skills/pay-saved-recipient/SKILL.md`: the permissions, the order of calls and what the common outcomes mean.
 
 ## Tests and scenarios
 

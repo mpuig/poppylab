@@ -19,6 +19,7 @@ A second **fictional** example Company, so Poppy can be tested against more than
 | Account API         | `GET /api/account/orders`, `GET /api/account/orders/{id}` (orders:read)                                                                        |
 | Change              | `POST /api/account/orders/{id}/changes` `{ slot_id?, add?: [{dish_id, quantity}], remove?: [dish_id] }` (orders:write), Operations v3          |
 | Excluded tasks      | Cancel an order (alternative: move it, with an `openapi` reference to `change_order`); change the delivery address                             |
+| Skills              | `change-scheduled-order`, a `SKILL.md` at `/poppy/skills/change-scheduled-order/SKILL.md`, listed in the tasks response's `skill_index` (§9.4) |
 | State               | Encrypted vault `noodles`, separate from Juniper's                                                                                             |
 
 It reuses the same Poppy 1.0 gateway as Juniper, parameterized by a `CompanyDefinition` in `pap.ts`. That gateway provides:

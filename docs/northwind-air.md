@@ -62,6 +62,8 @@ The shared gateway accepts the complete declared scope set, withholds every conf
 
 `/poppy/tasks` explicitly excludes visa/transit eligibility decisions, border-entry guarantees, legal-name changes, passport/visa/identity document verification, and assistance cases requiring medical or document verification. The protocol supports only the listed non-medical assistance preferences.
 
+The same response lists two skills in its `skill_index` (§9.4), `add-checked-bags` and `accept-upgrade-offer`, each a `SKILL.md` served at `/poppy/skills/{name}/SKILL.md`: the permissions, the order of calls and what the common outcomes mean.
+
 ## Deployment
 
 ```sh

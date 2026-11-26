@@ -150,6 +150,7 @@ async function say(run: Run, message: string) {
     data?: string;
     trace?: string[];
     excludedTasks?: Array<{ task: string; alternative?: string }>;
+    skills?: Array<Record<string, string>>;
   };
   return {
     status: response.status,
@@ -366,11 +367,24 @@ it("answers with the tasks the Company excludes, and says whether a feedback rep
             alternative: { instructions: "Use the website's account page." },
           },
         ],
+        skill_index: {
+          $schema: "https://schemas.agentskills.io/discovery/0.2.0/schema.json",
+          skills: [
+            {
+              name: "change-order",
+              description: "Change a scheduled order.",
+              type: "skill-md",
+              url: "/poppy/skills/change-order/SKILL.md",
+              digest: `sha256:${"0f".repeat(32)}`,
+            },
+          ],
+        },
         feedback: { endpoint: origin + "/poppy/feedback" },
       };
     return { ok: true };
   });
   const run = shop();
+  run.company!.document.tasks = { endpoint: origin + "/poppy/tasks" };
   run.company!.profile.tasksEndpoint = origin + "/poppy/tasks";
   const first = await say(run, "Can I pay with a gift card?");
   // For the Inspector's "Tasks not offered".
@@ -381,6 +395,18 @@ it("answers with the tasks the Company excludes, and says whether a feedback rep
       alternative: "Use the website's account page.",
     },
   ]);
+  // For its "Skills published" (§9.4): listed, and the file never fetched.
+  expect(first.answer.skills).toEqual([
+    {
+      name: "change-order",
+      description: "Change a scheduled order.",
+      url: origin + "/poppy/skills/change-order/SKILL.md",
+      host: new URL(origin).host,
+    },
+  ]);
+  expect(first.asked.filter((url) => url.includes("/poppy/skills/"))).toEqual(
+    [],
+  );
   expect(first.answer.trace).toContain(
     "POST /poppy/feedback · feedback · 202 accepted",
   );

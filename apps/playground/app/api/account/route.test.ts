@@ -275,7 +275,7 @@ describe("The Inspector's lines, kept with the conversation", () => {
     session.sessionId = "sid_1";
     session.tasks = {
       sid: "sid_1",
-      value: { excludedTasks: [{ task: "Cancel by phone" }], skills: 0 },
+      value: { excludedTasks: [{ task: "Cancel by phone" }], skills: [] },
     };
     try {
       expect(await tasks()).toEqual([{ task: "Cancel by phone" }]);

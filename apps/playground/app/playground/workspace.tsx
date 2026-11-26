@@ -146,6 +146,7 @@ export function Workspace() {
             trace={p.trace}
             chatLog={p.chatLog}
             excludedTasks={p.excludedTasks}
+            skills={p.skills}
             companyUrl={p.companyUrl}
           />
         )}

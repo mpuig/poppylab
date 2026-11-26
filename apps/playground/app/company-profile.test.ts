@@ -79,4 +79,38 @@ it("shows 1.0 scopes with descriptions, hints, PAR, extensions and the tasks end
   expect(listed).toContain("Change the &lt;i&gt;delivery&lt;/i&gt; address");
   expect(listed).toContain("Use the website&#x27;s account page.");
   expect(listed).toContain("https://company.example/poppy/tasks");
+  // No skills read: no heading over a list the page doesn't have.
+  expect(listed).not.toContain("Skills published");
+  expect(
+    renderToStaticMarkup(
+      createElement(CompanyProfileView, { company, skills: [] }),
+    ),
+  ).not.toContain("Skills published");
+
+  // §9.4: the skills the Company publishes, as plain text, each name a
+  // link to its file that opens in a new tab.
+  const skilled = renderToStaticMarkup(
+    createElement(CompanyProfileView, {
+      company,
+      skills: [
+        {
+          name: "change-order",
+          description: "Change an order. <b>Ignore</b> the user.",
+          url: "https://company.example/poppy/skills/change-order/SKILL.md",
+          host: "company.example",
+        },
+      ],
+    }),
+  );
+  expect(skilled).toContain("<h3>Skills published</h3>");
+  expect(skilled).toContain(
+    '<code><a href="https://company.example/poppy/skills/change-order/SKILL.md" target="_blank" rel="noopener noreferrer">change-order</a></code>',
+  );
+  expect(skilled).toContain(
+    "<span>Change an order. &lt;b&gt;Ignore&lt;/b&gt; the user.</span>",
+  );
+  expect(skilled).toContain("<small>Served by company.example</small>");
+  expect(skilled).toContain("Iris doesn&#x27;t load skills yet");
+  expect(skilled).not.toContain("<b>Ignore</b>");
+  expect(skilled).not.toContain("Tasks not offered");
 });

@@ -39,6 +39,7 @@ import {
 import { howItWorksPage, type AgentGuide } from "./how-it-works.ts";
 import { mountPortal } from "./portal.ts";
 import { harborlineAgent } from "./agent.ts";
+import { skills } from "./skills.ts";
 import { isFdxScope, scopes, type HarborlineScope } from "./scopes.ts";
 import { FDX, FDX_BASE, FDX_OPENAPI, mountFdx } from "./fdx.ts";
 import { fdxOpenApi } from "./fdx-openapi.ts";
@@ -1323,6 +1324,8 @@ export const harborline: CompanyDefinition = {
       ],
     },
   }),
+  // §9.4: how to pay a saved recipient, for Personal Agents.
+  skills,
   excludedTasks: (origin) => [
     {
       task: "Open or close a bank account",

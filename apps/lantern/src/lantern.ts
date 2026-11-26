@@ -30,6 +30,7 @@ import {
 } from "./site.ts";
 import { mountPortal } from "./portal.ts";
 import { lanternAgent, type Refund } from "./agent.ts";
+import { skills } from "./skills.ts";
 
 export {
   customers,
@@ -493,6 +494,8 @@ export const lantern: CompanyDefinition = {
     },
     { task: "Change the delivery address of an order" },
   ],
+  // §9.4: how to change a scheduled order, for Personal Agents.
+  skills,
   // §9.3: Lantern's own matching, no model. Other reports get a plain 202.
   feedback: ({ task, description }) => {
     const said = `${task} ${description}`.toLowerCase();

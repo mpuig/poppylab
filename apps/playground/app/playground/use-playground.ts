@@ -39,7 +39,7 @@ import {
   shownLines,
   statementLine,
 } from "@/lib/inspector-log";
-import type { ShownTask } from "@/lib/shown-tasks";
+import type { ShownSkill, ShownTask } from "@/lib/shown-tasks";
 import {
   nextAutoApproval,
   usesAllowance,
@@ -157,6 +157,8 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
    * Session read them. The server sends them; none until a Session has.
    */
   const [excludedTasks, setExcludedTasks] = useState<ShownTask[]>([]);
+  /** §9.4: the skills the Company publishes, read and sent the same way. */
+  const [skills, setSkills] = useState<ShownSkill[]>([]);
   const [sending, setSending] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
   const [scopes, setScopes] = useState("");
@@ -271,6 +273,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
         setMessages(historyToMessages(data.history));
         setChatLog(shownLines(data.log));
         setExcludedTasks(data.excludedTasks ?? []);
+        setSkills(data.skills ?? []);
       })
       .catch(() => {});
     return () => {
@@ -352,6 +355,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
             setChatLog(shownLines(data.log));
             // A sign-in starts a new Session, which reads its own tasks.
             setExcludedTasks(data.excludedTasks ?? []);
+            setSkills(data.skills ?? []);
           } else if (outcome === "not_completed") {
             setWaitingSignIn(false);
             setError(
@@ -522,6 +526,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
       setExtensionOn(!!data[key]);
       // The new Session hasn't read its tasks yet.
       setExcludedTasks([]);
+      setSkills([]);
     } catch (caught) {
       setError(
         caught instanceof Error && caught.message
@@ -810,6 +815,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     setMessages([]);
     setChatLog([]);
     setExcludedTasks([]);
+    setSkills([]);
     setSignedIn(false);
     setWaitingSignIn(false);
     setOperations([]);
@@ -961,6 +967,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
       ]);
       addTrace(data.trace);
       setExcludedTasks(data.excludedTasks ?? []);
+      setSkills(data.skills ?? []);
       setSignedIn(!!data.signedIn);
       setScopes(data.scopes ?? "");
       setError(data.recovery?.error ?? "");
@@ -1013,6 +1020,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     messages,
     chatLog,
     excludedTasks,
+    skills,
     sending,
     signedIn,
     scopes,

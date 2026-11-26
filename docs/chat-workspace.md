@@ -268,7 +268,7 @@ Asked for your approval; nothing was done yet                                   
 
 ```text
 13:22:03.971  Poppy 1.0 Session signed in · delegated ES256 Session header · Poppy-Version 1.0 · Poppy-Extensions "operations";v="3"   §5.2              OK
-13:22:03.971  GET /poppy/tasks · tasks for this Session · 3 excluded                                                                    §9                Note
+13:22:03.971  GET /poppy/tasks · tasks for this Session · 3 excluded · 2 skills listed                                                  §9                Note
 13:22:03.971  Loaded 19 API tools; confirmation is never a model tool                                                                   §7                OK
 13:22:03.971  POST /api/account/delivery-change · Poppy Session                                                                         §7                Note
 13:22:03.971  Approval required · nothing performed                                                                                     Operations §4–6   Needs you

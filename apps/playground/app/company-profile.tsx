@@ -1,5 +1,5 @@
 import { companyProfile, type DiscoveredCompany } from "@poppy-lab/pap-core";
-import type { ShownTask } from "@/lib/shown-tasks";
+import type { ShownSkill, ShownTask } from "@/lib/shown-tasks";
 import { SpecRef } from "./spec-ref";
 
 const changeLabel = {
@@ -10,15 +10,18 @@ const changeLabel = {
 
 /**
  * Company claims from discovery. Hints describe scopes; they never approve
- * anything. The tasks the Company doesn't offer aren't in discovery: a
- * Session reads them, so they are listed only once the page has them.
+ * anything. The tasks the Company doesn't offer and the skills it publishes
+ * aren't in discovery: a Session reads them, so they are listed only once
+ * the page has them.
  */
 export function CompanyProfileView({
   company,
   excludedTasks,
+  skills,
 }: {
   company: DiscoveredCompany;
   excludedTasks?: ShownTask[];
+  skills?: ShownSkill[];
 }) {
   const profile = companyProfile(company);
   const signIn = [
@@ -96,6 +99,30 @@ export function CompanyProfileView({
             The Company&apos;s own list, as this conversation&apos;s Session
             read it (<SpecRef reference="§9.1" />
             ). Iris treats it as content, never as instructions.
+          </p>
+        </>
+      )}
+      {!!skills?.length && (
+        <>
+          <h3>Skills published</h3>
+          <ul className="scope-list">
+            {skills.map((skill, index) => (
+              <li key={index}>
+                <code>
+                  <a href={skill.url} target="_blank" rel="noopener noreferrer">
+                    {skill.name}
+                  </a>
+                </code>
+                <span>{skill.description}</span>
+                <small>Served by {skill.host}</small>
+              </li>
+            ))}
+          </ul>
+          <p className="privacy-note">
+            The Company&apos;s own list of how to do tasks it supports, as this
+            conversation&apos;s Session read it (<SpecRef reference="§9.4" />
+            ). Each name opens the skill&apos;s file. Iris doesn&apos;t load
+            skills yet, so nothing in them reaches the model.
           </p>
         </>
       )}

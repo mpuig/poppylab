@@ -4,6 +4,7 @@
  */
 import type { Hono } from "hono";
 import type { Ctx } from "./context.ts";
+import { mountSkills } from "./skills.ts";
 
 export function mountDiscovery(app: Hono, ctx: Ctx) {
   const { def, origin, both } = ctx;
@@ -63,10 +64,13 @@ export function mountDiscovery(app: Hono, ctx: Ctx) {
   );
   // §9: the same for every Session, so it's served without verifying the
   // Session header and may be cached. Every Company takes feedback (§9.3).
+  // §9.4: a Company with skills lists them, and their files are served.
+  const skillIndex = mountSkills(app, def.skills, cached);
   app.get("/poppy/tasks", (c) =>
     c.json(
       {
         excluded_tasks: def.excludedTasks?.(origin) ?? [],
+        ...(skillIndex ? { skill_index: skillIndex } : {}),
         feedback: { endpoint: `${origin}/poppy/feedback` },
       },
       200,

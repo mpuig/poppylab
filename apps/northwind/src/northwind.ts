@@ -38,6 +38,7 @@ import {
 import { howItWorksPage, type AgentGuide } from "./how-it-works.ts";
 import { mountPortal } from "./portal.ts";
 import { northwindAgent } from "./agent.ts";
+import { skills } from "./skills.ts";
 
 export { airports, customers, fareBrands, flightSchedule } from "./data.ts";
 
@@ -1225,6 +1226,8 @@ export const northwind: CompanyDefinition = {
     tasks: { endpoint: `${origin}/poppy/tasks` },
     extensions: { operations: [{ version: "3" }] },
   }),
+  // §9.4: how to add checked bags and accept an upgrade offer.
+  skills,
   excludedTasks: (origin) => [
     {
       task: "Decide whether a passenger is eligible for a visa or transit visa",

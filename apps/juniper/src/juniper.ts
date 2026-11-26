@@ -16,6 +16,7 @@ import { forAgentsPage, homePage } from "./home.js";
 import { howItWorksPage, type AgentGuide } from "./how-it-works.js";
 import { router } from "./router.js";
 import { juniperAgent, PHONE, PHONE_HOURS } from "./agent.js";
+import { skills } from "./skills.js";
 
 const products = [
   {
@@ -213,6 +214,8 @@ export function juniperCompany(options: {
         { task: "Delete my account" },
       ];
     },
+    // §9.4: how to move the recurring delivery and open a support case.
+    skills,
     // §9.3: Juniper's own matching, no model. A report it has no particular
     // answer for is still something its staff can take up, so every report
     // gets an alternative and none a plain 202.

@@ -43,6 +43,7 @@ import {
   type FernwickScope,
 } from "./scopes.ts";
 import { fernwickAgent } from "./agent.ts";
+import { skills } from "./skills.ts";
 import { mountPortal } from "./portal.ts";
 import {
   consentExpiredPage,
@@ -463,6 +464,8 @@ export const fernwick: CompanyDefinition = {
       ],
     },
   }),
+  // §9.4: how to switch a meter's rate plan, for Personal Agents.
+  skills,
   excludedTasks: (origin) => [
     {
       task: "Start, stop or move electricity service",

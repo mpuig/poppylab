@@ -146,7 +146,7 @@ A UsageSummary has `billingPeriod`, `billLastPeriod`, a `costAdditionalDetailLas
 
 `/poppy/conversations` exposes a deterministic Company Agent (`src/agent.ts`). Structured `data.request` values: `help`, `usage_this_month` (kWh delivered and sent to the grid and the energy cost so far, per chosen meter), `last_bill`, and `change_plan` (`usage_point_id`, `plan`), the same proposal as the own API, approved in the conversation (Operations v3). It keeps to the meters chosen at consent through `ConversationTurn.resources`. Handoff returns a fictional-demo response.
 
-`/poppy/tasks` excludes starting, stopping or moving service, paying bills, outage and hazard reports, and downloading usage as a file (with the ESPI-shaped API as the alternative).
+`/poppy/tasks` excludes starting, stopping or moving service, paying bills, outage and hazard reports, and downloading usage as a file (with the ESPI-shaped API as the alternative). The same response lists one skill in its `skill_index` (§9.4), `switch-rate-plan`, a `SKILL.md` served at `/poppy/skills/switch-rate-plan/SKILL.md`: the permissions, the order of calls and what the common outcomes mean.
 
 ## Website
 

@@ -13,7 +13,7 @@ import { cookies } from "next/headers";
 import { connect, directConversation, type Run } from "@/lib/runtime";
 import { forgetLostAccount, recordDirect, recordTurn } from "@/lib/transcript";
 import { keepLines } from "@/lib/inspector-log";
-import { shownTasks } from "@/lib/shown-tasks";
+import { shownSkills, shownTasks } from "@/lib/shown-tasks";
 import type { CompanyEntry, DirectAction } from "@/lib/conversations";
 import { directState } from "@/lib/direct-state";
 import {
@@ -283,6 +283,7 @@ async function reply(request: Request, started: { id?: string }) {
           operations: Object.values(run.operations ?? {}),
           company: shown,
           excludedTasks: shownTasks(run),
+          skills: shownSkills(run),
           ...directState(run),
           ...lost,
         },
@@ -499,6 +500,8 @@ async function reply(request: Request, started: { id?: string }) {
         company: shown,
         // §9.1: for the Inspector's "Tasks not offered".
         excludedTasks: shownTasks(run),
+        // §9.4: for its "Skills published". Never for the model.
+        skills: shownSkills(run),
         ...directState(run),
         ...lost,
       },
