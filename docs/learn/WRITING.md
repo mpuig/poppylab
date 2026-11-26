@@ -147,7 +147,10 @@ Austere and neutral. It lists, in the same pattern every time.
   for screens under 640px) and embed it with
   `![What the figure shows, in full](path "One-sentence caption")`. The caption
   says what the figure shows, with no number and no label. Draw it as
-  [DESIGN.md](../../DESIGN.md) says figures are drawn.
+  [DESIGN.md](../../DESIGN.md) says figures are drawn. A sequence figure is
+  described in [`scripts/learn-diagrams.mjs`](../../scripts/learn-diagrams.mjs)
+  and drawn with `pnpm learn:diagrams`; `pnpm learn:diagrams:check` fails when a
+  file is not what the script draws. Edit the description, never the SVG.
 - **Screenshots.** As in How it works: one per step, from the live lab, with the
   date in the opening.
 - **Tables.** For comparison and lookup. Never to lay out prose.

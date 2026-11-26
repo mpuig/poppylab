@@ -19,7 +19,9 @@
     "dev:harborline": "pnpm --filter @poppy-lab/harborline dev",
     "dev:northwind": "pnpm --filter @poppy-lab/northwind dev",
     "dev:fernwick": "pnpm --filter @poppy-lab/fernwick dev",
-    "spec:drift": "node scripts/spec-drift.mjs"
+    "spec:drift": "node scripts/spec-drift.mjs",
+    "learn:diagrams": "node scripts/learn-diagrams.mjs",
+    "learn:diagrams:check": "node scripts/learn-diagrams.mjs --check"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
