@@ -8,7 +8,7 @@ Both changes cost money. Northwind sets each price and its conditions, and it
 makes each change after Elena has read the terms and approved them.
 
 This page follows those requests screen by screen, on Iris's side and on
-Northwind's. Every screenshot is from the live lab, taken on 25 November 2026.
+Northwind's. Every screenshot is from the live lab, taken on 26 November 2026.
 
 ## Who does what
 
@@ -146,7 +146,7 @@ answer, as Iris received it:
 ```json
 {
   "status": "approval_required",
-  "operation_id": "op_aAlzftB53KD09ggOO1h4FImT",
+  "operation_id": "op_H5z3VWyU6pY684-dR9YhpuL9",
   "summary": "Upgrade NA 118 to Business for USD 248.00. The fictional upgrade is refundable only if Northwind Air cancels this segment.",
   "terms": {
     "booking_reference": "NW7K2P",
@@ -161,7 +161,7 @@ answer, as Iris received it:
     "refund_terms": "The fictional upgrade is refundable only if Northwind Air cancels this segment.",
     "payment": "Simulated card on file — no real charge"
   },
-  "expires_at": "2026-11-25T20:53:49.029Z"
+  "expires_at": "2026-11-26T08:34:01.320Z"
 }
 ```
 
@@ -279,7 +279,7 @@ Iris sent the flight and the number of bags. Northwind's answer:
 ```json
 {
   "status": "approval_required",
-  "operation_id": "op_KhCre0Gwd4OxhMHb_RAzHF6M",
+  "operation_id": "op_GpzmR4TK6csBxppksBicjJsW",
   "summary": "Add 1 checked bag to NA 402 for USD 45.00. The fictional bag fee is refundable until 24 hours before departure; no real payment is taken.",
   "terms": {
     "booking_reference": "NW7K2P",
@@ -293,7 +293,7 @@ Iris sent the flight and the number of bags. Northwind's answer:
     "refund_terms": "The fictional bag fee is refundable until 24 hours before departure; no real payment is taken.",
     "payment": "Simulated card on file — no real charge"
   },
-  "expires_at": "2026-11-25T20:55:58.013Z"
+  "expires_at": "2026-11-26T08:37:47.530Z"
 }
 ```
 
