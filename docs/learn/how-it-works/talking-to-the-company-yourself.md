@@ -62,6 +62,7 @@ talk:
   "data": {
     "order_id": "ord_LNB0907",
     "refund_cents": 3700,
+    "currency": "USD",
     "next": "user_requested"
   }
 }
