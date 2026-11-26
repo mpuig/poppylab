@@ -12,18 +12,20 @@ the validator. It does not list the checks one by one, because each check
 quotes its own requirement. For the milestones at which the validator is used,
 see [Build a Company](build-a-company.md).
 
-## Results, 25 November 2026
+## Results, 26 November 2026
 
-Four Poppy Lab Companies, with version 1.0 and Operations version 3, ran at
-their current hostnames. Harborline has no signed-out `GET` to give `--probe`,
-so it ran without one:
+Five Poppy Lab Companies, with version 1.0 and Operations version 3, ran at
+their current hostnames, with the kit as published on 25 November 2026.
+Harborline and Fernwick have no signed-out `GET` to give `--probe`, so they ran
+without one:
 
-| Company                                              | Pass | Fail | Warn | Skipped |
-| ---------------------------------------------------- | ---- | ---- | ---- | ------- |
-| [Lantern Noodle Bar](https://food-demo.poppylab.dev) | 107  | 0    | 0    | 26      |
-| [Juniper Market](https://grocery-demo.poppylab.dev)  | 107  | 0    | 0    | 26      |
-| [Harborline Bank](https://bank-demo.poppylab.dev)    | 107  | 0    | 0    | 26      |
-| [Northwind Air](https://airline-demo.poppylab.dev)   | 107  | 0    | 0    | 26      |
+| Company                                                    | Pass | Fail | Warn | Skipped |
+| ---------------------------------------------------------- | ---- | ---- | ---- | ------- |
+| [Lantern Noodle Bar](https://food-demo.poppylab.dev)       | 107  | 0    | 0    | 26      |
+| [Juniper Market](https://grocery-demo.poppylab.dev)        | 107  | 0    | 0    | 26      |
+| [Harborline Bank](https://bank-demo.poppylab.dev)          | 107  | 0    | 0    | 26      |
+| [Northwind Air](https://airline-demo.poppylab.dev)         | 107  | 0    | 0    | 26      |
+| [Fernwick Power & Light](https://energy-demo.poppylab.dev) | 107  | 0    | 0    | 26      |
 
 The skipped checks are for parts these Companies don't offer: browser join
 (12), MCP (4), several protocol versions (2), Device and Mediated Sign-In (3),
@@ -32,7 +34,10 @@ more depends on the report: the validator's own feedback report got a plain
 `202`, so there was no alternative to check.
 
 The validator never signs anyone in, so it can't test most of sign-in. The
-kit's `checklist.md` covers that by hand.
+kit's `checklist.md` covers that by hand. Its extension checks see only a run
+that declares no extensions, so they say nothing about `poppylab.dev/fdx` at
+Harborline or `poppylab.dev/espi` at Fernwick. Each run started two test
+conversations and closed both.
 
 ## Running it yourself
 
