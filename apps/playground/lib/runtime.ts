@@ -219,6 +219,12 @@ export type Operation = {
    */
   agentSuperseded?: true;
   /**
+   * Why the User's standing instruction left these terms to them, as the
+   * Inspector's line said it (`notAppliedLine`). Kept so the line is
+   * written once for each reason, whatever the page asks after a reload.
+   */
+  notApplied?: string;
+  /**
    * Proposed in the User's Direct Conversation (§8.10), which the model
    * doesn't read. Kept once that thread is over, so the model is never told
    * how the operation ended in the Company's words.

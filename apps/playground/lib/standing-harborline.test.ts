@@ -218,7 +218,10 @@ describe("A standing instruction at Harborline, end to end", () => {
         instruction: upTo(20),
         decided: new Set(),
       }),
-    ).toBeNull();
+    ).toMatchObject({
+      kind: "left",
+      reason: "the amount, $25.00, is over your limit of $20.00",
+    });
     expect(leftToUser(op, upTo(20), "Harborline Bank")).toBe(
       "the amount, $25.00, is over your limit of $20.00",
     );

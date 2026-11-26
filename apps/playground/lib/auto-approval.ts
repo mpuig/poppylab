@@ -13,18 +13,39 @@ export const MAX_PER_HOUR = 5;
 export const BUDGET_FACTOR = 3;
 const HOUR = 3_600_000;
 
+/** Which of the hour's two limits holds a covered change back. */
+export type Allowance = "count" | "total";
+
 /**
- * What a standing instruction may do now. Each revision is looked at once
- * (`decided` remembers it), only while signed in and idle. It approves an
- * operation only when the fixed check covers its exact terms and the hour's
- * count and total allow it; when only the hour's allowance is the obstacle
- * it says so, once, and leaves the operation for the User. Anything else
- * stays for the User, as does an operation whose agent approval the Company
- * declined or answered with new terms; `leftToUser` says why.
+ * Why the hour's allowance leaves a covered change to the User, as the end
+ * of a sentence. The page and the server say it in these words.
+ */
+export const allowanceReason = (held: Allowance, instruction: Instruction) =>
+  held === "count"
+    ? `it already approved ${MAX_PER_HOUR} changes in the last hour`
+    : `with this change it would approve more than ${BUDGET_FACTOR} times your limit (${formatLimit({ ...instruction, maxCents: instruction.maxCents * BUDGET_FACTOR })}) within an hour`;
+
+/**
+ * What a standing instruction does now, only while signed in and idle. It
+ * approves an operation only when the fixed check covers its exact terms
+ * and the hour's count and total allow it, and tries each revision once
+ * (`decided` remembers it). A waiting operation it leaves to the User is
+ * `left`, with the reason its card gives: the terms aren't covered, or the
+ * hour's `allowance` is used up. Each reason is given once. The server
+ * keeps it with the operation (`notApplied`), so a reload doesn't say what
+ * the terms lack again. An operation whose agent approval the Company
+ * declined or answered with new terms stays for the User too, and the
+ * account route wrote its line then. `leftToUser` says why in every case.
  */
 export type AutoDecision =
   | { kind: "approve"; op: ReviewOperation; covered: string; cents: number }
-  | { kind: "limit"; op: ReviewOperation; reason: string };
+  | {
+      kind: "left";
+      op: ReviewOperation;
+      reason: string;
+      /** The hour's limit that holds it back; none when it isn't covered. */
+      allowance?: Allowance;
+    };
 
 export function nextAutoApproval(input: {
   operations: ReviewOperation[];
@@ -40,6 +61,7 @@ export function nextAutoApproval(input: {
   if (!signedIn || busy || !instruction) return null;
   const now = input.now ?? Date.now();
   const live = (input.recent ?? []).filter((a) => a.at > now - HOUR);
+  let uncovered: (AutoDecision & { kind: "left" }) | undefined;
   for (const op of operations) {
     const key = `${op.operation_id}:${op.revision}`;
     if (decided.has(key)) continue;
@@ -48,24 +70,42 @@ export function nextAutoApproval(input: {
     // this is not.
     if (op.agentDeclined || op.agentSuperseded) continue;
     const covered = coveredBy(op, instruction, now);
-    if (!covered) continue;
+    if (!covered) {
+      const reason = notCovered(op, instruction, now);
+      if (
+        !uncovered &&
+        reason &&
+        op.notApplied !== reason &&
+        !decided.has(`${key}:${reason}`)
+      )
+        uncovered = { kind: "left", op, reason };
+      continue;
+    }
     decided.add(key);
     const spent = live.reduce((sum, a) => sum + a.cents, 0);
-    if (live.length >= MAX_PER_HOUR)
+    const allowance: Allowance | undefined =
+      live.length >= MAX_PER_HOUR
+        ? "count"
+        : spent + covered.cents > instruction.maxCents * BUDGET_FACTOR
+          ? "total"
+          : undefined;
+    if (allowance)
       return {
-        kind: "limit",
+        kind: "left",
         op,
-        reason: `it already approved ${MAX_PER_HOUR} changes in the last hour`,
-      };
-    if (spent + covered.cents > instruction.maxCents * BUDGET_FACTOR)
-      return {
-        kind: "limit",
-        op,
-        reason: `with this change it would approve more than ${BUDGET_FACTOR} times your limit (${formatLimit({ ...instruction, maxCents: instruction.maxCents * BUDGET_FACTOR })}) within an hour`,
+        reason: allowanceReason(allowance, instruction),
+        allowance,
       };
     return { kind: "approve", op, covered: covered.text, cents: covered.cents };
   }
-  return null;
+  // Nothing to approve: say why the first one not covered is left. Its
+  // revision isn't marked as decided, since a limit the User raises may
+  // still cover it; only this reason is, so it is given once.
+  if (uncovered)
+    decided.add(
+      `${uncovered.op.operation_id}:${uncovered.op.revision}:${uncovered.reason}`,
+    );
+  return uncovered ?? null;
 }
 
 /**

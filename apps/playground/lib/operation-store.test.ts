@@ -57,6 +57,17 @@ it("keeps the approval as first sent when the same revision is proposed again", 
   });
 });
 
+it("keeps why the standing instruction left the terms to the User for the same revision only", () => {
+  const { run, op } = proposed();
+  op.notApplied = "the total, $14.50, is over your limit of $10.00";
+  // The same terms again: the Inspector's line was written, and isn't again.
+  expect(recordOperation(run, remote, request).notApplied).toBe(op.notApplied);
+  // New terms are checked anew.
+  expect(
+    recordOperation(run, { ...remote, revision: "r2" }, request),
+  ).not.toHaveProperty("notApplied");
+});
+
 const dearer = {
   ...remote,
   revision: "r2",

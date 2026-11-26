@@ -29,6 +29,12 @@ it("offers the first covered operation and only once per revision", () => {
     cents: 2800,
   });
   expect(first?.op.operation_id).toBe("b");
+  // Then the one it leaves to the User, with the reason, and nothing more.
+  expect(nextAutoApproval({ ...base, operations, decided })).toMatchObject({
+    kind: "left",
+    op: { operation_id: "a" },
+    reason: "the total, $50.00, is over your limit of $30.00",
+  });
   expect(nextAutoApproval({ ...base, operations, decided })).toBeNull();
   // New terms under a new revision are a new decision.
   const again = [op("b", 2800, "2")];
@@ -53,14 +59,52 @@ it("does nothing while busy, signed out or without an instruction", () => {
   }
 });
 
-it("leaves an over-limit operation for the User", () => {
+it("leaves an over-limit operation for the User, and says why once", () => {
+  const decided = new Set<string>();
+  const operations = [op("a", 3001)];
+  const reason = "the total, $30.01, is over your limit of $30.00";
+  const left = nextAutoApproval({ ...base, operations, decided });
+  expect(left).toEqual({ kind: "left", op: operations[0], reason });
+  expect(nextAutoApproval({ ...base, operations, decided })).toBeNull();
+  // A lower limit is another reason, and a limit it is within approves it.
   expect(
     nextAutoApproval({
       ...base,
-      operations: [op("a", 3001)],
+      instruction: { maxCents: 2000, currency: "USD" },
+      operations,
+      decided,
+    }),
+  ).toMatchObject({
+    kind: "left",
+    reason: "the total, $30.01, is over your limit of $20.00",
+  });
+  expect(
+    nextAutoApproval({
+      ...base,
+      instruction: { maxCents: 4000, currency: "USD" },
+      operations,
+      decided,
+    }),
+  ).toMatchObject({ kind: "approve" });
+});
+
+it("doesn't say again what the conversation already keeps, as after a reload", () => {
+  // Nothing remembered: the operation carries the reason the server kept.
+  const noted = {
+    ...op("a", 3001),
+    notApplied: "the total, $30.01, is over your limit of $30.00",
+  };
+  expect(
+    nextAutoApproval({ ...base, operations: [noted], decided: new Set() }),
+  ).toBeNull();
+  // It doesn't stand in the way of one the rule covers.
+  expect(
+    nextAutoApproval({
+      ...base,
+      operations: [noted, op("b", 200)],
       decided: new Set(),
     }),
-  ).toBeNull();
+  ).toMatchObject({ kind: "approve", cents: 200 });
 });
 
 it("leaves an operation the Company declined from the agent for the User", () => {
@@ -110,7 +154,8 @@ it("stops after the hour's count and leaves the operation for the User", () => {
     now: now,
   });
   expect(out).toMatchObject({
-    kind: "limit",
+    kind: "left",
+    allowance: "count",
     reason: "it already approved 5 changes in the last hour",
   });
   // Said once, not retried on every render.
@@ -141,7 +186,8 @@ it("stops once the hour's total passes three times the limit", () => {
       now,
     }),
   ).toMatchObject({
-    kind: "limit",
+    kind: "left",
+    allowance: "total",
     reason:
       "with this change it would approve more than 3 times your limit ($90.00) within an hour",
   });

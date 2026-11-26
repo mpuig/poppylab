@@ -90,6 +90,14 @@ export const applyingLine = (covered: string) =>
 export const statementLine = (statementId: string, bytes: number) =>
   `Statement ${statementId} · PDF downloaded · ${bytes} bytes · not shown to Iris`;
 
+/**
+ * The line for a change the User's standing instruction leaves to them.
+ * The page decides it, since the instruction lives in the browser; the
+ * account route makes the check again, writes the line and keeps it once.
+ */
+export const notAppliedLine = (reason: string) =>
+  `Standing instruction not applied · ${reason}; waiting for you`;
+
 /** The kept lines as the Inspector lists them. */
 export const shownLines = (kept: KeptLine[] | undefined): ProtocolEntry[] =>
   (kept ?? []).map((line) => logEntry(line.text, line.at));

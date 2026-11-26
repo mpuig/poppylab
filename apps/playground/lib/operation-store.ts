@@ -38,6 +38,9 @@ export function recordOperation(
     ...(same?.approval && same.state !== "refused"
       ? { approval: same.approval }
       : {}),
+    // The same terms again: the Inspector already says why the User's
+    // standing instruction left them to the User.
+    ...(same?.notApplied ? { notApplied: same.notApplied } : {}),
     // §6: once the Company declined an agent approval, Iris must not
     // approve a new revision for the same action without asking the User,
     // so the decline stays with the operation whatever the revision.

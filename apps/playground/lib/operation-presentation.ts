@@ -24,6 +24,8 @@ export type ReviewOperation = {
    * `runtime.ts`).
    */
   notPerformed?: "refused" | "new_terms";
+  /** Why the standing instruction left these terms to the User, once kept. */
+  notApplied?: string;
 };
 /** The full stop a Company's words still need to end a sentence, if any. */
 const stop = (words: string) => (/[.!?…]["'”’)\]]*$/.test(words) ? "" : ".");

@@ -158,15 +158,17 @@ in the page; the server's approval endpoint is the one it always was.
     that disagrees with the terms.
   - It makes at most 5 approvals an hour per Company and no more than three
     times the limit in total over that hour. The most a rule can allow is
-    $1,000. When the hour's allowance is the reason, the log says so and the
-    operation waits for you.
+    $1,000. When the hour's allowance is the reason, the operation waits
+    for you.
   - A waiting change the rule left to you says why in one sentence, on its
     card and under "Standing instruction": over the limit (with both
     amounts), an amount below zero (with the amount), terms it can't read,
     the hour's allowance, or that the Company declined Iris's approval or
     answered it with new terms.
   - The log says "Applying your standing instruction" when it sends the
-    approval, and the next line says how the Company answered.
+    approval, and the next line says how the Company answered. For a change
+    the rule left to you it says "Standing instruction not applied", with
+    the same reason as the card, once; a reload lists it as it was.
   - In demo mode the answer about a change is written while the Company
     still holds it, so it ends "The Company holds a change until you click
     Approve." Once Iris has approved that change on the rule, the same answer
@@ -294,7 +296,8 @@ the log shows "Applying your standing instruction" and, on the next line, how
 the Company answered. One for $28.00 is not covered and waits in "Needs you"
 with "Approve $28.00" on its button and the reason on its card: "Your
 standing instruction did not apply: the total, $28.00, is over your limit of
-$20.00. It's up to you now."
+$20.00. It's up to you now." The log says "Standing instruction not applied
+· the total, $28.00, is over your limit of $20.00; waiting for you".
 
 **A hidden link.** A Company's message with
 `https://company.example/track?token=8f3a…` is shown as

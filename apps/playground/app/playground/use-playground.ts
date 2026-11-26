@@ -43,6 +43,7 @@ import type { ShownTask } from "@/lib/shown-tasks";
 import {
   nextAutoApproval,
   usesAllowance,
+  type Allowance,
   type ApprovalAnswer,
 } from "@/lib/auto-approval";
 import { directView } from "@/lib/direct-state";
@@ -656,9 +657,43 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
    * when the hour has passed.
    */
   const [heldBack, setHeldBack] = useState<Record<string, string>>({});
+  /**
+   * The Inspector's line for terms the standing instruction leaves to the
+   * User. The server makes the check again and keeps the line with the
+   * conversation, once, so a reload and History list it as it was; the page
+   * lists what the server answers. A request that fails lists nothing: the
+   * card still says why.
+   */
+  async function noteLeftToUser(op: Operation, allowance?: Allowance) {
+    setAccountBusy(true);
+    try {
+      const response = await fetch("/api/account", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-PAP-Company": result?.requestedUrl ?? companyUrl,
+          ...named(),
+        },
+        body: JSON.stringify({
+          action: "not_applied",
+          id: op.operation_id,
+          revision: op.revision,
+          instruction,
+          ...(allowance ? { allowance } : {}),
+        }),
+      });
+      const data = await response.json();
+      addTrace(data.trace ?? []);
+      if (response.ok) showOperations(data.operation);
+    } catch {
+      // Nothing to say: no approval was asked for.
+    } finally {
+      setAccountBusy(false);
+    }
+  }
   // A fixed check against the exact terms; each revision is tried once.
   // Anything it does not cover stays for the User in the Needs you panel,
-  // where its card says why (`leftToUser`).
+  // where its card says why (`leftToUser`), and the Inspector says it too.
   useEffect(() => {
     const next = nextAutoApproval({
       operations,
@@ -669,15 +704,15 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
       recent: loadApprovals(origin),
     });
     if (!next) return;
-    if (next.kind === "limit") {
-      const { op, reason } = next;
-      setHeldBack((old) => ({
-        ...old,
-        [`${op.operation_id}:${op.revision}`]: reason,
-      }));
-      addTrace([
-        `Standing instruction not applied · ${next.reason}; waiting for you`,
-      ]);
+    if (next.kind === "left") {
+      const { op, reason, allowance } = next;
+      if (allowance)
+        setHeldBack((old) => ({
+          ...old,
+          [`${op.operation_id}:${op.revision}`]: reason,
+        }));
+      // After a reload the conversation already keeps this reason's line.
+      if (op.notApplied !== reason) void noteLeftToUser(op, allowance);
       return;
     }
     // The next line of the log says how the Company answered. The server

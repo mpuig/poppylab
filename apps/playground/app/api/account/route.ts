@@ -28,7 +28,12 @@ import { extensionByKey, extensionsOn } from "@/lib/domain-extension";
 import { fdxStatementsByAccount } from "@/lib/demo-fdx";
 import { forgetLostAccount, recordOutcome } from "@/lib/transcript";
 import { refusalFacts } from "@/lib/protocol-log";
-import { applyingLine, keepLines, statementLine } from "@/lib/inspector-log";
+import {
+  applyingLine,
+  keepLines,
+  notAppliedLine,
+  statementLine,
+} from "@/lib/inspector-log";
 import { shownTasks } from "@/lib/shown-tasks";
 import {
   accountRecovery,
@@ -52,9 +57,17 @@ import {
   type Held,
 } from "@/lib/runs";
 import { overBudget } from "@/lib/limits";
-import { coveredBy, parseInstruction } from "@/lib/standing-instructions";
+import {
+  coveredBy,
+  notCovered,
+  parseInstruction,
+} from "@/lib/standing-instructions";
+import {
+  allowanceReason,
+  BUDGET_FACTOR,
+  MAX_PER_HOUR,
+} from "@/lib/auto-approval";
 import { statedReason } from "@/lib/operation-presentation";
-import { BUDGET_FACTOR, MAX_PER_HOUR } from "@/lib/auto-approval";
 import { directState } from "@/lib/direct-state";
 export const runtime = "nodejs";
 const issuer = "http://juniper.localhost:4100";
@@ -387,8 +400,13 @@ async function act(request: Request, started: { id?: string }) {
       access?: unknown;
       id?: string;
       revision?: string;
-      /** The User's standing instruction, for an agent approval (§5). */
+      /**
+       * The User's standing instruction: for an agent approval (§5), or for
+       * the line about terms it leaves to the User (`not_applied`).
+       */
       instruction?: unknown;
+      /** `not_applied`: the hour's limit the page says holds the terms back. */
+      allowance?: unknown;
       /** `fdx`, `espi`: Use FDX or Use ESPI on or off. */
       enabled?: unknown;
       /** `fdx_statement`: which statement of which shared account. */
@@ -706,10 +724,40 @@ async function act(request: Request, started: { id?: string }) {
         trace: said("Account grant revoked · Session signed out"),
       });
     }
-    if (!["approve", "decline", "retry"].includes(body.action))
+    if (!["approve", "decline", "retry", "not_applied"].includes(body.action))
       throw new Error();
     const op = run.operations?.[body.id ?? ""];
     if (!op || body.revision !== op.revision) throw new Error();
+    if (body.action === "not_applied") {
+      // The User's standing instruction lives in the browser, so the page
+      // is the one to see that it leaves these terms to the User. The check
+      // is made again here and the line is written in its words, once for
+      // each reason: a reload then lists it as it was, and asks for nothing.
+      const instruction = parseInstruction(body.instruction);
+      if (!instruction) throw new Error();
+      // An approval the Company declined or answered with new terms got
+      // its own line then.
+      const answered = op.agentDeclined || op.agentSuperseded;
+      // Only the hour's allowance can hold back terms the instruction
+      // covers. The page counts it over every conversation with the
+      // Company and this run over its own, so the page says which limit.
+      const reason = answered
+        ? undefined
+        : (notCovered(op, instruction) ??
+          (coveredBy(op, instruction) &&
+          (body.allowance === "count" || body.allowance === "total")
+            ? allowanceReason(body.allowance, instruction)
+            : undefined));
+      const lines: string[] = [];
+      if (reason && op.notApplied !== reason) {
+        op.notApplied = reason;
+        lines.push(...said(notAppliedLine(reason)));
+      }
+      return NextResponse.json(
+        { operation: op, trace: lines },
+        { headers: { "Cache-Control": "no-store" } },
+      );
+    }
     // Declining is local: the Company kept nothing to cancel (Operations v3).
     if (body.action === "decline") {
       if (op.state !== "proposed") throw new Error();
@@ -782,11 +830,26 @@ async function act(request: Request, started: { id?: string }) {
               : spent + covered.cents > instruction!.maxCents * BUDGET_FACTOR
                 ? `Your standing instruction approved more than ${BUDGET_FACTOR} times its limit in the last hour. Approve this one yourself.`
                 : undefined;
-      if (refusal || !covered)
+      if (refusal || !covered) {
+        // The page asks only when its own check and its own hour allow the
+        // approval, so here this run's hour is what holds it back. The
+        // Inspector says that as it does when the page sees it, once.
+        const held =
+          covered && !op.agentDeclined && !op.agentSuperseded
+            ? allowanceReason(
+                recent.length >= MAX_PER_HOUR ? "count" : "total",
+                instruction!,
+              )
+            : undefined;
+        if (held && op.notApplied !== held) {
+          op.notApplied = held;
+          said(notAppliedLine(held));
+        }
         return NextResponse.json(
-          { code: "not_covered", operation: op, error: refusal },
+          { code: "not_covered", operation: op, error: refusal, trace },
           { status: 409, headers: { "Cache-Control": "no-store" } },
         );
+      }
       approver = "agent";
       rule = covered.text;
       ruleCents = covered.cents;

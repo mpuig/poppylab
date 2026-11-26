@@ -1953,8 +1953,19 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
     }));
     const r = await approve(rule);
     expect(r.status).toBe(409);
-    expect((await r.json()).error).toContain("last hour");
+    const body = await r.json();
+    expect(body.error).toContain("last hour");
     expect(state.request).not.toHaveBeenCalled();
+    // The Inspector says the instruction was not applied after all, once.
+    const held =
+      "Standing instruction not applied · it already approved 5 changes in the last hour; waiting for you";
+    expect(body.trace).toEqual([held]);
+    expect((await (await approve(rule)).json()).trace).toEqual([]);
+    expect(
+      (state.run as { log?: Array<{ text: string }> }).log!.filter(
+        (line) => line.text === held,
+      ),
+    ).toHaveLength(1);
   });
 
   it("counts an approval with an unknown outcome once, at its amount, retried or not", async () => {
@@ -2270,6 +2281,117 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
     state.request.mockResolvedValueOnce({ summary: "Ordered." });
     expect((await approve()).status).toBe(200);
     expect(approvers()).toEqual(["agent", "user"]);
+  });
+
+  describe("the line for a change the instruction leaves to the User", () => {
+    type Line = { at: number; text: string };
+    const kept = () =>
+      ((state.run as { log?: Line[] }).log ?? []).map((line) => line.text);
+    const note = (instruction: unknown, more: object = {}) =>
+      POST(
+        request({
+          action: "not_applied",
+          id: "op_rule",
+          revision: "r1",
+          instruction,
+          ...more,
+        }),
+      );
+    const traced = async (instruction: unknown, more: object = {}) =>
+      (await (await note(instruction, more)).json()).trace;
+    const lower = { maxCents: 1000, currency: "USD" };
+    const over =
+      "Standing instruction not applied · the total, $12.00, is over your limit of $10.00; waiting for you";
+
+    it("is kept once with the conversation, in the words of the server's own check", async () => {
+      const r = await note(lower);
+      expect(r.status).toBe(200);
+      const body = await r.json();
+      expect(body.trace).toEqual([over]);
+      // The operation names the reason, so a reloaded page doesn't ask again.
+      expect(body.operation).toMatchObject({
+        state: "proposed",
+        notApplied: "the total, $12.00, is over your limit of $10.00",
+      });
+      const at = (state.run as { log?: Line[] }).log![0]!.at;
+      // Asked again all the same: nothing new.
+      expect(await traced(lower)).toEqual([]);
+      expect(kept()).toEqual([over]);
+      // A reload, or History, lists it as it was.
+      const reloaded = await (
+        await GET(
+          new Request(
+            "http://localhost:3000/api/account?conversation=run_fixture_0001",
+          ),
+        )
+      ).json();
+      expect(reloaded.log).toEqual([{ at, text: over }]);
+      // Nothing was sent to the Company, and the terms still wait.
+      expect(state.request).not.toHaveBeenCalled();
+    });
+
+    it("gives the reason the card gives: a refund, or another limit", async () => {
+      run.operations.op_rule!.terms = {
+        total_cents: 1200,
+        refund_cents: 500,
+        currency: "USD",
+      };
+      expect(await traced(rule)).toEqual([
+        "Standing instruction not applied · the terms include a refund, which it never approves; waiting for you",
+      ]);
+      propose();
+      await note(lower);
+      // The User lowered the limit: the reason is another, and is kept too.
+      await note({ maxCents: 500, currency: "USD" });
+      expect(kept().slice(-2)).toEqual([
+        over,
+        "Standing instruction not applied · the total, $12.00, is over your limit of $5.00; waiting for you",
+      ]);
+    });
+
+    it("says which of the hour's limits held a covered change back, in its own words", async () => {
+      // The page counts the hour over every conversation with the Company.
+      expect(await traced(rule, { allowance: "count" })).toEqual([
+        "Standing instruction not applied · it already approved 5 changes in the last hour; waiting for you",
+      ]);
+      propose();
+      expect(await traced(rule, { allowance: "total" })).toEqual([
+        "Standing instruction not applied · with this change it would approve more than 3 times your limit ($60.00) within an hour; waiting for you",
+      ]);
+      // Terms the rule doesn't cover are left for that reason, whatever
+      // the page says about the hour.
+      propose();
+      expect(await traced(lower, { allowance: "count" })).toEqual([over]);
+    });
+
+    it("keeps nothing for a change the instruction doesn't leave to the User", async () => {
+      // Covered, and nothing holds it back: the rule approves it.
+      expect(await traced(rule)).toEqual([]);
+      expect(await traced(rule, { allowance: "<b>any words</b>" })).toEqual([]);
+      // The Company's own answer has its own line.
+      run.operations.op_rule!.agentDeclined = {};
+      expect(await traced(lower)).toEqual([]);
+      // No longer waiting.
+      propose();
+      run.operations.op_rule!.state = "declined";
+      expect(await traced(lower)).toEqual([]);
+      // Not a rule, or not these terms.
+      propose();
+      expect((await note({ maxCents: -5, currency: "USD" })).status).toBe(400);
+      expect(
+        (
+          await POST(
+            request({
+              action: "not_applied",
+              id: "op_rule",
+              revision: "r0",
+              instruction: rule,
+            }),
+          )
+        ).status,
+      ).toBe(400);
+      expect(kept()).toEqual([]);
+    });
   });
 
   // Every answer an approval can get, sent first or retried, by the User
