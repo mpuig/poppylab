@@ -9,6 +9,8 @@ const transport = vi.hoisted(() =>
   vi.fn<(url: string, init?: RequestInit) => Promise<unknown>>(),
 );
 const discover = vi.hoisted(() => vi.fn());
+/** The Companies this playground may not sign in to. */
+const policy = vi.hoisted(() => ({ noAccount: [] as string[] }));
 vi.mock("@poppy-lab/pap-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@poppy-lab/pap-client")>()),
   protocolRequest: transport,
@@ -32,7 +34,7 @@ vi.mock("@/lib/deployment", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/deployment")>()),
   serving: () => true,
   publicMode: () => false,
-  isAccountCompany: () => true,
+  isAccountCompany: (origin: string) => !policy.noAccount.includes(origin),
   proposalsAllowed: () => true,
 }));
 import { connected, discovered } from "@/lib/company-fixture";
@@ -115,6 +117,7 @@ const sent = () =>
   }));
 
 beforeEach(() => {
+  policy.noAccount = [];
   transport.mockReset().mockImplementation(async (url) =>
     url.endsWith("/poppy/openapi.json")
       ? {
@@ -251,6 +254,168 @@ describe("an account action in a conversation with several Companies", () => {
       error:
         "This conversation isn't connected to a company. Connect one first.",
     });
+  });
+});
+
+describe("removing a Company from a conversation", () => {
+  const juniper = { origin: shop, name: "Juniper Market" };
+  const lantern = { origin: food, name: "Lantern Noodle Bar" };
+  const remove = (company: string) => act({ action: "remove", company });
+
+  it("revokes its grant there, as sign-out does, and goes on with the others", async () => {
+    const run = await conversation();
+    const other = structuredClone(run.connections[1]);
+    const removed = await remove(shop);
+    expect(removed.status).toBe(200);
+    const body = await removed.json();
+    // One request, to Juniper's own revocation endpoint, with its token.
+    expect(sent()).toHaveLength(1);
+    expect(sent()[0]!.url).toBe(`${shop}/oauth/revoke`);
+    expect(sent()[0]!.carried).toContain("refresh-shop.papsandbox.com");
+    expect(sent()[0]!.carried).not.toMatch(/food\.example/);
+    expect(body).toMatchObject({
+      removed: juniper,
+      revoked: true,
+      trace: [
+        "Account grant revoked · Juniper Market removed from the conversation",
+      ],
+      former: [{ ...juniper, url: shop, operations: [] }],
+    });
+    expect(body).not.toHaveProperty("notice");
+    // The conversation's Companies now, for the page to show.
+    expect(body.connections).toHaveLength(1);
+    expect(body.connections[0]).toMatchObject({ ...lantern, signedIn: true });
+    // What was shown with Juniper's account is gone; what was shown signed
+    // out stays, still saying where it came from.
+    expect(
+      body.history.map((e: { content: string; from: unknown }) => [
+        e.content,
+        e.from,
+      ]),
+    ).toEqual([
+      ["When do you deliver?", juniper],
+      ["Tuesday and Saturday.", juniper],
+      ["my orders", lantern],
+      ["Order 12 for Dana.", lantern],
+    ]);
+    expect(body.log.map((l: { text: string }) => l.text)).toEqual([
+      "GET /api/delivery · 200",
+      "GET /api/account/orders · 200",
+    ]);
+    // Nothing of Juniper's Session or sign-in is left in what is stored.
+    expect(run.connections).toEqual([other]);
+    expect(JSON.stringify(run)).not.toMatch(/refresh-shop|access-shop|Elena/);
+    expect(run.busy).toBe(false);
+    // The line of the removal is kept, and names no account data.
+    expect((await reload()).log.at(-1)).toEqual({
+      at: expect.any(Number),
+      text: body.trace[0],
+      signedOut: true,
+      from: juniper,
+    });
+  });
+
+  it("still removes a Company that can't be reached, and says its grant wasn't revoked", async () => {
+    const run = await conversation();
+    transport.mockRejectedValue(new Error("connect ECONNREFUSED"));
+    const removed = await remove(shop);
+    expect(removed.status).toBe(200);
+    expect(await removed.json()).toMatchObject({
+      removed: juniper,
+      revoked: false,
+      notice:
+        "Juniper Market couldn't be reached, so the access you gave Iris there wasn't revoked. You can end that access on Juniper Market's own website.",
+      trace: [
+        "Account grant not revoked · the Company could not be reached · Juniper Market removed from the conversation",
+      ],
+    });
+    expect(run.connections.map((c) => c.url)).toEqual([food]);
+    expect(JSON.stringify(run)).not.toMatch(/refresh-shop|access-shop/);
+  });
+
+  it("sends nothing for a Company that isn't signed in", async () => {
+    const run = await conversation((r) => {
+      const a = r.connections[0]!;
+      delete a.accountToken;
+      delete a.token;
+      delete a.scopes;
+    });
+    const body = await (await remove(shop)).json();
+    expect(body).toMatchObject({
+      removed: juniper,
+      trace: ["Juniper Market removed from the conversation"],
+    });
+    expect(body).not.toHaveProperty("revoked");
+    expect(transport).not.toHaveBeenCalled();
+    expect(run.connections).toHaveLength(1);
+  });
+
+  it("is refused while an approval sent there has an unknown outcome, and nothing is sent or removed", async () => {
+    const run = await conversation((r) => {
+      Object.assign(r.connections[0]!.operations!.op_1!, {
+        state: "uncertain",
+        approval: { approved_at: 1, reference: "apr_1" },
+      });
+    });
+    const sentThere = run.connections[0]!.operations!.op_1!;
+    const refused = await remove(shop);
+    expect(refused.status).toBe(409);
+    expect(await refused.json()).toEqual({
+      code: "approval_unsettled",
+      error:
+        "An approval sent to Juniper Market has an unknown outcome, so Juniper Market can't be removed yet. Retry that approval first: it is performed at most once. Without Juniper Market there would be no way to retry it, and the same change could be asked for twice.",
+      operations: [structuredClone(sentThere)],
+    });
+    expect(transport).not.toHaveBeenCalled();
+    expect(run.connections).toHaveLength(2);
+    expect(run.connections[0]!.accountToken).toBe(
+      "refresh-shop.papsandbox.com",
+    );
+    expect(run.busy).toBe(false);
+    // The other Company isn't held back by it.
+    expect((await remove(food)).status).toBe(200);
+    // Once the retry settled it, Juniper can go.
+    sentThere.state = "succeeded";
+    expect((await remove(shop)).status).toBe(200);
+    expect(run.connections).toEqual([]);
+    expect(run.former).toEqual([
+      { url: food, name: "Lantern Noodle Bar" },
+      { url: shop, name: "Juniper Market" },
+    ]);
+  });
+
+  it("has to say which Company, like every action", async () => {
+    const run = await conversation();
+    const refused = await act({ action: "remove" });
+    expect(refused.status).toBe(400);
+    expect((await refused.json()).code).toBe("company_required");
+    expect(run.connections).toHaveLength(2);
+  });
+
+  it("removes a Company this playground may not sign in to", async () => {
+    const run = await conversation();
+    policy.noAccount = [shop, food];
+    expect((await act({ action: "signout", company: food })).status).toBe(400);
+    expect((await remove(food)).status).toBe(200);
+    expect(run.connections.map((c) => c.url)).toEqual([shop]);
+  });
+
+  it("leaves a conversation with no Company, and its words, when the last one goes", async () => {
+    const run = await conversation();
+    await remove(food);
+    const last = await (await remove(shop)).json();
+    expect(last.connections).toEqual([]);
+    expect(last.former.map((f: { name: string }) => f.name)).toEqual([
+      "Lantern Noodle Bar",
+      "Juniper Market",
+    ]);
+    expect(run.connections).toEqual([]);
+    const data = await reload();
+    expect(data.missing).toBe(false);
+    expect(data.history.map((e: { content: string }) => e.content)).toEqual([
+      "When do you deliver?",
+      "Tuesday and Saturday.",
+    ]);
   });
 });
 

@@ -31,6 +31,7 @@ import {
   connectionState,
   wordsView,
 } from "@/lib/conversation-view";
+import { removeCompany } from "@/lib/removing";
 import { extensionByKey, extensionsOn } from "@/lib/domain-extension";
 import { fdxStatementsByAccount } from "@/lib/demo-fdx";
 import {
@@ -428,6 +429,24 @@ async function act(request: Request, started: { id?: string }) {
       status: 400,
       headers: { "Cache-Control": "no-store" },
     });
+  }
+  if (body.action === "remove") {
+    // The User takes this Company out of the conversation, which goes on
+    // with the others. Any Company can be removed, whether or not this
+    // playground may sign in to it.
+    try {
+      const removal = await removeCompany(run, connection);
+      if (removal.refused)
+        return NextResponse.json(
+          { ...removal.refused, operations: removal.operations },
+          { status: 409, headers: { "Cache-Control": "no-store" } },
+        );
+      return NextResponse.json(removal, {
+        headers: { "Cache-Control": "no-store" },
+      });
+    } finally {
+      await releaseRun(visitor, held).catch(() => {});
+    }
   }
   if (!isAccountCompany(new URL(connection.url).origin)) {
     await releaseRun(visitor, held);
