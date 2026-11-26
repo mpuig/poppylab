@@ -7,10 +7,9 @@ noodle order to Sunday."_ This page follows that task from the first fetch to
 the changed order, one trimmed request and response to a step, each linked to
 the [specification](https://personalagentprotocol.org/docs/1.0/spec).
 
-The traffic is from 25 November 2026, and the tasks response from the day
-after. The discovery documents and the tasks response are live; the Session
-JWT and the signed-in steps come from the same
-gateway code, run in-process by the lab's tests, because they need a fictional
+The traffic is from 25 and 26 November 2026. The discovery documents and the
+tasks response are live; the Session JWT and the signed-in steps come from the
+same gateway code, run in-process by the lab's tests, because they need a fictional
 customer's consent. URLs are the live ones; tokens are redacted.
 
 ## Who does what
@@ -55,11 +54,13 @@ GET https://food-demo.poppylab.dev/.well-known/poppy.json
     "issuer": "https://food-demo.poppylab.dev",
     "scopes": {
       "orders:read": "See your scheduled orders: dishes, delivery slot, address and price. Read only.",
-      "orders:write": "Change a scheduled order: move its slot, or add or remove dishes. …"
+      "orders:write": "Change a scheduled order: move its slot, or add or remove dishes. …",
+      "poppy:browser-sign-in": "Open Lantern's website in the agent's own browser, signed in to your account. …"
     },
     "scope_hints": { // (2)
       "orders:read": { "changes": "none", "personal_data": true },
-      "orders:write": { "changes": "irreversible", "personal_data": true }
+      "orders:write": { "changes": "irreversible", "personal_data": true },
+      "poppy:browser-sign-in": { "changes": "none", "personal_data": true }
     }
   },
   "apis": [
@@ -78,6 +79,9 @@ GET https://food-demo.poppylab.dev/.well-known/poppy.json
       }
     ]
   },
+  "web": {
+    "browser_session_endpoint": "https://food-demo.poppylab.dev/poppy/browser-session"
+  },
   "tasks": { "endpoint": "https://food-demo.poppylab.dev/poppy/tasks" },
   "extensions": { "operations": [{ "version": "3" }] } // (3)
 }
@@ -85,9 +89,11 @@ GET https://food-demo.poppylab.dev/.well-known/poppy.json
 
 1. **Who it's dealing with.** The name is the Company's claim; the domain is
    what discovery proved.
-2. **What it may ask for.** Two scopes, described for the approver;
+2. **What it may ask for.** Three scopes, described for the approver;
    `scope_hints` marks `orders:write` irreversible, so a read-only task can ask
-   for `orders:read` alone.
+   for `orders:read` alone. The third lets an agent's own browser open
+   Lantern's website signed in, read only; an agent without a browser never
+   asks for it.
 3. **That changes need approval.** Lantern answers a change with exact terms
    and waits for approval
    ([Operations](https://personalagentprotocol.org/docs/1.0/extensions/operations)).
@@ -108,7 +114,7 @@ endpoints:
 {
   "resource": "https://food-demo.poppylab.dev",
   "authorization_servers": ["https://food-demo.poppylab.dev"],
-  "scopes_supported": ["orders:read", "orders:write"]
+  "scopes_supported": ["orders:read", "orders:write", "poppy:browser-sign-in"]
 }
 ```
 

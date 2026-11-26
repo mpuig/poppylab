@@ -53,7 +53,8 @@ GET https://energy-demo.poppylab.dev/.well-known/poppy.json
       "espi:usage": "…",
       "espi:summary": "…",
       "espi:customer": "…",
-      "offline_access": "…"
+      "offline_access": "…",
+      "poppy:browser-sign-in": "…"
     },
     "scope_hints": { // (1)
       "espi:usage": { "changes": "none", "personal_data": true },

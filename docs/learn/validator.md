@@ -19,15 +19,15 @@ without one:
 
 | Company                                                    | Pass | Fail | Warn | Skipped |
 | ---------------------------------------------------------- | ---- | ---- | ---- | ------- |
-| [Lantern Noodle Bar](https://food-demo.poppylab.dev)       | 108  | 0    | 0    | 25      |
-| [Juniper Market](https://grocery-demo.poppylab.dev)        | 109  | 0    | 0    | 24      |
-| [Harborline Bank](https://bank-demo.poppylab.dev)          | 108  | 0    | 0    | 25      |
-| [Northwind Air](https://airline-demo.poppylab.dev)         | 108  | 0    | 0    | 25      |
-| [Fernwick Power & Light](https://energy-demo.poppylab.dev) | 108  | 0    | 0    | 25      |
+| [Lantern Noodle Bar](https://food-demo.poppylab.dev)       | 120  | 0    | 0    | 13      |
+| [Juniper Market](https://grocery-demo.poppylab.dev)        | 121  | 0    | 0    | 12      |
+| [Harborline Bank](https://bank-demo.poppylab.dev)          | 120  | 0    | 0    | 13      |
+| [Northwind Air](https://airline-demo.poppylab.dev)         | 120  | 0    | 0    | 13      |
+| [Fernwick Power & Light](https://energy-demo.poppylab.dev) | 120  | 0    | 0    | 13      |
 
-Skipped checks cover parts these Companies lack: browser join
-(12), MCP (4), several protocol versions (2), Device and Mediated Sign-In (3),
-a second domain under the same issuer (2) and streaming (1). One more depends
+Skipped checks cover parts these Companies lack: MCP (4), several protocol
+versions (2), Device and Mediated Sign-In (3), a second domain under the same
+issuer (2) and streaming (1). One more depends
 on the report. Juniper answers the validator's feedback report with an
 alternative, opening a support case through its API, and that alternative is
 checked. The other four answer a plain `202`, so no alternative is checked
