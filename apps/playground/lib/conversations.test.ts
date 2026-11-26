@@ -9,7 +9,7 @@ import {
   conversationTools,
   type CompanyEntry,
 } from "./conversations";
-import type { Run } from "./runtime";
+import type { Connection } from "./runtime";
 
 const endpoint = "https://food-demo.poppylab.dev/poppy/conversations";
 const company = (protocols: Array<{ type: string; endpoint: string }>) =>
@@ -33,7 +33,7 @@ const newRun = () =>
     busy: true,
     history: [],
     company: company([{ type: "poppy", endpoint }]),
-  }) as Run;
+  }) as Connection;
 const read = (events: unknown[], extra: Record<string, unknown> = {}) => ({
   conversation_id: "cnv_1",
   events,
@@ -72,14 +72,14 @@ const approval = {
   reference: "apr_test",
 };
 function tools(
-  run: Run,
+  run: Connection,
   respond: (url: string, body: unknown) => unknown,
   allowProposals = true,
 ) {
   const shown: CompanyEntry[] = [];
   const trace: string[] = [];
   const request = vi.fn(
-    async (_r: Run, url: string, _m: string, body?: unknown) =>
+    async (_r: Connection, url: string, _m: string, body?: unknown) =>
       respond(url, body),
   );
   const t = conversationTools(run, {
@@ -362,7 +362,7 @@ describe("conversations (§8) in Iris", () => {
       summary: "Refunded USD 8.00.",
     });
     const [, url, , body] = request.mock.calls[0]! as unknown as [
-      Run,
+      Connection,
       string,
       string,
       Record<string, unknown>,
@@ -440,7 +440,7 @@ describe("conversations (§8) in Iris", () => {
     // The Company, as §8.3 has it: an ID it accepted is good for that body only.
     const accepted = new Map<string, string>();
     const request = vi.fn(
-      async (_r: Run, _url: string, _m: string, body?: unknown) => {
+      async (_r: Connection, _url: string, _m: string, body?: unknown) => {
         const { id, message } = body as {
           id: string;
           message: {
@@ -503,7 +503,7 @@ describe("conversations (§8) in Iris", () => {
       request: { conversation: { endpoint, id: "cnv_1" } },
     };
     const answer = (message: Record<string, unknown>) =>
-      vi.fn(async (_r: Run, _url: string, _m: string, body?: unknown) =>
+      vi.fn(async (_r: Connection, _url: string, _m: string, body?: unknown) =>
         read([
           said("e13", {
             as_of_request: (body as { id: string }).id,
@@ -582,7 +582,7 @@ describe("conversations (§8) in Iris", () => {
     });
     await t.company_agent_cancel_handoff!.execute();
     const [, url, , body] = request.mock.calls[1]! as unknown as [
-      Run,
+      Connection,
       string,
       string,
       Record<string, unknown>,
@@ -604,7 +604,7 @@ describe("Direct Conversations (§8.10) in Iris", () => {
     const shown: CompanyEntry[] = [];
     const trace: string[] = [];
     const request = vi.fn(
-      async (_r: Run, url: string, _m: string, body?: unknown) =>
+      async (_r: Connection, url: string, _m: string, body?: unknown) =>
         respond(url, body),
     );
     const s = conversationSession(run, {
@@ -743,7 +743,7 @@ describe("Direct Conversations (§8.10) in Iris", () => {
       text: "I can refund USD 37.00 once you approve.",
       extensions: { operations: { operation } },
     });
-    const request = vi.fn(async (_r: Run, url: string) => {
+    const request = vi.fn(async (_r: Connection, url: string) => {
       // Read without a cursor: the whole thread, the proposal included.
       expect(url).toContain(`${endpoint}/cnv_d/messages`);
       expect(url).not.toContain("cursor=evt_9");

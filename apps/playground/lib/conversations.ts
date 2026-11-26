@@ -1,6 +1,6 @@
 /**
- * PAP 1.0 conversations (§8) from Iris's side: one conversation per run with
- * the Company's own agent. Every POST has a request `id`; Iris sends
+ * PAP 1.0 conversations (§8) from Iris's side: one conversation per
+ * connection with the Company's own agent. Every POST has a request `id`; Iris sends
  * structured requests in `data` (or `text`), reads the Company's events after
  * its saved cursor until `working` is false, and turns them into tool results
  * for the model and entries for the chat. Everything the Company says is
@@ -27,7 +27,7 @@ import {
 } from "@poppy-lab/pap-client";
 import type { DiscoveredCompany } from "@poppy-lab/pap-core";
 import { outcomeUnknown, recordOperation } from "./operation-store";
-import type { Operation, Run } from "./runtime";
+import type { Connection, Operation } from "./runtime";
 
 /** One conversation's read position and state. */
 type Thread = {
@@ -59,7 +59,7 @@ export type CompanyEntry = {
   direct?: boolean;
 };
 type Request = (
-  run: Run,
+  connection: Connection,
   url: string,
   method: "GET" | "POST",
   body?: unknown,
@@ -136,19 +136,19 @@ type Options = {
 };
 
 /** The model's tools for this Company's conversation endpoint. */
-export function conversationTools(run: Run, options: Options) {
-  return conversationSession(run, options).tools;
+export function conversationTools(connection: Connection, options: Options) {
+  return conversationSession(connection, options).tools;
 }
 
 /** What the User can do about a Direct Conversation, outside the model. */
 export type DirectAction = "accept" | "decline" | "start" | "say" | "close";
 
-export function conversationSession(run: Run, options: Options) {
-  const company = run.company!.document.organization.name;
+export function conversationSession(connection: Connection, options: Options) {
+  const company = connection.company!.document.organization.name;
   const state = (): ConversationState =>
-    run.conversation?.endpoint === options.endpoint
-      ? run.conversation
-      : (run.conversation = { endpoint: options.endpoint, seen: [] });
+    connection.conversation?.endpoint === options.endpoint
+      ? connection.conversation
+      : (connection.conversation = { endpoint: options.endpoint, seen: [] });
 
   /** Handles new events; returns what the model gets. */
   function handle(read: ReturnType<typeof parseRead>, target?: Thread) {
@@ -196,7 +196,7 @@ export function conversationSession(run: Run, options: Options) {
           } else {
             let op: Operation | undefined;
             try {
-              op = recordOperation(run, operation, {
+              op = recordOperation(connection, operation, {
                 conversation: { endpoint: options.endpoint, id: read.id },
               });
             } catch {
@@ -245,7 +245,7 @@ export function conversationSession(run: Run, options: Options) {
         options.trace(`Conversation authorization event · scope ${scope}`);
         result.sign_in = {
           scope,
-          instruction: run.accountToken
+          instruction: connection.accountToken
             ? "Ask the user to choose Request change permission in the chat, then send the request again. The conversation stays open."
             : "Ask the user to use the Sign in control in the chat, then send the request again. The conversation stays open.",
         };
@@ -310,7 +310,7 @@ export function conversationSession(run: Run, options: Options) {
     const url = new URL(path);
     url.searchParams.set("wait", "10");
     if (s.cursor) url.searchParams.set("cursor", s.cursor);
-    const send = () => options.request(run, url.href, method, body);
+    const send = () => options.request(connection, url.href, method, body);
     let value: unknown;
     try {
       value = await send();
@@ -330,7 +330,7 @@ export function conversationSession(run: Run, options: Options) {
     for (let page = 0; read.hasMore && page < 3; page++) {
       read = parseRead(
         await options.request(
-          run,
+          connection,
           `${options.endpoint}/${read.id}/events?cursor=${s.cursor}`,
           "GET",
         ),
@@ -374,7 +374,7 @@ export function conversationSession(run: Run, options: Options) {
             note: "That direct conversation is over, so nothing was sent. Iris is back.",
           };
         }
-        run.conversation = { endpoint: options.endpoint, seen: [] };
+        connection.conversation = { endpoint: options.endpoint, seen: [] };
         return {
           error: error.code,
           note: "That conversation is over. Send again to start a new one.",
@@ -649,7 +649,7 @@ export const approvalRequestId = (approval: Approval) =>
  * error in answer to the approval, as `approval_declined`, as at an API.
  */
 export async function approveInConversation(
-  run: Run,
+  connection: Connection,
   op: Operation,
   approval: Approval,
   request: Request,
@@ -657,9 +657,9 @@ export async function approveInConversation(
   const target = op.request?.conversation;
   if (!target) throw new Error("Operation request unavailable");
   const s =
-    run.conversation?.endpoint === target.endpoint
-      ? run.conversation
-      : (run.conversation = {
+    connection.conversation?.endpoint === target.endpoint
+      ? connection.conversation
+      : (connection.conversation = {
           endpoint: target.endpoint,
           seen: [],
           id: target.id,
@@ -672,7 +672,7 @@ export async function approveInConversation(
   const url = new URL(`${target.endpoint}/${target.id}/messages`);
   url.searchParams.set("wait", "10");
   if (thread?.cursor) url.searchParams.set("cursor", thread.cursor);
-  const value = await request(run, url.href, "POST", {
+  const value = await request(connection, url.href, "POST", {
     id: requestId,
     message: {
       author: { type: "agent" },
@@ -741,6 +741,6 @@ export async function approveInConversation(
   return {
     summary:
       summary ??
-      `${run.company?.document.organization.name ?? "The Company"} recorded the approval and added no reply: it had already performed this operation.`,
+      `${connection.company?.document.organization.name ?? "The Company"} recorded the approval and added no reply: it had already performed this operation.`,
   };
 }

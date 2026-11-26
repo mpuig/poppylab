@@ -4,7 +4,7 @@
  * so the page never guesses whether the User's next words are for the
  * Company or for Iris.
  */
-import type { Run } from "./runtime";
+import type { Connection } from "./runtime";
 
 /**
  * §8.10: whether the User is in a Direct Conversation, or invited to one,
@@ -16,12 +16,16 @@ import type { Run } from "./runtime";
  * request in it would be refused until the User signs in again.
  */
 export function directState(
-  run: Pick<Run, "conversation" | "accountToken" | "accountUnavailable">,
+  connection: Pick<
+    Connection,
+    "conversation" | "accountToken" | "accountUnavailable"
+  >,
 ) {
-  const c = run.conversation;
+  const c = connection.conversation;
   return {
     direct: !!(c?.direct && !c.direct.closed),
-    conversation: !!c?.id && !(run.accountToken && run.accountUnavailable),
+    conversation:
+      !!c?.id && !(connection.accountToken && connection.accountUnavailable),
     invitation: c?.invitation?.reason ?? (c?.invitation ? "" : null),
   };
 }
