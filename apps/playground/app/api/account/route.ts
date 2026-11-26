@@ -80,6 +80,8 @@ function signedOutLocally(run: Run) {
   run.history = [];
   delete run.transcript;
   delete run.publicHistory;
+  // History lists it under its first request, which is gone with the rest.
+  delete run.title;
   // Iris forgets it; the Company keeps the conversation open (§5.5).
   delete run.conversation;
 }

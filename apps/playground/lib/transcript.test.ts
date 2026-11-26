@@ -455,4 +455,27 @@ describe("what a sign-in keeps of the transcript", () => {
     keepSignedOutTranscript(r);
     expect(r).not.toHaveProperty("transcript");
   });
+
+  it("names the conversation after the first request still shown, or not at all", () => {
+    // History lists it under `title`: the first request, as the chat sets it.
+    const r = signedOut();
+    r.accountToken = "first-account";
+    r.title = "Show my orders";
+    recordTurn(r, "Show my orders", "Order ord_PRIVATE_1 for Elena.");
+    // The model's turns go back to the public ones first: none here.
+    r.history = [];
+    keepSignedOutTranscript(r);
+    // Nothing of it is left to open, so no words of it are listed either.
+    expect(r).not.toHaveProperty("title");
+
+    const later = signedOut();
+    recordDirect(later, company, "start", "hello there", opened, true);
+    recordTurn(later, "  When do you deliver?", "Tuesday and Saturday.");
+    later.accountToken = "first-account";
+    later.title = "Show my orders";
+    recordTurn(later, "Show my orders", "Order ord_PRIVATE_1 for Elena.");
+    keepSignedOutTranscript(later);
+    // Not words said to the Company in a Direct Conversation.
+    expect(later.title).toBe("When do you deliver?");
+  });
 });

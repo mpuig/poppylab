@@ -237,13 +237,14 @@ export const isConversationId = (id: unknown): id is string =>
 const locked = (run: Run, now = Date.now()) =>
   run.busy && (run.busyUntil ?? 0) > now;
 const startOf = (run: Run) => run.created ?? run.expires - RUN_MS;
+/**
+ * Nothing said, or nothing of it left: a sign-in or a sign-out can take
+ * back everything the conversation showed.
+ */
+const wordless = (run: Run) =>
+  !run.title && !run.history.length && !run.transcript?.length;
 /** Nothing said, no account, no sign-in under way. */
-const untouched = (run: Run) =>
-  !run.title &&
-  !run.history.length &&
-  !run.transcript?.length &&
-  !run.accountToken &&
-  !run.auth;
+const untouched = (run: Run) => wordless(run) && !run.accountToken && !run.auth;
 
 export async function loadRun(visitor: string, id: string | undefined) {
   if (!isConversationId(id)) return undefined;
@@ -301,10 +302,11 @@ async function sweep(visitor: string, room = 0) {
     if (
       run.protocol !== "1.0" ||
       (run.archived && (!kept(run, now) || untouched(run))) ||
-      // Nothing to read in one that ended untouched.
+      // Nothing to read in one that ended without words. Its sign-in, if
+      // it had one, ends with it either way.
       (!run.archived &&
         run.expires <= now &&
-        untouched(run) &&
+        wordless(run) &&
         !locked(run, now))
     ) {
       await b.remove(visitor, key);

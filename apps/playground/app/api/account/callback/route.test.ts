@@ -89,7 +89,7 @@ vi.mock("@/lib/deployment", () => ({
   localOrigins: ["http://juniper.localhost:4100"],
 }));
 import { GET } from "./route";
-import { seedRun } from "@/lib/runs";
+import { listConversations, seedRun, visitorOf } from "@/lib/runs";
 import { directState } from "@/lib/direct-state";
 import { ProtocolError } from "@poppy-lab/pap-client";
 beforeEach(async () => {
@@ -333,6 +333,37 @@ it("retains only pre-account turns on later consent, never another account's con
   expect(JSON.stringify(s.run.history)).not.toContain("Private order");
 });
 
+/**
+ * A Company that keeps §8.2 for a conversation `owner`'s account has used
+ * (none: no account has), given the account each access token is for. It
+ * answers the events, a challenge, or `conversation_not_found`. Returns who
+ * asked, in order: the access token sent, or "signed out".
+ */
+function companyKeeping(
+  owner: string | undefined,
+  accounts: Record<string, string>,
+) {
+  const asked: string[] = [];
+  s.pap.mockImplementation(
+    async (
+      r: { token?: string },
+      _url: string,
+      _method: string,
+      _body: unknown,
+      options?: { signedOut?: boolean },
+    ) => {
+      const token = options?.signedOut ? undefined : r.token;
+      asked.push(token ?? "signed out");
+      const account = token ? accounts[token] : undefined;
+      if (owner && !account) throw new ProtocolError(401, undefined);
+      if (owner && account !== owner)
+        throw new ProtocolError(404, "conversation_not_found");
+      return { conversation_id: "cnv_1", events: [] };
+    },
+  );
+  return asked;
+}
+
 describe("the conversation with the Company's agent across a sign-in (§8.2)", () => {
   const endpoint = "https://food.papsandbox.com/poppy/conversations";
   const run = s.run as typeof s.run & { conversation?: unknown };
@@ -355,20 +386,38 @@ describe("the conversation with the Company's agent across a sign-in (§8.2)", (
   });
 
   it("keeps it for the same account: the Company still takes the new sign-in on both threads", async () => {
-    const tokens: unknown[] = [];
-    s.pap.mockImplementation(async (r: { token?: string }) => {
-      tokens.push(r.token);
-      return { conversation_id: "cnv_1", events: [] };
+    s.run.token = "old-access";
+    const asked = companyKeeping("elena", {
+      "old-access": "elena",
+      "new-access": "elena",
     });
     expect(await landed()).toBe(DONE);
     expect(run.conversation).toEqual(open());
-    // Asked with the new sign-in, as reads that change nothing here.
-    expect(tokens).toEqual(["new-access", "new-access"]);
-    expect(s.pap.mock.calls.map((call) => call.slice(1))).toEqual([
+    // Reads that change nothing here. First whether it has used the
+    // account of the sign-in being replaced, then with the new sign-in.
+    expect(asked).toEqual([
+      "signed out",
+      "old-access",
+      "new-access",
+      "new-access",
+    ]);
+    expect(s.pap.mock.calls.map((call) => call.slice(1, 3))).toEqual([
+      [`${endpoint}/cnv_1/events?cursor=evt_9`, "GET"],
+      [`${endpoint}/cnv_1/events?cursor=evt_9`, "GET"],
       [`${endpoint}/cnv_1/events?cursor=evt_9`, "GET"],
       [`${endpoint}/cnv_d/events?cursor=evt_d3`, "GET"],
     ]);
     expect(directState(s.run as never).direct).toBe(true);
+  });
+
+  it("keeps one that no account has used, asking only with the new sign-in", async () => {
+    s.run.token = "old-access";
+    const asked = companyKeeping(undefined, {});
+    expect(await landed()).toBe(DONE);
+    expect(run.conversation).toEqual(open());
+    // Never with the sign-in being replaced: that would make the
+    // conversation its account's, and another account's sign-in lose it.
+    expect(asked).toEqual(["signed out", "new-access", "new-access"]);
   });
 
   it.each([
@@ -606,5 +655,140 @@ describe("what the page shows of the conversation after a sign-in", () => {
     // The page then shows the public history, as it did before.
     expect(run.transcript).toBeUndefined();
     expect(s.run.history).toEqual(publicTurns);
+  });
+
+  describe("and what History lists it under", () => {
+    const titled = run as typeof run & { title?: string };
+    const visitor = visitorOf({
+      get: () => ({ value: "v".repeat(43) }),
+      set: vi.fn(),
+    })!;
+    const listed = async () =>
+      (await listConversations(visitor)).find(
+        (item) => item.id === "run_fixture_0001",
+      );
+    afterEach(() => {
+      delete titled.title;
+    });
+
+    it("no longer lists it under a request the sign-in removed", async () => {
+      // Everything was said with the account: nothing of it is left.
+      titled.title = "Show my orders";
+      s.run.history = structuredClone(withAccount.slice(0, 1)) as never;
+      run.transcript = structuredClone(withAccount);
+      expect((await GET(req())).status).toBe(303);
+      expect(run.transcript).toBeUndefined();
+      expect(titled.title).toBeUndefined();
+      // Listed as the empty conversation it now is, while it runs…
+      const item = await listed();
+      expect(item).toMatchObject({ active: true });
+      expect(item).not.toHaveProperty("title");
+      // …and not at all once it has ended with nothing to read.
+      s.run.expires = Date.now() - 1;
+      try {
+        expect(await listed()).toBeUndefined();
+      } finally {
+        s.run.expires = Date.now() + 60000;
+        await seedRun("v".repeat(43), "run_fixture_0001", s.run as never);
+      }
+    });
+
+    it("lists it under the first request still shown", async () => {
+      titled.title = "my orders";
+      s.run.publicHistory = structuredClone(publicTurns);
+      run.transcript = structuredClone([...withAccount, ...before]);
+      expect((await GET(req())).status).toBe(303);
+      expect(titled.title).toBe("When do you deliver?");
+    });
+  });
+
+  describe("when the conversation with the Company's agent used the account (§8.2)", () => {
+    const talking = run as typeof run & { conversation?: unknown };
+    const thread = () => ({
+      endpoint: "https://food.papsandbox.com/poppy/conversations",
+      id: "cnv_1",
+      cursor: "evt_9",
+      seen: ["evt_9"],
+    });
+    const turns = [
+      ...publicTurns,
+      { role: "assistant" as const, content: "Private order details" },
+    ];
+    const whole = () => structuredClone([...before, ...withAccount]);
+    const proposal = { op_1: { operation_id: "op_1", state: "proposed" } };
+    beforeEach(() => {
+      s.pap.mockReset();
+      talking.conversation = thread();
+      s.run.token = "old-access";
+      s.run.publicHistory = structuredClone(publicTurns);
+      s.run.history = structuredClone(turns);
+      run.transcript = whole();
+      s.run.operations = structuredClone(proposal);
+    });
+    afterEach(() => {
+      delete talking.conversation;
+    });
+    /** The conversation as a sign-in leaves it when it may be another's. */
+    const reset = () => {
+      expect(run.transcript).toEqual(before);
+      expect(s.run.history).toEqual(publicTurns);
+      expect(s.run.operations).toEqual({});
+      expect(
+        JSON.stringify([run.transcript, s.run.history, s.run.operations]),
+      ).not.toMatch(/Private|op_1/);
+    };
+
+    it("keeps the whole conversation when the new sign-in is for the same account", async () => {
+      const asked = companyKeeping("elena", {
+        "old-access": "elena",
+        "new-access": "elena",
+      });
+      expect((await GET(req())).status).toBe(303);
+      // What the page showed with the account, the model's turns and the
+      // proposals: all of it is this account's.
+      expect(run.transcript).toEqual(whole());
+      expect(s.run.history).toEqual(turns);
+      expect(s.run.operations).toEqual(proposal);
+      expect(talking.conversation).toEqual(thread());
+      // The new sign-in is in use, and the old one is revoked as before.
+      expect(s.run.token).toBe("new-access");
+      expect(s.revoke).toHaveBeenCalledWith(s.run, "old-refresh");
+      // A later sign-in as someone else still goes back to the public part.
+      expect(s.run.publicHistory).toEqual(publicTurns);
+      expect(asked).toEqual(["signed out", "old-access", "new-access"]);
+    });
+
+    it("keeps only the public part when the new sign-in is for another account", async () => {
+      companyKeeping("elena", { "old-access": "elena", "new-access": "robin" });
+      expect((await GET(req())).status).toBe(303);
+      reset();
+      expect(talking.conversation).toBeUndefined();
+    });
+
+    it("keeps only the public part when no account has used the conversation: it says nothing about the sign-in", async () => {
+      companyKeeping(undefined, {});
+      expect((await GET(req())).status).toBe(303);
+      reset();
+      expect(talking.conversation).toEqual(thread());
+    });
+
+    it("keeps only the public part when the conversation is another account's than the sign-in being replaced", async () => {
+      // The new sign-in reads it, the one the answers were read with can't.
+      companyKeeping("robin", { "old-access": "elena", "new-access": "robin" });
+      expect((await GET(req())).status).toBe(303);
+      reset();
+    });
+
+    it.each([
+      ["doesn't answer", new Error("socket hang up")],
+      ["fails", new ProtocolError(503, undefined)],
+    ])(
+      "keeps only the public part when the Company %s",
+      async (_name, error) => {
+        s.pap.mockRejectedValue(error);
+        expect((await GET(req())).status).toBe(303);
+        reset();
+      },
+    );
   });
 });

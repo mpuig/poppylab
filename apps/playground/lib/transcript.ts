@@ -123,11 +123,21 @@ function show(run: Run, ...entries: TranscriptEntry[]) {
  * that part as it showed it. Everything shown with an account goes, and so
  * does an entry that doesn't say which it was: a transcript stored before
  * entries said so is dropped whole, and the page shows `history` instead.
+ *
+ * History lists the conversation under its first request (`title`), which
+ * may be one of those that went. It is then listed under the first request
+ * the page still shows, and under none when nothing is left: the next
+ * request names it.
  */
 export function keepSignedOutTranscript(run: Run) {
   const kept = (run.transcript ?? []).filter((entry) => entry.signedOut);
   if (kept.length) run.transcript = kept;
   else delete run.transcript;
+  const shown: TranscriptEntry[] = run.transcript ?? run.history;
+  // Not words the User said to the Company in a Direct Conversation.
+  const first = shown.find((entry) => entry.role === "user" && !entry.direct);
+  if (first) run.title = first.content.trim().slice(0, 80);
+  else delete run.title;
   // The Inspector's lines follow the same rule.
   keepSignedOutLines(run);
 }

@@ -11,7 +11,12 @@ import {
   usesDpop,
   type Run,
 } from "@/lib/runtime";
-import { assertion, proof, protocolRequest } from "@poppy-lab/pap-client";
+import {
+  assertion,
+  proof,
+  protocolRequest,
+  ProtocolError,
+} from "@poppy-lab/pap-client";
 import { keepTokenFields, tokenResponse } from "../../../../lib/token-response";
 import { serving } from "@/lib/deployment";
 import { acquireRun, releaseRun, runForState, visitorOf } from "@/lib/runs";
@@ -19,12 +24,18 @@ import { keepSignedOutTranscript } from "@/lib/transcript";
 import { keepLines } from "@/lib/inspector-log";
 export const runtime = "nodejs";
 
+/** A thread's events from its saved cursor: a read that changes nothing here. */
+const events = (endpoint: string, thread: { id?: string; cursor?: string }) => {
+  const url = new URL(`${endpoint}/${thread.id}/events`);
+  if (thread.cursor) url.searchParams.set("cursor", thread.cursor);
+  return url.href;
+};
+
 /**
  * §8.2: a conversation that used an account belongs to it, and a token
  * response doesn't say which account a sign-in is for. The Company does: it
  * answers `conversation_not_found` to another account. So each thread is
- * read once with the new sign-in, from its saved cursor, which changes
- * nothing here. Any answer but the events counts as no.
+ * read once with the new sign-in. Any answer but the events counts as no.
  */
 async function sameOwner(run: Run) {
   const conversation = run.conversation;
@@ -32,10 +43,43 @@ async function sameOwner(run: Run) {
   try {
     for (const thread of [conversation, conversation.direct]) {
       if (!thread) continue;
-      const url = new URL(`${conversation.endpoint}/${thread.id}/events`);
-      if (thread.cursor) url.searchParams.set("cursor", thread.cursor);
-      await papRequest(run, url.href, "GET");
+      await papRequest(run, events(conversation.endpoint, thread), "GET");
     }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Whether the conversation with the Company's agent has used the account of
+ * the sign-in the run holds, asked before a new one replaces it. Only then
+ * does `sameOwner` say the new sign-in is for that account: a conversation
+ * no account has used answers any sign-in (§8.2).
+ *
+ * Signed out, the Company refuses one that used an account with a challenge
+ * (§8.11), and answers one that didn't. That one is left as it is: read
+ * with the old sign-in it would become its account's. Then the old sign-in
+ * must still read it, which only that account's can. Any other answer
+ * counts as no.
+ */
+async function usedThisAccount(run: Run) {
+  const conversation = run.conversation;
+  if (!run.accountToken || !conversation?.id) return false;
+  const url = events(conversation.endpoint, conversation);
+  try {
+    await papRequest(run, url, "GET", undefined, { signedOut: true });
+    return false;
+  } catch (error) {
+    if (!(
+      error instanceof ProtocolError &&
+      error.status === 401 &&
+      !error.code
+    ))
+      return false;
+  }
+  try {
+    await papRequest(run, url, "GET");
     return true;
   } catch {
     return false;
@@ -130,6 +174,8 @@ export async function GET(request: Request) {
         : undefined,
     )) as Record<string, unknown>;
     const result = tokenResponse(raw, pending.scopes, !!dpop, true);
+    // Asked while the run still holds the sign-in this one replaces.
+    const used = await usedThisAccount(run);
     const replaced = run.accountToken;
     // Preserve the conversation from public access, including across later
     // consent. Account-specific turns and approvals cannot cross accounts.
@@ -139,10 +185,6 @@ export async function GET(request: Request) {
     newSession(run);
     delete run.accountUnavailable;
     run.consentVersion = (run.consentVersion ?? 0) + 1;
-    run.history = structuredClone(run.publicHistory ?? []);
-    // The page keeps that public part as it showed it, and nothing else.
-    keepSignedOutTranscript(run);
-    run.operations = {};
     run.scopes = result.scope;
     run.token = result.accessToken;
     run.tokenType = result.tokenType;
@@ -160,7 +202,19 @@ export async function GET(request: Request) {
     // this one replaces. The same account goes on in it (§8.11); for
     // another, Iris forgets it, as at sign-out. Signed out before, no
     // account had used it.
-    if (replaced && !(await sameOwner(run))) delete run.conversation;
+    const same = !!replaced && (await sameOwner(run));
+    if (replaced && !same) delete run.conversation;
+    // What Iris read and showed with the account, and the proposals it
+    // got, stay only for a sign-in the Company's answers show to be for
+    // the same account: the conversation had used it, and still takes this
+    // one. Any other may be someone else's, or there is no way to tell,
+    // and the conversation goes back to what it was before any account
+    // access. The page keeps that public part as it showed it.
+    if (!(used && same)) {
+      run.history = structuredClone(run.publicHistory ?? []);
+      keepSignedOutTranscript(run);
+      run.operations = {};
+    }
     // §4.7: revoke the refresh token the new sign-in replaced (best effort;
     // revoking a replaced token isn't sign-out).
     if (replaced) void revokeRefreshToken(run, replaced).catch(() => undefined);

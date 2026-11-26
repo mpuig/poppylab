@@ -261,3 +261,20 @@ it("leaves no trail of conversations nothing was said in", async () => {
     [signing.id, third.id].sort(),
   );
 });
+
+it("doesn't list an ended conversation that has no words left to read", async () => {
+  configureBackend(memoryBackend());
+  const start = Date.now();
+  vi.useFakeTimers({ now: start });
+  // Signed in, and a sign-in or sign-out took back what was said in it.
+  const held = await createRun("v", "https://juniper.example");
+  held.run.accountToken = "refresh-secret";
+  await releaseRun("v", held);
+  // While it runs it is the conversation the page is on, with no messages.
+  expect(await listConversations("v")).toEqual([
+    expect.objectContaining({ id: held.id, active: true }),
+  ]);
+  vi.setSystemTime(start + 31 * 60000);
+  // Ended, there is nothing in it to open.
+  expect(await listConversations("v")).toEqual([]);
+});

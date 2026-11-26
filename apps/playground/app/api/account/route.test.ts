@@ -324,10 +324,15 @@ describe("Human-controlled account boundary", () => {
   });
   it("signs out by revoking the refresh token; the Session continues signed out", async () => {
     state.revoke.mockResolvedValue(undefined);
+    const run = state.run as { title?: string };
+    run.title = "Show my orders";
     expect((await POST(request({ action: "signout" }))).status).toBe(200);
     expect(state.revoke).toHaveBeenCalledWith(state.run, "secret");
     expect(state.run.accountToken).toBeUndefined();
     expect(state.run.token).toBeUndefined();
+    // Sign-out empties the conversation, so History no longer lists it
+    // under words that aren't in it.
+    expect(run.title).toBeUndefined();
   });
   it("signs out of every service: no per-service token is kept (§4.5)", async () => {
     const run = state.run as { resourceTokens?: unknown };
