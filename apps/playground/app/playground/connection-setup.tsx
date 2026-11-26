@@ -1,34 +1,27 @@
 "use client";
-import { useEffect, useState } from "react";
-import { ArrowUpRight, LoaderCircle } from "lucide-react";
+import { useEffect } from "react";
+import { LoaderCircle } from "lucide-react";
 import { ModelSettings } from "../model-settings";
 import { labCompany } from "./companies";
 import type { Playground } from "./use-playground";
 
 /**
- * Model settings and the connection: one status row, and the address form
- * only when it is needed (another Company's address, or changing Company).
- * The lab's own Companies are picked from the cards in the conversation.
+ * Model settings and the connection: one status row before there is a
+ * conversation (the Companies bar follows once there is one), and the
+ * address form only when it is needed (another Company's address). The
+ * lab's own Companies are picked from the cards in the conversation, or
+ * from the bar.
  */
-export function ConnectionSetup({
-  p,
-  onInspect,
-}: {
-  p: Playground;
-  onInspect: () => void;
-}) {
-  const { result, busy, discovering } = p;
-  // `connected` implies a result; keep the type in step with the flag.
-  const company = p.connected ? result : null;
-  const [editing, setEditing] = useState(false);
+export function ConnectionSetup({ p }: { p: Playground }) {
+  const { busy, discovering } = p;
+  const started = !!p.conversation || !!p.companies.length;
   // An address that isn't one of the cards has to be seen to be sent.
-  const form = editing || (!company && !labCompany(p.companyUrl));
+  const form =
+    !p.readOnly &&
+    (p.addressOpen || (!started && !discovering && !labCompany(p.companyUrl)));
   useEffect(() => {
-    if (company) setEditing(false);
-  }, [company]);
-  useEffect(() => {
-    if (editing) document.getElementById("company-url")?.focus();
-  }, [editing]);
+    if (p.addressOpen) document.getElementById("company-url")?.focus();
+  }, [p.addressOpen]);
   return (
     <div className="workspace-setup">
       <ModelSettings onChange={p.configureModel} disabled={busy} />
@@ -59,56 +52,47 @@ export function ConnectionSetup({
               "Connect"
             )}
           </button>
+          {started && (
+            <button
+              type="button"
+              className="text-button"
+              disabled={busy}
+              onClick={() => p.setAddressOpen(false)}
+            >
+              Cancel
+            </button>
+          )}
+          {started && p.addError && (
+            <p className="error-message" role="alert">
+              {p.addError}
+            </p>
+          )}
         </form>
       )}
-      <div className="connection-row">
-        {company ? (
-          // What discovery proved: a valid poppy.json at this domain. Account
-          // access is shown in the conversation header, not here.
-          <span className="connected">
-            <span className="quiet">Found</span>{" "}
-            {company.document.organization.name}
+      {!started && (
+        <div className="connection-row">
+          {discovering ? (
             <span className="quiet">
-              {" "}
-              · {company.document.organization.domain} ·{" "}
-              {company.document.apis?.length ?? 0}{" "}
-              {(company.document.apis?.length ?? 0) === 1 ? "API" : "APIs"} ·{" "}
-              {company.document.agent?.protocols.some((p) => p.type === "poppy")
-                ? "Company agent · "
-                : ""}
-              Poppy {company.document.protocol_version}
+              <LoaderCircle className="spin" size={13} /> Connecting to{" "}
+              {labCompany(p.companyUrl)?.name ?? "the company"}…
             </span>
-          </span>
-        ) : discovering ? (
-          <span className="quiet">
-            <LoaderCircle className="spin" size={13} /> Connecting to{" "}
-            {labCompany(p.companyUrl)?.name ?? "the company"}…
-          </span>
-        ) : (
-          <span className="quiet">Not connected yet.</span>
-        )}
-        <span className="connection-actions">
-          {!form && (
-            <button
-              type="button"
-              className="text-button inspect-link"
-              disabled={busy}
-              onClick={() => setEditing(true)}
-            >
-              {company ? "Change company" : "Use another address"}
-            </button>
+          ) : (
+            <span className="quiet">Not connected yet.</span>
           )}
-          {result && (
-            <button
-              type="button"
-              className="text-button inspect-link"
-              onClick={onInspect}
-            >
-              Inspect connection <ArrowUpRight size={13} />
-            </button>
-          )}
-        </span>
-      </div>
+          <span className="connection-actions">
+            {!form && (
+              <button
+                type="button"
+                className="text-button inspect-link"
+                disabled={busy}
+                onClick={() => p.setAddressOpen(true)}
+              >
+                Use another address
+              </button>
+            )}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

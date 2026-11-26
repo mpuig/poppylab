@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Check } from "lucide-react";
-import { companyProfile } from "@poppy-lab/pap-core";
 import {
   guideHint,
   guideProposals,
@@ -10,7 +9,14 @@ import {
   nextExpiry,
   type GuideOperation,
 } from "@/lib/guide";
-import { accountCompany, labCompany } from "./companies";
+import { needsYou } from "@/lib/operation-presentation";
+import { labCompany } from "./companies";
+import {
+  inFocus,
+  mayChange,
+  offersSignIn,
+  type CompanyState,
+} from "./company-state";
 import type { Playground } from "./use-playground";
 
 /**
@@ -33,16 +39,37 @@ export function useProposalClock(operations: GuideOperation[]) {
   return now;
 }
 
+/**
+ * The Company the guide speaks about, with several: the one holding the
+ * proposal that changed last while it waits for the User, since that is
+ * theirs to do; otherwise the one the last turn was with. Every sentence
+ * names it, so each stays true of that Company.
+ */
+export function guideCompany(
+  companies: CompanyState[],
+  lastTurn: string | undefined,
+  now = Date.now(),
+) {
+  const waits = companies
+    .flatMap((c) =>
+      c.operations
+        .filter((op) => needsYou(op, now))
+        .map((op) => ({ origin: c.origin, changed: op.changed ?? 0 })),
+    )
+    .sort((a, b) => b.changed - a.changed)[0];
+  return inFocus(companies, lastTurn, waits?.origin);
+}
+
 /** The four moves of a first run, the one the visitor is on, and what to do. */
 export function Guide({ p }: { p: Playground }) {
-  const now = useProposalClock(p.operations);
-  const company = p.connected ? p.result : null;
-  const known = labCompany(company?.requestedUrl);
+  const now = useProposalClock(p.companies.flatMap((c) => c.operations));
+  const company = guideCompany(p.companies, p.lastTurn, now);
+  const known = labCompany(company?.url);
   const state = {
-    connected: p.connected,
-    signedIn: p.signedIn,
-    canWrite: p.canWrite,
-    ...guideProposals(p.operations, now),
+    connected: !!company,
+    signedIn: !!company?.signedIn,
+    canWrite: !!company && mayChange(company),
+    ...guideProposals(company?.operations ?? [], now),
   };
   const step = guideStep(state);
   return (
@@ -65,14 +92,11 @@ export function Guide({ p }: { p: Playground }) {
       </ol>
       <p role="status">
         {guideHint(state, {
-          ...(company ? { company: company.document.organization.name } : {}),
+          ...(company ? { company: company.name } : {}),
           ...(known ? { people: known.people, ask: known.ask } : {}),
           demo: p.demo,
           demoCanChange: !!known?.demoChange,
-          signInOffered:
-            !!company &&
-            companyProfile(company).signIn.direct &&
-            accountCompany(new URL(company.requestedUrl).origin),
+          signInOffered: !!company && offersSignIn(company),
         })}
       </p>
     </section>

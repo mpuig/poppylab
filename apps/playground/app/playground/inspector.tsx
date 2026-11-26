@@ -7,40 +7,66 @@ import type {
 } from "@poppy-lab/pap-core";
 import { discoverySection, traceReport } from "@/lib/spec-sections";
 import { SpecRef } from "../spec-ref";
-import {
-  clock,
-  outcomeLabel,
-  traceFileName,
-  type ProtocolEntry,
-} from "@/lib/protocol-log";
-import type { ShownSkill, ShownTask } from "@/lib/shown-tasks";
+import { clock, outcomeLabel, traceFileName } from "@/lib/protocol-log";
 import { CompanyProfileView } from "../company-profile";
+import type { PageLine } from "./answers";
+import type { CompanyRef } from "./companies";
+import { FromCompany } from "./company-mark";
+import type { CompanyState, Former } from "./company-state";
 
-/** Discovery steps and API events with their spec sections, and the document. */
+/**
+ * Discovery steps and API events with their spec sections, and the
+ * document. With several Companies, each line names its Company, and a
+ * choice of Company shows that one's discovery, lines, profile and
+ * document.
+ */
 export function Inspector({
-  result,
-  trace,
+  companies,
+  former,
   chatLog,
-  excludedTasks,
-  skills,
+  failedTrace,
   companyUrl,
 }: {
-  result: DiscoveredCompany | null;
-  trace: DiscoveryTraceStep[];
-  chatLog: ProtocolEntry[];
-  /** §9.1: the tasks the Company doesn't offer, once a Session read them. */
-  excludedTasks: ShownTask[];
-  /** §9.4: the skills the Company publishes, once a Session read them. */
-  skills: ShownSkill[];
+  companies: CompanyState[];
+  former: Former[];
+  chatLog: PageLine[];
+  /** A discovery that failed, before any Company was connected. */
+  failedTrace: DiscoveryTraceStep[];
   companyUrl: string;
 }) {
   const [copied, setCopied] = useState(false);
   const [saved, setSaved] = useState(false);
+  // Every Company the lines came from: connected, and removed since.
+  const known: CompanyRef[] = [
+    ...companies,
+    ...former.filter((f) => !companies.some((c) => c.origin === f.origin)),
+  ];
+  const several = known.length > 1;
+  const [chosen, setChosen] = useState<string>("all");
+  const choice = several ? known.find((c) => c.origin === chosen) : known[0];
+  const company = companies.find((c) => c.origin === choice?.origin);
+  const result: DiscoveredCompany | null = company?.company ?? null;
+  const trace: DiscoveryTraceStep[] = several
+    ? (result?.trace ?? [])
+    : (result?.trace ?? failedTrace);
+  const lines =
+    several && choice
+      ? chatLog.filter((line) => line.from?.origin === choice.origin)
+      : chatLog;
+  const all = several && !choice;
   const report = () =>
     traceReport({
-      company: result?.document.organization.name ?? companyUrl,
+      company: all
+        ? known.map((c) => c.name).join(", ")
+        : (choice?.name ?? companyUrl),
       steps: trace,
-      events: chatLog,
+      // All of them: each line says which Company it was for.
+      events: all
+        ? lines.map((line) => ({
+            ...line,
+            text: `${line.from?.name ?? "Iris"} · ${line.text}`,
+          }))
+        : lines,
     });
   function download() {
     const url = URL.createObjectURL(
@@ -48,7 +74,9 @@ export function Inspector({
     );
     const link = document.createElement("a");
     link.href = url;
-    link.download = traceFileName(result?.requestedUrl ?? companyUrl);
+    link.download = traceFileName(
+      all ? "companies" : (result?.requestedUrl ?? companyUrl),
+    );
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -57,12 +85,39 @@ export function Inspector({
   }
   return (
     <section className="inspector" aria-label="Protocol inspector">
-      {!trace.length && (
+      {several && (
+        <div
+          className="inspector-filter"
+          role="group"
+          aria-label="Show the protocol of"
+        >
+          <button
+            type="button"
+            aria-pressed={all}
+            onClick={() => setChosen("all")}
+          >
+            All companies
+          </button>
+          {known.map((c) => (
+            <button
+              type="button"
+              key={c.origin}
+              aria-pressed={choice?.origin === c.origin}
+              onClick={() => setChosen(c.origin)}
+            >
+              <FromCompany from={c} />
+            </button>
+          ))}
+        </div>
+      )}
+      {!trace.length && !all && (
         <p className="inspector-empty">
-          Connect to a Company in the playground to inspect its protocol.
+          {choice && !company
+            ? `${choice.name} was removed from this conversation. Its lines are listed below.`
+            : "Connect to a Company in the playground to inspect its protocol."}
         </p>
       )}
-      {!!trace.length && (
+      {(!!trace.length || (several && !!lines.length)) && (
         <>
           <div className="inspector-actions">
             <button
@@ -94,35 +149,37 @@ export function Inspector({
               </a>
             )}
           </div>
-          <h2>Discovery</h2>
-          <ol className="event-list">
-            {trace.map((step, index) => (
-              <li key={`${step.id}-${index}`}>
-                <span
-                  className={`event-status ${step.status}`}
-                  aria-label={step.status}
-                >
-                  {step.status === "passed" ? <Check size={14} /> : "—"}
-                </span>
-                <div>
-                  <strong>
-                    {step.label}
-                    <SpecRef
-                      className="spec-ref"
-                      reference={discoverySection(step.id)}
-                    />
-                  </strong>
-                  <p>{step.detail}</p>
-                </div>
-                {step.durationMs !== undefined && (
-                  <span className="timing">{step.durationMs} ms</span>
-                )}
-              </li>
-            ))}
-          </ol>
+          {!!trace.length && <h2>Discovery</h2>}
+          {!!trace.length && (
+            <ol className="event-list">
+              {trace.map((step, index) => (
+                <li key={`${step.id}-${index}`}>
+                  <span
+                    className={`event-status ${step.status}`}
+                    aria-label={step.status}
+                  >
+                    {step.status === "passed" ? <Check size={14} /> : "—"}
+                  </span>
+                  <div>
+                    <strong>
+                      {step.label}
+                      <SpecRef
+                        className="spec-ref"
+                        reference={discoverySection(step.id)}
+                      />
+                    </strong>
+                    <p>{step.detail}</p>
+                  </div>
+                  {step.durationMs !== undefined && (
+                    <span className="timing">{step.durationMs} ms</span>
+                  )}
+                </li>
+              ))}
+            </ol>
+          )}
         </>
       )}
-      {!!chatLog.length && (
+      {!!lines.length && (
         <>
           <h2>Session & API calls</h2>
           <p className="log-note">
@@ -131,7 +188,7 @@ export function Inspector({
             events arrive together.
           </p>
           <ol className="api-events">
-            {chatLog.map((entry, index) => (
+            {lines.map((entry, index) => (
               <li key={index} className={`log-${entry.outcome}`}>
                 <time
                   dateTime={new Date(entry.at).toISOString()}
@@ -140,6 +197,7 @@ export function Inspector({
                   {clock(entry.at)}
                 </time>
                 <div>
+                  {all && entry.from && <FromCompany from={entry.from} />}
                   <p>
                     {entry.text}
                     <SpecRef
@@ -162,11 +220,17 @@ export function Inspector({
           </ol>
         </>
       )}
-      {result && (
+      {all && (
+        <p className="log-note">
+          Choose a company above to see its discovery, its profile and its
+          discovery document.
+        </p>
+      )}
+      {result && company && (
         <CompanyProfileView
           company={result}
-          excludedTasks={excludedTasks}
-          skills={skills}
+          excludedTasks={company.excludedTasks}
+          skills={company.skills}
         />
       )}
       {result && (

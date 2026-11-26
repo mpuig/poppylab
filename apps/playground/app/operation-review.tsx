@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ArrowRight } from "lucide-react";
 import {
   amountToApprove,
@@ -49,9 +49,15 @@ export function OperationReview({
   notApplied,
   open,
   onOpen,
+  mark,
 }: {
   op: ReviewOperation;
   company: string;
+  /**
+   * With several Companies, the Company's mark: the card's line then names
+   * its Company too, so cards from two Companies read apart when closed.
+   */
+  mark?: ReactNode;
   /** §10.3: the name is the Company's claim; the domain is what discovery proved. */
   domain?: string | undefined;
   busy: boolean;
@@ -103,8 +109,12 @@ export function OperationReview({
           })
         }
       >
-        <span>{operationTitle(op)}</span>
+        <span>
+          {mark}
+          {operationTitle(op)}
+        </span>
         <span className="operation-state">
+          {mark ? `${company} · ` : ""}
           {states[state] ?? state}
           {/* A closed line among several says what tells it apart: why it
               waits again, which its note says only once it is open, and its

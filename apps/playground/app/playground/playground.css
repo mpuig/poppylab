@@ -2075,3 +2075,332 @@ footer .lab-links a:hover {
   color: var(--muted);
   overflow-wrap: anywhere;
 }
+
+/*
+ * Several Companies in one conversation. Each is told apart by its mark: a
+ * small square in the leading colour of its own website, as its card on
+ * the home is headed (DESIGN.md, the Company's Own Colour Rule). It is
+ * never the only sign: the name is always beside it. A Company outside the
+ * lab has no colour of the lab's and is drawn as an outline.
+ */
+.company-mark {
+  flex: none;
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--brand, var(--muted));
+}
+.company-mark.other {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--muted);
+}
+.from-company {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.message h3 .from-company {
+  margin-left: 10px;
+}
+.message.company h3 > .company-mark {
+  margin-right: -2px;
+}
+/* Iris's question, answered with a button: its answer goes as it came. */
+.message-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.message-choices .ghost-button {
+  min-height: 40px;
+  padding: 0 16px;
+}
+
+/* The Companies bar: the conversation's Companies, above it. */
+.companies-bar {
+  flex-shrink: 0;
+  margin-bottom: 4px;
+}
+.companies-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  min-height: 45px;
+  padding: 4px 0;
+  font-size: 13px;
+}
+.companies-row ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.companies-row .quiet .spin {
+  vertical-align: -2px;
+}
+.company-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 10px 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 13px;
+  text-align: left;
+  transition: border-color 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.company-item:hover:not(:disabled),
+.company-item[aria-expanded="true"] {
+  border-color: var(--ink);
+}
+.company-item strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+.company-item > span:not(.company-mark) {
+  color: var(--muted);
+}
+/* A sign-in under way waits for the person, in the consent tab. */
+.company-item > span.waits::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--wait);
+  vertical-align: 1px;
+}
+.company-item > svg {
+  flex: none;
+  color: var(--muted);
+  transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.company-item[aria-expanded="true"] > svg {
+  transform: rotate(180deg);
+}
+.companies-row li:has(> .add-company) {
+  margin-left: 6px;
+}
+.company-found .inspect-link {
+  margin-left: auto;
+}
+.add-company {
+  gap: 5px;
+  font-weight: 600;
+  color: var(--ink);
+  text-decoration: none;
+}
+.add-company:hover:not(:disabled) {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+}
+.bar-note {
+  margin: 0 0 6px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+/* What belongs to one Company, or the Companies to add: ruled, not boxed.
+   In the workspace it scrolls in its own bound, so the transcript stays. */
+.company-panel {
+  max-height: 42vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 4px 0 10px;
+  padding: 12px 0 14px;
+  border-block: 1px solid var(--line);
+  font-size: 14px;
+}
+.company-found {
+  align-self: stretch;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.company-found strong {
+  font-weight: 600;
+  color: var(--ink);
+}
+.panel-text {
+  margin: 0;
+  max-width: 65ch;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+.company-panel .account-row {
+  width: 100%;
+  margin: 0;
+  justify-content: flex-start;
+  gap: 8px 20px;
+}
+.company-panel .account-row > span {
+  flex-basis: 100%;
+}
+.company-panel .account-row .connect-button,
+.company-panel .account-row .ghost-button {
+  min-height: 40px;
+  padding: 0 16px;
+  font-size: 14px;
+}
+.company-panel .error-message {
+  margin: 0;
+  width: 100%;
+}
+.remove-company {
+  color: var(--ink-soft);
+}
+.remove-confirm {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+}
+.remove-confirm p {
+  margin: 0;
+  max-width: 65ch;
+  color: var(--ink);
+  line-height: 1.5;
+}
+.remove-confirm .direct-actions {
+  align-items: center;
+  gap: 10px 20px;
+}
+.remove-confirm .ghost-button {
+  min-height: 40px;
+}
+.add-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+/* The account row closing the transcript names its Company, with several. */
+.account-company {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 13px;
+}
+.account-company .from-company {
+  color: var(--ink);
+  font-weight: 600;
+}
+.suggestions button .from-company {
+  margin-right: 8px;
+}
+.setup.company-setup:has(> .text-button) {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+.setup.company-setup > .text-button {
+  align-self: center;
+  margin-top: 24px;
+}
+.setup.company-setup > .error-message {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+/* History: each conversation with all its Companies. */
+.history-company {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.conversations a strong .separator {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+/* The Inspector's choice of Company, with several: a row of text tabs. */
+.inspector-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--line);
+}
+.inspector-filter button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 14px;
+  color: var(--muted);
+}
+.inspector-filter button .from-company {
+  color: inherit;
+  font-weight: inherit;
+}
+.inspector-filter button:hover {
+  color: var(--ink);
+}
+.inspector-filter button[aria-pressed="true"] {
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+.api-events .from-company {
+  font-size: 12px;
+}
+/* On a phone the Companies stay on one row that scrolls sideways, as a row
+   of chips does, so the transcript keeps its height; the page never does. */
+@media (max-width: 600px) {
+  .companies-row ul {
+    flex-wrap: nowrap;
+    min-width: 0;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    padding: 3px 2px;
+    margin: -3px -2px;
+  }
+  .companies-row li {
+    flex: none;
+  }
+  .company-item {
+    white-space: nowrap;
+  }
+}
+
+/* Which Company a message is for, with several: Iris decides unless the
+   person says. A native select, as the model settings use. */
+.composer-target {
+  flex: 0 1 auto;
+  max-width: 42%;
+  height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 13px;
+  text-overflow: ellipsis;
+}
+.composer-target:hover:not(:disabled) {
+  border-color: var(--ink);
+}
+.operation-summary .company-mark {
+  margin-right: 8px;
+  vertical-align: 2px;
+}

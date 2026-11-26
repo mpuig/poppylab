@@ -7,6 +7,7 @@ import { exampleUrl } from "./companies";
 import type { View } from "./companies";
 import { usePlayground } from "./use-playground";
 import { ConnectionSetup } from "./connection-setup";
+import { CompaniesBar } from "./companies-bar";
 import { Conversation } from "./conversation";
 import { Inspector } from "./inspector";
 import { IdentityPanel } from "./identity-panel";
@@ -81,11 +82,11 @@ export function Workspace() {
   useEffect(() => {
     const element = transcript.current;
     if (element) element.scrollTop = element.scrollHeight;
-  }, [p.messages, p.sending, p.operations, p.error, p.signedIn]);
+  }, [p.messages, p.sending, p.companies, p.error]);
 
   return (
     <div
-      className={`app ${view === "run" ? "chat-workspace" : ""} ${p.messages.length || p.connected ? "has-conversation" : ""}`}
+      className={`app ${view === "run" ? "chat-workspace" : ""} ${p.messages.length || p.companies.length || p.conversation ? "has-conversation" : ""}`}
     >
       <header className="site-header">
         <a href="/" className="brand">
@@ -129,11 +130,14 @@ export function Workspace() {
                 again to start a new one.
               </p>
             )}
-            <ConnectionSetup p={p} onInspect={() => setView("inspect")} />
+            <ConnectionSetup p={p} />
+            {(!!p.conversation || !!p.companies.length) && (
+              <CompaniesBar p={p} onInspect={() => setView("inspect")} />
+            )}
             {!p.readOnly && !p.missing && <Guide p={p} />}
             <Conversation p={p} transcript={transcript} taskInput={taskInput} />
             <p className="composer-note">
-              {p.instruction
+              {Object.values(p.instructions).some(Boolean)
                 ? "Your model · you approve every change unless your standing instruction covers it."
                 : "Your model · human approval for every change."}{" "}
               <span>Enter to send · Shift + Enter for a new line</span>
@@ -142,11 +146,10 @@ export function Workspace() {
         )}
         {view === "inspect" && (
           <Inspector
-            result={p.result}
-            trace={p.trace}
+            companies={p.companies}
+            former={p.former}
             chatLog={p.chatLog}
-            excludedTasks={p.excludedTasks}
-            skills={p.skills}
+            failedTrace={p.failedTrace}
             companyUrl={p.companyUrl}
           />
         )}

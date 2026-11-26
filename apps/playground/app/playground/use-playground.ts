@@ -1,10 +1,13 @@
 /**
- * The playground's state and its three server calls: discovery, chat and
- * account actions (sign-in, sign-out, approve, decline, retry). Each
- * conversation has its own address, `/playground/<id>`: connecting starts
- * one, loading the address restores it (read-only once it has ended), and
- * a consent tab is waited for. Rendering lives in the components; nothing
- * here touches the DOM except the sign-in popup, the `?company=` query and
+ * The playground's state and its server calls: discovery, chat and account
+ * actions (sign-in, sign-out, remove, approve, decline, retry). Each
+ * conversation has its own address, `/playground/<id>`, and works with up
+ * to three Companies: connecting the first starts one (so does a message
+ * with none), the bar or the User's words add and remove the others, and
+ * loading the address restores it (read-only once it has ended). The state
+ * of each Company is its own (`company-state.ts`), and every account action
+ * names the Company it is for. Rendering lives in the components; nothing
+ * here touches the DOM except the sign-in popups, the `?company=` query and
  * the address.
  */
 import {
@@ -15,40 +18,22 @@ import {
   type FormEvent,
 } from "react";
 import { companyProfile } from "@poppy-lab/pap-core";
-import type {
-  DiscoveredCompany,
-  DiscoveryTraceStep,
-} from "@poppy-lab/pap-core";
+import type { DiscoveryTraceStep } from "@poppy-lab/pap-core";
 import { initialModel, type ModelConfig } from "@/lib/model-options";
 import {
-  canChange,
   canRequestChanges,
   consentOutcome,
   missingExtensionScopes,
 } from "@/lib/account-permissions";
 import { domainExtension } from "@/lib/domain-extension";
-import type { FdxConsentRecord } from "./fdx-consent";
-import type { EspiAuthorizationRecord } from "./espi-authorization";
-import type { FdxStatementAccount } from "./fdx-statements";
-import type { ReviewOperation } from "@/lib/operation-presentation";
-import { agentStep } from "@/lib/agent-steps";
-import { logEntry, type ProtocolEntry } from "@/lib/protocol-log";
-import {
-  applyingLine,
-  LOG_LIMITS,
-  shownLines,
-  statementLine,
-} from "@/lib/inspector-log";
-import type { ShownSkill, ShownTask } from "@/lib/shown-tasks";
+import { applyingLine, LOG_LIMITS, statementLine } from "@/lib/inspector-log";
 import {
   nextAutoApproval,
   usesAllowance,
   type Allowance,
   type ApprovalAnswer,
 } from "@/lib/auto-approval";
-import { directView } from "@/lib/direct-state";
 import { withOperations } from "@/lib/operation-list";
-import type { GuideOperation } from "@/lib/guide";
 import {
   loadApprovals,
   loadInstruction,
@@ -60,15 +45,32 @@ import {
   exampleUrl,
   historyToMessages,
   labCompany,
+  type Choice,
+  type CompanyRef,
   type Message,
 } from "./companies";
+import {
+  accessLost,
+  afterTurn,
+  companiesFrom,
+  formerFrom,
+  MAX_COMPANIES,
+  mayChange,
+  originOf,
+  patchCompany,
+  signedOut,
+  type CompanyState,
+  type Former,
+  type Operation,
+} from "./company-state";
+import {
+  keptLines,
+  linesFor,
+  turnMessages,
+  type ChatAnswer,
+  type PageLine,
+} from "./answers";
 import { rememberSignInCompany } from "./sign-in/company";
-
-/**
- * A proposal as the page holds it: what its card shows, and why its terms
- * wait again after an approval, which the guide tells the visitor.
- */
-type Operation = ReviewOperation & GuideOperation;
 
 /** The conversation the address names, if it names one. */
 const conversationInAddress = () =>
@@ -78,6 +80,8 @@ const conversationInAddress = () =>
 const CONVERSATION = "X-Poppy-Conversation";
 /** On a refusal: the conversation the request named has ended. */
 const ENDED = "X-Poppy-Conversation-Ended";
+/** How long a consent tab is waited for before the page stops asking. */
+const SIGN_IN_WAIT = 300000;
 
 /**
  * A domain extension's grant, as the account row reads and revokes it: the
@@ -97,13 +101,37 @@ const GRANTS = {
     name: "ESPI authorization",
   },
 } as const;
-type GrantRecord = FdxConsentRecord | EspiAuthorizationRecord;
-/** The grant id the server keeps for this sign-in, whichever the extension. */
-const grantOf = (data: { fdxConsent?: string; espiAuthorization?: string }) =>
-  data.espiAuthorization ?? data.fdxConsent;
+
+/** A chat answer, with what it says of its Company and the conversation. */
+type ChatReply = ChatAnswer &
+  Parameters<typeof afterTurn>[1] & {
+    code?: string;
+    error?: string;
+    conversation?: boolean;
+    connections?: unknown;
+    former?: unknown;
+    history?: unknown;
+    log?: unknown;
+  };
+
+/** §8.10: the User's own actions on a Direct Conversation. */
+type DirectAction = "say" | "start" | "accept" | "decline" | "close";
+
+/** The domain extension a Company lists, valid, for Use FDX or Use ESPI. */
+export const extensionOf = (company: CompanyState) =>
+  domainExtension(
+    company.company ? companyProfile(company.company) : undefined,
+  );
 
 export function usePlayground(options: { onConnected?: () => void } = {}) {
   const [companyUrl, setCompanyUrl] = useState(exampleUrl);
+  /** The address form is open: another Company's address. */
+  const [addressOpen, setAddressOpen] = useState(false);
+  /**
+   * The bar's open panel: a Company's, by origin, or "add". A view only:
+   * which Company a message is for is never chosen there.
+   */
+  const [panel, setPanel] = useState<string | undefined>();
   // The conversation this page shows. The ref serves requests in flight.
   const [conversation, setConversation] = useState<string | undefined>();
   const current = useRef<string | undefined>(undefined);
@@ -116,18 +144,21 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
   /**
    * Takes the conversation the server names and puts it in the address. A
    * request the server refused because this page's conversation has ended
-   * names none: the page then shows it as ended.
+   * names none: the page then shows it as ended. Says whether the page was
+   * moved from another conversation it showed.
    */
   const adopt = (response: Response) => {
     if (current.current && response.headers.get(ENDED) === current.current)
       void noticeEnded();
     const id = response.headers.get(CONVERSATION);
-    if (!id || id === current.current) return;
+    if (!id || id === current.current) return false;
+    const moved = !!current.current;
     current.current = id;
     setConversation(id);
     setEnded(undefined);
     setMissing(false);
     window.history.replaceState(null, "", `/playground/${id}`);
+    return moved;
   };
   const named = (): Record<string, string> =>
     current.current ? { [CONVERSATION]: current.current } : {};
@@ -136,100 +167,113 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     (config: ModelConfig) => setModelConfig(config),
     [],
   );
-  const [result, setResult] = useState<DiscoveredCompany | null>(null);
+  /** The conversation's Companies, in the order they were connected. */
+  const [companies, setCompanies] = useState<CompanyState[]>([]);
+  /** The same, for a callback that runs after the render that set them. */
+  const shownCompanies = useRef(companies);
+  shownCompanies.current = companies;
+  /** The ones that were removed, for what the page still shows from them. */
+  const [former, setFormer] = useState<Former[]>([]);
+  /** The Company the last turn was with, or the one just connected. */
+  const [lastTurn, setLastTurn] = useState<string | undefined>();
   const [discovering, setDiscovering] = useState(false);
   const [error, setError] = useState("");
+  /** What adding a Company ran into, for the bar that asked. */
+  const [addError, setAddError] = useState("");
+  /** What removing one ran into, by the Company it was for. */
+  const [removeError, setRemoveError] = useState<
+    { origin: string; text: string } | undefined
+  >();
+  /** A line under the bar about the Companies: one was removed. */
+  const [barNote, setBarNote] = useState("");
   const [failedTrace, setFailedTrace] = useState<DiscoveryTraceStep[]>([]);
   const [task, setTask] = useState("");
+  /**
+   * A suggestion the User picked is one Company's: while the message box
+   * still holds it, the turn names that Company.
+   */
+  const [picked, setPicked] = useState<{ text: string; origin: string }>();
+  /**
+   * The Company the User chose for the next message, with several. None:
+   * Iris decides, which today is the Company of the last turn or a question
+   * with a button for each. It is for one message: the next goes to the
+   * Company of the last turn anyway, until the User chooses again.
+   */
+  const [target, setTarget] = useState<string | undefined>();
   const [messages, setMessages] = useState<Message[]>([]);
   /**
    * The Inspector's "Session & API calls". The server keeps the same lines
    * with the conversation (`inspector-log.ts`), within the same count, so a
    * reload lists them again.
    */
-  const [chatLog, setChatLog] = useState<ProtocolEntry[]>([]);
-  const addTrace = (lines: string[]) =>
+  const [chatLog, setChatLog] = useState<PageLine[]>([]);
+  const addTrace = (lines: string[] | undefined, from?: CompanyRef) =>
     setChatLog((old) =>
-      [...old, ...lines.map((line) => logEntry(line))].slice(-LOG_LIMITS.lines),
+      [...old, ...linesFor(lines, from)].slice(-LOG_LIMITS.lines),
     );
-  /**
-   * §9.1: the tasks the Company doesn't offer, as the conversation's current
-   * Session read them. The server sends them; none until a Session has.
-   */
-  const [excludedTasks, setExcludedTasks] = useState<ShownTask[]>([]);
-  /** §9.4: the skills the Company publishes, read and sent the same way. */
-  const [skills, setSkills] = useState<ShownSkill[]>([]);
   const [sending, setSending] = useState(false);
-  const [signedIn, setSignedIn] = useState(false);
-  const [scopes, setScopes] = useState("");
-  /**
-   * Use FDX or Use ESPI for this conversation: the Company's domain
-   * extension (poppylab.dev/fdx v1, poppylab.dev/espi v1), kept by the server.
-   */
-  const [extensionOn, setExtensionOn] = useState(false);
-  /** Its grant's id for this sign-in (consent, authorization), as kept. */
-  const [grantId, setGrantId] = useState<string | undefined>();
-  /** Its record as the Company last returned it, read once per id. */
-  const [grantRecord, setGrantRecord] = useState<GrantRecord | undefined>();
-  /** The User revoked the grant (or found it had ended), and how. */
-  const [grantRevoked, setGrantRevoked] = useState<
-    "revoked" | "already_ended" | undefined
-  >();
-  /** The shared accounts' statements, once the User asked for them. */
-  const [fdxStatements, setFdxStatements] = useState<
-    FdxStatementAccount[] | undefined
-  >();
-  const [consentVersion, setConsentVersion] = useState(0);
   const [accountBusy, setAccountBusy] = useState(false);
-  const [waitingSignIn, setWaitingSignIn] = useState(false);
-  const [operations, setOperations] = useState<Operation[]>([]);
-  /** §8.10: the User is talking with the Company themselves. */
-  const [direct, setDirect] = useState(false);
-  /** The Company's invitation to talk directly, with its reason ("" for none). */
-  const [invitation, setInvitation] = useState<string | null>(null);
-  /** There's a conversation with the Company's agent to talk from. */
-  const [canTalkDirectly, setCanTalkDirectly] = useState(false);
-  /** The next message starts a Direct Conversation. */
-  const [startingDirect, setStartingDirect] = useState(false);
-  /**
-   * Takes what the server says about the Direct Conversation: in a chat
-   * answer, on a reload, or nothing at all for a conversation just started.
-   */
-  const applyDirect = (state?: unknown) => {
-    const view = directView(state);
-    setDirect(view.direct);
-    setInvitation(view.invitation);
-    setCanTalkDirectly(view.canTalkDirectly);
-    // Nothing to talk from any more: the next message is for Iris again.
-    if (!view.canTalkDirectly) setStartingDirect(false);
+  /** The next message starts a Direct Conversation with this Company. */
+  const [startingDirect, setStartingDirect] = useState<string | undefined>();
+  /** The User's standing instruction at each Company, if they wrote one. */
+  const [instructions, setInstructions] = useState<
+    Record<string, Instruction | undefined>
+  >({});
+  /** The revisions each Company's instruction was tried on, once each. */
+  const decided = useRef(new Map<string, Set<string>>());
+  const decidedAt = (origin: string) => {
+    let set = decided.current.get(origin);
+    if (!set) decided.current.set(origin, (set = new Set()));
+    return set;
   };
-  const [instruction, setInstruction] = useState<Instruction | undefined>();
-  const decided = useRef(new Set<string>());
-  const profile = result ? companyProfile(result) : undefined;
-  const origin = result ? new URL(result.requestedUrl).origin : "";
-  // Scope meaning comes from the Company's own hints (§4.7).
-  const canWrite = canChange(profile, scopes);
-  const moreAccess = canRequestChanges(profile, scopes);
-  /**
-   * The domain extension the Company lists, valid, for Use FDX or Use ESPI
-   * (profiles saved before may not say).
-   */
-  const extension = domainExtension(profile);
-  /** It is on but this sign-in has none or only some of its scopes. */
-  const extensionSignIn =
-    extensionOn &&
-    !!extension &&
-    signedIn &&
-    missingExtensionScopes(profile, scopes, extension).length > 0;
-  const connected =
-    !!result && companyUrl === result.requestedUrl.replace(/\/$/, "");
-  const trace = result?.trace ?? failedTrace;
   const busy = sending || discovering || accountBusy;
+  const refOf = (origin: string): CompanyRef => ({
+    origin,
+    name: companies.find((c) => c.origin === origin)?.name ?? origin,
+  });
+  const nameAt = (origin: string) =>
+    companies.find((c) => c.origin === origin)?.name ?? "the company";
+
+  /**
+   * Shows the conversation as the server keeps it: its Companies, its words
+   * and its Inspector lines. A reload, History and a page moved to another
+   * conversation all read it.
+   */
+  async function restore(id: string, words = true) {
+    const data = await fetch(`/api/account?conversation=${id}`).then((r) =>
+      r.json(),
+    );
+    if (id !== current.current) return;
+    if (data.missing) {
+      current.current = undefined;
+      setConversation(undefined);
+      setMissing(true);
+      return;
+    }
+    if (data.readOnly) setEnded({ keptUntil: data.keptUntil });
+    setCompanies((before) => companiesFrom(data.connections, before));
+    setFormer(formerFrom(data.former));
+    if (!words) return;
+    const shown = historyToMessages(data.history);
+    setMessages(shown);
+    // The Company the last turn was with, still connected.
+    const views: Array<{ origin: string }> = data.connections ?? [];
+    setLastTurn(
+      shown
+        .map((m) => m.from?.origin)
+        .filter((o) => views.some((v) => v.origin === o))
+        .at(-1),
+    );
+    setChatLog(keptLines(data.log));
+    const lost = (data.connections ?? []).find(
+      (c: { recovery?: { error?: string } }) => c.recovery?.error,
+    );
+    if (lost) setError(lost.recovery.error);
+  }
 
   // Restore the conversation the address names, or start empty with the
   // Company a link named (?company=).
   useEffect(() => {
-    let cancelled = false;
     const id = conversationInAddress();
     if (!id) {
       const wanted = new URLSearchParams(window.location.search).get("company");
@@ -241,44 +285,14 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
         if (labCompany(url) && !arrived.current) {
           arrived.current = true;
           void connectTo(url);
-        }
+        } else if (!labCompany(url)) setAddressOpen(true);
       }
       return;
     }
     current.current = id;
     setConversation(id);
-    void fetch(`/api/account?conversation=${id}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (cancelled) return;
-        if (data.missing || !data.company) {
-          current.current = undefined;
-          setConversation(undefined);
-          setMissing(true);
-          return;
-        }
-        if (data.readOnly) setEnded({ keptUntil: data.keptUntil });
-        setResult(data.company);
-        setCompanyUrl(data.company.requestedUrl.replace(/\/$/, ""));
-        setSignedIn(!!data.signedIn);
-        setScopes(data.scopes ?? "");
-        const listed = domainExtension(companyProfile(data.company));
-        setExtensionOn(!!(listed && data[listed.key]));
-        setGrantId(grantOf(data));
-        if (data.recovery?.error) setError(data.recovery.error);
-        setOperations(data.operations ?? []);
-        // §8.10: an open Direct Conversation is still open after a reload,
-        // so the next message goes to the Company and not to Iris.
-        applyDirect(data.directConversation);
-        setMessages(historyToMessages(data.history));
-        setChatLog(shownLines(data.log));
-        setExcludedTasks(data.excludedTasks ?? []);
-        setSkills(data.skills ?? []);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
+    void restore(id).catch(() => {});
+    // Run once, for the address the page was opened at.
   }, []);
 
   /**
@@ -298,12 +312,15 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
       const data = await response.json();
       if (id !== current.current || !data.readOnly) return;
       setEnded({ keptUntil: data.keptUntil });
-      setSignedIn(false);
-      setScopes("");
-      setWaitingSignIn(false);
-      setGrantId(undefined);
-      setOperations(data.operations ?? []);
-      applyDirect(data.directConversation);
+      setCompanies((before) =>
+        companiesFrom(data.connections, before).map((c) => {
+          const next: CompanyState = { ...c, signedIn: false, scopes: "" };
+          delete next.signingIn;
+          delete next.grantId;
+          return next;
+        }),
+      );
+      setFormer(formerFrom(data.former));
       // The notice above the chat says it; a refused request said it too.
       setError("");
     } catch {
@@ -328,9 +345,14 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     // noticeEnded reads the conversation from a ref and only sets state.
   }, [conversation, ended]);
 
-  // While a consent tab is open, poll until it completes or is declined.
+  // While a consent tab is open at any Company, poll until each completes
+  // or is declined. Two can be under way at once, at two Companies.
+  const signingKey = companies
+    .filter((c) => c.signingIn)
+    .map((c) => `${c.origin}:${c.signingIn!.baseline}`)
+    .join();
   useEffect(() => {
-    if (!waitingSignIn) return;
+    if (!signingKey) return;
     let cancelled = false;
     const interval = setInterval(() => {
       if (!current.current) return;
@@ -338,94 +360,156 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
         .then((r) => r.json())
         .then((data) => {
           if (cancelled) return;
-          const outcome = consentOutcome(data, consentVersion);
-          if (outcome === "completed") {
-            setMessages(historyToMessages(data.history));
-            setOperations(data.operations ?? []);
-            setSignedIn(true);
-            setScopes(data.scopes ?? "");
-            // A sign-in as another account drops the conversation and the
-            // Direct Conversation in it: the page must not stay in one.
-            applyDirect(data.directConversation);
-            setGrantId(grantOf(data));
-            setGrantRevoked(undefined);
-            setWaitingSignIn(false);
-            // The lines follow the conversation: those written before any
-            // account stay, then the server's line for this sign-in.
-            setChatLog(shownLines(data.log));
-            // A sign-in starts a new Session, which reads its own tasks.
-            setExcludedTasks(data.excludedTasks ?? []);
-            setSkills(data.skills ?? []);
-          } else if (outcome === "not_completed") {
-            setWaitingSignIn(false);
-            setError(
-              "Consent was not completed. Your previous access has not changed. You can try again.",
-            );
+          const views: Array<{
+            origin: string;
+            signedIn: boolean;
+            authPending: boolean;
+            consentVersion: number;
+          }> = data.connections ?? [];
+          // Read from the Companies as the page shows them now: an update
+          // function runs later, so it can't tell this callback anything.
+          let completed = false;
+          const declined: string[] = [];
+          const late: string[] = [];
+          for (const c of shownCompanies.current) {
+            if (!c.signingIn) continue;
+            const view = views.find((v) => v.origin === c.origin);
+            const outcome = view
+              ? consentOutcome(view, c.signingIn.baseline)
+              : "not_completed";
+            if (outcome === "completed") completed = true;
+            else if (outcome === "not_completed") declined.push(c.origin);
+            else if (Date.now() - c.signingIn.since > SIGN_IN_WAIT)
+              late.push(c.origin);
           }
+          if (!completed && !declined.length && !late.length) return;
+          setCompanies((before) => {
+            const stop = (c: CompanyState) => {
+              if (!declined.includes(c.origin) && !late.includes(c.origin))
+                return c;
+              const next = { ...c };
+              delete next.signingIn;
+              return next;
+            };
+            return completed
+              ? companiesFrom(data.connections, before).map((c) => {
+                  // A completed sign-in leaves the grant it replaced.
+                  const next = stop(c);
+                  if (next.signedIn) delete next.grantRevoked;
+                  return next;
+                })
+              : before.map(stop);
+          });
+          if (completed) {
+            // A sign-in may be for another account: the page shows what the
+            // conversation still shows, and the lines that follow it.
+            setMessages(historyToMessages(data.history));
+            setChatLog(keptLines(data.log));
+            setFormer(formerFrom(data.former));
+          }
+          const nameOf = (origin: string) =>
+            (data.connections as CompanyRef[] | undefined)?.find(
+              (v) => v.origin === origin,
+            )?.name ?? "the company";
+          for (const origin of declined)
+            setError(
+              `Consent was not completed at ${nameOf(origin)}. Your previous access there has not changed. You can try again.`,
+            );
+          for (const origin of late)
+            setError(
+              `No consent completion was received from ${nameOf(origin)}. Reload to check account status before trying again.`,
+            );
         })
         .catch(() => {});
     }, 2000);
-    const timeout = setTimeout(() => {
-      setWaitingSignIn(false);
-      setError(
-        "No consent completion was received. Reload to check account status before trying again.",
-      );
-    }, 300000);
     return () => {
       cancelled = true;
       clearInterval(interval);
-      clearTimeout(timeout);
     };
-  }, [waitingSignIn, consentVersion]);
+  }, [signingKey]);
 
   /** Shows the operations an answer carries, as the server now holds them. */
-  const showOperations = (...answered: Array<Operation | undefined>) =>
-    setOperations((old) => withOperations(old, ...answered));
+  const showOperations = (
+    origin: string,
+    ...answered: Array<Operation | undefined>
+  ) =>
+    setCompanies((all) =>
+      patchCompany(all, origin, (c) => ({
+        operations: withOperations(c.operations, ...answered),
+      })),
+    );
 
   /**
-   * What the page shows once the run is signed out (sign-out, revocation).
-   * `lines` are the answer's own, which are all the server still keeps: the
-   * Inspector's lines go with the conversation.
+   * What an answer carries of the conversation as a whole: its Companies,
+   * when they changed, and what it shows now, when something went from it
+   * (a sign-out, a removal, a Company taking the access back). `said` is
+   * this request's own line, which follows what the conversation showed.
    */
-  function signedOutHere(lines: string[] = []) {
-    setChatLog(lines.map((line) => logEntry(line)));
-    setScopes("");
-    setSignedIn(false);
-    setOperations([]);
-    setWaitingSignIn(false);
-    setMessages([]);
-    setGrantId(undefined);
-    setGrantRecord(undefined);
-    setFdxStatements(undefined);
-    // Signing out drops Iris's conversation with the Company's agent,
-    // and the Direct Conversation with it.
-    applyDirect();
-    setStartingDirect(false);
+  function takeConversation(
+    data: {
+      connections?: unknown;
+      former?: unknown;
+      history?: unknown;
+      log?: unknown;
+    },
+    said: Message[] = [],
+  ) {
+    if (Array.isArray(data.connections)) {
+      const views = data.connections as Array<{ origin: string }>;
+      // A Company just connected is the one the conversation is with now,
+      // as the server takes it; one that went is with it no longer.
+      const added = views.find(
+        (v) => !companies.some((c) => c.origin === v.origin),
+      );
+      if (added) setLastTurn(added.origin);
+      else if (lastTurn && !views.some((v) => v.origin === lastTurn))
+        setLastTurn(undefined);
+      setCompanies((before) =>
+        companiesFrom(data.connections as never, before),
+      );
+    }
+    if (Array.isArray(data.former)) setFormer(formerFrom(data.former));
+    if (Array.isArray(data.history))
+      setMessages([...historyToMessages(data.history as never), ...said]);
+    if (Array.isArray(data.log)) setChatLog(keptLines(data.log));
   }
 
   /**
    * The Company no longer takes the sign-in. An answer to the request in
    * which Iris learned it carries what the conversation still shows: the
    * part shown signed out. What was shown with the account goes from the
-   * page too, as after a sign-in. `said` is this request's own message.
+   * page too, as after a sign-in.
    */
-  function accessLost(
+  function lostAt(
+    origin: string,
     data: { history?: unknown; operations?: Operation[] },
-    said: Message[] = [],
   ) {
-    setSignedIn(false);
-    setScopes("");
-    // Until the User signs in again there is no conversation with the
-    // Company's agent to talk from, as a reload is told (`directState`).
-    setCanTalkDirectly(false);
-    setStartingDirect(false);
-    if (!Array.isArray(data.history)) return;
-    setMessages([...historyToMessages(data.history), ...said]);
-    setOperations(data.operations ?? []);
+    setCompanies((all) =>
+      patchCompany(all, origin, (c) => ({
+        ...accessLost(c),
+        ...(Array.isArray(data.history)
+          ? { operations: data.operations ?? [] }
+          : {}),
+      })),
+    );
+    if (startingDirect === origin) setStartingDirect(undefined);
   }
+
+  /** The body and headers of an account action for one Company. */
+  const accountRequest = (origin: string, body: Record<string, unknown>) => ({
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-PAP-Company":
+        companies.find((c) => c.origin === origin)?.url ?? origin,
+      ...named(),
+    },
+    body: JSON.stringify({ ...body, company: origin }),
+  });
 
   async function accountAction(
     action: string,
+    origin: string,
     op?: Operation,
     access: "read" | "write" = "read",
     /** An agent approval: the User's standing instruction, rechecked server-side. */
@@ -434,39 +518,42 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     answered?: (answer: ApprovalAnswer) => void,
   ) {
     if (busy || ended) return;
+    const company = companies.find((c) => c.origin === origin);
+    if (!company) return;
+    // One tab for each Company, so two sign-ins can be under way at once.
     const popup =
-      action === "signin" ? window.open("about:blank", "company-signin") : null;
+      action === "signin"
+        ? window.open("about:blank", `company-signin-${new URL(origin).host}`)
+        : null;
     setAccountBusy(true);
     setError("");
     let answer: ApprovalAnswer = "lost";
     try {
-      const response = await fetch("/api/account", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-PAP-Company": result?.requestedUrl ?? companyUrl,
-          ...named(),
-        },
-        body: JSON.stringify({
+      const response = await fetch(
+        "/api/account",
+        accountRequest(origin, {
           action,
           ...(action === "signin" ? { access } : {}),
           id: op?.operation_id,
           revision: op?.revision,
           ...(byInstruction ? { instruction: byInstruction } : {}),
         }),
-      });
+      );
       adopt(response);
       const data = await response.json();
       answer = { status: response.status, operation: data.operation };
       // The route's lines for the log: how an approval went, a sign-out.
-      addTrace(data.trace ?? []);
+      if (action !== "signout") addTrace(data.trace, refOf(origin));
       if (!response.ok) {
-        if (data.code === "account_unavailable") accessLost(data);
+        if (data.code === "account_unavailable") {
+          lostAt(origin, data);
+          takeConversation(data);
+        }
         // New terms (Operations v3) or an unknown outcome: show current state.
         // New terms under another ID come with the operation they replace.
-        showOperations(data.replaced, data.operation);
+        showOperations(origin, data.replaced, data.operation);
         if (data.code === "outcome_unknown" && op)
-          showOperations({ ...op, state: "uncertain" });
+          showOperations(origin, { ...op, state: "uncertain" });
         // A refusal the operation carries is on its card, where it stays
         // until the operation changes: not above the transcript as well.
         if (data.error && data.operation?.result?.summary === data.error)
@@ -474,24 +561,39 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
         throw new Error(data.error);
       }
       if (data.url) {
-        setConsentVersion(data.consentVersion ?? 0);
         if (popup) {
           popup.opener = null;
           // For the page that tab lands on, which names the Company.
-          rememberSignInCompany(result?.document.organization.name);
+          rememberSignInCompany(company.name);
           popup.location.href = data.url;
-          setWaitingSignIn(true);
+          setCompanies((all) =>
+            patchCompany(all, origin, {
+              signingIn: {
+                baseline: data.consentVersion ?? 0,
+                since: Date.now(),
+              },
+            }),
+          );
         } else
           throw new Error(
             "Allow popups for this site, then try the sign-in or permission request again.",
           );
       }
-      if (action === "signout") signedOutHere(data.trace);
-      if (data.operation) showOperations(data.operation);
+      if (action === "signout") {
+        // What the conversation still shows: what came from the other
+        // Companies stays. Then this request's own lines.
+        setCompanies((all) => patchCompany(all, origin, signedOut));
+        takeConversation(data);
+        if (startingDirect === origin) setStartingDirect(undefined);
+        addTrace(data.trace, refOf(origin));
+      }
+      if (data.operation) showOperations(origin, data.operation);
     } catch (caught) {
       popup?.close();
       setError(
-        caught instanceof Error ? caught.message : "Account action failed.",
+        caught instanceof Error && caught.message
+          ? caught.message
+          : "Account action failed.",
       );
     } finally {
       // Before the page is idle again, so the next decision already sees it.
@@ -501,32 +603,82 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
   }
 
   /**
-   * Use FDX or Use ESPI on or off for this conversation. The server starts
-   * a new Session, whose declarations then say so (§3.4).
+   * Takes a Company out of the conversation, which goes on with the
+   * others. The page has already asked when that takes something with it;
+   * the server refuses while an approval sent there has an unknown outcome.
    */
-  async function chooseExtension(enabled: boolean) {
+  async function removeCompany(origin: string) {
+    if (busy || ended) return;
+    setAccountBusy(true);
+    setRemoveError(undefined);
+    setBarNote("");
+    setError("");
+    try {
+      const response = await fetch(
+        "/api/account",
+        accountRequest(origin, { action: "remove" }),
+      );
+      adopt(response);
+      const data = await response.json();
+      if (!response.ok) {
+        if (Array.isArray(data.operations))
+          showOperations(origin, ...data.operations);
+        setRemoveError({
+          origin,
+          text:
+            data.error ??
+            `${nameAt(origin)} couldn't be removed. Nothing was changed; try again.`,
+        });
+        return;
+      }
+      const name = data.removed?.name ?? nameAt(origin);
+      takeConversation(data);
+      addTrace(data.trace, refOf(origin));
+      if (startingDirect === origin) setStartingDirect(undefined);
+      if (lastTurn === origin) setLastTurn(undefined);
+      setBarNote(
+        [`${name} was removed from this conversation.`, data.notice]
+          .filter(Boolean)
+          .join(" "),
+      );
+    } catch {
+      setRemoveError({
+        origin,
+        text: `${nameAt(origin)} couldn't be removed. Nothing was changed; try again.`,
+      });
+    } finally {
+      setAccountBusy(false);
+    }
+  }
+
+  /**
+   * Use FDX or Use ESPI on or off for one Company. The server starts a new
+   * Session there, whose declarations then say so (§3.4).
+   */
+  async function chooseExtension(origin: string, enabled: boolean) {
+    const company = companies.find((c) => c.origin === origin);
+    const extension = company && extensionOf(company);
     if (busy || ended || !extension) return;
     const { key, label } = extension;
     setAccountBusy(true);
     setError("");
     try {
-      const response = await fetch("/api/account", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-PAP-Company": result?.requestedUrl ?? companyUrl,
-          ...named(),
-        },
-        body: JSON.stringify({ action: key, enabled }),
-      });
+      const response = await fetch(
+        "/api/account",
+        accountRequest(origin, { action: key, enabled }),
+      );
       adopt(response);
       const data = await response.json();
-      addTrace(data.trace ?? []);
+      addTrace(data.trace, refOf(origin));
       if (!response.ok) throw new Error(data.error);
-      setExtensionOn(!!data[key]);
       // The new Session hasn't read its tasks yet.
-      setExcludedTasks([]);
-      setSkills([]);
+      setCompanies((all) =>
+        patchCompany(all, origin, {
+          extensionOn: !!data[key],
+          excludedTasks: [],
+          skills: [],
+        }),
+      );
     } catch (caught) {
       setError(
         caught instanceof Error && caught.message
@@ -538,74 +690,93 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     }
   }
 
-  /** A grant action of the User's: read or revoke the consent or authorization. */
-  const grantCall = async (action: string) => {
-    const response = await fetch("/api/account", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-PAP-Company": result?.requestedUrl ?? companyUrl,
-        ...named(),
-      },
-      body: JSON.stringify({ action }),
-    });
+  /** A grant action of the User's at one Company: read or revoke it. */
+  const grantCall = async (origin: string, action: string) => {
+    const response = await fetch(
+      "/api/account",
+      accountRequest(origin, { action }),
+    );
     adopt(response);
     return { response, data: await response.json() };
   };
+  /** The grant to show, and to offer to revoke, at a Company. */
+  const grantShown = (c: CompanyState) =>
+    c.extensionOn && c.signedIn && !!c.grantId && !!extensionOf(c);
 
-  // The grant's status and what it shares, read once for each id.
-  const grantShown = extensionOn && signedIn && !!grantId && !!extension;
-  const grants = extension ? GRANTS[extension.key] : undefined;
-  /** The grant id whose record was asked for: each is read once. */
-  const grantRead = useRef<string | undefined>(undefined);
+  // Each grant's status and what it shares, read once for each id.
+  const grantRead = useRef(new Map<string, string>());
   useEffect(() => {
-    if (
-      !grantShown ||
-      !grants ||
-      busy ||
-      ended ||
-      grantRead.current === grantId
-    )
-      return;
-    const id = grantId!;
-    grantRead.current = id;
+    if (busy || ended) return;
+    const c = companies.find(
+      (c) => grantShown(c) && grantRead.current.get(c.origin) !== c.grantId,
+    );
+    const extension = c && extensionOf(c);
+    if (!c || !extension) return;
+    const grants = GRANTS[extension.key];
+    const id = c.grantId!;
+    grantRead.current.set(c.origin, id);
     setAccountBusy(true);
-    void grantCall(grants.read)
+    void grantCall(c.origin, grants.read)
       .then(({ response, data }) => {
-        addTrace(data.trace ?? []);
+        addTrace(data.trace, refOf(c.origin));
         if (data.code === "account_unavailable") {
-          accessLost(data);
+          lostAt(c.origin, data);
+          takeConversation(data);
           setError(data.error ?? "");
         }
         // A record the Company didn't return shows the id alone.
         const record = data[grants.field];
-        setGrantRecord(
-          response.ok && record?.id === id ? record : { id, unavailable: true },
+        setCompanies((all) =>
+          patchCompany(all, c.origin, {
+            grantRecord:
+              response.ok && record?.id === id
+                ? record
+                : { id, unavailable: true },
+          }),
         );
       })
-      .catch(() => setGrantRecord({ id, unavailable: true }))
+      .catch(() =>
+        setCompanies((all) =>
+          patchCompany(all, c.origin, {
+            grantRecord: { id, unavailable: true },
+          }),
+        ),
+      )
       .finally(() => setAccountBusy(false));
     // grantCall is recreated each render and reads current state.
-  }, [grantShown, grantId, busy, ended]);
+  }, [companies, busy, ended]);
 
   /**
-   * The User revokes the FDX consent or the ESPI authorization. The
-   * Company ends the grant and its tokens, so the page signs out as
-   * sign-out does; Iris never does this.
+   * The User revokes the FDX consent or the ESPI authorization at one
+   * Company. The Company ends the grant and its tokens, so the page signs
+   * out there as sign-out does; Iris never does this.
    */
-  async function revokeGrant() {
-    if (busy || ended || !grantShown || !grants) return;
+  async function revokeGrant(origin: string) {
+    const company = companies.find((c) => c.origin === origin);
+    const extension = company && extensionOf(company);
+    if (busy || ended || !company || !grantShown(company) || !extension) return;
+    const grants = GRANTS[extension.key];
     setAccountBusy(true);
     setError("");
     try {
-      const { response, data } = await grantCall(grants.revoke);
-      addTrace(data.trace ?? []);
-      if (data.code === "account_unavailable") accessLost(data);
-      if (!response.ok) throw new Error(data.error);
-      signedOutHere(data.trace);
-      setGrantRevoked(
-        data.revoked === "already_ended" ? "already_ended" : "revoked",
+      const { response, data } = await grantCall(origin, grants.revoke);
+      if (data.code === "account_unavailable") {
+        lostAt(origin, data);
+        takeConversation(data);
+      }
+      if (!response.ok) {
+        addTrace(data.trace, refOf(origin));
+        throw new Error(data.error);
+      }
+      setCompanies((all) =>
+        patchCompany(all, origin, (c) => ({
+          ...signedOut(c),
+          grantRevoked:
+            data.revoked === "already_ended" ? "already_ended" : "revoked",
+        })),
       );
+      takeConversation(data);
+      addTrace(data.trace, refOf(origin));
     } catch (caught) {
       setError(
         caught instanceof Error && caught.message
@@ -617,34 +788,30 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     }
   }
 
-  // A list read under another consent may name accounts no longer shared.
-  useEffect(() => setFdxStatements(undefined), [grantId]);
   /** Statements need their data cluster in this sign-in, with Use FDX on. */
-  const fdxStatementsShown =
-    grantShown &&
-    extension?.key === "fdx" &&
-    scopes.split(" ").includes("fdx:STATEMENTS");
+  const statementsShown = (c: CompanyState) =>
+    grantShown(c) &&
+    extensionOf(c)?.key === "fdx" &&
+    c.scopes.split(" ").includes("fdx:STATEMENTS");
   /** Lists the shared accounts' statements (poppylab.dev/fdx v1). */
-  async function listFdxStatements() {
-    if (busy || ended || !fdxStatementsShown) return;
+  async function listFdxStatements(origin: string) {
+    const company = companies.find((c) => c.origin === origin);
+    if (busy || ended || !company || !statementsShown(company)) return;
     setAccountBusy(true);
     setError("");
     try {
-      const response = await fetch("/api/account", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-PAP-Company": result?.requestedUrl ?? companyUrl,
-          ...named(),
-        },
-        body: JSON.stringify({ action: "fdx_statements" }),
-      });
+      const response = await fetch(
+        "/api/account",
+        accountRequest(origin, { action: "fdx_statements" }),
+      );
       adopt(response);
       const data = await response.json();
-      addTrace(data.trace ?? []);
+      addTrace(data.trace, refOf(origin));
       if (!response.ok || !Array.isArray(data.accounts))
         throw new Error(data.error);
-      setFdxStatements(data.accounts);
+      setCompanies((all) =>
+        patchCompany(all, origin, { statements: data.accounts }),
+      );
     } catch (caught) {
       setError(
         caught instanceof Error && caught.message
@@ -659,31 +826,31 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
    * Downloads one statement's PDF through the server, which fetches it from
    * the bank. The file goes to the User's browser, never to Iris.
    */
-  async function downloadFdxStatement(accountId: string, statementId: string) {
-    if (busy || ended || !fdxStatementsShown) return;
+  async function downloadFdxStatement(
+    origin: string,
+    accountId: string,
+    statementId: string,
+  ) {
+    const company = companies.find((c) => c.origin === origin);
+    if (busy || ended || !company || !statementsShown(company)) return;
     setAccountBusy(true);
     setError("");
     try {
-      const response = await fetch("/api/account", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-PAP-Company": result?.requestedUrl ?? companyUrl,
-          ...named(),
-        },
-        body: JSON.stringify({
+      const response = await fetch(
+        "/api/account",
+        accountRequest(origin, {
           action: "fdx_statement",
           accountId,
           statementId,
         }),
-      });
+      );
       adopt(response);
       if (
         !response.ok ||
         response.headers.get("content-type") !== "application/pdf"
       ) {
         const data = await response.json().catch(() => ({}));
-        addTrace(data.trace ?? []);
+        addTrace(data.trace, refOf(origin));
         throw new Error(data.error);
       }
       const file = await response.blob();
@@ -700,7 +867,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
       setTimeout(() => URL.revokeObjectURL(link.href), 10000);
       // The file carries no lines: the server keeps this one in the same
       // words.
-      addTrace([statementLine(statementId, file.size)]);
+      addTrace([statementLine(statementId, file.size)], refOf(origin));
     } catch (caught) {
       setError(
         caught instanceof Error && caught.message
@@ -712,20 +879,25 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     }
   }
 
-  // The User's standing instruction for this Company, if they wrote one.
+  // The User's standing instruction at each Company, if they wrote one.
+  const origins = companies.map((c) => c.origin).join();
   useEffect(() => {
-    setInstruction(origin ? loadInstruction(origin) : undefined);
-  }, [origin]);
-  function setLimit(next: Instruction | null) {
-    if (!origin) return;
+    setInstructions(
+      Object.fromEntries(
+        companies.map((c) => [c.origin, loadInstruction(c.origin)]),
+      ),
+    );
+    // Read again only when the Companies change, not their state.
+  }, [origins]);
+  function setLimit(origin: string, next: Instruction | null) {
     saveInstruction(origin, next);
-    setInstruction(next ?? undefined);
+    setInstructions((all) => ({ ...all, [origin]: next ?? undefined }));
   }
 
   /**
    * The revisions the hour's allowance left to the User, with the reason,
    * for their cards: a revision is looked at once, so it keeps waiting even
-   * when the hour has passed.
+   * when the hour has passed. Keyed by Company, operation and revision.
    */
   const [heldBack, setHeldBack] = useState<Record<string, string>>({});
   /**
@@ -735,99 +907,109 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
    * lists what the server answers. A request that fails lists nothing: the
    * card still says why.
    */
-  async function noteLeftToUser(op: Operation, allowance?: Allowance) {
+  async function noteLeftToUser(
+    origin: string,
+    op: Operation,
+    allowance?: Allowance,
+  ) {
     setAccountBusy(true);
     try {
-      const response = await fetch("/api/account", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-PAP-Company": result?.requestedUrl ?? companyUrl,
-          ...named(),
-        },
-        body: JSON.stringify({
+      const response = await fetch(
+        "/api/account",
+        accountRequest(origin, {
           action: "not_applied",
           id: op.operation_id,
           revision: op.revision,
-          instruction,
+          instruction: instructions[origin],
           ...(allowance ? { allowance } : {}),
         }),
-      });
+      );
       const data = await response.json();
-      addTrace(data.trace ?? []);
-      if (response.ok) showOperations(data.operation);
+      addTrace(data.trace, refOf(origin));
+      if (response.ok) showOperations(origin, data.operation);
     } catch {
       // Nothing to say: no approval was asked for.
     } finally {
       setAccountBusy(false);
     }
   }
-  // A fixed check against the exact terms; each revision is tried once.
-  // Anything it does not cover stays for the User in the Needs you panel,
-  // where its card says why (`leftToUser`), and the Inspector says it too.
+  // A fixed check against the exact terms; each revision is tried once, at
+  // each Company with its own instruction. Anything it does not cover stays
+  // for the User in the Needs you panel, where its card says why
+  // (`leftToUser`), and the Inspector says it too.
   useEffect(() => {
-    const next = nextAutoApproval({
-      operations,
-      instruction,
-      signedIn,
-      busy,
-      decided: decided.current,
-      recent: loadApprovals(origin),
-    });
-    if (!next) return;
-    if (next.kind === "left") {
-      const { op, reason, allowance } = next;
-      if (allowance)
-        setHeldBack((old) => ({
-          ...old,
-          [`${op.operation_id}:${op.revision}`]: reason,
-        }));
-      // After a reload the conversation already keeps this reason's line.
-      if (op.notApplied !== reason) void noteLeftToUser(op, allowance);
+    for (const c of companies) {
+      const instruction = instructions[c.origin];
+      const next = nextAutoApproval({
+        operations: c.operations,
+        instruction,
+        signedIn: c.signedIn,
+        busy,
+        decided: decidedAt(c.origin),
+        recent: loadApprovals(c.origin),
+      });
+      if (!next) continue;
+      if (next.kind === "left") {
+        const { op, reason, allowance } = next;
+        if (allowance)
+          setHeldBack((old) => ({
+            ...old,
+            [`${c.origin} ${op.operation_id}:${op.revision}`]: reason,
+          }));
+        // After a reload the conversation already keeps this reason's line.
+        if (op.notApplied !== reason)
+          void noteLeftToUser(c.origin, op, allowance);
+        return;
+      }
+      // The next line of the log says how the Company answered. The server
+      // keeps this one in the same words when its own check agrees.
+      addTrace([applyingLine(next.covered)], refOf(c.origin));
+      const { cents } = next;
+      const origin = c.origin;
+      void accountAction(
+        "approve",
+        origin,
+        next.op,
+        "read",
+        instruction,
+        (answer) => {
+          // Only an approval that was performed, or may have been, uses up
+          // the hour's allowance: a refusal or a decline costs nothing.
+          if (usesAllowance(answer))
+            recordApproval(origin, { at: Date.now(), cents });
+        },
+      );
       return;
     }
-    // The next line of the log says how the Company answered. The server
-    // keeps this one in the same words when its own check agrees.
-    addTrace([applyingLine(next.covered)]);
-    const { cents } = next;
-    void accountAction("approve", next.op, "read", instruction, (answer) => {
-      // Only an approval that was performed, or may have been, uses up the
-      // hour's allowance: a refusal or a Company's decline costs nothing.
-      if (usesAllowance(answer))
-        recordApproval(origin, { at: Date.now(), cents });
-    });
     // accountAction is recreated each render and reads current state, so it
     // is deliberately not a dependency.
-  }, [operations, instruction, signedIn, busy, origin]);
+  }, [companies, instructions, busy]);
 
   const discover = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     return connectTo(companyUrl);
   };
-  /** Connects to a Company: the form's address, or a card's. */
+
+  /**
+   * Connects a Company: a card's, the bar's or the form's address. A
+   * running conversation takes it as one more of its Companies; with none,
+   * connecting starts one.
+   */
   async function connectTo(url: string) {
     if (busy) return;
+    if (current.current && !ended) return addCompany(url);
     setCompanyUrl(url);
     setDiscovering(true);
     setError("");
-    setResult(null);
+    setAddError("");
+    setBarNote("");
     setFailedTrace([]);
     setMessages([]);
     setChatLog([]);
-    setExcludedTasks([]);
-    setSkills([]);
-    setSignedIn(false);
-    setWaitingSignIn(false);
-    setOperations([]);
-    // Use FDX is off in every new conversation.
-    setExtensionOn(false);
-    setGrantId(undefined);
-    setGrantRecord(undefined);
-    setGrantRevoked(undefined);
-    setFdxStatements(undefined);
-    // The new conversation has no Direct Conversation, whatever the last had.
-    applyDirect();
-    setStartingDirect(false);
+    setCompanies([]);
+    setFormer([]);
+    setLastTurn(undefined);
+    setStartingDirect(undefined);
     try {
       // Connecting starts a new conversation, whatever this page showed.
       const response = await fetch("/api/discover", {
@@ -844,10 +1026,9 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
         setFailedTrace(data.trace ?? []);
         throw new Error(data.error ?? "Could not connect to the Company.");
       }
-      setResult(data as DiscoveredCompany);
-      setCompanyUrl(
-        (data as DiscoveredCompany).requestedUrl.replace(/\/$/, ""),
-      );
+      if (current.current) await restore(current.current);
+      setAddressOpen(false);
+      setLastTurn(originOf(data.requestedUrl));
       options.onConnected?.();
     } catch (caught) {
       setError(
@@ -860,126 +1041,221 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     }
   }
 
+  /**
+   * Adds a Company to the conversation, signed out, whatever the others
+   * hold: a sign-in under way elsewhere goes on. A fourth is refused here,
+   * before anything is sent, as the server would refuse it.
+   */
+  async function addCompany(url: string) {
+    if (busy || ended || !current.current) return;
+    setAddError("");
+    setBarNote("");
+    const origin = originOf(url.trim());
+    const already = companies.find((c) => c.origin === origin);
+    if (already) {
+      setAddError(`This conversation is already connected to ${already.name}.`);
+      return;
+    }
+    if (companies.length >= MAX_COMPANIES) {
+      setAddError(
+        `A conversation works with at most ${MAX_COMPANIES} companies. Remove one to connect another.`,
+      );
+      return;
+    }
+    setCompanyUrl(url);
+    setDiscovering(true);
+    try {
+      const response = await fetch("/api/discover", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...named() },
+        body: JSON.stringify({ url: url.trim() }),
+      });
+      const moved = adopt(response);
+      const data = await response.json();
+      if (!response.ok) {
+        if (data.code === "conversation_ended") return;
+        setFailedTrace(data.trace ?? []);
+        throw new Error(data.error ?? "Could not connect to the Company.");
+      }
+      setFailedTrace([]);
+      // The conversation's Companies as the server now holds them; its
+      // words stay as they are, unless the page was moved to another one.
+      if (current.current) await restore(current.current, moved);
+      setAddressOpen(false);
+      setLastTurn(originOf(data.requestedUrl));
+      options.onConnected?.();
+    } catch (caught) {
+      setAddError(
+        caught instanceof Error && caught.message
+          ? caught.message
+          : "Discovery failed. Try again.",
+      );
+    } finally {
+      setDiscovering(false);
+    }
+  }
+
+  /** The Company the User is talking with directly, if any (§8.10). */
+  const directWith = companies.find((c) => c.direct.direct);
+
   async function send(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!task.trim() || !connected || !result || busy || ended) return;
+    if (!task.trim() || busy || ended || missing) return;
     const message = task.trim();
     setTask("");
     // §8.10: in a Direct Conversation, the User's words go to the Company.
-    const action = direct ? "say" : startingDirect ? "start" : undefined;
-    setMessages((old) => [
-      ...old,
+    const action = directWith ? "say" : startingDirect ? "start" : undefined;
+    const company =
+      directWith?.origin ??
+      startingDirect ??
+      (target && companies.some((c) => c.origin === target)
+        ? target
+        : undefined) ??
+      (picked?.text === message ? picked.origin : undefined);
+    setPicked(undefined);
+    setTarget(undefined);
+    const said: Message[] = [
       { role: "You", text: message, ...(action ? { direct: true } : {}) },
-    ]);
-    await post(message, action);
+    ];
+    setMessages((old) => [...old, ...said]);
+    await post(
+      { message, ...(action ? { direct: action } : {}), company },
+      said,
+    );
+  }
+
+  /** A suggestion for one Company goes in the message box, named for it. */
+  function suggest(text: string, origin: string) {
+    setTask(text);
+    setPicked({ text, origin });
+  }
+
+  /** One of Iris's buttons: its answer goes as it came, its label is shown. */
+  async function choose(choice: Choice) {
+    if (busy || ended) return;
+    const said: Message[] = [{ role: "You", text: choice.label }];
+    setMessages((old) => [...old, ...said]);
+    await post({ answer: choice.answer }, said);
   }
 
   /** §8.10: the User's own choices about a Direct Conversation. */
-  async function directAction(action: "accept" | "decline" | "close") {
-    if (!connected || !result || busy || ended) return;
+  async function directAction(
+    action: "accept" | "decline" | "close",
+    origin: string,
+  ) {
+    if (busy || ended) return;
     const label = {
       accept: "Talk to the Company directly",
       decline: "Not now",
       close: "Leave the direct conversation",
     }[action];
-    await post(label, action);
+    // A button of the Direct Conversation leaves no line of the User's.
+    await post({ message: label, direct: action, company: origin }, []);
   }
 
   async function post(
-    message: string,
-    action?: "say" | "start" | "accept" | "decline" | "close",
+    request: {
+      message?: string;
+      answer?: Choice["answer"];
+      direct?: DirectAction;
+      company?: string | undefined;
+    },
+    said: Message[],
   ) {
-    if (!result) return;
     setSending(true);
-    // The User's own line for this request, as `send` put it on the page.
-    // A button of the Direct Conversation leaves none.
-    const said: Message[] =
-      action === "accept" || action === "decline" || action === "close"
-        ? []
-        : [{ role: "You", text: message, ...(action ? { direct: true } : {}) }];
+    setError("");
+    setBarNote("");
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...named() },
         body: JSON.stringify({
-          url: result.requestedUrl,
-          message,
+          ...(request.message !== undefined
+            ? { message: request.message }
+            : {}),
+          ...(request.answer ? { answer: request.answer } : {}),
           ...modelConfig,
-          ...(action ? { direct: action } : {}),
+          ...(request.direct ? { direct: request.direct } : {}),
+          ...(request.company ? { company: request.company } : {}),
+          // This page shows several Companies: the User's words may connect
+          // or remove one, and a conversation may start with none.
+          companies: true,
         }),
       });
-      adopt(response);
-      const data = await response.json();
+      const moved = adopt(response);
+      const data = (await response.json()) as ChatReply;
       if (data.code === "conversation_ended") {
         // Nothing was sent. The words go back to the box, and not into a
         // conversation that is over.
         if (said.length) {
           setMessages((old) => old.slice(0, -said.length));
-          setTask(message);
+          // Only what the User typed: never a button's label.
+          if (request.message !== undefined) setTask(request.message);
         }
         return;
       }
+      // The request was answered in another conversation than the one the
+      // page showed: show that one as the server keeps it.
+      if (moved && current.current) {
+        await restore(current.current);
+        return;
+      }
+      const from = data.from;
+      // The Companies as they are now, and what the conversation still
+      // shows, when the User's words or the turn changed them.
+      takeConversation(data, said);
       if (!response.ok) {
         // What Iris did before the turn failed, such as the request the
         // Company refused: the Inspector shows it.
-        addTrace(data.trace ?? []);
-        if (data.code === "account_unavailable") accessLost(data, said);
-        throw new Error(data.error ?? "Chat failed. Please try again.");
+        addTrace(data.trace, from);
+        if (from) {
+          setLastTurn(from.origin);
+          if (data.code === "account_unavailable") lostAt(from.origin, data);
+        }
+        setMessages((old) => [
+          ...old,
+          ...(data.before
+            ? [{ role: "Iris" as const, text: data.before }]
+            : []),
+          {
+            role: "Error",
+            text:
+              typeof data.error === "string" && data.error
+                ? data.error
+                : "Chat failed. Please try again.",
+            ...(from ? { from } : {}),
+          },
+        ]);
+        return;
       }
-      // The turn got an answer though the access went during it.
-      if (Array.isArray(data.history)) accessLost(data, said);
-      // What the Company's own agent said this turn comes before Iris's answer.
-      const company: Message[] = (
-        (data.company ?? []) as Array<{
-          author: string;
-          text?: string;
-          data?: string;
-          note?: string;
-          direct?: boolean;
-        }>
-      ).map((entry) => ({
-        role: "Company",
-        author: entry.author,
-        text: entry.text ?? "",
-        ...(entry.data ? { data: entry.data } : {}),
-        ...(entry.note ? { note: entry.note } : {}),
-        ...(entry.direct ? { direct: true } : {}),
-      }));
-      setMessages((old) => [
-        ...old,
-        ...company,
-        // In a Direct Conversation Iris says nothing unless something changed.
-        ...(data.text
-          ? [
-              {
-                role: (data.mode === "demo"
-                  ? "Demo"
-                  : "Agent") as Message["role"],
-                text: data.text as string,
-                // Demo mode: the Company's exact answer, behind "Data".
-                ...(typeof data.data === "string" ? { data: data.data } : {}),
-                steps: ((data.trace ?? []) as string[]).map((line) =>
-                  agentStep(logEntry(line)),
-                ),
-              },
-            ]
-          : []),
-      ]);
-      addTrace(data.trace);
-      setExcludedTasks(data.excludedTasks ?? []);
-      setSkills(data.skills ?? []);
-      setSignedIn(!!data.signedIn);
-      setScopes(data.scopes ?? "");
-      setError(data.recovery?.error ?? "");
-      setOperations(data.operations ?? []);
-      applyDirect(data);
-      if (action === "start") setStartingDirect(false);
+      setMessages((old) => [...old, ...turnMessages(data)]);
+      addTrace(data.trace, from);
+      if (from) {
+        setLastTurn(from.origin);
+        setCompanies((all) =>
+          patchCompany(all, from.origin, (c) => {
+            const next = afterTurn(c, data);
+            // The turn got an answer though the access went during it.
+            return Array.isArray(data.history) && !next.signedIn
+              ? accessLost(next)
+              : next;
+          }),
+        );
+        setError(data.recovery?.error ?? "");
+        // Nothing to talk from any more: the next message is for Iris.
+        if (!data.conversation && startingDirect === from.origin)
+          setStartingDirect(undefined);
+      }
+      if (request.direct === "start") setStartingDirect(undefined);
     } catch (caught) {
       setMessages((old) => [
         ...old,
         {
           role: "Error",
-          text: caught instanceof Error ? caught.message : "Chat failed.",
+          text:
+            caught instanceof Error && caught.message
+              ? caught.message
+              : "Chat failed.",
         },
       ]);
     } finally {
@@ -1011,59 +1287,78 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     },
     companyUrl,
     setCompanyUrl,
+    addressOpen,
+    setAddressOpen,
+    panel,
+    setPanel,
     configureModel,
-    result,
+    companies,
+    former,
+    lastTurn,
     discovering,
     error,
+    addError,
+    setAddError,
+    removeError,
+    barNote,
+    failedTrace,
     task,
-    setTask,
+    setTask: (text: string) => {
+      setTask(text);
+      if (picked && picked.text !== text) setPicked(undefined);
+    },
+    suggest,
+    target,
+    setTarget,
     messages,
     chatLog,
-    excludedTasks,
-    skills,
     sending,
-    signedIn,
-    scopes,
-    canWrite,
-    moreAccess,
-    /** The Company's domain extension, for Use FDX or Use ESPI. */
-    extension,
-    extensionOn,
-    extensionSignIn,
+    busy,
+    /** The grant lets Iris propose changes there, not only read. */
+    canWrite: mayChange,
+    /** Change permission can still be asked for there. */
+    moreAccess: (c: CompanyState) =>
+      canRequestChanges(
+        c.company ? companyProfile(c.company) : undefined,
+        c.scopes,
+      ),
+    /** Use FDX or Use ESPI is on but this sign-in lacks its scopes. */
+    extensionSignIn: (c: CompanyState) => {
+      const extension = extensionOf(c);
+      return (
+        c.extensionOn &&
+        !!extension &&
+        c.signedIn &&
+        missingExtensionScopes(
+          c.company ? companyProfile(c.company) : undefined,
+          c.scopes,
+          extension,
+        ).length > 0
+      );
+    },
     chooseExtension,
-    /**
-     * The FDX consent or ESPI authorization to show and offer to revoke,
-     * with its record once read.
-     */
-    grant: grantShown ? grantId : undefined,
-    grantRecord: grantRecord?.id === grantId ? grantRecord : undefined,
-    grantRevoked,
+    /** The FDX consent or ESPI authorization to show and offer to revoke. */
+    grantShown,
     revokeGrant,
     /** Statements to list and download, with Use FDX on and fdx:STATEMENTS. */
-    fdxStatementsShown,
-    fdxStatements: fdxStatementsShown ? fdxStatements : undefined,
+    statementsShown,
     listFdxStatements,
     downloadFdxStatement,
-    waitingSignIn,
-    operations,
-    connected,
-    trace,
-    busy,
     accountAction,
+    removeCompany,
     discover,
     connectTo,
     /** No model: the demo's keyword rules answer. */
     demo: modelConfig.provider === "demo",
     send,
-    direct,
-    invitation,
-    canTalkDirectly,
+    choose,
+    directWith,
     startingDirect,
     setStartingDirect,
     directAction,
     retryMessage,
     removeMessage,
-    instruction,
+    instructions,
     setLimit,
     heldBack,
   };

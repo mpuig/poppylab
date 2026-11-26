@@ -3,6 +3,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { ReviewOperation } from "@/lib/operation-presentation";
 import { Conversation } from "./conversation";
+import { companyFromView } from "./company-state";
 import type { Playground } from "./use-playground";
 
 const summary = "Change order ord_LNB1001. New total USD 43.00.";
@@ -30,14 +31,18 @@ const chat = (op: ReviewOperation) =>
   renderToStaticMarkup(
     createElement(Conversation, {
       p: {
-        result: null,
-        connected: false,
+        companies: [
+          companyFromView({
+            origin: "http://noodles.localhost:4200",
+            name: "Lantern Noodle Bar",
+            operations: [op],
+          }),
+        ],
+        former: [],
         busy: false,
-        signedIn: false,
-        waitingSignIn: false,
         readOnly: true,
         messages: [{ role: "You", text: "Add a matcha ice cream" }, answer],
-        operations: [op],
+        instructions: {},
         heldBack: {},
       } as unknown as Playground,
       transcript: { current: null },

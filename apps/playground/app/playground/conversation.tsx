@@ -2,48 +2,22 @@
 import { inlineText } from "./inline-text";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { ArrowUp, LoaderCircle } from "lucide-react";
-import { companyProfile } from "@poppy-lab/pap-core";
 import { needsYou, openLast } from "@/lib/operation-presentation";
-import { leftToUser } from "@/lib/auto-approval";
 import { demoChangeReplyNow } from "@/lib/demo-changes";
 import { hideLinkSecrets } from "@/lib/link-display";
 import { OperationReview } from "../operation-review";
-import { StandingInstruction } from "./standing-instruction";
-import { FdxConsent, type FdxConsentRecord } from "./fdx-consent";
-import { FdxStatements } from "./fdx-statements";
+import { AccountRow, leftOutAt } from "./account-row";
+import { CompanyMark, FromCompany } from "./company-mark";
+import { shownCompanies } from "./answers";
+import { labCompanies, labCompany } from "./companies";
 import {
-  EspiAuthorization,
-  type EspiAuthorizationRecord,
-} from "./espi-authorization";
-
-/** What the account row says of each domain extension's grant. */
-const GRANT_WORDS = {
-  fdx: {
-    revoked: (company: string) =>
-      `FDX consent revoked. ${company} ended the grant and its tokens, and this conversation is signed out.`,
-    ended: (company: string) =>
-      `This FDX consent had already ended at ${company}. This conversation is signed out.`,
-    again: "Sign in again to share accounts over FDX",
-  },
-  espi: {
-    revoked: (company: string) =>
-      `ESPI access revoked. ${company} ended the authorization, its subscription and its tokens, and this conversation is signed out.`,
-    ended: (company: string) =>
-      `This ESPI authorization had already ended at ${company}. This conversation is signed out.`,
-    again: "Sign in again to share meters over ESPI",
-  },
-} as const;
-import { accountCompany, labCompanies, labCompany } from "./companies";
+  inFocus,
+  offersSignIn,
+  type CompanyState,
+  type Operation,
+} from "./company-state";
 import { useProposalClock } from "./guide";
 import type { Playground } from "./use-playground";
-
-/** The currency the Company's own proposals use; USD until it has made one. */
-function currencyOf(operations: Array<{ terms?: Record<string, unknown> }>) {
-  const found = operations
-    .map((op) => op.terms?.currency)
-    .find((c) => typeof c === "string" && /^[A-Z]{3}$/.test(c));
-  return typeof found === "string" ? found : "USD";
-}
 
 /** A Company message's data, indented for reading (it arrives compact). */
 function prettyData(json: string) {
@@ -54,7 +28,13 @@ function prettyData(json: string) {
   }
 }
 
-/** The transcript, the account controls, approval cards and the composer. */
+/** A proposal, and the Company that holds it, as one card of the page. */
+type Held = { op: Operation; c: CompanyState; operation_id: string };
+
+/**
+ * The transcript, the account controls of the Company the conversation is
+ * with, approval cards and the composer.
+ */
 export function Conversation({
   p,
   transcript,
@@ -64,17 +44,27 @@ export function Conversation({
   transcript: RefObject<HTMLDivElement | null>;
   taskInput: RefObject<HTMLTextAreaElement | null>;
 }) {
-  const { result, connected, busy, messages, signedIn, waitingSignIn } = p;
-  const companyName = result?.document.organization.name ?? "the Company";
+  const { companies, busy, messages } = p;
   // An open proposal expires on its own clock, which the guide reads too.
-  const now = useProposalClock(p.operations);
+  const now = useProposalClock(companies.flatMap((c) => c.operations));
   const [panelOpen, setPanelOpen] = useState(true);
   const panel = useRef<HTMLElement>(null);
-  const waiting = p.operations.filter((op) => needsYou(op, now));
-  const settled = p.operations.filter((op) => !needsYou(op, now));
+  // Each card is its Company's: two Companies may use the same IDs.
+  const held: Held[] = companies.flatMap((c) =>
+    c.operations.map((op) => ({
+      op,
+      c,
+      operation_id: `${c.origin} ${op.operation_id}`,
+    })),
+  );
+  // Cards from several Companies are listed in the order they came.
+  const waiting = held
+    .filter((h) => needsYou(h.op, now))
+    .sort((a, b) => (a.op.changed ?? 0) - (b.op.changed ?? 0));
+  const settled = held.filter((h) => !needsYou(h.op, now));
   // A new proposal opens the panel again, and the card folded in it.
   const waitingKey = waiting
-    .map((op) => `${op.operation_id}:${op.revision}`)
+    .map((h) => `${h.operation_id}:${h.op.revision}`)
     .join();
   // One waiting card is open at a time, the last in the panel: the first to
   // arrive, until the person opens another or folds it.
@@ -109,61 +99,81 @@ export function Conversation({
         block: element.offsetHeight > window.innerHeight ? "start" : "nearest",
       });
   }, [waitingKey, panelOpen, shownId]);
-  // Why the User's standing instruction left a waiting operation to them.
-  const leftOut = (op: (typeof p.operations)[number]) =>
-    leftToUser(
-      op,
-      p.instruction,
-      companyName,
-      p.heldBack[`${op.operation_id}:${op.revision}`],
-      now,
-    );
   // Whether Iris approved an operation on the standing instruction: the
   // demo's answer about it was written before, while it still waited.
   const approvedByIris = (id: string) =>
-    p.operations.some(
-      (op) =>
-        op.operation_id === id &&
-        op.state === "succeeded" &&
-        op.approvedBy?.approver === "agent",
+    companies.some((c) =>
+      c.operations.some(
+        (op) =>
+          op.operation_id === id &&
+          op.state === "succeeded" &&
+          op.approvedBy?.approver === "agent",
+      ),
     );
-  const review = (op: (typeof p.operations)[number], inPanel = false) => (
+  const review = ({ op, c, operation_id }: Held, inPanel = false) => (
     <OperationReview
-      key={op.operation_id}
+      key={operation_id}
       op={op}
-      company={result?.document.organization.name ?? "Company"}
-      domain={result?.document.organization.domain}
+      company={c.name}
+      domain={c.company?.document.organization.domain}
       busy={busy}
-      signedIn={signedIn}
-      onAction={(action, operation) => void p.accountAction(action, operation)}
-      notApplied={leftOut(op)}
+      signedIn={c.signedIn}
+      onAction={(action, operation) =>
+        void p.accountAction(action, c.origin, operation as Operation)
+      }
+      notApplied={leftOutAt(p, c, now)(op)}
+      {...(several && { mark: <CompanyMark origin={c.origin} /> })}
       {...(inPanel && {
-        open: op.operation_id === shownId,
+        open: operation_id === shownId,
         onOpen: (open: boolean) => {
-          setChosen(op.operation_id);
+          setChosen(operation_id);
           setFolded(!open);
         },
       })}
     />
   );
-  // `connected` implies a result; keep the type in step with the flag.
-  const company = connected ? result : null;
-  // Requests that work here and now: public ones signed out, account ones
-  // signed in, and the change once Iris may propose it (in demo mode, only
-  // where the demo's rules can).
-  const known = labCompany(company?.requestedUrl);
-  const suggestions: string[] = !company
-    ? []
-    : known
-      ? signedIn
+  /** Messages name their Company once the conversation has had two. */
+  const several = shownCompanies(companies, p.former) > 1;
+  const connected = !!companies.length;
+  // The Company the conversation is with: its account row closes the
+  // transcript, so a turn that needs its sign-in has the button right there.
+  const focus = inFocus(companies, p.lastTurn);
+  const rowFor =
+    focus && offersSignIn(focus) && !p.readOnly && p.panel !== focus.origin
+      ? focus
+      : undefined;
+  // Requests that work here and now, for each Company: public ones signed
+  // out, account ones signed in, and the change once Iris may propose it
+  // (in demo mode, only where the demo's rules can).
+  const suggestions = companies.flatMap((c) => {
+    const known = labCompany(c.url);
+    const list: string[] = known
+      ? c.signedIn
         ? [
             ...known.account,
-            ...(p.canWrite && (!p.demo || known.demoChange) ? [known.ask] : []),
+            ...(p.canWrite(c) && (!p.demo || known.demoChange)
+              ? [known.ask]
+              : []),
           ]
         : [...known.open]
       : p.demo
         ? []
         : ["What can you help me with?"];
+    // With several Companies, two of each.
+    return list
+      .slice(0, companies.length > 1 ? 2 : undefined)
+      .map((text) => ({ text, c }));
+  });
+  const signedInCount = companies.filter((c) => c.signedIn).length;
+  const invited = companies.find(
+    (c) => c.direct.invitation !== null && !c.direct.direct,
+  );
+  const direct = p.directWith;
+  const startingWith = companies.find((c) => c.origin === p.startingDirect);
+  const canTalk = companies.filter(
+    (c) => c.direct.canTalkDirectly && c.direct.invitation === null,
+  );
+  const lastIndex = messages.length - 1;
   return (
     <section className="conversation" aria-label="Chat">
       <div className="conversation-heading">
@@ -172,9 +182,11 @@ export function Conversation({
           <span>
             {p.readOnly
               ? "Ended · read-only"
-              : signedIn
-                ? "Account connected"
-                : "Public access"}
+              : signedInCount > 1
+                ? `${signedInCount} accounts connected`
+                : signedInCount
+                  ? "Account connected"
+                  : "Public access"}
           </span>
           {p.conversation && (
             <a className="new-conversation" href="/playground">
@@ -191,7 +203,7 @@ export function Conversation({
         aria-live="polite"
         aria-relevant="additions"
       >
-        {!messages.length && !connected && !p.readOnly && (
+        {!messages.length && !connected && !p.readOnly && !p.missing && (
           <div className="company-picker">
             <p>Pick a company to start</p>
             <div className="company-cards">
@@ -220,22 +232,23 @@ export function Conversation({
             <p>
               {suggestions.length
                 ? "What would you like to ask?"
-                : signedIn
+                : companies.some((c) => c.signedIn)
                   ? "Ask Iris about your account."
                   : "Sign in to ask about your account."}
             </p>
             {!!suggestions.length && (
               <div className="suggestions">
-                {suggestions.map((question) => (
+                {suggestions.map(({ text, c }) => (
                   <button
                     type="button"
-                    key={question}
+                    key={`${c.origin} ${text}`}
                     onClick={() => {
-                      p.setTask(question);
+                      p.suggest(text, c.origin);
                       taskInput.current?.focus();
                     }}
                   >
-                    {question}
+                    {several && <FromCompany from={c} />}
+                    {text}
                   </button>
                 ))}
               </div>
@@ -248,15 +261,24 @@ export function Conversation({
             className={`message ${message.role.toLowerCase()}`}
           >
             <h3>
-              {message.role === "Agent"
+              {several && message.role === "Company" && message.from && (
+                <CompanyMark origin={message.from.origin} />
+              )}
+              {message.role === "Agent" || message.role === "Iris"
                 ? "Iris"
                 : message.role === "Demo"
                   ? "Protocol demo"
                   : message.role === "Company"
                     ? message.author
                     : message.role === "You" && message.direct
-                      ? `You → ${companyName}`
+                      ? `You → ${direct?.name ?? startingWith?.name ?? "the Company"}`
                       : message.role}
+              {/* Where it came from, once there could be doubt. Company
+                  content names its Company in its author already. */}
+              {several &&
+                message.from &&
+                message.role !== "Company" &&
+                message.role !== "Iris" && <FromCompany from={message.from} />}
               {message.role === "Company" && (
                 <span className="company-badge">Company content</span>
               )}
@@ -279,6 +301,25 @@ export function Conversation({
                     )}
               </div>
             )}
+            {/* Iris's question is answered with a button while it is the
+                last thing said; the answer goes as it came. */}
+            {!!message.choices?.length &&
+              index === lastIndex &&
+              !p.readOnly && (
+                <div className="message-choices">
+                  {message.choices.map((choice) => (
+                    <button
+                      type="button"
+                      key={JSON.stringify(choice.answer)}
+                      className="ghost-button"
+                      disabled={busy}
+                      onClick={() => void p.choose(choice)}
+                    >
+                      {choice.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             {!!message.steps?.length && (
               <details className="agent-steps">
                 <summary>
@@ -328,143 +369,13 @@ export function Conversation({
             )}
           </article>
         ))}
-        {company &&
-          !p.readOnly &&
-          companyProfile(company).signIn.direct &&
-          accountCompany(new URL(company.requestedUrl).origin) && (
-            <div className="account-row">
-              <span>
-                {signedIn
-                  ? `${p.canWrite ? "Reading and change proposals" : "Read-only access"} · ${p.scopes.split(" ").join(", ")}`
-                  : waitingSignIn
-                    ? "Finish sign-in in the Company tab."
-                    : "Account access is optional · only connect accounts you trust"}
-              </span>
-              {p.extension && (
-                // Use FDX or Use ESPI, per conversation: the domain
-                // extension is declared from the next Session on (§3.4),
-                // with its native read tools.
-                <label className="extension-toggle">
-                  <input
-                    type="checkbox"
-                    checked={p.extensionOn}
-                    disabled={busy || waitingSignIn}
-                    onChange={(event) =>
-                      void p.chooseExtension(event.target.checked)
-                    }
-                  />
-                  <span>
-                    Use {p.extension.label}
-                    <small>
-                      {p.extension.shape} read tools ({p.extension.name} v1).
-                      Changing it starts a new Session.
-                    </small>
-                  </span>
-                </label>
-              )}
-              {signedIn && p.grant && p.extension?.key === "fdx" && (
-                <FdxConsent
-                  key={p.grant}
-                  consentId={p.grant}
-                  company={company.document.organization.name}
-                  record={p.grantRecord as FdxConsentRecord | undefined}
-                  disabled={busy || waitingSignIn}
-                  onRevoke={() => void p.revokeGrant()}
-                />
-              )}
-              {signedIn && p.grant && p.extension?.key === "espi" && (
-                <EspiAuthorization
-                  key={p.grant}
-                  authorizationId={p.grant}
-                  company={company.document.organization.name}
-                  record={p.grantRecord as EspiAuthorizationRecord | undefined}
-                  disabled={busy || waitingSignIn}
-                  onRevoke={() => void p.revokeGrant()}
-                />
-              )}
-              {signedIn && p.fdxStatementsShown && (
-                <FdxStatements
-                  accounts={p.fdxStatements}
-                  disabled={busy || waitingSignIn}
-                  onList={() => void p.listFdxStatements()}
-                  onDownload={(accountId, statementId) =>
-                    void p.downloadFdxStatement(accountId, statementId)
-                  }
-                />
-              )}
-              {!signedIn && !waitingSignIn && p.grantRevoked && p.extension && (
-                <p className="permission-note" role="status">
-                  {GRANT_WORDS[p.extension.key][
-                    p.grantRevoked === "revoked" ? "revoked" : "ended"
-                  ](company.document.organization.name)}{" "}
-                  {GRANT_WORDS[p.extension.key].again}.
-                </p>
-              )}
-              {p.extensionSignIn && p.extension && (
-                <button
-                  type="button"
-                  className="ghost-button"
-                  disabled={busy || waitingSignIn}
-                  onClick={() =>
-                    void p.accountAction(
-                      "signin",
-                      undefined,
-                      p.canWrite ? "write" : "read",
-                    )
-                  }
-                >
-                  {GRANT_WORDS[p.extension.key].again}
-                </button>
-              )}
-              {signedIn && p.moreAccess && (
-                <button
-                  type="button"
-                  className="ghost-button"
-                  disabled={busy || waitingSignIn}
-                  onClick={() =>
-                    void p.accountAction("signin", undefined, "write")
-                  }
-                >
-                  Request change permission
-                </button>
-              )}
-              <button
-                type="button"
-                className={signedIn ? "text-button" : "connect-button"}
-                disabled={busy}
-                onClick={() =>
-                  void p.accountAction(signedIn ? "signout" : "signin")
-                }
-              >
-                {signedIn
-                  ? "Sign out"
-                  : waitingSignIn
-                    ? "Retry sign-in"
-                    : `Sign in to ${company.document.organization.name} · read only`}
-              </button>
-              {signedIn && p.canWrite && (
-                <StandingInstruction
-                  instruction={p.instruction}
-                  currency={p.instruction?.currency ?? currencyOf(p.operations)}
-                  onChange={p.setLimit}
-                  operations={p.operations}
-                  leftToUser={leftOut}
-                />
-              )}
-              {signedIn && p.moreAccess && (
-                <p className="permission-note">
-                  This opens a new Company consent. Afterwards, ask for the
-                  change again; you will approve it separately.
-                </p>
-              )}
-            </div>
-          )}
+        {rowFor && <AccountRow p={p} c={rowFor} named={several} now={now} />}
         {p.error && (
           <p className="error-message" role="alert">
             {p.error}
           </p>
         )}
-        {settled.map((op) => review(op))}
+        {settled.map((h) => review(h))}
         {p.sending && (
           <div className="thinking" role="status">
             <LoaderCircle className="spin" size={14} />
@@ -502,46 +413,48 @@ export function Conversation({
           </button>
           {panelOpen && (
             <div className="needs-you-body" ref={cards}>
-              {listed.map((op) => review(op, true))}
+              {listed.map((h) => review(h, true))}
             </div>
           )}
         </section>
       )}
-      {connected && !p.readOnly && p.invitation !== null && !p.direct && (
+      {!p.readOnly && invited && !direct && (
         <div className="direct-bar" role="region" aria-label="Invitation">
           <p>
-            <strong>{companyName}</strong> asks to talk with you directly
-            {p.invitation ? `: ${p.invitation}` : "."} Iris won&apos;t read or
-            answer there; you can leave at any time.
+            <strong>{invited.name}</strong> asks to talk with you directly
+            {invited.direct.invitation
+              ? `: ${invited.direct.invitation}`
+              : "."}{" "}
+            Iris won&apos;t read or answer there; you can leave at any time.
           </p>
           <div className="direct-actions">
             <button
               type="button"
               className="connect-button"
               disabled={busy}
-              onClick={() => p.directAction("accept")}
+              onClick={() => p.directAction("accept", invited.origin)}
             >
-              Talk to {companyName}
+              Talk to {invited.name}
             </button>
             <button
               type="button"
               className="ghost-button"
               disabled={busy}
-              onClick={() => p.directAction("decline")}
+              onClick={() => p.directAction("decline", invited.origin)}
             >
               Not now
             </button>
           </div>
         </div>
       )}
-      {connected && !p.readOnly && p.direct && (
+      {!p.readOnly && direct && (
         <div
           className="direct-bar live"
           role="region"
           aria-label="Direct conversation"
         >
           <p>
-            You&apos;re talking with <strong>{companyName}</strong> directly.
+            You&apos;re talking with <strong>{direct.name}</strong> directly.
             What you type goes to them as your own words; Iris isn&apos;t
             reading or answering.
           </p>
@@ -550,49 +463,48 @@ export function Conversation({
               type="button"
               className="ghost-button"
               disabled={busy}
-              onClick={() => p.directAction("close")}
+              onClick={() => p.directAction("close", direct.origin)}
             >
               Leave and go back to Iris
             </button>
           </div>
         </div>
       )}
-      {connected &&
-        !p.readOnly &&
-        !p.direct &&
-        p.invitation === null &&
-        p.canTalkDirectly && (
-          <div className="direct-bar quiet">
-            {p.startingDirect ? (
-              <>
-                <p>
-                  Your next message goes to <strong>{companyName}</strong>{" "}
-                  directly, in your own words.
-                </p>
-                <button
-                  type="button"
-                  className="text-button"
-                  onClick={() => p.setStartingDirect(false)}
-                >
-                  Cancel
-                </button>
-              </>
-            ) : (
+      {!p.readOnly && !direct && !invited && !!canTalk.length && (
+        <div className="direct-bar quiet">
+          {startingWith ? (
+            <>
+              <p>
+                Your next message goes to <strong>{startingWith.name}</strong>{" "}
+                directly, in your own words.
+              </p>
               <button
+                type="button"
+                className="text-button"
+                onClick={() => p.setStartingDirect(undefined)}
+              >
+                Cancel
+              </button>
+            </>
+          ) : (
+            canTalk.map((c) => (
+              <button
+                key={c.origin}
                 type="button"
                 className="text-button"
                 disabled={busy}
                 onClick={() => {
-                  p.setStartingDirect(true);
+                  p.setStartingDirect(c.origin);
                   taskInput.current?.focus();
                 }}
               >
-                Talk to {companyName} yourself
+                Talk to {c.name} yourself
               </button>
-            )}
-          </div>
-        )}
-      {(connected || p.readOnly) && (
+            ))
+          )}
+        </div>
+      )}
+      {!p.missing && (
         <form className="composer" onSubmit={p.send}>
           <label className="sr-only" htmlFor="task">
             Message
@@ -603,7 +515,7 @@ export function Conversation({
             value={p.task}
             maxLength={2000}
             rows={2}
-            disabled={!connected || busy || p.readOnly}
+            disabled={busy || p.readOnly}
             onChange={(event) => p.setTask(event.target.value)}
             onKeyDown={(event) => {
               if (
@@ -618,17 +530,35 @@ export function Conversation({
             placeholder={
               p.readOnly
                 ? "This conversation has ended."
-                : !connected
-                  ? "Connect a Company first…"
-                  : p.direct || p.startingDirect
-                    ? `Message ${companyName}…`
+                : direct
+                  ? `Message ${direct.name}…`
+                  : startingWith
+                    ? `Message ${startingWith.name}…`
                     : "Ask Iris…"
             }
           />
+          {companies.length > 1 && !direct && !startingWith && (
+            // Which Company the message is for, when the User wants to say
+            // so; otherwise Iris decides, and asks when it can't.
+            <select
+              className="composer-target"
+              aria-label="Which company this message is for"
+              value={p.target ?? ""}
+              disabled={busy || p.readOnly}
+              onChange={(event) => p.setTarget(event.target.value || undefined)}
+            >
+              <option value="">Iris decides</option>
+              {companies.map((c) => (
+                <option key={c.origin} value={c.origin}>
+                  For {c.name}
+                </option>
+              ))}
+            </select>
+          )}
           <button
             type="submit"
             className="send-button"
-            disabled={!connected || busy || p.readOnly || !p.task.trim()}
+            disabled={busy || p.readOnly || !p.task.trim()}
             aria-label="Send message"
           >
             <ArrowUp size={19} />
