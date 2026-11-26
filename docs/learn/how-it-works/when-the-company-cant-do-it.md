@@ -7,7 +7,8 @@ that to agents. Iris says so, tells Lantern what its customer wanted, and
 passes on the other way Lantern suggests.
 
 This page follows that request screen by screen, on Iris's side and on
-Lantern's. Every screenshot is from the live lab, taken on 26 November 2026.
+Lantern's, and ends with how another company answers a report. Every
+screenshot is from the live lab, taken on 26 November 2026.
 
 ## Who does what
 
@@ -169,6 +170,51 @@ Within one session Iris reports a task once, however many times Elena asks.
 The protocol asks an agent for one report for each task it could not do, and
 none for each further attempt.
 
+### 6. Another company answers every report
+
+![Elena asks to pay for her next delivery with airline points. Iris answers that Juniper's tools don't support it, that it reported the request, and that Juniper says its staff can be asked in a support case](../../../apps/playground/public/learn-media/how-it-works/when-the-company-cant-do-it/06-report-at-juniper.webp "Juniper answers a report it does not recognise with a general way forward.")
+
+Lantern answers the reports it has an answer for and acknowledges the rest. A
+company can also answer a report it does not recognise with a general way
+forward, and [Juniper Market](https://grocery-demo.poppylab.dev) does. Elena
+asks Iris to pay for her next delivery with airline points, and Juniper
+answers the report: its staff can take the request up in a support case.
+
+This step uses an AI model, where the rest of the page uses the demo's rules.
+The demo sends only the gift-card report, which Juniper recognises and answers
+with a phone number. With a model the label on the messages reads Iris, and
+Iris gives Juniper's answer in its own sentences.
+
+![Juniper's account page: under Feedback from agents the report Pay with airline loyalty points, marked Alternative offered, and under Your agent's activity a support case marked Applied and approved by Elena in her agent](../../../apps/playground/public/learn-media/how-it-works/when-the-company-cant-do-it/07-case-at-juniper.webp "Juniper's website shows the report and the support case that followed it.")
+
+Elena then asks Iris to open the case. Juniper proposes it with its exact
+words, she approves it in Iris, and Juniper's website shows both the report
+and the case.
+
+<details>
+<summary>What travelled</summary>
+
+Iris's steps for the first message end with the report. The Inspector lists
+it as "POST /poppy/feedback · feedback · 200 with an alternative".
+
+```text
+Started a Poppy Session, signed in
+Read /poppy/tasks
+Company Agent conversations at https://grocery-demo.poppylab.dev/poppy/conversations
+Found 19 API tools at the Company
+Sent a request to /poppy/feedback
+```
+
+The model wrote the report. Juniper's website shows it as it arrived: the task
+"Pay with airline loyalty points" and the description "Use points from an
+airline loyalty account to pay for the next delivery."
+
+The protocol's validator also sends Juniper a report that Juniper does not
+recognise and checks the alternative that comes back. The
+[validator results](../validator.md) record that run.
+
+</details>
+
 ## What Lantern controls
 
 Lantern decides what its customers' agents can do, and it hears about what
@@ -185,12 +231,14 @@ they could not.
 
 ## For the technical reader
 
-![The Inspector lists the session, the read of Lantern's tasks with two excluded, and the feedback request answered with an alternative and marked §9.3](../../../apps/playground/public/learn-media/how-it-works/when-the-company-cant-do-it/06-inspector.webp "The Inspector shows the read of the tasks and the report, without the secrets.")
+![The Inspector lists the session, the read of Lantern's tasks with two excluded and one skill listed, and the feedback request answered with an alternative and marked §9.3](../../../apps/playground/public/learn-media/how-it-works/when-the-company-cant-do-it/08-inspector.webp "The Inspector shows the read of the tasks and the report, without the secrets.")
 
 The Inspector view of the playground lists the read of Lantern's tasks and the
 report with its result, "200 with an alternative", each beside the section of
-the specification it follows. Its Company profile names the two tasks from
-step 1 under Tasks not offered, from the first message of a session on.
+the specification it follows. From the first message of a session on, its
+Company profile names the two tasks from step 1 under Tasks not offered. Under
+Skills published it names the note Lantern wrote for agents on changing a
+scheduled order, which Iris lists and does not load yet.
 [Build a Company](../build-a-company.md#feedback-on-the-wire) shows the
 request and both possible answers, and
 [section 9 of the specification](https://personalagentprotocol.org/docs/1.0/spec#task-coverage)
