@@ -46,6 +46,8 @@ export function OperationReview({
   signedIn,
   onAction,
   notApplied,
+  open,
+  onOpen,
 }: {
   op: ReviewOperation;
   company: string;
@@ -56,6 +58,13 @@ export function OperationReview({
   onAction: (action: string, op: ReviewOperation) => void;
   /** Why the User's standing instruction left this to them (`leftToUser`). */
   notApplied?: string | null | undefined;
+  /**
+   * "Needs you" opens one waiting card at a time: whether it is this one,
+   * and the person's click on its title. Without them the card opens itself
+   * while it waits.
+   */
+  open?: boolean | undefined;
+  onOpen?: ((open: boolean) => void) | undefined;
 }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -82,10 +91,25 @@ export function OperationReview({
   // A finished operation says how it ended on its closed entry.
   const ended = active ? {} : outcome(op, state, company);
   return (
-    <details className="operation-review" open={active}>
-      <summary className="operation-summary">
+    <details className="operation-review" open={open ?? active}>
+      <summary
+        className="operation-summary"
+        onClick={
+          onOpen &&
+          ((event) => {
+            event.preventDefault();
+            onOpen(!open);
+          })
+        }
+      >
         <span>{operationTitle(op)}</span>
-        <span className="operation-state">{states[state] ?? state}</span>
+        <span className="operation-state">
+          {states[state] ?? state}
+          {/* A closed line among several names its amount, to tell them apart. */}
+          {open === false && pending && total
+            ? ` · ${total.text} ${total.label}`
+            : ""}
+        </span>
         {(ended.says || ended.note) && (
           <span className="operation-outcome">
             {ended.says && (
@@ -200,28 +224,6 @@ export function OperationReview({
             .
           </p>
         )}
-        {pending && op.agentDeclined && (
-          <p className="operation-ledger declined" role="status">
-            {company} declined the approval Iris sent on your standing
-            instruction, and did nothing.
-            {declinedReason(op.agentDeclined.reason)} It&apos;s up to you now.
-          </p>
-        )}
-        {pending && op.agentSuperseded && (
-          // Not a decline, but the same kind of note: it waits for the User.
-          <p className="operation-ledger declined" role="status">
-            {company} answered the approval Iris sent on your standing
-            instruction with new terms, and did nothing. It&apos;s up to you
-            now.
-          </p>
-        )}
-        {pending && notApplied && !op.agentDeclined && !op.agentSuperseded && (
-          // The two notes above already say it for a decline and new terms.
-          <p className="operation-ledger declined" role="status">
-            Your standing instruction did not apply: {notApplied}. It&apos;s up
-            to you now.
-          </p>
-        )}
         <details className="operation-terms" open={!op.summary}>
           <summary>All exact terms</summary>
           <pre className="operation-exact">
@@ -241,45 +243,75 @@ export function OperationReview({
             same approval; the Company performs it at most once.
           </p>
         )}
-        {active && op.result && (
-          // What became of an approval already sent, while this still waits:
-          // the Company refused the request, or answered a retry with new
-          // terms. A notice, right above the controls, not a success line.
-          <p className="operation-ledger declined" role="status">
-            {op.result.summary}
-          </p>
-        )}
         {active && (
-          <div className="operation-actions">
-            {pending ? (
-              <>
+          // Why the card still waits belongs with its buttons: "Needs you"
+          // keeps this foot in view while the terms scroll behind it.
+          <div className="operation-foot">
+            {pending && op.agentDeclined && (
+              <p className="operation-ledger declined" role="status">
+                {company} declined the approval Iris sent on your standing
+                instruction, and did nothing.
+                {declinedReason(op.agentDeclined.reason)} It&apos;s up to you
+                now.
+              </p>
+            )}
+            {pending && op.agentSuperseded && (
+              // Not a decline, but the same kind of note: it waits for the User.
+              <p className="operation-ledger declined" role="status">
+                {company} answered the approval Iris sent on your standing
+                instruction with new terms, and did nothing. It&apos;s up to you
+                now.
+              </p>
+            )}
+            {pending &&
+              notApplied &&
+              !op.agentDeclined &&
+              !op.agentSuperseded && (
+                // The two notes above already say it for a decline and new terms.
+                <p className="operation-ledger declined" role="status">
+                  Your standing instruction did not apply: {notApplied}.
+                  It&apos;s up to you now.
+                </p>
+              )}
+            {op.result && (
+              // What became of an approval already sent, while this still
+              // waits: the Company refused the request, or answered a retry
+              // with new terms. A notice, not a success line.
+              <p className="operation-ledger declined" role="status">
+                {op.result.summary}
+              </p>
+            )}
+            <div className="operation-actions">
+              {pending ? (
+                <>
+                  <button
+                    type="button"
+                    className="connect-button"
+                    disabled={busy || !signedIn}
+                    onClick={() => onAction("approve", op)}
+                  >
+                    {total ? `Approve ${total.label}` : "Approve this change"}
+                  </button>
+                  <button
+                    type="button"
+                    className="text-button"
+                    disabled={busy}
+                    onClick={() => onAction("decline", op)}
+                  >
+                    Decline
+                  </button>
+                </>
+              ) : (
                 <button
                   type="button"
                   className="connect-button"
                   disabled={busy || !signedIn}
-                  onClick={() => onAction("approve", op)}
+                  onClick={() => onAction("retry", op)}
                 >
-                  {total ? `Approve ${total.label}` : "Approve this change"}
+                  Retry the same approval
                 </button>
-                <button
-                  type="button"
-                  className="text-button"
-                  disabled={busy}
-                  onClick={() => onAction("decline", op)}
-                >
-                  Decline
-                </button>
-              </>
-            ) : (
-              <button
-                type="button"
-                className="connect-button"
-                disabled={busy || !signedIn}
-                onClick={() => onAction("retry", op)}
-              >
-                Retry the same approval
-              </button>
-            )}
+              )}
+            </div>
           </div>
         )}
       </div>

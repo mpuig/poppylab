@@ -577,3 +577,74 @@ it("labels a fee by its field, not as a change fee", () => {
     ),
   ).toContain("<dt>Change fee</dt>");
 });
+it("keeps every note on why a card still waits in its foot, with the buttons", () => {
+  // "Needs you" holds the foot in view while a tall card's terms scroll, so
+  // a note outside it is out of sight when the buttons are pressed again.
+  const foot = (marks: object, notApplied?: string) => {
+    const html = renderToStaticMarkup(
+      createElement(OperationReview, {
+        op: { ...op, terms: harborlineTransfer, ...marks },
+        company: "Harborline Bank",
+        busy: false,
+        signedIn: true,
+        onAction: vi.fn(),
+        notApplied,
+      }),
+    );
+    const at = html.indexOf('<div class="operation-foot">');
+    // No note among the terms, and nothing of the card after its foot.
+    expect(html.slice(0, at)).not.toContain("operation-ledger declined");
+    expect(html).toMatch(/<\/button><\/div><\/div><\/div><\/details>$/);
+    return html.slice(at);
+  };
+  const note = (words: string) =>
+    new RegExp(
+      `^<div class="operation-foot"><p class="operation-ledger declined" role="status">${words}[^<]*</p><div class="operation-actions">`,
+    );
+  expect(
+    foot({
+      result: {
+        summary: "Harborline Bank refused this request (HTTP 409).",
+      },
+    }),
+  ).toMatch(note("Harborline Bank refused this request"));
+  expect(foot({ agentDeclined: { reason: "Not for agents." } })).toMatch(
+    note("Harborline Bank declined the approval Iris sent"),
+  );
+  expect(foot({ agentSuperseded: true })).toMatch(
+    note("Harborline Bank answered the approval Iris sent"),
+  );
+  expect(foot({}, "the amount is over your limit")).toMatch(
+    note("Your standing instruction did not apply: the amount is over"),
+  );
+  // A card with nothing to explain has only its buttons there.
+  expect(foot({})).toMatch(
+    /^<div class="operation-foot"><div class="operation-actions">/,
+  );
+});
+it("is open or a closed line as the panel says, and a closed line names its amount", () => {
+  const waiting = (open?: boolean) =>
+    renderToStaticMarkup(
+      createElement(OperationReview, {
+        op: { ...op, terms: harborlineTransfer },
+        company: "Harborline Bank",
+        busy: false,
+        signedIn: true,
+        onAction: vi.fn(),
+        ...(open === undefined ? {} : { open, onOpen: vi.fn() }),
+      }),
+    );
+  const line = (html: string) => html.slice(0, html.indexOf("</summary>"));
+  // Two transfers waiting read the same but for their amounts.
+  expect(waiting(false)).toMatch(/^<details class="operation-review">/);
+  expect(line(waiting(false))).toContain(
+    '<span class="operation-state">Approval required · Amount $25.00</span>',
+  );
+  // Open, the headline says it.
+  expect(waiting(true)).toMatch(/^<details class="operation-review" open/);
+  expect(line(waiting(true))).toContain(
+    '<span class="operation-state">Approval required</span>',
+  );
+  // Outside the panel a waiting card opens itself.
+  expect(waiting()).toMatch(/^<details class="operation-review" open/);
+});

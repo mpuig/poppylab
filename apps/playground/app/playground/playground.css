@@ -1592,22 +1592,32 @@ footer .lab-links a:hover {
 .needs-you .operation-review {
   margin: 8px 0;
 }
+/* A closed line, above the open card, keeps no room under its title. */
+.needs-you .operation-review:not([open]) {
+  padding-bottom: 0;
+}
 /*
- * A card taller than the panel keeps its Approve and Decline in view: they
- * stay at the panel's foot while the card's terms scroll behind them, so
- * nobody has to find the panel's own scroll to decide.
+ * A card taller than the panel keeps its foot in view: Approve and Decline,
+ * and above them the note that says why the card still waits. They stay at
+ * the panel's foot while the card's terms scroll behind them, so nobody has
+ * to find the panel's own scroll to decide.
  */
-.needs-you .operation-actions {
+.needs-you .operation-foot {
   position: sticky;
   bottom: 0;
-  /* No margin of its own, so a short panel can still hold the whole row. */
-  margin: 0;
   padding: 12px 0;
   border-top: 1px solid var(--line);
   background: var(--soft);
 }
-/* The space above the row belongs to the line before it. */
-.needs-you .operation-content > :has(+ .operation-actions) {
+/* No margin of its own, so a short panel can still hold the whole row. */
+.needs-you .operation-actions {
+  margin: 0;
+}
+.needs-you .operation-foot .operation-ledger {
+  margin: 0 0 12px;
+}
+/* The space above the foot belongs to the line before it. */
+.needs-you .operation-content > :has(+ .operation-foot) {
   margin-bottom: 14px;
 }
 /* Focus moving through a card stops above those buttons, not under them. */
@@ -1638,6 +1648,38 @@ footer .lab-links a:hover {
 /* With a proposal waiting, the chat above it keeps room to read. */
 .chat-workspace .conversation:has(.needs-you) .messages {
   min-height: 7.5rem;
+}
+/*
+ * A short window has no room left for the panel: its card showed through a
+ * slit. An approval is the one thing here that waits for the person, so
+ * while the panel is open in such a window the workspace grows past it. The
+ * card is shown whole and the page scrolls, not a box inside the page. A
+ * taller window gives the panel its share and keeps it as it is.
+ */
+@media (max-height: 900px) {
+  .chat-workspace:has(.needs-you-body) {
+    height: auto;
+    min-height: var(--workspace-height, 100dvh);
+    overflow: visible;
+  }
+  .chat-workspace:has(.needs-you-body) main,
+  .chat-workspace .conversation:has(.needs-you-body) {
+    flex: 1 0 auto;
+  }
+  /* Clipped, not hidden: the card's foot then stays at the window's foot. */
+  .chat-workspace .conversation:has(.needs-you-body) {
+    overflow: clip;
+  }
+  .chat-workspace .conversation:has(.needs-you-body) .messages {
+    flex-basis: 7.5rem;
+  }
+  .chat-workspace .needs-you {
+    flex: none;
+  }
+  .chat-workspace .needs-you-body {
+    max-height: none;
+    overflow: visible;
+  }
 }
 
 /* Conversations: each has its own address; ended ones are read-only. */

@@ -98,10 +98,17 @@ in the page; the server's approval endpoint is the one it always was.
   message box, with a count. It folds with its button or Escape and opens
   again when a new proposal arrives; you can keep chatting while it is open.
   A status line announces a waiting proposal to screen readers. Settled
-  operations stay in the transcript. On a short window the panel shrinks and
-  scrolls, so the message box is always on screen. The Approve and Decline
-  buttons of the card in view stay at the foot of the panel while its terms
-  scroll behind them, so they are on screen without scrolling the panel.
+  operations stay in the transcript. One card is open at a time: the first to
+  arrive, until you open another by its title. The others are closed lines
+  above it, each with its amount. The open card's Approve and Decline stay at
+  the foot of the panel while its terms scroll behind them, and so does the
+  note that says why a card still waits: the Company refused the approval or
+  answered it with new terms, or your standing instruction did not apply. In
+  a window up to 900px tall the panel does not scroll inside the
+  conversation. The page grows instead and moves to the panel, the card is
+  shown whole, and the buttons stay at the foot of the window until you reach
+  the end of the card. The message box is then below the card; the panel's
+  button or Escape folds the panel and brings the window-sized chat back.
 - **The approval card.** It leads with the amount being approved, which is also
   on the button ("Approve $28.00"), and quotes the Company's summary as the
   Company's own words, as text only. It warns when the summary names an amount

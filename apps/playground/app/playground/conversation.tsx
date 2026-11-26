@@ -3,7 +3,7 @@ import { inlineText } from "./inline-text";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { ArrowUp, LoaderCircle } from "lucide-react";
 import { companyProfile } from "@poppy-lab/pap-core";
-import { needsYou } from "@/lib/operation-presentation";
+import { needsYou, openLast } from "@/lib/operation-presentation";
 import { leftToUser } from "@/lib/auto-approval";
 import { demoChangeReplyNow } from "@/lib/demo-changes";
 import { hideLinkSecrets } from "@/lib/link-display";
@@ -72,13 +72,43 @@ export function Conversation({
   const panel = useRef<HTMLElement>(null);
   const waiting = p.operations.filter((op) => needsYou(op, now));
   const settled = p.operations.filter((op) => !needsYou(op, now));
-  // A new proposal opens the panel again.
+  // A new proposal opens the panel again, and the card folded in it.
   const waitingKey = waiting
     .map((op) => `${op.operation_id}:${op.revision}`)
     .join();
+  // One waiting card is open at a time, the last in the panel: the first to
+  // arrive, until the person opens another or folds it.
+  const [chosen, setChosen] = useState<string>();
+  const [folded, setFolded] = useState(false);
   useEffect(() => {
-    if (waitingKey) setPanelOpen(true);
+    if (!waitingKey) return;
+    setPanelOpen(true);
+    setFolded(false);
   }, [waitingKey]);
+  const listed = openLast(waiting, chosen);
+  const shownId = folded ? undefined : listed.at(-1)?.operation_id;
+  const cards = useRef<HTMLDivElement>(null);
+  // Opening a card moves it to the panel's end, which drops the focus its
+  // title had.
+  useEffect(() => {
+    if (chosen)
+      cards.current
+        ?.querySelector<HTMLElement>(".operation-review[open] > summary")
+        ?.focus();
+  }, [chosen]);
+  // A card that opens is read from its top.
+  useEffect(() => {
+    if (cards.current) cards.current.scrollTop = 0;
+  }, [shownId]);
+  // In a short window the open panel reaches past the window's foot. The
+  // page moves to show all of it, or its top when it is the taller of the two.
+  useEffect(() => {
+    const element = panel.current;
+    if (waitingKey && panelOpen && element)
+      element.scrollIntoView({
+        block: element.offsetHeight > window.innerHeight ? "start" : "nearest",
+      });
+  }, [waitingKey, panelOpen, shownId]);
   // Why the User's standing instruction left a waiting operation to them.
   const leftOut = (op: (typeof p.operations)[number]) =>
     leftToUser(
@@ -97,7 +127,7 @@ export function Conversation({
         op.state === "succeeded" &&
         op.approvedBy?.approver === "agent",
     );
-  const review = (op: (typeof p.operations)[number]) => (
+  const review = (op: (typeof p.operations)[number], inPanel = false) => (
     <OperationReview
       key={op.operation_id}
       op={op}
@@ -107,6 +137,13 @@ export function Conversation({
       signedIn={signedIn}
       onAction={(action, operation) => void p.accountAction(action, operation)}
       notApplied={leftOut(op)}
+      {...(inPanel && {
+        open: op.operation_id === shownId,
+        onOpen: (open: boolean) => {
+          setChosen(op.operation_id);
+          setFolded(!open);
+        },
+      })}
     />
   );
   // `connected` implies a result; keep the type in step with the flag.
@@ -427,7 +464,7 @@ export function Conversation({
             {p.error}
           </p>
         )}
-        {settled.map(review)}
+        {settled.map((op) => review(op))}
         {p.sending && (
           <div className="thinking" role="status">
             <LoaderCircle className="spin" size={14} />
@@ -464,7 +501,9 @@ export function Conversation({
             <small>{panelOpen ? "Hide" : "Show"}</small>
           </button>
           {panelOpen && (
-            <div className="needs-you-body">{waiting.map(review)}</div>
+            <div className="needs-you-body" ref={cards}>
+              {listed.map((op) => review(op, true))}
+            </div>
           )}
         </section>
       )}

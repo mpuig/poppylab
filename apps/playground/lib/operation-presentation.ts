@@ -376,6 +376,20 @@ export function needsYou(op: ReviewOperation, now = Date.now()) {
   );
 }
 
+/**
+ * The waiting operations in the order "Needs you" lists them. One card is
+ * open at a time and it comes last, so the others are closed lines above it
+ * and the buttons at the panel's foot are always its own. It is the one the
+ * User opened, or the first to arrive while that one is not waiting.
+ */
+export function openLast<T extends { operation_id: string }>(
+  waiting: T[],
+  chosen?: string,
+): T[] {
+  const last = waiting.find((op) => op.operation_id === chosen) ?? waiting[0];
+  return last ? [...waiting.filter((op) => op !== last), last] : [];
+}
+
 /** What the account route records when a Company's result has no summary. */
 const NO_SUMMARY = "The Company performed the approved operation.";
 /**

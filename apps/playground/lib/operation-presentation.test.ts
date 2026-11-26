@@ -146,6 +146,23 @@ it("says which operations wait for the User", () => {
   );
 });
 
+import { openLast } from "./operation-presentation";
+
+it("lists the waiting card that is open last, below the others", () => {
+  const [a, b, c] = ["op_a", "op_b", "op_c"].map((operation_id) => ({
+    operation_id,
+  }));
+  const ids = (list: Array<{ operation_id: string }>) =>
+    list.map((op) => op.operation_id);
+  // The first to arrive is open until the User opens another.
+  expect(ids(openLast([a!, b!, c!]))).toEqual(["op_b", "op_c", "op_a"]);
+  expect(ids(openLast([a!, b!, c!], "op_b"))).toEqual(["op_a", "op_c", "op_b"]);
+  // The one they opened has gone (approved, expired): the first again.
+  expect(ids(openLast([a!, c!], "op_b"))).toEqual(["op_c", "op_a"]);
+  expect(openLast([a!])).toEqual([a]);
+  expect(openLast([])).toEqual([]);
+});
+
 import { ownLayout, termRows } from "./operation-presentation";
 
 // The Companies' terms, as their own code writes them.
