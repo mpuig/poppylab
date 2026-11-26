@@ -287,6 +287,22 @@ describe("The Inspector's lines, kept with the conversation", () => {
     }
   });
 
+  it("lists nothing of the conversation sign-out emptied, signed-out turns included", async () => {
+    state.revoke.mockResolvedValue(undefined);
+    run.log = [
+      { at: 1000, text: "GET /api/products · Poppy Session", signedOut: true },
+      { at: 2000, text: "GET /api/account/orders · Poppy Session" },
+    ];
+    const r = await POST(request({ action: "signout" }));
+    expect((await r.json()).trace).toEqual([
+      "Account grant revoked · Session signed out",
+    ]);
+    // What the answer carries is all a reload, or History, lists.
+    expect((await reloaded()).map((line) => line.text)).toEqual([
+      "Account grant revoked · Session signed out",
+    ]);
+  });
+
   it("says the account was signed out, as a line of the account it was", async () => {
     state.revoke.mockResolvedValue(undefined);
     const r = await POST(request({ action: "signout" }));
@@ -2796,6 +2812,8 @@ describe("Revoking the FDX consent (poppylab.dev/fdx v1)", () => {
 
   it("takes a 401 for a consent that has already ended, and signs out the same way", async () => {
     state.transport.mockRejectedValue(new ProtocolError(401, "invalid_token"));
+    const kept = state.run as { log?: Array<{ at: number; text: string }> };
+    kept.log = [{ at: 1000, text: "GET /fdx/v6/accounts · FDX-shaped" }];
     const r = await POST(request({ action: "fdx_revoke" }));
     const answer = await r.json();
     expect(r.status).toBe(200);
@@ -2805,6 +2823,10 @@ describe("Revoking the FDX consent (poppylab.dev/fdx v1)", () => {
     });
     expect(state.transport).toHaveBeenCalledTimes(1);
     signedOut();
+    // The Inspector's lines go with the conversation, as at Sign out: what
+    // this answer carries is all that is kept.
+    expect(answer.trace.length).toBeGreaterThan(0);
+    expect(kept.log!.map((line) => line.text)).toEqual(answer.trace);
   });
 
   it("keeps the sign-in and says so when the Company doesn't revoke it", async () => {

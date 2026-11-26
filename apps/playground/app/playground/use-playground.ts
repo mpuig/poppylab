@@ -321,8 +321,13 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
   const showOperations = (...answered: Array<Operation | undefined>) =>
     setOperations((old) => withOperations(old, ...answered));
 
-  /** What the page shows once the run is signed out (sign-out, revocation). */
-  function signedOutHere() {
+  /**
+   * What the page shows once the run is signed out (sign-out, revocation).
+   * `lines` are the answer's own, which are all the server still keeps: the
+   * Inspector's lines go with the conversation.
+   */
+  function signedOutHere(lines: string[] = []) {
+    setChatLog(lines.map((line) => logEntry(line)));
     setScopes("");
     setSignedIn(false);
     setOperations([]);
@@ -416,7 +421,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
             "Allow popups for this site, then try the sign-in or permission request again.",
           );
       }
-      if (action === "signout") signedOutHere();
+      if (action === "signout") signedOutHere(data.trace);
       if (data.operation) showOperations(data.operation);
     } catch (caught) {
       popup?.close();
@@ -531,7 +536,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
       addTrace(data.trace ?? []);
       if (data.code === "account_unavailable") accessLost(data);
       if (!response.ok) throw new Error(data.error);
-      signedOutHere();
+      signedOutHere(data.trace);
       setGrantRevoked(
         data.revoked === "already_ended" ? "already_ended" : "revoked",
       );

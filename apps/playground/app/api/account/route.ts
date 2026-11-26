@@ -75,7 +75,8 @@ const issuer = "http://juniper.localhost:4100";
 /**
  * The run as sign-out leaves it (§5.5): no account tokens, scopes, FDX
  * consent or ESPI subscription, and nothing Iris read with them. The
- * Session continues signed out.
+ * conversation is emptied, what was said signed out included, and the
+ * Inspector's lines with it. The Session continues signed out.
  */
 function signedOutLocally(run: Run) {
   delete run.accountToken;
@@ -94,6 +95,9 @@ function signedOutLocally(run: Run) {
   run.history = [];
   delete run.transcript;
   delete run.publicHistory;
+  // The Inspector's lines follow the conversation: none of an exchange the
+  // page no longer shows. The lines of this request are kept after it.
+  delete run.log;
   // History lists it under its first request, which is gone with the rest.
   delete run.title;
   // Iris forgets it; the Company keeps the conversation open (§5.5).
@@ -488,7 +492,9 @@ async function act(request: Request, started: { id?: string }) {
           { headers: { "Cache-Control": "no-store" } },
         );
       }
-      return revocationAnswer(
+      // Awaited here: the run is saved (`finally`) only once it is signed
+      // out and the revocation's lines are written.
+      return await revocationAnswer(
         run,
         revokeFdxConsent,
         {
@@ -523,7 +529,8 @@ async function act(request: Request, started: { id?: string }) {
           { status: 400, headers: { "Cache-Control": "no-store" } },
         );
       if (body.action === "espi_revoke")
-        return revocationAnswer(
+        // Awaited for the same reason as the FDX consent's.
+        return await revocationAnswer(
           run,
           revokeEspiAuthorization,
           {
