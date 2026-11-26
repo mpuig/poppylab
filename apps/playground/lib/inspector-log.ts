@@ -6,9 +6,9 @@ import type { Connection, Run } from "./runtime";
  * One line of the Inspector's "Session & API calls", kept with the
  * conversation so a reload or the History view lists it again. Only what
  * the Inspector showed is kept: the line's words, as `logEntry` cuts them
- * for the screen, and a time. A line names a method, a path, a status and
- * an error code at most: no token, header, body, one-time code or query
- * string.
+ * for the screen, a time, and which Company the line was written for. A
+ * line names a method, a path, a status and an error code at most: no
+ * token, header, body, one-time code or query string.
  */
 export type KeptLine = {
   /** When the server kept it: the end of the request that wrote it. */
