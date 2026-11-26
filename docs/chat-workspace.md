@@ -67,6 +67,8 @@ Three more things a message can start, when the Company offers them:
 - **Feedback.** "gift card", "voucher" or "feedback" sends one fixed report about a task the Company doesn't offer (see [Build a Company](learn/build-a-company.md#feedback-on-the-wire)).
 - **A Direct Conversation.** "my order never arrived" tells the Company's agent, which may ask to talk with you directly; you accept or decline above the message box (see [Conversations](learn/conversations.md)).
 
+One thing a message can do with or without a model, because Iris reads it before either: connect a Company to the conversation, or remove one. "Connect with Lantern", "connect to the bank", "add Northwind" or "also Harborline Bank" connects one of the lab's Companies by name, up to three in a conversation; "disconnect from Juniper" or "remove Lantern" takes one out, and revokes its sign-in first. "Connect with Lantern and show me the menu" connects, then asks. A name Iris doesn't know is never made into an address: it says so and lists the lab's Companies. The page still shows the first Company only; what the server takes and answers for several is in [A conversation and its Companies](chat-continuity.md#a-conversation-and-its-companies).
+
 At Harborline, with **Use FDX** on, reads use the bank's FDX-shaped API and are worded as that API words them; see [the FDX extension](extensions/fdx.md).
 
 Choosing the demo with **No key? Try the protocol demo** lasts for that browser tab. It is kept apart from the saved settings, so it never replaces a saved key and it survives a change of view or a reload; saving a model or forgetting the settings ends it.
