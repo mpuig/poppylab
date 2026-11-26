@@ -1605,16 +1605,45 @@ footer .lab-links a:hover {
 .needs-you .operation-foot {
   position: sticky;
   bottom: 0;
-  padding: 12px 0;
   border-top: 1px solid var(--line);
   background: var(--soft);
 }
-/* No margin of its own, so a short panel can still hold the whole row. */
+/*
+ * The buttons are pinned a second time, inside the foot. The foot cannot
+ * rise above the top of its own card, so with a note it can be taller than
+ * what shows of the card: with the page back at its top, or under a closed
+ * line. Its end, and the buttons, would then be past the edge. The row
+ * moves up over the note instead, and scrolling on shows the note. The
+ * space around the row is the row's own, so it covers the note to the edge.
+ */
 .needs-you .operation-actions {
+  position: sticky;
+  bottom: 0;
   margin: 0;
+  padding: 12px 0;
+  background: var(--soft);
 }
 .needs-you .operation-foot .operation-ledger {
-  margin: 0 0 12px;
+  margin: 12px 0 0;
+}
+/*
+ * Under a closed line there is less of the open card in view still, and the
+ * row itself has to fit between the card's title and the edge. The top of
+ * the content, which is as high as the foot can rise, is drawn up behind
+ * the empty lower part of the title's row. A spacer keeps the first line
+ * where it was.
+ */
+.needs-you .operation-review[open] > summary {
+  position: relative;
+  margin-bottom: -20px;
+}
+.needs-you .operation-content {
+  padding-top: 0;
+}
+.needs-you .operation-content::before {
+  content: "";
+  display: block;
+  height: 28px;
 }
 /* The space above the foot belongs to the line before it. */
 .needs-you .operation-content > :has(+ .operation-foot) {
