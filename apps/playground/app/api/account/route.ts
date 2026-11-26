@@ -63,10 +63,10 @@ import {
   createRun,
   readConversation,
   releaseRun,
-  secureCookies,
   visitorOf,
   type Held,
 } from "@/lib/runs";
+import { signInCookie, signInCookieOptions } from "@/lib/sign-in-cookie";
 import { conversationEnded, overBudget } from "@/lib/limits";
 import {
   coveredBy,
@@ -739,6 +739,10 @@ async function act(request: Request, started: { id?: string }) {
         agentOrigin = agentFor(connection);
       const state = randomId();
       const verifier = randomId() + randomId();
+      // A sign-in already under way at this Company is replaced, and its
+      // cookie goes with it. One under way at another Company is not.
+      const replaced = connection.auth && signInCookie(connection.auth.state);
+      if (replaced) store.set(replaced, "", signInCookieOptions(0));
       connection.auth = {
         state,
         verifier,
@@ -749,13 +753,9 @@ async function act(request: Request, started: { id?: string }) {
           ? { dpop: (await createIdentity()).privateKey }
           : {}),
       };
-      store.set("pap_oauth", state, {
-        httpOnly: true,
-        secure: secureCookies(),
-        sameSite: "lax",
-        path: "/api/account/callback",
-        maxAge: 300,
-      });
+      // The callback completes this sign-in only for the browser that
+      // holds its cookie (`sign-in-cookie.ts`).
+      store.set(signInCookie(state)!, state, signInCookieOptions());
       const params = {
         response_type: "code",
         client_id: clientId,

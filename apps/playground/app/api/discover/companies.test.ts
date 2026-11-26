@@ -194,7 +194,15 @@ describe("discovery for a conversation that is going on", () => {
 
 describe("discovery that names no conversation, or one unknown here", () => {
   it("starts a new conversation with the Company, as before", async () => {
-    const run = await conversation();
+    const run = await conversation((r) => {
+      r.connections[0]!.auth = {
+        state: "state_under_way",
+        verifier: "v",
+        expires: Date.now() + 60000,
+        issuer: shop,
+        scopes: "poppy:read",
+      };
+    });
     for (const named of ["", "run_unknown_here_0001"]) {
       const started = await connect(food, named);
       expect(started.status).toBe(200);
@@ -203,9 +211,12 @@ describe("discovery that names no conversation, or one unknown here", () => {
       expect(fresh).not.toBe(named);
       const stored = await readConversation(visitor, fresh);
       expect(stored!.connections.map((c) => c.url)).toEqual([food]);
-      // A sign-in started before doesn't complete in the new conversation.
-      expect(started.headers.getSetCookie().join()).toMatch(
-        /^pap_oauth=;.*Max-Age=0/,
+      // A sign-in started before, in the conversation the page showed,
+      // doesn't complete behind the new one: its cookie goes.
+      expect(started.headers.getSetCookie()).toContainEqual(
+        expect.stringMatching(
+          /^pap_oauth_state_under_way=; Path=\/api\/account\/callback;.*Max-Age=0/,
+        ),
       );
     }
     expect(run.connections).toHaveLength(1);

@@ -629,6 +629,19 @@ export async function runForState(visitor: string, state: string) {
   return undefined;
 }
 
+/**
+ * The OAuth states of the sign-ins the visitor has under way, in any of
+ * their conversations: each has a cookie of its own (`sign-in-cookie.ts`).
+ */
+export async function pendingSignIns(visitor: string) {
+  const states: string[] = [];
+  for (const [, entry] of await backend().list(visitor, "run:"))
+    for (const connection of readRun(entry.value)?.connections ?? [])
+      if (connection.auth && connection.auth.expires > Date.now())
+        states.push(connection.auth.state);
+  return states;
+}
+
 // ---- Rate limits -----------------------------------------------------------
 export type Limit = { name: string; limit: number; windowMs: number };
 /** True when within every limit (per visitor, and the global budget). */

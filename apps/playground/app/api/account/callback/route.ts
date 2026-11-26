@@ -21,6 +21,7 @@ import {
 import { keepTokenFields, tokenResponse } from "../../../../lib/token-response";
 import { serving } from "@/lib/deployment";
 import { acquireRun, releaseRun, runForState, visitorOf } from "@/lib/runs";
+import { signInCookie, signInCookieOptions } from "@/lib/sign-in-cookie";
 import { backToPublic, keepPublicHistory } from "@/lib/transcript";
 import { keepLines } from "@/lib/inspector-log";
 export const runtime = "nodejs";
@@ -112,7 +113,10 @@ export async function GET(request: Request) {
   const store = await cookies();
   const url = new URL(request.url);
   const state = url.searchParams.get("state");
-  const cookie = store.get("pap_oauth")?.value;
+  // The cookie of this very sign-in, set in the browser that started it.
+  // A sign-in under way at another Company has its own, and is left alone.
+  const bound = state ? signInCookie(state) : undefined;
+  const cookie = bound ? store.get(bound)?.value : undefined;
   // Only the visitor who started this sign-in can complete it.
   const visitor = visitorOf(store);
   const found =
@@ -132,7 +136,8 @@ export async function GET(request: Request) {
   const { run } = held;
   const pending = connection.auth!;
   delete connection.auth;
-  store.delete("pap_oauth");
+  // Spent, whatever comes of it: the cookie goes with the pending sign-in.
+  store.set(bound!, "", signInCookieOptions(0));
   if (
     url.searchParams.get("iss") !== pending.issuer ||
     url.searchParams.has("error") ||

@@ -5,10 +5,12 @@ import { cookies } from "next/headers";
 import {
   acquireRun,
   createRun,
+  pendingSignIns,
   releaseRun,
   visitorOf,
   type Held,
 } from "@/lib/runs";
+import { signInCookie, signInCookieOptions } from "@/lib/sign-in-cookie";
 import { connectionAt } from "@/lib/connections";
 import { connectCompany } from "@/lib/connecting";
 import { conversationEnded, overBudget } from "@/lib/limits";
@@ -149,15 +151,15 @@ export async function POST(request: Request) {
     // §9: tasks need a Session, so Iris reads them when it connects.
     const result = await discoverCompany(url, { allowedPrivateOrigins });
     const response = json(result);
-    response.cookies.set("pap_oauth", "", {
-      httpOnly: true,
-      sameSite: "lax",
-      path: "/api/account/callback",
-      maxAge: 0,
-    });
     // Connecting starts a conversation; its ID becomes the page's address.
     try {
       const visitor = visitorOf(await cookies(), true);
+      // A sign-in started before, in a conversation the page no longer
+      // shows, doesn't complete behind the new one: its cookie goes.
+      for (const state of await pendingSignIns(visitor)) {
+        const cookie = signInCookie(state);
+        if (cookie) response.cookies.set(cookie, "", signInCookieOptions(0));
+      }
       const held = await createRun(visitor, result.requestedUrl);
       const connection = connectionAt(held.run, result.requestedUrl);
       if (connection) connection.company = result;
