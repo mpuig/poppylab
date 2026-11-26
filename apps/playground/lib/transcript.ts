@@ -2,7 +2,7 @@ import { agentStep, type AgentStep } from "./agent-steps";
 import type { CompanyEntry, DirectAction } from "./conversations";
 import { keepSignedOutLines } from "./inspector-log";
 import { logEntry } from "./protocol-log";
-import type { Operation, Run } from "./runtime";
+import type { Connection, Operation, Run, Turn } from "./runtime";
 
 /**
  * One thing the page showed, kept so a reload or the History view shows it
@@ -108,9 +108,13 @@ export function bounded(entries: TranscriptEntry[]): TranscriptEntry[] {
   return kept;
 }
 
-/** Adds entries to the transcript the page shows, and not to the model's. */
-function show(run: Run, ...entries: TranscriptEntry[]) {
-  const signedOut = run.accountToken ? {} : { signedOut: true as const };
+/**
+ * Adds entries to the transcript the page shows, and not to the model's.
+ * `connection` is the Company the turn was with: whether its account was
+ * signed in says how the entries are marked.
+ */
+function show(run: Run, connection: Connection, ...entries: TranscriptEntry[]) {
+  const signedOut = connection.accountToken ? {} : { signedOut: true as const };
   run.transcript = bounded([
     ...(run.transcript ?? run.history),
     ...entries.map((entry) => ({ ...clipped(entry), ...signedOut })),
@@ -143,15 +147,15 @@ export function keepSignedOutTranscript(run: Run) {
 }
 
 /**
- * The conversation as it was before any account access: the model's turns
- * from then, what the page showed while signed out, and no proposal. For a
- * sign-in that may be for another account, and for an access the Company
- * took back.
+ * The conversation as it was before any access to this Company's account:
+ * the model's turns from then, what the page showed while signed out, and
+ * no proposal. For a sign-in that may be for another account, and for an
+ * access the Company took back.
  */
-export function backToPublic(run: Run) {
-  run.history = structuredClone(run.publicHistory ?? []);
+export function backToPublic(run: Run, connection: Connection) {
+  run.history = structuredClone(connection.publicHistory ?? []);
   keepSignedOutTranscript(run);
-  run.operations = {};
+  connection.operations = {};
 }
 
 /**
@@ -172,16 +176,21 @@ export function backToPublic(run: Run) {
  * the next sign-in: the run still holds an account, so it isn't marked as
  * shown signed out.
  */
-export function forgetLostAccount(run: Run, knewBefore: boolean) {
-  if (knewBefore || !run.accountToken || !run.accountUnavailable) return;
-  const unknown = Object.entries(run.operations ?? {}).filter(
+export function forgetLostAccount(
+  run: Run,
+  connection: Connection,
+  knewBefore: boolean,
+) {
+  if (knewBefore || !connection.accountToken || !connection.accountUnavailable)
+    return;
+  const unknown = Object.entries(connection.operations ?? {}).filter(
     ([, op]) => op.state === "uncertain",
   );
-  backToPublic(run);
-  run.operations = Object.fromEntries(unknown);
+  backToPublic(run, connection);
+  connection.operations = Object.fromEntries(unknown);
   return {
     history: run.transcript ?? run.history,
-    operations: Object.values(run.operations),
+    operations: Object.values(connection.operations),
   };
 }
 
@@ -213,10 +222,10 @@ const answerEntry = (content: string, shown: Shown): TranscriptEntry => ({
 /**
  * Adds turns to the model's context (`history`, which callers cut to the
  * last ten) and to the transcript the page shows, which keeps the whole
- * conversation up to a bound.
+ * conversation up to a bound. `connection` is the Company they were with.
  */
-export function record(run: Run, ...turns: Run["history"]) {
-  show(run, ...turns);
+export function record(run: Run, connection: Connection, ...turns: Turn[]) {
+  show(run, connection, ...turns);
   run.history.push(...turns);
 }
 
@@ -228,12 +237,19 @@ export function record(run: Run, ...turns: Run["history"]) {
  */
 export function recordTurn(
   run: Run,
+  connection: Connection,
   said: string,
   answer: string,
   shown: Shown = {},
 ) {
   const user = { role: "user" as const, content: said };
-  show(run, user, ...companyEntries(shown), answerEntry(answer, shown));
+  show(
+    run,
+    connection,
+    user,
+    ...companyEntries(shown),
+    answerEntry(answer, shown),
+  );
   run.history.push(user, { role: "assistant", content: answer });
 }
 
@@ -250,16 +266,18 @@ export function recordTurn(
  */
 export function recordOutcome(
   run: Run,
+  connection: Connection,
   op: Pick<Operation, "direct">,
   outcome: "performed" | "declined",
   content: string,
 ) {
   // A run with no transcript yet is restored from `history`: keep what the
   // page showed so far before the model's line joins it.
-  show(run);
+  show(run, connection);
   let line = content;
   if (op.direct) {
-    const company = run.company?.document.organization.name ?? "the Company";
+    const company =
+      connection.company?.document.organization.name ?? "the Company";
     line =
       outcome === "performed"
         ? `(An operation proposed in the user's direct conversation with ${company} was approved and performed.)`
@@ -287,6 +305,7 @@ export function recordOutcome(
  */
 export function recordDirect(
   run: Run,
+  connection: Connection,
   company: string,
   action: DirectAction,
   words: string,
@@ -297,6 +316,7 @@ export function recordDirect(
   const spoke = action === "say" || action === "start";
   show(
     run,
+    connection,
     ...(spoke
       ? [{ role: "user" as const, content: words, direct: true as const }]
       : []),

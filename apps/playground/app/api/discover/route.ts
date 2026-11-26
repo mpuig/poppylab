@@ -3,6 +3,7 @@ import { LOCAL_COMPANY_ORIGINS, PapDiscoveryError } from "@poppy-lab/pap-core";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRun, releaseRun, visitorOf } from "@/lib/runs";
+import { connectionAt } from "@/lib/connections";
 import { overBudget } from "@/lib/limits";
 import { publicMode } from "@/lib/deployment";
 
@@ -110,7 +111,8 @@ export async function POST(request: Request) {
     try {
       const visitor = visitorOf(await cookies(), true);
       const held = await createRun(visitor, result.requestedUrl);
-      held.run.company = result;
+      const connection = connectionAt(held.run, result.requestedUrl);
+      if (connection) connection.company = result;
       await releaseRun(visitor, held);
       response.headers.set("X-Poppy-Conversation", held.id);
     } catch {

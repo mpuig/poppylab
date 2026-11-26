@@ -8,6 +8,7 @@ import {
   recordOperation,
   clientFor,
   agentFor,
+  type Connection,
   type Operation,
   type Run,
   accountConfiguration,
@@ -24,6 +25,7 @@ import {
   espiAuthorizationRecord,
   revokeEspiAuthorization,
 } from "@/lib/runtime";
+import { onlyConnection } from "@/lib/connections";
 import { extensionByKey, extensionsOn } from "@/lib/domain-extension";
 import { fdxStatementsByAccount } from "@/lib/demo-fdx";
 import { forgetLostAccount, recordOutcome } from "@/lib/transcript";
@@ -73,35 +75,36 @@ export const runtime = "nodejs";
 const issuer = "http://juniper.localhost:4100";
 
 /**
- * The run as sign-out leaves it (§5.5): no account tokens, scopes, FDX
- * consent or ESPI subscription, and nothing Iris read with them. The
- * conversation is emptied, what was said signed out included, and the
- * Inspector's lines with it. The Session continues signed out.
+ * The conversation as sign-out at a Company leaves it (§5.5): no account
+ * tokens, scopes, FDX consent or ESPI subscription in its connection, and
+ * nothing Iris read with them. The conversation is emptied, what was said
+ * signed out included, and the Inspector's lines with it. The Session
+ * continues signed out.
  */
-function signedOutLocally(run: Run) {
-  delete run.accountToken;
-  delete run.token;
-  delete run.tokenType;
-  delete run.tokenExpires;
-  delete run.accountUnavailable;
+function signedOutLocally(run: Run, connection: Connection) {
+  delete connection.accountToken;
+  delete connection.token;
+  delete connection.tokenType;
+  delete connection.tokenExpires;
+  delete connection.accountUnavailable;
   // §4.5: the tokens for single services go with the account's.
-  delete run.resourceTokens;
-  delete run.scopes;
-  delete run.fdxConsent;
-  delete run.espiResourceUri;
-  delete run.espiAuthorizationUri;
-  delete run.auth;
-  run.operations = {};
+  delete connection.resourceTokens;
+  delete connection.scopes;
+  delete connection.fdxConsent;
+  delete connection.espiResourceUri;
+  delete connection.espiAuthorizationUri;
+  delete connection.auth;
+  connection.operations = {};
   run.history = [];
   delete run.transcript;
-  delete run.publicHistory;
+  delete connection.publicHistory;
   // The Inspector's lines follow the conversation: none of an exchange the
   // page no longer shows. The lines of this request are kept after it.
   delete run.log;
   // History lists it under its first request, which is gone with the rest.
   delete run.title;
   // Iris forgets it; the Company keeps the conversation open (§5.5).
-  delete run.conversation;
+  delete connection.conversation;
 }
 
 /**
@@ -199,22 +202,23 @@ const accessEnded = (error: unknown) =>
  * The User revokes a domain extension's grant (the FDX consent, the ESPI
  * authorization) with `revoke`, and the answer the page gets. Revoked, or
  * found already ended: the Company holds no live token of this sign-in, so
- * the run is signed out here without revoking the dead refresh token.
+ * the connection is signed out here without revoking the dead refresh token.
  * Anything else keeps the sign-in.
  */
 async function revocationAnswer(
   run: Run,
-  revoke: (run: Run, trace: string[]) => Promise<void>,
+  connection: Connection,
+  revoke: (connection: Connection, trace: string[]) => Promise<void>,
   what: { name: string; code: string; named: Record<string, unknown> },
   trace: string[],
 ) {
   try {
-    await revoke(run, trace);
+    await revoke(connection, trace);
   } catch (error) {
     // The Company no longer takes this sign-in's tokens: the grant has
     // ended already. Its refresh token is dead too, so it isn't revoked.
     if (accessEnded(error)) {
-      signedOutLocally(run);
+      signedOutLocally(run, connection);
       trace.push(`${what.name} already ended · signed out`);
       return NextResponse.json(
         { signedIn: false, revoked: "already_ended", ...what.named, trace },
@@ -239,7 +243,7 @@ async function revocationAnswer(
   }
   // The consent or authorization was the grant: its access and refresh
   // tokens are gone at the Company, so sign-out has nothing left to revoke.
-  signedOutLocally(run);
+  signedOutLocally(run, connection);
   return NextResponse.json(
     { signedIn: false, revoked: "revoked", ...what.named, trace },
     { headers: { "Cache-Control": "no-store" } },
@@ -257,6 +261,8 @@ export async function GET(request: Request) {
   const visitor = visitorOf(store);
   const id = new URL(request.url).searchParams.get("conversation");
   const run = visitor ? await readConversation(visitor, id) : undefined;
+  // What the page shows of the Company is its one connection's.
+  const connection = run ? onlyConnection(run) : undefined;
   return NextResponse.json(
     {
       // Unknown here: never started in this browser, or past its keep time.
@@ -264,7 +270,7 @@ export async function GET(request: Request) {
       conversation: run ? id : undefined,
       readOnly: !!run?.archived,
       keptUntil: run?.archived ? run.keepUntil : undefined,
-      company: run?.company,
+      company: connection?.company,
       // What the page showed, to show again: the transcript, with Company
       // content and each answer's label, steps and data. Not the model's
       // context, except in a run that has no transcript yet.
@@ -272,37 +278,42 @@ export async function GET(request: Request) {
       // The Inspector's "Session & API calls" lines, to list again.
       log: run?.log ?? [],
       // §9.1: the tasks its current Session read, for "Tasks not offered".
-      excludedTasks: run ? shownTasks(run) : [],
+      excludedTasks: connection ? shownTasks(connection) : [],
       // §9.4: the skills it read, for "Skills published".
-      skills: run ? shownSkills(run) : [],
-      url: run?.url,
-      scopes: run?.scopes,
+      skills: connection ? shownSkills(connection) : [],
+      url: connection?.url,
+      scopes: connection?.scopes,
       // Use FDX (poppylab.dev/fdx v1), a setting of this conversation.
-      fdx: !!run?.fdx,
+      fdx: !!connection?.fdx,
       // The FDX consent of this sign-in, for the page to show and revoke
       // with Use FDX on.
       fdxConsent:
-        run?.accountToken && !run.accountUnavailable
-          ? run.fdxConsent
+        connection?.accountToken && !connection.accountUnavailable
+          ? connection.fdxConsent
           : undefined,
       // Use ESPI (poppylab.dev/espi v1), the same setting at a utility, and
       // the id of this sign-in's authorization, to show and revoke with it.
-      espi: !!run?.espi,
-      espiAuthorization: run ? espiAuthorizationTarget(run)?.id : undefined,
-      consentVersion: run?.consentVersion ?? 0,
-      recovery: run?.accountUnavailable ? accountUnavailableNotice : undefined,
+      espi: !!connection?.espi,
+      espiAuthorization: connection
+        ? espiAuthorizationTarget(connection)?.id
+        : undefined,
+      consentVersion: connection?.consentVersion ?? 0,
+      recovery: connection?.accountUnavailable
+        ? accountUnavailableNotice
+        : undefined,
       signedIn:
-        !!run?.accountToken &&
-        !run.accountUnavailable &&
+        !!run &&
+        !!connection?.accountToken &&
+        !connection.accountUnavailable &&
         run.expires > Date.now(),
-      authPending: !!run?.auth || !!run?.busy,
+      authPending: !!connection?.auth || !!run?.busy,
       // §8.10: a reload must not send the User's words for the Company to
       // Iris. Under its own name: `conversation` here is the ID.
-      directConversation: run ? directState(run) : undefined,
+      directConversation: connection ? directState(connection) : undefined,
       // An ended conversation shows how its proposals ended.
       operations:
-        run && (run.archived || run.expires > Date.now())
-          ? Object.values(run.operations ?? {})
+        run && connection && (run.archived || run.expires > Date.now())
+          ? Object.values(connection.operations ?? {})
           : [],
     },
     { headers: { "Cache-Control": "no-store" } },
@@ -357,7 +368,10 @@ async function act(request: Request, started: { id?: string }) {
   }
   started.id = held.id;
   const run = held.run;
-  if (!isAccountCompany(new URL(run.url).origin)) {
+  // The Company this action is for. A conversation has one: with several,
+  // the page has to say which Company it signs in to, or approves at.
+  const connection = onlyConnection(run);
+  if (!isAccountCompany(new URL(connection.url).origin)) {
     await releaseRun(visitor, held);
     return NextResponse.json(
       { error: "Connect to a supported account Company first." },
@@ -369,7 +383,7 @@ async function act(request: Request, started: { id?: string }) {
   // them, and they are kept with the conversation (`finally`) as lines of
   // the account that was signed in when the request began.
   const trace: string[] = [];
-  const withAccount = !!run.accountToken;
+  const withAccount = !!connection.accountToken;
   /** Lines of one answer, kept as well. */
   const said = (...lines: string[]) => {
     trace.push(...lines);
@@ -380,7 +394,7 @@ async function act(request: Request, started: { id?: string }) {
   const written: string[] = [];
   // Iris already knew that the Company no longer takes the sign-in. An
   // action in which it learns that drops what it showed with the account.
-  const knewLost = !!run.accountUnavailable;
+  const knewLost = !!connection.accountUnavailable;
   try {
     // All actions have a tiny fixed schema; bound the stream before parsing.
     const reader = request.body?.getReader();
@@ -427,19 +441,22 @@ async function act(request: Request, started: { id?: string }) {
       // entry of that extension (v1). A change starts a new Session (§3.4);
       // sign-in is kept.
       if (typeof body.enabled !== "boolean") throw new Error();
-      if (body.enabled && !run.company?.profile?.extensions?.[extension.name])
+      if (
+        body.enabled &&
+        !connection.company?.profile?.extensions?.[extension.name]
+      )
         return NextResponse.json(
           {
             error: `This Company doesn't offer the ${extension.shape} extension.`,
           },
           { status: 400 },
         );
-      setExtension(run, extension.key, body.enabled);
-      const on = !!run[extension.key];
+      setExtension(connection, extension.key, body.enabled);
+      const on = !!connection[extension.key];
       return NextResponse.json(
         {
           [extension.key]: on,
-          sessionId: run.sessionId,
+          sessionId: connection.sessionId,
           trace: said(
             `Use ${extension.label} ${on ? "on" : "off"} · new Session · ${extension.name} ${on ? "v1 declared" : "not declared"}`,
           ),
@@ -451,25 +468,29 @@ async function act(request: Request, started: { id?: string }) {
       // poppylab.dev/fdx v1: the User's own look at, and revocation of, the
       // consent of this sign-in. The endpoint and id come from the
       // validated entry and the token response, never from this body.
-      if (run.accountToken && run.accountUnavailable)
+      if (connection.accountToken && connection.accountUnavailable)
         return NextResponse.json(accountUnavailableNotice, {
           status: accountUnavailableNotice.status,
           headers: { "Cache-Control": "no-store" },
         });
-      if (!fdxEntry(run) || !run.fdxConsent || !run.accountToken)
+      if (
+        !fdxEntry(connection) ||
+        !connection.fdxConsent ||
+        !connection.accountToken
+      )
         return NextResponse.json(
           {
             code: "no_fdx_consent",
-            error: !run.accountToken
+            error: !connection.accountToken
               ? "Sign in first: there is no FDX consent to revoke."
-              : !fdxEntry(run)
+              : !fdxEntry(connection)
                 ? "Turn on Use FDX to manage the FDX consent."
                 : "This sign-in has no FDX consent. Sign in again to share accounts over FDX.",
           },
           { status: 400, headers: { "Cache-Control": "no-store" } },
         );
       if (body.action === "fdx_consent") {
-        const record = await fdxConsentRecord(run, trace);
+        const record = await fdxConsentRecord(connection, trace);
         const resources = Array.isArray(record.resources)
           ? (record.resources as Array<{ resourceId?: unknown }>)
           : [];
@@ -500,11 +521,12 @@ async function act(request: Request, started: { id?: string }) {
       // out and the revocation's lines are written.
       return await revocationAnswer(
         run,
+        connection,
         revokeFdxConsent,
         {
           name: "FDX consent",
           code: "fdx_revoke_failed",
-          named: { consent: run.fdxConsent },
+          named: { consent: connection.fdxConsent },
         },
         trace,
       );
@@ -514,19 +536,19 @@ async function act(request: Request, started: { id?: string }) {
       // the authorization of this sign-in, which is its subscription. The
       // URI comes from the token response, checked against the entry,
       // never from this body.
-      if (run.accountToken && run.accountUnavailable)
+      if (connection.accountToken && connection.accountUnavailable)
         return NextResponse.json(accountUnavailableNotice, {
           status: accountUnavailableNotice.status,
           headers: { "Cache-Control": "no-store" },
         });
-      const target = espiAuthorizationTarget(run);
+      const target = espiAuthorizationTarget(connection);
       if (!target)
         return NextResponse.json(
           {
             code: "no_espi_authorization",
-            error: !run.accountToken
+            error: !connection.accountToken
               ? "Sign in first: there is no ESPI authorization to revoke."
-              : !run.espi
+              : !connection.espi
                 ? "Turn on Use ESPI to manage the ESPI authorization."
                 : "This sign-in has no ESPI authorization. Sign in again to share meters over ESPI.",
           },
@@ -536,6 +558,7 @@ async function act(request: Request, started: { id?: string }) {
         // Awaited for the same reason as the FDX consent's.
         return await revocationAnswer(
           run,
+          connection,
           revokeEspiAuthorization,
           {
             name: "ESPI authorization",
@@ -545,7 +568,7 @@ async function act(request: Request, started: { id?: string }) {
           trace,
         );
       const { authorization, meters } = await espiAuthorizationRecord(
-        run,
+        connection,
         trace,
       );
       const str = (v: unknown) => (typeof v === "string" ? v : undefined);
@@ -581,16 +604,16 @@ async function act(request: Request, started: { id?: string }) {
       // poppylab.dev/fdx v1: the User's own statements, listed and
       // downloaded through the native adapter. The URL comes from the
       // validated entry and the ids alone; the model never gets the PDF.
-      if (run.accountToken && run.accountUnavailable)
+      if (connection.accountToken && connection.accountUnavailable)
         return NextResponse.json(accountUnavailableNotice, {
           status: accountUnavailableNotice.status,
           headers: { "Cache-Control": "no-store" },
         });
-      if (!fdxEntry(run) || !run.accountToken)
+      if (!fdxEntry(connection) || !connection.accountToken)
         return NextResponse.json(
           {
             code: "no_fdx_access",
-            error: !run.accountToken
+            error: !connection.accountToken
               ? "Sign in first: statements come from the accounts you share over FDX."
               : "Turn on Use FDX to see statements.",
           },
@@ -598,7 +621,7 @@ async function act(request: Request, started: { id?: string }) {
         );
       if (body.action === "fdx_statements") {
         const answer = (await fdxStatementsByAccount(
-          fdxUserTools(run, trace),
+          fdxUserTools(connection, trace),
         )) as { accounts?: unknown; error?: unknown };
         return fdxStatementsAnswer(answer, trace);
       }
@@ -615,7 +638,7 @@ async function act(request: Request, started: { id?: string }) {
       // page writes one when the file arrives, and only that one is kept.
       const asked: string[] = [];
       const result = await fdxStatementDownload(
-        run,
+        connection,
         body.accountId,
         body.statementId,
         asked,
@@ -647,7 +670,7 @@ async function act(request: Request, started: { id?: string }) {
     if (body.action === "signin") {
       // §4.2: plain OAuth Direct Sign-In. It doesn't know the Session;
       // the callback starts a new Session for the signed-in account.
-      const candidate = { ...run, history: [] } as Run;
+      const candidate = { ...connection };
       await connect(candidate, []);
       const profile = companyProfile(candidate.company!);
       // §3.2 auth.disabled, or no Direct Sign-In grant: never start one.
@@ -672,19 +695,21 @@ async function act(request: Request, started: { id?: string }) {
           { status: 400 },
         );
       }
-      run.company = candidate.company!;
-      const config = accountConfiguration(run);
-      const clientId = clientFor(run),
-        agentOrigin = agentFor(run);
+      connection.company = candidate.company!;
+      const config = accountConfiguration(connection);
+      const clientId = clientFor(connection),
+        agentOrigin = agentFor(connection);
       const state = randomId();
       const verifier = randomId() + randomId();
-      run.auth = {
+      connection.auth = {
         state,
         verifier,
         expires: Date.now() + 300000,
         issuer: config.issuer,
         scopes,
-        ...(usesDpop(run) ? { dpop: (await createIdentity()).privateKey } : {}),
+        ...(usesDpop(connection)
+          ? { dpop: (await createIdentity()).privateKey }
+          : {}),
       };
       store.set("pap_oauth", state, {
         httpOnly: true,
@@ -713,23 +738,24 @@ async function act(request: Request, started: { id?: string }) {
         // DPoP proof that binds the code), then open only client_id and
         // request_uri. Used whenever the Company offers it.
         const pushed = await pushAuthorizationRequest(
-          run,
+          connection,
           params,
-          run.auth.dpop,
+          connection.auth.dpop,
         );
         url.searchParams.set("client_id", clientId);
         url.searchParams.set("request_uri", pushed);
       } else
         for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
       return NextResponse.json(
-        { url: url.toString(), consentVersion: run.consentVersion ?? 0 },
+        { url: url.toString(), consentVersion: connection.consentVersion ?? 0 },
         { headers: { "Cache-Control": "no-store" } },
       );
     }
     if (body.action === "signout") {
       // §5.5: sign-out revokes every refresh token held for the account.
-      if (run.accountToken) await revokeRefreshToken(run, run.accountToken);
-      signedOutLocally(run);
+      if (connection.accountToken)
+        await revokeRefreshToken(connection, connection.accountToken);
+      signedOutLocally(run, connection);
       return NextResponse.json({
         signedIn: false,
         trace: said("Account grant revoked · Session signed out"),
@@ -737,7 +763,7 @@ async function act(request: Request, started: { id?: string }) {
     }
     if (!["approve", "decline", "retry", "not_applied"].includes(body.action))
       throw new Error();
-    const op = run.operations?.[body.id ?? ""];
+    const op = connection.operations?.[body.id ?? ""];
     if (!op || body.revision !== op.revision) throw new Error();
     if (body.action === "not_applied") {
       // The User's standing instruction lives in the browser, so the page
@@ -785,9 +811,11 @@ async function act(request: Request, started: { id?: string }) {
         { headers: { "Cache-Control": "no-store" } },
       );
     }
-    if (!run.accountToken) throw new ProtocolError(401, undefined);
+    if (!connection.accountToken) throw new ProtocolError(401, undefined);
     // Approving needs a scope that can change something (Company hints).
-    if (!canChange(companyProfile(run.company!), run.scopes ?? ""))
+    if (
+      !canChange(companyProfile(connection.company!), connection.scopes ?? "")
+    )
       throw new ProtocolError(403, "insufficient_scope");
     if (
       body.action === "approve" &&
@@ -825,10 +853,10 @@ async function act(request: Request, started: { id?: string }) {
       const covered = instruction && coveredBy(op, instruction);
       // The page wrote this line before it asked.
       if (covered) written.push(applyingLine(covered.text));
-      const recent = (run.agentApprovals ?? []).filter(
+      const recent = (connection.agentApprovals ?? []).filter(
         (a) => a.at > Date.now() - 3_600_000,
       );
-      run.agentApprovals = recent;
+      connection.agentApprovals = recent;
       const spent = recent.reduce((sum, a) => sum + a.cents, 0);
       const refusal = op.agentDeclined
         ? "The Company declined an approval on your standing instruction for this. Approve it yourself if you want it."
@@ -870,8 +898,8 @@ async function act(request: Request, started: { id?: string }) {
     // approval (§7), not another one, and has no amount of its own.
     const countAgentApproval = () => {
       if (approver === "agent" && body.action === "approve")
-        run.agentApprovals = [
-          ...(run.agentApprovals ?? []),
+        connection.agentApprovals = [
+          ...(connection.agentApprovals ?? []),
           { at: Date.now(), cents: ruleCents },
         ].slice(-20);
     };
@@ -899,7 +927,7 @@ async function act(request: Request, started: { id?: string }) {
     };
     operationRequested = true;
     try {
-      const result = (await sendApproval(run, op, approver)) as {
+      const result = (await sendApproval(connection, op, approver)) as {
         summary?: unknown;
       } | null;
       op.state = "succeeded";
@@ -938,6 +966,7 @@ async function act(request: Request, started: { id?: string }) {
           delete op.result;
           recordOutcome(
             run,
+            connection,
             op,
             "declined",
             `The Company declined the approval Iris sent on the user's standing instruction; nothing was performed, and it's waiting for the user.${statedReason(error.declined?.reason)}`,
@@ -956,11 +985,12 @@ async function act(request: Request, started: { id?: string }) {
         // Operations v3 §6: nothing performed; never send this approval again.
         op.state = "refused";
         op.result = {
-          summary: `${run.company?.document.organization.name ?? "The Company"} declined this approval and did nothing.${statedReason(error.declined?.reason)}`,
+          summary: `${connection.company?.document.organization.name ?? "The Company"} declined this approval and did nothing.${statedReason(error.declined?.reason)}`,
         };
         delete op.request;
         recordOutcome(
           run,
+          connection,
           op,
           "declined",
           `Company declined the approval; nothing was performed. ${op.result.summary}`,
@@ -998,7 +1028,7 @@ async function act(request: Request, started: { id?: string }) {
           // to look up (§6), so here the User checks the Company's records.
           // Asked for again in this conversation, the same operation stays
           // uncertain (recordOperation), so the note points to a new one.
-          const company = run.company?.document.organization.name;
+          const company = connection.company?.document.organization.name;
           // §5: when the terms come back, Iris's rule doesn't approve them.
           if (approver === "agent") op.agentSuperseded = true;
           op.result = {
@@ -1025,7 +1055,7 @@ async function act(request: Request, started: { id?: string }) {
           // Only for the operation approved: another one's approval, if it
           // is out with an unknown outcome, isn't answered by this (§7).
           next = recordOperation(
-            run,
+            connection,
             error.operation,
             op.request!,
             named.operation_id === op.operation_id,
@@ -1065,7 +1095,7 @@ async function act(request: Request, started: { id?: string }) {
           );
         }
         const company =
-          run.company?.document.organization.name ?? "The Company";
+          connection.company?.document.organization.name ?? "The Company";
         // §5: new terms in answer to Iris's approval are never approved on
         // the same instruction, even when it covers them. The User decides.
         if (approver === "agent") next.agentSuperseded = true;
@@ -1187,7 +1217,7 @@ async function act(request: Request, started: { id?: string }) {
             error: notPerformed(
               op,
               "refused",
-              `${run.company?.document.organization.name ?? "The Company"} refused this request (HTTP ${error.status}${code ? `, ${code}` : ""}${facts ? `; ${facts}` : ""}). Nothing was performed. The terms still wait for you: approve them again once what stopped it is sorted out, or ask for the change again to get fresh terms.`,
+              `${connection.company?.document.organization.name ?? "The Company"} refused this request (HTTP ${error.status}${code ? `, ${code}` : ""}${facts ? `; ${facts}` : ""}). Nothing was performed. The terms still wait for you: approve them again once what stopped it is sorted out, or ask for the change again to get fresh terms.`,
             ),
             trace: refusedTrace(error),
           },
@@ -1198,6 +1228,7 @@ async function act(request: Request, started: { id?: string }) {
     }
     recordOutcome(
       run,
+      connection,
       op,
       "performed",
       `Company operation succeeded: ${op.result.summary}`,
@@ -1214,11 +1245,11 @@ async function act(request: Request, started: { id?: string }) {
     // as a chat turn does: the page lists what is kept.
     const recovery = accountRecovery(error);
     if (recovery) {
-      if (recovery.next === "signin") run.accountUnavailable = true;
+      if (recovery.next === "signin") connection.accountUnavailable = true;
       // With the message about the lost access goes what the page still
       // shows: the answers and proposals Iris got with the account are gone.
       return NextResponse.json(
-        { ...recovery, trace, ...forgetLostAccount(run, knewLost) },
+        { ...recovery, trace, ...forgetLostAccount(run, connection, knewLost) },
         {
           status: recovery.status,
           headers: { "Cache-Control": "no-store" },
@@ -1265,11 +1296,11 @@ async function act(request: Request, started: { id?: string }) {
       },
     );
   } finally {
-    keepLines(run, [...written, ...trace], Date.now(), withAccount);
+    keepLines(run, connection, [...written, ...trace], Date.now(), withAccount);
     // However the action ended: a request inside it may have been the one
     // in which the Company refused the sign-in. After the lines are kept,
     // so those written with the account go with the rest.
-    forgetLostAccount(run, knewLost);
+    forgetLostAccount(run, connection, knewLost);
     await releaseRun(visitor, held).catch(() => {});
   }
 }

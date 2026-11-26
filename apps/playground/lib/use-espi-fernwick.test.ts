@@ -83,12 +83,13 @@ import { GET as account, POST as act } from "../app/api/account/route";
 import { GET as callback } from "../app/api/account/callback/route";
 import { POST as chat } from "../app/api/chat/route";
 import { acquireRun, releaseRun, visitorOf, type Held } from "./runs";
+import { onlyConnection } from "./connections";
 import {
   connect,
   ESPI_GUIDANCE,
   papRequest,
   renewAccount,
-  type Run,
+  type Connection,
 } from "./runtime";
 
 const base = `${origin}/espi/1_1/resource`;
@@ -119,11 +120,14 @@ const restored = async () =>
       new Request(`${agent}/api/account?conversation=${conversation}`),
     )
   ).json();
-/** Holds the conversation's run for direct runtime calls, then saves it. */
-async function withRun<T>(work: (run: Run) => Promise<T>) {
+/**
+ * Holds the conversation's run for direct runtime calls at its Company,
+ * then saves it.
+ */
+async function withRun<T>(work: (run: Connection) => Promise<T>) {
   const held = (await acquireRun(visitor, conversation)) as Held;
   try {
-    return await work(held.run);
+    return await work(onlyConnection(held.run));
   } finally {
     await releaseRun(visitor, held);
   }

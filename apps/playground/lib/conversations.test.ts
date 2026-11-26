@@ -28,10 +28,6 @@ const newRun = () =>
   ({
     url: "https://food-demo.poppylab.dev",
     user: "usr_x",
-    expires: Date.now() + 60000,
-    calls: 0,
-    busy: true,
-    history: [],
     company: company([{ type: "poppy", endpoint }]),
   }) as Connection;
 const read = (events: unknown[], extra: Record<string, unknown> = {}) => ({

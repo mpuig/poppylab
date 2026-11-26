@@ -18,7 +18,7 @@ vi.mock("node:fs/promises", () => ({
   }),
 }));
 import { verifySessionHeader } from "@poppy-lab/pap-client";
-import { connect, identity, type Run } from "./runtime";
+import { connect, identity, type Connection } from "./runtime";
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.clearAllMocks();
@@ -75,15 +75,10 @@ function run(issuer: string | null = "https://mcp.example") {
     };
   });
   return {
-    protocol: "1.0",
     url: "https://mcp.example",
     user: "",
     visitor: "visitor-fixture",
-    history: [],
-    expires: Date.now() + 60000,
-    calls: 0,
-    busy: false,
-  } as Run;
+  } as Connection;
 }
 const allow = () =>
   vi.stubEnv(

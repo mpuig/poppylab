@@ -10,7 +10,13 @@ import {
 } from "@poppy-lab/pap-client";
 import { shoppingTarget } from "@/lib/shopping-context";
 import { cookies } from "next/headers";
-import { connect, directConversation, type Run } from "@/lib/runtime";
+import {
+  connect,
+  directConversation,
+  type Connection,
+  type Run,
+} from "@/lib/runtime";
+import { onlyConnection } from "@/lib/connections";
 import { forgetLostAccount, recordDirect, recordTurn } from "@/lib/transcript";
 import { keepLines } from "@/lib/inspector-log";
 import { shownSkills, shownTasks } from "@/lib/shown-tasks";
@@ -75,6 +81,9 @@ async function reply(request: Request, started: { id?: string }) {
   active++;
   count++;
   let run: Run | undefined;
+  // The Company this turn is for. A conversation has one: with several,
+  // this is where Iris works out which one the message is for.
+  let connection: Connection | undefined;
   let held: Held | undefined;
   let visitor: string | undefined;
   let stage = "request";
@@ -199,13 +208,17 @@ async function reply(request: Request, started: { id?: string }) {
     const over = held ? undefined : await conversationEnded(visitor, named);
     if (over) return over;
     // A conversation unknown here continues as a new one.
-    if (!held || new URL(held.run.url).href !== new URL(body.url).href) {
+    if (
+      !held ||
+      new URL(onlyConnection(held.run).url).href !== new URL(body.url).href
+    ) {
       if (held) await releaseRun(visitor, held);
       held = await createRun(visitor, body.url);
     }
     started.id = held.id;
     run = held.run;
-    knewLost = !!run.accountUnavailable;
+    connection = onlyConnection(run);
+    knewLost = !!connection.accountUnavailable;
     run.title ??= body.message.trim().slice(0, 80);
     if (run.calls >= 20)
       throw new UserFacingError(
@@ -213,7 +226,7 @@ async function reply(request: Request, started: { id?: string }) {
       );
     const shown: CompanyEntry[] = [];
     stage = "pap";
-    const tools = await connect(run, trace, shown);
+    const tools = await connect(connection, trace, shown);
     // A turn counts once the Company answered; a failed discovery is free.
     run.calls++;
     const provider = typeof body.provider === "string" ? body.provider : "demo";
@@ -226,7 +239,7 @@ async function reply(request: Request, started: { id?: string }) {
       return readable(value);
     };
     const lowered = body.message.toLowerCase();
-    const companyName = run.company!.document.organization.name;
+    const companyName = connection.company!.document.organization.name;
     const change =
       provider === "demo" ? demoChangeKind(body.message, tools) : undefined;
     const aside =
@@ -241,7 +254,7 @@ async function reply(request: Request, started: { id?: string }) {
       // §8.10: the User, not the model. Their words go to the Company as
       // written; Iris adds only a line about what happened.
       const result = (await directConversation(
-        run,
+        connection,
         direct,
         direct === "say" || direct === "start" ? body.message : undefined,
         trace,
@@ -262,6 +275,7 @@ async function reply(request: Request, started: { id?: string }) {
       // may mean they never reached the Company.
       recordDirect(
         run,
+        connection,
         companyName,
         direct,
         body.message,
@@ -271,20 +285,20 @@ async function reply(request: Request, started: { id?: string }) {
         { company: shown, trace },
       );
       run.history = run.history.slice(-10);
-      const lost = forgetLostAccount(run, knewLost);
+      const lost = forgetLostAccount(run, connection, knewLost);
       return NextResponse.json(
         {
           text,
           trace,
-          sessionId: run.sessionId,
+          sessionId: connection.sessionId,
           mode: "direct",
-          signedIn: !!run.accountToken && !run.accountUnavailable,
-          scopes: run.scopes,
-          operations: Object.values(run.operations ?? {}),
+          signedIn: !!connection.accountToken && !connection.accountUnavailable,
+          scopes: connection.scopes,
+          operations: Object.values(connection.operations ?? {}),
           company: shown,
-          excludedTasks: shownTasks(run),
-          skills: shownSkills(run),
-          ...directState(run),
+          excludedTasks: shownTasks(connection),
+          skills: shownSkills(connection),
+          ...directState(connection),
           ...lost,
         },
         { headers: { "Cache-Control": "no-store" } },
@@ -318,7 +332,7 @@ async function reply(request: Request, started: { id?: string }) {
       // feedback. Short of one, words for the Company's agent or for
       // feedback decide; only then does the demo ask for what is missing.
       const plan =
-        change && run.accountToken
+        change && connection.accountToken
           ? await demoChange(body.message, tools, randomId)
           : undefined;
       if (plan && "call" in plan) {
@@ -340,7 +354,7 @@ async function reply(request: Request, started: { id?: string }) {
         // agent handles, or ask for a person (which needs a conversation first).
         const person = /talk to|speak to|a person|human|someone/.test(lowered);
         const results: unknown[] = [];
-        if (!person || !run.conversation?.id)
+        if (!person || !connection.conversation?.id)
           results.push(
             await tools.company_agent_send!.execute({
               data: { request: "help" },
@@ -360,7 +374,7 @@ async function reply(request: Request, started: { id?: string }) {
         // the Company already lists: the heading says which happened.
         const sent = (result as { sent?: unknown } | null)?.sent !== false;
         text = `Protocol demo (no LLM). Feedback report ${sent ? "sent" : "not sent"} to the Company (§9.3):\n\n${show(result)}\n\nWith a model, Iris reports a task only after trying the Company's tools.`;
-      } else if (!run.accountToken) {
+      } else if (!connection.accountToken) {
         text =
           "Protocol demo (no LLM). Sign in first: the demo reads your account to prepare this change, and nothing changes until you approve it.";
       } else {
@@ -450,7 +464,7 @@ async function reply(request: Request, started: { id?: string }) {
         );
         // Signed out, or without the permission, Iris stops before asking:
         // there is no answer of the Company's to show, only what to press.
-        const hints = companyProfile(run.company!).scopeHints;
+        const hints = companyProfile(connection.company!).scopeHints;
         const unsent = notSentReply(
           result,
           companyName,
@@ -476,7 +490,7 @@ async function reply(request: Request, started: { id?: string }) {
       raw !== undefined ? JSON.stringify(raw).slice(0, 20000) : undefined;
     // The model's context gets the two turns. The page's transcript also
     // keeps what this turn shows, to show it again after a reload.
-    recordTurn(run, body.message, text, {
+    recordTurn(run, connection, body.message, text, {
       company: shown,
       trace,
       demo: provider === "demo",
@@ -485,24 +499,26 @@ async function reply(request: Request, started: { id?: string }) {
     run.history = run.history.slice(-10);
     // The turn ended with an answer though the access went during it: what
     // the page showed with the account goes all the same, this turn too.
-    const lost = forgetLostAccount(run, knewLost);
+    const lost = forgetLostAccount(run, connection, knewLost);
     return NextResponse.json(
       {
         text,
         ...(exact !== undefined ? { data: exact } : {}),
         trace,
-        sessionId: run.sessionId,
+        sessionId: connection.sessionId,
         mode: provider,
-        signedIn: !!run.accountToken && !run.accountUnavailable,
-        scopes: run.scopes,
-        recovery: run.accountUnavailable ? accountUnavailableNotice : undefined,
-        operations: Object.values(run.operations ?? {}),
+        signedIn: !!connection.accountToken && !connection.accountUnavailable,
+        scopes: connection.scopes,
+        recovery: connection.accountUnavailable
+          ? accountUnavailableNotice
+          : undefined,
+        operations: Object.values(connection.operations ?? {}),
         company: shown,
         // §9.1: for the Inspector's "Tasks not offered".
-        excludedTasks: shownTasks(run),
+        excludedTasks: shownTasks(connection),
         // §9.4: for its "Skills published". Never for the model.
-        skills: shownSkills(run),
-        ...directState(run),
+        skills: shownSkills(connection),
+        ...directState(connection),
         ...lost,
       },
       { headers: { "Cache-Control": "no-store" } },
@@ -513,8 +529,8 @@ async function reply(request: Request, started: { id?: string }) {
     // itself: there is no account access to renew (often a different draft).
     if (
       recovery &&
-      run &&
-      !run.accountToken &&
+      connection &&
+      !connection.accountToken &&
       error instanceof ProtocolError &&
       error.code === "invalid_token"
     )
@@ -529,7 +545,7 @@ async function reply(request: Request, started: { id?: string }) {
         { status: 502, headers: { "Cache-Control": "no-store" } },
       );
     // Signed out, a plain sign-in challenge is not lost access.
-    if (recovery && run && !run.accountToken)
+    if (recovery && connection && !connection.accountToken)
       return NextResponse.json(
         {
           error:
@@ -542,10 +558,14 @@ async function reply(request: Request, started: { id?: string }) {
         { status: 401, headers: { "Cache-Control": "no-store" } },
       );
     if (recovery) {
-      if (run && recovery.next === "signin") run.accountUnavailable = true;
+      if (connection && recovery.next === "signin")
+        connection.accountUnavailable = true;
       // With the message about the lost access goes what the page still
       // shows: the answers Iris read with the account are gone from it.
-      const lost = run ? forgetLostAccount(run, knewLost) : undefined;
+      const lost =
+        run && connection
+          ? forgetLostAccount(run, connection, knewLost)
+          : undefined;
       return NextResponse.json(
         { ...recovery, stage, trace, ...lost },
         { status: recovery.status, headers: { "Cache-Control": "no-store" } },
@@ -570,7 +590,7 @@ async function reply(request: Request, started: { id?: string }) {
       const facts = refusalFacts(error.body);
       return NextResponse.json(
         {
-          error: `${run?.company?.document.organization.name ?? "The Company"} answered HTTP ${error.status}${shown ? ` ${shown}` : ""}${facts.length ? ` (${facts.join(", ")})` : ""}. Nothing was retried; see the Inspector.`,
+          error: `${connection?.company?.document.organization.name ?? "The Company"} answered HTTP ${error.status}${shown ? ` ${shown}` : ""}${facts.length ? ` (${facts.join(", ")})` : ""}. Nothing was retried; see the Inspector.`,
           code: code ?? "company_error",
           stage,
           trace,
@@ -601,11 +621,11 @@ async function reply(request: Request, started: { id?: string }) {
     );
   } finally {
     // The lines stay with the conversation, for a reload and History.
-    if (run) keepLines(run, trace);
+    if (run && connection) keepLines(run, connection, trace);
     // However the turn ended: an error of another kind can follow the
     // request in which the Company refused the sign-in. After the lines
     // are kept, so those written with the account go with the rest.
-    if (run) forgetLostAccount(run, knewLost);
+    if (run && connection) forgetLostAccount(run, connection, knewLost);
     if (held && visitor) await releaseRun(visitor, held).catch(() => {});
     active--;
   }

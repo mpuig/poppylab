@@ -1,15 +1,9 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
-const s = vi.hoisted(() => ({
-  run: {
-    protocol: "1.0",
+const s = vi.hoisted(() => {
+  /** The conversation's one Company: the sign-in the callback completes. */
+  const connection = {
     url: "https://food.papsandbox.com",
     user: "usr_food",
-    expires: Date.now() + 60000,
-    busy: false,
-    history: [{ role: "user", content: "Previous account data" }] as Array<{
-      role: "user" | "assistant";
-      content: string;
-    }>,
     operations: { old: {} } as Record<string, unknown>,
     accountToken: "old-refresh" as string | undefined,
     token: undefined as string | undefined,
@@ -29,15 +23,29 @@ const s = vi.hoisted(() => ({
           expires: number;
           dpop?: object;
         },
-  },
-  request: vi.fn(),
-  /** The Company's answer to a request Iris sends as the run. */
-  pap: vi.fn(),
-  revoke: vi.fn(async () => undefined),
-  set: vi.fn(),
-  remove: vi.fn(),
-  dpop: true,
-}));
+  };
+  return {
+    connection,
+    /** The conversation, as the callback finds it stored. */
+    run: {
+      protocol: "1.0",
+      expires: Date.now() + 60000,
+      busy: false,
+      history: [{ role: "user", content: "Previous account data" }] as Array<{
+        role: "user" | "assistant";
+        content: string;
+      }>,
+      connections: [connection],
+    },
+    request: vi.fn(),
+    /** The Company's answer to a request Iris sends at the connection. */
+    pap: vi.fn(),
+    revoke: vi.fn(async () => undefined),
+    set: vi.fn(),
+    remove: vi.fn(),
+    dpop: true,
+  };
+});
 vi.mock("next/headers", () => ({
   cookies: async () => ({
     get: (name: string) => ({
@@ -58,8 +66,8 @@ vi.mock("@/lib/runtime", () => {
       token_endpoint: "https://food.papsandbox.com/oauth/token",
     }),
     usesDpop: () => s.dpop,
-    newSession: (run: { sessionId?: string }) => {
-      run.sessionId = `new_${Math.random()}`;
+    newSession: (connection: { sessionId?: string }) => {
+      connection.sessionId = `new_${Math.random()}`;
     },
     revokeRefreshToken: s.revoke,
     papRequest: s.pap,
@@ -102,17 +110,19 @@ beforeEach(async () => {
   s.dpop = true;
   Object.assign(s.run, {
     busy: false,
+    history: [{ role: "user", content: "Previous account data" }],
+  });
+  Object.assign(s.connection, {
     accountToken: "old-refresh",
     token: undefined,
     scopes: undefined,
     publicHistory: undefined,
-    history: [{ role: "user", content: "Previous account data" }],
     operations: { old: {} },
     sessionId: "session_1",
     consentVersion: 0,
     dpop: undefined,
   });
-  s.run.auth = {
+  s.connection.auth = {
     state: "state_test",
     verifier: "verifier_test",
     issuer: "https://food.papsandbox.com",
@@ -153,25 +163,27 @@ it("exchanges the code with PKCE, no session_id, and starts a new Session", asyn
   expect(form.has("session_id")).toBe(false);
   expect(init.headers.DPoP).toBe("proof_test");
   // §4.7: scope omitted means exactly the requested scopes.
-  expect(s.run.scopes).toBe("orders:read");
-  expect(s.run.token).toBe("new-access");
-  expect(s.run.accountToken).toBe("new-refresh");
-  expect(s.run.sessionId).not.toBe("session_1");
-  expect(s.run.operations).toEqual({});
-  expect(s.run.consentVersion).toBe(1);
+  expect(s.connection.scopes).toBe("orders:read");
+  expect(s.connection.token).toBe("new-access");
+  expect(s.connection.accountToken).toBe("new-refresh");
+  expect(s.connection.sessionId).not.toBe("session_1");
+  expect(s.connection.operations).toEqual({});
+  expect(s.connection.consentVersion).toBe(1);
   // The replaced refresh token is revoked (best effort), not reused.
-  expect(s.revoke).toHaveBeenCalledWith(s.run, "old-refresh");
-  expect(s.run.auth).toBeUndefined();
+  expect(s.revoke).toHaveBeenCalledWith(s.connection, "old-refresh");
+  expect(s.connection.auth).toBeUndefined();
 });
 
 it("keeps the FDX-shaped consent id of the grant, and drops an earlier one when there is none (poppylab.dev/fdx v1)", async () => {
-  const run = s.run as typeof s.run & { fdxConsent?: string };
+  const connection = s.connection as typeof s.connection & {
+    fdxConsent?: string;
+  };
   s.request.mockResolvedValue(success({ consent_id: "grant_7Hk2" }));
   expect(await landed()).toBe(DONE);
-  expect(run.fdxConsent).toBe("grant_7Hk2");
+  expect(connection.fdxConsent).toBe("grant_7Hk2");
   // A base64url grant ID may start with - or _: kept.
   for (const consent_id of ["-Hk2_a", "_Hk2-a"]) {
-    s.run.auth = {
+    s.connection.auth = {
       state: "state_test",
       verifier: "verifier_test",
       issuer: "https://food.papsandbox.com",
@@ -181,12 +193,12 @@ it("keeps the FDX-shaped consent id of the grant, and drops an earlier one when 
     };
     s.request.mockResolvedValue(success({ consent_id }));
     expect(await landed()).toBe(DONE);
-    expect(run.fdxConsent).toBe(consent_id);
+    expect(connection.fdxConsent).toBe(consent_id);
   }
   // Not one path segment: not kept.
   for (const consent_id of [undefined, "../grant", ".", 7]) {
-    run.fdxConsent = "grant_old";
-    s.run.auth = {
+    connection.fdxConsent = "grant_old";
+    s.connection.auth = {
       state: "state_test",
       verifier: "verifier_test",
       issuer: "https://food.papsandbox.com",
@@ -196,19 +208,19 @@ it("keeps the FDX-shaped consent id of the grant, and drops an earlier one when 
     };
     s.request.mockResolvedValue(success({ consent_id }));
     expect(await landed()).toBe(DONE);
-    expect(run.fdxConsent).toBeUndefined();
+    expect(connection.fdxConsent).toBeUndefined();
   }
 });
 
 it("keeps the ESPI-shaped subscription and authorization URIs that fit the entry, and drops earlier ones (poppylab.dev/espi v1)", async () => {
   const RE = "https://food.papsandbox.com/espi/1_1/resource";
-  const run = s.run as typeof s.run & {
+  const connection = s.connection as typeof s.connection & {
     company?: unknown;
     espiResourceUri?: string;
     espiAuthorizationUri?: string;
   };
   const sign = async (fields: Record<string, unknown>) => {
-    s.run.auth = {
+    s.connection.auth = {
       state: "state_test",
       verifier: "verifier_test",
       issuer: "https://food.papsandbox.com",
@@ -219,7 +231,7 @@ it("keeps the ESPI-shaped subscription and authorization URIs that fit the entry
     s.request.mockResolvedValue(success(fields));
     expect((await GET(req())).status).toBe(303);
   };
-  run.company = {
+  connection.company = {
     profile: {
       extensions: {
         "poppylab.dev/espi": { version: "1", resource_endpoint: RE },
@@ -231,23 +243,27 @@ it("keeps the ESPI-shaped subscription and authorization URIs that fit the entry
       resourceURI: `${RE}/Batch/Subscription/grant_7Hk2`,
       authorizationURI: `${RE}/Authorization/grant_7Hk2`,
     });
-    expect(run.espiResourceUri).toBe(`${RE}/Batch/Subscription/grant_7Hk2`);
-    expect(run.espiAuthorizationUri).toBe(`${RE}/Authorization/grant_7Hk2`);
+    expect(connection.espiResourceUri).toBe(
+      `${RE}/Batch/Subscription/grant_7Hk2`,
+    );
+    expect(connection.espiAuthorizationUri).toBe(
+      `${RE}/Authorization/grant_7Hk2`,
+    );
     // Elsewhere, or not exactly the shape: not kept, and the earlier gone.
     await sign({
       resourceURI:
         "https://evil.example/espi/1_1/resource/Batch/Subscription/g",
       authorizationURI: `${RE}/Authorization/grant_7Hk2/../x`,
     });
-    expect(run.espiResourceUri).toBeUndefined();
-    expect(run.espiAuthorizationUri).toBeUndefined();
+    expect(connection.espiResourceUri).toBeUndefined();
+    expect(connection.espiAuthorizationUri).toBeUndefined();
   } finally {
-    delete run.company;
+    delete connection.company;
   }
 });
 
 it("forgets the per-service tokens of the sign-in it replaces (§4.5)", async () => {
-  const run = s.run as { resourceTokens?: unknown };
+  const connection = s.connection as { resourceTokens?: unknown };
   const cached = {
     "https://food.papsandbox.com/api": {
       value: "old-service-token",
@@ -257,12 +273,12 @@ it("forgets the per-service tokens of the sign-in it replaces (§4.5)", async ()
   };
   try {
     // A failed exchange keeps the previous access, and so its tokens.
-    run.resourceTokens = structuredClone(cached);
+    connection.resourceTokens = structuredClone(cached);
     s.request.mockResolvedValueOnce(success({ refresh_token: undefined }));
     expect(await landed()).toBe(FAILED);
-    expect(run.resourceTokens).toEqual(cached);
+    expect(connection.resourceTokens).toEqual(cached);
     // They were issued to the old sign-in's account, scopes and DPoP key.
-    s.run.auth = {
+    s.connection.auth = {
       state: "state_test",
       verifier: "verifier_test",
       issuer: "https://food.papsandbox.com",
@@ -272,9 +288,9 @@ it("forgets the per-service tokens of the sign-in it replaces (§4.5)", async ()
     };
     s.request.mockResolvedValueOnce(success());
     expect(await landed()).toBe(DONE);
-    expect(run.resourceTokens).toBeUndefined();
+    expect(connection.resourceTokens).toBeUndefined();
   } finally {
-    delete run.resourceTokens;
+    delete connection.resourceTokens;
   }
 });
 
@@ -283,7 +299,7 @@ it("uses Bearer tokens when the issuer doesn't bind DPoP", async () => {
   s.request.mockResolvedValue(success({ token_type: "Bearer" }));
   expect(await landed()).toBe(DONE);
   expect(s.request.mock.calls[0]![1].headers).not.toHaveProperty("DPoP");
-  expect(s.run.token).toBe("new-access");
+  expect(s.connection.token).toBe("new-access");
 });
 
 it.each([
@@ -293,23 +309,23 @@ it.each([
 ])("rejects %s and keeps the previous access", async (_name, extra) => {
   s.request.mockResolvedValue(success(extra));
   const before = structuredClone({
-    token: s.run.token,
-    refresh: s.run.accountToken,
+    token: s.connection.token,
+    refresh: s.connection.accountToken,
     history: s.run.history,
-    session: s.run.sessionId,
+    session: s.connection.sessionId,
   });
   expect(await landed()).toBe(FAILED);
   expect({
-    token: s.run.token,
-    refresh: s.run.accountToken,
+    token: s.connection.token,
+    refresh: s.connection.accountToken,
     history: s.run.history,
-    session: s.run.sessionId,
+    session: s.connection.sessionId,
   }).toEqual(before);
   expect(s.revoke).not.toHaveBeenCalled();
 });
 
 it("preserves the public conversation on first sign-in", async () => {
-  s.run.accountToken = undefined;
+  s.connection.accountToken = undefined;
   const publicTurns = [
     { role: "user" as const, content: "When do you deliver?" },
     { role: "assistant" as const, content: "Tuesday, Thursday and Saturday." },
@@ -318,14 +334,16 @@ it("preserves the public conversation on first sign-in", async () => {
   s.request.mockResolvedValue(success());
   expect(await landed()).toBe(DONE);
   expect(s.run.history).toEqual(publicTurns);
-  expect(s.run.publicHistory).toEqual(publicTurns);
+  expect(s.connection.publicHistory).toEqual(publicTurns);
   expect(s.revoke).not.toHaveBeenCalled();
 });
 
 it("retains only pre-account turns on later consent, never another account's context", async () => {
-  s.run.publicHistory = [{ role: "user", content: "When do you deliver?" }];
+  s.connection.publicHistory = [
+    { role: "user", content: "When do you deliver?" },
+  ];
   s.run.history = [
-    ...s.run.publicHistory,
+    ...s.connection.publicHistory,
     { role: "assistant", content: "Private order details" },
   ];
   s.request.mockResolvedValue(success());
@@ -366,7 +384,9 @@ function companyKeeping(
 
 describe("the conversation with the Company's agent across a sign-in (§8.2)", () => {
   const endpoint = "https://food.papsandbox.com/poppy/conversations";
-  const run = s.run as typeof s.run & { conversation?: unknown };
+  const connection = s.connection as typeof s.connection & {
+    conversation?: unknown;
+  };
   // The User is in a Direct Conversation, and the Company had asked again.
   const open = () => ({
     endpoint,
@@ -378,21 +398,21 @@ describe("the conversation with the Company's agent across a sign-in (§8.2)", (
   });
   beforeEach(() => {
     s.pap.mockReset();
-    run.conversation = open();
+    connection.conversation = open();
     s.request.mockResolvedValue(success());
   });
   afterEach(() => {
-    delete run.conversation;
+    delete connection.conversation;
   });
 
   it("keeps it for the same account: the Company still takes the new sign-in on both threads", async () => {
-    s.run.token = "old-access";
+    s.connection.token = "old-access";
     const asked = companyKeeping("elena", {
       "old-access": "elena",
       "new-access": "elena",
     });
     expect(await landed()).toBe(DONE);
-    expect(run.conversation).toEqual(open());
+    expect(connection.conversation).toEqual(open());
     // Reads that change nothing here. First whether it has used the
     // account of the sign-in being replaced, then with the new sign-in.
     expect(asked).toEqual([
@@ -407,14 +427,14 @@ describe("the conversation with the Company's agent across a sign-in (§8.2)", (
       [`${endpoint}/cnv_1/events?cursor=evt_9`, "GET"],
       [`${endpoint}/cnv_d/events?cursor=evt_d3`, "GET"],
     ]);
-    expect(directState(s.run as never).direct).toBe(true);
+    expect(directState(s.connection as never).direct).toBe(true);
   });
 
   it("keeps one that no account has used, asking only with the new sign-in", async () => {
-    s.run.token = "old-access";
+    s.connection.token = "old-access";
     const asked = companyKeeping(undefined, {});
     expect(await landed()).toBe(DONE);
-    expect(run.conversation).toEqual(open());
+    expect(connection.conversation).toEqual(open());
     // Never with the sign-in being replaced: that would make the
     // conversation its account's, and another account's sign-in lose it.
     expect(asked).toEqual(["signed out", "new-access", "new-access"]);
@@ -431,10 +451,10 @@ describe("the conversation with the Company's agent across a sign-in (§8.2)", (
     async (_name, error) => {
       s.pap.mockRejectedValue(error);
       expect(await landed()).toBe(DONE);
-      expect(s.run.accountToken).toBe("new-refresh");
-      expect(run.conversation).toBeUndefined();
+      expect(s.connection.accountToken).toBe("new-refresh");
+      expect(connection.conversation).toBeUndefined();
       // What a reloaded page is told: no Direct Conversation, no invitation.
-      expect(directState(s.run as never)).toEqual({
+      expect(directState(s.connection as never)).toEqual({
         direct: false,
         conversation: false,
         invitation: null,
@@ -449,20 +469,20 @@ describe("the conversation with the Company's agent across a sign-in (§8.2)", (
       return { conversation_id: "cnv_1", events: [] };
     });
     expect(await landed()).toBe(DONE);
-    expect(run.conversation).toBeUndefined();
+    expect(connection.conversation).toBeUndefined();
   });
 
   it("keeps a signed-out conversation on first sign-in without asking: no account has used it (§8.11)", async () => {
-    s.run.accountToken = undefined;
+    s.connection.accountToken = undefined;
     expect(await landed()).toBe(DONE);
-    expect(run.conversation).toEqual(open());
+    expect(connection.conversation).toEqual(open());
     expect(s.pap).not.toHaveBeenCalled();
   });
 
   it("leaves it alone when the sign-in fails", async () => {
     s.request.mockResolvedValue(success({ refresh_token: undefined }));
     expect(await landed()).toBe(FAILED);
-    expect(run.conversation).toEqual(open());
+    expect(connection.conversation).toEqual(open());
     expect(s.pap).not.toHaveBeenCalled();
   });
 });
@@ -492,7 +512,7 @@ it("leaves the callback's address, with its one-time code, for a clean one, whet
     [declined, "/playground/sign-in/failed"],
   ] as const) {
     if (request === declined)
-      s.run.auth = {
+      s.connection.auth = {
         state: "state_test",
         verifier: "verifier_test",
         issuer: "https://food.papsandbox.com",
@@ -548,7 +568,7 @@ it("lists in the Inspector what was written before any account, then each sign-i
     // permission" is: both sign-ins are listed. Bearer tokens are said to
     // be that.
     s.dpop = false;
-    s.run.auth = {
+    s.connection.auth = {
       state: "state_test",
       verifier: "verifier_test",
       issuer: "https://food.papsandbox.com",
@@ -564,7 +584,7 @@ it("lists in the Inspector what was written before any account, then each sign-i
     ]);
     // A sign-in that fails changes nothing.
     s.request.mockRejectedValue(new Error("refused"));
-    s.run.auth = {
+    s.connection.auth = {
       state: "state_test",
       verifier: "verifier_test",
       issuer: "https://food.papsandbox.com",
@@ -626,7 +646,7 @@ describe("what the page shows of the conversation after a sign-in", () => {
   });
 
   it("keeps the public conversation as it was shown on first sign-in", async () => {
-    s.run.accountToken = undefined;
+    s.connection.accountToken = undefined;
     s.run.history = structuredClone(publicTurns);
     run.transcript = structuredClone(before);
     expect((await GET(req())).status).toBe(303);
@@ -637,7 +657,7 @@ describe("what the page shows of the conversation after a sign-in", () => {
   });
 
   it("keeps only that part on a later consent, never what an account showed", async () => {
-    s.run.publicHistory = structuredClone(publicTurns);
+    s.connection.publicHistory = structuredClone(publicTurns);
     s.run.history = [
       ...publicTurns,
       { role: "assistant", content: "Private order details" },
@@ -652,7 +672,7 @@ describe("what the page shows of the conversation after a sign-in", () => {
   });
 
   it("drops a transcript stored before entries said when they were shown", async () => {
-    s.run.publicHistory = structuredClone(publicTurns);
+    s.connection.publicHistory = structuredClone(publicTurns);
     run.transcript = [
       ...publicTurns,
       { role: "assistant", content: "Private order details" },
@@ -701,7 +721,7 @@ describe("what the page shows of the conversation after a sign-in", () => {
 
     it("lists it under the first request still shown", async () => {
       titled.title = "my orders";
-      s.run.publicHistory = structuredClone(publicTurns);
+      s.connection.publicHistory = structuredClone(publicTurns);
       run.transcript = structuredClone([...withAccount, ...before]);
       expect((await GET(req())).status).toBe(303);
       expect(titled.title).toBe("When do you deliver?");
@@ -709,7 +729,9 @@ describe("what the page shows of the conversation after a sign-in", () => {
   });
 
   describe("when the conversation with the Company's agent used the account (§8.2)", () => {
-    const talking = run as typeof run & { conversation?: unknown };
+    const talking = s.connection as typeof s.connection & {
+      conversation?: unknown;
+    };
     const thread = () => ({
       endpoint: "https://food.papsandbox.com/poppy/conversations",
       id: "cnv_1",
@@ -725,11 +747,11 @@ describe("what the page shows of the conversation after a sign-in", () => {
     beforeEach(() => {
       s.pap.mockReset();
       talking.conversation = thread();
-      s.run.token = "old-access";
-      s.run.publicHistory = structuredClone(publicTurns);
+      s.connection.token = "old-access";
+      s.connection.publicHistory = structuredClone(publicTurns);
       s.run.history = structuredClone(turns);
       run.transcript = whole();
-      s.run.operations = structuredClone(proposal);
+      s.connection.operations = structuredClone(proposal);
     });
     afterEach(() => {
       delete talking.conversation;
@@ -738,9 +760,13 @@ describe("what the page shows of the conversation after a sign-in", () => {
     const reset = () => {
       expect(run.transcript).toEqual(before);
       expect(s.run.history).toEqual(publicTurns);
-      expect(s.run.operations).toEqual({});
+      expect(s.connection.operations).toEqual({});
       expect(
-        JSON.stringify([run.transcript, s.run.history, s.run.operations]),
+        JSON.stringify([
+          run.transcript,
+          s.run.history,
+          s.connection.operations,
+        ]),
       ).not.toMatch(/Private|op_1/);
     };
 
@@ -754,13 +780,13 @@ describe("what the page shows of the conversation after a sign-in", () => {
       // proposals: all of it is this account's.
       expect(run.transcript).toEqual(whole());
       expect(s.run.history).toEqual(turns);
-      expect(s.run.operations).toEqual(proposal);
+      expect(s.connection.operations).toEqual(proposal);
       expect(talking.conversation).toEqual(thread());
       // The new sign-in is in use, and the old one is revoked as before.
-      expect(s.run.token).toBe("new-access");
-      expect(s.revoke).toHaveBeenCalledWith(s.run, "old-refresh");
+      expect(s.connection.token).toBe("new-access");
+      expect(s.revoke).toHaveBeenCalledWith(s.connection, "old-refresh");
       // A later sign-in as someone else still goes back to the public part.
-      expect(s.run.publicHistory).toEqual(publicTurns);
+      expect(s.connection.publicHistory).toEqual(publicTurns);
       expect(asked).toEqual(["signed out", "old-access", "new-access"]);
     });
 
@@ -796,9 +822,9 @@ describe("what the page shows of the conversation after a sign-in", () => {
           expect(kept.log).toEqual(lines);
           // The next sign-in replaces this one, as in every test here.
           Object.assign(s.run, { accountToken: "old-refresh" });
-          s.run.token = "old-access";
+          s.connection.token = "old-access";
           talking.conversation = thread();
-          s.run.auth = {
+          s.connection.auth = {
             state: "state_test",
             verifier: "verifier_test",
             issuer: "https://food.papsandbox.com",

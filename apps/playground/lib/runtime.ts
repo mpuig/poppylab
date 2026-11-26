@@ -316,12 +316,22 @@ export type Connection = {
   operations?: Record<string, Operation>;
   /** The conversation with the Company's own agent (§8), if any. */
   conversation?: ConversationState;
+  /**
+   * The model's turns from before any access to this Company's account:
+   * safe to go back to when a sign-in may be for another account.
+   */
+  publicHistory?: Turn[];
 };
+/** One turn of the model's context. */
+export type Turn = { role: "user" | "assistant"; content: string };
 /**
- * One conversation of a visitor with Iris: its lifetime, its words, and the
- * Company it is connected to.
+ * One conversation of a visitor with Iris: its lifetime and its words, and
+ * a connection for each Company it works with. The words are the
+ * conversation's and are kept in the order they were said; what belongs to
+ * a Company (its Session, sign-in and proposals) is in that Company's
+ * connection and nowhere else.
  */
-export type Run = Connection & {
+export type Run = {
   /** Runs of an earlier protocol version are discarded, not migrated. */
   protocol?: "1.0";
   /** SHA-256 of the visitor cookie: the owner of this run. */
@@ -329,11 +339,12 @@ export type Run = Connection & {
   /** While `busy`, the lock lapses after this time (a crashed request). */
   busyUntil?: number;
   expires: number;
+  /** The conversation's turns with Iris, whichever Company they went to. */
   calls: number;
   busy: boolean;
-  history: Array<{ role: "user" | "assistant"; content: string }>;
-  /** Pre-account conversation only; safe to retain across account consent. */
-  publicHistory?: Array<{ role: "user" | "assistant"; content: string }>;
+  /** One per Company, in the order they were connected. */
+  connections: Connection[];
+  history: Turn[];
   /**
    * What the page shows: `history` is cut to the model's last ten turns,
    * this keeps the conversation, with the Company content and each
@@ -425,7 +436,7 @@ export function accountConfiguration(connection: Connection) {
 /** Starts or continues this connection's Session: User ID, `sid` and delegated key. */
 export async function ensureSession(connection: Connection) {
   const profile = companyProfile(connection.company!);
-  if (!connection.visitor) throw Error("Run without a visitor");
+  if (!connection.visitor) throw Error("Connection without a visitor");
   const user = await userFor(
     connection.visitor,
     profile.identifier,

@@ -31,7 +31,7 @@ import {
   renewAccount,
   revokeEspiAuthorization,
   setExtension,
-  type Run,
+  type Connection,
 } from "./runtime";
 import { UserFacingError } from "./user-error";
 
@@ -40,7 +40,11 @@ const RE = `${origin}/espi/1_1/resource`;
 const espiEntry = { version: "1" as const, resource_endpoint: RE };
 const SUB = "grant_7Hk2";
 /** Fernwick's shape: its own API, and the ESPI-shaped one by extension only. */
-function utility({ espi = false, signedIn = true, saved = false } = {}): Run {
+function utility({
+  espi = false,
+  signedIn = true,
+  saved = false,
+} = {}): Connection {
   const profile: CompanyProfile = {
     version: "1.0",
     identifier: origin,
@@ -53,14 +57,9 @@ function utility({ espi = false, signedIn = true, saved = false } = {}): Run {
     ...(saved ? {} : { extensions: { "poppylab.dev/espi": espiEntry } }),
   };
   return {
-    protocol: "1.0",
     url: origin,
     user: "",
     visitor: "visitor-fixture",
-    expires: Date.now() + 3600000,
-    calls: 0,
-    busy: false,
-    history: [],
     ...(espi ? { espi: true } : {}),
     ...(signedIn
       ? {
@@ -143,7 +142,7 @@ beforeEach(() => {
   rediscover.mockReset();
   serve();
 });
-const connected = async (run: Run, trace: string[] = []) => {
+const connected = async (run: Connection, trace: string[] = []) => {
   rediscover.mockResolvedValue(run.company!);
   return connect(run, trace);
 };
@@ -368,7 +367,7 @@ it("revokes with one DELETE of the kept authorization URI, as a Poppy request wi
 });
 
 it("has nothing to revoke with Use ESPI off, signed out, refused, or with an authorization URI that doesn't fit", async () => {
-  const runs: Run[] = [
+  const runs: Connection[] = [
     utility(),
     utility({ espi: true, signedIn: false }),
     Object.assign(utility({ espi: true }), { accountUnavailable: true }),

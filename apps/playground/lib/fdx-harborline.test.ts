@@ -82,6 +82,7 @@ import { GET as account, POST as act } from "../app/api/account/route";
 import { GET as callback } from "../app/api/account/callback/route";
 import { POST as chat } from "../app/api/chat/route";
 import { acquireRun, releaseRun, visitorOf, type Held } from "./runs";
+import { onlyConnection } from "./connections";
 import {
   clientFor,
   connect,
@@ -89,7 +90,7 @@ import {
   localOrigins,
   papRequest,
   renewAccount,
-  type Run,
+  type Connection,
 } from "./runtime";
 
 const base = `${origin}/fdx/v6`;
@@ -114,11 +115,14 @@ const post = (
       body: JSON.stringify(body),
     }),
   );
-/** Holds the conversation's run for direct runtime calls, then saves it. */
-async function withRun<T>(work: (run: Run) => Promise<T>) {
+/**
+ * Holds the conversation's run for direct runtime calls at its Company,
+ * then saves it.
+ */
+async function withRun<T>(work: (run: Connection) => Promise<T>) {
   const held = (await acquireRun(visitor, conversation)) as Held;
   try {
-    return await work(held.run);
+    return await work(onlyConnection(held.run));
   } finally {
     await releaseRun(visitor, held);
   }

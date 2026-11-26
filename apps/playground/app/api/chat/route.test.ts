@@ -34,7 +34,8 @@ import { createIdentity, ProtocolError } from "@poppy-lab/pap-client";
 import { agentStep } from "@/lib/agent-steps";
 import { logEntry } from "@/lib/protocol-log";
 import { listConversations, seedRun } from "@/lib/runs";
-import type { Run } from "@/lib/runtime";
+import type { Connection, Run } from "@/lib/runtime";
+import { onlyConnection as at } from "@/lib/connections";
 import { POST } from "./route";
 
 const origin = "https://shop.papsandbox.com";
@@ -69,13 +70,20 @@ const api = {
 function shop(scopes?: string): Run {
   return {
     protocol: "1.0",
-    url: origin,
-    user: "",
     visitor: "",
     expires: Date.now() + 3600000,
     calls: 0,
     busy: false,
     history: [],
+    connections: [connection(scopes)],
+  };
+}
+/** The conversation's one Company, signed in when it has scopes. */
+function connection(scopes?: string): Connection {
+  return {
+    url: origin,
+    user: "",
+    visitor: "",
     ...(scopes
       ? {
           token: "access-1",
@@ -132,7 +140,7 @@ let conversation = 0;
 async function say(run: Run, message: string) {
   const id = `run_chat_fixture_${String(++conversation).padStart(4, "0")}`;
   await seedRun("v".repeat(43), id, run);
-  discover.mockResolvedValue(run.company);
+  discover.mockResolvedValue(at(run).company);
   const response = await POST(
     new Request("http://localhost:3000/api/chat", {
       method: "POST",
@@ -222,7 +230,7 @@ async function refusedChange(error: Error) {
     return { ok: true };
   });
   const run = shop("poppy:read poppy:write");
-  run.dpop = (await createIdentity()).privateKey;
+  at(run).dpop = (await createIdentity()).privateKey;
   return say(run, "Move my recurring delivery to Saturday.");
 }
 
@@ -323,7 +331,7 @@ it("keeps a turn's lines with the conversation, as the Inspector listed them and
     return { ok: true };
   });
   const run = shop("poppy:read poppy:write");
-  run.dpop = (await createIdentity()).privateKey;
+  at(run).dpop = (await createIdentity()).privateKey;
   const turn = await say(run, "Move my recurring delivery to Saturday.");
   expect(turn.status).toBe(502);
   // What a reload or History lists: the lines the page was sent.
@@ -384,8 +392,8 @@ it("answers with the tasks the Company excludes, and says whether a feedback rep
     return { ok: true };
   });
   const run = shop();
-  run.company!.document.tasks = { endpoint: origin + "/poppy/tasks" };
-  run.company!.profile.tasksEndpoint = origin + "/poppy/tasks";
+  at(run).company!.document.tasks = { endpoint: origin + "/poppy/tasks" };
+  at(run).company!.profile.tasksEndpoint = origin + "/poppy/tasks";
   const first = await say(run, "Can I pay with a gift card?");
   // For the Inspector's "Tasks not offered".
   expect(first.answer.excludedTasks).toEqual([
@@ -434,7 +442,7 @@ it("drops what it showed with the account once the Company no longer takes the s
     return { products: [{ name: "Cara cara oranges" }] };
   });
   const run = shop("poppy:read");
-  run.dpop = (await createIdentity()).privateKey;
+  at(run).dpop = (await createIdentity()).privateKey;
   const publicTurns = [
     { role: "user" as const, content: "What do you sell?" },
     { role: "assistant" as const, content: "Oranges and coffee." },
@@ -448,9 +456,12 @@ it("drops what it showed with the account once the Company no longer takes the s
       signedOut: true,
     },
   ] satisfies Run["transcript"];
+  at(run).publicHistory = structuredClone(publicTurns);
+  at(run).operations = {
+    op_1: { operation_id: "op_1", summary: "Move Elena's delivery" },
+  } as never;
   Object.assign(run, {
     title: "What do you sell?",
-    publicHistory: structuredClone(publicTurns),
     history: [
       ...publicTurns,
       { role: "user", content: "my deliveries" },
@@ -465,9 +476,6 @@ it("drops what it showed with the account once the Company no longer takes the s
         data: '{"customer":"Elena Maren"}',
       },
     ],
-    operations: {
-      op_1: { operation_id: "op_1", summary: "Move Elena's delivery" },
-    },
   });
 
   const turn = await say(run, "my orders");
@@ -479,13 +487,18 @@ it("drops what it showed with the account once the Company no longer takes the s
       "The Company no longer accepts this access. It may have expired or been revoked. Sign in again to reconnect; no action has been retried.",
     history: signedOut,
   });
-  expect(run.accountUnavailable).toBe(true);
+  expect(at(run).accountUnavailable).toBe(true);
   expect(run.transcript).toEqual(signedOut);
   expect(run.history).toEqual(publicTurns);
-  expect(run.operations).toEqual({});
+  expect(at(run).operations).toEqual({});
   expect(run.title).toBe("What do you sell?");
   expect(
-    JSON.stringify([run.transcript, run.history, run.operations, turn.answer]),
+    JSON.stringify([
+      run.transcript,
+      run.history,
+      at(run).operations,
+      turn.answer,
+    ]),
   ).not.toContain("Elena");
 
   // Iris knows now. What is asked next isn't taken back by a later request.
@@ -560,7 +573,7 @@ it("tells the page its conversation has ended, and starts no new one in its plac
   expect(transport).not.toHaveBeenCalled();
   expect(await listConversations(visitor)).toHaveLength(before);
   // A conversation unknown here still goes on as a new one.
-  discover.mockResolvedValue(shop().company);
+  discover.mockResolvedValue(connection().company);
   const fresh = await ask("run_chat_never_0001");
   expect(fresh.status).toBe(200);
   expect(fresh.headers.get("X-Poppy-Conversation")).toMatch(

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Run } from "@/lib/runtime";
+import type { Connection, Run } from "@/lib/runtime";
 import { recordDirect, recordTurn } from "@/lib/transcript";
 import { historyToMessages } from "./companies";
 
@@ -8,23 +8,31 @@ const agent = `${company} · automated agent`;
 
 describe("a conversation restored from its transcript", () => {
   it("shows what the page showed: Company content, labels, steps and data", () => {
-    const run = { history: [], accountToken: "held" } as unknown as Run;
-    recordTurn(run, "My order never arrived", "Protocol demo (no LLM). Told.", {
-      company: [
-        { author: agent, human: false, text: "Sorry to hear that." },
-        {
-          author: company,
-          human: false,
-          note: "Asks to talk with you directly.",
-          invitation: true,
-        },
-      ],
-      trace: ["Conversation started"],
-      demo: true,
-      data: '{"replies":1}',
-    });
+    const connection = { accountToken: "held" } as unknown as Connection;
+    const run = { history: [], connections: [connection] } as unknown as Run;
+    recordTurn(
+      run,
+      connection,
+      "My order never arrived",
+      "Protocol demo (no LLM). Told.",
+      {
+        company: [
+          { author: agent, human: false, text: "Sorry to hear that." },
+          {
+            author: company,
+            human: false,
+            note: "Asks to talk with you directly.",
+            invitation: true,
+          },
+        ],
+        trace: ["Conversation started"],
+        demo: true,
+        data: '{"replies":1}',
+      },
+    );
     recordDirect(
       run,
+      connection,
       company,
       "accept",
       "Talk to the Company directly",
@@ -42,7 +50,7 @@ describe("a conversation restored from its transcript", () => {
         trace: ["Direct Conversation · accepting the Company's invitation"],
       },
     );
-    recordDirect(run, company, "say", "yes", "", true, {
+    recordDirect(run, connection, company, "say", "yes", "", true, {
       company: [
         {
           author: agent,
@@ -54,7 +62,7 @@ describe("a conversation restored from its transcript", () => {
         },
       ],
     });
-    recordTurn(run, "Thanks", "You're welcome.", { trace: [] });
+    recordTurn(run, connection, "Thanks", "You're welcome.", { trace: [] });
 
     // Through JSON, as the page gets it from GET /api/account.
     const messages = historyToMessages(

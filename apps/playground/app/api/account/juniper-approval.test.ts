@@ -10,15 +10,13 @@ import { operations } from "../../../../juniper/src/operations";
 import { accountPaths } from "../../../../juniper/src/openapi";
 import type { Operation } from "@/lib/runtime";
 import { recordOperation } from "../../../lib/operation-store";
-const state = vi.hoisted(() => ({
-  run: {
+const state = vi.hoisted(() => {
+  /** The conversation's one Company: its sign-in and its proposals. */
+  const connection = {
     url: "http://juniper.localhost:4100",
-    expires: Date.now() + 60000,
-    busy: false,
     accountToken: "fixture-refresh",
     scopes: "poppy:read poppy:write",
     operations: {} as Record<string, Operation>,
-    history: [] as Array<{ role: "assistant"; content: string }>,
     company: {
       document: {},
       profile: {
@@ -33,9 +31,18 @@ const state = vi.hoisted(() => ({
         },
       },
     } as unknown,
-  },
-  send: vi.fn(),
-}));
+  };
+  return {
+    connection,
+    run: {
+      expires: Date.now() + 60000,
+      busy: false,
+      history: [] as Array<{ role: "assistant"; content: string }>,
+      connections: [connection],
+    },
+    send: vi.fn(),
+  };
+});
 vi.mock("next/headers", () => ({
   cookies: async () => ({
     get: (name: string) => ({
@@ -90,7 +97,7 @@ it("model tool → real Juniper 403 operation → human approval → Poppy-Appro
     approval?: { operation_id: string; revision: string },
   ) => {
     const response = await app.inject({
-      url: new URL(url, state.run.url).pathname,
+      url: new URL(url, state.connection.url).pathname,
       method,
       headers: {
         ...(payload === undefined
@@ -121,7 +128,7 @@ it("model tool → real Juniper 403 operation → human approval → Poppy-Appro
   // Mirrors runtime's OpenAPI POST handling: record the refused operation.
   const tools = openApiTools(
     { paths: accountPaths },
-    state.run.url + "/openapi.json",
+    state.connection.url + "/openapi.json",
     {
       allowProposals: true,
       blockedPaths: [],
@@ -135,7 +142,10 @@ it("model tool → real Juniper 403 operation → human approval → Poppy-Appro
             error.code !== "approval_required"
           )
             throw error;
-          const op = recordOperation(state.run, error.operation, { url, body });
+          const op = recordOperation(state.connection, error.operation, {
+            url,
+            body,
+          });
           return { status: "approval_required", operation_id: op.operation_id };
         }
       },
@@ -164,10 +174,11 @@ it("model tool → real Juniper 403 operation → human approval → Poppy-Appro
     const thursday = (await tools.propose_checkout!.execute({
       day: "Thursday",
     })) as { operation_id: string };
-    const firstRevision = state.run.operations[thursday.operation_id]!.revision;
+    const firstRevision =
+      state.connection.operations[thursday.operation_id]!.revision;
     // Asking again with another day revises the same operation.
     await tools.propose_checkout!.execute({ day: "Saturday" });
-    const saturday = state.run.operations[thursday.operation_id]!;
+    const saturday = state.connection.operations[thursday.operation_id]!;
     expect(saturday.revision).not.toBe(firstRevision);
     expect(saturday.terms?.delivery_day).toBe("Saturday");
     expect((await invoke("/api/account/orders", "GET")).orders).toEqual([]);

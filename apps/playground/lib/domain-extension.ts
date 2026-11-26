@@ -12,7 +12,7 @@ import {
 } from "@poppy-lab/pap-core";
 
 export type DomainExtension = {
-  /** The run's flag and the account action that sets it. */
+  /** The connection's flag and the account action that sets it. */
   key: "fdx" | "espi";
   name: typeof FDX_EXTENSION | typeof ESPI_EXTENSION;
   /** "Use FDX", "Use ESPI". */
@@ -64,18 +64,20 @@ export const asksFor = (extension: DomainExtension, scope: string) =>
   (!extension.scopes || extension.scopes.includes(scope));
 
 /**
- * Which domain extensions a run has on and its Company lists: what the
+ * Which domain extensions a connection has on and its Company lists: what the
  * Session declares and the sign-in asks scopes for. A profile saved before
  * profiles kept extensions lists none.
  */
-export function extensionsOn(run: {
+export function extensionsOn(connection: {
   fdx?: boolean;
   espi?: boolean;
   company?: { profile?: Pick<CompanyProfile, "extensions"> };
 }): Partial<Record<DomainExtension["key"], boolean>> {
   return Object.fromEntries(
     DOMAIN_EXTENSIONS.filter(
-      (e) => run[e.key] && !!run.company?.profile?.extensions?.[e.name],
+      (e) =>
+        connection[e.key] &&
+        !!connection.company?.profile?.extensions?.[e.name],
     ).map((e) => [e.key, true]),
   );
 }

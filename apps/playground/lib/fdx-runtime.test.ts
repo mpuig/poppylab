@@ -30,7 +30,7 @@ import {
   papRequest,
   renewAccount,
   setFdx,
-  type Run,
+  type Connection,
 } from "./runtime";
 import { UserFacingError } from "./user-error";
 
@@ -48,7 +48,11 @@ const fdxScopes = [
   "fdx:CUSTOMER_CONTACT",
 ];
 /** Harborline's shape: its own API first, then the FDX-shaped one. */
-function bank({ fdx = false, signedIn = true, saved = false } = {}): Run {
+function bank({
+  fdx = false,
+  signedIn = true,
+  saved = false,
+} = {}): Connection {
   const profile: CompanyProfile = {
     version: "1.0",
     identifier: origin,
@@ -62,14 +66,9 @@ function bank({ fdx = false, signedIn = true, saved = false } = {}): Run {
     ...(saved ? {} : { extensions: { "poppylab.dev/fdx": fdxEntry } }),
   };
   return {
-    protocol: "1.0",
     url: origin,
     user: "",
     visitor: "visitor-fixture",
-    expires: Date.now() + 3600000,
-    calls: 0,
-    busy: false,
-    history: [],
     ...(fdx ? { fdx: true } : {}),
     ...(signedIn
       ? {
@@ -160,7 +159,7 @@ beforeEach(() => {
   rediscover.mockReset();
   serve();
 });
-const connected = async (run: Run, trace: string[] = []) => {
+const connected = async (run: Connection, trace: string[] = []) => {
   rediscover.mockResolvedValue(run.company!);
   return connect(run, trace);
 };

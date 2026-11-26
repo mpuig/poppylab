@@ -1,5 +1,5 @@
 import { logEntry, type ProtocolEntry } from "./protocol-log";
-import type { Run } from "./runtime";
+import type { Connection, Run } from "./runtime";
 
 /**
  * One line of the Inspector's "Session & API calls", kept with the
@@ -50,16 +50,18 @@ function bounded(lines: KeptLine[]): KeptLine[] {
 
 /**
  * Keeps the lines a request wrote for the Inspector, in the words the page
- * shows them in. `withAccount` says an account was signed in when the
- * request began: a request that signs it out still wrote its lines with it.
+ * shows them in. `connection` is the Company the request was for, and
+ * `withAccount` says its account was signed in when the request began: a
+ * request that signs it out still wrote its lines with it.
  * The sign-in callback passes false for its one line, which names no
  * account data.
  */
 export function keepLines(
   run: Run,
+  connection: Connection,
   lines: readonly string[],
   at = Date.now(),
-  withAccount = !!run.accountToken,
+  withAccount = !!connection.accountToken,
 ) {
   if (!lines.length) return;
   const signedOut = withAccount ? {} : { signedOut: true as const };

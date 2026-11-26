@@ -9,8 +9,9 @@ import {
   papRequest,
   revokeRefreshToken,
   usesDpop,
-  type Run,
+  type Connection,
 } from "@/lib/runtime";
+import { connectionForState } from "@/lib/connections";
 import {
   assertion,
   proof,
@@ -37,13 +38,17 @@ const events = (endpoint: string, thread: { id?: string; cursor?: string }) => {
  * answers `conversation_not_found` to another account. So each thread is
  * read once with the new sign-in. Any answer but the events counts as no.
  */
-async function sameOwner(run: Run) {
-  const conversation = run.conversation;
+async function sameOwner(connection: Connection) {
+  const conversation = connection.conversation;
   if (!conversation?.id) return false;
   try {
     for (const thread of [conversation, conversation.direct]) {
       if (!thread) continue;
-      await papRequest(run, events(conversation.endpoint, thread), "GET");
+      await papRequest(
+        connection,
+        events(conversation.endpoint, thread),
+        "GET",
+      );
     }
     return true;
   } catch {
@@ -53,7 +58,7 @@ async function sameOwner(run: Run) {
 
 /**
  * Whether the conversation with the Company's agent has used the account of
- * the sign-in the run holds, asked before a new one replaces it. Only then
+ * the sign-in the connection holds, asked before a new one replaces it. Only then
  * does `sameOwner` say the new sign-in is for that account: a conversation
  * no account has used answers any sign-in (§8.2).
  *
@@ -63,12 +68,12 @@ async function sameOwner(run: Run) {
  * must still read it, which only that account's can. Any other answer
  * counts as no.
  */
-async function usedThisAccount(run: Run) {
-  const conversation = run.conversation;
-  if (!run.accountToken || !conversation?.id) return false;
+async function usedThisAccount(connection: Connection) {
+  const conversation = connection.conversation;
+  if (!connection.accountToken || !conversation?.id) return false;
   const url = events(conversation.endpoint, conversation);
   try {
-    await papRequest(run, url, "GET", undefined, { signedOut: true });
+    await papRequest(connection, url, "GET", undefined, { signedOut: true });
     return false;
   } catch (error) {
     if (!(
@@ -79,7 +84,7 @@ async function usedThisAccount(run: Run) {
       return false;
   }
   try {
-    await papRequest(run, url, "GET");
+    await papRequest(connection, url, "GET");
     return true;
   } catch {
     return false;
@@ -116,11 +121,17 @@ export async function GET(request: Request) {
       : undefined;
   const held =
     found && visitor ? await acquireRun(visitor, found.id) : undefined;
-  if (!held || held === "busy" || !visitor || held.run.auth?.state !== state)
+  // The sign-in is one Company's: its connection is the one that waits for
+  // this state, and the tokens are kept there and nowhere else.
+  const connection =
+    held && held !== "busy" && state
+      ? connectionForState(held.run, state)
+      : undefined;
+  if (!held || held === "busy" || !visitor || !connection)
     return leave("failed");
   const { run } = held;
-  const pending = run.auth!;
-  delete run.auth;
+  const pending = connection.auth!;
+  delete connection.auth;
   store.delete("pap_oauth");
   if (
     url.searchParams.get("iss") !== pending.issuer ||
@@ -131,15 +142,15 @@ export async function GET(request: Request) {
     return leave("failed");
   }
   try {
-    const clientId = clientFor(run),
-      agentOrigin = agentFor(run);
-    const config = accountConfiguration(run);
+    const clientId = clientFor(connection),
+      agentOrigin = agentFor(connection);
+    const config = accountConfiguration(connection);
     const issuer = config.issuer;
     if (issuer !== pending.issuer) throw Error("Issuer changed");
     const endpoint = config.token_endpoint;
     const keys = await identity();
-    const dpop = usesDpop(run) ? pending.dpop : undefined;
-    if (usesDpop(run) && !dpop) throw Error("Missing DPoP key");
+    const dpop = usesDpop(connection) ? pending.dpop : undefined;
+    if (usesDpop(connection) && !dpop) throw Error("Missing DPoP key");
     // §4.2: authorization_code with PKCE and private_key_jwt; no session_id.
     const raw = (await protocolRequest(
       endpoint,
@@ -174,52 +185,54 @@ export async function GET(request: Request) {
         : undefined,
     )) as Record<string, unknown>;
     const result = tokenResponse(raw, pending.scopes, !!dpop, true);
-    // Asked while the run still holds the sign-in this one replaces.
-    const used = await usedThisAccount(run);
-    const replaced = run.accountToken;
+    // Asked while the connection still holds the sign-in this one replaces.
+    const used = await usedThisAccount(connection);
+    const replaced = connection.accountToken;
     // Preserve the conversation from public access, including across later
     // consent. Account-specific turns and approvals cannot cross accounts.
-    if (!run.accountToken)
-      run.publicHistory = structuredClone(run.history.slice(-10));
+    if (!connection.accountToken)
+      connection.publicHistory = structuredClone(run.history.slice(-10));
     // §5.4: a new sign-in may be another account, so start a new Session.
-    newSession(run);
-    delete run.accountUnavailable;
-    run.consentVersion = (run.consentVersion ?? 0) + 1;
-    run.scopes = result.scope;
-    run.token = result.accessToken;
-    run.tokenType = result.tokenType;
-    run.tokenExpires = result.expires;
-    run.accountToken = result.refreshToken!;
+    newSession(connection);
+    delete connection.accountUnavailable;
+    connection.consentVersion = (connection.consentVersion ?? 0) + 1;
+    connection.scopes = result.scope;
+    connection.token = result.accessToken;
+    connection.tokenType = result.tokenType;
+    connection.tokenExpires = result.expires;
+    connection.accountToken = result.refreshToken!;
     // poppylab.dev/fdx v1: the consent id of this grant, when it has one;
     // poppylab.dev/espi v1: its subscription and authorization URIs.
-    keepTokenFields(run, result, true);
-    if (dpop) run.dpop = dpop;
+    keepTokenFields(connection, result, true);
+    if (dpop) connection.dpop = dpop;
     // §4.5: per-service tokens were issued to the sign-in this one replaces:
     // its account, scopes and DPoP key. None is sent again.
-    delete run.resourceTokens;
+    delete connection.resourceTokens;
     // The conversation with the Company's agent, and the User's Direct
     // Conversation in it (§8.10), may belong to the account of the sign-in
     // this one replaces. The same account goes on in it (§8.11); for
     // another, Iris forgets it, as at sign-out. Signed out before, no
     // account had used it.
-    const same = !!replaced && (await sameOwner(run));
-    if (replaced && !same) delete run.conversation;
+    const same = !!replaced && (await sameOwner(connection));
+    if (replaced && !same) delete connection.conversation;
     // What Iris read and showed with the account, and the proposals it
     // got, stay only for a sign-in the Company's answers show to be for
     // the same account: the conversation had used it, and still takes this
     // one. Any other may be someone else's, or there is no way to tell,
     // and the conversation goes back to what it was before any account
     // access. The page keeps that public part as it showed it.
-    if (!(used && same)) backToPublic(run);
+    if (!(used && same)) backToPublic(run, connection);
     // §4.7: revoke the refresh token the new sign-in replaced (best effort;
     // revoking a replaced token isn't sign-out).
-    if (replaced) void revokeRefreshToken(run, replaced).catch(() => undefined);
+    if (replaced)
+      void revokeRefreshToken(connection, replaced).catch(() => undefined);
     // The Inspector's line for it, which the page lists once it sees the
     // sign-in is complete. It says only that a sign-in happened, and how:
     // nothing an account holds. So it is kept as a line written signed
     // out is, and a later sign-in lists it whoever that one is for.
     keepLines(
       run,
+      connection,
       [
         `Direct Sign-In completed · PKCE + issuer validation · ${dpop ? "DPoP" : "Bearer"} account Session`,
       ],

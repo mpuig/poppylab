@@ -9,17 +9,10 @@ import {
   expect,
   vi,
 } from "vitest";
-const state = vi.hoisted(() => ({
-  /** The network under the real runtime's FDX consent calls. */
-  transport: vi.fn<(url: string, ...args: unknown[]) => Promise<unknown>>(
-    async () => {
-      throw new Error("Unexpected request");
-    },
-  ),
-  run: {
+const state = vi.hoisted(() => {
+  /** The conversation's one Company: its sign-in and its proposals. */
+  const connection = {
     url: "http://juniper.localhost:4100",
-    expires: Date.now() + 60000,
-    busy: false,
     accountToken: "secret",
     token: "general-token",
     tokenExpires: Date.now() + 60000,
@@ -39,7 +32,6 @@ const state = vi.hoisted(() => ({
         },
       } as Record<string, unknown>,
     },
-    history: [] as unknown[],
     company: {
       document: { organization: { name: "Juniper" } },
       profile: {
@@ -55,37 +47,54 @@ const state = vi.hoisted(() => ({
         },
       },
     } as unknown,
-  },
-  request: vi.fn(),
-  revoke: vi.fn(),
-  push: vi.fn(async () => "urn:ietf:params:oauth:request_uri:pushed-1"),
-  config: {
-    issuer: "http://juniper.localhost:4100",
-    authorization_endpoint: "http://juniper.localhost:4100/oauth/authorize",
-  } as Record<string, string>,
-  connect: vi.fn(async (run: Record<string, unknown>): Promise<unknown> =>
-    Object.assign(run, {
-      company: {
-        document: {
-          protocol_version: "1.0",
-          organization: { name: "Juniper", domain: "juniper.localhost" },
-        },
-        profile: {
-          version: "1.0",
-          identifier: "http://juniper.localhost:4100",
-          issuer: "http://juniper.localhost:4100",
-          signIn: { direct: true, device: false },
-          scopes: ["poppy:read", "poppy:write"],
-          scopeDescriptions: {},
-          scopeHints: {
-            "poppy:read": { changes: "none", personal_data: true },
-            "poppy:write": { changes: "irreversible", personal_data: true },
-          },
-        },
+  };
+  return {
+    /** The network under the real runtime's FDX consent calls. */
+    transport: vi.fn<(url: string, ...args: unknown[]) => Promise<unknown>>(
+      async () => {
+        throw new Error("Unexpected request");
       },
-    }),
-  ),
-}));
+    ),
+    connection,
+    /** The conversation, as the routes find it stored. */
+    run: {
+      expires: Date.now() + 60000,
+      busy: false,
+      history: [] as unknown[],
+      connections: [connection],
+    },
+    request: vi.fn(),
+    revoke: vi.fn(),
+    push: vi.fn(async () => "urn:ietf:params:oauth:request_uri:pushed-1"),
+    config: {
+      issuer: "http://juniper.localhost:4100",
+      authorization_endpoint: "http://juniper.localhost:4100/oauth/authorize",
+    } as Record<string, string>,
+    connect: vi.fn(
+      async (connection: Record<string, unknown>): Promise<unknown> =>
+        Object.assign(connection, {
+          company: {
+            document: {
+              protocol_version: "1.0",
+              organization: { name: "Juniper", domain: "juniper.localhost" },
+            },
+            profile: {
+              version: "1.0",
+              identifier: "http://juniper.localhost:4100",
+              issuer: "http://juniper.localhost:4100",
+              signIn: { direct: true, device: false },
+              scopes: ["poppy:read", "poppy:write"],
+              scopeDescriptions: {},
+              scopeHints: {
+                "poppy:read": { changes: "none", personal_data: true },
+                "poppy:write": { changes: "irreversible", personal_data: true },
+              },
+            },
+          },
+        }),
+    ),
+  };
+});
 vi.mock("next/headers", () => ({
   cookies: async () => ({
     get: (name: string) => ({
@@ -190,7 +199,7 @@ beforeEach(async () => {
   vi.stubEnv("NODE_ENV", "development");
   Object.assign(state.run, { protocol: "1.0", busy: false });
   await seedRun("v".repeat(43), "run_fixture_0001", state.run as never);
-  state.run.operations.op_test = {
+  state.connection.operations.op_test = {
     operation_id: "op_test",
     revision: "r1",
     state: "proposed",
@@ -203,14 +212,14 @@ beforeEach(async () => {
     },
   };
   state.run.busy = false;
-  state.run.url = "http://juniper.localhost:4100";
-  state.run.accountToken = "secret";
-  state.run.scopes = "poppy:read poppy:write";
-  state.run.accountUnavailable = false;
+  state.connection.url = "http://juniper.localhost:4100";
+  state.connection.accountToken = "secret";
+  state.connection.scopes = "poppy:read poppy:write";
+  state.connection.accountUnavailable = false;
   state.request.mockReset();
   state.revoke.mockReset();
-  state.run.token = "general-token";
-  state.run.tokenExpires = Date.now() + 60000;
+  state.connection.token = "general-token";
+  state.connection.tokenExpires = Date.now() + 60000;
   // Each test starts with no Inspector lines kept.
   delete (state.run as { log?: unknown }).log;
 });
@@ -258,7 +267,7 @@ describe("The Inspector's lines, kept with the conversation", () => {
   });
 
   it("answers a reload with the tasks the current Session read, and none of an earlier Session's (§9)", async () => {
-    const session = state.run as typeof state.run & {
+    const session = state.connection as typeof state.connection & {
       sessionId?: string;
       tasks?: unknown;
     };
@@ -319,7 +328,7 @@ describe("The Inspector's lines, kept with the conversation", () => {
   });
 
   it("marks what a signed-out request wrote, which a sign-in keeps", async () => {
-    delete (run as { accountToken?: string }).accountToken;
+    delete (state.connection as { accountToken?: string }).accountToken;
     await act("decline");
     expect(run.log).toEqual([
       {
@@ -334,8 +343,8 @@ describe("Human-controlled account boundary", () => {
   it("keeps the active access if revocation has an uncertain failure", async () => {
     state.revoke.mockRejectedValue(new Error("lost response"));
     expect((await POST(request({ action: "signout" }))).status).toBe(400);
-    expect(state.run.accountToken).toBe("secret");
-    expect(state.run.token).toBe("general-token");
+    expect(state.connection.accountToken).toBe("secret");
+    expect(state.connection.token).toBe("general-token");
     expect(state.revoke).toHaveBeenCalledTimes(1);
   });
   it("signs out by revoking the refresh token; the Session continues signed out", async () => {
@@ -343,16 +352,16 @@ describe("Human-controlled account boundary", () => {
     const run = state.run as { title?: string };
     run.title = "Show my orders";
     expect((await POST(request({ action: "signout" }))).status).toBe(200);
-    expect(state.revoke).toHaveBeenCalledWith(state.run, "secret");
-    expect(state.run.accountToken).toBeUndefined();
-    expect(state.run.token).toBeUndefined();
+    expect(state.revoke).toHaveBeenCalledWith(state.connection, "secret");
+    expect(state.connection.accountToken).toBeUndefined();
+    expect(state.connection.token).toBeUndefined();
     // Sign-out empties the conversation, so History no longer lists it
     // under words that aren't in it.
     expect(run.title).toBeUndefined();
   });
   it("signs out of every service: no per-service token is kept (§4.5)", async () => {
-    const run = state.run as { resourceTokens?: unknown };
-    run.resourceTokens = {
+    const connection = state.connection as { resourceTokens?: unknown };
+    connection.resourceTokens = {
       "http://juniper.localhost:4100/api": {
         value: "service-token",
         type: "DPoP",
@@ -362,9 +371,9 @@ describe("Human-controlled account boundary", () => {
     try {
       state.revoke.mockResolvedValue(undefined);
       expect((await POST(request({ action: "signout" }))).status).toBe(200);
-      expect(run.resourceTokens).toBeUndefined();
+      expect(connection.resourceTokens).toBeUndefined();
     } finally {
-      delete run.resourceTokens;
+      delete connection.resourceTokens;
     }
   });
   it("asks for the Company's read-only scopes by default, with PKCE and a DPoP key", async () => {
@@ -376,7 +385,7 @@ describe("Human-controlled account boundary", () => {
     expect(url.searchParams.has("session_id")).toBe(false);
     // §4.2: consent is shown even for scopes granted before.
     expect(url.searchParams.get("prompt")).toBe("consent");
-    expect(state.run).toHaveProperty("auth.dpop");
+    expect(state.connection).toHaveProperty("auth.dpop");
   });
   it("pushes the request when the Company offers PAR, opening only client_id and request_uri (§4.2)", async () => {
     state.config = {
@@ -407,7 +416,7 @@ describe("Human-controlled account boundary", () => {
       });
       // The code is bound to the sign-in's DPoP key.
       expect(dpop).toBe(
-        (state.run as { auth?: { dpop?: unknown } }).auth?.dpop,
+        (state.connection as { auth?: { dpop?: unknown } }).auth?.dpop,
       );
     } finally {
       delete state.config.pushed_authorization_request_endpoint;
@@ -415,16 +424,16 @@ describe("Human-controlled account boundary", () => {
   });
   it("starts consent with a separate candidate without destroying the current account", async () => {
     const history = state.run.history,
-      operations = state.run.operations;
+      operations = state.connection.operations;
     const r = await POST(request({ action: "signin" }));
     expect(r.status).toBe(200);
     expect(new URL((await r.json()).url).searchParams.get("scope")).toBe(
       "poppy:read",
     );
-    expect(state.connect.mock.calls.at(-1)![0]).not.toBe(state.run);
-    expect(state.run.accountToken).toBe("secret");
+    expect(state.connect.mock.calls.at(-1)![0]).not.toBe(state.connection);
+    expect(state.connection.accountToken).toBe("secret");
     expect(state.run.history).toBe(history);
-    expect(state.run.operations).toBe(operations);
+    expect(state.connection.operations).toBe(operations);
   });
   it("requests write only through the explicit permission choice", async () => {
     const r = await POST(request({ action: "signin", access: "write" }));
@@ -434,8 +443,8 @@ describe("Human-controlled account boundary", () => {
     );
   });
   it("refuses write consent when the Company only advertises read", async () => {
-    state.connect.mockImplementationOnce(async (run) =>
-      Object.assign(run, {
+    state.connect.mockImplementationOnce(async (connection) =>
+      Object.assign(connection, {
         company: {
           document: {},
           profile: {
@@ -461,7 +470,7 @@ describe("Human-controlled account boundary", () => {
     ).toBe(400);
   });
   it("blocks approval under read-only access before any remote request", async () => {
-    state.run.scopes = "poppy:read";
+    state.connection.scopes = "poppy:read";
     const r = await POST(
       request({ action: "approve", id: "op_test", revision: "r1" }),
     );
@@ -470,7 +479,7 @@ describe("Human-controlled account boundary", () => {
     expect(state.request).not.toHaveBeenCalled();
   });
   it("explains expiry without submitting the approval", async () => {
-    state.run.operations.op_test.expires_at = new Date(
+    state.connection.operations.op_test.expires_at = new Date(
       Date.now() - 1,
     ).toISOString();
     const r = await POST(
@@ -486,11 +495,11 @@ describe("Human-controlled account boundary", () => {
     );
     expect(r.status).toBe(200);
     expect((await r.json()).operation.state).toBe("declined");
-    expect(state.run.operations.op_test).not.toHaveProperty("request");
+    expect(state.connection.operations.op_test).not.toHaveProperty("request");
     expect(state.request).not.toHaveBeenCalled();
   });
   it("notes when each decision changed its operation, for the guide to know the newest", async () => {
-    const op = () => state.run.operations.op_test!;
+    const op = () => state.connection.operations.op_test!;
     const clock = vi.spyOn(Date, "now");
     try {
       const at = (seconds: number) => {
@@ -592,7 +601,7 @@ describe("Human-controlled account boundary", () => {
     ).toBe(400);
   });
   describe("new terms under another operation ID", () => {
-    const run = state.run as unknown as {
+    const connection = state.connection as unknown as {
       operations: Record<string, Record<string, unknown>>;
     };
     /** The spec keeps the ID for new terms; a Company may still change it. */
@@ -607,7 +616,7 @@ describe("Human-controlled account boundary", () => {
     const approve = (id = "op_test", revision = "r1") =>
       POST(request({ action: "approve", id, revision }));
     afterEach(() => {
-      delete run.operations.op_other;
+      delete connection.operations.op_other;
     });
 
     it("retires the approved proposal and returns both, so the page shows the new one in its place", async () => {
@@ -631,8 +640,8 @@ describe("Human-controlled account boundary", () => {
             "Juniper offered new terms instead of performing these, so they can no longer be approved.",
         },
       });
-      expect(run.operations.op_test).not.toHaveProperty("request");
-      expect(run.operations.op_test).not.toHaveProperty("approval");
+      expect(connection.operations.op_test).not.toHaveProperty("request");
+      expect(connection.operations.op_test).not.toHaveProperty("approval");
       // A reload shows the same two: one retired, one waiting.
       const reloaded = await (
         await GET(
@@ -667,7 +676,9 @@ describe("Human-controlled account boundary", () => {
     });
 
     it("keeps for the new one that the Company declined Iris's approval of the old one (§6)", async () => {
-      run.operations.op_test!.agentDeclined = { reason: "Not for agents." };
+      connection.operations.op_test!.agentDeclined = {
+        reason: "Not for agents.",
+      };
       sendThenFail(otherId);
       const body = await (await approve()).json();
       expect(body.operation).toMatchObject({
@@ -691,7 +702,7 @@ describe("Human-controlled account boundary", () => {
         },
         request: { url: "http://juniper.localhost:4100/x", body: {} },
       };
-      run.operations.op_other = structuredClone(out);
+      connection.operations.op_other = structuredClone(out);
       sendThenFail(otherId);
       const r = await approve();
       const body = await r.json();
@@ -702,12 +713,12 @@ describe("Human-controlled account boundary", () => {
         operation_id: "op_test",
         state: "proposed",
       });
-      expect(run.operations.op_other).toEqual(out);
+      expect(connection.operations.op_other).toEqual(out);
     });
   });
   describe("an approval that wasn't performed, with the terms still waiting", () => {
     const stored = () =>
-      state.run.operations.op_test as Record<string, unknown>;
+      state.connection.operations.op_test as Record<string, unknown>;
     const reloaded = async () =>
       (
         (
@@ -914,7 +925,7 @@ describe("Human-controlled account boundary", () => {
     expect(await decline("Why not order tomorrow?")).toBe(
       "Juniper declined this approval and did nothing. Its reason: Why not order tomorrow?",
     );
-    Object.assign(state.run.operations.op_test!, {
+    Object.assign(state.connection.operations.op_test!, {
       state: "proposed",
       request: { url: "http://juniper.localhost:4100/api/account/x", body: {} },
     });
@@ -934,7 +945,7 @@ describe("Human-controlled account boundary", () => {
           undefined,
           undefined,
           {
-            ...state.run.operations.op_test,
+            ...state.connection.operations.op_test,
             approval: undefined,
             request: undefined,
             state: undefined,
@@ -952,10 +963,10 @@ describe("Human-controlled account boundary", () => {
     expect(body.code).toBe("approval_not_accepted");
     expect(body.error).toContain("Nothing was performed");
     expect(body.operation).toMatchObject({ revision: "r1", state: "proposed" });
-    expect(state.run.operations.op_test.state).toBe("proposed");
+    expect(state.connection.operations.op_test.state).toBe("proposed");
     expect(state.request).toHaveBeenCalledTimes(1);
     // The approval the Company answered that way is never sent again…
-    expect(state.run.operations.op_test).not.toHaveProperty("approval");
+    expect(state.connection.operations.op_test).not.toHaveProperty("approval");
     expect(
       (await POST(request({ action: "retry", id: "op_test", revision: "r1" })))
         .status,
@@ -981,7 +992,7 @@ describe("Human-controlled account boundary", () => {
         request({ action: "approve", id: "op_test", revision: "r1" }),
       );
       expect([429, 502]).toContain(r.status);
-      expect(state.run.operations.op_test.state).toBe("uncertain");
+      expect(state.connection.operations.op_test.state).toBe("uncertain");
       expect(state.request).toHaveBeenCalledTimes(1);
       // A new approval isn't possible; only "retry" resends the same one.
       expect(
@@ -1033,7 +1044,7 @@ describe("Human-controlled account boundary", () => {
         revision: "r1",
         state: "proposed",
       });
-      expect(state.run.operations.op_test.state).toBe("proposed");
+      expect(state.connection.operations.op_test.state).toBe("proposed");
       // Nothing is uncertain, so there is nothing to retry…
       expect((await act("retry")).status).toBe(400);
       expect(state.request).toHaveBeenCalledTimes(1);
@@ -1133,7 +1144,7 @@ describe("Human-controlled account boundary", () => {
     const body = await r.json();
     expect(body.code).toBe("not_performed");
     expect(body.operation).toMatchObject({ revision: "r1", state: "proposed" });
-    expect(state.run.operations.op_test).toMatchObject({
+    expect(state.connection.operations.op_test).toMatchObject({
       revision: "r1",
       state: "proposed",
     });
@@ -1149,7 +1160,7 @@ describe("Human-controlled account boundary", () => {
       const r = await act("approve");
       expect(r.status).toBe(502);
       expect((await r.json()).code).toBe("outcome_unknown");
-      expect(state.run.operations.op_test.state).toBe("uncertain");
+      expect(state.connection.operations.op_test.state).toBe("uncertain");
     },
   );
   it("keeps the outcome unknown when the Company refuses a retry", async () => {
@@ -1161,7 +1172,7 @@ describe("Human-controlled account boundary", () => {
     const r = await act("retry");
     expect(r.status).toBe(502);
     expect((await r.json()).code).toBe("outcome_unknown");
-    expect(state.run.operations.op_test).toMatchObject({
+    expect(state.connection.operations.op_test).toMatchObject({
       state: "uncertain",
       approval: { approver: "user", reference: "a1" },
     });
@@ -1201,8 +1212,12 @@ describe("Human-controlled account boundary", () => {
       expect(body.error).toContain("Juniper's own records");
       expect(body.error).not.toContain("fee");
       // Nothing of the new terms is kept, so nothing asks for their approval.
-      expect(Object.keys(state.run.operations)).not.toContain("op_other");
-      expect(JSON.stringify(state.run.operations)).not.toContain("fee_cents");
+      expect(Object.keys(state.connection.operations)).not.toContain(
+        "op_other",
+      );
+      expect(JSON.stringify(state.connection.operations)).not.toContain(
+        "fee_cents",
+      );
       for (const revision of ["r1", "r2"])
         expect(
           (
@@ -1234,17 +1249,17 @@ describe("Human-controlled account boundary", () => {
     async (_name, again) => {
       sendThenFail(lost);
       expect((await act("approve")).status).toBe(502);
-      const { expires_at } = state.run.operations.op_test;
+      const { expires_at } = state.connection.operations.op_test;
       // The model calls the tool again, and the Company answers as before.
       recordOperation(
-        state.run as never,
+        state.connection as never,
         { operation_id: "op_test", ...again, expires_at },
         {
           url: "http://juniper.localhost:4100/api/account/delivery-change",
           body: { day: "Saturday" },
         },
       );
-      expect(state.run.operations.op_test).toMatchObject({
+      expect(state.connection.operations.op_test).toMatchObject({
         revision: "r1",
         state: "uncertain",
         terms: { to: "Saturday" },
@@ -1280,7 +1295,7 @@ describe("Human-controlled account boundary", () => {
   it("takes the same terms in answer to a Retry as a known outcome: nothing was performed", async () => {
     sendThenFail(lost);
     expect((await act("approve")).status).toBe(502);
-    const { expires_at } = state.run.operations.op_test;
+    const { expires_at } = state.connection.operations.op_test;
     sendThenFail(
       () =>
         new ProtocolError(403, "approval_required", undefined, undefined, {
@@ -1296,7 +1311,7 @@ describe("Human-controlled account boundary", () => {
     expect(body.code).toBe("approval_not_accepted");
     // The answer is to the approval itself, so the terms wait again.
     expect(body.operation).toMatchObject({ revision: "r1", state: "proposed" });
-    expect(state.run.operations.op_test).not.toHaveProperty("approval");
+    expect(state.connection.operations.op_test).not.toHaveProperty("approval");
     expect((await act("retry")).status).toBe(400);
     state.request.mockResolvedValueOnce({ summary: "Done" });
     expect((await act("approve")).status).toBe(200);
@@ -1314,23 +1329,23 @@ describe("Human-controlled account boundary", () => {
       // Without the permission the terms still wait. Without the access
       // they go with everything else Iris got with the account.
       if (code === "insufficient_scope")
-        expect(state.run.operations.op_test.state).toBe("proposed");
-      else expect(state.run.operations).toEqual({});
+        expect(state.connection.operations.op_test.state).toBe("proposed");
+      else expect(state.connection.operations).toEqual({});
     },
   );
   it("marks unavailable access without retrying, and drops what was shown with the account", async () => {
     const run = state.run as unknown as {
       history: unknown[];
-      publicHistory?: unknown[];
       transcript?: unknown[];
       title?: string;
     };
+    const connection = state.connection as { publicHistory?: unknown[] };
     const publicTurns = [
       { role: "user", content: "When do you deliver?" },
       { role: "assistant", content: "Tuesday and Saturday." },
     ];
     const signedOut = publicTurns.map((turn) => ({ ...turn, signedOut: true }));
-    run.publicHistory = structuredClone(publicTurns);
+    connection.publicHistory = structuredClone(publicTurns);
     run.history = [
       ...publicTurns,
       { role: "assistant", content: "Elena's delivery is on Thursday." },
@@ -1355,13 +1370,13 @@ describe("Human-controlled account boundary", () => {
           "The Company no longer accepts this access. It may have expired or been revoked. Sign in again to reconnect; no action has been retried.",
         history: signedOut,
       });
-      expect(state.run.accountUnavailable).toBe(true);
+      expect(state.connection.accountUnavailable).toBe(true);
       expect(state.request).toHaveBeenCalledTimes(1);
       // As after a sign-in that may be someone else's: the public part
       // stays, for the page and the model, and no proposal.
       expect(run.transcript).toEqual(signedOut);
       expect(run.history).toEqual(publicTurns);
-      expect(state.run.operations).toEqual({});
+      expect(state.connection.operations).toEqual({});
       const restored = await (
         await GET(
           new Request(
@@ -1385,13 +1400,13 @@ describe("Human-controlled account boundary", () => {
       expect(run.transcript).toHaveLength(3);
     } finally {
       run.history = [];
-      delete run.publicHistory;
+      delete connection.publicHistory;
       delete run.transcript;
       delete run.title;
     }
   });
   it("tells a reloaded page about an open Direct Conversation (§8.10)", async () => {
-    const run = state.run as { conversation?: unknown };
+    const connection = state.connection as { conversation?: unknown };
     const restored = async () =>
       (
         await (
@@ -1408,7 +1423,7 @@ describe("Human-controlled account boundary", () => {
         conversation: false,
         invitation: null,
       });
-      run.conversation = {
+      connection.conversation = {
         endpoint: "http://juniper.localhost:4100/agent",
         id: "conv_1",
         seen: [],
@@ -1420,7 +1435,7 @@ describe("Human-controlled account boundary", () => {
         invitation: "About your refund",
       });
       // Accepted: the page must send the next words to the Company.
-      run.conversation = {
+      connection.conversation = {
         endpoint: "http://juniper.localhost:4100/agent",
         id: "conv_1",
         seen: [],
@@ -1433,20 +1448,20 @@ describe("Human-controlled account boundary", () => {
       });
       // The Company took the access back: nothing to talk from until the
       // User signs in again, so the page offers no "Talk to … yourself".
-      run.conversation = {
+      connection.conversation = {
         endpoint: "http://juniper.localhost:4100/agent",
         id: "conv_1",
         seen: [],
       };
-      state.run.accountUnavailable = true;
+      state.connection.accountUnavailable = true;
       expect(await restored()).toEqual({
         direct: false,
         conversation: false,
         invitation: null,
       });
     } finally {
-      delete run.conversation;
-      state.run.accountUnavailable = false;
+      delete connection.conversation;
+      state.connection.accountUnavailable = false;
     }
   });
   it("gives a reloaded page the transcript, not the model's context", async () => {
@@ -1505,8 +1520,6 @@ describe("Human-controlled account boundary", () => {
     // Thirty minutes passed in a tab left open: History says read-only.
     const visitor = await seedRun("v".repeat(43), "run_ended_fixture_01", {
       protocol: "1.0",
-      url: "http://juniper.localhost:4100",
-      user: "",
       expires: Date.now() - 1000,
       created: Date.now() - 1801000,
       calls: 1,
@@ -1514,7 +1527,13 @@ describe("Human-controlled account boundary", () => {
       history: [],
       title: "my orders",
       transcript: [{ role: "user", content: "my orders" }],
-      accountToken: "old-secret",
+      connections: [
+        {
+          url: "http://juniper.localhost:4100",
+          user: "",
+          accountToken: "old-secret",
+        },
+      ],
     } as never);
     const before = (await listConversations(visitor)).length;
     state.connect.mockClear();
@@ -1548,6 +1567,131 @@ describe("Human-controlled account boundary", () => {
     expect(state.request).not.toHaveBeenCalled();
     expect(await listConversations(visitor)).toHaveLength(before);
   });
+  it("answers for a conversation stored before connections as it did then, and goes on in it", async () => {
+    const proposal = {
+      operation_id: "op_1",
+      revision: "r1",
+      state: "proposed",
+      summary: "Move fictional delivery",
+      terms: { to: "Saturday" },
+      expires_at: new Date(Date.now() + 60000).toISOString(),
+      request: {
+        url: "http://juniper.localhost:4100/api/account/delivery-change",
+        body: { day: "Saturday" },
+      },
+    };
+    /** What the conversation keeps for itself. */
+    const words = () => ({
+      protocol: "1.0",
+      expires: Date.now() + 60000,
+      calls: 2,
+      busy: false,
+      title: "When do you deliver?",
+      history: [
+        { role: "user", content: "my deliveries" },
+        { role: "assistant", content: "Thursday." },
+      ],
+      transcript: [
+        { role: "user", content: "When do you deliver?", signedOut: true },
+        { role: "assistant", content: "Tuesday.", signedOut: true },
+        { role: "user", content: "my deliveries" },
+        { role: "assistant", content: "Thursday.", data: '{"day":"Thu"}' },
+      ],
+      log: [
+        { at: 1000, text: "GET /api/delivery · 200", signedOut: true },
+        { at: 2000, text: "GET /api/account/deliveries · 200" },
+      ],
+    });
+    /** What it holds for its one Company. */
+    const held = () => ({
+      url: "http://juniper.localhost:4100",
+      user: "usr_elena",
+      sessionId: "sid_1",
+      accountToken: "secret",
+      token: "general-token",
+      tokenExpires: Date.now() + 60000,
+      scopes: "poppy:read poppy:write",
+      consentVersion: 1,
+      company: structuredClone(state.connection.company),
+      operations: { op_1: structuredClone(proposal) },
+      tasks: {
+        sid: "sid_1",
+        value: {
+          excludedTasks: [{ task: "Pay with a gift card" }],
+          skills: [],
+        },
+      },
+      conversation: {
+        endpoint: "http://juniper.localhost:4100/poppy/conversations",
+        id: "cnv_1",
+        seen: ["evt_1"],
+        invitation: { event: "evt_1", reason: "About your refund" },
+      },
+    });
+    // As it was stored: one object. And the same conversation as it is
+    // stored now, with the Company's part in its connection.
+    await seedRun("v".repeat(43), "run_stored_flat_0001", {
+      ...words(),
+      ...held(),
+    } as never);
+    await seedRun("v".repeat(43), "run_stored_split_001", {
+      ...words(),
+      connections: [held()],
+    } as never);
+    const read = async (id: string) =>
+      (
+        await GET(
+          new Request(`http://localhost:3000/api/account?conversation=${id}`),
+        )
+      ).json();
+    const flat = await read("run_stored_flat_0001");
+    expect(flat).toEqual({
+      ...(await read("run_stored_split_001")),
+      conversation: "run_stored_flat_0001",
+    });
+    expect(flat).toMatchObject({
+      missing: false,
+      readOnly: false,
+      url: "http://juniper.localhost:4100",
+      signedIn: true,
+      scopes: "poppy:read poppy:write",
+      consentVersion: 1,
+      history: words().transcript,
+      log: words().log,
+      operations: [proposal],
+      excludedTasks: [{ task: "Pay with a gift card" }],
+      directConversation: {
+        direct: false,
+        conversation: true,
+        invitation: "About your refund",
+      },
+    });
+    // The proposal it held is still the User's to decide.
+    const declined = await POST(
+      new Request("http://localhost:3000/api/account", {
+        method: "POST",
+        headers: {
+          origin: "http://localhost:3000",
+          "Content-Type": "application/json",
+          "X-Poppy-Conversation": "run_stored_flat_0001",
+        },
+        body: JSON.stringify({ action: "decline", id: "op_1", revision: "r1" }),
+      }),
+    );
+    expect(declined.status).toBe(200);
+    expect(declined.headers.get("X-Poppy-Conversation")).toBe(
+      "run_stored_flat_0001",
+    );
+    const after = await read("run_stored_flat_0001");
+    expect(after.operations).toMatchObject([
+      { operation_id: "op_1", state: "declined" },
+    ]);
+    expect(after.log.map((line: { text: string }) => line.text)).toEqual([
+      "GET /api/delivery · 200",
+      "GET /api/account/deliveries · 200",
+      "Operation declined · revision r1",
+    ]);
+  });
   it("is disabled in production", async () => {
     vi.stubEnv("NODE_ENV", "production");
     expect(
@@ -1577,7 +1721,7 @@ describe("An operation whose conversation refuses the approval (§8.10, §8.12)"
     POST(request({ action, id: "op_test", revision: "r1" }));
   beforeEach(() => {
     // Proposed in a conversation: the approval goes there in a message.
-    state.run.operations.op_test.request = {
+    state.connection.operations.op_test.request = {
       conversation: {
         endpoint: "http://juniper.localhost:4100/agent",
         id: "cnv_direct",
@@ -1601,7 +1745,7 @@ describe("An operation whose conversation refuses the approval (§8.10, §8.12)"
         state: "expired",
         result: { summary: body.error },
       });
-      expect(state.run.operations.op_test).not.toHaveProperty("request");
+      expect(state.connection.operations.op_test).not.toHaveProperty("request");
       // Nothing is left to retry or approve, and nothing is sent again.
       expect((await act("retry")).status).toBe(400);
       expect((await act("approve")).status).toBe(410);
@@ -1612,7 +1756,7 @@ describe("An operation whose conversation refuses the approval (§8.10, §8.12)"
   it("knows a retry the closed conversation refuses was never taken", async () => {
     sendThenFail(lost);
     expect((await act("approve")).status).toBe(502);
-    expect(state.run.operations.op_test.state).toBe("uncertain");
+    expect(state.connection.operations.op_test.state).toBe("uncertain");
     // §8.3: had the Company accepted the message, it would answer it again.
     state.request.mockRejectedValueOnce(
       new ProtocolError(409, "conversation_closed"),
@@ -1631,7 +1775,7 @@ describe("An operation whose conversation refuses the approval (§8.10, §8.12)"
     const r = await act("retry");
     expect(r.status).toBe(502);
     expect((await r.json()).code).toBe("outcome_unknown");
-    expect(state.run.operations.op_test.state).toBe("uncertain");
+    expect(state.connection.operations.op_test.state).toBe("uncertain");
   });
 
   it.each([
@@ -1644,7 +1788,7 @@ describe("An operation whose conversation refuses the approval (§8.10, §8.12)"
       const r = await act("approve");
       expect(r.status).toBe(502);
       expect((await r.json()).code).toBe("outcome_unknown");
-      expect(state.run.operations.op_test.state).toBe("uncertain");
+      expect(state.connection.operations.op_test.state).toBe("uncertain");
       // Only the approval that was sent goes out again.
       state.request.mockResolvedValueOnce({ summary: "Refunded." });
       expect((await act("retry")).status).toBe(200);
@@ -1681,9 +1825,11 @@ describe("An operation whose conversation refuses the approval (§8.10, §8.12)"
 
 describe("An operation proposed in the User's Direct Conversation (§8.10)", () => {
   const run = state.run as unknown as {
-    operations: Record<string, Record<string, unknown>>;
     history: Array<{ role: string; content: string }>;
     transcript?: Array<{ role: string; content: string }>;
+  };
+  const connection = state.connection as unknown as {
+    operations: Record<string, Record<string, unknown>>;
   };
   const act = (revision = "r1", instruction?: unknown) =>
     POST(
@@ -1702,7 +1848,7 @@ describe("An operation proposed in the User's Direct Conversation (§8.10)", () 
   beforeEach(() => {
     run.history.length = 0;
     delete run.transcript;
-    Object.assign(run.operations.op_test!, {
+    Object.assign(connection.operations.op_test!, {
       summary: "Refund all of order ord_LNB0907 (USD 37.00).",
       terms: { order_id: "ord_LNB0907", total_cents: 3700, currency: "USD" },
       request: {
@@ -1805,7 +1951,7 @@ describe("An operation proposed in the User's Direct Conversation (§8.10)", () 
   });
 
   it("still tells the model the result of an operation Iris's own conversation proposed", async () => {
-    delete run.operations.op_test!.direct;
+    delete connection.operations.op_test!.direct;
     state.request.mockResolvedValue({ summary: "Refunded USD 8.00." });
     expect((await act()).status).toBe(200);
     expect(run.history).toEqual([
@@ -1843,10 +1989,10 @@ describe("What the page's log is told when an approval isn't performed", () => {
       revision,
       summary: "Move fictional delivery",
       terms: { to: "Saturday" },
-      expires_at: state.run.operations.op_test.expires_at,
+      expires_at: state.connection.operations.op_test.expires_at,
     });
   afterEach(() => {
-    delete (state.run.operations as Record<string, unknown>).op_other;
+    delete (state.connection.operations as Record<string, unknown>).op_other;
   });
 
   it.each([
@@ -1872,7 +2018,7 @@ describe("What the page's log is told when an approval isn't performed", () => {
   );
 
   it("names the conversation's message when the conversation refuses it", async () => {
-    state.run.operations.op_test.request = {
+    state.connection.operations.op_test.request = {
       conversation: {
         endpoint: "http://juniper.localhost:4100/poppy/conversations",
         id: "cnv_1",
@@ -1882,7 +2028,7 @@ describe("What the page's log is told when an approval isn't performed", () => {
       [409, "direct_conversation_open"],
       [409, "conversation_closed"],
     ] as const) {
-      state.run.operations.op_test.state = "proposed";
+      state.connection.operations.op_test.state = "proposed";
       state.request.mockRejectedValueOnce(new ProtocolError(status, code));
       expect(await trace(act())).toEqual([
         `POST /poppy/conversations/cnv_1/messages · refused by the Company · HTTP ${status} ${code}`,
@@ -1895,12 +2041,12 @@ describe("What the page's log is told when an approval isn't performed", () => {
     expect(await trace(act())).toEqual([
       "Approval answered with new terms · nothing performed",
     ]);
-    state.run.operations.op_test.revision = "r1";
+    state.connection.operations.op_test.revision = "r1";
     sendThenFail(() => newTerms("op_other", "r7"));
     expect(await trace(act())).toEqual([
       "Approval answered with new terms · nothing performed",
     ]);
-    Object.assign(state.run.operations.op_test, {
+    Object.assign(state.connection.operations.op_test, {
       state: "proposed",
       request: { url: "http://juniper.localhost:4100/x", body: {} },
     });
@@ -1937,7 +2083,7 @@ describe("What the page's log is told when an approval isn't performed", () => {
   it("says how an operation ended when nothing else is to be said: performed, or declined by the User", async () => {
     state.request.mockResolvedValueOnce({ summary: "Done" });
     expect(await trace(act())).toEqual(["Operation succeeded · revision r1"]);
-    state.run.operations.op_test.state = "proposed";
+    state.connection.operations.op_test.state = "proposed";
     expect(await trace(act("decline"))).toEqual([
       "Operation declined · revision r1",
     ]);
@@ -1946,12 +2092,12 @@ describe("What the page's log is told when an approval isn't performed", () => {
 
 describe("Agent approvals on a standing instruction (Operations v3 §5)", () => {
   const rule = { maxCents: 2000, currency: "USD" };
-  const run = state.run as unknown as {
+  const connection = state.connection as unknown as {
     operations: Record<string, Record<string, unknown>>;
     agentApprovals?: unknown[];
   };
   const propose = (cents = 1200) => {
-    run.operations.op_rule = {
+    connection.operations.op_rule = {
       operation_id: "op_rule",
       revision: "r1",
       state: "proposed",
@@ -1965,7 +2111,7 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
     };
   };
   beforeEach(() => {
-    delete run.agentApprovals;
+    delete connection.agentApprovals;
     propose();
   });
   const approve = (instruction?: unknown, revision = "r1") =>
@@ -2020,11 +2166,11 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
       expect((await r.json()).code).toBe("not_covered");
     }
     expect(state.request).not.toHaveBeenCalled();
-    expect(run.operations.op_rule!.state).toBe("proposed");
+    expect(connection.operations.op_rule!.state).toBe("proposed");
   });
 
   it("holds its own hourly limit, whatever the browser says", async () => {
-    run.agentApprovals = Array.from({ length: 5 }, () => ({
+    connection.agentApprovals = Array.from({ length: 5 }, () => ({
       at: Date.now() - 1000,
       cents: 100,
     }));
@@ -2057,7 +2203,7 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
     );
     expect((await approve(rule)).status).toBe(502);
     // It may have been performed, so it counts before anyone retries it.
-    expect(run.agentApprovals).toMatchObject([{ cents: 2000 }]);
+    expect(connection.agentApprovals).toMatchObject([{ cents: 2000 }]);
     state.request.mockResolvedValue({ summary: "Ordered." });
     const retried = await POST(
       request({ action: "retry", id: "op_rule", revision: "r1" }),
@@ -2068,7 +2214,7 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
       approvedBy: { approver: "agent" },
     });
     // The retry is the same approval: not zero cents, and not a second one.
-    expect(run.agentApprovals).toMatchObject([{ cents: 2000 }]);
+    expect(connection.agentApprovals).toMatchObject([{ cents: 2000 }]);
     for (const status of [200, 200, 409]) {
       propose(2000);
       expect((await approve(rule)).status).toBe(status);
@@ -2133,7 +2279,7 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
   it("gives the operation back to the User when the Company answers the agent's approval with its own revision", async () => {
     state.request.mockRejectedValueOnce(
       new ProtocolError(403, "approval_required", undefined, undefined, {
-        ...run.operations.op_rule,
+        ...connection.operations.op_rule,
         request: undefined,
         state: undefined,
       }),
@@ -2230,7 +2376,7 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
     expect(state.request).toHaveBeenCalledTimes(2);
     // Nor when the Company offers them again for a new request (§7).
     const offer = () =>
-      recordOperation(run as never, newTerms().operation, {
+      recordOperation(connection as never, newTerms().operation, {
         url: "http://juniper.localhost:4100/api/account/checkout",
         body: {},
       });
@@ -2291,7 +2437,7 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
     // Iris's approval times out: the outcome is unknown.
     sendThenFail(lost);
     expect((await approve(rule)).status).toBe(502);
-    expect(run.operations.op_rule!.state).toBe("uncertain");
+    expect(connection.operations.op_rule!.state).toBe("uncertain");
     // The User clicks Retry, and the Company declines agent approvals here.
     sendThenFail(
       () =>
@@ -2318,7 +2464,7 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
       agentDeclined: { reason: "Approve money moves yourself." },
     });
     expect(body.operation).not.toHaveProperty("approval");
-    expect(run.operations.op_rule!.state).toBe("proposed");
+    expect(connection.operations.op_rule!.state).toBe("proposed");
     // Only Approve sends an approval in the User's name.
     const mine = await approve();
     expect(mine.status).toBe(200);
@@ -2331,14 +2477,14 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
 
   it("refuses a Retry when no approval is stored, and sends nothing", async () => {
     // As a conversation saved before the fix above can still hold.
-    Object.assign(run.operations.op_rule!, {
+    Object.assign(connection.operations.op_rule!, {
       state: "uncertain",
       agentDeclined: {},
     });
     state.request.mockResolvedValue({ summary: "Paid." });
     expect((await retry()).status).toBe(400);
     expect(state.request).not.toHaveBeenCalled();
-    expect(run.operations.op_rule!.state).toBe("uncertain");
+    expect(connection.operations.op_rule!.state).toBe("uncertain");
   });
 
   it("spends none of the hour's allowance on an approval the Company refused", async () => {
@@ -2350,7 +2496,7 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
     expect(body.code).toBe("not_performed");
     expect(body.operation).toMatchObject({ state: "proposed" });
     // Neither the server's count nor the page's takes it for performed.
-    expect(run.agentApprovals).toEqual([]);
+    expect(connection.agentApprovals).toEqual([]);
     expect(usesAllowance({ status: r.status, operation: body.operation })).toBe(
       false,
     );
@@ -2408,7 +2554,7 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
     });
 
     it("gives the reason the card gives: a refund, or another limit", async () => {
-      run.operations.op_rule!.terms = {
+      connection.operations.op_rule!.terms = {
         total_cents: 1200,
         refund_cents: 500,
         currency: "USD",
@@ -2446,11 +2592,11 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
       expect(await traced(rule)).toEqual([]);
       expect(await traced(rule, { allowance: "<b>any words</b>" })).toEqual([]);
       // The Company's own answer has its own line.
-      run.operations.op_rule!.agentDeclined = {};
+      connection.operations.op_rule!.agentDeclined = {};
       expect(await traced(lower)).toEqual([]);
       // No longer waiting.
       propose();
-      run.operations.op_rule!.state = "declined";
+      connection.operations.op_rule!.state = "declined";
       expect(await traced(lower)).toEqual([]);
       // Not a rule, or not these terms.
       propose();
@@ -2476,7 +2622,7 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
   // outcome is unknown, and then it resends the approval that was sent.
   const sameTerms = () =>
     new ProtocolError(403, "approval_required", undefined, undefined, {
-      ...run.operations.op_rule,
+      ...connection.operations.op_rule,
       request: undefined,
       state: undefined,
       approval: undefined,
@@ -2539,7 +2685,7 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
         "and answered with %s",
         async (name, answer, ...left) => {
           if (name.includes("onversation"))
-            run.operations.op_rule!.request = {
+            connection.operations.op_rule!.request = {
               conversation: {
                 endpoint: "http://juniper.localhost:4100/agent",
                 id: "cnv_1",
@@ -2555,12 +2701,12 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
           const sends = action === "retry" ? 2 : 1;
           const expected = left[action === "retry" ? 1 : 0]!;
           if (expected === "gone") {
-            expect(run.operations).not.toHaveProperty("op_rule");
+            expect(connection.operations).not.toHaveProperty("op_rule");
             expect((await retry()).status).toBe(400);
             expect(approvers()).toEqual(Array(sends).fill(by));
             return;
           }
-          const op = run.operations.op_rule!;
+          const op = connection.operations.op_rule!;
           expect(op.state).toBe(
             typeof expected === "string" ? expected : expected[by],
           );
@@ -2590,8 +2736,8 @@ describe("Use FDX (poppylab.dev/fdx v1)", () => {
     base_url: "http://juniper.localhost:4100/fdx/v6",
     consent_endpoint: "http://juniper.localhost:4100/fdx/v6/consents",
   };
-  const bank = (run: Record<string, unknown>) => {
-    const company = run.company as { profile: Record<string, unknown> };
+  const bank = (connection: Record<string, unknown>) => {
+    const company = connection.company as { profile: Record<string, unknown> };
     company.profile = {
       ...company.profile,
       scopes: ["poppy:read", "poppy:write", "fdx:ACCOUNT_BASIC"],
@@ -2602,7 +2748,7 @@ describe("Use FDX (poppylab.dev/fdx v1)", () => {
       },
       extensions: { "poppylab.dev/fdx": entry },
     };
-    return run;
+    return connection;
   };
   const restored = async () =>
     (
@@ -2612,29 +2758,29 @@ describe("Use FDX (poppylab.dev/fdx v1)", () => {
         ),
       )
     ).json();
-  const run = state.run as typeof state.run & {
+  const connection = state.connection as typeof state.connection & {
     fdx?: boolean;
     fdxConsent?: string;
     sessionId?: string;
   };
-  const company = structuredClone(state.run.company);
+  const company = structuredClone(state.connection.company);
   const connect = state.connect.getMockImplementation()!;
   beforeEach(() => {
-    state.run.company = structuredClone(company);
-    delete run.fdx;
-    run.sessionId = "sid-before";
+    state.connection.company = structuredClone(company);
+    delete connection.fdx;
+    connection.sessionId = "sid-before";
   });
 
   it("is off by default, and a change starts a new Session the page restores (§3.4)", async () => {
-    bank(state.run);
+    bank(state.connection);
     expect((await restored()).fdx).toBe(false);
     const on = await POST(request({ action: "fdx", enabled: true }));
     expect(on.status).toBe(200);
     const body = await on.json();
     expect(body.fdx).toBe(true);
-    expect(run.fdx).toBe(true);
+    expect(connection.fdx).toBe(true);
     expect(body.sessionId).not.toBe("sid-before");
-    expect(run.sessionId).toBe(body.sessionId);
+    expect(connection.sessionId).toBe(body.sessionId);
     expect((await restored()).fdx).toBe(true);
     // The Inspector's line, which a reload lists again.
     expect(body.trace).toEqual([
@@ -2643,20 +2789,20 @@ describe("Use FDX (poppylab.dev/fdx v1)", () => {
     expect((await restored()).log.at(-1).text).toBe(body.trace[0]);
     // The same choice again keeps the Session.
     await POST(request({ action: "fdx", enabled: true }));
-    expect(run.sessionId).toBe(body.sessionId);
+    expect(connection.sessionId).toBe(body.sessionId);
     const off = await POST(request({ action: "fdx", enabled: false }));
     expect((await off.json()).trace).toEqual([
       "Use FDX off · new Session · poppylab.dev/fdx not declared",
     ]);
-    expect(run.fdx).toBeUndefined();
-    expect(run.sessionId).not.toBe(body.sessionId);
+    expect(connection.fdx).toBeUndefined();
+    expect(connection.sessionId).not.toBe(body.sessionId);
   });
 
   it("can't be turned on where the Company lists no valid entry, or a saved profile has none", async () => {
     const r = await POST(request({ action: "fdx", enabled: true }));
     expect(r.status).toBe(400);
-    expect(run.fdx).toBeUndefined();
-    expect(run.sessionId).toBe("sid-before");
+    expect(connection.fdx).toBeUndefined();
+    expect(connection.sessionId).toBe("sid-before");
     expect(
       (await POST(request({ action: "fdx", enabled: "yes" }))).status,
     ).toBe(400);
@@ -2667,7 +2813,7 @@ describe("Use FDX (poppylab.dev/fdx v1)", () => {
       bank(Object.assign(r, { company: structuredClone(company) })),
     );
     try {
-      bank(state.run);
+      bank(state.connection);
       const scope = async () =>
         new URL(
           (await (await POST(request({ action: "signin" }))).json()).url,
@@ -2677,15 +2823,15 @@ describe("Use FDX (poppylab.dev/fdx v1)", () => {
       expect(await scope()).toBe("poppy:read fdx:ACCOUNT_BASIC");
     } finally {
       state.connect.mockImplementation(connect);
-      delete (state.run as { auth?: unknown }).auth;
+      delete (state.connection as { auth?: unknown }).auth;
     }
   });
 
   it("forgets the consent id at sign-out", async () => {
-    run.fdxConsent = "grant_1";
+    connection.fdxConsent = "grant_1";
     state.revoke.mockResolvedValue(undefined);
     expect((await POST(request({ action: "signout" }))).status).toBe(200);
-    expect(run.fdxConsent).toBeUndefined();
+    expect(connection.fdxConsent).toBeUndefined();
   });
 });
 
@@ -2697,7 +2843,7 @@ describe("Revoking the FDX consent (poppylab.dev/fdx v1)", () => {
   };
   const revocation =
     "http://juniper.localhost:4100/fdx/v6/consents/grant_1/revocation";
-  type FdxRun = typeof state.run & {
+  type FdxRun = typeof state.connection & {
     fdx?: boolean;
     fdxConsent?: string;
     visitor?: string;
@@ -2706,8 +2852,8 @@ describe("Revoking the FDX consent (poppylab.dev/fdx v1)", () => {
     sessionId?: string;
     resourceTokens?: unknown;
   };
-  const run = state.run as FdxRun;
-  const company = structuredClone(state.run.company);
+  const connection = state.connection as FdxRun;
+  const company = structuredClone(state.connection.company);
   let dpop: unknown;
   beforeAll(async () => {
     const keys = await createIdentity();
@@ -2721,7 +2867,7 @@ describe("Revoking the FDX consent (poppylab.dev/fdx v1)", () => {
       ...bank.profile,
       extensions: { "poppylab.dev/fdx": entry },
     };
-    Object.assign(run, {
+    Object.assign(connection, {
       company: bank,
       fdx: true,
       fdxConsent: "grant_1",
@@ -2743,7 +2889,7 @@ describe("Revoking the FDX consent (poppylab.dev/fdx v1)", () => {
     state.transport.mockRejectedValue(new Error("Unexpected request"));
   });
   afterEach(() => {
-    state.run.company = structuredClone(company);
+    state.connection.company = structuredClone(company);
     for (const key of [
       "fdx",
       "fdxConsent",
@@ -2753,28 +2899,28 @@ describe("Revoking the FDX consent (poppylab.dev/fdx v1)", () => {
       "sessionId",
       "resourceTokens",
     ] as const)
-      delete run[key];
+      delete connection[key];
     state.run.history = [];
   });
   const signedOut = () => {
-    expect(run.accountToken).toBeUndefined();
-    expect(run.token).toBeUndefined();
-    expect(run.tokenType).toBeUndefined();
-    expect(run.scopes).toBeUndefined();
-    expect(run.fdxConsent).toBeUndefined();
-    expect(run.resourceTokens).toBeUndefined();
-    expect(run.accountUnavailable).toBeUndefined();
-    expect(run.history).toEqual([]);
+    expect(connection.accountToken).toBeUndefined();
+    expect(connection.token).toBeUndefined();
+    expect(connection.tokenType).toBeUndefined();
+    expect(connection.scopes).toBeUndefined();
+    expect(connection.fdxConsent).toBeUndefined();
+    expect(connection.resourceTokens).toBeUndefined();
+    expect(connection.accountUnavailable).toBeUndefined();
+    expect(state.run.history).toEqual([]);
     // The run and its Session go on, signed out (§5.5).
-    expect(run.sessionId).toEqual(expect.any(String));
+    expect(connection.sessionId).toEqual(expect.any(String));
     // The dead refresh token isn't revoked again.
     expect(state.revoke).not.toHaveBeenCalled();
   };
   const kept = () => {
-    expect(run.accountToken).toBe("secret");
-    expect(run.token).toBe("general-token");
-    expect(run.fdxConsent).toBe("grant_1");
-    expect(run.resourceTokens).toBeDefined();
+    expect(connection.accountToken).toBe("secret");
+    expect(connection.token).toBe("general-token");
+    expect(connection.fdxConsent).toBe("grant_1");
+    expect(connection.resourceTokens).toBeDefined();
   };
 
   it("is refused, sending nothing, without a consent, with Use FDX off or signed out", async () => {
@@ -2783,32 +2929,32 @@ describe("Revoking the FDX consent (poppylab.dev/fdx v1)", () => {
       expect(r.status).toBe(400);
       expect(await r.json()).toMatchObject({ code: "no_fdx_consent" });
     };
-    delete run.fdxConsent;
+    delete connection.fdxConsent;
     await refused();
-    run.fdxConsent = "grant_1";
-    delete run.fdx;
+    connection.fdxConsent = "grant_1";
+    delete connection.fdx;
     await refused();
-    run.fdx = true;
+    connection.fdx = true;
     // A profile with no valid entry: the extension isn't in use.
-    state.run.company = structuredClone(company);
+    state.connection.company = structuredClone(company);
     await refused();
-    Object.assign(run, { company: structuredClone(company) });
-    (run.company as { profile: object }).profile = {
-      ...(run.company as { profile: object }).profile,
+    Object.assign(connection, { company: structuredClone(company) });
+    (connection.company as { profile: object }).profile = {
+      ...(connection.company as { profile: object }).profile,
       extensions: { "poppylab.dev/fdx": entry },
     };
-    delete (run as { accountToken?: string }).accountToken;
+    delete (connection as { accountToken?: string }).accountToken;
     await refused();
-    run.accountToken = "secret";
+    connection.accountToken = "secret";
     // Access the Company already refused: sign in again, nothing sent.
-    run.accountUnavailable = true;
+    connection.accountUnavailable = true;
     const lost = await POST(request({ action: "fdx_revoke" }));
     expect(lost.status).toBe(401);
     expect(await lost.json()).toMatchObject({ code: "account_unavailable" });
-    run.accountUnavailable = false;
+    connection.accountUnavailable = false;
     expect(state.transport).not.toHaveBeenCalled();
     expect(state.revoke).not.toHaveBeenCalled();
-    expect(run.fdxConsent).toBe("grant_1");
+    expect(connection.fdxConsent).toBe("grant_1");
   });
 
   it("sends one PUT to the stored consent's revocation, as a Poppy request with the extension declared", async () => {
@@ -2861,7 +3007,7 @@ describe("Revoking the FDX consent (poppylab.dev/fdx v1)", () => {
   it.each(["-Hk2_a", "_Hk2-a"])(
     "revokes a consent whose base64url id starts with - or _ (%s), as one in 32 grant IDs does",
     async (id) => {
-      run.fdxConsent = id;
+      connection.fdxConsent = id;
       state.transport.mockResolvedValue(null);
       const r = await POST(request({ action: "fdx_revoke" }));
       expect(r.status).toBe(200);
@@ -2946,7 +3092,7 @@ describe("Revoking the FDX consent (poppylab.dev/fdx v1)", () => {
       )
     ).json();
     expect(restored.fdxConsent).toBe("grant_1");
-    run.accountUnavailable = true;
+    connection.accountUnavailable = true;
     const off = await (
       await GET(
         new Request(
@@ -2955,7 +3101,7 @@ describe("Revoking the FDX consent (poppylab.dev/fdx v1)", () => {
       )
     ).json();
     expect(off.fdxConsent).toBeUndefined();
-    run.accountUnavailable = false;
+    connection.accountUnavailable = false;
   });
 });
 
@@ -2964,8 +3110,8 @@ describe("Use ESPI (poppylab.dev/espi v1)", () => {
     version: "1",
     resource_endpoint: "http://juniper.localhost:4100/espi/1_1/resource",
   };
-  const utility = (run: Record<string, unknown>) => {
-    const company = run.company as { profile: Record<string, unknown> };
+  const utility = (connection: Record<string, unknown>) => {
+    const company = connection.company as { profile: Record<string, unknown> };
     company.profile = {
       ...company.profile,
       scopes: [
@@ -2984,7 +3130,7 @@ describe("Use ESPI (poppylab.dev/espi v1)", () => {
       },
       extensions: { "poppylab.dev/espi": entry },
     };
-    return run;
+    return connection;
   };
   const restored = async () =>
     (
@@ -2994,24 +3140,24 @@ describe("Use ESPI (poppylab.dev/espi v1)", () => {
         ),
       )
     ).json();
-  const run = state.run as typeof state.run & {
+  const connection = state.connection as typeof state.connection & {
     espi?: boolean;
     fdx?: boolean;
     espiResourceUri?: string;
     espiAuthorizationUri?: string;
     sessionId?: string;
   };
-  const company = structuredClone(state.run.company);
+  const company = structuredClone(state.connection.company);
   const connect = state.connect.getMockImplementation()!;
   beforeEach(() => {
-    state.run.company = structuredClone(company);
-    delete run.espi;
-    delete run.fdx;
-    run.sessionId = "sid-before";
+    state.connection.company = structuredClone(company);
+    delete connection.espi;
+    delete connection.fdx;
+    connection.sessionId = "sid-before";
   });
 
   it("is off by default, and a change starts a new Session the page restores (§3.4)", async () => {
-    utility(state.run);
+    utility(state.connection);
     expect(await restored()).toMatchObject({ espi: false, fdx: false });
     const on = await POST(request({ action: "espi", enabled: true }));
     expect(on.status).toBe(200);
@@ -3021,28 +3167,28 @@ describe("Use ESPI (poppylab.dev/espi v1)", () => {
       sessionId: expect.any(String),
       trace: ["Use ESPI on · new Session · poppylab.dev/espi v1 declared"],
     });
-    expect(run.espi).toBe(true);
-    expect(run.fdx).toBeUndefined();
+    expect(connection.espi).toBe(true);
+    expect(connection.fdx).toBeUndefined();
     expect(body.sessionId).not.toBe("sid-before");
     expect((await restored()).espi).toBe(true);
     await POST(request({ action: "espi", enabled: true }));
-    expect(run.sessionId).toBe(body.sessionId);
+    expect(connection.sessionId).toBe(body.sessionId);
     await POST(request({ action: "espi", enabled: false }));
-    expect(run.espi).toBeUndefined();
-    expect(run.sessionId).not.toBe(body.sessionId);
+    expect(connection.espi).toBeUndefined();
+    expect(connection.sessionId).not.toBe(body.sessionId);
   });
 
   it("can't be turned on where the Company lists no valid entry, and Use FDX can't at a utility", async () => {
     const r = await POST(request({ action: "espi", enabled: true }));
     expect(r.status).toBe(400);
     expect((await r.json()).error).toContain("ESPI-shaped");
-    expect(run.espi).toBeUndefined();
-    utility(state.run);
+    expect(connection.espi).toBeUndefined();
+    utility(state.connection);
     expect((await POST(request({ action: "fdx", enabled: true }))).status).toBe(
       400,
     );
-    expect(run.fdx).toBeUndefined();
-    expect(run.sessionId).toBe("sid-before");
+    expect(connection.fdx).toBeUndefined();
+    expect(connection.sessionId).toBe("sid-before");
   });
 
   it("asks for the scopes the ESPI-shaped tools use only with Use ESPI on, never espi:customer", async () => {
@@ -3050,7 +3196,7 @@ describe("Use ESPI (poppylab.dev/espi v1)", () => {
       utility(Object.assign(r, { company: structuredClone(company) })),
     );
     try {
-      utility(state.run);
+      utility(state.connection);
       const scope = async (access?: string) =>
         new URL(
           (await (await POST(request({ action: "signin", access }))).json())
@@ -3064,17 +3210,17 @@ describe("Use ESPI (poppylab.dev/espi v1)", () => {
       );
     } finally {
       state.connect.mockImplementation(connect);
-      delete (state.run as { auth?: unknown }).auth;
+      delete (state.connection as { auth?: unknown }).auth;
     }
   });
 
   it("forgets the subscription and authorization at sign-out", async () => {
-    run.espiResourceUri = `${entry.resource_endpoint}/Batch/Subscription/g`;
-    run.espiAuthorizationUri = `${entry.resource_endpoint}/Authorization/g`;
+    connection.espiResourceUri = `${entry.resource_endpoint}/Batch/Subscription/g`;
+    connection.espiAuthorizationUri = `${entry.resource_endpoint}/Authorization/g`;
     state.revoke.mockResolvedValue(undefined);
     expect((await POST(request({ action: "signout" }))).status).toBe(200);
-    expect(run.espiResourceUri).toBeUndefined();
-    expect(run.espiAuthorizationUri).toBeUndefined();
+    expect(connection.espiResourceUri).toBeUndefined();
+    expect(connection.espiAuthorizationUri).toBeUndefined();
   });
 });
 
@@ -3082,7 +3228,7 @@ describe("Revoking the ESPI authorization (poppylab.dev/espi v1)", () => {
   const RE = "http://juniper.localhost:4100/espi/1_1/resource";
   const entry = { version: "1", resource_endpoint: RE };
   const authorization = `${RE}/Authorization/grant_1`;
-  type EspiRun = typeof state.run & {
+  type EspiRun = typeof state.connection & {
     espi?: boolean;
     espiResourceUri?: string;
     espiAuthorizationUri?: string;
@@ -3092,8 +3238,8 @@ describe("Revoking the ESPI authorization (poppylab.dev/espi v1)", () => {
     sessionId?: string;
     resourceTokens?: unknown;
   };
-  const run = state.run as EspiRun;
-  const company = structuredClone(state.run.company);
+  const connection = state.connection as EspiRun;
+  const company = structuredClone(state.connection.company);
   let dpop: unknown;
   beforeAll(async () => {
     const keys = await createIdentity();
@@ -3110,7 +3256,7 @@ describe("Revoking the ESPI authorization (poppylab.dev/espi v1)", () => {
   };
   beforeEach(() => {
     vi.stubEnv("NODE_ENV", "development");
-    Object.assign(run, {
+    Object.assign(connection, {
       company: withEntry(),
       espi: true,
       espiResourceUri: `${RE}/Batch/Subscription/grant_1`,
@@ -3133,7 +3279,7 @@ describe("Revoking the ESPI authorization (poppylab.dev/espi v1)", () => {
     state.transport.mockRejectedValue(new Error("Unexpected request"));
   });
   afterEach(() => {
-    state.run.company = structuredClone(company);
+    state.connection.company = structuredClone(company);
     for (const key of [
       "espi",
       "espiResourceUri",
@@ -3144,30 +3290,30 @@ describe("Revoking the ESPI authorization (poppylab.dev/espi v1)", () => {
       "sessionId",
       "resourceTokens",
     ] as const)
-      delete run[key];
-    state.run.scopes = "poppy:read poppy:write";
+      delete connection[key];
+    state.connection.scopes = "poppy:read poppy:write";
     state.run.history = [];
   });
   const signedOut = () => {
-    expect(run.accountToken).toBeUndefined();
-    expect(run.token).toBeUndefined();
-    expect(run.scopes).toBeUndefined();
-    expect(run.espiResourceUri).toBeUndefined();
-    expect(run.espiAuthorizationUri).toBeUndefined();
-    expect(run.resourceTokens).toBeUndefined();
-    expect(run.accountUnavailable).toBeUndefined();
-    expect(run.history).toEqual([]);
+    expect(connection.accountToken).toBeUndefined();
+    expect(connection.token).toBeUndefined();
+    expect(connection.scopes).toBeUndefined();
+    expect(connection.espiResourceUri).toBeUndefined();
+    expect(connection.espiAuthorizationUri).toBeUndefined();
+    expect(connection.resourceTokens).toBeUndefined();
+    expect(connection.accountUnavailable).toBeUndefined();
+    expect(state.run.history).toEqual([]);
     // The run, its Session and Use ESPI go on, signed out (§5.5).
-    expect(run.sessionId).toEqual(expect.any(String));
-    expect(run.espi).toBe(true);
+    expect(connection.sessionId).toEqual(expect.any(String));
+    expect(connection.espi).toBe(true);
     // The dead refresh token isn't revoked again.
     expect(state.revoke).not.toHaveBeenCalled();
   };
   const kept = () => {
-    expect(run.accountToken).toBe("secret");
-    expect(run.token).toBe("general-token");
-    expect(run.espiAuthorizationUri).toBe(authorization);
-    expect(run.resourceTokens).toBeDefined();
+    expect(connection.accountToken).toBe("secret");
+    expect(connection.token).toBe("general-token");
+    expect(connection.espiAuthorizationUri).toBe(authorization);
+    expect(connection.resourceTokens).toBeDefined();
   };
   const restored = async () =>
     (
@@ -3178,9 +3324,9 @@ describe("Revoking the ESPI authorization (poppylab.dev/espi v1)", () => {
       )
     ).json();
   afterEach(() => {
-    run.accountToken = "secret";
-    run.token = "general-token";
-    run.accountUnavailable = false;
+    connection.accountToken = "secret";
+    connection.token = "general-token";
+    connection.accountUnavailable = false;
     state.revoke.mockClear();
   });
 
@@ -3191,30 +3337,30 @@ describe("Revoking the ESPI authorization (poppylab.dev/espi v1)", () => {
       expect(await r.json()).toMatchObject({ code: "no_espi_authorization" });
     };
     for (const action of ["espi_revoke", "espi_authorization"]) {
-      delete run.espiAuthorizationUri;
+      delete connection.espiAuthorizationUri;
       await refused(action);
       // One that doesn't fit the entry is no authorization either.
-      run.espiAuthorizationUri = `${authorization}?x`;
+      connection.espiAuthorizationUri = `${authorization}?x`;
       await refused(action);
-      run.espiAuthorizationUri = authorization;
-      delete run.espi;
+      connection.espiAuthorizationUri = authorization;
+      delete connection.espi;
       await refused(action);
-      run.espi = true;
-      state.run.company = structuredClone(company);
+      connection.espi = true;
+      state.connection.company = structuredClone(company);
       await refused(action);
-      Object.assign(run, { company: withEntry() });
-      delete (run as { accountToken?: string }).accountToken;
+      Object.assign(connection, { company: withEntry() });
+      delete (connection as { accountToken?: string }).accountToken;
       await refused(action);
-      run.accountToken = "secret";
-      run.accountUnavailable = true;
+      connection.accountToken = "secret";
+      connection.accountUnavailable = true;
       const lost = await POST(request({ action }));
       expect(lost.status).toBe(401);
       expect(await lost.json()).toMatchObject({ code: "account_unavailable" });
-      run.accountUnavailable = false;
+      connection.accountUnavailable = false;
     }
     expect(state.transport).not.toHaveBeenCalled();
     expect(state.revoke).not.toHaveBeenCalled();
-    expect(run.espiAuthorizationUri).toBe(authorization);
+    expect(connection.espiAuthorizationUri).toBe(authorization);
   });
 
   it("sends one DELETE to the kept authorization URI, as a Poppy request with the extension declared", async () => {
@@ -3327,7 +3473,7 @@ describe("Revoking the ESPI authorization (poppylab.dev/espi v1)", () => {
       meters: [{ id: "UP-E2", title: "EV charger" }],
     });
     // Without espi:usage the meters aren't read; the rest is.
-    state.run.scopes = "poppy:read espi:summary";
+    state.connection.scopes = "poppy:read espi:summary";
     state.transport.mockClear();
     const summary = await (
       await POST(request({ action: "espi_authorization" }))
@@ -3357,7 +3503,7 @@ describe("FDX statements in the account row (poppylab.dev/fdx v1)", () => {
   };
   const document =
     "http://juniper.localhost:4100/fdx/v6/accounts/acc_1/statements/stmt_1";
-  type FdxRun = typeof state.run & {
+  type FdxRun = typeof state.connection & {
     fdx?: boolean;
     fdxConsent?: string;
     visitor?: string;
@@ -3365,9 +3511,9 @@ describe("FDX statements in the account row (poppylab.dev/fdx v1)", () => {
     tokenType?: string;
     sessionId?: string;
   };
-  const run = state.run as FdxRun;
-  const company = structuredClone(state.run.company);
-  const scopes = state.run.scopes;
+  const connection = state.connection as FdxRun;
+  const company = structuredClone(state.connection.company);
+  const scopes = state.connection.scopes;
   const pdf = Buffer.from("%PDF-1.4\n%\xe2\xe3\n1 0 obj\n", "latin1");
   let dpop: unknown;
   beforeAll(async () => {
@@ -3382,7 +3528,7 @@ describe("FDX statements in the account row (poppylab.dev/fdx v1)", () => {
       ...bank.profile,
       extensions: { "poppylab.dev/fdx": entry },
     };
-    Object.assign(run, {
+    Object.assign(connection, {
       company: bank,
       fdx: true,
       fdxConsent: "grant_1",
@@ -3396,8 +3542,8 @@ describe("FDX statements in the account row (poppylab.dev/fdx v1)", () => {
     state.transport.mockRejectedValue(new Error("Unexpected request"));
   });
   afterEach(() => {
-    state.run.company = structuredClone(company);
-    state.run.scopes = scopes;
+    state.connection.company = structuredClone(company);
+    state.connection.scopes = scopes;
     for (const key of [
       "fdx",
       "fdxConsent",
@@ -3406,7 +3552,7 @@ describe("FDX statements in the account row (poppylab.dev/fdx v1)", () => {
       "tokenType",
       "sessionId",
     ] as const)
-      delete run[key];
+      delete connection[key];
   });
   /** The bank's network: only FDX-shaped routes answer. */
   const bank = (answer: (url: string, options: unknown) => unknown) =>
@@ -3431,13 +3577,13 @@ describe("FDX statements in the account row (poppylab.dev/fdx v1)", () => {
       accountId: "acc_1",
       statementId: "stmt_1",
     };
-    delete run.fdx;
+    delete connection.fdx;
     await refused(download, 400, "no_fdx_access");
     await refused({ action: "fdx_statements" }, 400, "no_fdx_access");
-    run.fdx = true;
-    delete (run as { accountToken?: string }).accountToken;
+    connection.fdx = true;
+    delete (connection as { accountToken?: string }).accountToken;
     await refused(download, 400, "no_fdx_access");
-    run.accountToken = "secret";
+    connection.accountToken = "secret";
     for (const ids of [
       { accountId: "acc_1", statementId: "../../oauth/token" },
       { accountId: "acc_1", statementId: "http://evil.example/x" },
@@ -3450,9 +3596,9 @@ describe("FDX statements in the account row (poppylab.dev/fdx v1)", () => {
         400,
         "invalid_request",
       );
-    run.accountUnavailable = true;
+    connection.accountUnavailable = true;
     await refused(download, 401, "account_unavailable");
-    run.accountUnavailable = false;
+    connection.accountUnavailable = false;
     expect(state.transport).not.toHaveBeenCalled();
   });
 
@@ -3497,7 +3643,9 @@ describe("FDX statements in the account row (poppylab.dev/fdx v1)", () => {
     // The answer is the file, so the page writes the Inspector's line
     // itself; the same line is kept for a reload, and no other.
     expect(
-      (run as { log?: Array<{ text: string }> }).log!.map((line) => line.text),
+      (state.run as { log?: Array<{ text: string }> }).log!.map(
+        (line) => line.text,
+      ),
     ).toEqual([
       `Statement stmt_1 · PDF downloaded · ${pdf.byteLength} bytes · not shown to Iris`,
     ]);
@@ -3553,7 +3701,7 @@ describe("FDX statements in the account row (poppylab.dev/fdx v1)", () => {
       expect(await bad.json()).toMatchObject({ code: "fdx_statement_failed" });
     }
     state.transport.mockClear();
-    run.scopes = "poppy:read fdx:ACCOUNT_BASIC";
+    connection.scopes = "poppy:read fdx:ACCOUNT_BASIC";
     const scoped = await POST(request(download));
     expect(scoped.status).toBe(403);
     expect(await scoped.json()).toMatchObject({ code: "insufficient_scope" });

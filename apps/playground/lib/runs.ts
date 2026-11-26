@@ -11,7 +11,8 @@
 import { createHash, randomBytes } from "node:crypto";
 import { onWorkers, randomId, vault } from "@poppy-lab/pap-client";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import type { Run } from "./runtime";
+import type { Connection, Run } from "./runtime";
+import { addConnection, connectionForState, originOf } from "./connections";
 import { importStateKey, sealedBackend } from "./sealed";
 
 export type Versioned<T = unknown> = { value: T; version: number };
@@ -77,6 +78,66 @@ export function memoryBackend(persist?: () => void) {
   return backend;
 }
 
+/**
+ * The members a run kept for its one Company when a run was one object,
+ * before a conversation held a connection for each Company.
+ */
+const ONE_COMPANY = [
+  "url",
+  "user",
+  "sessionId",
+  "sessionKey",
+  "agentApprovals",
+  "tasks",
+  "reported",
+  "services",
+  "resourceTokens",
+  "apiBase",
+  "dpop",
+  "token",
+  "tokenType",
+  "tokenExpires",
+  "accountToken",
+  "consentVersion",
+  "accountUnavailable",
+  "scopes",
+  "fdx",
+  "fdxConsent",
+  "espi",
+  "espiResourceUri",
+  "espiAuthorizationUri",
+  "company",
+  "auth",
+  "operations",
+  "conversation",
+  "publicHistory",
+] as const satisfies ReadonlyArray<keyof Connection>;
+
+/**
+ * A stored conversation as this code works with it. One stored before a
+ * conversation held connections is a single object with its one Company's
+ * Session, sign-in and proposals among its own members: it is read as a
+ * conversation with one connection, and saved that way the next time it
+ * is written. An ended one is never written again, and is read like this
+ * for as long as it is kept.
+ */
+export function readRun(stored: unknown): Run | undefined {
+  if (!stored || typeof stored !== "object") return undefined;
+  if (Array.isArray((stored as Run).connections)) return stored as Run;
+  const flat = stored as Record<string, unknown>;
+  if (typeof flat.url !== "string") return undefined;
+  const conversation: Record<string, unknown> = {};
+  const connection: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(flat))
+    ((ONE_COMPANY as readonly string[]).includes(key)
+      ? connection
+      : conversation)[key] = value;
+  // The User ID for the Company comes from these two (`userFor`).
+  for (const key of ["visitor", "epoch"])
+    if (flat[key] !== undefined) connection[key] = flat[key];
+  return { ...conversation, connections: [connection] } as Run;
+}
+
 /** A conversation still worth keeping: running, or ended and readable. */
 const kept = (run: Run, now = Date.now()) =>
   run.archived ? (run.keepUntil ?? 0) > now : run.expires > now;
@@ -94,9 +155,21 @@ function nodeBackend() {
     for (const [visitor, entries] of backend.data)
       for (const [key, entry] of entries) {
         if (key === DEMO) rows.push([visitor, key, entry.value]);
-        const run = entry.value as Run;
-        if (key.startsWith("run:") && kept(run))
-          rows.push([visitor, key, { ...run, busy: false, auth: undefined }]);
+        const run = key.startsWith("run:") ? readRun(entry.value) : undefined;
+        // A sign-in under way doesn't outlive the process.
+        if (run && kept(run))
+          rows.push([
+            visitor,
+            key,
+            {
+              ...run,
+              busy: false,
+              connections: run.connections.map((c) => ({
+                ...c,
+                auth: undefined,
+              })),
+            },
+          ]);
       }
     storage.value.splice(0, storage.value.length, ...rows);
     storage.save();
@@ -104,11 +177,11 @@ function nodeBackend() {
   const backend = memoryBackend(persist);
   // Runs from 0.2 used Session Tokens: never restore them.
   for (const [visitor, key, value] of storage.value) {
-    const run = value as Run;
+    const run = key === DEMO ? undefined : readRun(value);
     const restore =
       key === DEMO
         ? value
-        : run.protocol === "1.0" && kept(run)
+        : run?.protocol === "1.0" && kept(run)
           ? { ...run, busy: false }
           : undefined;
     if (!restore) continue;
@@ -221,8 +294,9 @@ export function visitorOf(store: CookieStore, create = false) {
 }
 
 // ---- Runs ------------------------------------------------------------------
-// A run is one conversation with one Company. Its ID is in the page's URL
-// (`/playground/<id>`); only the visitor who started it can name it.
+// A run is one conversation, with a connection for each Company it works
+// with. Its ID is in the page's URL (`/playground/<id>`); only the visitor
+// who started it can name it.
 const RUN_MS = 1800000,
   MAX_RUNS = 5,
   BUSY_MS = 120000,
@@ -243,13 +317,14 @@ const startOf = (run: Run) => run.created ?? run.expires - RUN_MS;
  */
 const wordless = (run: Run) =>
   !run.title && !run.history.length && !run.transcript?.length;
-/** Nothing said, no account, no sign-in under way. */
-const untouched = (run: Run) => wordless(run) && !run.accountToken && !run.auth;
+/** Nothing said, no account, no sign-in under way at any Company. */
+const untouched = (run: Run) =>
+  wordless(run) && !run.connections.some((c) => c.accountToken || c.auth);
 
 export async function loadRun(visitor: string, id: string | undefined) {
   if (!isConversationId(id)) return undefined;
   const entry = await backend().get(visitor, `run:${id}`);
-  const run = entry?.value as Run | undefined;
+  const run = readRun(entry?.value);
   return run &&
     !run.archived &&
     run.expires > Date.now() &&
@@ -260,27 +335,29 @@ export async function loadRun(visitor: string, id: string | undefined) {
 
 /** What stays of a conversation once it ends: its words, never its keys. */
 function ended(run: Run, now = Date.now()): Run {
-  const operations = Object.fromEntries(
-    Object.entries(run.operations ?? {}).map(([id, op]) => {
-      // The stored request could be sent again; an ended one never is.
-      const rest = { ...op };
-      delete rest.request;
-      return [id, rest];
-    }),
-  );
   return {
     protocol: "1.0",
     ...(run.visitor ? { visitor: run.visitor } : {}),
-    url: run.url,
-    user: "",
     expires: Math.min(run.expires, now),
     calls: run.calls,
     busy: false,
+    // Each Company and how its proposals ended; no Session, key or token.
+    connections: run.connections.map((connection) => ({
+      url: connection.url,
+      user: "",
+      ...(connection.company ? { company: connection.company } : {}),
+      operations: Object.fromEntries(
+        Object.entries(connection.operations ?? {}).map(([id, op]) => {
+          // The stored request could be sent again; an ended one never is.
+          const rest = { ...op };
+          delete rest.request;
+          return [id, rest];
+        }),
+      ),
+    })),
     history: [],
     transcript: run.transcript ?? run.history,
     ...(run.log ? { log: run.log } : {}),
-    ...(run.company ? { company: run.company } : {}),
-    operations,
     ...(run.title ? { title: run.title } : {}),
     created: startOf(run),
     archived: true,
@@ -297,9 +374,10 @@ async function sweep(visitor: string, room = 0) {
     now = Date.now();
   const all: Held[] = [];
   for (const [key, entry] of await b.list(visitor, "run:")) {
-    let run = entry.value as Run,
+    let run = readRun(entry.value),
       version = entry.version;
     if (
+      !run ||
       run.protocol !== "1.0" ||
       (run.archived && (!kept(run, now) || untouched(run))) ||
       // Nothing to read in one that ended without words. Its sign-in, if
@@ -351,8 +429,14 @@ export async function listConversations(
   return (await sweep(visitor))
     .map(({ id, run }) => ({
       id,
-      company: run.company?.document.organization.name ?? new URL(run.url).host,
-      url: run.url,
+      // The list has one name and one address for a conversation: with
+      // several Companies it names each and links to the first.
+      company: run.connections
+        .map(
+          (c) => c.company?.document.organization.name ?? new URL(c.url).host,
+        )
+        .join(", "),
+      url: run.connections[0]?.url ?? "",
       ...(run.title ? { title: run.title } : {}),
       created: startOf(run),
       active: !run.archived,
@@ -367,7 +451,7 @@ export async function readConversation(visitor: string, id: unknown) {
   const b = backend(),
     now = Date.now();
   const entry = await b.get(visitor, `run:${id}`);
-  let run = entry?.value as Run | undefined;
+  let run = readRun(entry?.value);
   if (!run || run.protocol !== "1.0") return undefined;
   if (run.archived) return kept(run, now) ? run : undefined;
   if (run.expires <= now && !locked(run, now)) {
@@ -439,8 +523,9 @@ export async function acquireRun(
 /**
  * Saves and unlocks. If the lock was lost (the request outlived BUSY_MS and
  * another request took the run), the newer copy wins, but this request's
- * operations are merged into it so a proposal the Company holds still gets
- * its approval card. Returns false when the lock was lost.
+ * operations are merged into it, each into its own Company's connection,
+ * so a proposal the Company holds still gets its approval card. Returns
+ * false when the lock was lost.
  */
 export async function releaseRun(visitor: string, held: Held) {
   const run = held.run;
@@ -451,16 +536,20 @@ export async function releaseRun(visitor: string, held: Held) {
   console.error("run_lock_lost", held.id.slice(0, 6));
   const current = await b.get(visitor, `run:${held.id}`);
   if (!current) return false;
-  const latest = current.value as Run;
-  latest.operations = { ...run.operations, ...latest.operations };
+  const latest = readRun(current.value);
+  if (!latest) return false;
+  for (const theirs of latest.connections) {
+    const mine = run.connections.find((c) => originOf(c) === originOf(theirs));
+    theirs.operations = { ...mine?.operations, ...theirs.operations };
+  }
   latest.calls = Math.max(latest.calls, run.calls);
   await b.put(visitor, `run:${held.id}`, latest, current.version);
   return false;
 }
 
 /**
- * A new, locked run. The visitor keeps at most five running; the oldest idle
- * ones end (and stay readable) to make room.
+ * A new, locked run, connected to one Company. The visitor keeps at most
+ * five running; the oldest idle ones end (and stay readable) to make room.
  */
 export async function createRun(visitor: string, url: string): Promise<Held> {
   const b = backend();
@@ -488,31 +577,31 @@ export async function createRun(visitor: string, url: string): Promise<Held> {
   )?.epoch;
   const run: Run = {
     protocol: "1.0",
-    url,
-    user: "",
     expires: Date.now() + RUN_MS,
     calls: 0,
     busy: true,
     busyUntil: Date.now() + BUSY_MS,
+    connections: [],
     history: [],
     visitor,
     created: Date.now(),
     ...(epoch ? { epoch } : {}),
   };
+  addConnection(run, url);
   if (!(await b.put(visitor, `run:${id}`, run, null)))
     throw new Error("Run conflict");
   return { id, run, version: 1 };
 }
 
-/** The visitor's run waiting for this OAuth state (callback). */
+/**
+ * The visitor's run in which a sign-in waits for this OAuth state
+ * (callback). `connectionForState` says at which of its Companies.
+ */
 export async function runForState(visitor: string, state: string) {
   for (const [key, entry] of await backend().list(visitor, "run:")) {
-    const run = entry.value as Run;
-    if (
-      run.auth?.state === state &&
-      run.auth.expires > Date.now() &&
-      run.expires > Date.now()
-    )
+    const run = readRun(entry.value);
+    const auth = run && connectionForState(run, state)?.auth;
+    if (run && auth && auth.expires > Date.now() && run.expires > Date.now())
       return { id: key.slice(4), run, version: entry.version };
   }
   return undefined;
@@ -534,10 +623,15 @@ export async function allow(
   return true;
 }
 
-/** TEST ONLY: put a run for a raw visitor cookie value. */
+/**
+ * TEST ONLY: put a run for a raw visitor cookie value, as it is given. One
+ * in the shape stored before connections has no list of them.
+ */
 export async function seedRun(rawCookie: string, id: string, run: Run) {
   const visitor = createHash("sha256").update(rawCookie).digest("base64url");
   run.visitor = visitor;
+  const connections: Connection[] | undefined = run.connections;
+  for (const connection of connections ?? []) connection.visitor = visitor;
   await backend().put(visitor, `run:${id}`, run, null);
   return visitor;
 }

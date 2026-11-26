@@ -92,7 +92,7 @@ export function espiUri(
     : undefined;
 }
 
-/** What a run keeps from its token responses for the domain extensions. */
+/** What a connection keeps from its token responses for the domain extensions. */
 type TokenFields = {
   fdxConsent?: string;
   espiResourceUri?: string;
@@ -107,21 +107,21 @@ type TokenFields = {
  * it doesn't repeat. A URI the ESPI entry doesn't fit is never kept.
  */
 export function keepTokenFields(
-  run: TokenFields,
+  connection: TokenFields,
   result: ReturnType<typeof tokenResponse>,
   signIn: boolean,
 ) {
-  if (result.consentId) run.fdxConsent = result.consentId;
-  else if (signIn) delete run.fdxConsent;
-  const entry = run.company?.profile?.extensions?.[ESPI_EXTENSION];
+  if (result.consentId) connection.fdxConsent = result.consentId;
+  else if (signIn) delete connection.fdxConsent;
+  const entry = connection.company?.profile?.extensions?.[ESPI_EXTENSION];
   const resource = espiUri(entry, result.resourceUri, "Batch/Subscription");
   const authorization = espiUri(
     entry,
     result.authorizationUri,
     "Authorization",
   );
-  if (resource) run.espiResourceUri = resource;
-  else if (signIn) delete run.espiResourceUri;
-  if (authorization) run.espiAuthorizationUri = authorization;
-  else if (signIn) delete run.espiAuthorizationUri;
+  if (resource) connection.espiResourceUri = resource;
+  else if (signIn) delete connection.espiResourceUri;
+  if (authorization) connection.espiAuthorizationUri = authorization;
+  else if (signIn) delete connection.espiAuthorizationUri;
 }

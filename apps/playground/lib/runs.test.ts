@@ -14,6 +14,7 @@ import {
   runForState,
   visitorOf,
 } from "./runs";
+import { onlyConnection } from "./connections";
 
 function jar(initial: Record<string, string> = {}) {
   const values = new Map(Object.entries(initial));
@@ -46,7 +47,7 @@ it("gives each browser its own unguessable visitor, stored only as a hash", () =
 it("never lets one visitor load, lock or finish another visitor's run", async () => {
   configureBackend(memoryBackend());
   const held = await createRun("visitor-a", "https://juniper.example");
-  held.run.auth = {
+  onlyConnection(held.run).auth = {
     state: "s".repeat(32),
     verifier: "v",
     expires: Date.now() + 60000,
@@ -124,13 +125,21 @@ it("merges this request's operations when the lock was lost, and reports it", as
   // The first request finishes late with an operation the Company holds.
   const late = {
     ...first,
-    run: { ...first.run, operations: { op_1: { operation_id: "op_1" } } },
+    run: {
+      ...first.run,
+      connections: [
+        {
+          ...onlyConnection(first.run),
+          operations: { op_1: { operation_id: "op_1" } },
+        },
+      ],
+    },
   };
   const ok = await releaseRun("v", late as never);
   expect(ok).toBe(false);
   const stored = (await loadRun("v", first.id))!.run;
   expect(stored.history.map((m) => m.content)).toEqual(["second"]);
-  expect(stored.operations).toHaveProperty("op_1");
+  expect(onlyConnection(stored).operations).toHaveProperty("op_1");
   expect(stored.busy).toBe(false);
 });
 
@@ -151,6 +160,10 @@ it("ends an expired conversation: readable for a week, without tokens, never con
   const held = await createRun("v", "https://juniper.example");
   Object.assign(held.run, {
     title: "Move my delivery",
+    transcript: [{ role: "user", content: "Move my delivery" }],
+    log: [{ at: start, text: "GET /api/account/deliveries · Poppy Session" }],
+  });
+  Object.assign(onlyConnection(held.run), {
     accountToken: "refresh-secret",
     token: "access-secret",
     dpop: { kty: "EC", d: "private" },
@@ -162,8 +175,6 @@ it("ends an expired conversation: readable for a week, without tokens, never con
       issuer: "i",
       scopes: "",
     },
-    transcript: [{ role: "user", content: "Move my delivery" }],
-    log: [{ at: start, text: "GET /api/account/deliveries · Poppy Session" }],
     operations: {
       op_1: {
         operation_id: "op_1",
@@ -197,7 +208,7 @@ it("ends an expired conversation: readable for a week, without tokens, never con
     keepUntil: start + 7 * 86400000,
   });
   expect(JSON.stringify(read)).not.toMatch(/secret|private|"sid"|verifier/);
-  expect(read!.operations!.op_1).not.toHaveProperty("request");
+  expect(onlyConnection(read!).operations!.op_1).not.toHaveProperty("request");
   // Another visitor can't read it, whatever the address says.
   expect(await readConversation("other", held.id)).toBeUndefined();
   expect(await listConversations("v")).toEqual([
@@ -258,7 +269,7 @@ it("leaves no trail of conversations nothing was said in", async () => {
   expect((await listConversations("v")).map((c) => c.id)).toEqual([second.id]);
   // One with a sign-in under way is kept.
   const signing = await createRun("v", "https://juniper.example");
-  signing.run.auth = {
+  onlyConnection(signing.run).auth = {
     state: "s",
     verifier: "v",
     expires: Date.now() + 60000,
@@ -279,7 +290,7 @@ it("doesn't list an ended conversation that has no words left to read", async ()
   vi.useFakeTimers({ now: start });
   // Signed in, and a sign-in or sign-out took back what was said in it.
   const held = await createRun("v", "https://juniper.example");
-  held.run.accountToken = "refresh-secret";
+  onlyConnection(held.run).accountToken = "refresh-secret";
   await releaseRun("v", held);
   // While it runs it is the conversation the page is on, with no messages.
   expect(await listConversations("v")).toEqual([

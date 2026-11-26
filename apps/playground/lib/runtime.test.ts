@@ -37,21 +37,16 @@ import {
   renewAccount,
   tokenResponse,
   type Operation,
-  type Run,
+  type Connection,
 } from "./runtime";
 import { accountRecovery, accountUnavailableNotice } from "./account-recovery";
 
-function example(host = "food", signedIn = true): Run {
+function example(host = "food", signedIn = true): Connection {
   const origin = `https://${host}.papsandbox.com`;
   return {
-    protocol: "1.0",
     url: origin,
     user: "",
     visitor: "visitor-fixture",
-    expires: Date.now() + 3600000,
-    calls: 0,
-    busy: false,
-    history: [],
     ...(signedIn
       ? {
           token: "access-1",
@@ -108,7 +103,7 @@ beforeEach(async () => {
   dpop = (await createIdentity()).privateKey;
 });
 const verify = async (
-  run: Run,
+  run: Connection,
   jwt: string,
   url: string,
   method = "GET",

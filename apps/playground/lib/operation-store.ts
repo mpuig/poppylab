@@ -7,14 +7,14 @@ import { validateOperation } from "./operation-validation";
  * still `uncertain`: callers tell the model that with `outcomeUnknown`.
  */
 export function recordOperation(
-  run: { operations?: Record<string, Operation> },
+  connection: { operations?: Record<string, Operation> },
   raw: unknown,
   request: NonNullable<Operation["request"]>,
   /** The operation is the Company's answer to an approval, not to a request. */
   answersApproval = false,
 ) {
   const previous =
-    run.operations?.[
+    connection.operations?.[
       (raw as { operation_id?: string } | undefined)?.operation_id ?? ""
     ];
   const clean = validateOperation(raw, previous);
@@ -53,7 +53,7 @@ export function recordOperation(
       ? { agentSuperseded: previous.agentSuperseded }
       : {}),
   };
-  const ops = (run.operations ??= {});
+  const ops = (connection.operations ??= {});
   ops[op.operation_id] = op;
   // Bounded, newest last.
   for (const key of Object.keys(ops).slice(

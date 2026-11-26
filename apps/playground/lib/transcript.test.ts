@@ -1,18 +1,52 @@
 import { describe, expect, it } from "vitest";
 import type { CompanyEntry } from "./conversations";
-import type { Run } from "./runtime";
-import {
-  forgetLostAccount,
-  keepSignedOutTranscript,
-  record,
-  recordDirect,
-  recordOutcome,
-  recordTurn,
-  TRANSCRIPT_LIMITS,
-} from "./transcript";
+import { onlyConnection as at } from "./connections";
+import type { Connection, Run, Turn } from "./runtime";
+import * as transcript from "./transcript";
+import { keepSignedOutTranscript, TRANSCRIPT_LIMITS } from "./transcript";
+
+/** A conversation with one Company, signed out unless the test says so. */
+const started = (connection: Partial<Connection> = {}): Run => ({
+  expires: Date.now() + 60000,
+  calls: 0,
+  busy: false,
+  history: [],
+  connections: [{ url: "https://company.example", user: "", ...connection }],
+});
+// The functions under test, each for the conversation's one Company.
+const record = (r: Run, ...turns: Turn[]) =>
+  transcript.record(r, at(r), ...turns);
+const recordTurn = (
+  r: Run,
+  said: string,
+  answer: string,
+  shown?: transcript.Shown,
+) => transcript.recordTurn(r, at(r), said, answer, shown);
+const recordDirect = (
+  r: Run,
+  ...rest: Parameters<typeof transcript.recordDirect> extends [
+    Run,
+    Connection,
+    ...infer Rest,
+  ]
+    ? Rest
+    : never
+) => transcript.recordDirect(r, at(r), ...rest);
+const recordOutcome = (
+  r: Run,
+  ...rest: Parameters<typeof transcript.recordOutcome> extends [
+    Run,
+    Connection,
+    ...infer Rest,
+  ]
+    ? Rest
+    : never
+) => transcript.recordOutcome(r, at(r), ...rest);
+const forgetLostAccount = (r: Run, knewBefore: boolean) =>
+  transcript.forgetLostAccount(r, at(r), knewBefore);
 
 /** Signed in, as most of a conversation is. */
-const run = () => ({ history: [], accountToken: "held" }) as unknown as Run;
+const run = () => started({ accountToken: "held" });
 const company = "Lantern Noodle Bar";
 const opened = `You're talking with ${company} directly.`;
 const secret = "My door code is 4417, leave it inside";
@@ -273,13 +307,12 @@ describe("what the page shows again after a reload", () => {
   });
 
   it("holds no secrets: only what was on screen", () => {
-    const r = {
-      history: [],
+    const r = started({
       accountToken: "refresh_secret",
       token: "access_secret",
       dpop: { d: "private_key_secret" },
       sessionKey: { privateKey: "session_secret" },
-    } as unknown as Run;
+    } as unknown as Connection);
     turn(r);
     const stored = JSON.stringify(r.transcript);
     for (const hidden of [
@@ -406,7 +439,7 @@ describe("what the page shows again after a reload", () => {
 });
 
 describe("what a sign-in keeps of the transcript", () => {
-  const signedOut = () => ({ history: [] }) as unknown as Run;
+  const signedOut = () => started();
   const shown = (r: Run) => (r.transcript ?? []).map((entry) => entry.content);
 
   it("keeps what was shown before any account access, as it was shown", () => {
@@ -417,7 +450,7 @@ describe("what a sign-in keeps of the transcript", () => {
       demo: true,
       data: '{"days":2}',
     });
-    r.accountToken = "first-account";
+    at(r).accountToken = "first-account";
     recordTurn(r, "my orders", "Order ord_PRIVATE_1 for Elena.", {
       company: [{ author: company, human: false, text: "ord_PRIVATE_2" }],
       data: '{"order":"ord_PRIVATE_3"}',
@@ -451,7 +484,7 @@ describe("what a sign-in keeps of the transcript", () => {
     expect(r).not.toHaveProperty("transcript");
 
     // The same when everything was shown signed in.
-    r.accountToken = "held";
+    at(r).accountToken = "held";
     recordTurn(r, "my orders", "Private order details");
     keepSignedOutTranscript(r);
     expect(r).not.toHaveProperty("transcript");
@@ -460,7 +493,7 @@ describe("what a sign-in keeps of the transcript", () => {
   it("names the conversation after the first request still shown, or not at all", () => {
     // History lists it under `title`: the first request, as the chat sets it.
     const r = signedOut();
-    r.accountToken = "first-account";
+    at(r).accountToken = "first-account";
     r.title = "Show my orders";
     recordTurn(r, "Show my orders", "Order ord_PRIVATE_1 for Elena.");
     // The model's turns go back to the public ones first: none here.
@@ -472,7 +505,7 @@ describe("what a sign-in keeps of the transcript", () => {
     const later = signedOut();
     recordDirect(later, company, "start", "hello there", opened, true);
     recordTurn(later, "  When do you deliver?", "Tuesday and Saturday.");
-    later.accountToken = "first-account";
+    at(later).accountToken = "first-account";
     later.title = "Show my orders";
     recordTurn(later, "Show my orders", "Order ord_PRIVATE_1 for Elena.");
     keepSignedOutTranscript(later);
@@ -485,17 +518,17 @@ describe("what stays when the Company takes the access back (§5.5)", () => {
   const shown = (r: Run) => (r.transcript ?? []).map((entry) => entry.content);
   /** Asked signed out, then signed in, with two proposals from the account. */
   const conversation = () => {
-    const r = { history: [] } as unknown as Run;
+    const r = started();
     recordTurn(r, "When do you deliver?", "Tuesday and Saturday.");
-    r.publicHistory = structuredClone(r.history);
-    r.accountToken = "refresh";
+    at(r).publicHistory = structuredClone(r.history);
+    at(r).accountToken = "refresh";
     recordTurn(r, "my deliveries", "Elena's delivery is on Thursday.", {
       data: '{"customer":"Elena Maren"}',
     });
-    r.operations = {
+    at(r).operations = {
       waiting: { operation_id: "waiting", state: "proposed" },
       sent: { operation_id: "sent", state: "uncertain" },
-    } as unknown as NonNullable<Run["operations"]>;
+    } as unknown as NonNullable<Connection["operations"]>;
     return r;
   };
 
@@ -505,10 +538,10 @@ describe("what stays when the Company takes the access back (§5.5)", () => {
     expect(forgetLostAccount(r, false)).toBeUndefined();
     expect(shown(r)).toHaveLength(4);
 
-    r.accountUnavailable = true;
+    at(r).accountUnavailable = true;
     const left = forgetLostAccount(r, false);
     expect(shown(r)).toEqual(["When do you deliver?", "Tuesday and Saturday."]);
-    expect(r.history).toEqual(r.publicHistory);
+    expect(r.history).toEqual(at(r).publicHistory);
     // What the answer carries for the page is what a reload would show.
     expect(left).toEqual({
       history: r.transcript,
@@ -516,10 +549,10 @@ describe("what stays when the Company takes the access back (§5.5)", () => {
     });
     // An approval that is out may have been performed: it stays, so the
     // same one can be retried. A proposal that only waited goes.
-    expect(Object.keys(r.operations!)).toEqual(["sent"]);
+    expect(Object.keys(at(r).operations!)).toEqual(["sent"]);
     expect(JSON.stringify([r.transcript, r.history])).not.toContain("Elena");
     // The sign-in is kept, to be revoked or replaced at the next one.
-    expect(r.accountToken).toBe("refresh");
+    expect(at(r).accountToken).toBe("refresh");
 
     // Iris knew already: what is said next is not taken back.
     recordTurn(r, "What do you sell?", "Oranges.");
@@ -528,10 +561,10 @@ describe("what stays when the Company takes the access back (§5.5)", () => {
   });
 
   it("leaves a conversation that never had an account alone", () => {
-    const r = { history: [] } as unknown as Run;
+    const r = started();
     recordTurn(r, "When do you deliver?", "Tuesday and Saturday.");
     // A refused signed-out Session sets the same mark.
-    r.accountUnavailable = true;
+    at(r).accountUnavailable = true;
     expect(forgetLostAccount(r, false)).toBeUndefined();
     expect(r.history).toHaveLength(2);
   });
