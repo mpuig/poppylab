@@ -186,6 +186,12 @@ export type Operation = {
    */
   notPerformed?: "refused" | "new_terms";
   /**
+   * When this last changed here, in milliseconds: its terms came, the User
+   * declined it, or an approval of it was sent. The operations keep the
+   * order they first came in, so the guide reads the newest from this.
+   */
+  changed?: number;
+  /**
    * The approval as first sent (Operations v3 §6), reused for a retry: who
    * approved (the User, or Iris on the User's standing instruction), when,
    * and the ledger reference shown to the Company.

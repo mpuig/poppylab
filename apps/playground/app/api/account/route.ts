@@ -667,6 +667,7 @@ async function act(request: Request, started: { id?: string }) {
     if (body.action === "decline") {
       if (op.state !== "proposed") throw new Error();
       op.state = "declined";
+      op.changed = Date.now();
       op.result = { summary: "Declined. Nothing was sent to the Company." };
       delete op.notPerformed;
       delete op.request;
@@ -748,8 +749,10 @@ async function act(request: Request, started: { id?: string }) {
           { at: Date.now(), cents: ruleCents },
         ].slice(-20);
     };
-    // This approval gets its own answer.
+    // This approval gets its own answer, and however the Company answers
+    // it, this operation is the one something happened to last.
     forgetRefusal(op);
+    op.changed = Date.now();
     // The request that carries the approval, for the page's log: its method
     // and path, as a tool's own line names it. Read now, since an answer
     // that ends the operation forgets the request.

@@ -162,6 +162,80 @@ it("agrees with the card of a proposal whose approval wasn't performed", () => {
   );
 });
 
+it("speaks about the proposal something happened to last, not the last in the list", () => {
+  const done = proposal("succeeded", { changed: 1000 });
+  // (a) A decline after an earlier change went through.
+  const declined =
+    "You declined the last proposal, so nothing was sent to Juniper Market. Ask for the change again if you still want it.";
+  expect(hintFor(done, proposal("declined", { changed: 2000 }))).toBe(declined);
+  // The list keeps the order the proposals came in; the decline is still
+  // the news when the declined proposal came first.
+  expect(hintFor(proposal("declined", { changed: 2000 }), done)).toBe(declined);
+  // All four steps stay ticked: a change did go through.
+  expect(
+    guideStep({
+      ...asked,
+      ...guideProposals([done, proposal("declined", { changed: 2000 })]),
+    }),
+  ).toBe(4);
+  // A change that went through after the decline is the news again.
+  expect(
+    hintFor(
+      proposal("declined", { changed: 2000 }),
+      proposal("succeeded", { changed: 3000 }),
+    ),
+  ).toContain("performed the change once");
+  // Without the time (a proposal kept before it was recorded), list order.
+  expect(hintFor(proposal("succeeded"), proposal("declined"))).toBe(declined);
+
+  // (b) A refused payment still waits; another proposal's approval is
+  // answered with new terms, wherever it stands in the list.
+  const refused = proposal("proposed", {
+    notPerformed: "refused",
+    changed: 2000,
+  });
+  const newTerms = proposal("proposed", {
+    notPerformed: "new_terms",
+    changed: 3000,
+  });
+  for (const list of [
+    [refused, newTerms],
+    [newTerms, refused],
+  ])
+    expect(hintFor(...list)).toBe(
+      "Juniper Market answered the approval with new terms and performed nothing. Check the new terms, then approve them yourself or decline.",
+    );
+  // A new proposal that waits beside the refused one is the news too.
+  expect(hintFor(proposal("proposed", { changed: 4000 }), refused)).toBe(
+    "Juniper Market is holding the change. Check the exact terms, then approve it yourself.",
+  );
+  // What waits comes before what is finished, however recent that is.
+  expect(hintFor(refused, proposal("succeeded", { changed: 5000 }))).toContain(
+    "refused the approval and performed nothing",
+  );
+  expect(hintFor(refused, proposal("declined", { changed: 5000 }))).toContain(
+    "refused the approval and performed nothing",
+  );
+});
+
+it("counts a proposal that ran out as ended when its terms expired", () => {
+  const now = Date.parse("2026-11-26T10:00:00Z");
+  const ranOut = proposal("proposed", {
+    changed: now - 600_000,
+    expires_at: new Date(now - 1000).toISOString(),
+  });
+  const hint = (...operations: GuideOperation[]) =>
+    guideHint({ ...asked, ...guideProposals(operations, now) }, juniper);
+  // A change that went through before the other proposal ran out.
+  expect(hint(ranOut, proposal("succeeded", { changed: now - 60_000 }))).toBe(
+    "The last proposal expired before it was approved, so nothing was performed. Ask for the change again to get fresh terms.",
+  );
+  // And one that went through after.
+  expect(hint(ranOut, proposal("succeeded", { changed: now - 500 }))).toContain(
+    "performed the change once",
+  );
+});
+
 it("says when to look again: the moment the next waiting proposal runs out", () => {
   const now = Date.parse("2026-11-26T10:00:00Z");
   const at = (minutes: number) => new Date(now + minutes * 60000).toISOString();

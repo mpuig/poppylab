@@ -22,20 +22,44 @@ export type GuideState = {
   proposals: number;
   completed: number;
   /**
-   * Why the newest waiting proposal waits again: an approval of it was
-   * sent and the Company refused it, or answered with these new terms.
+   * Why the waiting proposal that changed last waits again: an approval of
+   * it was sent and the Company refused it, or answered with these new terms.
    */
   again?: "refused" | "new_terms" | undefined;
-  /** How the newest proposal ended, when none waits. */
+  /**
+   * How the proposal that changed last ended, when none waits and that one
+   * was not performed.
+   */
   ended?: "declined" | "expired" | "refused" | "superseded" | undefined;
 };
 /**
- * A proposal as the page holds it: what its card shows, and why its terms
- * wait again after an approval (see `Operation` in `runtime.ts`).
+ * A proposal as the page holds it: what its card shows, why its terms wait
+ * again after an approval, and when it last changed (see `Operation` in
+ * `runtime.ts`).
  */
 export type GuideOperation = ReviewOperation & {
   notPerformed?: "refused" | "new_terms";
+  changed?: number;
 };
+
+/**
+ * The proposal something happened to last. The list keeps the order the
+ * proposals first came in, so the time each one changed decides, and terms
+ * nobody approved in time changed when they ran out. Proposals without a
+ * time fall back to the list's order.
+ */
+function newest(operations: GuideOperation[], now: number) {
+  const when = (op: GuideOperation) => {
+    const expiry = Date.parse(op.expires_at) || 0;
+    return op.state === "proposed" && !(expiry > now)
+      ? Math.max(expiry, op.changed ?? 0)
+      : (op.changed ?? 0);
+  };
+  return operations.reduce<GuideOperation | undefined>(
+    (latest, op) => (latest && when(latest) > when(op) ? latest : op),
+    undefined,
+  );
+}
 
 /** The proposals' part of the guide's state, from the page's operations. */
 export function guideProposals(
@@ -43,7 +67,7 @@ export function guideProposals(
   now = Date.now(),
 ): Pick<GuideState, "waiting" | "proposals" | "completed" | "again" | "ended"> {
   const waiting = operations.filter((op) => needsYou(op, now));
-  const last = operations.at(-1);
+  const last = newest(operations, now);
   // Terms nobody approved in time ended too, whatever the server last saw.
   const ended = last?.state === "proposed" ? "expired" : last?.state;
   return {
@@ -51,7 +75,7 @@ export function guideProposals(
     proposals: operations.length,
     // "succeeded" is the state the page labels Completed.
     completed: operations.filter((op) => op.state === "succeeded").length,
-    again: waiting.at(-1)?.notPerformed,
+    again: newest(waiting, now)?.notPerformed,
     ended:
       !waiting.length &&
       (ended === "declined" ||
@@ -121,6 +145,9 @@ export function guideHint(state: GuideState, context: GuideContext) {
     default:
       // A proposal that waits comes first, even after a change went through.
       if (state.waiting) return waitingHint(state, company);
+      // Then the proposal that changed last: one that ended with nothing
+      // performed is the news, even after an earlier change went through.
+      if (state.ended) return endedHint(state, company);
       if (state.completed)
         return `Done: ${company} performed the change once. Its website shows the same data.`;
       return endedHint(state, company);

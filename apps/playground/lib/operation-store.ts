@@ -34,6 +34,7 @@ export function recordOperation(
     ...clean,
     state: "proposed",
     request,
+    changed: Date.now(),
     ...(same?.approval && same.state !== "refused"
       ? { approval: same.approval }
       : {}),

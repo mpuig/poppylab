@@ -366,6 +366,50 @@ describe("Human-controlled account boundary", () => {
     expect(state.run.operations.op_test).not.toHaveProperty("request");
     expect(state.request).not.toHaveBeenCalled();
   });
+  it("notes when each decision changed its operation, for the guide to know the newest", async () => {
+    const op = () => state.run.operations.op_test!;
+    const clock = vi.spyOn(Date, "now");
+    try {
+      const at = (seconds: number) => {
+        const time = Date.parse(op().expires_at as string) - 60000 + seconds;
+        clock.mockReturnValue(time);
+        return time;
+      };
+      // A refusal that leaves the terms waiting, then the User's decline.
+      let time = at(1000);
+      sendThenFail(() => new ProtocolError(409, undefined));
+      const refused = await POST(
+        request({ action: "approve", id: "op_test", revision: "r1" }),
+      );
+      expect((await refused.json()).operation).toMatchObject({
+        state: "proposed",
+        notPerformed: "refused",
+        changed: time,
+      });
+      time = at(2000);
+      const declined = await POST(
+        request({ action: "decline", id: "op_test", revision: "r1" }),
+      );
+      expect((await declined.json()).operation).toMatchObject({
+        state: "declined",
+        changed: time,
+      });
+      // An approval the Company performs.
+      op().state = "proposed";
+      op().request = { url: "http://juniper.localhost:4100/x", body: {} };
+      time = at(3000);
+      state.request.mockResolvedValueOnce({ summary: "Done" });
+      const approved = await POST(
+        request({ action: "approve", id: "op_test", revision: "r1" }),
+      );
+      expect((await approved.json()).operation).toMatchObject({
+        state: "succeeded",
+        changed: time,
+      });
+    } finally {
+      clock.mockRestore();
+    }
+  });
   it("sends the server-owned request with the approval, ignoring client-supplied terms", async () => {
     let sent: unknown;
     state.request.mockImplementation(async (_run: unknown, op: unknown) => {

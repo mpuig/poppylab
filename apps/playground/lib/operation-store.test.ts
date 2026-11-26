@@ -1,4 +1,4 @@
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import { nextAutoApproval } from "./auto-approval";
 import { outcomeUnknown, recordOperation } from "./operation-store";
 import type { Operation } from "./runtime";
@@ -19,6 +19,22 @@ const proposed = () => {
   const run: { operations?: Record<string, Operation> } = {};
   return { run, op: recordOperation(run, remote, request) };
 };
+
+it("notes when the proposal came, and again when its terms change", () => {
+  const clock = vi.spyOn(Date, "now");
+  try {
+    const start = Date.parse(remote.expires_at) - 60_000;
+    clock.mockReturnValue(start + 1000);
+    const { run, op } = proposed();
+    expect(op.changed).toBe(start + 1000);
+    clock.mockReturnValue(start + 2000);
+    expect(
+      recordOperation(run, { ...remote, revision: "r2" }, request).changed,
+    ).toBe(start + 2000);
+  } finally {
+    clock.mockRestore();
+  }
+});
 
 it("keeps a declined agent approval when the same revision is proposed again", () => {
   const { run, op } = proposed();
@@ -60,6 +76,7 @@ it.each([
   "leaves an approval with an unknown outcome as it is when %s is proposed again (Operations v3 §7)",
   (_name, again) => {
     const { run, op } = uncertain();
+    const { changed } = op;
     const kept = recordOperation(run, again, {
       url: "https://x.example/orders",
       body: { asked: "again" },
@@ -67,7 +84,13 @@ it.each([
     // Still the approved revision, with the approval and request Retry sends.
     expect(kept).toBe(op);
     expect(run.operations!.op_1).toBe(op);
-    expect(kept).toEqual({ ...remote, state: "uncertain", request, approval });
+    expect(kept).toEqual({
+      ...remote,
+      state: "uncertain",
+      request,
+      approval,
+      changed,
+    });
     // Nothing asks for an approval: not the card, not the User's rule.
     expect(
       nextAutoApproval({
