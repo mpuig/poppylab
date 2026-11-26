@@ -110,6 +110,44 @@ it("says why new terms wait for the User after an agent approval, without callin
   expect(declined).toContain("declined the approval Iris sent");
   expect(declined).not.toContain("with new terms");
 });
+it("punctuates a Company's reason for declining Iris's approval once", () => {
+  const note = (reason?: string) => {
+    const html = renderToStaticMarkup(
+      createElement(OperationReview, {
+        op: { ...op, agentDeclined: reason === undefined ? {} : { reason } },
+        company: "Harborline Bank",
+        busy: false,
+        signedIn: true,
+        onAction: vi.fn(),
+      }),
+    );
+    return /<p class="operation-ledger declined" role="status">(.*?)<\/p>/
+      .exec(html)?.[1]
+      ?.replaceAll("&#x27;", "'");
+  };
+  const start =
+    "Harborline Bank declined the approval Iris sent on your standing instruction, and did nothing.";
+  // The reason's own full stop, question mark or closing bracket ends it.
+  for (const reason of [
+    "Your agent's standing instruction can't approve payments or transfers here.",
+    "Why not approve it yourself?",
+    "Approve it yourself (see your limits).",
+    "Approve it yourself!",
+  ])
+    expect(note(reason)).toBe(
+      `${start} It says: “${reason}” It's up to you now.`,
+    );
+  // A reason without one gets it, after the Company's words.
+  expect(note("Not for agents")).toBe(
+    `${start} It says: “Not for agents”. It's up to you now.`,
+  );
+  expect(note(" Not for agents \n")).toBe(
+    `${start} It says: “Not for agents”. It's up to you now.`,
+  );
+  // No reason, or an empty one: nothing is quoted.
+  for (const reason of [undefined, "", "  "])
+    expect(note(reason)).toBe(`${start} It's up to you now.`);
+});
 it("says why the standing instruction left a proposal to the User, in one place", () => {
   const review = (marks: object, notApplied: string) =>
     renderToStaticMarkup(

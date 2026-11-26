@@ -254,6 +254,8 @@ describe("A standing instruction at Harborline, end to end", () => {
     expect(html).toContain(
       "Harborline Bank declined the approval Iris sent on your standing instruction, and did nothing. It says: “Harborline moves money only when you approve it yourself.",
     );
+    // The bank's reason ends its own sentence: no second full stop.
+    expect(html).toContain("transfers here.” It&#x27;s up to you now.");
     expect(html).toContain("Approve $25.00");
     // The rule doesn't try again, even after a reload.
     expect(

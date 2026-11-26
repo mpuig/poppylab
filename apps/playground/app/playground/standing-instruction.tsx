@@ -5,7 +5,10 @@ import {
   parseLimit,
   type Instruction,
 } from "@/lib/standing-instructions";
-import type { ReviewOperation } from "@/lib/operation-presentation";
+import {
+  declinedReason,
+  type ReviewOperation,
+} from "@/lib/operation-presentation";
 
 /**
  * One rule the User can write for this Company: approve exchanges up to an
@@ -106,7 +109,7 @@ export function StandingInstruction({
                 {op.approvedBy?.approver === "agent"
                   ? `Approved by Iris${op.approvedBy.rule ? ` · ${op.approvedBy.rule}` : ""}${op.approvedBy.reference ? ` · ${op.approvedBy.reference}` : ""}`
                   : why
-                    ? `Left to you: ${why}.${op.agentDeclined?.reason ? ` It says: “${op.agentDeclined.reason}”` : ""}`
+                    ? `Left to you: ${why}.${declinedReason(op.agentDeclined?.reason)}`
                     : "Declined by the Company · left to you"}
               </small>
             </li>

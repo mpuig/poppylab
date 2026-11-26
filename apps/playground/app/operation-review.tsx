@@ -4,6 +4,7 @@ import { ArrowRight } from "lucide-react";
 import {
   amountToApprove,
   changes,
+  declinedReason,
   money,
   summaryDisagreements,
   operationTitle,
@@ -202,11 +203,8 @@ export function OperationReview({
         {pending && op.agentDeclined && (
           <p className="operation-ledger declined" role="status">
             {company} declined the approval Iris sent on your standing
-            instruction, and did nothing
-            {op.agentDeclined.reason
-              ? `. It says: “${op.agentDeclined.reason}”`
-              : ""}
-            . It&apos;s up to you now.
+            instruction, and did nothing.
+            {declinedReason(op.agentDeclined.reason)} It&apos;s up to you now.
           </p>
         )}
         {pending && op.agentSuperseded && (

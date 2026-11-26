@@ -19,6 +19,17 @@ export type ReviewOperation = {
   /** The Company answered one with new terms instead (§5). */
   agentSuperseded?: true;
 };
+/**
+ * The Company's reason for declining Iris's approval, quoted as a sentence
+ * that follows another: " It says: “…”". The reason usually ends its own
+ * sentence inside the quotation marks; a full stop is added after them only
+ * when it doesn't, so the line is punctuated once. Nothing without a reason.
+ */
+export function declinedReason(reason: string | undefined) {
+  const words = reason?.trim();
+  if (!words) return "";
+  return ` It says: “${words}”${/[.!?…]["'”’)\]]*$/.test(words) ? "" : "."}`;
+}
 export function money(cents: unknown, currency: unknown) {
   if (typeof cents !== "number" || !Number.isFinite(cents))
     return "Not provided";

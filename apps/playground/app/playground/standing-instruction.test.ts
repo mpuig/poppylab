@@ -50,6 +50,12 @@ it("says, for each waiting change it left to the User, which reason applies", ()
         { agentDeclined: { reason: "Approve money moves yourself." } },
       ),
       op("new-terms", { amount_cents: 2500 }, { agentSuperseded: true }),
+      // A reason that doesn't end its own sentence.
+      op(
+        "unpunctuated",
+        { amount_cents: 2500 },
+        { agentDeclined: { reason: "Not for agents" } },
+      ),
     ],
     { hour: "it already approved 5 changes in the last hour" },
   );
@@ -60,6 +66,7 @@ it("says, for each waiting change it left to the User, which reason applies", ()
     "Left to you: it already approved 5 changes in the last hour.",
     "Left to you: Harborline Bank declined the approval Iris sent on it. It says: “Approve money moves yourself.”",
     "Left to you: Harborline Bank answered the approval Iris sent on it with new terms.",
+    "Left to you: Harborline Bank declined the approval Iris sent on it. It says: “Not for agents”.</small>",
   ])
     expect(html).toContain(line);
 });
