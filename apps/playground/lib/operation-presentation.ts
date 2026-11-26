@@ -25,6 +25,8 @@ export type ReviewOperation = {
    */
   notPerformed?: "refused" | "new_terms";
 };
+/** The full stop a Company's words still need to end a sentence, if any. */
+const stop = (words: string) => (/[.!?…]["'”’)\]]*$/.test(words) ? "" : ".");
 /**
  * The Company's reason for declining Iris's approval, quoted as a sentence
  * that follows another: " It says: “…”". The reason usually ends its own
@@ -34,7 +36,16 @@ export type ReviewOperation = {
 export function declinedReason(reason: string | undefined) {
   const words = reason?.trim();
   if (!words) return "";
-  return ` It says: “${words}”${/[.!?…]["'”’)\]]*$/.test(words) ? "" : "."}`;
+  return ` It says: “${words}”${stop(words)}`;
+}
+/**
+ * The same reason where it isn't quoted, in the sentences the account route
+ * writes for a card and for the model: " Its reason: …", ended once whether
+ * or not the reason ends its own sentence. Nothing without a reason.
+ */
+export function statedReason(reason: string | undefined) {
+  const words = reason?.trim();
+  return words ? ` Its reason: ${words}${stop(words)}` : "";
 }
 export function money(cents: unknown, currency: unknown) {
   if (typeof cents !== "number" || !Number.isFinite(cents))

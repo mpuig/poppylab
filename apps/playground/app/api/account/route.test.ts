@@ -842,6 +842,70 @@ describe("Human-controlled account boundary", () => {
       ).not.toBe(200);
     expect(state.request).toHaveBeenCalledTimes(1);
   });
+  it.each([
+    "The kitchen has closed",
+    "The kitchen has closed.",
+    " The kitchen has closed \n",
+  ])(
+    "ends the sentence with the Company's reason once (%j)",
+    async (reason) => {
+      state.request.mockRejectedValue(
+        new ProtocolError(
+          403,
+          "approval_declined",
+          undefined,
+          undefined,
+          undefined,
+          { reason },
+        ),
+      );
+      const body = await (
+        await POST(
+          request({ action: "approve", id: "op_test", revision: "r1" }),
+        )
+      ).json();
+      expect(body.operation.result.summary).toBe(
+        "Juniper declined this approval and did nothing. Its reason: The kitchen has closed.",
+      );
+      // The model's line ends the same way.
+      expect(state.run.history.at(-1)).toEqual({
+        role: "assistant",
+        content:
+          "Company declined the approval; nothing was performed. Juniper declined this approval and did nothing. Its reason: The kitchen has closed.",
+      });
+    },
+  );
+  it("keeps a reason's own question mark, and adds no sentence for an empty one", async () => {
+    const decline = async (reason: string) => {
+      state.request.mockRejectedValue(
+        new ProtocolError(
+          403,
+          "approval_declined",
+          undefined,
+          undefined,
+          undefined,
+          { reason },
+        ),
+      );
+      return (
+        await (
+          await POST(
+            request({ action: "approve", id: "op_test", revision: "r1" }),
+          )
+        ).json()
+      ).operation.result.summary;
+    };
+    expect(await decline("Why not order tomorrow?")).toBe(
+      "Juniper declined this approval and did nothing. Its reason: Why not order tomorrow?",
+    );
+    Object.assign(state.run.operations.op_test!, {
+      state: "proposed",
+      request: { url: "http://juniper.localhost:4100/api/account/x", body: {} },
+    });
+    expect(await decline("  ")).toBe(
+      "Juniper declined this approval and did nothing.",
+    );
+  });
   it("leaves the same terms for a new approval when the Company answers an approval with its own revision (Operations v3 §6)", async () => {
     const sent = { approver: "user", approved_at: 1791487260, reference: "a1" };
     state.request.mockImplementationOnce(
@@ -1955,6 +2019,28 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
       "user",
     );
   });
+
+  it.each(["Approve money moves yourself.", "Approve money moves yourself"])(
+    "tells the model the Company's reason for declining it, ended once (%j)",
+    async (reason) => {
+      state.request.mockRejectedValueOnce(
+        new ProtocolError(
+          403,
+          "approval_declined",
+          undefined,
+          undefined,
+          undefined,
+          { reason },
+        ),
+      );
+      await approve(rule);
+      expect(state.run.history.at(-1)).toEqual({
+        role: "assistant",
+        content:
+          "The Company declined the approval Iris sent on the user's standing instruction; nothing was performed, and it's waiting for the user. Its reason: Approve money moves yourself.",
+      });
+    },
+  );
 
   it("gives the operation back to the User when the Company answers the agent's approval with its own revision", async () => {
     state.request.mockRejectedValueOnce(

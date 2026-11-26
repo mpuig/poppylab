@@ -53,6 +53,7 @@ import {
 } from "@/lib/runs";
 import { overBudget } from "@/lib/limits";
 import { coveredBy, parseInstruction } from "@/lib/standing-instructions";
+import { statedReason } from "@/lib/operation-presentation";
 import { BUDGET_FACTOR, MAX_PER_HOUR } from "@/lib/auto-approval";
 import { directState } from "@/lib/direct-state";
 export const runtime = "nodejs";
@@ -865,7 +866,7 @@ async function act(request: Request, started: { id?: string }) {
             run,
             op,
             "declined",
-            `The Company declined the approval Iris sent on the user's standing instruction; nothing was performed, and it's waiting for the user.${error.declined?.reason ? ` Its reason: ${error.declined.reason}` : ""}`,
+            `The Company declined the approval Iris sent on the user's standing instruction; nothing was performed, and it's waiting for the user.${statedReason(error.declined?.reason)}`,
           );
           return NextResponse.json(
             {
@@ -881,7 +882,7 @@ async function act(request: Request, started: { id?: string }) {
         // Operations v3 §6: nothing performed; never send this approval again.
         op.state = "refused";
         op.result = {
-          summary: `${run.company?.document.organization.name ?? "The Company"} declined this approval and did nothing.${error.declined?.reason ? ` Its reason: ${error.declined.reason}` : ""}`,
+          summary: `${run.company?.document.organization.name ?? "The Company"} declined this approval and did nothing.${statedReason(error.declined?.reason)}`,
         };
         delete op.request;
         recordOutcome(
