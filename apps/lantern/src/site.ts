@@ -15,7 +15,8 @@ import {
   howItWorksLayoutCss,
   labBarHtml,
   labConsentBarHtml,
-  labLineHtml,
+  labFootCss,
+  labFootHtml,
   labPlaygroundUrl,
   specRefHtml,
   type GuidePaths,
@@ -109,12 +110,9 @@ td code{font:inherit;overflow-wrap:anywhere}
 .customers span{font-size:14px;color:var(--ink-soft)}
 .try{font-size:15px;color:var(--ink-soft);margin:18px 0 0}
 .try q{font-weight:700;color:var(--ink)}
-footer{background:var(--ink);color:#dfe3ea;font-size:14px;padding:28px 0 32px}
-footer .wrap{display:grid;gap:10px}
-footer p{margin:0;max-width:78ch}
-footer a{color:#fff}
-footer .lab{margin-top:6px;padding-top:12px;border-top:1px solid rgba(255,255,255,.14);color:#b9c0cc;font-size:13px}
-footer .lab [aria-current]{color:#fff}
+${labFootCss}footer{background:var(--ink);padding:56px 0}
+.lab-foot{--foot-ink:#fff;--foot-soft:#dfe3ea;--foot-muted:#b9c0cc;--foot-rule:rgba(255,255,255,.4)}
+.lab-foot-name{font:900 26px/1.3 var(--display);letter-spacing:.02em;text-transform:uppercase}
 .notice{font-size:14px;color:var(--muted)}
 .card.form{background:#fff;border:1px solid var(--rule);border-radius:12px;padding:clamp(18px,3vw,28px);max-width:560px}
 .card.form label,.editor label{display:block;font:800 16px var(--display);text-transform:uppercase;letter-spacing:.02em;margin:0 0 8px}
@@ -237,7 +235,7 @@ export function shell(
         `<a href="${href}"${href === current ? ' aria-current="page"' : ""}>${label}</a>`,
     )
     .join("");
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${title}</title>${fonts}<style>${css}</style></head><body>${labBarHtml(origin, "Lantern Noodle Bar")}<header class="strip"><div class="wrap"><a class="brand" href="/">Lantern Noodle Bar</a><nav aria-label="Site">${nav}</nav></div></header>${body}<footer><div class="wrap"><p>Lantern Noodle Bar is a fictional restaurant for testing personal agents. Nothing is sold, charged or delivered.</p><p>Independent experiment, not affiliated with or endorsed by the authors of the Personal Agent Protocol. “Personal Agent Protocol” and “Poppy” are their names.</p>${labLineHtml(origin, "lantern")}</div></footer></body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${title}</title>${fonts}<style>${css}</style></head><body>${labBarHtml(origin, "Lantern Noodle Bar")}<header class="strip"><div class="wrap"><a class="brand" href="/">Lantern Noodle Bar</a><nav aria-label="Site">${nav}</nav></div></header>${body}<footer><div class="wrap">${labFootHtml(origin, "lantern", { name: "Lantern Noodle Bar", notice: ["Lantern Noodle Bar is a fictional restaurant for testing personal agents. Nothing is sold, charged or delivered."] })}</div></footer></body></html>`;
 }
 
 const [slotDay, slotTime] = [

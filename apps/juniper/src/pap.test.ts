@@ -199,3 +199,22 @@ it("lets only the home page load images, and only from its own origin", async ()
     await app.close();
   }
 });
+
+it("ends the shop front and the account pages with the same footer", async () => {
+  const { app } = await setup();
+  try {
+    for (const url of ["/", "/help"]) {
+      const { body } = await app.inject({ url });
+      const foot = body.slice(body.indexOf("<footer>"));
+      // What Juniper is, then the lab's three groups, with this shop as text.
+      expect(foot).toContain(
+        '<p class="lab-foot-name">Juniper Market</p><p>Juniper Market is a fictional shop. Nothing is charged or shipped.</p><p>Part of <a href="http://localhost:3000">Poppy&nbsp;Lab</a>, an independent experiment that is not affiliated with or endorsed by the authors of the Personal Agent Protocol.',
+      );
+      expect(foot).toContain(
+        '<p id="foot-demos" class="lab-foot-title">Demos</p><span aria-current="page">Juniper Market</span>',
+      );
+    }
+  } finally {
+    await app.close();
+  }
+});

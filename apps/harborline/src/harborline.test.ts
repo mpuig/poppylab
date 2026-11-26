@@ -74,6 +74,15 @@ describe("Harborline Bank", () => {
     expect((await inject("/")).body).toContain("Never enter real bank details");
   });
 
+  it("ends every page with what Harborline is, then the lab's groups of links", async () => {
+    const { body } = await inject("/");
+    const foot = body.slice(body.indexOf("<footer>"));
+    expect(foot).toContain(
+      '<p class="lab-foot-name">Harborline Bank</p><p><strong>Harborline Bank is entirely fictional.</strong> No real money moves, no financial service is provided, and no real banking data or credentials should be entered.</p><p>Part of <a href="http://localhost:3000">Poppy&nbsp;Lab</a>, an independent experiment that is not affiliated with or endorsed by any real bank or by the authors of the Personal Agent Protocol.',
+    );
+    expect(foot).toContain('<span aria-current="page">Harborline Bank</span>');
+  });
+
   it("lets consent omit offline and change scopes without widening the grant", async () => {
     const { sign } = await setup();
     const requested = [...reads, "cards:write", "offline_access"];

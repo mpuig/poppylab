@@ -441,7 +441,15 @@ describe("tasks response (§9)", () => {
   });
 });
 
-import { labBarHtml, labLineHtml, labSites } from "./lab.ts";
+import {
+  DEMOS_URL,
+  LAB_REPOSITORY,
+  labBarHtml,
+  labFootGroups,
+  labFootHtml,
+  labSites,
+} from "./lab.ts";
+import { SPEC_URL } from "./spec-links.ts";
 import { isLocalCompany } from "./index";
 it("lets only the lab Companies' exact local origins use plain HTTP", () => {
   expect(isLocalCompany("http://fernwick.localhost:4500")).toBe(true);
@@ -454,7 +462,7 @@ it("lets only the lab Companies' exact local origins use plain HTTP", () => {
   ])
     expect(isLocalCompany(origin)).toBe(false);
 });
-it("links the Poppy Lab sites, locally to localhost and the current one as text", () => {
+it("links the Poppy Lab sites, locally to localhost", () => {
   expect(labSites("https://food-demo.poppylab.dev").map((s) => s.url)).toEqual([
     "https://poppylab.dev",
     "https://poppylab.dev/playground",
@@ -488,18 +496,79 @@ it("links the Poppy Lab sites, locally to localhost and the current one as text"
   expect(
     labBarHtml("http://harbor.localhost:4300", "Harborline Bank"),
   ).toContain("http://localhost:3000/playground?company=");
-  const line = labLineHtml("https://food-demo.poppylab.dev", "lantern");
-  expect(line).toContain(
-    '<span aria-current="page">Lantern&nbsp;Noodle&nbsp;Bar</span>',
+});
+it("builds a Company's footer in the order of the lab's own, the current site as text", () => {
+  const origin = "https://food-demo.poppylab.dev";
+  // What the lab's own footer reads, with its links relative.
+  expect(
+    labFootGroups(origin, "").map((g) => [g.title, g.links.map((l) => l.href)]),
+  ).toEqual([
+    ["Poppy Lab", ["/playground", "/learn", "/developers", LAB_REPOSITORY]],
+    [
+      "Demos",
+      [
+        "https://grocery-demo.poppylab.dev",
+        "https://food-demo.poppylab.dev",
+        "https://bank-demo.poppylab.dev",
+        "https://airline-demo.poppylab.dev",
+        "https://energy-demo.poppylab.dev",
+      ],
+    ],
+    ["Protocol", [SPEC_URL, DEMOS_URL]],
+  ]);
+  const foot = labFootHtml(origin, "lantern", {
+    name: "Lantern <Noodle> Bar",
+    notice: ["A <strong>fictional</strong> restaurant.", "A second notice."],
+    unaffiliated: ["any real <bank>", "NAESB"],
+  });
+  // The about block first: name, notices, independence, signature.
+  const about = foot.slice(0, foot.indexOf("<nav"));
+  expect(about).toContain(
+    '<p class="lab-foot-name">Lantern &#60;Noodle&#62; Bar</p><p>A <strong>fictional</strong> restaurant.</p><p>A second notice.</p><p>Part of <a href="https://poppylab.dev">Poppy&nbsp;Lab</a>, an independent experiment that is not affiliated with or endorsed by any real &#60;bank&#62;, by NAESB or by the authors of the Personal Agent Protocol.',
   );
-  expect(line).toContain(
-    '<a href="https://grocery-demo.poppylab.dev">Juniper&nbsp;Market</a>',
+  expect(about).toMatch(
+    /With <svg [^>]*aria-hidden="true"[^>]*>.*<\/svg><span class="lab-foot-sr">love<\/span> by <a href="https:\/\/x\.com\/mpuig" rel="noopener">@mpuig<\/a><\/p><\/div>$/,
   );
-  expect(line).toContain(
-    '<a href="https://bank-demo.poppylab.dev">Harborline&nbsp;Bank</a>',
+  // Then the three groups, with the lab's titles and labels in its order.
+  const text = (html: string) => html.replace(/<svg.*?<\/svg>|<[^>]+>/g, "|");
+  expect(
+    text(foot.slice(about.length))
+      .split("|")
+      .filter((word) => word),
+  ).toEqual([
+    "Poppy Lab",
+    "Playground",
+    "Learn",
+    "Developers",
+    "Source on GitHub",
+    "Demos",
+    "Juniper Market",
+    "Lantern Noodle Bar",
+    "Harborline Bank",
+    "Northwind Air",
+    "Fernwick Power &#38; Light",
+    "Protocol",
+    "Specification",
+    "Community demos",
+  ]);
+  expect(foot).toContain(
+    `<a href="https://poppylab.dev/playground?company=${encodeURIComponent(origin)}">Playground</a><a href="https://poppylab.dev/learn">Learn</a><a href="https://poppylab.dev/developers">Developers</a>`,
   );
-  expect(line).toContain(
-    '<a href="https://airline-demo.poppylab.dev">Northwind&nbsp;Air</a>',
+  expect(foot).toContain(
+    '<a href="https://grocery-demo.poppylab.dev">Juniper Market</a><span aria-current="page">Lantern Noodle Bar</span>',
   );
-  expect(line).toContain("https://github.com/mpuig/poppylab");
+  expect(foot).not.toContain(`href="${origin}"`);
+  expect(foot).toContain(
+    `<a href="${SPEC_URL}" target="_blank" rel="noopener noreferrer">Specification<svg`,
+  );
+  expect(foot).not.toContain("<script");
+  // Without anyone else to name, only the protocol's authors.
+  expect(
+    labFootHtml("http://harbor.localhost:4300", "harborline", {
+      name: "Harborline Bank",
+      notice: [],
+    }),
+  ).toContain(
+    'Part of <a href="http://localhost:3000">Poppy&nbsp;Lab</a>, an independent experiment that is not affiliated with or endorsed by the authors of the Personal Agent Protocol. “Personal Agent Protocol” and “Poppy” are their names.',
+  );
 });

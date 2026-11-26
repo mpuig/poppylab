@@ -441,6 +441,12 @@ it("serves the website pages with their own headers and fonts allowed on consent
     expect(html.toLowerCase()).toContain(dish.toLowerCase());
   expect(html).toContain("Sunday");
   expect(html).not.toContain("<script");
+  // The footer: what Lantern is, then the lab's groups, with this site as text.
+  const foot = html.slice(html.indexOf("<footer>"));
+  expect(foot).toContain(
+    '<p class="lab-foot-name">Lantern Noodle Bar</p><p>Lantern Noodle Bar is a fictional restaurant for testing personal agents. Nothing is sold, charged or delivered.</p><p>Part of <a href="http://localhost:3000">Poppy&nbsp;Lab</a>, an independent experiment that is not affiliated with or endorsed by the authors of the Personal Agent Protocol.',
+  );
+  expect(foot).toContain('<span aria-current="page">Lantern Noodle Bar</span>');
   const agents = await lab.app.request("/for-agents");
   expect(agents.status).toBe(200);
   expect(await agents.text()).toContain("/.well-known/poppy.json");

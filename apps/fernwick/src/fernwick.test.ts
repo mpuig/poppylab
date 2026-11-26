@@ -61,6 +61,14 @@ describe("Fernwick Power & Light", () => {
     expect(home.body).toContain(
       "Fernwick Power &#38; Light is a fictional company",
     );
+    // The footer: what Fernwick is, then the lab's groups, with this site as text.
+    const foot = home.body.slice(home.body.indexOf("<footer>"));
+    expect(foot).toContain(
+      '<p class="lab-foot-name">Fernwick Power &#38; Light</p><p><strong>Fernwick Power &amp; Light is entirely fictional.</strong> No electricity is supplied, metered or billed, and no real utility account data or credentials should be entered. Its usage data API is ESPI-shaped (modelled on NAESB REQ.21 ESPI), not certified.</p><p>Part of <a href="http://localhost:3000">Poppy&nbsp;Lab</a>, an independent experiment that is not affiliated with or endorsed by any real utility, by NAESB or by the authors of the Personal Agent Protocol.',
+    );
+    expect(foot).toContain(
+      '<span aria-current="page">Fernwick Power &#38; Light</span>',
+    );
     const agents = await inject("/for-agents");
     expect(agents.body).toContain(
       "ESPI-shaped (modelled on NAESB REQ.21 ESPI), not certified",

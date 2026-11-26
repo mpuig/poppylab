@@ -1,9 +1,12 @@
 /**
  * What the fictional Companies share: a strip at the top of every page that
- * says the site is a demo, and the "Part of Poppy Lab" line in each footer.
- * Everything else on a Company's site speaks in that Company's own voice.
- * Local development links to the localhost addresses.
+ * says the site is a demo, and a footer built like the lab's own (what the
+ * site is, then the same three groups of links). Everything else on a
+ * Company's site speaks in that Company's own voice. Local development links
+ * to the localhost addresses.
  */
+import { SPEC_URL } from "./spec-links.ts";
+
 export type LabSite =
   | "home"
   | "playground"
@@ -13,6 +16,13 @@ export type LabSite =
   | "northwind"
   | "fernwick";
 export const LAB_REPOSITORY = "https://github.com/mpuig/poppylab";
+/** Other people's demos of the protocol, as its authors list them. */
+export const DEMOS_URL = "https://personalagentprotocol.org/docs/demos";
+/** Who signs every footer: "With ♥ by @mpuig". */
+export const LAB_AUTHOR = {
+  handle: "@mpuig",
+  url: "https://x.com/mpuig",
+} as const;
 
 export function labSites(origin: string) {
   const local = /(^|\.)localhost$/.test(new URL(origin).hostname);
@@ -69,24 +79,146 @@ export function labSites(origin: string) {
 
 const escape = (t: string) =>
   t.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
-/** Keeps each name on one line; the line breaks between the names. */
-const nbsp = (t: string) => escape(t).replace(/ /g, "&nbsp;");
-/** The line as HTML for the server-rendered Companies; the current site is plain text. */
-export function labLineHtml(
+
+export type LabFootLink = {
+  label: string;
+  href: string;
+  /** The lab site it leads to, so a footer can mark the one it stands on. */
+  site?: LabSite;
+  /** Leaves the lab, so it carries the up-right arrow. */
+  leaves?: true;
+  /** Opens in a new tab, as every link into the protocol's own pages does. */
+  newTab?: true;
+};
+export type LabFootGroup = {
+  id: "lab" | "demos" | "protocol";
+  title: string;
+  links: LabFootLink[];
+};
+
+/**
+ * The three groups of links in every footer, written once: the lab's own
+ * footer (`SiteFoot` in the playground) and the Companies' (`labFootHtml`)
+ * both read this list. `lab` is where the lab's pages are: its address, or
+ * "" on the lab's own pages, whose links stay relative.
+ */
+export function labFootGroups(
+  origin: string,
+  lab: string = labSites(origin)[0]!.url,
+): LabFootGroup[] {
+  return [
+    {
+      id: "lab",
+      title: "Poppy Lab",
+      links: [
+        { label: "Playground", href: `${lab}/playground`, site: "playground" },
+        { label: "Learn", href: `${lab}/learn` },
+        { label: "Developers", href: `${lab}/developers` },
+        { label: "Source on GitHub", href: LAB_REPOSITORY, leaves: true },
+      ],
+    },
+    {
+      id: "demos",
+      title: "Demos",
+      links: labSites(origin)
+        .filter((s) => s.id !== "home" && s.id !== "playground")
+        .map((s) => ({ label: s.label, href: s.url, site: s.id })),
+    },
+    {
+      id: "protocol",
+      title: "Protocol",
+      links: [
+        { label: "Specification", href: SPEC_URL, leaves: true, newTab: true },
+        {
+          label: "Community demos",
+          href: DEMOS_URL,
+          leaves: true,
+          newTab: true,
+        },
+      ],
+    },
+  ];
+}
+
+/** What a Company says about itself at the head of its footer. */
+export type LabFootAbout = {
+  /** The Company's name, set as its wordmark. */
+  name: string;
+  /** Trusted HTML, a paragraph each: the notice that it is fictional, in its own words. */
+  notice: readonly string[];
+  /** Who else it has nothing to do with: "any real bank". */
+  unaffiliated?: readonly string[];
+};
+
+// Drawn here, so the footer needs no icon library and fetches nothing.
+const icon = (drawing: string) =>
+  `<svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" ${drawing}</svg>`;
+const heart = icon(
+  'fill="currentColor"><path d="M12 21 3.5 12.5a5 5 0 0 1 7.1-7.1L12 6.8l1.4-1.4a5 5 0 0 1 7.1 7.1Z"/>',
+);
+const arrow = icon(
+  'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/>',
+);
+
+/**
+ * A Company's footer, in the order of the lab's own: the Company's name, its
+ * notice that it is fictional, the sentence on independence and the
+ * signature, then the three groups of links. The site the visitor is on is
+ * text, not a link, and "Playground" opens with this Company's address
+ * filled in. No script, so it works under each site's
+ * Content-Security-Policy. `labFootCss` lays it out.
+ */
+export function labFootHtml(
   origin: string,
   current: LabSite,
-  className = "lab",
+  about: LabFootAbout,
 ) {
-  const items = labSites(origin)
-    .filter((s) => s.id !== "home")
-    .map((s) =>
-      s.id === current
-        ? `<span aria-current="page">${nbsp(s.label)}</span>`
-        : `<a href="${escape(s.url)}">${nbsp(s.label)}</a>`,
-    );
-  const home = labSites(origin)[0]!;
-  return `<p class="${className}">Part of <a href="${escape(home.url)}">Poppy&nbsp;Lab</a>, an independent demo of Personal Agent Protocol · ${items.join(" · ")} · <a href="${LAB_REPOSITORY}">${nbsp("Source on GitHub")}</a></p>`;
+  const home = labSites(origin)[0]!.url;
+  const authors = "the authors of the Personal Agent Protocol";
+  const others = about.unaffiliated ?? [];
+  const endorsedBy = others.length
+    ? `${others.join(", by ")} or by ${authors}`
+    : authors;
+  const link = (l: LabFootLink) => {
+    if (l.site === current)
+      return `<span aria-current="page">${escape(l.label)}</span>`;
+    const href = l.site === "playground" ? labPlaygroundUrl(origin) : l.href;
+    return `<a href="${escape(href)}"${l.newTab ? ' target="_blank" rel="noopener noreferrer"' : ""}>${escape(l.label)}${l.leaves ? arrow : ""}</a>`;
+  };
+  const groups = labFootGroups(origin).map(
+    (g) =>
+      `<nav aria-labelledby="foot-${g.id}"><p id="foot-${g.id}" class="lab-foot-title">${escape(g.title)}</p>${g.links.map(link).join("")}</nav>`,
+  );
+  return `<div class="lab-foot"><div class="lab-foot-about"><p class="lab-foot-name">${escape(about.name)}</p>${about.notice.map((p) => `<p>${p}</p>`).join("")}<p>Part of <a href="${escape(home)}">Poppy&nbsp;Lab</a>, an independent experiment that is not affiliated with or endorsed by ${escape(endorsedBy)}. “Personal Agent Protocol” and “Poppy” are their names.</p><p class="lab-foot-credit">With ${heart}<span class="lab-foot-sr">love</span> by <a href="${LAB_AUTHOR.url}" rel="noopener">${LAB_AUTHOR.handle}</a></p></div>${groups.join("")}</div>`;
 }
+
+/**
+ * The footer's layout and text sizes, which are the lab's own (`.foot` in
+ * the playground's `site.css`): the about block beside three groups, three
+ * columns under it at 960px and below, two at 520px and below. A Company
+ * adds its ground and its wordmark's face (`.lab-foot-name`), and sets four
+ * colours: `--foot-ink` (the name, the titles, the current site, a link
+ * under the pointer), `--foot-soft` (sentences and links), `--foot-muted`
+ * (the signature) and `--foot-rule` (the underline of a link in a sentence).
+ */
+export const labFootCss = `.lab-foot{display:grid;grid-template-columns:minmax(0,5fr) repeat(3,minmax(0,2fr));gap:40px clamp(24px,4vw,56px);align-items:start;font-size:15px;line-height:1.6;color:var(--foot-soft)}
+.lab-foot p{margin:0}
+.lab-foot .lab-foot-name,.lab-foot .lab-foot-title,.lab-foot [aria-current]{color:var(--foot-ink)}
+.lab-foot-about p+p{margin-top:10px;max-width:46ch;line-height:1.55}
+.lab-foot-about a{color:inherit;text-decoration:underline;text-decoration-thickness:1px;text-decoration-color:var(--foot-rule);text-underline-offset:3px}
+.lab-foot-about a:hover{color:var(--foot-ink);text-decoration-color:currentColor}
+.lab-foot-about .lab-foot-credit{display:flex;align-items:center;gap:5px;margin-top:18px;font-size:14px;line-height:1.5;color:var(--foot-muted)}
+.lab-foot-credit a{color:var(--foot-soft)}
+.lab-foot svg{flex:none}
+.lab-foot-sr{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.lab-foot nav{display:grid;gap:10px;justify-items:start;margin:0}
+.lab-foot .lab-foot-title{margin-bottom:4px;font-size:14px;font-weight:600}
+.lab-foot nav a{display:inline-flex;align-items:center;gap:4px;color:inherit;text-decoration:none}
+.lab-foot nav a:hover{color:var(--foot-ink);text-decoration:underline}
+.lab-foot [aria-current]{font-weight:600}
+@media(max-width:960px){.lab-foot{grid-template-columns:repeat(3,minmax(0,1fr))}.lab-foot-about{grid-column:1/-1}}
+@media(max-width:520px){.lab-foot{grid-template-columns:repeat(2,minmax(0,1fr))}}
+`;
 
 /** The playground with this Company's address already filled in. */
 export function labPlaygroundUrl(origin: string) {

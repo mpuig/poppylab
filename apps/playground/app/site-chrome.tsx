@@ -1,5 +1,10 @@
 import { ArrowUpRight, Heart } from "lucide-react";
-import { LAB_REPOSITORY, SPEC_URL, labSites } from "@poppy-lab/pap-core";
+import {
+  DEMOS_URL,
+  LAB_AUTHOR,
+  SPEC_URL,
+  labFootGroups,
+} from "@poppy-lab/pap-core";
 import { BarNav } from "./bar-nav";
 import { specLink } from "./spec-ref";
 
@@ -15,8 +20,7 @@ const northwind =
 const fernwick =
   process.env.NEXT_PUBLIC_FERNWICK_URL ?? "http://fernwick.localhost:4500";
 
-export { SPEC_URL };
-export const DEMOS_URL = "https://personalagentprotocol.org/docs/demos";
+export { DEMOS_URL, SPEC_URL };
 
 export const host = (url: string) => new URL(url).host;
 export const connect = (url: string) =>
@@ -138,8 +142,6 @@ export function SiteBar({ current }: { current?: "developers" | "learn" }) {
 }
 
 export function SiteFoot() {
-  const sites = labSites(juniper);
-  const demos = sites.filter((s) => s.id !== "home" && s.id !== "playground");
   return (
     <footer className="foot">
       <div className="foot-about">
@@ -154,43 +156,29 @@ export function SiteFoot() {
         <p className="foot-credit">
           With <Heart size={14} fill="currentColor" aria-hidden="true" />
           <span className="sr-only">love</span> by{" "}
-          <a href="https://x.com/mpuig" rel="noopener">
-            @mpuig
+          <a href={LAB_AUTHOR.url} rel="noopener">
+            {LAB_AUTHOR.handle}
           </a>
         </p>
       </div>
-      <nav aria-labelledby="foot-lab">
-        <p id="foot-lab" className="foot-title">
-          Poppy Lab
-        </p>
-        <a href="/playground">Playground</a>
-        <a href="/learn">Learn</a>
-        <a href="/developers">Developers</a>
-        <a href={LAB_REPOSITORY}>
-          Source on GitHub <ArrowUpRight size={14} aria-hidden="true" />
-        </a>
-      </nav>
-      <nav aria-labelledby="foot-demos">
-        <p id="foot-demos" className="foot-title">
-          Demos
-        </p>
-        {demos.map((s) => (
-          <a key={s.id} href={s.url}>
-            {s.label}
-          </a>
-        ))}
-      </nav>
-      <nav aria-labelledby="foot-protocol">
-        <p id="foot-protocol" className="foot-title">
-          Protocol
-        </p>
-        <a href={SPEC_URL} {...specLink}>
-          Specification <ArrowUpRight size={14} aria-hidden="true" />
-        </a>
-        <a href={DEMOS_URL} {...specLink}>
-          Community demos <ArrowUpRight size={14} aria-hidden="true" />
-        </a>
-      </nav>
+      {/* The same groups the Companies' footers show; the lab's own links stay relative. */}
+      {labFootGroups(juniper, "").map((group) => (
+        <nav key={group.id} aria-labelledby={`foot-${group.id}`}>
+          <p id={`foot-${group.id}`} className="foot-title">
+            {group.title}
+          </p>
+          {group.links.map((link) => (
+            <a
+              key={link.href}
+              href={link.href}
+              {...(link.newTab ? specLink : {})}
+            >
+              {link.label}
+              {link.leaves && <ArrowUpRight size={14} aria-hidden="true" />}
+            </a>
+          ))}
+        </nav>
+      ))}
     </footer>
   );
 }

@@ -827,6 +827,12 @@ it("serves responsive website, consent and account scripts with honest notices",
     "No real ticket is sold, changed, cancelled or charged",
   );
   expect(html).toContain("PAU — Port Aurora");
+  // The footer: what Northwind is, then the lab's groups, with this site as text.
+  const foot = html.slice(html.indexOf("<footer>"));
+  expect(foot).toContain(
+    '<p class="lab-foot-name">Northwind Air</p><p>Northwind Air is a fictional airline for testing personal agents. No real flight, ticket, passenger record, loyalty balance, payment, cancellation or border advice exists.</p><p>Fictional assistance desk: <span class="mono">+1 555-0168</span>. Never enter a real booking reference, passport, payment card, medical record or account credential.</p><p>Part of <a href="http://localhost:3000">Poppy&nbsp;Lab</a>, an independent experiment that is not affiliated with or endorsed by the authors of the Personal Agent Protocol.',
+  );
+  expect(foot).toContain('<span aria-current="page">Northwind Air</span>');
   const results = await (
     await lab.app.request("/flights?origin=PAU&destination=NTH&date=2027-05-18")
   ).text();
