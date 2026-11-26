@@ -67,7 +67,8 @@ GET https://grocery-demo.poppylab.dev/.well-known/poppy.json
     "issuer": "https://grocery-demo.poppylab.dev",
     "scopes": {
       "poppy:read": "See your basket, orders, recurring delivery, profile, simulated invoices and support cases.",
-      "poppy:write": "Propose basket, checkout, delivery, profile and support-case changes. You approve each one separately."
+      "poppy:write": "Propose basket, checkout, delivery, profile and support-case changes. You approve each one separately.",
+      "poppy:browser-sign-in": "Open Juniper's website in the agent's own browser, signed in to your account. …"
     }
   },
   "extensions": { "operations": [{ "version": "3" }] },
@@ -87,6 +88,9 @@ GET https://grocery-demo.poppylab.dev/.well-known/poppy.json
       "description": "Products, delivery information, opening hours, and returns policies"
     }
   ],
+  "web": {
+    "browser_session_endpoint": "https://grocery-demo.poppylab.dev/poppy/browser-session"
+  },
   "tasks": { "endpoint": "https://grocery-demo.poppylab.dev/poppy/tasks" }
 }
 ```
@@ -296,22 +300,31 @@ runs the address is a separate matter, and the Inspector says so: the name
 
 ### 9. Read the permissions in Juniper's words
 
-![The company profile: protocol version, address, sign-in, the address of Juniper's task list, three tasks not offered, and two permissions with Juniper's descriptions](../../../apps/playground/public/learn-media/how-it-works/connecting-to-a-company/09-company-profile.webp "Juniper names what it does not offer to agents and describes its two permissions for the customer.")
+![The company profile: protocol version, address, sign-in, the address of Juniper's task list, three tasks not offered, two skills published, and three permissions with Juniper's descriptions](../../../apps/playground/public/learn-media/how-it-works/connecting-to-a-company/09-company-profile.webp "Juniper names what it does not offer to agents, lists its notes for agents and describes its three permissions for the customer.")
 
 Lower in the same view is the part of the description that concerns Elena.
-Juniper offers two permissions and describes each in a sentence written for
-the person who will be asked: one to see her basket, orders, recurring
-delivery, profile, invoices and support cases, and one to propose changes,
+Juniper offers three permissions and describes each in a sentence written for
+the person who will be asked. One is to see her basket, orders, recurring
+delivery, profile, invoices and support cases, and one is to propose changes,
 each of which she approves separately.
+
+The third lets an agent that has a browser of its own open Juniper's website
+signed in to her account. There the agent can read and cannot change
+anything. Iris has no browser, so it does not ask for this one.
 
 Above the permissions the profile lists the tasks Juniper chose not to offer
 to agents: getting a refund, cancelling a placed order and deleting the
 account. Iris read that list when it opened its session in step 5, and for
 the first two Juniper says what the customer can do instead.
 
-Iris has neither permission yet.
+The same answer names two skills: notes that Juniper wrote for agents on how
+to move a recurring delivery and how to open a support case. A company can
+publish such notes for the tasks it supports. Iris shows the list and does
+not load the notes yet.
+
+Iris has no permission yet.
 [Signing in and giving permission](signing-in-and-giving-permission.md)
-follows Elena as she gives them, one at a time.
+follows Elena as she gives the first two, one at a time.
 
 ### 10. Give Iris another address
 
