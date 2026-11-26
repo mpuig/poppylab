@@ -25,6 +25,25 @@ describe("Direct Conversation state for the page (§8.10)", () => {
     ).toBe(false);
   });
 
+  it("offers nothing to talk from while the Company no longer takes the sign-in", () => {
+    const held = { ...conversation, id: "c1" };
+    const lost = { accountToken: "refresh", accountUnavailable: true };
+    // Every request in it would be refused until the User signs in again.
+    expect(directState({ conversation: held, ...lost }).conversation).toBe(
+      false,
+    );
+    expect(directView(directState({ conversation: held, ...lost }))).toEqual({
+      direct: false,
+      invitation: null,
+      canTalkDirectly: false,
+    });
+    // Signed in, or signed out with a conversation no account has used.
+    expect(
+      directState({ conversation: held, accountToken: "refresh" }).conversation,
+    ).toBe(true);
+    expect(directState({ conversation: held }).conversation).toBe(true);
+  });
+
   it("reports an invitation with its reason, or an empty one", () => {
     const invited = (reason?: string) =>
       directState({

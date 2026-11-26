@@ -1431,8 +1431,22 @@ describe("Human-controlled account boundary", () => {
         conversation: true,
         invitation: null,
       });
+      // The Company took the access back: nothing to talk from until the
+      // User signs in again, so the page offers no "Talk to … yourself".
+      run.conversation = {
+        endpoint: "http://juniper.localhost:4100/agent",
+        id: "conv_1",
+        seen: [],
+      };
+      state.run.accountUnavailable = true;
+      expect(await restored()).toEqual({
+        direct: false,
+        conversation: false,
+        invitation: null,
+      });
     } finally {
       delete run.conversation;
+      state.run.accountUnavailable = false;
     }
   });
   it("gives a reloaded page the transcript, not the model's context", async () => {

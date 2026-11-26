@@ -190,6 +190,8 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     setDirect(view.direct);
     setInvitation(view.invitation);
     setCanTalkDirectly(view.canTalkDirectly);
+    // Nothing to talk from any more: the next message is for Iris again.
+    if (!view.canTalkDirectly) setStartingDirect(false);
   };
   const [instruction, setInstruction] = useState<Instruction | undefined>();
   const decided = useRef(new Set<string>());
@@ -354,6 +356,10 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
   ) {
     setSignedIn(false);
     setScopes("");
+    // Until the User signs in again there is no conversation with the
+    // Company's agent to talk from, as a reload is told (`directState`).
+    setCanTalkDirectly(false);
+    setStartingDirect(false);
     if (!Array.isArray(data.history)) return;
     setMessages([...historyToMessages(data.history), ...said]);
     setOperations(data.operations ?? []);
