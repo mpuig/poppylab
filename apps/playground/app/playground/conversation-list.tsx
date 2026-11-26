@@ -1,14 +1,45 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
+import { CompanyMark } from "./company-mark";
 
 type Summary = {
   id: string;
+  /** The names in one line, or "No company yet" / "No company". */
   company: string;
+  /** Every Company of the conversation, in the order they were connected. */
+  companies?: Array<{ origin: string; name: string; url: string }>;
   title?: string;
   created: number;
   active: boolean;
   until: number;
 };
+/**
+ * A conversation's Companies, each with its mark, in the order they were
+ * connected; with none, the server's words for it ("No company yet" while
+ * it runs, "No company" once it has ended).
+ */
+export function CompaniesOf({
+  item,
+}: {
+  item: Pick<Summary, "company" | "companies">;
+}) {
+  return (
+    <strong>
+      {item.companies?.length
+        ? item.companies.map((c, index) => (
+            <Fragment key={c.origin}>
+              {index > 0 && <span className="separator"> · </span>}
+              <span className="history-company">
+                <CompanyMark origin={c.origin} />
+                {c.name}
+              </span>
+            </Fragment>
+          ))
+        : item.company}
+    </strong>
+  );
+}
+
 const when = (time: number) =>
   new Date(time).toLocaleString(undefined, {
     day: "numeric",
@@ -88,7 +119,7 @@ export function ConversationList({
                 href={`/playground/${item.id}`}
                 aria-current={item.id === current ? "page" : undefined}
               >
-                <strong>{item.company}</strong>
+                <CompaniesOf item={item} />
                 <span>{item.title ?? "No messages yet"}</span>
               </a>
               <span className="conversation-meta">
