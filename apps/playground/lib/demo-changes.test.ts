@@ -4,6 +4,7 @@ import {
   demoChange,
   demoChangeKind,
   demoChangeReply,
+  demoChangeReplyNow,
   type DemoTools,
 } from "./demo-changes";
 import { readable } from "./demo-text";
@@ -662,6 +663,56 @@ it("never says a change is held for approval when it wasn't sent", () => {
   expect(unknown).toContain("Retry the same approval");
   expect(unknown).not.toContain("until you");
   expect(unknown).not.toContain("click Approve");
+});
+
+it("says Iris approved the change once the standing instruction did, not that it is held", () => {
+  const plan = {
+    call: "change_order",
+    args: {},
+    because:
+      "The demo read your scheduled order ord_LNB1001 and asked for: add 1 × Matcha ice cream.",
+  };
+  const summary = "Change order ord_LNB1001. New total USD 43.00.";
+  const result = { status: "approval_required", operation_id: "op_1", summary };
+  const text = demoChangeReply(plan, result, readable);
+  const data = JSON.stringify(result);
+  const waits =
+    "The Company holds a change until you click Approve. For natural-language reasoning, select a model.";
+  expect(text.endsWith(waits)).toBe(true);
+  // While it waits for the person, or after they approved it themselves,
+  // the answer stays as it was written.
+  expect(demoChangeReplyNow(text, data, () => false)).toBe(text);
+  // Approved by Iris: nothing is held, and there is no Approve to click.
+  const approved = vi.fn((id: string) => id === "op_1");
+  const now = demoChangeReplyNow(text, data, approved);
+  expect(approved).toHaveBeenCalledWith("op_1");
+  expect(now).toBe(
+    `${plan.because}\n\nThe company answered:\n\nThe company held this change until it was approved:\n${summary}\n\nIris approved this change on your standing instruction, so there is nothing for you to approve. For natural-language reasoning, select a model.`,
+  );
+  expect(now).not.toContain("holds a change");
+  expect(now).not.toContain("click Approve");
+  // Another operation was approved, not this answer's.
+  expect(demoChangeReplyNow(text, data, (id) => id === "op_2")).toBe(text);
+  // Only the demo's own sentences change, never the same words in a
+  // Company's summary.
+  const quoting = demoChangeReply(
+    plan,
+    {
+      ...result,
+      summary: "The Company holds a change until you click Approve. Really.",
+    },
+    readable,
+  );
+  expect(demoChangeReplyNow(quoting, data, () => true)).toContain(
+    "approved:\nThe Company holds a change until you click Approve. Really.\n\nIris approved this change",
+  );
+  // An answer that proposed nothing, or whose data is missing or cut short,
+  // is left as it is.
+  for (const other of [undefined, "", "{", "null", '{"orders":[]}'])
+    expect(demoChangeReplyNow(text, other, () => true)).toBe(text);
+  expect(demoChangeReplyNow("Your orders: none.", data, () => true)).toBe(
+    "Your orders: none.",
+  );
 });
 
 it("leaves reading questions and unknown Companies to the other rules", async () => {

@@ -208,6 +208,10 @@ export function notSentReply(
     : `This needs a permission your sign-in to ${company} doesn't include. Iris did not ask: nothing was sent to the Company. Sign out, then sign in again and keep every permission ticked on the Company's consent page.`;
 }
 
+/** How the demo words a change the Company holds for the User's approval. */
+export const HOLDING =
+  "The company is holding this change until you approve it:";
+
 /** A Company's answer in plain lines. */
 export function readable(value: unknown): string {
   if (Array.isArray(value))
@@ -219,7 +223,7 @@ export function readable(value: unknown): string {
     return `Iris did not ask the Company: ${stopped === "sign_in" ? "this needs your account, and you are not signed in" : "your sign-in doesn't include a permission this needs"}. Nothing was sent.`;
   // A change the Company holds: its own summary says it best.
   if (value.status === "approval_required" && typeof value.summary === "string")
-    return `The company is holding this change until you approve it:\n${value.summary}`;
+    return `${HOLDING}\n${value.summary}`;
   // Asked for again while its approval's outcome is unknown (Operations v3
   // §7): nothing is held for a new approval. The note that says so is
   // hidden with the other bookkeeping, so it is said here.

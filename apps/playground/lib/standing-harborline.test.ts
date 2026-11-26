@@ -73,6 +73,7 @@ import { GET as callback } from "../app/api/account/callback/route";
 import { POST as chat } from "../app/api/chat/route";
 import { OperationReview } from "../app/operation-review";
 import { leftToUser, nextAutoApproval } from "./auto-approval";
+import { demoChangeReplyNow } from "./demo-changes";
 import type { ReviewOperation } from "./operation-presentation";
 
 const agent = "http://localhost:3000";
@@ -171,11 +172,37 @@ describe("A standing instruction at Harborline, end to end", () => {
       provider: "demo",
     });
     expect(reply.status).toBe(200);
-    const { operations } = (await reply.json()) as {
+    const { operations, text, data } = (await reply.json()) as {
       operations: ReviewOperation[];
+      text: string;
+      data: string;
     };
     expect(operations).toHaveLength(1);
     op = operations[0]!;
+    // The demo's answer says the change waits for a click. Its data names
+    // the operation, so the page can say instead that Iris approved it, once
+    // an instruction has (at a Company that accepts that).
+    const closing = "For natural-language reasoning, select a model.";
+    expect(
+      text.endsWith(
+        `The Company holds a change until you click Approve. ${closing}`,
+      ),
+    ).toBe(true);
+    expect(demoChangeReplyNow(text, data, () => false)).toBe(text);
+    const approved = demoChangeReplyNow(
+      text,
+      data,
+      (id) => id === op.operation_id,
+    );
+    expect(approved).toContain(
+      "The company answered:\n\nThe company held this change until it was approved:\nTransfer ",
+    );
+    expect(
+      approved.endsWith(
+        `Iris approved this change on your standing instruction, so there is nothing for you to approve. ${closing}`,
+      ),
+    ).toBe(true);
+    expect(approved).not.toContain("click Approve");
     expect(op.terms).toMatchObject({
       amount_cents: 2500,
       source_balance_before_cents: expect.any(Number),

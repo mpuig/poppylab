@@ -151,6 +151,11 @@ in the page; the server's approval endpoint is the one it always was.
     answered it with new terms.
   - The log says "Applying your standing instruction" when it sends the
     approval, and the next line says how the Company answered.
+  - In demo mode the answer about a change is written while the Company
+    still holds it, so it ends "The Company holds a change until you click
+    Approve." Once Iris has approved that change on the rule, the same answer
+    ends "Iris approved this change on your standing instruction, so there is
+    nothing for you to approve."
   - Removing the rule, or clearing the site's storage, removes the rule and the
     hour's record; the limits are only as strong as the browser that keeps them.
 - **What Iris did.** Under each answer, a list of its steps in plain words: what

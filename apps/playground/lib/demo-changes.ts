@@ -9,6 +9,8 @@
  * Company still answers `approval_required` and holds the change for the
  * User. When the message doesn't say enough, the demo asks instead of guessing.
  */
+import { HOLDING } from "./demo-text";
+
 type Tool = {
   execute: (input?: Record<string, unknown>) => Promise<unknown>;
   /** The Company's own description of the arguments, when it gave one. */
@@ -682,6 +684,11 @@ export async function demoChange(
   }
 }
 
+/** The parts of the demo's answer about a change that the page reads again. */
+const ANSWERED = "The company answered:\n\n",
+  HOLDS = "The Company holds a change until you click Approve. ",
+  MODEL = "For natural-language reasoning, select a model.";
+
 /**
  * What the demo says after asking the Company for the change in `plan`;
  * `show` puts the Company's answer into lines. Signed in to read only, the
@@ -700,7 +707,47 @@ export function demoChangeReply(
     return `The demo read your account and prepared this change, but nothing was sent to the Company: ${unsent(error)}.${error === "insufficient_scope" ? " Press “Request change permission”, review the Company's consent, and ask again." : ""}`;
   const held =
     (result as { status?: unknown } | null)?.status !== "outcome_unknown";
-  return `${plan.because}\n\nThe company answered:\n\n${show(result)}\n\n${held ? "The Company holds a change until you click Approve. " : ""}For natural-language reasoning, select a model.`;
+  return `${plan.because}\n\n${ANSWERED}${show(result)}\n\n${held ? HOLDS : ""}${MODEL}`;
+}
+
+/**
+ * The demo's answer about a change, as it reads once Iris approved that
+ * change on the User's standing instruction. The answer is written while
+ * the Company holds the change, before the page checks the instruction, so
+ * it says the change waits for a click. Once Iris approved it nothing is
+ * held, and the demo's two sentences about that say what happened instead.
+ *
+ * `data` is the Company's exact answer, which names the operation, and
+ * `approvedByIris` says whether the instruction approved that one. The
+ * answer stays as written while the change waits for the User and after
+ * they approved it themselves, and so does an answer about anything else.
+ * A Company's own words are never changed: only the demo's sentences, where
+ * the demo puts them.
+ */
+export function demoChangeReplyNow(
+  text: string,
+  data: string | undefined,
+  approvedByIris: (operationId: string) => boolean,
+) {
+  let answer: { status?: unknown; operation_id?: unknown } | null;
+  try {
+    answer = JSON.parse(data ?? "");
+  } catch {
+    return text;
+  }
+  if (
+    answer?.status !== "approval_required" ||
+    typeof answer.operation_id !== "string" ||
+    !approvedByIris(answer.operation_id)
+  )
+    return text;
+  const said = text.replace(
+    `${ANSWERED}${HOLDING}`,
+    () => `${ANSWERED}The company held this change until it was approved:`,
+  );
+  return said.endsWith(HOLDS + MODEL)
+    ? `${said.slice(0, -(HOLDS + MODEL).length)}Iris approved this change on your standing instruction, so there is nothing for you to approve. ${MODEL}`
+    : said;
 }
 
 /**

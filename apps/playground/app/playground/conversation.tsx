@@ -5,6 +5,7 @@ import { ArrowUp, LoaderCircle } from "lucide-react";
 import { companyProfile } from "@poppy-lab/pap-core";
 import { needsYou } from "@/lib/operation-presentation";
 import { leftToUser } from "@/lib/auto-approval";
+import { demoChangeReplyNow } from "@/lib/demo-changes";
 import { hideLinkSecrets } from "@/lib/link-display";
 import { OperationReview } from "../operation-review";
 import { StandingInstruction } from "./standing-instruction";
@@ -90,6 +91,15 @@ export function Conversation({
       companyName,
       p.heldBack[`${op.operation_id}:${op.revision}`],
       now,
+    );
+  // Whether Iris approved an operation on the standing instruction: the
+  // demo's answer about it was written before, while it still waited.
+  const approvedByIris = (id: string) =>
+    p.operations.some(
+      (op) =>
+        op.operation_id === id &&
+        op.state === "succeeded" &&
+        op.approvedBy?.approver === "agent",
     );
   const review = (op: (typeof p.operations)[number]) => (
     <OperationReview
@@ -225,7 +235,15 @@ export function Conversation({
               <div className="message-text">
                 {message.role === "Agent"
                   ? inlineText(hideLinkSecrets(message.text))
-                  : hideLinkSecrets(message.text)}
+                  : hideLinkSecrets(
+                      message.role === "Demo"
+                        ? demoChangeReplyNow(
+                            message.text,
+                            message.data,
+                            approvedByIris,
+                          )
+                        : message.text,
+                    )}
               </div>
             )}
             {!!message.steps?.length && (
