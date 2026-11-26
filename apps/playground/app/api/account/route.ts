@@ -25,14 +25,18 @@ import {
   espiAuthorizationRecord,
   revokeEspiAuthorization,
 } from "@/lib/runtime";
-import { onlyConnection, untagged } from "@/lib/connections";
+import { connectionNamed } from "@/lib/connections";
+import {
+  companiesView,
+  connectionState,
+  wordsView,
+} from "@/lib/conversation-view";
 import { extensionByKey, extensionsOn } from "@/lib/domain-extension";
 import { fdxStatementsByAccount } from "@/lib/demo-fdx";
 import {
   forgetCompany,
   forgetLostAccount,
   recordOutcome,
-  shownTranscript,
 } from "@/lib/transcript";
 import { refusalFacts } from "@/lib/protocol-log";
 import {
@@ -41,7 +45,6 @@ import {
   notAppliedLine,
   statementLine,
 } from "@/lib/inspector-log";
-import { shownSkills, shownTasks } from "@/lib/shown-tasks";
 import {
   accountRecovery,
   accountUnavailableNotice,
@@ -75,7 +78,6 @@ import {
   MAX_PER_HOUR,
 } from "@/lib/auto-approval";
 import { statedReason } from "@/lib/operation-presentation";
-import { directState } from "@/lib/direct-state";
 export const runtime = "nodejs";
 const issuer = "http://juniper.localhost:4100";
 
@@ -205,7 +207,8 @@ const accessEnded = (error: unknown) =>
  * authorization) with `revoke`, and the answer the page gets. Revoked, or
  * found already ended: the Company holds no live token of this sign-in, so
  * the connection is signed out here without revoking the dead refresh token.
- * Anything else keeps the sign-in.
+ * Anything else keeps the sign-in. Signed out, the answer carries what the
+ * conversation still shows, as sign-out's does.
  */
 async function revocationAnswer(
   run: Run,
@@ -223,7 +226,13 @@ async function revocationAnswer(
       signedOutLocally(run, connection);
       trace.push(`${what.name} already ended · signed out`);
       return NextResponse.json(
-        { signedIn: false, revoked: "already_ended", ...what.named, trace },
+        {
+          signedIn: false,
+          revoked: "already_ended",
+          ...what.named,
+          trace,
+          ...wordsView(run),
+        },
         { headers: { "Cache-Control": "no-store" } },
       );
     }
@@ -247,9 +256,67 @@ async function revocationAnswer(
   // tokens are gone at the Company, so sign-out has nothing left to revoke.
   signedOutLocally(run, connection);
   return NextResponse.json(
-    { signedIn: false, revoked: "revoked", ...what.named, trace },
+    {
+      signedIn: false,
+      revoked: "revoked",
+      ...what.named,
+      trace,
+      ...wordsView(run),
+    },
     { headers: { "Cache-Control": "no-store" } },
   );
+}
+
+/** What the page asks of the account route. */
+type Action = {
+  action: string;
+  /**
+   * The Company the action is for, by origin. A conversation with one
+   * Company may leave it out; with several it has to be there.
+   */
+  company?: unknown;
+  access?: unknown;
+  id?: string;
+  revision?: string;
+  /**
+   * The User's standing instruction: for an agent approval (§5), or for
+   * the line about terms it leaves to the User (`not_applied`).
+   */
+  instruction?: unknown;
+  /** `not_applied`: the hour's limit the page says holds the terms back. */
+  allowance?: unknown;
+  /** `fdx`, `espi`: Use FDX or Use ESPI on or off. */
+  enabled?: unknown;
+  /** `fdx_statement`: which statement of which shared account. */
+  accountId?: unknown;
+  statementId?: unknown;
+};
+
+/** All actions have a tiny fixed schema; bound the stream before parsing. */
+async function readAction(request: Request): Promise<Action> {
+  const reader = request.body?.getReader();
+  if (!reader) throw new Error();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  let timer: ReturnType<typeof setTimeout>;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error("Request timed out")), 3000);
+  });
+  try {
+    while (true) {
+      const r = await Promise.race([reader.read(), deadline]);
+      if (r.done) break;
+      size += r.value.byteLength;
+      if (size > 2048) throw new Error();
+      chunks.push(r.value);
+    }
+  } finally {
+    clearTimeout(timer!);
+    void reader.cancel();
+  }
+  const body: unknown = JSON.parse(Buffer.concat(chunks).toString());
+  if (!body || typeof body !== "object") throw new Error();
+  return body as Action;
 }
 
 /** One conversation, named by `?conversation=`: running, or ended and read-only. */
@@ -263,8 +330,6 @@ export async function GET(request: Request) {
   const visitor = visitorOf(store);
   const id = new URL(request.url).searchParams.get("conversation");
   const run = visitor ? await readConversation(visitor, id) : undefined;
-  // What the page shows of the Company is its one connection's.
-  const connection = run ? onlyConnection(run) : undefined;
   return NextResponse.json(
     {
       // Unknown here: never started in this browser, or past its keep time.
@@ -272,51 +337,18 @@ export async function GET(request: Request) {
       conversation: run ? id : undefined,
       readOnly: !!run?.archived,
       keptUntil: run?.archived ? run.keepUntil : undefined,
-      company: connection?.company,
+      // What a page that shows one Company reads: the state of the first
+      // connection, which is the only one in a conversation with one.
+      ...connectionState(run, run?.connections[0]),
       // What the page showed, to show again: the transcript, with Company
-      // content and each answer's label, steps and data. Not the model's
-      // context, except in a run that has no transcript yet.
-      history: run ? shownTranscript(run) : [],
-      // The Inspector's "Session & API calls" lines, to list again.
-      log: untagged(run?.log ?? []),
-      // §9.1: the tasks its current Session read, for "Tasks not offered".
-      excludedTasks: connection ? shownTasks(connection) : [],
-      // §9.4: the skills it read, for "Skills published".
-      skills: connection ? shownSkills(connection) : [],
-      url: connection?.url,
-      scopes: connection?.scopes,
-      // Use FDX (poppylab.dev/fdx v1), a setting of this conversation.
-      fdx: !!connection?.fdx,
-      // The FDX consent of this sign-in, for the page to show and revoke
-      // with Use FDX on.
-      fdxConsent:
-        connection?.accountToken && !connection.accountUnavailable
-          ? connection.fdxConsent
-          : undefined,
-      // Use ESPI (poppylab.dev/espi v1), the same setting at a utility, and
-      // the id of this sign-in's authorization, to show and revoke with it.
-      espi: !!connection?.espi,
-      espiAuthorization: connection
-        ? espiAuthorizationTarget(connection)?.id
-        : undefined,
-      consentVersion: connection?.consentVersion ?? 0,
-      recovery: connection?.accountUnavailable
-        ? accountUnavailableNotice
-        : undefined,
-      signedIn:
-        !!run &&
-        !!connection?.accountToken &&
-        !connection.accountUnavailable &&
-        run.expires > Date.now(),
-      authPending: !!connection?.auth || !!run?.busy,
-      // §8.10: a reload must not send the User's words for the Company to
-      // Iris. Under its own name: `conversation` here is the ID.
-      directConversation: connection ? directState(connection) : undefined,
-      // An ended conversation shows how its proposals ended.
-      operations:
-        run && connection && (run.archived || run.expires > Date.now())
-          ? Object.values(connection.operations ?? {})
-          : [],
+      // content and each answer's label, steps and data, and the
+      // Inspector's "Session & API calls" lines. Each says which Company it
+      // came from. Not the model's context, except in a run that has no
+      // transcript yet.
+      ...(run ? wordsView(run) : { history: [], log: [] }),
+      // Every Company of the conversation with its own state, and the ones
+      // that were removed from it.
+      ...(run ? companiesView(run) : { connections: [], former: [] }),
     },
     { headers: { "Cache-Control": "no-store" } },
   );
@@ -370,9 +402,33 @@ async function act(request: Request, started: { id?: string }) {
   }
   started.id = held.id;
   const run = held.run;
-  // The Company this action is for. A conversation has one: with several,
-  // the page has to say which Company it signs in to, or approves at.
-  const connection = onlyConnection(run);
+  let body: Action;
+  try {
+    body = await readAction(request);
+  } catch {
+    await releaseRun(visitor, held);
+    return NextResponse.json(
+      {
+        code: "account_request_failed",
+        next: "signin",
+        error:
+          "Account request failed. Retry sign-in, or reconnect if the Company restarted.",
+        trace: [],
+      },
+      { status: 400, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+  // The Company this action is for: the one the request names, so a
+  // sign-in or an approval goes to the Company the User was looking at.
+  // A conversation with one Company may leave it out.
+  const connection = connectionNamed(run, body.company);
+  if ("code" in connection) {
+    await releaseRun(visitor, held);
+    return NextResponse.json(connection, {
+      status: 400,
+      headers: { "Cache-Control": "no-store" },
+    });
+  }
   if (!isAccountCompany(new URL(connection.url).origin)) {
     await releaseRun(visitor, held);
     return NextResponse.json(
@@ -398,45 +454,6 @@ async function act(request: Request, started: { id?: string }) {
   // action in which it learns that drops what it showed with the account.
   const knewLost = !!connection.accountUnavailable;
   try {
-    // All actions have a tiny fixed schema; bound the stream before parsing.
-    const reader = request.body?.getReader();
-    if (!reader) throw new Error();
-    const chunks: Uint8Array[] = [];
-    let size = 0;
-    let timer: ReturnType<typeof setTimeout>;
-    const deadline = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => reject(new Error("Request timed out")), 3000);
-    });
-    try {
-      while (true) {
-        const r = await Promise.race([reader.read(), deadline]);
-        if (r.done) break;
-        size += r.value.byteLength;
-        if (size > 2048) throw new Error();
-        chunks.push(r.value);
-      }
-    } finally {
-      clearTimeout(timer!);
-      void reader.cancel();
-    }
-    const body = JSON.parse(Buffer.concat(chunks).toString()) as {
-      action: string;
-      access?: unknown;
-      id?: string;
-      revision?: string;
-      /**
-       * The User's standing instruction: for an agent approval (§5), or for
-       * the line about terms it leaves to the User (`not_applied`).
-       */
-      instruction?: unknown;
-      /** `not_applied`: the hour's limit the page says holds the terms back. */
-      allowance?: unknown;
-      /** `fdx`, `espi`: Use FDX or Use ESPI on or off. */
-      enabled?: unknown;
-      /** `fdx_statement`: which statement of which shared account. */
-      accountId?: unknown;
-      statementId?: unknown;
-    };
     const extension = extensionByKey(body.action);
     if (extension) {
       // Use FDX, Use ESPI. §3.3: only for a Company that lists a valid
@@ -761,6 +778,9 @@ async function act(request: Request, started: { id?: string }) {
       return NextResponse.json({
         signedIn: false,
         trace: said("Account grant revoked · Session signed out"),
+        // What the conversation still shows: with other Companies, what
+        // came from them. This request's own lines are kept after it.
+        ...wordsView(run),
       });
     }
     if (!["approve", "decline", "retry", "not_applied"].includes(body.action))

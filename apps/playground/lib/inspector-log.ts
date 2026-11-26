@@ -1,4 +1,4 @@
-import { cameFrom, from, holdsAccount } from "./connections";
+import { cameFrom, forPage, from, holdsAccount } from "./connections";
 import { logEntry, type ProtocolEntry } from "./protocol-log";
 import type { Connection, Run } from "./runtime";
 
@@ -146,6 +146,10 @@ export const statementLine = (statementId: string, bytes: number) =>
  */
 export const notAppliedLine = (reason: string) =>
   `Standing instruction not applied · ${reason}; waiting for you`;
+
+/** The kept lines as the page gets them, each with the Company it was for. */
+export const shownLog = (run: Pick<Run, "log" | "connections" | "former">) =>
+  forPage<KeptLine>(run, run.log ?? []);
 
 /** The kept lines as the Inspector lists them. */
 export const shownLines = (kept: KeptLine[] | undefined): ProtocolEntry[] =>

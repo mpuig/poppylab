@@ -88,20 +88,6 @@ export const holdsAccount = (
 ) => !!entry.accounts?.includes(originOf(connection));
 
 /**
- * The entries as the page gets them, without the Company each came from
- * or the accounts in it: with one Company the page has no use for them.
- */
-export const untagged = <T extends FromCompany>(
-  entries: readonly T[],
-): Array<Omit<T, "company" | "accounts">> =>
-  entries.map((entry) => {
-    const rest: Omit<T, "company" | "accounts"> & FromCompany = { ...entry };
-    delete rest.company;
-    delete rest.accounts;
-    return rest;
-  });
-
-/**
  * The name of the Company an entry came from: the connected one's, or the
  * name it had when it was removed from the conversation, or else its host.
  */
@@ -115,11 +101,81 @@ export function nameFor(
   return run.former?.find(of)?.name ?? hostOf(origin);
 }
 
+/**
+ * A Company as the page is told of it: its origin, which is what names it
+ * in a request, and its name to show.
+ */
+export type CompanyRef = { origin: string; name: string };
+export const companyRef = (
+  run: Pick<Run, "connections" | "former">,
+  origin: string,
+): CompanyRef => ({ origin, name: nameFor(run, origin) });
+
+/**
+ * The entries as the page gets them: each says which Company it came from
+ * (`from`), so a page that shows several can label it, and none says whose
+ * accounts could be in it. What names no Company has no `from`.
+ */
+export const forPage = <T extends FromCompany>(
+  run: Pick<Run, "connections" | "former">,
+  entries: readonly T[],
+): Array<Omit<T, "company" | "accounts"> & { from?: CompanyRef }> =>
+  entries.map((entry) => {
+    const rest: Omit<T, "company" | "accounts"> & FromCompany = { ...entry };
+    delete rest.company;
+    delete rest.accounts;
+    return entry.company === undefined
+      ? rest
+      : { ...rest, from: companyRef(run, entry.company) };
+  });
+
 /** The conversation's connection to the Company at this address, if any. */
 export const connectionAt = (run: Pick<Run, "connections">, url: string) => {
   const origin = originOf({ url });
   return run.connections.find((c) => originOf(c) === origin);
 };
+
+/** Why a request can't be taken to one of the conversation's Companies. */
+export type NoCompany = {
+  code: "no_company" | "company_required" | "company_not_connected";
+  error: string;
+};
+
+/**
+ * The connection a request is for. The request names its Company by
+ * origin (any address there will do). A conversation with one Company may
+ * leave it out, as a page that shows one Company does; with several, the
+ * request has to say which, so that a sign-in or an approval never goes
+ * to a Company the User wasn't looking at.
+ */
+export function connectionNamed(
+  run: Pick<Run, "connections">,
+  company: unknown,
+): Connection | NoCompany {
+  if (company !== undefined) {
+    const named =
+      typeof company === "string" ? connectionAt(run, company) : undefined;
+    return (
+      named ?? {
+        code: "company_not_connected",
+        error: "This conversation isn't connected to that company.",
+      }
+    );
+  }
+  const [only, ...others] = run.connections;
+  if (!only)
+    return {
+      code: "no_company",
+      error:
+        "This conversation isn't connected to a company. Connect one first.",
+    };
+  if (others.length)
+    return {
+      code: "company_required",
+      error: `This conversation works with ${run.connections.map(companyName).join(", ")}. Choose which one this is for.`,
+    };
+  return only;
+}
 
 /**
  * A connection for the conversation to a Company: signed out, and with no

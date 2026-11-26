@@ -376,6 +376,9 @@ describe("Use ESPI against Fernwick, end to end", () => {
       trace: [
         `DELETE /espi/1_1/resource/Authorization/${id} · ESPI authorization revoked · 204`,
       ],
+      // What the conversation still shows: nothing, with its one Company.
+      history: [],
+      log: [],
     });
     // Exactly one request, the DELETE; the dead refresh token isn't revoked.
     const sent = net.seen.slice(from);

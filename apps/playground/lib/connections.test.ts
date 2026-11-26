@@ -6,6 +6,7 @@
 import { describe, expect, it } from "vitest";
 import {
   addConnection,
+  connectionNamed,
   MAX_CONNECTIONS,
   nameFor,
   onlyConnection,
@@ -131,9 +132,30 @@ describe("what a conversation with two Companies keeps", () => {
       lantern,
       lantern,
     ]);
-    // The page is answered the entries without it, as before.
+    // The page is answered each with the Company it came from, by origin
+    // and by name, and with nothing else of the tags.
+    expect(shownTranscript(run).map((entry) => entry.from)).toEqual(
+      run.transcript!.map((e) => ({
+        origin: e.company,
+        name: e.company === juniper ? "Juniper Market" : "Lantern Noodle Bar",
+      })),
+    );
     for (const entry of shownTranscript(run))
       expect(entry).not.toHaveProperty("company");
+  });
+
+  it("still names a Company that was removed, on what it left, and nothing on what names none", () => {
+    const { run, a } = conversation();
+    const unnamed = {
+      role: "assistant" as const,
+      content: "From before.",
+      signedOut: true as const,
+    };
+    run.transcript!.push(unnamed);
+    removeConnection(run, a);
+    const shown = shownTranscript(run);
+    expect(shown[0]!.from).toEqual({ origin: juniper, name: "Juniper Market" });
+    expect(shown.at(-1)).toEqual(unnamed);
   });
 
   it("keeps for each Company its own turns from before its sign-in", () => {
@@ -594,5 +616,31 @@ describe("connecting a Company to a conversation", () => {
     // The routes that take a conversation's one connection say so here.
     expect(() => onlyConnection(run)).toThrow("Expected one connection");
     expect(() => onlyConnection(empty())).toThrow("Expected one connection");
+  });
+});
+
+describe("the Company a request is for", () => {
+  it("is the one it names by origin, or the conversation's only one", () => {
+    const run = empty();
+    expect(connectionNamed(run, undefined)).toMatchObject({
+      code: "no_company",
+    });
+    const a = addConnection(run, juniper);
+    expect(connectionNamed(run, undefined)).toBe(a);
+    expect(connectionNamed(run, `${juniper}/shop?x=1`)).toBe(a);
+    const b = addConnection(run, lantern);
+    expect(connectionNamed(run, lantern)).toBe(b);
+    expect(connectionNamed(run, undefined)).toEqual({
+      code: "company_required",
+      error:
+        "This conversation works with juniper.example, lantern.example. Choose which one this is for.",
+    });
+    // Named, it has to be one of the conversation's: never the only one
+    // instead, and never a guess.
+    removeConnection(run, a);
+    for (const other of [juniper, "lantern", "", null, 3, {}])
+      expect(connectionNamed(run, other)).toMatchObject({
+        code: "company_not_connected",
+      });
   });
 });

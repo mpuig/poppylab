@@ -1634,13 +1634,19 @@ describe("Human-controlled account boundary", () => {
       },
     });
     // As it was stored: one object. And the same conversation as it is
-    // stored now, with the Company's part in its connection.
+    // stored now, with the Company's part in its connection and each
+    // entry, line and turn saying which Company it came from.
     await seedRun("v".repeat(43), "run_stored_flat_0001", {
       ...words(),
       ...held(),
     } as never);
+    const tagged = <T>(kept: T[]) =>
+      kept.map((entry) => ({ ...entry, company: held().url }));
     await seedRun("v".repeat(43), "run_stored_split_001", {
       ...words(),
+      history: tagged(words().history),
+      transcript: tagged(words().transcript),
+      log: tagged(words().log),
       connections: [held()],
     } as never);
     const read = async (id: string) =>
@@ -2561,7 +2567,13 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
           ),
         )
       ).json();
-      expect(reloaded.log).toEqual([{ at, text: over }]);
+      expect(reloaded.log).toEqual([
+        {
+          at,
+          text: over,
+          from: { origin: "http://juniper.localhost:4100", name: "Juniper" },
+        },
+      ]);
       // Nothing was sent to the Company, and the terms still wait.
       expect(state.request).not.toHaveBeenCalled();
     });
@@ -3416,6 +3428,9 @@ describe("Revoking the ESPI authorization (poppylab.dev/espi v1)", () => {
       trace: [
         "DELETE /espi/1_1/resource/Authorization/grant_1 · ESPI authorization revoked · 204",
       ],
+      // What the conversation still shows: nothing, with its one Company.
+      history: [],
+      log: [],
     });
     signedOut();
     expect((await restored()).espiAuthorization).toBeUndefined();

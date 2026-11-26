@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CompanyEntry } from "./conversations";
-import { onlyConnection as at, untagged } from "./connections";
+import { onlyConnection as at } from "./connections";
 import type { Connection, Run, Turn } from "./runtime";
 import * as transcript from "./transcript";
 import { keepSignedOutTranscript, TRANSCRIPT_LIMITS } from "./transcript";
@@ -53,9 +53,18 @@ const secret = "My door code is 4417, leave it inside";
 /** Everything a model turn after this one would be sent. */
 const forModel = (r: Run) => JSON.stringify(r.history);
 /** The model's turns as it is sent them: each a role and its words. */
-const told = (r: Run) => untagged(r.history);
-/** The transcript as the page gets it. */
-const onPage = (r: Run) => transcript.shownTranscript(r);
+const told = (r: Run) =>
+  r.history.map(({ role, content }) => ({ role, content }));
+/**
+ * The transcript as the page gets it, less the Company each entry names:
+ * all of these came from the conversation's one.
+ */
+const onPage = (r: Run) =>
+  transcript.shownTranscript(r).map((entry) => {
+    const rest = { ...entry };
+    delete rest.from;
+    return rest;
+  });
 const forPage = (r: Run) => (r.transcript ?? []).map((turn) => turn.content);
 
 describe("what a Direct Conversation leaves behind (§8.10)", () => {
@@ -548,7 +557,7 @@ describe("what stays when the Company takes the access back (§5.5)", () => {
     expect(r.history).toEqual(at(r).publicHistory);
     // What the answer carries for the page is what a reload would show.
     expect(left).toEqual({
-      history: onPage(r),
+      history: transcript.shownTranscript(r),
       operations: [{ operation_id: "sent", state: "uncertain" }],
     });
     // An approval that is out may have been performed: it stays, so the

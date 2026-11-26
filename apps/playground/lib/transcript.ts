@@ -3,11 +3,11 @@ import type { CompanyEntry, DirectAction } from "./conversations";
 import {
   cameFrom,
   companyName,
+  forPage,
   from,
   holdsAccount,
   noteFormer,
   originOf,
-  untagged,
   type FromCompany,
 } from "./connections";
 import { dropLines, keepSignedOutLines } from "./inspector-log";
@@ -185,10 +185,11 @@ function show(
 
 /**
  * The transcript as the page gets it: what it showed, or the model's turns
- * in a run that has no transcript yet.
+ * in a run that has no transcript yet, each with the Company it came from.
  */
-export const shownTranscript = (run: Pick<Run, "transcript" | "history">) =>
-  untagged<TranscriptEntry>(run.transcript ?? run.history);
+export const shownTranscript = (
+  run: Pick<Run, "transcript" | "history" | "connections" | "former">,
+) => forPage<TranscriptEntry>(run, run.transcript ?? run.history);
 
 /**
  * History lists the conversation under its first request (`title`), which
