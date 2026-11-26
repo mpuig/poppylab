@@ -44,13 +44,7 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
 
   /** The authorization request's checks, for a query or a pushed request. */
   async function check(q: Record<string, string | undefined>) {
-    // The protocol's own scope is known here and granted to nobody (§6), so
-    // a sign-in that asks for it with others is granted the others, as §4.7
-    // allows, and the token response's `scope` says so. Alone, it leaves
-    // nothing to grant.
-    const requested = (
-      typeof q.scope === "string" ? q.scope.split(" ") : []
-    ).filter((s) => s !== BROWSER_SIGN_IN);
+    const requested = typeof q.scope === "string" ? q.scope.split(" ") : [];
     if (
       !requested.length ||
       requested.some((s) => !both.includes(s)) ||
@@ -330,13 +324,22 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
     const selected = def.persona(body.account ?? def.defaultAccount);
     if (body.decision === "approve" && !selected)
       return c.json({ error: "invalid_account" }, 400);
-    const requested = p.scopes.split(" ").filter(Boolean);
-    const selectedScopes = def.selectScopes
-      ? def.selectScopes({ requested, body })
-      : requested.filter(
-          (scope) => scope !== def.writeScope || body.write === "yes",
-        );
-    const allowed = new Set(requested);
+    const all = p.scopes.split(" ").filter(Boolean);
+    // The Company chooses among its own scopes. The protocol's is granted
+    // only when it was asked for and the sheet's line for it was left
+    // allowed (§6: the User approves it like any other).
+    const requested = all.filter((scope) => scope !== BROWSER_SIGN_IN);
+    const selectedScopes = [
+      ...(def.selectScopes
+        ? def.selectScopes({ requested, body })
+        : requested.filter(
+            (scope) => scope !== def.writeScope || body.write === "yes",
+          )),
+      ...(all.includes(BROWSER_SIGN_IN) && body.allow_browser === "yes"
+        ? [BROWSER_SIGN_IN]
+        : []),
+    ];
+    const allowed = new Set(all);
     if (
       new Set(selectedScopes).size !== selectedScopes.length ||
       selectedScopes.some((scope) => !allowed.has(scope))

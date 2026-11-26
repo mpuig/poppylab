@@ -40,7 +40,11 @@ it("publishes a 1.0 document, its tasks, PAR and both signing algorithms", async
   const resource = (
     await inject("/.well-known/oauth-protected-resource")
   ).json();
-  expect(resource.scopes_supported).toEqual(["orders:read", "orders:write"]);
+  expect(resource.scopes_supported).toEqual([
+    "orders:read",
+    "orders:write",
+    "poppy:browser-sign-in",
+  ]);
 });
 
 it("checks Poppy-Version and reads Poppy-Extensions (§3.4)", async () => {

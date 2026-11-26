@@ -8,6 +8,7 @@ import {
   annotatedJsonHtml,
   approvalSequenceSvg,
   breakablePath,
+  browserAccess,
   consentExpiredHtml,
   consentSheetCss,
   consentSheetHtml,
@@ -277,7 +278,7 @@ const discoveryKeys: Array<[key: string, title: string, text: string]> = [
   [
     "auth",
     "Where you sign in.",
-    "And the two permissions an agent can ask you for: to see your orders, and to propose changes to them.",
+    "And the permissions an agent can ask you for: to see your orders, to propose changes to them, and to open this website signed in, read only.",
   ],
   [
     "apis",
@@ -523,6 +524,7 @@ export function permissions(scopes: string) {
           },
         ]
       : [],
+    ...browserAccess(scopes),
   };
 }
 

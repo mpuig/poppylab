@@ -28,22 +28,26 @@ import type { Tenancy } from "./tenancy.ts";
 /** Operations v3 (Operations §2), which account POSTs always need. */
 const OPERATIONS: ExtensionVersion = { name: "operations", version: "3" };
 
+/**
+ * Session destinations (§5.2): the APIs, the account routes (§7), the
+ * conversation routes (§8.2), feedback and the browser authorization (§6).
+ * Every request to one needs a verified Session header, and none reads a
+ * cookie.
+ */
+export const sessionDestination = (ctx: Ctx, path: string) =>
+  path.startsWith("/api/") ||
+  ctx.accountPrefixes.some((prefix) => path.startsWith(prefix)) ||
+  path === "/poppy/conversations" ||
+  path === "/poppy/feedback" ||
+  path === `${BROWSER_SESSION_PATH}/authorize` ||
+  path.startsWith("/poppy/conversations/");
+
 export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
   const { def, origin, state, replay, isolated, accountPrefixes } = ctx;
   /** Account routes (§7): scopes, a token challenge and Operations v3. */
   const account = (path: string) =>
     accountPrefixes.some((prefix) => path.startsWith(prefix));
-  /**
-   * Session destinations (§5.2): the APIs, the conversation routes (§8.2)
-   * and the browser authorization (§6).
-   */
-  const guarded = (path: string) =>
-    path.startsWith("/api/") ||
-    account(path) ||
-    path === "/poppy/conversations" ||
-    path === "/poppy/feedback" ||
-    path === `${BROWSER_SESSION_PATH}/authorize` ||
-    path.startsWith("/poppy/conversations/");
+  const guarded = (path: string) => sessionDestination(ctx, path);
   app.use("*", async (c, next) => {
     if (!guarded(new URL(c.req.url).pathname)) return next();
     // Without a Session header, nothing else can be checked (§5.3).

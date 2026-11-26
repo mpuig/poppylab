@@ -125,7 +125,7 @@ it("publishes 1.0 OAuth metadata and no longer accepts the JWT-bearer Session gr
       issuer: origin,
       protected_resources: [origin],
       grant_types_supported: ["authorization_code", "refresh_token"],
-      scopes_supported: ["poppy:read", "poppy:write"],
+      scopes_supported: ["poppy:read", "poppy:write", "poppy:browser-sign-in"],
     });
     expect(metadata).not.toHaveProperty("poppy_domains");
     expect(
@@ -133,7 +133,7 @@ it("publishes 1.0 OAuth metadata and no longer accepts the JWT-bearer Session gr
     ).toEqual({
       resource: origin,
       authorization_servers: [origin],
-      scopes_supported: ["poppy:read", "poppy:write"],
+      scopes_supported: ["poppy:read", "poppy:write", "poppy:browser-sign-in"],
     });
     const legacy = await app.inject({
       method: "POST",

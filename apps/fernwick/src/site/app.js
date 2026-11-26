@@ -1,6 +1,9 @@
 /** Fernwick fictional customer portal browser script. */
 const account = document.querySelector(".account").dataset.account;
-const $ = (id) => document.getElementById(id);
+// An agent's browser gets a page without some sections and controls
+// (see /site/state's `browser`): what is drawn for a part that isn't on the
+// page goes to an element that is never shown.
+const $ = (id) => document.getElementById(id) || document.createElement("div");
 const request = (url, options = {}) =>
   window.fetch(url, {
     ...options,
@@ -78,43 +81,52 @@ function record(item, label) {
 }
 /** Meter names by ID, to name a grant's meters without their IDs. */
 let labels = {};
+// An agent's browser is offered no control, and is sent of each meter what
+// its permission reads: the plan and bills, the use, or both (see
+// /site/state's `browser`).
+let readOnly = false;
 function render(data) {
+  readOnly = !!data.browser;
   labels = Object.fromEntries(data.meters.map((m) => [m.id, m.label]));
   $("current-account").textContent =
     "Signed in as " +
     data.customer.name +
-    ", a test customer · " +
-    data.customer.address;
+    ", a test customer" +
+    (data.customer.address ? " · " + data.customer.address : "");
   $("meters").replaceChildren(
     ...data.meters.map((meter) =>
       row(
         meter.label,
-        meter.month_kwh + " kWh",
-        plans[meter.plan] +
-          (meter.scheduled
-            ? " · switching to " +
-              plans[meter.scheduled.plan] +
-              " on " +
-              day(meter.scheduled.effective_date)
-            : "") +
-          (meter.month_sent_kwh
-            ? " · " + meter.month_sent_kwh + " kWh sent to the grid"
-            : "") +
-          " · energy so far " +
-          money(meter.month_energy_cents),
+        meter.month_kwh === undefined ? "" : meter.month_kwh + " kWh",
+        [
+          meter.plan &&
+            plans[meter.plan] +
+              (meter.scheduled
+                ? " · switching to " +
+                  plans[meter.scheduled.plan] +
+                  " on " +
+                  day(meter.scheduled.effective_date)
+                : ""),
+          meter.month_sent_kwh &&
+            meter.month_sent_kwh + " kWh sent to the grid",
+          meter.month_energy_cents !== undefined &&
+            "energy so far " + money(meter.month_energy_cents),
+        ]
+          .filter(Boolean)
+          .join(" · "),
       ),
     ),
   );
   $("days").replaceChildren(
     ...data.meters.flatMap((meter) =>
-      meter.days.map((item) =>
+      (meter.days || []).map((item) =>
         row(day(item.day), item.kwh + " kWh", meter.label),
       ),
     ),
   );
   $("bills").replaceChildren(
     ...data.meters.flatMap((meter) =>
-      meter.bills.map((bill) =>
+      (meter.bills || []).map((bill) =>
         row(
           meter.label + " · " + month(bill.month),
           money(bill.total_cents),
@@ -205,8 +217,10 @@ function agent(grant) {
       "Access ends " + grant.expires + " · Address: " + grant.client,
       "record-meta",
     ),
-    revoke,
   );
+  // Disconnecting is the customer's, in their own browser.
+  if (readOnly) return article;
+  article.append(revoke);
   revoke.type = "button";
   revoke.addEventListener("click", async () => {
     revoke.disabled = true;

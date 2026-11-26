@@ -10,6 +10,7 @@ import { accountPaths } from "./openapi.js";
 import { servicePaths } from "./service-openapi.js";
 import { operations, type Commerce } from "./operations.js";
 import { website, type WebSession } from "./website.js";
+import { browserSignInHint, browserSignInScope } from "@poppy-lab/pap-core";
 import { consentExpiredPage, consentPage } from "./consent-page.js";
 import { persona, personas } from "./personas.js";
 import { forAgentsPage, homePage } from "./home.js";
@@ -164,11 +165,13 @@ export function juniperCompany(options: {
               "See your basket, orders, recurring delivery, profile, simulated invoices and support cases.",
             "poppy:write":
               "Propose basket, checkout, delivery, profile and support-case changes. You approve each one separately.",
+            ...browserSignInScope("Juniper"),
           },
           scope_hints: {
             "poppy:read": { changes: "none", personal_data: true },
             // Checkout places a (fictional) order, which can't be undone.
             "poppy:write": { changes: "irreversible", personal_data: true },
+            ...browserSignInHint,
           },
         },
         extensions: { operations: [{ version: "3" }] },
@@ -277,6 +280,7 @@ export function juniperCompany(options: {
         ctx.grants,
         options.portal,
         ctx.feedback,
+        (req) => ctx.browser(req.ctx),
       );
       r.get("/api/products", async () => ({
         currency: "USD",

@@ -1,6 +1,9 @@
 /** Northwind Air account page. Plain browser JavaScript, generated into app-script.ts. */
 const account = document.querySelector(".account").dataset.account;
-const $ = (id) => document.getElementById(id);
+// An agent's browser gets a page without some sections and controls
+// (see /site/state's `browser`): what is drawn for a part that isn't on the
+// page goes to an element that is never shown.
+const $ = (id) => document.getElementById(id) || document.createElement("div");
 const request = (url, options = {}) =>
   window.fetch(url, {
     ...options,
@@ -68,7 +71,10 @@ const localTime = (departure, arrival) =>
   departure.slice(11, 16) +
   (arrival ? " → " + arrival.slice(11, 16) : "");
 
+// An agent's browser is offered no control (see /site/state's `browser`).
+let readOnly = false;
 function render(data) {
+  readOnly = !!data.browser;
   $("current-account").textContent =
     "Signed in as " + data.customer + ", a test passenger.";
   const trips = $("trip-list");
@@ -162,24 +168,27 @@ function render(data) {
   }
   const loyalty = $("loyalty");
   loyalty.replaceChildren();
-  for (const [label, value] of [
-    ["Member", data.loyalty.number],
-    ["Tier", data.loyalty.tier],
-    ["Points", data.loyalty.points.toLocaleString("en-US")],
-    [
-      "Expiring",
-      data.loyalty.expiring_points.toLocaleString("en-US") +
-        " on " +
-        data.loyalty.expires_on,
-    ],
-  ]) {
+  // Not sent to an agent's browser whose permission doesn't cover it.
+  for (const [label, value] of !data.loyalty
+    ? []
+    : [
+        ["Member", data.loyalty.number],
+        ["Tier", data.loyalty.tier],
+        ["Points", data.loyalty.points.toLocaleString("en-US")],
+        [
+          "Expiring",
+          data.loyalty.expiring_points.toLocaleString("en-US") +
+            " on " +
+            data.loyalty.expires_on,
+        ],
+      ]) {
     const fact = node("div", undefined, "activity");
     fact.append(node("h3", label), node("p", value));
     loyalty.append(fact);
   }
   const preferences = $("preferences");
   preferences.replaceChildren();
-  const preference = data.bookings[0]?.preference;
+  const preference = data.preference;
   if (preference) {
     for (const [label, value] of [
       ["Meal", preference.meal],
@@ -266,8 +275,10 @@ function agent(grant) {
       "Access ends " + grant.expires + " · Address: " + grant.client,
       "record-meta",
     ),
-    revoke,
   );
+  // Disconnecting is the customer's, in their own browser.
+  if (readOnly) return row;
+  row.append(revoke);
   revoke.type = "button";
   revoke.addEventListener("click", async () => {
     revoke.disabled = true;

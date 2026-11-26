@@ -37,7 +37,11 @@ describe("Fernwick Power & Light", () => {
         domain: "fernwick.localhost:4500",
       },
     });
-    expect(Object.keys(discovery.auth.scopes)).toEqual([...scopes]);
+    // The Company's own, then the protocol's for an agent's browser (§6).
+    expect(Object.keys(discovery.auth.scopes)).toEqual([
+      ...scopes,
+      "poppy:browser-sign-in",
+    ]);
     expect(discovery.auth.scope_hints.offline_access).toEqual({
       changes: "none",
       personal_data: false,

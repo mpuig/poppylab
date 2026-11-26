@@ -47,7 +47,7 @@ const discoveryKeys: Record<string, [title: string, text: string]> = {
   ],
   auth: [
     "Where you sign in.",
-    "And the permissions an agent can ask you for: to read your trips and profile, to set preferences, and to propose changes to a booking.",
+    "And the permissions an agent can ask you for: to read your trips and profile, to set preferences, to propose changes to a booking, and to open this website signed in, read only.",
   ],
   apis: [
     "What it can ask the airline.",

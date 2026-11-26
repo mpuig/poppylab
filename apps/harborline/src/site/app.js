@@ -1,6 +1,9 @@
 /** Harborline fictional customer portal browser script. */
 const account = document.querySelector(".account").dataset.account;
-const $ = (id) => document.getElementById(id);
+// An agent's browser gets a page without some sections and controls
+// (see /site/state's `browser`): what is drawn for a part that isn't on the
+// page goes to an element that is never shown.
+const $ = (id) => document.getElementById(id) || document.createElement("div");
 const request = (url, options = {}) =>
   window.fetch(url, {
     ...options,
@@ -62,12 +65,15 @@ function record(item, label) {
     );
   return row;
 }
+// An agent's browser is offered no control (see /site/state's `browser`).
+let readOnly = false;
 function render(data) {
+  readOnly = !!data.browser;
   $("current-account").textContent =
     "Signed in as " +
     data.customer.name +
-    ", a test customer · " +
-    data.customer.email;
+    ", a test customer" +
+    (data.customer.email ? " · " + data.customer.email : "");
   $("accounts").replaceChildren(
     ...data.accounts.map((item) =>
       row(
@@ -211,8 +217,10 @@ function agent(grant) {
       "Access ends " + grant.expires + " · Address: " + grant.client,
       "record-meta",
     ),
-    revoke,
   );
+  // Disconnecting is the customer's, in their own browser.
+  if (readOnly) return article;
+  article.append(revoke);
   revoke.type = "button";
   revoke.addEventListener("click", async () => {
     revoke.disabled = true;

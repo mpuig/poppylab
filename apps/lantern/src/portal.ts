@@ -7,17 +7,31 @@
  * agent's grants. Pending proposals never show as changes. The gateway
  * routes each browser to its own tenant, or to the agent user's tenant once
  * that browser approved the agent's consent.
+ *
+ * An agent's own browser, joined to its Session (§6), is served here too
+ * (`siteViewer`): signed in through the join it sees the orders and the
+ * last delivery with `orders:read`, as the API shows them, and never the
+ * connected agents, their activity or their reports. It is offered no
+ * control, and the gateway refuses every change it sends.
  */
 import type { Context, Hono } from "hono";
 import { randomId, tokenHash } from "@poppy-lab/pap-client/core";
 import {
+  AGENT_BROWSER_LOGIN,
+  agentBrowserNotice,
+  agentBrowserState,
   feedbackSection,
   LOGIN_FORM_MS,
   loginFormToken,
   loginFormValid,
+  siteViewer,
+  viewerSees,
   type ActivityItem,
+  type BrowserJoin,
   type FeedbackReport,
   type GrantAccess,
+  type SitePart,
+  type SiteViewer,
 } from "@poppy-lab/pap-company";
 import { customers, menu, slots } from "./data.ts";
 import type { Order } from "./lantern.ts";
@@ -40,7 +54,12 @@ type Ctx = {
   origin: string;
   activity: (account: string) => ActivityItem[];
   feedback: () => readonly FeedbackReport[];
+  browser: (c: Context) => BrowserJoin | undefined;
 };
+/** What an agent's browser sees only with the scope that reads it in the API. */
+const PARTS: SitePart[] = [
+  { name: "Scheduled orders and the last delivery", scope: "orders:read" },
+];
 
 const cookie = (c: Context, name: string) =>
   (c.req.header("cookie") ?? "")
@@ -79,8 +98,24 @@ export function mountPortal(app: Hono, ctx: Ctx, deps: Deps) {
     );
   };
   const sameOrigin = (c: Context) => c.req.header("origin") === origin;
+  /** Who a read is for: a join's account first, then the browser's login. */
+  const viewer = (c: Context) => siteViewer(ctx.browser(c), current(c));
 
   app.get("/site/login", (c) => {
+    // An agent's browser gets no login form: its sign-in is the agent's.
+    const join = ctx.browser(c);
+    if (join?.account) return c.redirect("/account", 302);
+    if (join)
+      return c.html(
+        shell(
+          "Not signed in · Lantern Noodle Bar",
+          `<main class="wrap"><section class="intro"><h1>This browser isn't signed in.</h1><p>${escape(AGENT_BROWSER_LOGIN)}</p></section></main>`,
+          "/account",
+          origin,
+        ),
+        200,
+        pageHeaders,
+      );
     // In a cookie and in the form: the two must arrive equal (site-login.ts).
     const token = loginFormToken();
     const options = customers
@@ -144,8 +179,10 @@ export function mountPortal(app: Hono, ctx: Ctx, deps: Deps) {
     });
   });
 
-  const stateFor = (account: string) => {
+  const stateFor = (viewer: SiteViewer) => {
+    const { account } = viewer;
     const customer = customers.find((p) => p.id === account)!;
+    const orders = viewerSees(viewer, "orders:read");
     // A proposal that waits. Declining one is between the customer and their
     // agent: the protocol has the agent send an approval or nothing
     // (Operations §5), so until the proposal ends we can't tell the two apart.
@@ -158,38 +195,47 @@ export function mountPortal(app: Hono, ctx: Ctx, deps: Deps) {
       refused:
         "Your order had changed when this was approved, so the proposal changed nothing.",
     };
-    const activity = ctx.activity(account).map((item) => ({
-      ...item,
-      result:
-        item.result ??
-        (item.state === "proposed"
-          ? waiting(item.when)
-          : unchanged[item.state]) ??
-        null,
-    }));
+    // What the customer's agents asked for and who is connected are the
+    // customer's own to see, not an agent's browser's.
+    const activity = viewer.agent
+      ? []
+      : ctx.activity(account).map((item) => ({
+          ...item,
+          result:
+            item.result ??
+            (item.state === "proposed"
+              ? waiting(item.when)
+              : unchanged[item.state]) ??
+            null,
+        }));
     return {
       account_id: account,
       customer: customer.name,
       menu,
       slots,
-      orders: deps.ordersFor(account).map(deps.view),
-      delivered: deliveredView(account, deps.refundsFor(account)),
+      orders: orders ? deps.ordersFor(account).map(deps.view) : [],
+      delivered: orders
+        ? deliveredView(account, deps.refundsFor(account))
+        : null,
       activity,
       // With the account, so the page's own two-second read keeps the list
       // of connected agents current, in the consent page's words.
-      agents: ctx.grants.list(account).map((grant) => ({
-        ...grant,
-        permissions: consentWords(permissions(grant.scopes)),
-      })),
+      agents: viewer.agent
+        ? []
+        : ctx.grants.list(account).map((grant) => ({
+            ...grant,
+            permissions: consentWords(permissions(grant.scopes)),
+          })),
+      ...agentBrowserState(viewer, PARTS),
     };
   };
   app.get("/site/state", (c) => {
-    const record = current(c);
-    if (!record)
+    const seen = viewer(c);
+    if (!seen)
       return c.json({ error: "sign_in_required" }, 401, {
         "Cache-Control": "no-store",
       });
-    return c.json(stateFor(record.account), 200, {
+    return c.json(stateFor(seen), 200, {
       "Cache-Control": "no-store",
     });
   });
@@ -244,8 +290,11 @@ export function mountPortal(app: Hono, ctx: Ctx, deps: Deps) {
     });
   });
   app.get("/site/access", (c) => {
-    const record = current(c);
+    const record = viewer(c);
     if (!record) return c.json({ error: "sign_in_required" }, 401);
+    // The connected agents are the customer's own to see.
+    if (record.agent)
+      return c.json({ error: "customers_own_browser_only" }, 403);
     return c.json({ grants: ctx.grants.list(record.account) }, 200, {
       "Cache-Control": "no-store",
     });
@@ -260,9 +309,22 @@ export function mountPortal(app: Hono, ctx: Ctx, deps: Deps) {
   });
 
   app.get("/account", (c) => {
-    const record = current(c);
+    const record = viewer(c);
     if (!record) return c.redirect("/site/login", 302);
-    const body = `<main class="wrap account" data-account="${escape(record.account)}"><section class="intro"><h1>Your orders.</h1><p id="current-account" class="notice"></p><p>The same scheduled orders your agent reads. A proposal from your agent changes nothing until you approve it in your agent. <a href="/site/login">Switch test customer</a></p><div class="live-row"><p id="status" class="live" role="status">Loading your account…</p><div><button id="refresh" class="secondary" type="button">Refresh now</button> <button id="logout" class="secondary" type="button">Log out</button></div></div></section><div id="content" aria-busy="true"><section class="plain" id="orders"><h2>Scheduled orders</h2><div id="order-list"></div></section><section class="plain" id="delivered"><h2>Last delivery</h2><div id="delivered-order"></div></section><section class="plain" id="activity"><h2>Your agent's activity</h2><p class="notice">A pending proposal doesn't change your order. Approve or decline it in your agent.</p><div id="activity-list"></div></section>${feedbackSection(ctx.feedback(), { section: "plain", notice: "notice", example: "booking a table for a large group" })}<section class="plain" id="agent-access"><h2>Connected agents</h2><p class="notice">Disconnecting an agent ends its access. Logging out of this website doesn't.</p><div id="access-list"></div><p id="access-status" role="status"></p></section></div></main><script defer src="/site/app.js"></script>`;
+    // An agent's browser is told whose it is, and gets no control: no
+    // switch of customer, no log out, and only the parts its scopes cover.
+    const about = record.readOnly
+      ? agentBrowserNotice(record, PARTS)
+          .map((line) => `<p class="notice">${escape(line)}</p>`)
+          .join("")
+      : `<p>The same scheduled orders your agent reads. A proposal from your agent changes nothing until you approve it in your agent. <a href="/site/login">Switch test customer</a></p>`;
+    const orders = viewerSees(record, "orders:read")
+      ? `<section class="plain" id="orders"><h2>Scheduled orders</h2><div id="order-list"></div></section><section class="plain" id="delivered"><h2>Last delivery</h2><div id="delivered-order"></div></section>`
+      : "";
+    const own = record.agent
+      ? ""
+      : `<section class="plain" id="activity"><h2>Your agent's activity</h2><p class="notice">A pending proposal doesn't change your order. Approve or decline it in your agent.</p><div id="activity-list"></div></section>${feedbackSection(ctx.feedback(), { section: "plain", notice: "notice", example: "booking a table for a large group" })}<section class="plain" id="agent-access"><h2>Connected agents</h2><p class="notice">Disconnecting an agent ends its access. Logging out of this website doesn't.</p><div id="access-list"></div><p id="access-status" role="status"></p></section>`;
+    const body = `<main class="wrap account" data-account="${escape(record.account)}"><section class="intro"><h1>Your orders.</h1><p id="current-account" class="notice"></p>${about}<div class="live-row"><p id="status" class="live" role="status">Loading your account…</p><div><button id="refresh" class="secondary" type="button">Refresh now</button>${record.readOnly ? "" : ' <button id="logout" class="secondary" type="button">Log out</button>'}</div></div></section><div id="content" aria-busy="true">${orders}${own}</div></main><script defer src="/site/app.js"></script>`;
     return c.html(
       shell("Your account · Lantern Noodle Bar", body, "/account", origin),
       200,

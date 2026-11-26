@@ -108,7 +108,11 @@ describe("Fernwick ESPI-shaped API", () => {
     });
     // The ESPI-shaped API is XML: only Fernwick's own OpenAPI is listed.
     expect(discovery.apis).toHaveLength(1);
-    expect(Object.keys(discovery.auth.scopes)).toEqual([...scopes]);
+    // The Company's own, then the protocol's for an agent's browser (§6).
+    expect(Object.keys(discovery.auth.scopes)).toEqual([
+      ...scopes,
+      "poppy:browser-sign-in",
+    ]);
     for (const scope of espiScopes)
       expect(discovery.auth.scope_hints[scope]).toEqual({
         changes: "none",

@@ -44,6 +44,7 @@ import {
 } from "./scopes.ts";
 import { fernwickAgent } from "./agent.ts";
 import { skills } from "./skills.ts";
+import { browserSignInHint, browserSignInScope } from "@poppy-lab/pap-core";
 import { mountPortal } from "./portal.ts";
 import {
   consentExpiredPage,
@@ -409,16 +410,19 @@ export const fernwick: CompanyDefinition = {
     organization: { name: "Fernwick Power & Light", domain },
     auth: {
       issuer: origin,
-      scopes: scopeDescriptions,
-      scope_hints: Object.fromEntries(
-        scopes.map((scope) => [
-          scope,
-          {
-            changes: scope === "plan:write" ? "reversible" : "none",
-            personal_data: scope !== "offline_access",
-          },
-        ]),
-      ),
+      scopes: { ...scopeDescriptions, ...browserSignInScope("Fernwick") },
+      scope_hints: {
+        ...Object.fromEntries(
+          scopes.map((scope) => [
+            scope,
+            {
+              changes: scope === "plan:write" ? "reversible" : "none",
+              personal_data: scope !== "offline_access",
+            },
+          ]),
+        ),
+        ...browserSignInHint,
+      },
     },
     // The ESPI-shaped API is Atom XML, described by the extension entry
     // below, not by an OpenAPI document.

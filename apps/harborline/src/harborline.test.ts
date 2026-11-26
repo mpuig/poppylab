@@ -38,7 +38,11 @@ describe("Harborline Bank", () => {
       },
       extensions: { operations: [{ version: "3" }] },
     });
-    expect(Object.keys(discovery.auth.scopes)).toEqual(all);
+    // The Company's own, then the protocol's for an agent's browser (§6).
+    expect(Object.keys(discovery.auth.scopes)).toEqual([
+      ...all,
+      "poppy:browser-sign-in",
+    ]);
     expect(discovery.auth.scope_hints["cards:write"]).toEqual({
       changes: "reversible",
       personal_data: true,

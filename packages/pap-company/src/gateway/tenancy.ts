@@ -10,7 +10,7 @@ import { Hono, type Context } from "hono";
 import { randomId } from "@poppy-lab/pap-client/core";
 import { approvals, type OperationRecord } from "../approvals.ts";
 import { activityOf, agentActivity, keepActivity } from "./activity.ts";
-import { joinedBrowser } from "./browser-session.ts";
+import { browserJoin, joinedBrowser } from "./browser-session.ts";
 import type { Ctx } from "./context.ts";
 import { when } from "./feedback.ts";
 import {
@@ -223,6 +223,11 @@ export function createTenancy(ctx: Ctx) {
           created.converse = handler;
         },
         feedback: () => tenant.feedback ?? [],
+        // Only on this tenant's own requests, as `grantFor`.
+        browser: (c) =>
+          (ctx.tenantKeys.get(c.req.raw) ?? SHARED_TENANT) === key
+            ? browserJoin(ctx, c)
+            : undefined,
       });
     }
     return entry;

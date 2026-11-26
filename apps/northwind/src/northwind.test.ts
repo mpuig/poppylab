@@ -25,6 +25,8 @@ it("publishes Poppy 1.0 discovery, five differentiated scopes and excluded tasks
     "profile:read",
     "preferences:write",
     "bookings:change",
+    // The protocol's own, for an agent's browser (§6).
+    "poppy:browser-sign-in",
   ]);
   expect(discovery.auth.scope_hints).toMatchObject({
     "flights:search": { changes: "none", personal_data: false },

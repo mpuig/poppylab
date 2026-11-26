@@ -36,6 +36,7 @@ import {
   pageHeaders,
 } from "./site.ts";
 import { howItWorksPage, type AgentGuide } from "./how-it-works.ts";
+import { browserSignInHint, browserSignInScope } from "@poppy-lab/pap-core";
 import { mountPortal } from "./portal.ts";
 import { northwindAgent } from "./agent.ts";
 import { skills } from "./skills.ts";
@@ -481,6 +482,7 @@ function mount(
     activity: Parameters<CompanyDefinition["mount"]>[1]["activity"];
     converse: (handler: ConversationHandler) => void;
     feedback: () => readonly FeedbackReport[];
+    browser: Parameters<CompanyDefinition["mount"]>[1]["browser"];
   },
 ) {
   const state = ctx.state as State;
@@ -1195,6 +1197,7 @@ export const northwind: CompanyDefinition = {
           "Choose a standard seat or change meal and supported non-medical assistance preferences. Reversible while available; every change needs approval.",
         "bookings:change":
           "Add paid baggage, cancel, accept an upgrade or change a flight. These can be irreversible or financially consequential; every change needs exact approval.",
+        ...browserSignInScope("Northwind"),
       },
       scope_hints: {
         "flights:search": { changes: "none", personal_data: false },
@@ -1202,6 +1205,7 @@ export const northwind: CompanyDefinition = {
         "profile:read": { changes: "none", personal_data: true },
         "preferences:write": { changes: "reversible", personal_data: true },
         "bookings:change": { changes: "irreversible", personal_data: true },
+        ...browserSignInHint,
       },
     },
     apis: [

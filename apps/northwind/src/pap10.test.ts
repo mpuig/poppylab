@@ -20,6 +20,7 @@ it("offers PAR, DPoP tokens, refresh, revocation and Poppy 1.0 only", async () =
       "profile:read",
       "preferences:write",
       "bookings:change",
+      "poppy:browser-sign-in",
     ],
   });
   const verifier = "p".repeat(64);

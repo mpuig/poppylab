@@ -85,7 +85,11 @@ describe("Harborline FDX-shaped API", () => {
     expect(discovery.apis[1].description).toContain(
       "Not FDX-conformant or certified",
     );
-    expect(Object.keys(discovery.auth.scopes)).toEqual([...scopes]);
+    // The Company's own, then the protocol's for an agent's browser (§6).
+    expect(Object.keys(discovery.auth.scopes)).toEqual([
+      ...scopes,
+      "poppy:browser-sign-in",
+    ]);
     for (const scope of fdx)
       expect(discovery.auth.scope_hints[scope]).toEqual({
         changes: "none",

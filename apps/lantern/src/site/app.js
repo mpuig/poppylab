@@ -10,7 +10,10 @@ const fetch = (url, options = {}) =>
     ...options,
     headers: { ...options.headers, "X-Lantern-Account": account },
   });
-const $ = (id) => document.getElementById(id);
+// An agent's browser gets a page without some sections and controls
+// (see /site/state's `browser`): what is drawn for a part that isn't on the
+// page goes to an element that is never shown.
+const $ = (id) => document.getElementById(id) || document.createElement("div");
 const money = (n) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
     n / 100,
@@ -215,7 +218,8 @@ function render(data) {
       ),
     );
     if (editing.has(o.id)) article.append(orderEditor(o));
-    else {
+    // No editor for an agent's browser: its changes go through the agent.
+    else if (!data.browser) {
       const edit = node("button", "Edit order", "secondary");
       edit.type = "button";
       edit.addEventListener("click", () => {
@@ -353,8 +357,10 @@ function agent(g) {
       "Access ends " + g.expires + " · Address: " + g.client,
       "record-meta",
     ),
-    revoke,
   );
+  // Disconnecting is the customer's, in their own browser.
+  if (snapshot && snapshot.browser) return row;
+  row.append(revoke);
   revoke.type = "button";
   revoke.addEventListener("click", async () => {
     revoke.disabled = true;

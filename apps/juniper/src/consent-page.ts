@@ -1,4 +1,5 @@
 import {
+  browserAccess,
   consentExpiredHtml,
   consentSheetCss,
   consentSheetHtml,
@@ -57,6 +58,7 @@ export function permissions(scopes: string) {
           },
         ]
       : [],
+    ...browserAccess(scopes),
   };
 }
 /** The consent page's frame: the shop's header without links, then the sheet. */

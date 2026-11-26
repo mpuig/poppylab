@@ -28,7 +28,7 @@ it("publishes its own issuer, scopes and an Operations v2 contract", async () =>
   expect(metadata).toMatchObject({
     issuer: origin,
     protected_resources: [origin],
-    scopes_supported: ["orders:read", "orders:write"],
+    scopes_supported: ["orders:read", "orders:write", "poppy:browser-sign-in"],
     grant_types_supported: ["authorization_code", "refresh_token"],
   });
   const spec = (await inject("/openapi.json")).json();

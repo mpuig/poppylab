@@ -13,7 +13,10 @@ const fetch = (url, options = {}) =>
       "X-Juniper-Account": document.body.dataset.account,
     },
   });
-const $ = (id) => document.getElementById(id);
+// An agent's browser gets a page without some sections and controls
+// (see /site/state's `browser`): what is drawn for a part that isn't on the
+// page goes to an element that is never shown.
+const $ = (id) => document.getElementById(id) || document.createElement("div");
 const money = (n) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
     n / 100,
@@ -164,6 +167,12 @@ function renderServices(data) {
         node("span", m.text),
       );
       details.append(p);
+    }
+    // No follow-up from an agent's browser: its changes go through the agent.
+    if (data.browser) {
+      article.append(details);
+      $("case-list").append(article);
+      continue;
     }
     const button = node("button", "Add information", "secondary");
     button.type = "button";

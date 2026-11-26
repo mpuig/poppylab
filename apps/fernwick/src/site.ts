@@ -6,6 +6,8 @@
  */
 import { GRANT_MS, TOKEN_MS } from "@poppy-lab/pap-company";
 import {
+  BROWSER_SIGN_IN,
+  browserAccess,
   consentExpiredHtml,
   consentSheetCss,
   consentSheetHtml,
@@ -302,7 +304,11 @@ const meterStyle = () => {
 export function permissions(scopes: string) {
   const requested = scopes.split(" ").filter(Boolean) as FernwickScope[];
   const read = requested.filter(
-    (scope) => scope !== "plan:write" && scope !== "offline_access",
+    (scope) =>
+      scope !== "plan:write" &&
+      scope !== "offline_access" &&
+      // The protocol's own: it has a line of its own below.
+      (scope as string) !== BROWSER_SIGN_IN,
   );
   return {
     reads: read.map((scope) => ({
@@ -319,9 +325,10 @@ export function permissions(scopes: string) {
           },
         ]
       : [],
-    ...(requested.includes("offline_access")
-      ? {
-          extras: [
+    ...browserAccess(
+      scopes,
+      requested.includes("offline_access")
+        ? [
             {
               heading: "While you're away",
               option: {
@@ -330,9 +337,9 @@ export function permissions(scopes: string) {
                 text: `${permissionText.offline_access} Optional and off by default.`,
               },
             },
-          ],
-        }
-      : {}),
+          ]
+        : [],
+    ),
   };
 }
 

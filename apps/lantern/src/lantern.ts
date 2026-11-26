@@ -28,6 +28,7 @@ import {
   type AgentGuide,
   type GuidePaths,
 } from "./site.ts";
+import { browserSignInHint, browserSignInScope } from "@poppy-lab/pap-core";
 import { mountPortal } from "./portal.ts";
 import { lanternAgent, type Refund } from "./agent.ts";
 import { skills } from "./skills.ts";
@@ -259,6 +260,7 @@ function mount(
     activity: Parameters<CompanyDefinition["mount"]>[1]["activity"];
     converse: (handler: ConversationHandler) => void;
     feedback: () => readonly FeedbackReport[];
+    browser: Parameters<CompanyDefinition["mount"]>[1]["browser"];
   },
 ) {
   const state = ctx.state as State;
@@ -449,10 +451,12 @@ export const lantern: CompanyDefinition = {
           "See your scheduled orders: dishes, delivery slot, address and price. Read only.",
         "orders:write":
           "Change a scheduled order: move its slot, or add or remove dishes. A change can cost more, which can't be undone. You approve each change. Doesn't include reading your orders.",
+        ...browserSignInScope("Lantern"),
       },
       scope_hints: {
         "orders:read": { changes: "none", personal_data: true },
         "orders:write": { changes: "irreversible", personal_data: true },
+        ...browserSignInHint,
       },
     },
     apis: [

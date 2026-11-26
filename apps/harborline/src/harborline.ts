@@ -37,6 +37,7 @@ import {
   pageHeaders,
 } from "./site.ts";
 import { howItWorksPage, type AgentGuide } from "./how-it-works.ts";
+import { browserSignInHint, browserSignInScope } from "@poppy-lab/pap-core";
 import { mountPortal } from "./portal.ts";
 import { harborlineAgent } from "./agent.ts";
 import { skills } from "./skills.ts";
@@ -1270,20 +1271,23 @@ export const harborline: CompanyDefinition = {
     organization: { name: "Harborline Bank", domain },
     auth: {
       issuer: origin,
-      scopes: scopeDescriptions,
-      scope_hints: Object.fromEntries(
-        scopes.map((scope) => [
-          scope,
-          {
-            changes: scope.endsWith(":request")
-              ? "irreversible"
-              : scope.endsWith(":write")
-                ? "reversible"
-                : "none",
-            personal_data: scope !== "offline_access",
-          },
-        ]),
-      ),
+      scopes: { ...scopeDescriptions, ...browserSignInScope("Harborline") },
+      scope_hints: {
+        ...Object.fromEntries(
+          scopes.map((scope) => [
+            scope,
+            {
+              changes: scope.endsWith(":request")
+                ? "irreversible"
+                : scope.endsWith(":write")
+                  ? "reversible"
+                  : "none",
+              personal_data: scope !== "offline_access",
+            },
+          ]),
+        ),
+        ...browserSignInHint,
+      },
     },
     apis: [
       {

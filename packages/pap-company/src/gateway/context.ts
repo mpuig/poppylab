@@ -60,17 +60,20 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
     delete state.operations;
   }
   const isolated = deploy.isolation === "visitor";
-  const scopes = [...new Set(def.scopes ?? [def.readScope, def.writeScope])];
+  // The Company's own scopes, then the protocol's: every Company here can
+  // have a browser joined signed in, read only (§6, `browser-session.ts`).
+  const scopes = [
+    ...new Set([
+      ...(def.scopes ?? [def.readScope, def.writeScope]),
+      BROWSER_SIGN_IN,
+    ]),
+  ];
   if (
     !scopes.length ||
     !scopes.includes(def.readScope) ||
     !scopes.includes(def.writeScope)
   )
     throw new Error("Company scopes must include readScope and writeScope");
-  // A token with it would sign a joined browser in (§6), which the browser
-  // join here doesn't do: see `browser-session.ts` before offering it.
-  if (scopes.includes(BROWSER_SIGN_IN))
-    throw new Error(`Company scopes can't include ${BROWSER_SIGN_IN} yet`);
   // §7: account routes, never the sign-in, discovery or Poppy routes.
   const accountPrefixes = [...(def.accountPrefixes ?? ["/api/account"])];
   const reserved = ["/oauth/", "/.well-known/", "/poppy/"];

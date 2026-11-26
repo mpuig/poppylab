@@ -1,5 +1,7 @@
 /** Harborline Bank public, consent and shared portal visual system. */
 import {
+  BROWSER_SIGN_IN,
+  browserAccess,
   consentExpiredHtml,
   consentSheetCss,
   consentSheetHtml,
@@ -258,7 +260,9 @@ export function permissions(scopes: string) {
     (scope) =>
       !scope.endsWith(":write") &&
       !scope.endsWith(":request") &&
-      scope !== "offline_access",
+      scope !== "offline_access" &&
+      // The protocol's own: it has a line of its own below.
+      (scope as string) !== BROWSER_SIGN_IN,
   );
   const changes = requested.filter(
     (scope) => scope.endsWith(":write") || scope.endsWith(":request"),
@@ -274,9 +278,10 @@ export function permissions(scopes: string) {
       text: permissionText[scope],
       checked: true,
     })),
-    ...(requested.includes("offline_access")
-      ? {
-          extras: [
+    ...browserAccess(
+      scopes,
+      requested.includes("offline_access")
+        ? [
             {
               heading: "While you're away",
               option: {
@@ -285,9 +290,9 @@ export function permissions(scopes: string) {
                 text: `${permissionText.offline_access} Optional and off by default.`,
               },
             },
-          ],
-        }
-      : {}),
+          ]
+        : [],
+    ),
   };
 }
 

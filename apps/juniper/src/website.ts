@@ -9,13 +9,21 @@ import {
 import { randomId, tokenHash } from "@poppy-lab/pap-client";
 import { scryptSync, timingSafeEqual } from "node:crypto";
 import {
+  AGENT_BROWSER_LOGIN,
+  agentBrowserNotice,
+  agentBrowserState,
   feedbackSection,
   LOGIN_FORM_MS,
   loginFormToken,
   loginFormValid,
+  siteViewer,
+  viewerSees,
+  type BrowserJoin,
   type FeedbackReport,
   type GrantAccess,
   type Session,
+  type SitePart,
+  type SiteViewer,
 } from "@poppy-lab/pap-company";
 import { permissions } from "./consent-page.js";
 import { ProfileConflict } from "./profiles.js";
@@ -24,6 +32,21 @@ import type { operations } from "./operations.js";
 import { ShoppingConflict } from "./shopping-edits.js";
 import { persona, personaSelect } from "./personas.js";
 export type WebSession = { expires: number; account?: string };
+/**
+ * What an agent's own browser, joined to its Session (§6), sees only with
+ * the scope that reads it in the API. Juniper has one read scope, so it is
+ * the whole account or none of it. An agent's browser never sees the
+ * connected agents, their activity or their reports, is offered no control,
+ * and the gateway refuses every change it sends.
+ */
+const PARTS: SitePart[] = [
+  {
+    name: "Shopping, deliveries, orders, billing, support cases and profile",
+    scope: "poppy:read",
+  },
+];
+const escapeHtml = (text: string) =>
+  text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 /** Where the website keeps its logins: a Map, or a view of the Company state. */
 export type WebSessions = Iterable<[string, WebSession]> & {
   readonly size: number;
@@ -120,6 +143,8 @@ export function website(
   portal = origin === "http://juniper.localhost:4100",
   /** This visitor's §9.3 reports, for the account page. */
   feedback: () => readonly FeedbackReport[] = () => [],
+  /** The browser join a request belongs to (§6), as the gateway tells it. */
+  browser: (req: Req) => BrowserJoin | undefined = () => undefined,
 ) {
   lab = foot(origin);
   bar = labBarHtml(origin, "Juniper Market");
@@ -147,10 +172,42 @@ export function website(
         req.headers["x-juniper-account"] === (record.account ?? "elena"))
     );
   };
+  /** Who a read is for: a join's account first, then the browser's login. */
+  const viewer = (req: Req) => {
+    if (!portal) return undefined;
+    const record = sessions.get(tokenHash(cookie(req, "juniper_web")));
+    const account = record?.account ?? "elena";
+    return siteViewer(
+      browser(req),
+      record && record.expires > Date.now() && persona(account)
+        ? { account }
+        : undefined,
+    );
+  };
+  /** The account as the business modules take it, for a read. */
+  const reading = (seen: SiteViewer): Session => ({
+    client: "juniper-website",
+    user: seen.account,
+    account: seen.account,
+    expires: Date.now() + 60000,
+  });
   const setCookie = (name: string, value: string, maxAge: number) =>
     `${name}=${value}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${maxAge}${origin.startsWith("https:") ? "; Secure" : ""}`;
-  app.get("/site/login", async (_req, reply) => {
+  app.get("/site/login", async (req, reply) => {
     if (!portal) return reply.code(403).send({ error: "local_demo_only" });
+    // An agent's browser gets no login form: its sign-in is the agent's.
+    const join = browser(req);
+    if (join?.account) return reply.redirect("/account");
+    if (join)
+      return reply
+        .header("Cache-Control", "no-store")
+        .type("text/html")
+        .send(
+          page(
+            "Not signed in",
+            `<div class="login"><h1>This browser isn't signed in.</h1><p class="intro">${escapeHtml(AGENT_BROWSER_LOGIN)}</p></div>`,
+          ),
+        );
     // In a cookie and in the form: the two must arrive equal (site-login.ts).
     const token = loginFormToken();
     reply
@@ -347,9 +404,12 @@ export function website(
     }
   });
   app.get("/site/access", async (req, reply) => {
-    if (!active(req))
-      return reply.code(401).send({ error: "sign_in_required" });
-    return { grants: access?.list(browserSession(req).account!) ?? [] };
+    const seen = viewer(req);
+    if (!seen) return reply.code(401).send({ error: "sign_in_required" });
+    // The connected agents are the customer's own to see.
+    if (seen.agent)
+      return reply.code(403).send({ error: "customers_own_browser_only" });
+    return { grants: access?.list(seen.account) ?? [] };
   });
   app.post<{ Params: { id: string } }>(
     "/site/access/:id/revoke",
@@ -365,30 +425,67 @@ export function website(
   );
   app.get("/site/state", async (req, reply) => {
     reply.header("Cache-Control", "no-store");
-    if (!active(req))
-      return reply.code(401).send({ error: "sign_in_required" });
-    const session = browserSession(req);
+    const seen = viewer(req);
+    if (!seen) return reply.code(401).send({ error: "sign_in_required" });
+    // An agent's browser without the scope that reads the account gets who
+    // it is signed in as, and nothing of the account.
+    if (!viewerSees(seen, "poppy:read"))
+      return {
+        account_id: seen.account,
+        customer: persona(seen.account)?.name ?? seen.account,
+        ...agentBrowserState(seen, PARTS),
+      };
     // The connected agents come with the account, so the page's own
-    // two-second read keeps their list current, in the consent page's words.
+    // two-second read keeps their list current, in the consent page's
+    // words. They and what they asked for are the customer's own to see,
+    // not an agent's browser's.
     return {
-      ...view(session),
-      agents: (access?.list(session.account!) ?? []).map((grant) => ({
-        ...grant,
-        permissions: consentWords(permissions(grant.scopes)),
-      })),
+      ...view(reading(seen)),
+      ...(seen.agent ? { activity: [] } : {}),
+      agents: seen.agent
+        ? []
+        : (access?.list(seen.account) ?? []).map((grant) => ({
+            ...grant,
+            permissions: consentWords(permissions(grant.scopes)),
+          })),
+      ...agentBrowserState(seen, PARTS),
     };
   });
   app.get("/account", async (req, reply) => {
     reply.header("Cache-Control", "no-store");
-    if (!active(req)) return reply.redirect("/site/login");
+    const seen = viewer(req);
+    if (!seen) return reply.redirect("/site/login");
+    // An agent's browser is told whose it is, and gets no control: no
+    // switch of customer, no log out, no editor and no form.
+    const about = seen.readOnly
+      ? agentBrowserNotice(seen, PARTS)
+          .map((text) => `<p class="notice">${escapeHtml(text)}</p>`)
+          .join("")
+      : `<p><a href="/site/login">Switch test customer</a></p>`;
+    // Without the scope that reads the account there is nothing to draw,
+    // so the page goes without its script.
+    if (!viewerSees(seen, "poppy:read"))
+      return reply
+        .type("text/html")
+        .send(
+          page(
+            "Your account",
+            `<h1>Your account.</h1><p id="current-account" class="notice">Signed in as ${escapeHtml(persona(seen.account)?.name ?? seen.account)}, a test customer</p>${about}`,
+          ),
+        );
+    const editor = (target: "basket" | "delivery") =>
+      seen.readOnly ? "" : shoppingEditor(target);
+    const own = seen.agent
+      ? ""
+      : `<section id="agent-access"><h2>Connected agents</h2><p class="notice">Disconnecting an agent ends its access to your account. It doesn't log you out of the website or delete orders. Logging out of the website doesn't disconnect an agent.</p><div id="access-list"></div><p id="access-status" role="status"></p></section>${feedbackSection(feedback(), { notice: "notice", example: "paying with a gift card" })}<section id="activity"><details><summary><h2>Your agent's activity</h2></summary><p class="notice">A pending proposal doesn't change your data. Approve or decline it in Poppy Lab.</p><div id="activity-list"></div></details></section>`;
     return reply
       .type("text/html")
       .send(
         page(
           "Your account",
-          `<h1>Your account, up to date.</h1><p class="intro">Shopping, deliveries and customer service, with the same data your agent reads. Pending proposals don't change your account.</p><p id="current-account" class="notice"></p><p><a href="/site/login">Switch test customer</a></p><nav aria-label="Your account services"><a href="#basket">Shopping</a><a href="#delivery">Deliveries</a><a href="#orders">Orders</a><a href="#billing">Billing</a><a href="#support">Help and support</a><a href="#profile">Profile</a><a href="#agent-access">Connected agents</a><a href="#activity">Activity</a></nav><div class="live-row"><p id="status" class="live" role="status">Loading your account…</p><div><button id="refresh" class="secondary" type="button">Refresh now</button> <button id="logout" class="secondary" type="button">Log out</button></div></div><div id="content" aria-busy="true"><div class="columns"><section id="basket"><h2>Your basket</h2><div id="basket-items"></div><div id="basket-total"></div>${shoppingEditor("basket")}</section><section id="delivery"><h2>Recurring delivery</h2><p id="day" class="day"></p><div id="delivery-items"></div><div id="delivery-total"></div>${shoppingEditor("delivery")}</section></div><section id="orders"><h2>Your orders</h2><div id="order-list"></div></section><section id="billing"><h2>Billing</h2><p class="notice">Documents generated from your simulated orders. They are not tax receipts and prove no real payment.</p><div id="invoice-list"></div></section><section id="support"><h2>Help and support</h2><p class="intro">Read the frequent answers or send a request. Support in this demo replies automatically; no person is on duty.</p><p><a href="/help">See frequent questions</a></p><div class="columns"><div><h3>Your requests</h3><div id="case-list"></div></div><div><h3>Open a support case</h3><form id="case-form" method="post" action="/site/cases"><label for="case-topic">Topic</label><select id="case-topic" name="topic"><option value="delivery">Deliveries</option><option value="billing">Billing</option><option value="profile">Profile</option><option value="other">Something else</option></select><label for="case-subject">Subject</label><input id="case-subject" name="subject" required maxlength="120"><label for="case-order">Order reference (optional)</label><select id="case-order" name="order_id"><option value="">No related order</option></select><label for="case-message">What happened?</label><textarea id="case-message" name="message" required maxlength="2000" rows="5"></textarea><p class="notice">Sending creates a fictional request. It doesn't change orders, deliveries or amounts. Don't include real personal or bank details.</p><button type="submit">Send request</button></form><form id="reply-form" method="post" action="/site/cases" hidden><h3 id="reply-title">Reply to a support case</h3><input id="reply-id" type="hidden"><label for="reply-message">Add information</label><textarea id="reply-message" required maxlength="2000" rows="4"></textarea><p class="notice">Sending a follow-up reopens the case and invalidates any earlier proposal to close it.</p><button type="submit">Send follow-up</button></form><p id="support-status" role="status"></p></div></div></section><section id="profile"><h2>Your profile</h2><p class="notice">Fictional details for future purchases. Changing them doesn't alter existing orders or verify a real identity.</p><div class="columns"><div><dl id="profile-data"></dl><button id="edit-profile" type="button" class="secondary" disabled>Edit profile</button></div><form id="profile-form" method="post" action="/site/profile" hidden><input id="profile-version" name="version" type="hidden"><label for="profile-name">Fictional name</label><input id="profile-name" name="name" required maxlength="80" autocomplete="off"><label for="profile-email">Test email</label><input id="profile-email" name="email" type="email" required maxlength="120" pattern=".+[.]invalid" aria-describedby="profile-hint" autocomplete="off"><label for="profile-address">Fictional address for future purchases</label><input id="profile-address" name="address" required maxlength="240" autocomplete="off"><p id="profile-hint" class="notice">Use fictional details only and an email ending in .invalid. No email is sent. Saving invalidates earlier profile and checkout proposals.</p><button type="submit">Save profile</button> <button id="cancel-profile" type="button" class="secondary">Cancel</button></form></div><p id="profile-status" role="status"></p></section><section id="agent-access"><h2>Connected agents</h2><p class="notice">Disconnecting an agent ends its access to your account. It doesn't log you out of the website or delete orders. Logging out of the website doesn't disconnect an agent.</p><div id="access-list"></div><p id="access-status" role="status"></p></section>${feedbackSection(feedback(), { notice: "notice", example: "paying with a gift card" })}<section id="activity"><details><summary><h2>Your agent's activity</h2></summary><p class="notice">A pending proposal doesn't change your data. Approve or decline it in Poppy Lab.</p><div id="activity-list"></div></details></section></div>`,
+          `<h1>Your account, up to date.</h1><p class="intro">Shopping, deliveries and customer service, with the same data your agent reads. Pending proposals don't change your account.</p><p id="current-account" class="notice"></p>${about}<nav aria-label="Your account services"><a href="#basket">Shopping</a><a href="#delivery">Deliveries</a><a href="#orders">Orders</a><a href="#billing">Billing</a><a href="#support">Help and support</a><a href="#profile">Profile</a>${seen.agent ? "" : '<a href="#agent-access">Connected agents</a><a href="#activity">Activity</a>'}</nav><div class="live-row"><p id="status" class="live" role="status">Loading your account…</p><div><button id="refresh" class="secondary" type="button">Refresh now</button>${seen.readOnly ? "" : ' <button id="logout" class="secondary" type="button">Log out</button>'}</div></div><div id="content" aria-busy="true"><div class="columns"><section id="basket"><h2>Your basket</h2><div id="basket-items"></div><div id="basket-total"></div>${editor("basket")}</section><section id="delivery"><h2>Recurring delivery</h2><p id="day" class="day"></p><div id="delivery-items"></div><div id="delivery-total"></div>${editor("delivery")}</section></div><section id="orders"><h2>Your orders</h2><div id="order-list"></div></section><section id="billing"><h2>Billing</h2><p class="notice">Documents generated from your simulated orders. They are not tax receipts and prove no real payment.</p><div id="invoice-list"></div></section><section id="support"><h2>Help and support</h2><p class="intro">Read the frequent answers or send a request. Support in this demo replies automatically; no person is on duty.</p><p><a href="/help">See frequent questions</a></p><div class="columns"><div><h3>Your requests</h3><div id="case-list"></div></div>${seen.readOnly ? "" : `<div><h3>Open a support case</h3><form id="case-form" method="post" action="/site/cases"><label for="case-topic">Topic</label><select id="case-topic" name="topic"><option value="delivery">Deliveries</option><option value="billing">Billing</option><option value="profile">Profile</option><option value="other">Something else</option></select><label for="case-subject">Subject</label><input id="case-subject" name="subject" required maxlength="120"><label for="case-order">Order reference (optional)</label><select id="case-order" name="order_id"><option value="">No related order</option></select><label for="case-message">What happened?</label><textarea id="case-message" name="message" required maxlength="2000" rows="5"></textarea><p class="notice">Sending creates a fictional request. It doesn't change orders, deliveries or amounts. Don't include real personal or bank details.</p><button type="submit">Send request</button></form><form id="reply-form" method="post" action="/site/cases" hidden><h3 id="reply-title">Reply to a support case</h3><input id="reply-id" type="hidden"><label for="reply-message">Add information</label><textarea id="reply-message" required maxlength="2000" rows="4"></textarea><p class="notice">Sending a follow-up reopens the case and invalidates any earlier proposal to close it.</p><button type="submit">Send follow-up</button></form><p id="support-status" role="status"></p></div>`}</div></section><section id="profile"><h2>Your profile</h2><p class="notice">Fictional details for future purchases. Changing them doesn't alter existing orders or verify a real identity.</p><div class="columns"><div><dl id="profile-data"></dl>${seen.readOnly ? "" : '<button id="edit-profile" type="button" class="secondary" disabled>Edit profile</button>'}</div>${seen.readOnly ? "" : `<form id="profile-form" method="post" action="/site/profile" hidden><input id="profile-version" name="version" type="hidden"><label for="profile-name">Fictional name</label><input id="profile-name" name="name" required maxlength="80" autocomplete="off"><label for="profile-email">Test email</label><input id="profile-email" name="email" type="email" required maxlength="120" pattern=".+[.]invalid" aria-describedby="profile-hint" autocomplete="off"><label for="profile-address">Fictional address for future purchases</label><input id="profile-address" name="address" required maxlength="240" autocomplete="off"><p id="profile-hint" class="notice">Use fictional details only and an email ending in .invalid. No email is sent. Saving invalidates earlier profile and checkout proposals.</p><button type="submit">Save profile</button> <button id="cancel-profile" type="button" class="secondary">Cancel</button></form>`}</div><p id="profile-status" role="status"></p></section>${own}</div>`,
           true,
-          browserSession(req).account,
+          seen.account,
         ),
       );
   });

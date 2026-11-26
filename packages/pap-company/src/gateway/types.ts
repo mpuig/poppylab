@@ -176,6 +176,13 @@ export type JoinCode = {
   client?: string;
   holder?: string;
   session?: string;
+  /**
+   * Authorized with an access token: its account, its scopes and its grant
+   * (by key), which the joined browser is then signed in with.
+   */
+  account?: string;
+  scopes?: string;
+  grant?: string;
   /** A form submitted it: a code is used by its first submission. */
   used?: boolean;
 };
@@ -185,6 +192,25 @@ export type JoinedBrowser = {
   holder: string;
   session: string;
   expires: number;
+  /** Signed in (§6): as `JoinCode`. It lasts while the grant does. */
+  account?: string;
+  scopes?: string;
+  grant?: string;
+};
+/**
+ * What a Company's website is told of the browser join a request belongs
+ * to (§6). `account` is there while the join is signed in: the website then
+ * serves that account, whatever login cookie the browser sends, shows only
+ * what `scopes` and `resources` cover, as its API would for the token, and
+ * offers no change. Without `account` the browser is a Session's and
+ * signed out. The gateway refuses every change from a joined browser.
+ */
+export type BrowserJoin = {
+  account?: string;
+  /** The access token's scopes; none when signed out. */
+  scopes: string[];
+  /** The grant's resources (`selectResources`), when it has them. */
+  resources?: string[];
 };
 export type Tenant = {
   business: Record<string, unknown>;
@@ -613,6 +639,11 @@ export type CompanyDefinition = {
       converse: (handler: ConversationHandler) => void;
       /** This tenant's §9.3 reports, newest last, read-only (for a website). */
       feedback: () => readonly FeedbackReport[];
+      /**
+       * §6: the browser join a website request belongs to, or `undefined`
+       * for any other browser. Ask it before the website's own login.
+       */
+      browser: (c: Context) => BrowserJoin | undefined;
     },
   ) => void;
 };
@@ -663,10 +694,10 @@ export const SESSION_MS = 3600000,
 /** §6: where a Company on this gateway has its browser-session endpoint. */
 export const BROWSER_SESSION_PATH = "/poppy/browser-session";
 /**
- * §4.7: the protocol's own scope, which signs a joined browser in (§6). No
- * Company on this gateway grants it. Their websites give a logged-in
- * customer everything and can't apply scopes, so it would be the account's
- * full access there, which no consent page here asks the User for.
+ * §4.7: the protocol's own scope, which signs a joined browser in (§6).
+ * Every Company on this gateway lists it. A consent grants it only on its
+ * own line (`allow_browser`), and a website shows a browser joined with it
+ * what the token's other scopes cover and takes no change from it.
  */
 export const BROWSER_SIGN_IN = "poppy:browser-sign-in";
 export const hash = (value: string) =>

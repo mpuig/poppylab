@@ -44,7 +44,7 @@ const discoveryKeys: Record<string, [title: string, text: string]> = {
   ],
   auth: [
     "Where you sign in.",
-    "And the two permissions an agent can ask you for: to see your account, and to propose changes to it.",
+    "And the permissions an agent can ask you for: to see your account, to propose changes to it, and to open this website signed in, read only.",
   ],
   extensions: [
     "Changes wait for you.",

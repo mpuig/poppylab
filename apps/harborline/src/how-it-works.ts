@@ -44,7 +44,7 @@ const discoveryKeys: Record<string, [title: string, text: string]> = {
   ],
   auth: [
     "Where you sign in.",
-    "And the permissions an agent can ask you for, each one narrow: to see one kind of record, or to propose one kind of change.",
+    "And the permissions an agent can ask you for, each one narrow: to see one kind of record, to propose one kind of change, or to open this website signed in, read only.",
   ],
   apis: [
     "What it can ask the bank.",
@@ -183,7 +183,7 @@ export function howItWorksPage(origin: string, guide: AgentGuide) {
       return `<li><b class="mark">${i + 1}</b><span><strong>${title}</strong> ${escape(text)}</span></li>`;
     })
     .join("");
-  // The sixteen permissions and their hints would run to two screens: said in words here, whole in the file.
+  // The seventeen permissions and their hints would run to two screens: said in words here, whole in the file.
   const permissions = Object.keys(
     (guide.discovery.auth as { scopes?: Record<string, string> } | undefined)
       ?.scopes ?? {},

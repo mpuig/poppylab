@@ -44,7 +44,7 @@ const discoveryKeys: Record<string, [title: string, text: string]> = {
   ],
   auth: [
     "Where you sign in.",
-    "And the permissions an agent can ask you for, each one narrow: to see your account, your hourly usage or your bills, or to propose a plan switch.",
+    "And the permissions an agent can ask you for, each one narrow: to see your account, your hourly usage or your bills, to propose a plan switch, or to open this website signed in, read only.",
   ],
   apis: [
     "What it can ask the utility.",

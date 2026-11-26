@@ -1,5 +1,6 @@
 /** Northwind Air website: a synoptic route chart, shared by landing, account and consent. */
 import {
+  browserAccess,
   consentExpiredHtml,
   consentSheetCss,
   consentSheetHtml,
@@ -276,6 +277,7 @@ export function permissions(scopes: string) {
           },
         ]
       : [],
+    ...browserAccess(scopes),
   };
 }
 
