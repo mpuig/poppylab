@@ -437,7 +437,11 @@ async function sweep(visitor: string, room = 0) {
 
 export type ConversationSummary = {
   id: string;
-  /** Its Companies' names in one line, and the address of the first. */
+  /**
+   * Its Companies' names in one line, and the address of the first. A
+   * conversation with no Company says so in `company` ("No company yet",
+   * or "No company" once it has ended), and its `url` is "".
+   */
   company: string;
   url: string;
   /** Each of its Companies, in the order they were connected. */
@@ -458,8 +462,11 @@ export async function listConversations(
       id,
       // For a list that shows one name and one address: with several
       // Companies it names each and links to the first. With none, as
-      // before any is connected or after the last one left, both are "".
-      company: run.connections.map(companyName).join(", "),
+      // before any is connected or after the last one left, the list
+      // says so where the name would be, and there is no address.
+      company:
+        run.connections.map(companyName).join(", ") ||
+        (run.archived ? "No company" : "No company yet"),
       url: run.connections[0]?.url ?? "",
       companies: run.connections.map((connection) => ({
         origin: originOf(connection),

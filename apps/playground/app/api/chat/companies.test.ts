@@ -44,7 +44,12 @@ import { createIdentity, ProtocolError } from "@poppy-lab/pap-client";
 import { connected, discovered } from "@/lib/company-fixture";
 import { forgetCompany } from "@/lib/transcript";
 import { RUN_LIMITS } from "@/lib/run-size";
-import { readConversation, seedRun, visitorOf } from "@/lib/runs";
+import {
+  listConversations,
+  readConversation,
+  seedRun,
+  visitorOf,
+} from "@/lib/runs";
 import type { Run } from "@/lib/runtime";
 import { POST } from "./route";
 
@@ -127,6 +132,13 @@ const sent = () =>
   }));
 const words = (run: Run) =>
   (run.transcript ?? []).map((e) => [e.role, e.content, e.company]);
+/** The visitor's conversations, as History lists them. */
+const conversations = async () => {
+  const { cookies } = await import("next/headers");
+  return (await listConversations(visitorOf((await cookies()) as never)!))
+    .map((c) => c.id)
+    .sort();
+};
 
 // The route takes twenty turns a minute in one process: each test starts
 // a minute after the last one.
@@ -410,6 +422,81 @@ describe("a conversation with no Company", () => {
     );
     expect(stored!.connections).toEqual([]);
     expect(stored!.transcript).toHaveLength(2);
+    // History lists it by its words, and says it has no Company yet.
+    const listed = await listConversations(
+      visitorOf((await cookies()) as never)!,
+    );
+    expect(listed.find((c) => c.id === turn.conversation)).toMatchObject({
+      title: "hello",
+      company: "No company yet",
+      url: "",
+      companies: [],
+      active: true,
+    });
+  });
+
+  it("starts none for a page that shows one Company and names neither a conversation nor a Company", async () => {
+    const before = await conversations();
+    // As it was before a conversation could have no Company.
+    const turn = await say("hello", { companies: undefined }, "");
+    expect(turn.status).toBe(400);
+    expect(turn.answer.error).toBe(
+      "Enter a Company URL and a message of at most 2000 characters.",
+    );
+    expect(turn.conversation).toBeNull();
+    expect(await conversations()).toEqual(before);
+  });
+});
+
+describe("a turn that names a Company its conversation wouldn't have", () => {
+  const refusal = {
+    code: "company_not_connected",
+    error: "This conversation isn't connected to that company.",
+  };
+
+  it("is refused before a new conversation starts at the address the page shows", async () => {
+    const run = await conversation([], [shop]);
+    const before = await conversations();
+    // The page shows Lantern, which this conversation isn't connected
+    // to, and the turn is for Juniper.
+    const turn = await say("my orders", { url: food, company: shop });
+    expect(turn.status).toBe(400);
+    expect(turn.answer).toEqual(refusal);
+    // No conversation was started, and the one it named is as it was.
+    expect(turn.conversation).toBeNull();
+    expect(await conversations()).toEqual(before);
+    expect(run.transcript).toBeUndefined();
+    expect(run.busy).toBe(false);
+    expect(transport).not.toHaveBeenCalled();
+  });
+
+  it("is refused for a conversation unknown here too, and starts none", async () => {
+    const before = await conversations();
+    const turn = await say("my orders", { url: food, company: shop }, "");
+    expect(turn.status).toBe(400);
+    expect(turn.answer).toEqual(refusal);
+    expect(turn.conversation).toBeNull();
+    expect(await conversations()).toEqual(before);
+    // The same for a button's answer that picks a Company.
+    const pressed = await say("", {
+      message: undefined,
+      url: food,
+      answer: { company: shop },
+    });
+    expect(pressed.status).toBe(400);
+    expect(pressed.answer).toEqual(refusal);
+    expect(await conversations()).toEqual(before);
+  });
+
+  it("starts a conversation at the address when the Company named is the one there", async () => {
+    const turn = await say(
+      "What are your products?",
+      { url: food, company: `${food}/menu` },
+      "",
+    );
+    expect(turn.status).toBe(200);
+    expect(turn.conversation).toMatch(/^[A-Za-z0-9_-]{16,64}$/);
+    expect(turn.answer.from).toEqual(lantern);
   });
 });
 

@@ -24,6 +24,7 @@ import {
   companyRef,
   connectionAt,
   connectionNamed,
+  newConnection,
   originOf,
 } from "@/lib/connections";
 import { answeredWith } from "@/lib/company-names";
@@ -330,17 +331,62 @@ async function reply(request: Request, started: Outcome) {
     if (over) return over;
     // A conversation unknown here continues as a new one, and so does one
     // that isn't connected to the Company the page shows.
+    const fresh =
+      !held || (body.url !== undefined && !connectionAt(held.run, body.url));
+    // The Companies of the conversation the turn would be in: the one
+    // named, or a new one's, which starts with the Company at `url`.
+    const within: Pick<Run, "connections"> =
+      held && !fresh
+        ? held.run
+        : {
+            connections:
+              body.url === undefined ? [] : [newConnection({}, body.url)],
+          };
+    const lab = labCompanies(new URL(request.url).origin);
+    // What follows is refused before a conversation is started, so a
+    // refusal leaves none behind.
+    const refuse = (refusal: object) => {
+      if (held && !fresh) started.id = held.id;
+      return NextResponse.json(refusal, {
+        status: 400,
+        headers: { "Cache-Control": "no-store" },
+      });
+    };
+    // The Company the request names has to be one of the conversation's,
+    // and so has the Company a button picks.
+    const picked =
+      pressed && "company" in pressed ? pressed.company : body.company;
+    if (picked !== undefined && !connectionAt(within, picked))
+      return refuse(connectionNamed(within, picked));
+    // A button connects a Company of the lab's and no other: an address
+    // is never taken from a request as something to read. One that is
+    // connected already is answered so.
     if (
-      !held ||
-      (body.url !== undefined && !connectionAt(held.run, body.url))
-    ) {
+      pressed &&
+      "connect" in pressed &&
+      !lab.some((c) => originOf(c) === originOf({ url: pressed.connect })) &&
+      !connectionAt(within, pressed.connect)
+    )
+      return refuse({
+        code: "invalid_answer",
+        error:
+          "That button is for a company the lab doesn't list. To connect another company, type its address in the address box.",
+      });
+    // A conversation with no Company yet is for a page that can show one
+    // and let the User choose its Companies. A page that shows one
+    // Company names it, as it always had to.
+    if (fresh && body.url === undefined && body.companies !== true)
+      throw new UserFacingError(
+        "Enter a Company URL and a message of at most 2000 characters.",
+      );
+    if (fresh) {
       if (held) await releaseRun(visitor, held).catch(() => {});
       held = await createRun(visitor, body.url);
     }
+    if (!held) throw new Error("No conversation for the turn");
     started.id = held.id;
     run = held.run;
     const conversation = run;
-    const lab = labCompanies(new URL(request.url).origin);
     // What the User said: their words, or the label of the button they
     // pressed, which the page showed as their line. The label is worked
     // out again here: nothing a button sends is ever taken as words.
@@ -374,32 +420,6 @@ async function reply(request: Request, started: Outcome) {
           ...companies(),
         },
         { headers: { "Cache-Control": "no-store" } },
-      );
-    // The Company the request names has to be one of the conversation's,
-    // and so has the Company a button picks.
-    const picked =
-      pressed && "company" in pressed ? pressed.company : body.company;
-    if (picked !== undefined && !connectionAt(run, picked))
-      return NextResponse.json(connectionNamed(run, picked), {
-        status: 400,
-        headers: { "Cache-Control": "no-store" },
-      });
-    // A button connects a Company of the lab's and no other: an address
-    // is never taken from a request as something to read. One that is
-    // connected already is answered so.
-    if (
-      pressed &&
-      "connect" in pressed &&
-      !lab.some((c) => originOf(c) === originOf({ url: pressed.connect })) &&
-      !connectionAt(run, pressed.connect)
-    )
-      return NextResponse.json(
-        {
-          code: "invalid_answer",
-          error:
-            "That button is for a company the lab doesn't list. To connect another company, type its address in the address box.",
-        },
-        { status: 400, headers: { "Cache-Control": "no-store" } },
       );
     const hint = body.company ?? body.url;
     // What Iris was asked before it asked which Company: this message may

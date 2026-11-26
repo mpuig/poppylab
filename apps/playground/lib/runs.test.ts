@@ -426,7 +426,7 @@ it("holds a conversation's Companies in one run: one lock, one lifetime, and eac
   ]);
 });
 
-it("lists a conversation with no Company, by its words", async () => {
+it("lists a conversation with no Company by its words, and says it has none where the name would be", async () => {
   configureBackend(memoryBackend());
   const held = await createRun("v");
   expect(held.run.connections).toEqual([]);
@@ -436,9 +436,10 @@ it("lists a conversation with no Company, by its words", async () => {
     expect.objectContaining({
       id: held.id,
       title: "What's on the menu?",
-      company: "",
+      company: "No company yet",
       url: "",
       companies: [],
+      active: true,
     }),
   ]);
   // One in which nothing was said doesn't outlive the next, as before.
@@ -449,6 +450,11 @@ it("lists a conversation with no Company, by its words", async () => {
   expect((await listConversations("v")).map((c) => c.id).sort()).toEqual(
     [held.id, next.id].sort(),
   );
+  // Once it has ended, no Company is to come.
+  vi.useFakeTimers({ now: Date.now() + 31 * 60000 });
+  expect(
+    (await listConversations("v")).find((c) => c.id === held.id),
+  ).toMatchObject({ company: "No company", url: "", active: false });
 });
 
 /**
