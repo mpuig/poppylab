@@ -23,10 +23,12 @@ export type GuideState = {
   completed: number;
   /**
    * Why the waiting proposal that changed last waits again: an approval of
-   * it was sent and the Company refused it, or answered with these new terms.
-   * It stays when that proposal's terms ran out since and none waits.
+   * it was sent and the Company refused it, or answered with these new
+   * terms, or its outcome is `unknown` and the same approval is to be sent
+   * again. The first two stay when that proposal's terms ran out since and
+   * none waits.
    */
-  again?: "refused" | "new_terms" | undefined;
+  again?: "refused" | "new_terms" | "unknown" | undefined;
   /**
    * How the proposal that changed last ended, when none waits and that one
    * was not performed.
@@ -67,6 +69,7 @@ export function guideProposals(
   now = Date.now(),
 ): Pick<GuideState, "waiting" | "proposals" | "completed" | "again" | "ended"> {
   const waiting = operations.filter((op) => needsYou(op, now));
+  const waits = newest(waiting, now);
   const last = newest(operations, now);
   // Terms nobody approved in time ended too, whatever the server last saw.
   const ended = last?.state === "proposed" ? "expired" : last?.state;
@@ -75,9 +78,11 @@ export function guideProposals(
     proposals: operations.length,
     // "succeeded" is the state the page labels Completed.
     completed: operations.filter((op) => op.state === "succeeded").length,
-    // Of the proposal that waits, or of the one whose terms ran out.
-    again: (newest(waiting, now) ?? (ended === "expired" ? last : undefined))
-      ?.notPerformed,
+    again:
+      waits?.state === "uncertain"
+        ? "unknown"
+        : // Of the proposal that waits, or of the one whose terms ran out.
+          (waits ?? (ended === "expired" ? last : undefined))?.notPerformed,
     ended:
       !waiting.length &&
       (ended === "declined" ||
@@ -166,6 +171,10 @@ function waitingHint(state: GuideState, company: string) {
       return `${company} refused the approval and performed nothing; the proposal says why. Approve it again once that is sorted out, or ask for the change again.`;
     case "new_terms":
       return `${company} answered the approval with new terms and performed nothing. Check the new terms, then approve them yourself or decline.`;
+    case "unknown":
+      // Operations §7: the same approval again, and no new proposal until
+      // it is known whether the first one was performed.
+      return `The approval was sent, but ${company} hasn’t said whether the change was made, so it may or may not have been. Retry the same approval: ${company} performs it at most once. Don’t ask for the change again until the outcome is known.`;
     default:
       return `${company} is holding the change. Check the exact terms, then approve it yourself.`;
   }

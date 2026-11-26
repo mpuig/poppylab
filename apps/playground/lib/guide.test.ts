@@ -274,6 +274,31 @@ it("counts a proposal that ran out as ended when its terms expired", () => {
   );
 });
 
+it("has its own sentence for an approval whose outcome is unknown", () => {
+  const unknown =
+    "The approval was sent, but Juniper Market hasn’t said whether the change was made, so it may or may not have been. Retry the same approval: Juniper Market performs it at most once. Don’t ask for the change again until the outcome is known.";
+  const uncertain = proposal("uncertain", { changed: 2000 });
+  expect(hintFor(uncertain)).toBe(unknown);
+  // Nothing in it is to be checked and approved: the card's one button
+  // sends the same approval again.
+  expect(hintFor(uncertain)).not.toContain("approve it yourself");
+  expect(guideStep({ ...asked, ...guideProposals([uncertain]) })).toBe(3);
+  // Its clock doesn't end it, and an earlier change doesn't make it done.
+  expect(
+    hintFor(
+      proposal("succeeded", { changed: 1000 }),
+      proposal("uncertain", {
+        changed: 2000,
+        expires_at: new Date(Date.now() - 1000).toISOString(),
+      }),
+    ),
+  ).toBe(unknown);
+  // A proposal that came to wait after it is the news.
+  expect(hintFor(uncertain, proposal("proposed", { changed: 3000 }))).toContain(
+    "is holding the change",
+  );
+});
+
 it("says what became of an approval when the terms ran out after it", () => {
   const now = Date.parse("2026-11-26T10:00:00Z");
   const ranOut = (notPerformed: "refused" | "new_terms") =>
