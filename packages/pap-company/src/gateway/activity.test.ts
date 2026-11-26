@@ -236,18 +236,53 @@ it("counts no kept entry toward the gate's caps", () => {
   ]);
 });
 
+it("says of a waiting proposal that its agent is no longer connected, until it expires", () => {
+  const x = gate();
+  const op = x.propose("move");
+  const activity = (connected: boolean) =>
+    agentActivity("elena", x.records, x.kept, x.clock.now, (record) => {
+      expect(record).toMatchObject(owner);
+      return connected;
+    });
+  expect(activity(true)).toEqual(x.activity());
+  expect(activity(true)).toMatchObject([{ state: "proposed" }]);
+  expect(activity(true)[0]).not.toHaveProperty("result");
+  expect(activity(false)).toEqual([
+    {
+      id: op.operation_id,
+      state: "disconnected",
+      summary: "Do move",
+      result:
+        "The agent that proposed this is no longer connected to your account, so it can't be approved now, and nothing has changed. If you connect the same agent to this account again before Nov 25, 12:10 UTC, the proposal can still be approved there. After that it expires.",
+      at: "2026-11-25T12:10:00.000Z",
+      when: "Nov 25, 12:10 UTC",
+    },
+  ]);
+  // Once it ran out it is expired, whoever is connected.
+  x.clock.now += 11 * 60000;
+  expect(activity(false)).toEqual(activity(true));
+  expect(activity(false)).toMatchObject([{ state: "expired" }]);
+  expect(activity(false)[0]).not.toHaveProperty("result");
+});
+
 /** A Company whose website reads `ctx.activity`, behind the gateway. */
 const company: Partial<CompanyDefinition> = {
   mount: (app, ctx) => {
     app.post("/api/account/things", (c) =>
       ctx.gate(c, {
-        key: "thing",
+        key: c.req.query("key") ?? "thing",
         terms: {},
         summary: "Add a thing",
         perform: () => ({ summary: "Added" }),
       }),
     );
     app.get("/site/activity", (c) => c.json(ctx.activity("elena")));
+    // The website's Disconnect, for the customer's one connected agent.
+    app.post("/site/disconnect", (c) =>
+      c.json({
+        revoked: ctx.grants.revoke("elena", ctx.grants.list("elena")[0]!.id),
+      }),
+    );
   },
 };
 const OPERATIONS = { extensions: '"operations";v="3"' };
@@ -279,6 +314,91 @@ it("gives a Company's website the kept activity, saved with its tenant", async (
   expect(Object.keys(tenant.activity![0]!).sort()).toEqual(
     ["account", "approver", "at", "id", "outcome", "result", "summary"].sort(),
   );
+});
+
+it("stops listing a proposal as awaiting once its agent can't reach the account, and lists it again when the same agent is connected again", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  for (const isolation of ["visitor", "shared"] as const) {
+    const x = await setup({ isolation }, company);
+    // The customer's browser: it approves the consents and reads the website.
+    const browser =
+      (await x.app.request("/site/activity")).headers
+        .getSetCookie()
+        .find((c) => c.includes("pap_browser="))
+        ?.split(";")[0] ?? "";
+    const site = async (path = "/site/activity", method = "GET") =>
+      (await x.app.request(path, {
+        method,
+        headers: { cookie: browser },
+      })) as Response;
+    const listed = async () => (await (await site()).json()) as ActivityItem[];
+    const connect = async () => {
+      const tokens = await x.signIn(
+        "things:read things:write",
+        {},
+        browser || undefined,
+      );
+      if ("refused" in tokens) throw new Error("refused");
+      return tokens;
+    };
+    const change = (access: string, key: string, op?: Proposed["operation"]) =>
+      x.call(`/api/account/things?key=${key}`, {
+        method: "POST",
+        access,
+        ...OPERATIONS,
+        ...(op ? { approval: approval(op) } : {}),
+      });
+    const propose = async (access: string, key: string) =>
+      ((await (await change(access, key)).json()) as Proposed).operation;
+
+    let tokens = await connect();
+    const op = await propose(tokens.access_token, "one");
+    expect(await listed()).toMatchObject([
+      { id: op.operation_id, state: "proposed" },
+    ]);
+
+    // The customer presses Disconnect on the website.
+    expect(await (await site("/site/disconnect", "POST")).json()).toEqual({
+      revoked: true,
+    });
+    const gone = await listed();
+    expect(gone).toMatchObject([
+      { id: op.operation_id, state: "disconnected", summary: "Add a thing" },
+    ]);
+    expect(gone[0]!.result).toContain(
+      "is no longer connected to your account, so it can't be approved now",
+    );
+    // And it can't: the agent has no token that reaches the account.
+    expect((await change(tokens.access_token, "one", op)).status).toBe(401);
+    expect(await listed()).toEqual(gone);
+
+    // The same agent, User and account with a new consent: the operation is
+    // theirs (Operations §3), so it waits again, and the approval performs it.
+    tokens = await connect();
+    expect(await listed()).toMatchObject([{ state: "proposed" }]);
+    expect((await listed())[0]).not.toHaveProperty("result");
+    expect((await change(tokens.access_token, "one", op)).status).toBe(200);
+    expect(await listed()).toMatchObject([{ state: "succeeded" }]);
+
+    // The agent signs out itself (RFC 7009): the same as Disconnect.
+    await propose(tokens.access_token, "two");
+    const revoked = await x.form("/oauth/revoke", {
+      token: tokens.refresh_token,
+      ...(await x.credentials()),
+    });
+    expect(revoked.status).toBe(200);
+    expect((await listed()).map((item) => item.state)).toEqual([
+      "disconnected",
+      "succeeded",
+    ]);
+
+    // Nobody connected it again: the proposal expires like any other.
+    vi.setSystemTime(Date.now() + 11 * 60000);
+    expect((await listed()).map((item) => item.state)).toEqual([
+      "expired",
+      "succeeded",
+    ]);
+  }
 });
 
 it("shows a request performed in a tenant stored before activity was kept", async () => {

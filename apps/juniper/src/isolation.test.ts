@@ -133,3 +133,58 @@ it("lists the connected agents with the account, in the consent page's words, an
   expect(revoked.statusCode).toBe(200);
   expect(await agents()).toEqual([]);
 });
+
+it("stops saying a proposal waits for approval once the customer disconnected its agent", async () => {
+  const { app, visitor } = await visitors();
+  const jar = await webLogin(app);
+  const browser = { cookie: /[^ ;]*pap_browser=[^;]+/.exec(jar)![0] };
+  const state = async () =>
+    (await app.inject({ url: "/site/state", headers: { cookie: jar } })).json();
+  const ana = await visitor("usr_ana", browser);
+  const body = { delivery_id: "delivery_001", day: "Saturday" };
+  const op = (await ana("POST", "/api/account/delivery-change", body)).json()
+    .operation;
+  const waiting = (await state()).activity[0];
+  expect(waiting.state).toBe("proposed");
+  expect(waiting.result).toContain("It waits for your approval in Poppy Lab");
+
+  // Disconnect, under Connected agents.
+  const { agents } = await state();
+  const revoked = await app.inject({
+    method: "POST",
+    url: `/site/access/${String(agents[0].id)}/revoke`,
+    headers: {
+      cookie: jar,
+      origin: "https://juniper.example",
+      "x-juniper-account": "elena",
+    },
+  });
+  expect(revoked.statusCode).toBe(200);
+  expect((await state()).activity).toEqual([
+    {
+      ...waiting,
+      state: "disconnected",
+      result: `The agent that proposed this is no longer connected to your account, so it can't be approved now, and nothing has changed. If you connect the same agent to this account again before ${waiting.when}, the proposal can still be approved there. After that it expires.`,
+    },
+  ]);
+  // The page names that state, and gives it no time: `when` is its end.
+  const script = (await app.inject("/site/app.js")).body;
+  expect(script).toContain('disconnected: "Agent disconnected"');
+  expect(script).toContain(
+    '!["proposed", "disconnected"].includes(item.state)',
+  );
+  // The agent's approval doesn't reach the account.
+  expect(
+    (await ana("POST", "/api/account/delivery-change", body, op)).statusCode,
+  ).toBe(401);
+  expect((await state()).delivery.day).toBe("Thursday");
+
+  // The same agent and user, connected again: the proposal is theirs, so
+  // it waits again and their approval applies it.
+  const again = await visitor("usr_ana", browser);
+  expect((await state()).activity[0]).toEqual(waiting);
+  expect(
+    (await again("POST", "/api/account/delivery-change", body, op)).statusCode,
+  ).toBe(200);
+  expect((await state()).delivery.day).toBe("Saturday");
+});

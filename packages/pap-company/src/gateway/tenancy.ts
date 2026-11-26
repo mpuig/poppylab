@@ -8,7 +8,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { Hono, type Context } from "hono";
 import { randomId } from "@poppy-lab/pap-client/core";
-import { approvals } from "../approvals.ts";
+import { approvals, type OperationRecord } from "../approvals.ts";
 import { activityOf, agentActivity, keepActivity } from "./activity.ts";
 import type { Ctx } from "./context.ts";
 import { when } from "./feedback.ts";
@@ -103,6 +103,21 @@ export function createTenancy(ctx: Ctx) {
     },
   });
   /**
+   * Whether the agent of a tenant's operation can still reach its account:
+   * it holds a grant for that account that hasn't ended, as that User, or
+   * one no agent user has used yet (a consent just approved). Disconnect,
+   * the agent's own revocation and the grant's end all take the grant away.
+   */
+  const reaches = (tenant: string) => (r: OperationRecord) =>
+    Object.values(state.grants).some(
+      (g) =>
+        g.client === r.client &&
+        g.account === r.account &&
+        g.expires > Date.now() &&
+        has(tenant, g) &&
+        (!g.holder || g.holder === ctx.holderOf(r.client, r.user)),
+    );
+  /**
    * The grant behind a request's access token, for the tenant `key`. The
    * Session middleware already refused a token of another client, holder,
    * or an expired one; this checks again, so a view is never another
@@ -195,7 +210,14 @@ export function createTenancy(ctx: Ctx) {
         grantFor: grantFor(key),
         origin,
         operations: () => tenant.operations,
-        activity: (account) => agentActivity(account, tenant.operations, kept),
+        activity: (account) =>
+          agentActivity(
+            account,
+            tenant.operations,
+            kept,
+            Date.now(),
+            reaches(key),
+          ),
         converse: (handler) => {
           created.converse = handler;
         },

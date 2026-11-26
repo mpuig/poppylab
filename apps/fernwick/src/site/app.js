@@ -40,6 +40,7 @@ const row = (title, amount, detail) => {
 };
 const states = {
   proposed: "Awaiting approval",
+  disconnected: "Agent disconnected",
   succeeded: "Done once",
   expired: "Expired without change",
   declined: "Not applied",
@@ -53,8 +54,8 @@ function record(item, label) {
   const head = node("div", undefined, "record-head");
   head.append(node("span", label, "record-tag"));
   // When it was applied, refused or ran out. A proposal that waits has
-  // no time yet.
-  if (item.when && item.state !== "proposed") {
+  // no time yet, whether or not its agent is still connected.
+  if (item.when && !["proposed", "disconnected"].includes(item.state)) {
     const time = node("time", item.when, "record-when");
     time.dateTime = item.at;
     head.append(time);
