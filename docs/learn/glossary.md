@@ -174,7 +174,8 @@ conversations and feedback, still attributed to a Session. See
 [One task](one-task.md#3-open-a-session-signed-out).
 
 **Skills.** Instructions a Company publishes for agents on how to do a task with
-its interfaces. Poppy Lab doesn't use them.
+its interfaces. The lab's Companies list theirs in the tasks response, and the
+playground's Inspector shows that list. Iris doesn't load a skill yet.
 
 **Terms.** The data in an operation that defines exactly what will happen:
 amounts, dates, items. What the user approves. See

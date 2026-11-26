@@ -7,8 +7,9 @@ noodle order to Sunday."_ This page follows that task from the first fetch to
 the changed order, one trimmed request and response to a step, each linked to
 the [specification](https://personalagentprotocol.org/docs/1.0/spec).
 
-The traffic is from 25 November 2026. The discovery documents and the tasks
-response are live; the Session JWT and the signed-in steps come from the same
+The traffic is from 25 November 2026, and the tasks response from the day
+after. The discovery documents and the tasks response are live; the Session
+JWT and the signed-in steps come from the same
 gateway code, run in-process by the lab's tests, because they need a fictional
 customer's consent. URLs are the live ones; tokens are redacted.
 
@@ -160,12 +161,28 @@ Poppy-Session: eyJ0eXAiOiJwb3BweS1zZXNzaW9uK2p3dCIs…
     },
     { "task": "Change the delivery address of an order" }
   ],
+  "skill_index": {
+    "$schema": "https://schemas.agentskills.io/discovery/0.2.0/schema.json",
+    "skills": [
+      {
+        "name": "change-scheduled-order",
+        "description": "Change a customer's scheduled Lantern Noodle Bar order through Lantern's API: move it to another delivery slot, add dishes or remove dishes. Use it when the customer asks to move an order that hasn't been delivered yet, or to change what is in it.",
+        "type": "skill-md",
+        "url": "/poppy/skills/change-scheduled-order/SKILL.md",
+        "digest": "sha256:b282bf11a838b35b4215b9d55f499d09f1f8b1d1aa9d844cf61b7d885d3691e2"
+      }
+    ]
+  },
   "feedback": { "endpoint": "https://food-demo.poppylab.dev/poppy/feedback" }
 }
 ```
 
 Moving an order isn't excluded, so the agent carries on. A cancellation would
 already have Lantern's alternative.
+
+The response also lists what Lantern publishes to help agents: one skill, a
+file that says how to change a scheduled order with its API. An agent can
+fetch it and check it against the digest.
 
 The Session header has no OAuth equivalent: a JWT the agent signs for **every**
 request, signed in or not
