@@ -47,7 +47,12 @@ const legend = [
     "§3.4, §5.2–5.3",
   ],
   ["AP", "APIs", "/openapi.json · OpenAPI 3.1", "§7"],
-  ["TS", "Tasks", "GET /poppy/tasks · excluded tasks per Session", "§9"],
+  [
+    "TS",
+    "Tasks",
+    "GET /poppy/tasks per Session · excluded tasks, skills, feedback endpoint",
+    "§9",
+  ],
   [
     "CV",
     "Conversations",
@@ -87,6 +92,11 @@ const covers = [
     "Conversations.",
     "Each Company has its own deterministic agent that takes structured requests and can ask for sign-in or propose an operation.",
     "§8",
+  ],
+  [
+    "Skills.",
+    "Each Company publishes skills, its own notes for agents on how to do a task with its API, and the Inspector lists them; Iris loads none yet.",
+    "§9.4",
   ],
 ] as const;
 

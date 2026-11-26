@@ -23,7 +23,13 @@ const published = {
     scopes: ["bookings:read", "bookings:change"],
   },
 };
-type Entry = { name: string; type: string; url: string; digest: string };
+type Entry = {
+  name: string;
+  description: string;
+  type: string;
+  url: string;
+  digest: string;
+};
 type Poppy = {
   tasks: { endpoint: string };
   auth: { scopes: Record<string, string> };
@@ -73,6 +79,35 @@ it("publishes its skills with the digest of the file served, naming operations a
     expect(scopes.sort()).toEqual([...expected.scopes].sort());
     expect(Object.keys(poppy.auth.scopes)).toEqual(
       expect.arrayContaining(scopes),
+    );
+  }
+});
+
+it("lists its skills on the page for agents, each linked to the file the index names", async () => {
+  await setup();
+  const html = await (await lab.app.request("/for-agents")).text();
+  expect(html).toContain(
+    `${origin}/poppy/tasks · excluded tasks, skills, feedback endpoint`,
+  );
+  // The page escapes its text; read it as a browser shows it.
+  const shown = html.replace(/&#(\d+);/g, (_, code) =>
+    String.fromCharCode(Number(code)),
+  );
+  const { skill_index } = await json<Tasks>("/poppy/tasks");
+  expect(skill_index.skills.length).toBeGreaterThan(0);
+  for (const entry of skill_index.skills) {
+    expect(shown).toContain(entry.description);
+    const href = html.match(
+      new RegExp(`<a href="([^"]+)"><code>${entry.name}</code></a>`),
+    )?.[1];
+    expect(href).toBeDefined();
+    const served = await lab.app.request(
+      new URL(href!, `${origin}/for-agents`).pathname,
+    );
+    expect(served.status).toBe(200);
+    const bytes = new Uint8Array(await served.arrayBuffer());
+    expect(`sha256:${createHash("sha256").update(bytes).digest("hex")}`).toBe(
+      entry.digest,
     );
   }
 });

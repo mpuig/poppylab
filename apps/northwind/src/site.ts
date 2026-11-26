@@ -11,6 +11,7 @@ import {
   labPlaygroundUrl,
   specRefHtml,
 } from "@poppy-lab/pap-core";
+import { skillRowsHtml } from "@poppy-lab/pap-company";
 import {
   airports,
   customers,
@@ -20,6 +21,7 @@ import {
   PHONE,
   travelInformation,
 } from "./data.ts";
+import { skills } from "./skills.ts";
 
 export const escape = (text: string) =>
   text.replace(/[&<>"']/g, (character) => `&#${character.charCodeAt(0)};`);
@@ -220,7 +222,11 @@ export function forAgentsPage(origin: string) {
       "§3.4, §5",
     ],
     ["OpenAPI", `${origin}/openapi.json`, "§7"],
-    ["Tasks", `${origin}/poppy/tasks`, "§9"],
+    [
+      "Tasks",
+      `${origin}/poppy/tasks · excluded tasks, skills, feedback endpoint`,
+      "§9",
+    ],
     ["Conversations", `${origin}/poppy/conversations`, "§8"],
     [
       "Approvals",
@@ -234,7 +240,7 @@ export function forAgentsPage(origin: string) {
         `<li><strong>${escape(customer.name)}</strong><span>Account <code>${customer.id}</code> · booking <code>${customer.booking.reference}</code> · surname <code>${customer.booking.surname}</code> · ${escape(fareBrands[customer.booking.fare].name)}</span></li>`,
     )
     .join("");
-  const body = `<main class="section wrap"><h1 style="font:800 clamp(58px,9vw,112px)/.85 var(--display);margin:0 0 24px;max-width:9ch">A complete airline-shaped Poppy 1.0 Company.</h1><p class="section-lead">Northwind Air is deterministic, fictional and deployable on Node or Cloudflare Workers. It uses the shared Company gateway without compatibility routes for earlier Poppy versions.</p><h2>Endpoints</h2><div class="table-wrap"><table><thead><tr><th>What</th><th>Where</th><th>Protocol</th></tr></thead><tbody>${rows.map(([what, where, spec]) => `<tr><th scope="row">${what}</th><td><code>${escape(where)}</code></td><td>${specRefHtml(spec)}</td></tr>`).join("")}</tbody></table></div><section class="section"><h2>Test passengers</h2><ul class="personas">${people}</ul><p class="section-lead">Try: “Move Robin from NA 274 to NA 278.” The proposal states the old and new departure, fare difference, change fee, amount due or refund, seat reset and fictional payment terms. Change the inventory price before approval and the old revision no longer executes.</p></section><section class="section"><h2>Scope shape</h2><div class="table-wrap"><table><tbody><tr><th><code>flights:search</code></th><td>Public search shape; no personal data and no changes.</td></tr><tr><th><code>bookings:read</code></th><td>Trips and booking details.</td></tr><tr><th><code>profile:read</code></th><td>Loyalty and preferences.</td></tr><tr><th><code>preferences:write</code></th><td>Reversible seats, meals and supported non-medical assistance.</td></tr><tr><th><code>bookings:change</code></th><td>Paid, irreversible or financially consequential booking changes.</td></tr></tbody></table></div></section><a class="button" href="${labPlaygroundUrl(origin)}">Connect Northwind in Iris</a></main>`;
+  const body = `<main class="section wrap"><h1 style="font:800 clamp(58px,9vw,112px)/.85 var(--display);margin:0 0 24px;max-width:9ch">A complete airline-shaped Poppy 1.0 Company.</h1><p class="section-lead">Northwind Air is deterministic, fictional and deployable on Node or Cloudflare Workers. It uses the shared Company gateway without compatibility routes for earlier Poppy versions.</p><h2>Endpoints</h2><div class="table-wrap"><table><thead><tr><th>What</th><th>Where</th><th>Protocol</th></tr></thead><tbody>${rows.map(([what, where, spec]) => `<tr><th scope="row">${what}</th><td><code>${escape(where)}</code></td><td>${specRefHtml(spec)}</td></tr>`).join("")}</tbody></table></div><section class="section"><h2>Test passengers</h2><ul class="personas">${people}</ul><p class="section-lead">Try: “Move Robin from NA 274 to NA 278.” The proposal states the old and new departure, fare difference, change fee, amount due or refund, seat reset and fictional payment terms. Change the inventory price before approval and the old revision no longer executes.</p></section><section class="section"><h2>Scope shape</h2><div class="table-wrap"><table><tbody><tr><th><code>flights:search</code></th><td>Public search shape; no personal data and no changes.</td></tr><tr><th><code>bookings:read</code></th><td>Trips and booking details.</td></tr><tr><th><code>profile:read</code></th><td>Loyalty and preferences.</td></tr><tr><th><code>preferences:write</code></th><td>Reversible seats, meals and supported non-medical assistance.</td></tr><tr><th><code>bookings:change</code></th><td>Paid, irreversible or financially consequential booking changes.</td></tr></tbody></table></div></section><section class="section"><h2>Published skills</h2><p class="section-lead">A skill is a note Northwind wrote for agents on how to do one task with its API. It grants nothing, and a change still waits for the passenger's approval. The tasks response lists each skill with the digest of its file (${specRefHtml("§9.4")}).</p><div class="table-wrap"><table><tbody>${skillRowsHtml(skills)}</tbody></table></div></section><a class="button" href="${labPlaygroundUrl(origin)}">Connect Northwind in Iris</a></main>`;
   return shell("For agents · Northwind Air", body, "/for-agents", origin);
 }
 

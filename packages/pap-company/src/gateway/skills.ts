@@ -20,6 +20,8 @@ export const SKILL_INDEX_SCHEMA =
  * (§9.4) at every deployment, the local plain-HTTP ones included.
  */
 const SKILLS_PATH = "/poppy/skills";
+/** The path of a skill's file from the Company's origin. */
+const skillPath = (name: string) => `${SKILLS_PATH}/${name}/SKILL.md`;
 /** The Agent Skills format's limits on a skill's name and description. */
 const NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
@@ -41,6 +43,22 @@ export type SkillIndex = {
  */
 const skillFile = ({ name, description, body }: SkillDefinition) =>
   `---\nname: ${name}\ndescription: ${JSON.stringify(description)}\n---\n\n${body.trim()}\n`;
+
+const escapeHtml = (text: string) =>
+  text.replace(/[&<>"']/g, (character) => `&#${character.charCodeAt(0)};`);
+
+/**
+ * The same skills as table rows for a Company's page for agents: each name
+ * links to its file, beside the description the index gives. Written from
+ * the definitions the gateway serves, so the page can't say something else.
+ */
+export const skillRowsHtml = (skills: readonly SkillDefinition[]) =>
+  skills
+    .map(
+      ({ name, description }) =>
+        `<tr><th scope="row"><a href="${escapeHtml(skillPath(name))}"><code>${escapeHtml(name)}</code></a></th><td>${escapeHtml(description.trim())}</td></tr>`,
+    )
+    .join("");
 
 /**
  * Serves each skill's `SKILL.md` and returns the index for the tasks
@@ -95,7 +113,7 @@ export function mountSkills(
       name,
       description: description.trim(),
       type: "skill-md",
-      url: `${SKILLS_PATH}/${name}/SKILL.md`,
+      url: skillPath(name),
       digest: artifacts.get(name)!.digest,
     })),
   };

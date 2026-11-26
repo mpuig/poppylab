@@ -5,6 +5,7 @@
  */
 import { createHash } from "node:crypto";
 import { expect, it } from "vitest";
+import { skillRowsHtml } from "./skills.ts";
 import { origin, setup } from "./test-company.ts";
 import type { SkillDefinition } from "./types.ts";
 
@@ -122,6 +123,26 @@ it("serves each SKILL.md with the bytes its digest names, to GET and HEAD, with 
     await x.app.request("/poppy/skills/move-a-thing/SKILL.md")
   ).text();
   expect(first).toContain("# Move a thing\n\nCall `move_thing`");
+});
+
+it("writes the skills as rows for a page, each name linked to the file it serves, with every value escaped", async () => {
+  const x = await setup({}, { skills });
+  const rows = skillRowsHtml([
+    skills[1]!,
+    { ...skills[0]!, description: " Move <a thing> & the customer's. " },
+  ]);
+  expect(rows).toBe(
+    '<tr><th scope="row"><a href="/poppy/skills/count-things/SKILL.md"><code>count-things</code></a></th><td>Count the things on the account.</td></tr>' +
+      '<tr><th scope="row"><a href="/poppy/skills/move-a-thing/SKILL.md"><code>move-a-thing</code></a></th><td>Move &#60;a thing&#62; &#38; the customer&#39;s.</td></tr>',
+  );
+  // Each link is the path the index gives, and the gateway serves it.
+  const { skill_index } = (await (
+    await x.app.request("/poppy/tasks")
+  ).json()) as Tasks;
+  for (const entry of skill_index!.skills) {
+    expect(rows).toContain(`<a href="${entry.url}">`);
+    expect((await x.app.request(entry.url)).status).toBe(200);
+  }
 });
 
 it("answers 404 for a skill or a file that doesn't exist", async () => {
