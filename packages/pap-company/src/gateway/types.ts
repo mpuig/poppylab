@@ -52,6 +52,12 @@ export type Grant = {
   browser?: string;
   id: string;
   client: string;
+  /**
+   * The agent's `client_name` when the grant was issued, as the consent
+   * page showed it: self-asserted, so show it with the host of `client`.
+   * Grants from before this field lack it.
+   */
+  name?: string;
   scopes: string;
   expires: number;
   /** §4.4: the DPoP key the refresh token was issued with (thumbprint). */
@@ -345,10 +351,17 @@ export type Refused = (c: Context, refusal: Refusal) => void;
 export type GrantAccess = {
   list: (account: string) => Array<{
     id: string;
+    /** The agent's address (its `client_id`). */
     client: string;
+    /** What the agent calls itself; absent on a grant from before it was kept. */
+    name?: string;
+    /** Host of the verified `client`, as the consent page showed it. */
+    host: string;
     scopes: string;
     resources?: string[];
     expires_at: string;
+    /** `expires_at` as "Dec 2, 22:07 UTC", the same for every viewer. */
+    expires: string;
   }>;
   revoke: (account: string, id: string) => boolean;
 };

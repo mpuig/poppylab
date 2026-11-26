@@ -1121,6 +1121,59 @@ describe("Harborline Bank", () => {
     expect(state.json().note).toContain("No real money moves");
   });
 
+  it("lists the connected agents with the portal's state, in the consent page's words, and drops one when it is disconnected", async () => {
+    const { sign } = await setup();
+    await sign(
+      "elena",
+      ["accounts:read", "payments:request", "offline_access"],
+      { allowOffline: true },
+    );
+    const login = await inject("/site/login");
+    const loginCookie = String(login.headers["set-cookie"]).split(";")[0]!;
+    const signed = await inject({
+      method: "POST",
+      url: "/site/login",
+      headers: { cookie: loginCookie, origin },
+      payload: { account: "elena", login_token: loginCookie.split("=")[1] },
+    });
+    const cookie = String(signed.headers["set-cookie"])
+      .split(",")
+      .find((value) => value.includes("harborline_web="))!
+      .trim()
+      .split(";")[0]!;
+    // The portal's own two-second read of the account carries the list.
+    const agents = async () =>
+      (await inject({ url: "/site/state", headers: { cookie } })).json()
+        .agents as Array<Record<string, unknown>>;
+    const listed = await agents();
+    expect(listed).toMatchObject([
+      {
+        name: "Iris",
+        host: "localhost:3000",
+        client: "http://localhost:3000/agent/client.json",
+        permissions: [
+          "Read: Owned accounts and balances.",
+          "Propose changes: Request an outgoing payment.",
+          "While you're away: Keep the agent connected.",
+        ],
+        expires: expect.stringMatching(
+          /^[A-Z][a-z]{2} \d{1,2}, \d{2}:\d{2} UTC$/,
+        ),
+      },
+    ]);
+    // Nothing to press to see it.
+    const page = await inject({ url: "/account", headers: { cookie } });
+    expect(page.body).toContain("<h2>Connected agents</h2>");
+    expect(page.body).not.toContain("load-access");
+    const revoked = await inject({
+      method: "POST",
+      url: `/site/access/${String(listed[0]!.id)}/revoke`,
+      headers: { cookie, origin, "x-harborline-account": "elena" },
+    });
+    expect(revoked.statusCode).toBe(200);
+    expect(await agents()).toEqual([]);
+  });
+
   it("keeps the customer's record of a request and of who approved it after the gateway has forgotten the operation", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     try {

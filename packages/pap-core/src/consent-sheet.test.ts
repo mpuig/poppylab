@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { consentSheetHtml, labConsentBarHtml } from "./consent-sheet.ts";
+import {
+  consentSheetHtml,
+  consentWords,
+  labConsentBarHtml,
+} from "./consent-sheet.ts";
 
 const sheet = {
   company: "Shop",
@@ -133,6 +137,29 @@ describe("the consent sheet the Companies share", () => {
     expect(html).toContain("&#60;b&#62;Iris&#60;/b&#62; wants to connect");
     expect(html).toContain("from x&#34;y");
     expect(html).toContain('<div class="accounts">chosen</div></fieldset>');
+  });
+
+  it("says what a permission allows in the sheet's words, for a website's list of connected agents", () => {
+    expect(consentWords(sheet)).toEqual([
+      "Read: Your orders.",
+      "Propose changes: Your orders.",
+    ]);
+    // A part without a title goes by its text; nothing asked, no line.
+    expect(
+      consentWords({
+        reads: [{ text: "Basket and orders." }, { text: "Support cases." }],
+        changes: [],
+        extras: [
+          {
+            heading: "While you're away",
+            option: { name: "o", title: "Keep the agent connected", text: "" },
+          },
+        ],
+      }),
+    ).toEqual([
+      "Read: Basket and orders; Support cases.",
+      "While you're away: Keep the agent connected.",
+    ]);
   });
 
   it("has a demo strip without links, so nothing leads away from the decision", () => {

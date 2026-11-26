@@ -97,6 +97,29 @@ export function consentSheetHtml(sheet: ConsentSheet) {
 }
 
 /**
+ * What a permission allows, in the sheet's words, for the list of connected
+ * agents on a Company's website: a line for what is read, one for the
+ * changes that may be proposed and one for each further choice. Each part
+ * goes by its title, or by its text when it has none. Plain text: the page
+ * that shows it escapes it.
+ */
+export function consentWords(
+  granted: Pick<ConsentSheet, "reads" | "changes" | "extras">,
+) {
+  const parts = (list: ReadonlyArray<{ title?: string; text: string }>) =>
+    list.map((part) => (part.title ?? part.text).replace(/\.$/, "")).join("; ");
+  return [
+    ...(granted.reads.length ? [`Read: ${parts(granted.reads)}.`] : []),
+    ...(granted.changes.length
+      ? [`Propose changes: ${parts(granted.changes)}.`]
+      : []),
+    ...(granted.extras ?? []).map(
+      (extra) => `${extra.heading}: ${extra.option.title}.`,
+    ),
+  ];
+}
+
+/**
  * The strip above a Company's header on its consent page: the same graphite
  * and amber as `labBarHtml`, without its links, so nothing on the page leads
  * away from the decision.

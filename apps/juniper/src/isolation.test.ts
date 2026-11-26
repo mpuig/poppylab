@@ -84,3 +84,52 @@ it("keeps a customer logged in on the website when they connect an agent in the 
       .statusCode,
   ).toBe(200);
 });
+
+it("lists the connected agents with the account, in the consent page's words, and drops one when it is disconnected", async () => {
+  const { app, visitor } = await visitors();
+  const jar = await webLogin(app);
+  const agents = async () =>
+    (await app.inject({ url: "/site/state", headers: { cookie: jar } })).json()
+      .agents as Array<Record<string, unknown>>;
+  expect(await agents()).toEqual([]);
+  const ana = await visitor("usr_ana", {
+    cookie: /[^ ;]*pap_browser=[^;]+/.exec(jar)![0],
+  });
+  await ana("GET", "/api/account/basket");
+  // The page's own two-second read of the account carries the list.
+  const listed = await agents();
+  expect(listed).toMatchObject([
+    {
+      name: "Poppy Lab",
+      host: "localhost:3000",
+      client: "http://localhost:3000/agent/client.json",
+      permissions: [
+        "Read: Basket, orders and recurring deliveries; Profile, address and simulated billing documents; Support cases and their messages.",
+        "Propose changes: Basket, purchases, deliveries, profile and support cases.",
+      ],
+      expires: expect.stringMatching(
+        /^[A-Z][a-z]{2} \d{1,2}, \d{2}:\d{2} UTC$/,
+      ),
+    },
+  ]);
+  // One name for it on the page, and nothing to press to see the list.
+  const page = (await app.inject({ url: "/account", headers: { cookie: jar } }))
+    .body;
+  expect(page).toContain('<a href="#agent-access">Connected agents</a>');
+  expect(page).toContain(
+    '<section id="agent-access"><h2>Connected agents</h2>',
+  );
+  expect(page).not.toContain("load-access");
+  expect(page).not.toContain("Show grants");
+  const revoked = await app.inject({
+    method: "POST",
+    url: `/site/access/${String(listed[0]!.id)}/revoke`,
+    headers: {
+      cookie: jar,
+      origin: "https://juniper.example",
+      "x-juniper-account": "elena",
+    },
+  });
+  expect(revoked.statusCode).toBe(200);
+  expect(await agents()).toEqual([]);
+});

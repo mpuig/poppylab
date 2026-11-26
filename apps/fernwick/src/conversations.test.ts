@@ -192,6 +192,23 @@ describe("Fernwick conversations and portal", () => {
     expect(state.activity[0].state).toBe("succeeded");
     const page = await inject({ url: "/account", headers: { cookie: web } });
     expect(page.body).toContain("Connected agents");
+    // The portal's own read of the account carries the list of connected
+    // agents, in the consent page's words: nothing to press to see it.
+    expect(page.body).not.toContain("load-access");
+    expect(state.agents).toMatchObject([
+      {
+        name: "Iris",
+        host: "localhost:3000",
+        client: "http://localhost:3000/agent/client.json",
+        permissions: [
+          "Read: Address, chosen meters, plans and bills.",
+          "Propose changes: Switch a chosen meter's rate plan.",
+        ],
+        expires: expect.stringMatching(
+          /^[A-Z][a-z]{2} \d{1,2}, \d{2}:\d{2} UTC$/,
+        ),
+      },
+    ]);
     // Disconnecting the agent in the portal ends its access.
     const grants = (
       await inject({ url: "/site/access", headers: { cookie: web } })
@@ -203,6 +220,10 @@ describe("Fernwick conversations and portal", () => {
       headers: { cookie: web, origin, "x-fernwick-account": "robin" },
     });
     expect(revoke.statusCode).toBe(200);
+    expect(
+      (await inject({ url: "/site/state", headers: { cookie: web } })).json()
+        .agents,
+    ).toEqual([]);
     expect(
       (await h.call(tokens.access_token, "GET", "/api/account/account"))
         .statusCode,

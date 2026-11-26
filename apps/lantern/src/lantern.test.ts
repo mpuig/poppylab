@@ -726,6 +726,32 @@ it("customer website: signs in, shows the agent's orders, edits one and makes th
     await lab.app.request("/site/access", { headers: { cookie: web.cookie } })
   ).json()) as { grants: Array<{ id: string }> };
   expect(grants.grants).toHaveLength(1);
+  // The page's own read of the account carries the list, in the consent
+  // page's words, so it shows with the page and stays current.
+  const agents = async () =>
+    (
+      (await (
+        await lab.app.request("/site/state", {
+          headers: { cookie: web.cookie },
+        })
+      ).json()) as { agents: Array<Record<string, unknown>> }
+    ).agents;
+  expect(await agents()).toMatchObject([
+    {
+      id: grants.grants[0]!.id,
+      name: "Iris",
+      host: "localhost:3000",
+      client,
+      permissions: [
+        "Read: Your scheduled orders.",
+        "Propose changes: Your scheduled orders.",
+      ],
+      expires: expect.stringMatching(
+        /^[A-Z][a-z]{2} \d{1,2}, \d{2}:\d{2} UTC$/,
+      ),
+    },
+  ]);
+  expect(await page.text()).not.toContain("load-access");
   expect(
     (
       await lab.app.request(`/site/access/${grants.grants[0]!.id}/revoke`, {
@@ -734,6 +760,7 @@ it("customer website: signs in, shows the agent's orders, edits one and makes th
       })
     ).status,
   ).toBe(200);
+  expect(await agents()).toEqual([]);
   expect(
     (await x.call(robin.access_token, "GET", "/api/account/orders")).statusCode,
   ).toBe(401);

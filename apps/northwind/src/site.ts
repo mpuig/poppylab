@@ -235,15 +235,12 @@ export function forAgentsPage(origin: string) {
   return shell("For agents · Northwind Air", body, "/for-agents", origin);
 }
 
-export function consentPage(input: {
-  nonce: string;
-  passwordRequired: boolean;
-  scopes: string;
-  client: string;
-  clientHost: string;
-  account?: string;
-}) {
-  const requested = input.scopes.split(" ").filter(Boolean);
+/**
+ * What `scopes` let an agent read and propose, as the consent page says it.
+ * The account page lists a connected agent's permission in the same words.
+ */
+export function permissions(scopes: string) {
+  const requested = scopes.split(" ").filter(Boolean);
   const reads: Record<string, { title: string; text: string }> = {
     "flights:search": {
       title: "Flights and fares",
@@ -265,6 +262,29 @@ export function consentPage(input: {
       "Paid baggage, cancellation, upgrades and flight changes.",
   };
   const proposed = requested.filter((scope) => scope in changes);
+  return {
+    reads: requested.flatMap((scope) => (reads[scope] ? [reads[scope]] : [])),
+    changes: proposed.length
+      ? [
+          {
+            name: "write",
+            title: "Your trips and preferences",
+            text: proposed.map((scope) => changes[scope]).join(" "),
+            checked: true,
+          },
+        ]
+      : [],
+  };
+}
+
+export function consentPage(input: {
+  nonce: string;
+  passwordRequired: boolean;
+  scopes: string;
+  client: string;
+  clientHost: string;
+  account?: string;
+}) {
   const sheet = consentSheetHtml({
     company: "Northwind",
     agent: input.client,
@@ -278,17 +298,7 @@ export function consentPage(input: {
       name: customer.name,
       note: `Booking ${customer.booking.reference}`,
     })),
-    reads: requested.flatMap((scope) => (reads[scope] ? [reads[scope]] : [])),
-    changes: proposed.length
-      ? [
-          {
-            name: "write",
-            title: "Your trips and preferences",
-            text: proposed.map((scope) => changes[scope]).join(" "),
-            checked: true,
-          },
-        ]
-      : [],
+    ...permissions(input.scopes),
     disconnect: "You can take the permission away under My Northwind.",
     fine: `${FICTION_NOTICE} Never enter a real airline password, booking reference, passport, payment card or medical record.`,
   });

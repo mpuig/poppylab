@@ -14,7 +14,7 @@ The optional local password protects the **whole demo**. It is not a different p
 
 ## Revocation from the website
 
-Under **Connected agents → Your agent's access**, select **Show grants**. Each active grant shows its public client, permissions and expiry. **Revoke this grant** is an explicit website action, protected by browser session, exact Origin and page-account binding.
+**Connected agents** on the account page lists each active grant as the consent page named it: the agent's name and the host of its verified address ("Iris from poppylab.dev"), what it may read and propose in the consent page's words, when its access ends ("Dec 2, 22:07 UTC") and its address. The list comes with `/site/state`, so it loads with the page and follows the page's two-second refresh. **Disconnect** is an explicit website action, protected by browser session, exact Origin and page-account binding.
 
 Only grants belonging to that browser's selected account are listed/revocable. Public random grant IDs are separate from Account Tokens and their hashes; no credential is sent to the browser. Revocation removes the grant, immediately rejecting its account API access, Operations and refresh. It does not revoke unrelated grants, log out the website, erase orders or cancel business operations. The next agent API request fails; the Poppy badge is not a real-time revocation subscription. Sign out/re-authorize there to regain access.
 

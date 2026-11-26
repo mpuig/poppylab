@@ -10,6 +10,7 @@ import { randomId } from "@poppy-lab/pap-client/core";
 import { approvals } from "../approvals.ts";
 import { activityOf, agentActivity, keepActivity } from "./activity.ts";
 import type { Ctx } from "./context.ts";
+import { when } from "./feedback.ts";
 import {
   hash,
   SHARED_TENANT,
@@ -58,13 +59,19 @@ export function createTenancy(ctx: Ctx) {
             g.expires > Date.now() &&
             (!isolated || g.holder === tenant),
         )
-        .map((g) => ({
-          id: g.id,
-          client: g.client,
-          scopes: g.scopes,
-          ...(g.resources ? { resources: [...g.resources] } : {}),
-          expires_at: new Date(g.expires).toISOString(),
-        })),
+        .map((g) => {
+          const expires_at = new Date(g.expires).toISOString();
+          return {
+            id: g.id,
+            client: g.client,
+            ...(g.name ? { name: g.name } : {}),
+            host: new URL(g.client).host,
+            scopes: g.scopes,
+            ...(g.resources ? { resources: [...g.resources] } : {}),
+            expires_at,
+            expires: when(expires_at),
+          };
+        }),
     revoke(account, id) {
       const found = Object.entries(state.grants).find(
         ([, g]) =>

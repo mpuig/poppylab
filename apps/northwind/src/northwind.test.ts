@@ -672,6 +672,36 @@ it("customer portal uses the same booking and loyalty state as the APIs and revo
     await lab.app.request("/site/access", { headers: { cookie: web.cookie } })
   ).json()) as { grants: Array<{ id: string }> };
   expect(grants.grants).toHaveLength(1);
+  // The page's own read of the account carries the list of connected
+  // agents, in the consent page's words, so it shows with the page and
+  // stays current.
+  const agents = async () =>
+    (
+      (await (
+        await lab.app.request("/site/state", {
+          headers: { cookie: web.cookie },
+        })
+      ).json()) as { agents: Array<Record<string, unknown>> }
+    ).agents;
+  expect(await agents()).toMatchObject([
+    {
+      id: grants.grants[0]!.id,
+      name: "Iris",
+      host: "localhost:3000",
+      client: "http://localhost:3000/agent/client.json",
+      permissions: [
+        "Read: Flights and fares; Your trips; Your profile.",
+        "Propose changes: Your trips and preferences.",
+      ],
+      expires: expect.stringMatching(
+        /^[A-Z][a-z]{2} \d{1,2}, \d{2}:\d{2} UTC$/,
+      ),
+    },
+  ]);
+  const page = await lab.app.request("/account", {
+    headers: { cookie: web.cookie },
+  });
+  expect(await page.text()).not.toContain("load-access");
   expect(
     (
       await lab.app.request(`/site/access/${grants.grants[0]!.id}/revoke`, {
@@ -680,6 +710,7 @@ it("customer portal uses the same booking and loyalty state as the APIs and revo
       })
     ).status,
   ).toBe(200);
+  expect(await agents()).toEqual([]);
   expect(
     (await x.call(elena.access_token, "GET", "/api/account/bookings"))
       .statusCode,

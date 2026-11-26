@@ -292,32 +292,17 @@ const meterStyle = () => {
     .join("")}}`;
 };
 
-export function consentPage(input: {
-  nonce: string;
-  passwordRequired: boolean;
-  scopes: string;
-  client: string;
-  clientHost: string;
-  account?: string;
-}) {
-  const requested = input.scopes.split(" ") as FernwickScope[];
+/**
+ * What `scopes` let an agent read and propose, as the consent page says it.
+ * The account portal lists a connected agent's permission in the same
+ * words.
+ */
+export function permissions(scopes: string) {
+  const requested = scopes.split(" ").filter(Boolean) as FernwickScope[];
   const read = requested.filter(
     (scope) => scope !== "plan:write" && scope !== "offline_access",
   );
-  const meters = requested.some((scope) => meterScopes.includes(scope));
-  const sheet = consentSheetHtml({
-    company: "Fernwick",
-    agent: input.client,
-    agentHost: input.clientHost,
-    nonce: input.nonce,
-    passwordRequired: input.passwordRequired,
-    chosen: input.account,
-    people: customers.map((customer) => ({
-      id: customer.id,
-      name: customer.name,
-      note: `${addressLine(customer.address)} · ${customer.meters.length} ${customer.meters.length === 1 ? "meter" : "meters"}`,
-    })),
-    ...(meters ? { beside: meterChoice() } : {}),
+  return {
     reads: read.map((scope) => ({
       title: scopePurpose[scope],
       text: permissionText[scope],
@@ -346,6 +331,34 @@ export function consentPage(input: {
           ],
         }
       : {}),
+  };
+}
+
+export function consentPage(input: {
+  nonce: string;
+  passwordRequired: boolean;
+  scopes: string;
+  client: string;
+  clientHost: string;
+  account?: string;
+}) {
+  const meters = (input.scopes.split(" ") as FernwickScope[]).some((scope) =>
+    meterScopes.includes(scope),
+  );
+  const sheet = consentSheetHtml({
+    company: "Fernwick",
+    agent: input.client,
+    agentHost: input.clientHost,
+    nonce: input.nonce,
+    passwordRequired: input.passwordRequired,
+    chosen: input.account,
+    people: customers.map((customer) => ({
+      id: customer.id,
+      name: customer.name,
+      note: `${addressLine(customer.address)} · ${customer.meters.length} ${customer.meters.length === 1 ? "meter" : "meters"}`,
+    })),
+    ...(meters ? { beside: meterChoice() } : {}),
+    ...permissions(input.scopes),
     disconnect: "You can disconnect the agent in your Fernwick account.",
     fine: `No real account exists. Never enter a real utility account number, password, address or bill. ${FICTION_NOTICE} The usage data API is ${ESPI_SHAPED}. Independent experiment; no claim of utility or Poppy conformance.`,
   });

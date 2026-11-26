@@ -22,7 +22,8 @@ import {
 import { customers, menu, slots } from "./data.ts";
 import type { Order } from "./lantern.ts";
 import { deliveredView, type Refund } from "./agent.ts";
-import { escape, shell } from "./site.ts";
+import { consentWords } from "@poppy-lab/pap-core";
+import { escape, permissions, shell } from "./site.ts";
 import { siteScript } from "./site/app-script.ts";
 
 type WebSession = { expires: number; account: string };
@@ -174,6 +175,12 @@ export function mountPortal(app: Hono, ctx: Ctx, deps: Deps) {
       orders: deps.ordersFor(account).map(deps.view),
       delivered: deliveredView(account, deps.refundsFor(account)),
       activity,
+      // With the account, so the page's own two-second read keeps the list
+      // of connected agents current, in the consent page's words.
+      agents: ctx.grants.list(account).map((grant) => ({
+        ...grant,
+        permissions: consentWords(permissions(grant.scopes)),
+      })),
     };
   };
   app.get("/site/state", (c) => {
@@ -255,7 +262,7 @@ export function mountPortal(app: Hono, ctx: Ctx, deps: Deps) {
   app.get("/account", (c) => {
     const record = current(c);
     if (!record) return c.redirect("/site/login", 302);
-    const body = `<main class="wrap account" data-account="${escape(record.account)}"><section class="intro"><h1>Your orders.</h1><p id="current-account" class="notice"></p><p>The same scheduled orders your agent reads. A proposal from your agent changes nothing until you approve it in your agent. <a href="/site/login">Switch test customer</a></p><div class="live-row"><p id="status" class="live" role="status">Loading your account…</p><div><button id="refresh" class="secondary" type="button">Refresh now</button> <button id="logout" class="secondary" type="button">Log out</button></div></div></section><div id="content" aria-busy="true"><section class="plain" id="orders"><h2>Scheduled orders</h2><div id="order-list"></div></section><section class="plain" id="delivered"><h2>Last delivery</h2><div id="delivered-order"></div></section><section class="plain" id="activity"><h2>Your agent's activity</h2><p class="notice">A pending proposal doesn't change your order. Approve or decline it in your agent.</p><div id="activity-list"></div></section>${feedbackSection(ctx.feedback(), { section: "plain", notice: "notice", example: "booking a table for a large group" })}<section class="plain" id="agent-access"><h2>Connected agents</h2><p class="notice">Disconnecting an agent ends its access. Logging out of this website doesn't.</p><button id="load-access" type="button" class="secondary">Show connected agents</button><div id="access-list"></div><p id="access-status" role="status"></p></section></div></main><script defer src="/site/app.js"></script>`;
+    const body = `<main class="wrap account" data-account="${escape(record.account)}"><section class="intro"><h1>Your orders.</h1><p id="current-account" class="notice"></p><p>The same scheduled orders your agent reads. A proposal from your agent changes nothing until you approve it in your agent. <a href="/site/login">Switch test customer</a></p><div class="live-row"><p id="status" class="live" role="status">Loading your account…</p><div><button id="refresh" class="secondary" type="button">Refresh now</button> <button id="logout" class="secondary" type="button">Log out</button></div></div></section><div id="content" aria-busy="true"><section class="plain" id="orders"><h2>Scheduled orders</h2><div id="order-list"></div></section><section class="plain" id="delivered"><h2>Last delivery</h2><div id="delivered-order"></div></section><section class="plain" id="activity"><h2>Your agent's activity</h2><p class="notice">A pending proposal doesn't change your order. Approve or decline it in your agent.</p><div id="activity-list"></div></section>${feedbackSection(ctx.feedback(), { section: "plain", notice: "notice", example: "booking a table for a large group" })}<section class="plain" id="agent-access"><h2>Connected agents</h2><p class="notice">Disconnecting an agent ends its access. Logging out of this website doesn't.</p><div id="access-list"></div><p id="access-status" role="status"></p></section></div></main><script defer src="/site/app.js"></script>`;
     return c.html(
       shell("Your account · Lantern Noodle Bar", body, "/account", origin),
       200,

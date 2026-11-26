@@ -199,6 +199,11 @@ function render(data) {
       list.append(record(item, activityNames[item.state] || item.state));
     activity.append(list);
   }
+  $("access-list").replaceChildren(
+    ...(data.agents.length
+      ? data.agents.map(agent)
+      : [node("p", "No agents connected.", "notice")]),
+  );
 }
 
 let busy = false;
@@ -241,60 +246,48 @@ async function refresh(force = false) {
   }
 }
 
-$("load-access").addEventListener("click", async () => {
-  const button = $("load-access");
-  button.disabled = true;
-  try {
-    const response = await request("/site/access", {
-      signal: AbortSignal.timeout(6000),
-    });
-    if (!response.ok) throw new Error();
-    const data = await response.json();
-    const list = $("access-list");
-    list.replaceChildren();
-    if (!data.grants.length)
-      list.append(node("p", "No agents connected.", "notice"));
-    for (const grant of data.grants) {
-      const row = node("article", undefined, "activity");
-      const revoke = node("button", "Disconnect", "secondary");
-      revoke.type = "button";
-      row.append(
-        node(
-          "p",
-          grant.client +
-            " · " +
-            grant.scopes +
-            " · expires " +
-            new Date(grant.expires_at).toLocaleString("en-US"),
-        ),
-        revoke,
+/**
+ * A connected agent, as the consent page named it: what it calls itself and
+ * the host of its verified address, what it may do in that page's words,
+ * and until when. The address itself stays as detail.
+ */
+function agent(grant) {
+  const row = node("article", undefined, "activity");
+  const who = node("p");
+  const revoke = node("button", "Disconnect", "secondary");
+  who.append(node("strong", grant.name || grant.host));
+  if (grant.name) who.append(" from " + grant.host);
+  row.append(who);
+  for (const line of grant.permissions) row.append(node("p", line));
+  row.append(
+    node(
+      "p",
+      "Access ends " + grant.expires + " · Address: " + grant.client,
+      "record-meta",
+    ),
+    revoke,
+  );
+  revoke.type = "button";
+  revoke.addEventListener("click", async () => {
+    revoke.disabled = true;
+    try {
+      const result = await request(
+        "/site/access/" + encodeURIComponent(grant.id) + "/revoke",
+        { method: "POST", signal: AbortSignal.timeout(6000) },
       );
-      revoke.addEventListener("click", async () => {
-        revoke.disabled = true;
-        try {
-          const result = await request(
-            "/site/access/" + encodeURIComponent(grant.id) + "/revoke",
-            { method: "POST", signal: AbortSignal.timeout(6000) },
-          );
-          if (!result.ok) throw new Error();
-          row.replaceChildren(node("p", "Disconnected."));
-          $("access-status").textContent =
-            "That agent can no longer reach your account.";
-        } catch {
-          revoke.disabled = false;
-          $("access-status").textContent =
-            "We couldn’t confirm it. Reload the list before trying again.";
-        }
-      });
-      list.append(row);
+      // Not found: it was disconnected already, say by a second press.
+      if (!result.ok && result.status !== 404) throw new Error();
+      $("access-status").textContent =
+        "That agent can no longer reach your account.";
+      await refresh();
+    } catch {
+      revoke.disabled = false;
+      $("access-status").textContent =
+        "We couldn’t confirm it. If the agent is still listed in a few seconds, try again.";
     }
-  } catch {
-    $("access-status").textContent =
-      "Couldn’t load connected agents. Sign in again if the website session expired.";
-  } finally {
-    button.disabled = false;
-  }
-});
+  });
+  return row;
+}
 $("refresh").addEventListener("click", () => refresh(true));
 $("logout").addEventListener("click", async () => {
   try {

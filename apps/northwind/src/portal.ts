@@ -12,7 +12,8 @@ import {
 } from "@poppy-lab/pap-company";
 import { customers, FICTION_NOTICE, northwindPersona } from "./data.ts";
 import type { Booking, FlightInventory } from "./northwind.ts";
-import { escape, shell } from "./site.ts";
+import { consentWords } from "@poppy-lab/pap-core";
+import { escape, permissions, shell } from "./site.ts";
 import { siteScript } from "./site/app-script.ts";
 
 type WebSession = { expires: number; account: string };
@@ -152,6 +153,12 @@ export function mountPortal(app: Hono, ctx: Ctx, deps: Deps) {
         .bookingsFor(account)
         .map((booking) => deps.bookingView(booking, deps.inventory)),
       activity,
+      // With the account, so the page's own two-second read keeps the list
+      // of connected agents current, in the consent page's words.
+      agents: ctx.grants.list(account).map((grant) => ({
+        ...grant,
+        permissions: consentWords(permissions(grant.scopes)),
+      })),
       notice: FICTION_NOTICE,
     };
   };
@@ -183,7 +190,7 @@ export function mountPortal(app: Hono, ctx: Ctx, deps: Deps) {
   app.get("/account", (c) => {
     const record = current(c);
     if (!record) return c.redirect("/site/login", 302);
-    const body = `<main class="wrap account-shell account" data-account="${escape(record.account)}"><section class="account-head"><div><h1>My Northwind.</h1><p id="current-account"></p><p>A proposal from your agent changes nothing here until you approve it in your agent. <a href="/site/login">Switch test passenger</a>.</p></div><div class="live-row"><p id="status" role="status">Loading the account…</p><button id="refresh" class="secondary" type="button">Refresh</button><button id="logout" class="secondary" type="button">Log out</button></div></section><div class="account-grid" id="content" aria-busy="true"><div><section><h2>Upcoming trips</h2><div id="trip-list"></div></section><section><h2>Agent activity</h2><p class="notice">A waiting proposal has changed nothing yet. Approve or decline it in your agent.</p><div id="activity-list"></div></section></div><aside><section><h2>Gale loyalty</h2><div id="loyalty"></div></section><section><h2>Passenger preferences</h2><div id="preferences"></div></section>${feedbackSection(ctx.feedback(), { notice: "notice", example: "bringing a pet in the cabin" })}<section><h2>Connected agents</h2><p class="notice">Disconnecting an agent ends its access. Logging out of this website does not.</p><button id="load-access" class="secondary" type="button">Show connected agents</button><div id="access-list"></div><p id="access-status" role="status"></p></section></aside></div></main><script defer src="/site/app.js"></script>`;
+    const body = `<main class="wrap account-shell account" data-account="${escape(record.account)}"><section class="account-head"><div><h1>My Northwind.</h1><p id="current-account"></p><p>A proposal from your agent changes nothing here until you approve it in your agent. <a href="/site/login">Switch test passenger</a>.</p></div><div class="live-row"><p id="status" role="status">Loading the account…</p><button id="refresh" class="secondary" type="button">Refresh</button><button id="logout" class="secondary" type="button">Log out</button></div></section><div class="account-grid" id="content" aria-busy="true"><div><section><h2>Upcoming trips</h2><div id="trip-list"></div></section><section><h2>Agent activity</h2><p class="notice">A waiting proposal has changed nothing yet. Approve or decline it in your agent.</p><div id="activity-list"></div></section></div><aside><section><h2>Gale loyalty</h2><div id="loyalty"></div></section><section><h2>Passenger preferences</h2><div id="preferences"></div></section>${feedbackSection(ctx.feedback(), { notice: "notice", example: "bringing a pet in the cabin" })}<section><h2>Connected agents</h2><p class="notice">Disconnecting an agent ends its access. Logging out of this website does not.</p><div id="access-list"></div><p id="access-status" role="status"></p></section></aside></div></main><script defer src="/site/app.js"></script>`;
     return c.html(
       shell("My Northwind · Northwind Air", body, "/account", ctx.origin),
       200,

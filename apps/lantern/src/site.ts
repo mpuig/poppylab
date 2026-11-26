@@ -497,31 +497,14 @@ export function forAgentsPage(origin: string) {
   return shell("For agents · Lantern Noodle Bar", body, "/for-agents", origin);
 }
 
-/** Server-rendered consent (§4.2) in the shop's own visual system. */
-export function consentPage(input: {
-  nonce: string;
-  passwordRequired: boolean;
-  scopes: string;
-  client: string;
-  clientHost: string;
-  account?: string;
-}) {
-  const read = input.scopes.split(" ").includes("orders:read"),
-    write = input.scopes.split(" ").includes("orders:write");
-  const sheet = consentSheetHtml({
-    company: "Lantern",
-    agent: input.client,
-    agentHost: input.clientHost,
-    nonce: input.nonce,
-    passwordRequired: input.passwordRequired,
-    chosen: input.account,
-    // This page is built before anyone is signed in, without the visitor's
-    // own copy of the orders: a slot may have moved, so none is named.
-    people: customers.map((customer) => ({
-      id: customer.id,
-      name: customer.name,
-      note: "Has a scheduled order",
-    })),
+/**
+ * What `scopes` let an agent read and propose, as the consent page says it.
+ * The account page lists a connected agent's permission in the same words.
+ */
+export function permissions(scopes: string) {
+  const read = scopes.split(" ").includes("orders:read"),
+    write = scopes.split(" ").includes("orders:write");
+  return {
     reads: read
       ? [
           {
@@ -541,6 +524,33 @@ export function consentPage(input: {
           },
         ]
       : [],
+  };
+}
+
+/** Server-rendered consent (§4.2) in the shop's own visual system. */
+export function consentPage(input: {
+  nonce: string;
+  passwordRequired: boolean;
+  scopes: string;
+  client: string;
+  clientHost: string;
+  account?: string;
+}) {
+  const sheet = consentSheetHtml({
+    company: "Lantern",
+    agent: input.client,
+    agentHost: input.clientHost,
+    nonce: input.nonce,
+    passwordRequired: input.passwordRequired,
+    chosen: input.account,
+    // This page is built before anyone is signed in, without the visitor's
+    // own copy of the orders: a slot may have moved, so none is named.
+    people: customers.map((customer) => ({
+      id: customer.id,
+      name: customer.name,
+      note: "Has a scheduled order",
+    })),
+    ...permissions(input.scopes),
     disconnect: "You can take the permission away under Your account.",
     fine: "Lantern Noodle Bar is a fictional restaurant: no food, charges or deliveries. Independent experiment, not affiliated with or endorsed by the authors of the Personal Agent Protocol.",
   });

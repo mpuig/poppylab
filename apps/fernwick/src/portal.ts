@@ -14,7 +14,8 @@ import { addressLine, customers, FICTION_NOTICE } from "./data.ts";
 import { billsFor, monthToDate, readings } from "./billing.ts";
 import { DAY, dayStart, isoDay, nowSeconds } from "./time.ts";
 import type { Customer } from "./state.ts";
-import { escape, shell } from "./site.ts";
+import { consentWords } from "@poppy-lab/pap-core";
+import { escape, permissions, shell } from "./site.ts";
 import { siteScript } from "./site/app-script.ts";
 
 type WebSession = { expires: number; account: string };
@@ -204,6 +205,12 @@ export function mountPortal(app: Hono, ctx: PortalContext, deps: Deps) {
       },
       meters,
       activity,
+      // With the account, so the portal's own two-second read keeps the
+      // list of connected agents current, in the consent page's words.
+      agents: ctx.grants.list(account).map((grant) => ({
+        ...grant,
+        permissions: consentWords(permissions(grant.scopes)),
+      })),
       note: FICTION_NOTICE,
     };
   };
@@ -236,7 +243,7 @@ export function mountPortal(app: Hono, ctx: PortalContext, deps: Deps) {
   app.get("/account", (c) => {
     const record = current(c);
     if (!record) return c.redirect("/site/login", 302);
-    const body = `<main class="wrap account" data-account="${escape(record.account)}"><section class="account-head"><h1>Your account.</h1><p id="current-account"></p><p>A proposal from your agent changes nothing here until you approve it in your agent. <a href="/site/login">Switch test customer</a>.</p><div class="live-row"><p id="status" class="live" role="status">Loading your account…</p><div><button id="refresh" class="secondary" type="button">Refresh now</button> <button id="logout" class="secondary" type="button">Log out</button></div></div></section><div id="content" aria-busy="true"><div class="account-grid"><div><section class="section"><h2>Meters and this month</h2><div id="meters" class="data-list"></div></section><section class="section"><h2>Last seven days</h2><div id="days" class="data-list"></div></section></div><div><section class="section"><h2>Bills</h2><div id="bills" class="data-list"></div></section><section class="section"><h2>Agent activity</h2><p class="fine">Awaiting approval means nothing has changed yet. Approve or decline it in your agent.</p><div id="activity"></div></section>${feedbackSection(ctx.feedback(), { section: "section", notice: "fine", example: "reporting an outage" })}<section class="section"><h2>Connected agents</h2><p class="fine">Disconnecting an agent ends its access, through every API. Logging out of the portal does not.</p><button id="load-access" class="secondary" type="button">Show connected agents</button><div id="access"></div><p id="access-status" role="status"></p></section></div></div></div></main><script defer src="/site/app.js"></script>`;
+    const body = `<main class="wrap account" data-account="${escape(record.account)}"><section class="account-head"><h1>Your account.</h1><p id="current-account"></p><p>A proposal from your agent changes nothing here until you approve it in your agent. <a href="/site/login">Switch test customer</a>.</p><div class="live-row"><p id="status" class="live" role="status">Loading your account…</p><div><button id="refresh" class="secondary" type="button">Refresh now</button> <button id="logout" class="secondary" type="button">Log out</button></div></div></section><div id="content" aria-busy="true"><div class="account-grid"><div><section class="section"><h2>Meters and this month</h2><div id="meters" class="data-list"></div></section><section class="section"><h2>Last seven days</h2><div id="days" class="data-list"></div></section></div><div><section class="section"><h2>Bills</h2><div id="bills" class="data-list"></div></section><section class="section"><h2>Agent activity</h2><p class="fine">Awaiting approval means nothing has changed yet. Approve or decline it in your agent.</p><div id="activity"></div></section>${feedbackSection(ctx.feedback(), { section: "section", notice: "fine", example: "reporting an outage" })}<section class="section"><h2>Connected agents</h2><p class="fine">Disconnecting an agent ends its access, through every API. Logging out of the portal does not.</p><div id="access"></div><p id="access-status" role="status"></p></section></div></div></div></main><script defer src="/site/app.js"></script>`;
     return c.html(
       shell(
         "Your account · Fernwick Power & Light",

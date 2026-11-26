@@ -30,6 +30,34 @@ ${consentSheetCss}.sheet{--sheet-rule:var(--line);--sheet-accent:var(--ink)}
 .sheet button.secondary:hover{background:#e9eddf}.sheet button.secondary:active{background:#dce4d2}
 .sheet-foot p{font-size:15px}.sheet-fine{font-size:13px}
 `;
+/**
+ * What `scopes` let an agent read and propose, as the consent page says it.
+ * The account page lists a connected agent's permission in the same words.
+ */
+export function permissions(scopes: string) {
+  const read = scopes.split(" ").includes("poppy:read"),
+    write = scopes.split(" ").includes("poppy:write");
+  return {
+    reads: read
+      ? [
+          { text: "Basket, orders and recurring deliveries." },
+          { text: "Profile, address and simulated billing documents." },
+          { text: "Support cases and their messages." },
+        ]
+      : [],
+    changes: write
+      ? [
+          {
+            name: "write",
+            title: "Basket, purchases, deliveries, profile and support cases",
+            text: `This doesn't confirm any purchase. ${read ? "Untick it to give read-only access." : "It does not include read access."}`,
+            checked: true,
+            required: !read,
+          },
+        ]
+      : [],
+  };
+}
 /** Server-rendered consent: no scripts, remote assets or credential values. */
 export function consentPage(
   nonce: string,
@@ -39,8 +67,6 @@ export function consentPage(
   clientHost = "poppylab.dev",
   account?: string,
 ) {
-  const read = scopes.split(" ").includes("poppy:read"),
-    write = scopes.split(" ").includes("poppy:write");
   const sheet = consentSheetHtml({
     company: "Juniper",
     agent: client,
@@ -55,25 +81,8 @@ export function consentPage(
       name: person.name,
       note: "Has a recurring delivery",
     })),
-    reads: read
-      ? [
-          { text: "Basket, orders and recurring deliveries." },
-          { text: "Profile, address and simulated billing documents." },
-          { text: "Support cases and their messages." },
-        ]
-      : [],
+    ...permissions(scopes),
     noReads: "No permission to read your account is requested.",
-    changes: write
-      ? [
-          {
-            name: "write",
-            title: "Basket, purchases, deliveries, profile and support cases",
-            text: `This doesn't confirm any purchase. ${read ? "Untick it to give read-only access." : "It does not include read access."}`,
-            checked: true,
-            required: !read,
-          },
-        ]
-      : [],
     noChanges:
       "None. If you want a change later, your agent will ask you again.",
     disconnect:

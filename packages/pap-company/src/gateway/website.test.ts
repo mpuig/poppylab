@@ -7,7 +7,7 @@ import type { Context } from "hono";
 import { expect, it } from "vitest";
 import { randomId } from "@poppy-lab/pap-client/core";
 import { restartingStore } from "../memory.ts";
-import { setup } from "./test-company.ts";
+import { client, setup } from "./test-company.ts";
 import type { CompanyDefinition } from "./types.ts";
 
 /** A website that logs a browser in as Elena and says which copy it shows. */
@@ -76,4 +76,39 @@ it("keeps a customer logged in on the website when their browser starts to see t
   await y.app.request("/site/logout", { method: "POST", headers: { cookie } });
   const z = await setup({ isolation: "visitor", store: load() }, site);
   expect(await state(z.app)).toEqual({ account: null, copy: agent.copy });
+});
+
+it("tells a website who an account's connected agents are, as the consent page named them", async () => {
+  const x = await setup(
+    {},
+    {
+      mount: (app, ctx) => {
+        app.get("/site/agents", (c) => c.json(ctx.grants.list("elena")));
+      },
+    },
+  );
+  const tokens = await x.signIn("things:read things:write");
+  if ("refused" in tokens) throw new Error("refused");
+  const list = async () =>
+    (await (await x.app.request("/site/agents")).json()) as Array<
+      Record<string, unknown>
+    >;
+  expect(await list()).toMatchObject([
+    {
+      client,
+      // The agent's own name for itself, and the host of its verified address.
+      name: "Agent",
+      host: "agent.test",
+      scopes: "things:read things:write",
+      // The same text for every viewer, whatever their locale.
+      expires: expect.stringMatching(
+        /^[A-Z][a-z]{2} \d{1,2}, \d{2}:\d{2} UTC$/,
+      ),
+    },
+  ]);
+  // A grant stored before the name was kept has the verified host only.
+  for (const grant of Object.values(x.store.value.grants)) delete grant.name;
+  const [old] = await list();
+  expect(old).not.toHaveProperty("name");
+  expect(old).toMatchObject({ client, host: "agent.test" });
 });

@@ -131,6 +131,8 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
           account: code.account,
           id: randomId(),
           client: id,
+          // What the consent page called the agent, for the website's list.
+          name: info.name,
           scopes: code.scopes,
           created: now,
           expires: now + lifetime,
