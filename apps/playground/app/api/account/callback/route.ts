@@ -21,7 +21,7 @@ import {
 import { keepTokenFields, tokenResponse } from "../../../../lib/token-response";
 import { serving } from "@/lib/deployment";
 import { acquireRun, releaseRun, runForState, visitorOf } from "@/lib/runs";
-import { backToPublic } from "@/lib/transcript";
+import { backToPublic, keepPublicHistory } from "@/lib/transcript";
 import { keepLines } from "@/lib/inspector-log";
 export const runtime = "nodejs";
 
@@ -190,8 +190,7 @@ export async function GET(request: Request) {
     const replaced = connection.accountToken;
     // Preserve the conversation from public access, including across later
     // consent. Account-specific turns and approvals cannot cross accounts.
-    if (!connection.accountToken)
-      connection.publicHistory = structuredClone(run.history.slice(-10));
+    if (!connection.accountToken) keepPublicHistory(run, connection);
     // §5.4: a new sign-in may be another account, so start a new Session.
     newSession(connection);
     delete connection.accountUnavailable;

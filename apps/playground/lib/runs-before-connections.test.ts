@@ -81,6 +81,9 @@ const running = () => ({
     { at: now - 600000, text: "GET /api/account/deliveries · 200" },
   ],
 });
+/** What it kept, saying from now on that it came from its one Company. */
+const tagged = <T extends object>(entries: T[]) =>
+  entries.map((entry) => ({ ...entry, company: origin }));
 /** What the conversation keeps for itself; the rest is its Company's. */
 const OWN = [
   "protocol",
@@ -113,8 +116,16 @@ it("reads a running conversation as one with a single connection, losing nothing
   expect(run.connections).toHaveLength(1);
   const connection = onlyConnection(run);
   // Every member is kept once: the conversation's on the conversation,
-  // the Company's in its connection.
-  for (const [key, value] of Object.entries(stored)) {
+  // the Company's in its connection. The words, the Inspector's lines and
+  // the model's turns each say which Company they came from.
+  const expected = {
+    ...stored,
+    history: tagged(stored.history),
+    publicHistory: tagged(stored.publicHistory),
+    transcript: tagged(stored.transcript),
+    log: tagged(stored.log),
+  };
+  for (const [key, value] of Object.entries(expected)) {
     const own = (OWN as readonly string[]).includes(key);
     expect((run as Record<string, unknown>)[key]).toEqual(
       own ? value : undefined,
@@ -157,7 +168,7 @@ it("goes on in a running one, and saves it with its connection", async () => {
     sessionId: "sid_1",
     operations: { op_1: proposal },
     agentApprovals: [{ at: now - 1000, cents: 1200 }],
-    publicHistory: running().publicHistory,
+    publicHistory: tagged(running().publicHistory),
   });
   held.run.calls++;
   await releaseRun("v", held);
@@ -165,7 +176,9 @@ it("goes on in a running one, and saves it with its connection", async () => {
   expect(saved).toMatchObject({
     calls: 4,
     busy: false,
-    history: running().history,
+    history: tagged(running().history),
+    transcript: tagged(running().transcript),
+    log: tagged(running().log),
     connections: [{ url: origin, accountToken: "refresh-secret" }],
   });
   for (const key of ["url", "accountToken", "operations", "company"])
@@ -240,8 +253,8 @@ it("opens an ended one read-only, with its Company and how its proposals ended",
   expect(read).toMatchObject({
     archived: true,
     keepUntil: ended.keepUntil,
-    transcript: ended.transcript,
-    log: ended.log,
+    transcript: tagged(ended.transcript),
+    log: tagged(ended.log),
     title: "When do you deliver?",
   });
   expect(onlyConnection(read)).toMatchObject({
@@ -269,7 +282,7 @@ it("ends a running one that expired, without its tokens, keys or Session", async
   vi.setSystemTime(now + 600001);
   const read = (await readConversation("v", "conversation_0005"))!;
   expect(read.archived).toBe(true);
-  expect(read.transcript).toEqual(running().transcript);
+  expect(read.transcript).toEqual(tagged(running().transcript));
   const saved = (await backend.get("v", "run:conversation_0005"))!.value;
   expect(JSON.stringify(saved)).not.toMatch(/secret|private|sid_1|usr_elena/);
   const rest: Record<string, unknown> = { ...proposal };

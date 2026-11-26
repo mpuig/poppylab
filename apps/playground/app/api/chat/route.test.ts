@@ -339,9 +339,12 @@ it("keeps a turn's lines with the conversation, as the Inspector listed them and
   expect(run.log!.at(-1)!.text).toBe(
     "POST /api/account/delivery-change · refused by the Company · HTTP 409 insufficient_funds",
   );
-  // A time and the line's words: no token, key, header, body or query.
-  for (const line of run.log!)
-    expect(Object.keys(line).sort()).toEqual(["at", "text"]);
+  // A time, the line's words and the Company it was written for: no
+  // token, key, header, body or query.
+  for (const line of run.log!) {
+    expect(Object.keys(line).sort()).toEqual(["at", "company", "text"]);
+    expect(line.company).toBe(origin);
+  }
   const kept = JSON.stringify(run.log);
   for (const secret of [
     "access-1",

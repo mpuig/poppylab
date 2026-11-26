@@ -478,7 +478,13 @@ async function reply(request: Request, started: { id?: string }) {
       stage = "provider";
       text = await runModel(
         provider,
-        [...run.history.slice(-10), { role: "user", content: body.message }],
+        // The roles and the words, without the Company each turn was with.
+        [
+          ...run.history
+            .slice(-10)
+            .map(({ role, content }) => ({ role, content })),
+          { role: "user", content: body.message },
+        ],
         tools,
         {
           apiKey: typeof body.apiKey === "string" ? body.apiKey : undefined,

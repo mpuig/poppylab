@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Connection, Run } from "@/lib/runtime";
-import { recordDirect, recordTurn } from "@/lib/transcript";
+import { recordDirect, recordTurn, shownTranscript } from "@/lib/transcript";
 import { historyToMessages } from "./companies";
 
 const company = "Lantern Noodle Bar";
@@ -8,7 +8,11 @@ const agent = `${company} · automated agent`;
 
 describe("a conversation restored from its transcript", () => {
   it("shows what the page showed: Company content, labels, steps and data", () => {
-    const connection = { accountToken: "held" } as unknown as Connection;
+    const connection: Connection = {
+      url: "https://lantern.example",
+      user: "",
+      accountToken: "held",
+    };
     const run = { history: [], connections: [connection] } as unknown as Run;
     recordTurn(
       run,
@@ -66,7 +70,7 @@ describe("a conversation restored from its transcript", () => {
 
     // Through JSON, as the page gets it from GET /api/account.
     const messages = historyToMessages(
-      JSON.parse(JSON.stringify(run.transcript)),
+      JSON.parse(JSON.stringify(shownTranscript(run))),
     );
     expect(messages).toEqual([
       { role: "You", text: "My order never arrived" },

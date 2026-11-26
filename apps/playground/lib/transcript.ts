@@ -1,6 +1,13 @@
 import { agentStep, type AgentStep } from "./agent-steps";
 import type { CompanyEntry, DirectAction } from "./conversations";
-import { keepSignedOutLines } from "./inspector-log";
+import {
+  cameFrom,
+  companyName,
+  from,
+  noteFormer,
+  untagged,
+} from "./connections";
+import { dropLines, keepSignedOutLines } from "./inspector-log";
 import { logEntry } from "./protocol-log";
 import type { Connection, Operation, Run, Turn } from "./runtime";
 
@@ -25,10 +32,13 @@ export type TranscriptEntry = {
   /** §8.10: said in the User's Direct Conversation, by them or the Company. */
   direct?: true;
   /**
-   * Shown while no account was signed in, so nothing in it was read with
-   * one. Only these stay when a sign-in resets the conversation.
+   * Shown while no account was signed in at the Company it came from, so
+   * nothing in it was read with one. Only these stay when a sign-in there
+   * resets the conversation.
    */
   signedOut?: true;
+  /** The origin of the Company the entry came from (`connections.ts`). */
+  company?: string;
 };
 
 /** What a turn put on the page besides the words. */
@@ -110,52 +120,144 @@ export function bounded(entries: TranscriptEntry[]): TranscriptEntry[] {
 
 /**
  * Adds entries to the transcript the page shows, and not to the model's.
- * `connection` is the Company the turn was with: whether its account was
- * signed in says how the entries are marked.
+ * `connection` is the Company the turn was with: each entry says so, and
+ * whether that Company's account was signed in.
  */
 function show(run: Run, connection: Connection, ...entries: TranscriptEntry[]) {
   const signedOut = connection.accountToken ? {} : { signedOut: true as const };
   run.transcript = bounded([
     ...(run.transcript ?? run.history),
-    ...entries.map((entry) => ({ ...clipped(entry), ...signedOut })),
+    ...entries.map((entry) => ({
+      ...clipped(entry),
+      ...signedOut,
+      ...from(connection),
+    })),
   ]);
 }
 
 /**
- * A sign-in may be for another account, so the conversation goes back to
- * what it was before any account access, as `history` does. The page keeps
- * that part as it showed it. Everything shown with an account goes, and so
- * does an entry that doesn't say which it was: a transcript stored before
- * entries said so is dropped whole, and the page shows `history` instead.
- *
+ * The transcript as the page gets it: what it showed, or the model's turns
+ * in a run that has no transcript yet.
+ */
+export const shownTranscript = (run: Pick<Run, "transcript" | "history">) =>
+  untagged<TranscriptEntry>(run.transcript ?? run.history);
+
+/**
  * History lists the conversation under its first request (`title`), which
  * may be one of those that went. It is then listed under the first request
  * the page still shows, and under none when nothing is left: the next
  * request names it.
  */
-export function keepSignedOutTranscript(run: Run) {
-  const kept = (run.transcript ?? []).filter((entry) => entry.signedOut);
-  if (kept.length) run.transcript = kept;
-  else delete run.transcript;
+function retitle(run: Run) {
   const shown: TranscriptEntry[] = run.transcript ?? run.history;
   // Not words the User said to the Company in a Direct Conversation.
   const first = shown.find((entry) => entry.role === "user" && !entry.direct);
   if (first) run.title = first.content.trim().slice(0, 80);
   else delete run.title;
+}
+
+function keepEntriesWhere(run: Run, keep: (entry: TranscriptEntry) => boolean) {
+  const kept = (run.transcript ?? []).filter(keep);
+  if (kept.length) run.transcript = kept;
+  else delete run.transcript;
+  retitle(run);
+}
+
+/**
+ * A sign-in at a Company may be for another account, so what the page
+ * shows from that Company goes back to what it was before any access to
+ * its account, as `history` does. The page keeps that part as it showed
+ * it. Everything shown with that Company's account goes, and so does an
+ * entry that doesn't say which it was: a transcript stored before entries
+ * said so is dropped whole, and the page shows `history` instead. What
+ * came from another Company stays, with or without that one's account.
+ */
+export function keepSignedOutTranscript(run: Run, connection: Connection) {
+  keepEntriesWhere(
+    run,
+    (entry) => !cameFrom(entry, connection) || !!entry.signedOut,
+  );
   // The Inspector's lines follow the same rule.
-  keepSignedOutLines(run);
+  keepSignedOutLines(run, connection);
+}
+
+/**
+ * A first sign-in at a Company: what the model was told of it so far is
+ * from before any access to its account, and safe to go back to. Its own
+ * turns among the model's last ten, as they are now.
+ */
+export function keepPublicHistory(run: Run, connection: Connection) {
+  connection.publicHistory = structuredClone(
+    run.history.slice(-10).filter((turn) => cameFrom(turn, connection)),
+  );
 }
 
 /**
  * The conversation as it was before any access to this Company's account:
- * the model's turns from then, what the page showed while signed out, and
- * no proposal. For a sign-in that may be for another account, and for an
- * access the Company took back.
+ * the model's turns with it from then, what the page showed from it while
+ * signed out, and no proposal of its own. For a sign-in that may be for
+ * another account, and for an access the Company took back. The turns the
+ * model still has with other Companies follow those that come back.
  */
 export function backToPublic(run: Run, connection: Connection) {
-  run.history = structuredClone(connection.publicHistory ?? []);
-  keepSignedOutTranscript(run);
+  run.history = [
+    ...structuredClone(connection.publicHistory ?? []),
+    ...run.history.filter((turn) => !cameFrom(turn, connection)),
+  ];
+  keepSignedOutTranscript(run, connection);
   connection.operations = {};
+}
+
+/**
+ * Sign-out at a Company (§5.5) empties what the conversation holds from
+ * it, what was said signed out included: the model's turns with it, what
+ * the page showed from it and the Inspector's lines for it. What came from
+ * another Company stays.
+ */
+export function forgetCompany(run: Run, connection: Connection) {
+  run.history = run.history.filter((turn) => !cameFrom(turn, connection));
+  delete connection.publicHistory;
+  keepEntriesWhere(run, (entry) => !cameFrom(entry, connection));
+  dropLines(run, connection);
+}
+
+/**
+ * Removes a Company from the conversation, which goes on with the others.
+ * Its connection goes, and with it the Session, the sign-in, the
+ * conversation with its agent and its waiting proposals. What the
+ * conversation holds from it goes back to what it was before any access
+ * to its account (`backToPublic`): what was shown with the account goes,
+ * and what was shown signed out stays, still saying which Company it came
+ * from (`nameFor` keeps its name).
+ *
+ * As when an access is lost, an approval that was sent and whose outcome
+ * isn't known stays, so the User still finds it and doesn't ask for the
+ * same change a second time. It is kept with the Company's name
+ * (`Run.former`) and without its request: no Session or sign-in is left to
+ * send it with, so it can't be retried from here, only checked in the
+ * Company's own records.
+ *
+ * Nothing is sent to the Company. A caller that removes a signed-in
+ * Company revokes its refresh token first (`revokeRefreshToken`), as
+ * sign-out does.
+ */
+export function removeConnection(run: Run, connection: Connection) {
+  const place = run.connections.indexOf(connection);
+  if (place < 0) return;
+  const unknown = Object.entries(connection.operations ?? {})
+    .filter(([, op]) => op.state === "uncertain")
+    .map(([id, op]) => {
+      const rest = { ...op };
+      delete rest.request;
+      return [id, rest] as const;
+    });
+  backToPublic(run, connection);
+  run.connections.splice(place, 1);
+  noteFormer(run, {
+    url: connection.url,
+    name: companyName(connection),
+    ...(unknown.length ? { operations: Object.fromEntries(unknown) } : {}),
+  });
 }
 
 /**
@@ -173,8 +275,8 @@ export function backToPublic(run: Run, connection: Connection) {
  *
  * Returns what the page shows now, for the answer to carry, and nothing
  * when this request changed nothing. What is said afterwards stays until
- * the next sign-in: the run still holds an account, so it isn't marked as
- * shown signed out.
+ * the next sign-in: the connection still holds an account, so it isn't
+ * marked as shown signed out.
  */
 export function forgetLostAccount(
   run: Run,
@@ -189,7 +291,7 @@ export function forgetLostAccount(
   backToPublic(run, connection);
   connection.operations = Object.fromEntries(unknown);
   return {
-    history: run.transcript ?? run.history,
+    history: shownTranscript(run),
     operations: Object.values(connection.operations),
   };
 }
@@ -226,7 +328,12 @@ const answerEntry = (content: string, shown: Shown): TranscriptEntry => ({
  */
 export function record(run: Run, connection: Connection, ...turns: Turn[]) {
   show(run, connection, ...turns);
-  run.history.push(...turns);
+  tell(run, connection, ...turns);
+}
+
+/** Adds turns to the model's context, each with the Company it was with. */
+function tell(run: Run, connection: Connection, ...turns: Turn[]) {
+  run.history.push(...turns.map((turn) => ({ ...turn, ...from(connection) })));
 }
 
 /**
@@ -250,14 +357,14 @@ export function recordTurn(
     ...companyEntries(shown),
     answerEntry(answer, shown),
   );
-  run.history.push(user, { role: "assistant", content: answer });
+  tell(run, connection, user, { role: "assistant", content: answer });
 }
 
 /**
  * How an approval ended, in a line for the model that has the Company's
  * words: its result, or why it declined. The page never showed that line.
  * It shows the outcome on the operation's own entry, and gets it again with
- * the run's operations, so the transcript takes nothing here.
+ * the connection's operations, so the transcript takes nothing here.
  *
  * For an operation proposed in the User's Direct Conversation (§8.10) those
  * words were said in a thread the page tells the User Iris doesn't read.
@@ -283,7 +390,7 @@ export function recordOutcome(
         ? `(An operation proposed in the user's direct conversation with ${company} was approved and performed.)`
         : `(The Company declined an operation proposed in the user's direct conversation with ${company}. Nothing was performed.)`;
   }
-  run.history.push({ role: "assistant", content: line });
+  tell(run, connection, { role: "assistant", content: line });
 }
 
 /**
@@ -324,7 +431,9 @@ export function recordDirect(
     ...(said ? [answerEntry(said, shown)] : []),
   );
   if (said)
-    run.history.push(
+    tell(
+      run,
+      connection,
       {
         role: "user",
         content: !spoke

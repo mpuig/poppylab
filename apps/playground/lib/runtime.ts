@@ -322,8 +322,27 @@ export type Connection = {
    */
   publicHistory?: Turn[];
 };
-/** One turn of the model's context. */
-export type Turn = { role: "user" | "assistant"; content: string };
+/**
+ * One turn of the model's context. `company` is the origin of the Company
+ * the turn was with, so a sign-in or sign-out there takes back its turns
+ * and no other Company's. The model is sent the role and the words only.
+ */
+export type Turn = {
+  role: "user" | "assistant";
+  content: string;
+  company?: string;
+};
+/**
+ * A Company the conversation was connected to and no longer is. Its name
+ * stays for what the page still shows from it, and so does an approval
+ * that was sent there and whose outcome isn't known, without the request:
+ * with no Session or sign-in left it can't be sent again from here.
+ */
+export type FormerConnection = {
+  url: string;
+  name: string;
+  operations?: Record<string, Operation>;
+};
 /**
  * One conversation of a visitor with Iris: its lifetime and its words, and
  * a connection for each Company it works with. The words are the
@@ -344,15 +363,20 @@ export type Run = {
   busy: boolean;
   /** One per Company, in the order they were connected. */
   connections: Connection[];
+  /** The Companies that were removed from the conversation. */
+  former?: FormerConnection[];
   history: Turn[];
   /**
    * What the page shows: `history` is cut to the model's last ten turns,
    * this keeps the conversation, with the Company content and each
    * answer's label, steps and data that the model is never sent. It resets
-   * wherever `history` does.
+   * wherever `history` does. Each entry says which Company it came from.
    */
   transcript?: TranscriptEntry[];
-  /** The Inspector's "Session & API calls" lines, kept as the page lists them. */
+  /**
+   * The Inspector's "Session & API calls" lines, kept as the page lists
+   * them, each with the Company it was written for.
+   */
   log?: KeptLine[];
   /** When the conversation started, and its first request, for the list. */
   created?: number;

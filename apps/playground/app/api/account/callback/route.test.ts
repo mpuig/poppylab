@@ -562,6 +562,7 @@ it("lists in the Inspector what was written before any account, then each sign-i
         at: expect.any(Number),
         text: "Direct Sign-In completed · PKCE + issuer validation · DPoP account Session",
         signedOut: true,
+        company: "https://food.papsandbox.com",
       },
     ]);
     // A second consent with no message in between, as "Request change

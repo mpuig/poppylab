@@ -422,6 +422,48 @@ it("derives a stable User ID per visitor and Company, unlinkable across both", a
   );
 });
 
+it("presents itself to each Company of a conversation with that Company's own User ID, Session and token", async () => {
+  // Two connections of one visitor's conversation.
+  const food = example("food");
+  const noodles = example("noodles");
+  noodles.token = "access-2";
+  food.dpop = noodles.dpop = dpop;
+  const at = (c: Connection) => `${c.url}/poppy/orders`;
+  await papRequest(food, at(food), "GET");
+  await papRequest(noodles, at(noodles), "GET");
+
+  expect(food.user).toMatch(/^usr_[A-Za-z0-9_-]{32}$/);
+  expect(noodles.user).toMatch(/^usr_[A-Za-z0-9_-]{32}$/);
+  expect(noodles.user).not.toBe(food.user);
+  expect(noodles.sessionId).not.toBe(food.sessionId);
+  expect(noodles.sessionKey).not.toEqual(food.sessionKey);
+  // Each request went to its own Company with its own token and nothing
+  // of the other's.
+  const calls = transport.mock.calls;
+  expect(calls.map((call) => call[0])).toEqual([at(food), at(noodles)]);
+  const sent = [
+    [food, "access-1", noodles],
+    [noodles, "access-2", food],
+  ] as const;
+  for (const [index, [connection, token, other]] of sent.entries()) {
+    const headers = headersOf(calls[index]!);
+    expect(headers.Authorization).toBe(`DPoP ${token}`);
+    const session = await verify(
+      connection,
+      headers["Poppy-Session"]!,
+      at(connection),
+      "GET",
+      token,
+    );
+    expect(session).toMatchObject({
+      userId: connection.user,
+      sessionId: connection.sessionId,
+    });
+    expect(JSON.stringify(headers)).not.toContain(other.user);
+    expect(JSON.stringify(headers)).not.toContain(other.sessionId);
+  }
+});
+
 it("signs every Session request with the operator key, covering the Session JWT and the token (§5.3)", async () => {
   const r = example();
   r.dpop = dpop;

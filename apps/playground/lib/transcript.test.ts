@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CompanyEntry } from "./conversations";
-import { onlyConnection as at } from "./connections";
+import { onlyConnection as at, untagged } from "./connections";
 import type { Connection, Run, Turn } from "./runtime";
 import * as transcript from "./transcript";
 import { keepSignedOutTranscript, TRANSCRIPT_LIMITS } from "./transcript";
@@ -52,6 +52,10 @@ const opened = `You're talking with ${company} directly.`;
 const secret = "My door code is 4417, leave it inside";
 /** Everything a model turn after this one would be sent. */
 const forModel = (r: Run) => JSON.stringify(r.history);
+/** The model's turns as it is sent them: each a role and its words. */
+const told = (r: Run) => untagged(r.history);
+/** The transcript as the page gets it. */
+const onPage = (r: Run) => transcript.shownTranscript(r);
 const forPage = (r: Run) => (r.transcript ?? []).map((turn) => turn.content);
 
 describe("what a Direct Conversation leaves behind (§8.10)", () => {
@@ -98,7 +102,7 @@ describe("what a Direct Conversation leaves behind (§8.10)", () => {
     recordDirect(r, company, "start", secret, opened, true);
 
     expect(forModel(r)).not.toContain("4417");
-    expect(r.history).toEqual([
+    expect(told(r)).toEqual([
       {
         role: "user",
         content: `(The user wrote to ${company} directly, without Iris.)`,
@@ -113,7 +117,7 @@ describe("what a Direct Conversation leaves behind (§8.10)", () => {
     recordDirect(r, company, "say", secret, over, false);
 
     expect(forModel(r)).not.toContain("4417");
-    expect(r.history.at(-1)).toEqual({ role: "assistant", content: over });
+    expect(told(r).at(-1)).toEqual({ role: "assistant", content: over });
   });
 
   it("doesn't say the User wrote to the Company when their words may not have been sent", () => {
@@ -126,7 +130,7 @@ describe("what a Direct Conversation leaves behind (§8.10)", () => {
       recordDirect(r, company, action, secret, notes[action], false);
 
       expect(forModel(r)).not.toContain("4417");
-      expect(r.history).toEqual([
+      expect(told(r)).toEqual([
         {
           role: "user",
           content: `(The user tried to write to ${company} directly, without Iris; it may not have been sent.)`,
@@ -135,7 +139,7 @@ describe("what a Direct Conversation leaves behind (§8.10)", () => {
       ]);
       // The page shows their words as it did, then Iris's line that says
       // they weren't sent.
-      expect(r.transcript).toEqual([
+      expect(onPage(r)).toEqual([
         { role: "user", content: secret, direct: true },
         { role: "assistant", content: notes[action] },
       ]);
@@ -154,7 +158,7 @@ describe("what a Direct Conversation leaves behind (§8.10)", () => {
 
     // As what they are: the User's own direct lines, with no note written
     // for the model, and no line of Iris's where Iris said nothing.
-    expect(r.transcript).toEqual([
+    expect(onPage(r)).toEqual([
       { role: "user", content: "My order never arrived" },
       { role: "assistant", content: "Lantern asks to talk with you." },
       { role: "user", content: "It was order 12", direct: true },
@@ -171,7 +175,7 @@ describe("what a Direct Conversation leaves behind (§8.10)", () => {
     expect(forPage(r)).toEqual([opened, opened, opened]);
     expect(JSON.stringify(r.transcript)).not.toContain("Button");
     // The model still learns what the User chose.
-    expect(r.history.filter((turn) => turn.role === "user")).toEqual(
+    expect(told(r).filter((turn) => turn.role === "user")).toEqual(
       ["accept", "decline", "close"].map((action) => ({
         role: "user",
         content: `(Direct conversation with ${company}: ${action})`,
@@ -220,7 +224,7 @@ describe("what the page shows again after a reload", () => {
   it("keeps Company content, and each answer's label, steps and data", () => {
     const r = run();
     turn(r);
-    expect(r.transcript).toEqual([
+    expect(onPage(r)).toEqual([
       { role: "user", content: "What's on the menu?" },
       {
         role: "company",
@@ -271,7 +275,7 @@ describe("what the page shows again after a reload", () => {
     });
 
     // Exactly a role and its words: no steps, data, label or author.
-    expect(r.history).toEqual([
+    expect(told(r)).toEqual([
       { role: "user", content: "What's on the menu?" },
       { role: "assistant", content: "Protocol demo (no LLM). Ramen." },
       {
@@ -391,7 +395,7 @@ describe("what the page shows again after a reload", () => {
     // The page showed each on the operation's own entry, which it gets
     // again with the run's operations: no line of Iris's said it.
     expect(r.transcript).toEqual(before);
-    expect(r.history.slice(2)).toEqual([
+    expect(told(r).slice(2)).toEqual([
       { role: "assistant", content: succeeded },
       { role: "assistant", content: declined },
       {
@@ -458,7 +462,7 @@ describe("what a sign-in keeps of the transcript", () => {
     recordDirect(r, company, "start", "my card ends 4417", "In.", true);
     recordOutcome(r, {}, "performed", "Company operation succeeded: PRIVATE_4");
 
-    keepSignedOutTranscript(r);
+    keepSignedOutTranscript(r, at(r));
     expect(shown(r)).toEqual([
       "When do you deliver?",
       "Any day but Sunday.",
@@ -480,13 +484,13 @@ describe("what a sign-in keeps of the transcript", () => {
       { role: "user", content: "When do you deliver?" },
       { role: "assistant", content: "Private order details" },
     ];
-    keepSignedOutTranscript(r);
+    keepSignedOutTranscript(r, at(r));
     expect(r).not.toHaveProperty("transcript");
 
     // The same when everything was shown signed in.
     at(r).accountToken = "held";
     recordTurn(r, "my orders", "Private order details");
-    keepSignedOutTranscript(r);
+    keepSignedOutTranscript(r, at(r));
     expect(r).not.toHaveProperty("transcript");
   });
 
@@ -498,7 +502,7 @@ describe("what a sign-in keeps of the transcript", () => {
     recordTurn(r, "Show my orders", "Order ord_PRIVATE_1 for Elena.");
     // The model's turns go back to the public ones first: none here.
     r.history = [];
-    keepSignedOutTranscript(r);
+    keepSignedOutTranscript(r, at(r));
     // Nothing of it is left to open, so no words of it are listed either.
     expect(r).not.toHaveProperty("title");
 
@@ -508,7 +512,7 @@ describe("what a sign-in keeps of the transcript", () => {
     at(later).accountToken = "first-account";
     later.title = "Show my orders";
     recordTurn(later, "Show my orders", "Order ord_PRIVATE_1 for Elena.");
-    keepSignedOutTranscript(later);
+    keepSignedOutTranscript(later, at(later));
     // Not words said to the Company in a Direct Conversation.
     expect(later.title).toBe("When do you deliver?");
   });
@@ -544,7 +548,7 @@ describe("what stays when the Company takes the access back (§5.5)", () => {
     expect(r.history).toEqual(at(r).publicHistory);
     // What the answer carries for the page is what a reload would show.
     expect(left).toEqual({
-      history: r.transcript,
+      history: onPage(r),
       operations: [{ operation_id: "sent", state: "uncertain" }],
     });
     // An approval that is out may have been performed: it stays, so the

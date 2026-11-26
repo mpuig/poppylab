@@ -10,13 +10,15 @@ import { onlyConnection as at } from "./connections";
 import type { Connection, Run } from "./runtime";
 import { keepSignedOutTranscript } from "./transcript";
 
+/** The Company every line here is written for. */
+const company = "https://company.example";
 /** A conversation with one Company, signed out unless the test says so. */
 const run = (connection: Partial<Connection> = {}): Run => ({
   expires: Date.now() + 60000,
   calls: 0,
   busy: false,
   history: [],
-  connections: [{ url: "https://company.example", user: "", ...connection }],
+  connections: [{ url: company, user: "", ...connection }],
 });
 
 it("keeps a turn's lines with the conversation, and shows them again as the page first did", () => {
@@ -60,17 +62,25 @@ it("keeps only what the Inspector shows: a time and the line's words, without a 
       at: 1000,
       text: "GET /fdx/v6/accounts · FDX-shaped · fdx:ACCOUNT_BASIC",
       signedOut: true,
+      company,
     },
     {
       at: 1000,
       text: "Not sent · GET /api/payments/failed · sign-in needed",
       signedOut: true,
+      company,
     },
     expect.objectContaining({ at: 1000 }),
   ]);
-  // Exactly the words on screen, and no line longer than its limit.
+  // Exactly the words on screen and the Company they were written for,
+  // and no line longer than its limit.
   for (const line of kept.log!) {
-    expect(Object.keys(line).sort()).toEqual(["at", "signedOut", "text"]);
+    expect(Object.keys(line).sort()).toEqual([
+      "at",
+      "company",
+      "signedOut",
+      "text",
+    ]);
     expect(line.text).toBe(logEntry(line.text).text);
     expect(line.text.length).toBeLessThanOrEqual(LOG_LIMITS.text);
   }
@@ -119,9 +129,14 @@ it("lists nothing an account's requests wrote after a sign-in that may be anothe
     3000,
     true,
   );
-  keepSignedOutLines(kept);
+  keepSignedOutLines(kept, at(kept));
   expect(kept.log).toEqual([
-    { at: 1000, text: "GET /api/products · Poppy Session", signedOut: true },
+    {
+      at: 1000,
+      text: "GET /api/products · Poppy Session",
+      signedOut: true,
+      company,
+    },
   ]);
 
   // With nothing from before any account, no list is left.
@@ -132,7 +147,7 @@ it("lists nothing an account's requests wrote after a sign-in that may be anothe
     ["GET /api/account/orders · Poppy Session"],
     1000,
   );
-  keepSignedOutLines(account);
+  keepSignedOutLines(account, at(account));
   expect(account).not.toHaveProperty("log");
 });
 
@@ -141,7 +156,7 @@ it("resets the lines wherever a sign-in resets the conversation", () => {
   keepLines(kept, at(kept), ["GET /api/products · Poppy Session"], 1000);
   at(kept).accountToken = "refresh-1";
   keepLines(kept, at(kept), ["GET /api/account/orders · Poppy Session"], 2000);
-  keepSignedOutTranscript(kept);
+  keepSignedOutTranscript(kept, at(kept));
   expect(kept.log!.map((line) => line.text)).toEqual([
     "GET /api/products · Poppy Session",
   ]);

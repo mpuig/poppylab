@@ -262,8 +262,9 @@ describe("The Inspector's lines, kept with the conversation", () => {
     expect(JSON.stringify(run.log)).not.toMatch(
       /secret|general-token|555-0100|Bearer|Saturday/,
     );
+    // A time, the line's words and the Company it was written for.
     for (const line of run.log!)
-      expect(Object.keys(line).sort()).toEqual(["at", "text"]);
+      expect(Object.keys(line).sort()).toEqual(["at", "company", "text"]);
   });
 
   it("answers a reload with the tasks the current Session read, and none of an earlier Session's (§9)", async () => {
@@ -323,6 +324,7 @@ describe("The Inspector's lines, kept with the conversation", () => {
       {
         at: expect.any(Number),
         text: "Account grant revoked · Session signed out",
+        company: "http://juniper.localhost:4100",
       },
     ]);
   });
@@ -335,6 +337,7 @@ describe("The Inspector's lines, kept with the conversation", () => {
         at: expect.any(Number),
         text: "Operation declined · revision r1",
         signedOut: true,
+        company: "http://juniper.localhost:4100",
       },
     ]);
   });
@@ -897,6 +900,7 @@ describe("Human-controlled account boundary", () => {
       // The model's line ends the same way.
       expect(state.run.history.at(-1)).toEqual({
         role: "assistant",
+        company: "http://juniper.localhost:4100",
         content:
           "Company declined the approval; nothing was performed. Juniper declined this approval and did nothing. Its reason: The kitchen has closed.",
       });
@@ -1887,6 +1891,7 @@ describe("An operation proposed in the User's Direct Conversation (§8.10)", () 
     expect(run.history).toEqual([
       {
         role: "assistant",
+        company: "http://juniper.localhost:4100",
         content:
           "(An operation proposed in the user's direct conversation with Juniper was approved and performed.)",
       },
@@ -1905,6 +1910,7 @@ describe("An operation proposed in the User's Direct Conversation (§8.10)", () 
     expect(run.history).toEqual([
       {
         role: "assistant",
+        company: "http://juniper.localhost:4100",
         content:
           "(The Company declined an operation proposed in the user's direct conversation with Juniper. Nothing was performed.)",
       },
@@ -1957,6 +1963,7 @@ describe("An operation proposed in the User's Direct Conversation (§8.10)", () 
     expect(run.history).toEqual([
       {
         role: "assistant",
+        company: "http://juniper.localhost:4100",
         content: "Company operation succeeded: Refunded USD 8.00.",
       },
     ]);
@@ -2270,6 +2277,7 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
       await approve(rule);
       expect(state.run.history.at(-1)).toEqual({
         role: "assistant",
+        company: "http://juniper.localhost:4100",
         content:
           "The Company declined the approval Iris sent on the user's standing instruction; nothing was performed, and it's waiting for the user. Its reason: Approve money moves yourself.",
       });

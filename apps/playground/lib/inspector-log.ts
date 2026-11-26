@@ -1,3 +1,4 @@
+import { cameFrom, from } from "./connections";
 import { logEntry, type ProtocolEntry } from "./protocol-log";
 import type { Connection, Run } from "./runtime";
 
@@ -19,6 +20,8 @@ export type KeptLine = {
    * these stay when a sign-in resets the conversation.
    */
   signedOut?: true;
+  /** The origin of the Company the request was for (`connections.ts`). */
+  company?: string;
 };
 
 /**
@@ -71,18 +74,32 @@ export function keepLines(
       at,
       text: logEntry(line).text.slice(0, LOG_LIMITS.text),
       ...signedOut,
+      ...from(connection),
     })),
   ]);
 }
 
 /**
  * A sign-in may be for another account, and a path can name what an account
- * holds (an order, a consent). So the lines go back to those written before
- * any account access, as the transcript does (`keepSignedOutTranscript`),
- * and those that say a sign-in completed.
+ * holds (an order, a consent). So this Company's lines go back to those
+ * written before any access to its account, as the transcript does
+ * (`keepSignedOutTranscript`), and those that say a sign-in completed.
+ * Another Company's lines stay as they are.
  */
-export function keepSignedOutLines(run: Run) {
-  const kept = (run.log ?? []).filter((line) => line.signedOut);
+export function keepSignedOutLines(run: Run, connection: Connection) {
+  keepLinesWhere(
+    run,
+    (line) => !cameFrom(line, connection) || !!line.signedOut,
+  );
+}
+
+/** Sign-out at a Company: none of its lines stay, signed out or not. */
+export function dropLines(run: Run, connection: Connection) {
+  keepLinesWhere(run, (line) => !cameFrom(line, connection));
+}
+
+function keepLinesWhere(run: Run, keep: (line: KeptLine) => boolean) {
+  const kept = (run.log ?? []).filter(keep);
   if (kept.length) run.log = kept;
   else delete run.log;
 }

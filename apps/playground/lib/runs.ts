@@ -12,7 +12,13 @@ import { createHash, randomBytes } from "node:crypto";
 import { onWorkers, randomId, vault } from "@poppy-lab/pap-client";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import type { Connection, Run } from "./runtime";
-import { addConnection, connectionForState, originOf } from "./connections";
+import {
+  addConnection,
+  companyName,
+  connectionForState,
+  from,
+  originOf,
+} from "./connections";
 import { importStateKey, sealedBackend } from "./sealed";
 
 export type Versioned<T = unknown> = { value: T; version: number };
@@ -135,6 +141,21 @@ export function readRun(stored: unknown): Run | undefined {
   // The User ID for the Company comes from these two (`userFor`).
   for (const key of ["visitor", "epoch"])
     if (flat[key] !== undefined) connection[key] = flat[key];
+  // Everything it kept came from its one Company, and says so from now on.
+  const tag = from({ url: flat.url });
+  const tagged = (list: unknown) =>
+    Array.isArray(list)
+      ? list.map((entry: object) => ({ ...entry, ...tag }))
+      : undefined;
+  for (const [holder, key] of [
+    [conversation, "history"],
+    [conversation, "transcript"],
+    [conversation, "log"],
+    [connection, "publicHistory"],
+  ] as const) {
+    const list = tagged(holder[key]);
+    if (list) holder[key] = list;
+  }
   return { ...conversation, connections: [connection] } as Run;
 }
 
@@ -355,6 +376,8 @@ function ended(run: Run, now = Date.now()): Run {
         }),
       ),
     })),
+    // The Companies that had left it, and what they left unanswered.
+    ...(run.former ? { former: run.former } : {}),
     history: [],
     transcript: run.transcript ?? run.history,
     ...(run.log ? { log: run.log } : {}),
@@ -431,11 +454,7 @@ export async function listConversations(
       id,
       // The list has one name and one address for a conversation: with
       // several Companies it names each and links to the first.
-      company: run.connections
-        .map(
-          (c) => c.company?.document.organization.name ?? new URL(c.url).host,
-        )
-        .join(", "),
+      company: run.connections.map(companyName).join(", "),
       url: run.connections[0]?.url ?? "",
       ...(run.title ? { title: run.title } : {}),
       created: startOf(run),

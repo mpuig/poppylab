@@ -25,10 +25,15 @@ import {
   espiAuthorizationRecord,
   revokeEspiAuthorization,
 } from "@/lib/runtime";
-import { onlyConnection } from "@/lib/connections";
+import { onlyConnection, untagged } from "@/lib/connections";
 import { extensionByKey, extensionsOn } from "@/lib/domain-extension";
 import { fdxStatementsByAccount } from "@/lib/demo-fdx";
-import { forgetLostAccount, recordOutcome } from "@/lib/transcript";
+import {
+  forgetCompany,
+  forgetLostAccount,
+  recordOutcome,
+  shownTranscript,
+} from "@/lib/transcript";
 import { refusalFacts } from "@/lib/protocol-log";
 import {
   applyingLine,
@@ -77,9 +82,9 @@ const issuer = "http://juniper.localhost:4100";
 /**
  * The conversation as sign-out at a Company leaves it (§5.5): no account
  * tokens, scopes, FDX consent or ESPI subscription in its connection, and
- * nothing Iris read with them. The conversation is emptied, what was said
- * signed out included, and the Inspector's lines with it. The Session
- * continues signed out.
+ * nothing Iris read with them. What the conversation holds from that
+ * Company is emptied, what was said signed out included, and the
+ * Inspector's lines with it. The Session continues signed out.
  */
 function signedOutLocally(run: Run, connection: Connection) {
   delete connection.accountToken;
@@ -95,14 +100,11 @@ function signedOutLocally(run: Run, connection: Connection) {
   delete connection.espiAuthorizationUri;
   delete connection.auth;
   connection.operations = {};
-  run.history = [];
-  delete run.transcript;
-  delete connection.publicHistory;
-  // The Inspector's lines follow the conversation: none of an exchange the
-  // page no longer shows. The lines of this request are kept after it.
-  delete run.log;
-  // History lists it under its first request, which is gone with the rest.
-  delete run.title;
+  // The words, and the Inspector's lines with them: none of an exchange
+  // the page no longer shows. The lines of this request are kept after it.
+  // History lists the conversation under its first request, which is gone
+  // with the rest.
+  forgetCompany(run, connection);
   // Iris forgets it; the Company keeps the conversation open (§5.5).
   delete connection.conversation;
 }
@@ -274,9 +276,9 @@ export async function GET(request: Request) {
       // What the page showed, to show again: the transcript, with Company
       // content and each answer's label, steps and data. Not the model's
       // context, except in a run that has no transcript yet.
-      history: run?.transcript ?? run?.history ?? [],
+      history: run ? shownTranscript(run) : [],
       // The Inspector's "Session & API calls" lines, to list again.
-      log: run?.log ?? [],
+      log: untagged(run?.log ?? []),
       // §9.1: the tasks its current Session read, for "Tasks not offered".
       excludedTasks: connection ? shownTasks(connection) : [],
       // §9.4: the skills it read, for "Skills published".
