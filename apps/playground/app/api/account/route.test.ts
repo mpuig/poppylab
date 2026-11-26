@@ -159,7 +159,7 @@ vi.mock("@/lib/runtime", async () => ({
 
 import { POST, GET } from "./route";
 import { recordOperation } from "../../../lib/operation-store";
-import { seedRun } from "@/lib/runs";
+import { listConversations, seedRun } from "@/lib/runs";
 import { nextAutoApproval, usesAllowance } from "@/lib/auto-approval";
 import { createIdentity, ProtocolError } from "@poppy-lab/pap-client";
 function request(body: unknown, origin = "http://localhost:3000") {
@@ -1500,6 +1500,53 @@ describe("Human-controlled account boundary", () => {
       ).status,
     ).toBe(403);
     expect(state.request).not.toHaveBeenCalled();
+  });
+  it("tells the page its conversation has ended, and starts no new one in its place", async () => {
+    // Thirty minutes passed in a tab left open: History says read-only.
+    const visitor = await seedRun("v".repeat(43), "run_ended_fixture_01", {
+      protocol: "1.0",
+      url: "http://juniper.localhost:4100",
+      user: "",
+      expires: Date.now() - 1000,
+      created: Date.now() - 1801000,
+      calls: 1,
+      busy: false,
+      history: [],
+      title: "my orders",
+      transcript: [{ role: "user", content: "my orders" }],
+      accountToken: "old-secret",
+    } as never);
+    const before = (await listConversations(visitor)).length;
+    state.connect.mockClear();
+    for (const action of ["signin", "signout", "approve"]) {
+      const r = await POST(
+        new Request("http://localhost:3000/api/account", {
+          method: "POST",
+          headers: {
+            origin: "http://localhost:3000",
+            "Content-Type": "application/json",
+            "X-PAP-Company": "http://juniper.localhost:4100",
+            "X-Poppy-Conversation": "run_ended_fixture_01",
+          },
+          body: JSON.stringify({ action, id: "op_test", revision: "r1" }),
+        }),
+      );
+      expect(r.status).toBe(410);
+      expect(r.headers.get("X-Poppy-Conversation-Ended")).toBe(
+        "run_ended_fixture_01",
+      );
+      expect(r.headers.get("X-Poppy-Conversation")).toBeNull();
+      expect(await r.json()).toEqual({
+        code: "conversation_ended",
+        error:
+          "This conversation has ended and is read-only. Nothing was sent. Start a new conversation to go on.",
+        keptUntil: expect.any(Number),
+      });
+    }
+    expect(state.connect).not.toHaveBeenCalled();
+    expect(state.revoke).not.toHaveBeenCalled();
+    expect(state.request).not.toHaveBeenCalled();
+    expect(await listConversations(visitor)).toHaveLength(before);
   });
   it("is disabled in production", async () => {
     vi.stubEnv("NODE_ENV", "production");

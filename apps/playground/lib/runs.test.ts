@@ -4,6 +4,7 @@ import {
   allow,
   configureBackend,
   createRun,
+  endedConversation,
   listConversations,
   loadRun,
   memoryBackend,
@@ -174,9 +175,19 @@ it("ends an expired conversation: readable for a week, without tokens, never con
     },
   });
   await releaseRun("v", held);
+  // Still running: a request that names it goes on in it.
+  expect(await endedConversation("v", held.id)).toBeUndefined();
   vi.setSystemTime(start + 31 * 60000);
   expect(await loadRun("v", held.id)).toBeUndefined();
   expect(await acquireRun("v", held.id)).toBeUndefined();
+  // A page that still shows it is told it ended; one that names a
+  // conversation unknown here, or another visitor's, is told nothing.
+  expect(await endedConversation("v", held.id)).toEqual({
+    keptUntil: start + 7 * 86400000,
+  });
+  expect(await endedConversation("v", "never_started_0001")).toBeUndefined();
+  expect(await endedConversation("other", held.id)).toBeUndefined();
+  expect(await endedConversation("v", undefined)).toBeUndefined();
   const read = await readConversation("v", held.id);
   expect(read).toMatchObject({
     archived: true,

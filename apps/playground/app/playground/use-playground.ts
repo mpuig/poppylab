@@ -76,6 +76,8 @@ const conversationInAddress = () =>
     window.location.pathname,
   )?.[1];
 const CONVERSATION = "X-Poppy-Conversation";
+/** On a refusal: the conversation the request named has ended. */
+const ENDED = "X-Poppy-Conversation-Ended";
 
 /**
  * A domain extension's grant, as the account row reads and revokes it: the
@@ -111,8 +113,14 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
   const [ended, setEnded] = useState<{ keptUntil?: number } | undefined>();
   /** The address names a conversation this browser can't open. */
   const [missing, setMissing] = useState(false);
-  /** Takes the conversation the server names and puts it in the address. */
+  /**
+   * Takes the conversation the server names and puts it in the address. A
+   * request the server refused because this page's conversation has ended
+   * names none: the page then shows it as ended.
+   */
   const adopt = (response: Response) => {
+    if (current.current && response.headers.get(ENDED) === current.current)
+      void noticeEnded();
     const id = response.headers.get(CONVERSATION);
     if (!id || id === current.current) return;
     current.current = id;
@@ -269,6 +277,53 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
       cancelled = true;
     };
   }, []);
+
+  /**
+   * A conversation ends at the server: thirty minutes after its start, or
+   * when a sixth one pushes it out. A tab left open isn't told, and still
+   * offers a message box. So the page asks, and when the conversation has
+   * ended it shows what History shows: read-only, signed out, each
+   * proposal as it ended. What is on screen stays where it is.
+   */
+  const asking = useRef(false);
+  async function noticeEnded() {
+    const id = current.current;
+    if (!id || asking.current) return;
+    asking.current = true;
+    try {
+      const response = await fetch(`/api/account?conversation=${id}`);
+      const data = await response.json();
+      if (id !== current.current || !data.readOnly) return;
+      setEnded({ keptUntil: data.keptUntil });
+      setSignedIn(false);
+      setScopes("");
+      setWaitingSignIn(false);
+      setGrantId(undefined);
+      setOperations(data.operations ?? []);
+      applyDirect(data.directConversation);
+      // The notice above the chat says it; a refused request said it too.
+      setError("");
+    } catch {
+      // Asked again the next time the page is looked at.
+    } finally {
+      asking.current = false;
+    }
+  }
+  // Asked when the page is looked at again, before anything is typed. A
+  // request that names an ended conversation is refused and asks as well.
+  useEffect(() => {
+    if (!conversation || ended) return;
+    const look = () => {
+      if (document.visibilityState === "visible") void noticeEnded();
+    };
+    window.addEventListener("focus", look);
+    document.addEventListener("visibilitychange", look);
+    return () => {
+      window.removeEventListener("focus", look);
+      document.removeEventListener("visibilitychange", look);
+    };
+    // noticeEnded reads the conversation from a ref and only sets state.
+  }, [conversation, ended]);
 
   // While a consent tab is open, poll until it completes or is declined.
   useEffect(() => {
@@ -849,6 +904,15 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
       });
       adopt(response);
       const data = await response.json();
+      if (data.code === "conversation_ended") {
+        // Nothing was sent. The words go back to the box, and not into a
+        // conversation that is over.
+        if (said.length) {
+          setMessages((old) => old.slice(0, -said.length));
+          setTask(message);
+        }
+        return;
+      }
       if (!response.ok) {
         // What Iris did before the turn failed, such as the request the
         // Company refused: the Inspector shows it.

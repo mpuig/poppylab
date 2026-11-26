@@ -23,7 +23,7 @@ import {
   visitorOf,
   type Held,
 } from "@/lib/runs";
-import { overBudget } from "@/lib/limits";
+import { conversationEnded, overBudget } from "@/lib/limits";
 import { pickDemoTool } from "@/lib/demo-tool";
 import { notSentReply, readable } from "@/lib/demo-text";
 import {
@@ -189,14 +189,16 @@ async function reply(request: Request, started: { id?: string }) {
     visitor = visitorOf(store, true);
     const limited = await overBudget(request, visitor, "chat");
     if (limited) return limited;
-    const current = await acquireRun(
-      visitor,
-      request.headers.get("x-poppy-conversation") ?? undefined,
-    );
+    const named = request.headers.get("x-poppy-conversation") ?? undefined;
+    const current = await acquireRun(visitor, named);
     if (current === "busy")
       throw new UserFacingError("Wait for the current response.");
     held = current;
-    // An ended or unknown conversation continues as a new one.
+    // One that ended is still on the page that names it: the page is told,
+    // and nothing is answered in another conversation under its messages.
+    const over = held ? undefined : await conversationEnded(visitor, named);
+    if (over) return over;
+    // A conversation unknown here continues as a new one.
     if (!held || new URL(held.run.url).href !== new URL(body.url).href) {
       if (held) await releaseRun(visitor, held);
       held = await createRun(visitor, body.url);

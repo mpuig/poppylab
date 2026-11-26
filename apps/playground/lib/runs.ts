@@ -378,6 +378,20 @@ export async function readConversation(visitor: string, id: unknown) {
 }
 
 /**
+ * Whether a request names a conversation of this visitor that has ended
+ * and is still kept, with the day it goes. A tab left open past the end
+ * still shows it, so such a request is refused and the page told, where
+ * one that names a conversation unknown here goes on in a new one.
+ */
+export async function endedConversation(
+  visitor: string,
+  id: string | undefined,
+) {
+  const run = await readConversation(visitor, id);
+  return run?.archived ? { keptUntil: run.keepUntil } : undefined;
+}
+
+/**
  * Starts the demo over: every Company meets this visitor as a new person
  * (a new User ID, so a fresh copy of its test customers), and the running
  * conversations end, since their Sessions belong to the person before.

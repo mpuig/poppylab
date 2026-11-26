@@ -56,7 +56,7 @@ import {
   visitorOf,
   type Held,
 } from "@/lib/runs";
-import { overBudget } from "@/lib/limits";
+import { conversationEnded, overBudget } from "@/lib/limits";
 import {
   coveredBy,
   notCovered,
@@ -326,10 +326,8 @@ async function act(request: Request, started: { id?: string }) {
   const visitor = visitorOf(store, true);
   const limited = await overBudget(request, visitor, "account");
   if (limited) return limited;
-  const current = await acquireRun(
-    visitor,
-    request.headers.get("x-poppy-conversation") ?? undefined,
-  );
+  const named = request.headers.get("x-poppy-conversation") ?? undefined;
+  const current = await acquireRun(visitor, named);
   if (current === "busy")
     return NextResponse.json(
       { error: "Wait for the current request." },
@@ -337,6 +335,10 @@ async function act(request: Request, started: { id?: string }) {
     );
   let held: Held | undefined = current;
   if (!held) {
+    // One that ended is still on the page that names it: the page is told,
+    // and no sign-in or approval starts in another conversation.
+    const over = await conversationEnded(visitor, named);
+    if (over) return over;
     let origin: string;
     try {
       const input = new URL(request.headers.get("x-pap-company") ?? issuer);

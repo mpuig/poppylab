@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
-import { allow, type Limit } from "./runs";
+import { allow, endedConversation, type Limit } from "./runs";
 import { publicMode } from "./deployment";
 
 const minute = 60000,
@@ -57,6 +57,37 @@ export async function overBudget(
     {
       status: 429,
       headers: { "Retry-After": "60", "Cache-Control": "no-store" },
+    },
+  );
+}
+
+/**
+ * 410 when the request names a conversation of this visitor that has ended
+ * and is kept read-only, otherwise undefined. The tab that named it still
+ * shows it, with a message box: an answer from a new conversation would
+ * land under the old messages, signed out. Nothing is sent or started, and
+ * the header lets the page tell this from any other refusal and show the
+ * conversation read-only, as History does.
+ */
+export async function conversationEnded(
+  visitor: string,
+  id: string | undefined,
+) {
+  const ended = await endedConversation(visitor, id);
+  if (!ended || !id) return undefined;
+  return NextResponse.json(
+    {
+      code: "conversation_ended",
+      error:
+        "This conversation has ended and is read-only. Nothing was sent. Start a new conversation to go on.",
+      keptUntil: ended.keptUntil,
+    },
+    {
+      status: 410,
+      headers: {
+        "X-Poppy-Conversation-Ended": id,
+        "Cache-Control": "no-store",
+      },
     },
   );
 }

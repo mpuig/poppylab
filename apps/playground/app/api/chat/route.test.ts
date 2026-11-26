@@ -33,7 +33,7 @@ vi.mock("@/lib/deployment", async (importOriginal) => ({
 import { createIdentity, ProtocolError } from "@poppy-lab/pap-client";
 import { agentStep } from "@/lib/agent-steps";
 import { logEntry } from "@/lib/protocol-log";
-import { seedRun } from "@/lib/runs";
+import { listConversations, seedRun } from "@/lib/runs";
 import type { Run } from "@/lib/runtime";
 import { POST } from "./route";
 
@@ -488,4 +488,59 @@ it("leaves a signed-out conversation alone when the Company refuses its Session"
   const turn = await say(run, "what do you sell?");
   expect(turn.answer).not.toHaveProperty("history");
   expect(run.history).toEqual([{ role: "user", content: "hello" }]);
+});
+
+it("tells the page its conversation has ended, and starts no new one in its place", async () => {
+  const ask = (id: string) =>
+    POST(
+      new Request("http://localhost:3000/api/chat", {
+        method: "POST",
+        headers: {
+          Origin: "http://localhost:3000",
+          "Content-Type": "application/json",
+          "X-Poppy-Conversation": id,
+        },
+        body: JSON.stringify({
+          url: origin,
+          message: "what do you sell?",
+          provider: "demo",
+        }),
+      }),
+    );
+  // Thirty minutes passed in a tab left open: History says read-only.
+  const visitor = await seedRun("v".repeat(43), "run_chat_ended_0001", {
+    ...shop(),
+    expires: Date.now() - 1000,
+    created: Date.now() - 1801000,
+    title: "What do you sell?",
+    transcript: [{ role: "user", content: "What do you sell?" }],
+  });
+  const before = (await listConversations(visitor)).length;
+  transport.mockClear();
+  const refused = await ask("run_chat_ended_0001");
+  expect(refused.status).toBe(410);
+  expect(refused.headers.get("X-Poppy-Conversation-Ended")).toBe(
+    "run_chat_ended_0001",
+  );
+  // No conversation is named for the page to move to.
+  expect(refused.headers.get("X-Poppy-Conversation")).toBeNull();
+  expect(await refused.json()).toEqual({
+    code: "conversation_ended",
+    error:
+      "This conversation has ended and is read-only. Nothing was sent. Start a new conversation to go on.",
+    keptUntil: expect.any(Number),
+  });
+  // Nothing was asked of the Company, and nothing new was started.
+  expect(transport).not.toHaveBeenCalled();
+  expect(await listConversations(visitor)).toHaveLength(before);
+  // A conversation unknown here still goes on as a new one.
+  discover.mockResolvedValue(shop().company);
+  const fresh = await ask("run_chat_never_0001");
+  expect(fresh.status).toBe(200);
+  expect(fresh.headers.get("X-Poppy-Conversation")).toMatch(
+    /^[A-Za-z0-9_-]{16,64}$/,
+  );
+  expect(fresh.headers.get("X-Poppy-Conversation")).not.toBe(
+    "run_chat_never_0001",
+  );
 });
