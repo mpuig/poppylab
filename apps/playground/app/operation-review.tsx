@@ -12,6 +12,7 @@ import {
   ownLayout,
   termRows,
   termValue,
+  waitsAgain,
   type ReviewOperation,
 } from "../lib/operation-presentation";
 /** The amounts of Juniper's and Lantern's terms, as their cards name them. */
@@ -105,9 +106,17 @@ export function OperationReview({
         <span>{operationTitle(op)}</span>
         <span className="operation-state">
           {states[state] ?? state}
-          {/* A closed line among several names its amount, to tell them apart. */}
-          {open === false && pending && total
-            ? ` · ${total.text} ${total.label}`
+          {/* A closed line among several says what tells it apart: why it
+              waits again, which its note says only once it is open, and its
+              amount. */}
+          {open === false && pending
+            ? [
+                waitsAgain(op, notApplied),
+                total && `${total.text} ${total.label}`,
+              ]
+                .filter(Boolean)
+                .map((words) => ` · ${words}`)
+                .join("")
             : ""}
         </span>
         {(ended.says || ended.note) && (

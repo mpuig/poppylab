@@ -163,6 +163,57 @@ it("lists the waiting card that is open last, below the others", () => {
   expect(openLast([])).toEqual([]);
 });
 
+import { waitsAgain } from "./operation-presentation";
+
+it("says in a few words why a proposal waits again", () => {
+  const op = pending({ amount_cents: 2500, currency: "USD" });
+  const refused = {
+    notPerformed: "refused" as const,
+    result: { summary: "The Company refused this request (HTTP 409)." },
+  };
+  // Nobody has answered it yet.
+  expect(waitsAgain(op)).toBe("");
+  expect(waitsAgain(op, null)).toBe("");
+  // An approval was sent and nothing was performed.
+  expect(waitsAgain({ ...op, ...refused })).toBe("Last approval refused");
+  expect(
+    waitsAgain({
+      ...op,
+      notPerformed: "new_terms",
+      result: { summary: "The Company returned these new terms." },
+    }),
+  ).toBe("Came back with new terms");
+  // New terms in answer to Iris's approval come without a sentence, and
+  // the mark stays when the terms are asked for again.
+  expect(
+    waitsAgain({ ...op, notPerformed: "new_terms", agentSuperseded: true }),
+  ).toBe("Came back with new terms");
+  expect(waitsAgain({ ...op, agentSuperseded: true })).toBe(
+    "Came back with new terms",
+  );
+  expect(waitsAgain({ ...op, agentDeclined: {} })).toBe(
+    "Iris’s approval declined",
+  );
+  // What became of the approval sent last comes first: the User's own,
+  // refused after the Company had declined or answered Iris's.
+  expect(waitsAgain({ ...op, agentDeclined: {}, ...refused })).toBe(
+    "Last approval refused",
+  );
+  expect(waitsAgain({ ...op, agentSuperseded: true, ...refused })).toBe(
+    "Last approval refused",
+  );
+  // The standing instruction left it to the User, and nothing else happened.
+  expect(waitsAgain(op, "the amount is over your limit")).toBe(
+    "Standing instruction did not apply",
+  );
+  expect(
+    waitsAgain(
+      { ...op, agentDeclined: {} },
+      "Harborline Bank declined the approval Iris sent on it",
+    ),
+  ).toBe("Iris’s approval declined");
+});
+
 import { ownLayout, termRows } from "./operation-presentation";
 
 // The Companies' terms, as their own code writes them.

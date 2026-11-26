@@ -396,6 +396,23 @@ export function needsYou(op: ReviewOperation, now = Date.now()) {
 }
 
 /**
+ * Why a proposal waits again, in a few words for its closed line in "Needs
+ * you", where the note in its card's foot does not show. What became of the
+ * approval sent last comes first: `result` is its sentence while the terms
+ * still wait, and `notPerformed` says whether it was refused or answered
+ * with new terms. Then what the Company did with an approval Iris sent,
+ * which stays with the proposal. Last, a standing instruction that left it
+ * to the User (`leftToUser`). Empty for a proposal nobody has answered yet.
+ */
+export function waitsAgain(op: ReviewOperation, notApplied?: string | null) {
+  if (op.notPerformed === "new_terms") return "Came back with new terms";
+  if (op.notPerformed || op.result) return "Last approval refused";
+  if (op.agentSuperseded) return "Came back with new terms";
+  if (op.agentDeclined) return "Iris’s approval declined";
+  return notApplied ? "Standing instruction did not apply" : "";
+}
+
+/**
  * The waiting operations in the order "Needs you" lists them. One card is
  * open at a time and it comes last, so the others are closed lines above it
  * and the buttons at the panel's foot are always its own. It is the one the

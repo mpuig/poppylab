@@ -100,10 +100,13 @@ in the page; the server's approval endpoint is the one it always was.
   A status line announces a waiting proposal to screen readers. Settled
   operations stay in the transcript. One card is open at a time: the first to
   arrive, until you open another by its title. The others are closed lines
-  above it, each with its amount. The open card's Approve and Decline stay at
-  the foot of the panel while its terms scroll behind them, and so does the
-  note that says why a card still waits: the Company refused the approval or
-  answered it with new terms, or your standing instruction did not apply.
+  above it, each with its amount. A closed line whose proposal waits again
+  says why before the amount: "Last approval refused", "Came back with new
+  terms", "Iris’s approval declined" or "Standing instruction did not
+  apply". The open card's Approve and Decline stay at the foot of the panel
+  while its terms scroll behind them, and so does the note that says why a
+  card still waits: the Company refused the approval or answered it with new
+  terms, or your standing instruction did not apply.
   Where only the top of the card is in view, the buttons stay in view and
   cover the note until you scroll on. In a window up to 1100px tall the panel
   does not scroll inside the conversation. The page grows instead and moves

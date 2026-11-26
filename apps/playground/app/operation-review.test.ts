@@ -684,3 +684,44 @@ it("is open or a closed line as the panel says, and a closed line names its amou
   // Outside the panel a waiting card opens itself.
   expect(waiting()).toMatch(/^<details class="operation-review" open/);
 });
+it("says on a closed line why its proposal waits again, before its amount", () => {
+  const line = (marks: object, notApplied?: string, open = false) =>
+    /<span class="operation-state">(.*?)<\/span>/.exec(
+      renderToStaticMarkup(
+        createElement(OperationReview, {
+          op: { ...op, terms: harborlineTransfer, ...marks },
+          company: "Harborline Bank",
+          busy: false,
+          signedIn: true,
+          onAction: vi.fn(),
+          notApplied,
+          open,
+          onOpen: vi.fn(),
+        }),
+      ),
+    )?.[1];
+  const refused = {
+    notPerformed: "refused",
+    result: { summary: "Harborline Bank refused this request (HTTP 409)." },
+  };
+  // One nobody has answered, and one the Company refused.
+  expect(line({})).toBe("Approval required · Amount $25.00");
+  expect(line(refused)).toBe(
+    "Approval required · Last approval refused · Amount $25.00",
+  );
+  expect(line({ notPerformed: "new_terms" })).toBe(
+    "Approval required · Came back with new terms · Amount $25.00",
+  );
+  expect(line({ agentDeclined: { reason: "Not for agents." } })).toBe(
+    "Approval required · Iris’s approval declined · Amount $25.00",
+  );
+  expect(line({}, "the amount, $25.00, is over your limit of $10.00")).toBe(
+    "Approval required · Standing instruction did not apply · Amount $25.00",
+  );
+  // Open, the note in the card's foot says it in full.
+  expect(line(refused, undefined, true)).toBe("Approval required");
+  // One that no longer waits says how it ended, not why it waited.
+  expect(line({ ...refused, state: "refused" })).toBe(
+    "Declined by the Company",
+  );
+});
