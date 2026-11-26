@@ -99,7 +99,9 @@ in the page; the server's approval endpoint is the one it always was.
   again when a new proposal arrives; you can keep chatting while it is open.
   A status line announces a waiting proposal to screen readers. Settled
   operations stay in the transcript. On a short window the panel shrinks and
-  scrolls, so the message box is always on screen.
+  scrolls, so the message box is always on screen. The Approve and Decline
+  buttons of the card in view stay at the foot of the panel while its terms
+  scroll behind them, so they are on screen without scrolling the panel.
 - **The approval card.** It leads with the amount being approved, which is also
   on the button ("Approve $28.00"), and quotes the Company's summary as the
   Company's own words, as text only. It warns when the summary names an amount

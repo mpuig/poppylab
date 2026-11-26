@@ -1586,10 +1586,33 @@ footer .lab-links a:hover {
   max-height: 36vh;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 0 22px 14px;
+  /* No space at the foot: a card's buttons rest on the panel's edge. */
+  padding: 0 22px;
 }
 .needs-you .operation-review {
   margin: 8px 0;
+}
+/*
+ * A card taller than the panel keeps its Approve and Decline in view: they
+ * stay at the panel's foot while the card's terms scroll behind them, so
+ * nobody has to find the panel's own scroll to decide.
+ */
+.needs-you .operation-actions {
+  position: sticky;
+  bottom: 0;
+  /* No margin of its own, so a short panel can still hold the whole row. */
+  margin: 0;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+  background: var(--soft);
+}
+/* The space above the row belongs to the line before it. */
+.needs-you .operation-content > :has(+ .operation-actions) {
+  margin-bottom: 14px;
+}
+/* Focus moving through a card stops above those buttons, not under them. */
+.needs-you .operation-review summary {
+  scroll-margin-bottom: 72px;
 }
 .standing-instruction {
   flex-basis: 100%;
