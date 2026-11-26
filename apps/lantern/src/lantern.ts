@@ -39,6 +39,7 @@ export {
   slots,
 } from "./data.ts";
 import {
+  CURRENCY,
   customers,
   DELIVERY_CENTS,
   menu,
@@ -95,7 +96,7 @@ const view = (o: Order) => ({
   recipient: o.recipient,
   address: o.address,
   version: o.version,
-  currency: "USD",
+  currency: CURRENCY,
   ...priced(o.lines),
   note: "Fictional order: no real food, charge or delivery.",
 });
@@ -298,7 +299,7 @@ function mount(
   );
   app.get("/api/menu", (c) =>
     c.json({
-      currency: "USD",
+      currency: CURRENCY,
       dishes: menu.map((d) => ({
         ...d,
         image: `${ctx.origin}/img/${d.id}.webp`,
@@ -341,7 +342,7 @@ function mount(
       before_total_cents: before.total_cents,
       new_total_cents: after.total_cents,
       price_difference_cents: difference,
-      currency: "USD",
+      currency: CURRENCY,
       payment: "Simulated card on file — no real charge",
     };
     const summary = [

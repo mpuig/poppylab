@@ -82,6 +82,7 @@ const delivery = {
   days: ["Tuesday", "Thursday", "Saturday"],
   fee_cents: 500,
   free_above_cents: 3500,
+  currency: "USD",
   coverage: "Within 5 miles of Juniper Market",
   note: "Fictional demo; no real deliveries.",
 };

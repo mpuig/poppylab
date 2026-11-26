@@ -447,6 +447,7 @@ it("returns exact baggage, preference, upgrade and cancellation terms", async ()
   ).json().operation;
   expect(preference.terms).toMatchObject({
     fee_cents: 0,
+    currency: "USD",
     to: { meal: "vegan", assistance: "visual_guidance" },
   });
   const upgrade = (

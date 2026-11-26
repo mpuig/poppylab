@@ -49,6 +49,8 @@ it("answers store questions signed out and asks for sign-in for the account", as
   expect(company(info)[0]!.data).toMatchObject({
     hours: "Monday–Saturday, 8am–7pm; Sunday, 9am–4pm",
     phone: "+1 555-0117",
+    // The delivery fee comes with its currency, as at `/api/delivery`.
+    delivery: { fee_cents: 500, free_above_cents: 3500, currency: "USD" },
   });
   const status = (
     await ana(

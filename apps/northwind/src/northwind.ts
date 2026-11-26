@@ -821,6 +821,7 @@ function mount(
           assistance: String(input!.assistance),
         },
         fee_cents: 0,
+        currency: "USD",
         reversibility:
           "These non-medical preferences may be changed again until fictional check-in closes.",
       };

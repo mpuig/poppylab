@@ -53,6 +53,18 @@ const msg = (message: Record<string, unknown>, id = `req_${++n}`) => ({
   message: { author: { type: "agent" }, ...message },
 });
 const req = (id = `req_${++n}`) => ({ id });
+/**
+ * The amounts of an answer that state no currency: none in their own
+ * object and none in an object around it.
+ */
+const unpriced = (value: unknown, stated = false): string[] => {
+  if (Array.isArray(value)) return value.flatMap((v) => unpriced(v, stated));
+  if (!value || typeof value !== "object") return [];
+  const here = stated || (value as { currency?: unknown }).currency === "USD";
+  return Object.entries(value).flatMap(([key, v]) =>
+    key.endsWith("_cents") && !here ? [key] : unpriced(v, here),
+  );
+};
 
 async function lab() {
   const x = await setup();
@@ -371,7 +383,17 @@ it("proposes a refund for a missing dish and performs it once, only with the app
   expect(x.company((done.body as Read).events)[0]!.text).toBe(
     "Refunded USD 8.00 for 1 × Pork gyoza (6) on order ord_LNB0907. Simulated: no real money moves.",
   );
+  // The refund's amount comes with its currency.
+  expect(x.company((done.body as Read).events)[0]!.data).toMatchObject({
+    refund: { dish_id: "pork-gyoza", quantity: 1, amount_cents: 800 },
+    currency: "USD",
+  });
   expect(await gyoza()).toBe(1);
+  // So do the prices and refunds of the last delivery.
+  expect(await status()).toMatchObject({
+    currency: "USD",
+    refunds: [{ amount_cents: 800 }],
+  });
   // A retried request gets the original response and adds nothing; a new
   // message with the same approval adds no reply (Operations v3 §7).
   const before = (await x.events(t, id)).events.length;
@@ -394,9 +416,23 @@ it("proposes a refund for a missing dish and performs it once, only with the app
       },
     }),
   );
-  expect(x.company((again.body as Read).events)[0]!.data!.error).toBe(
-    "already_refunded",
-  );
+  expect(x.company((again.body as Read).events)[0]!.data).toEqual({
+    error: "already_refunded",
+    refunds: [
+      {
+        order_id: "ord_LNB0907",
+        dish_id: "pork-gyoza",
+        quantity: 1,
+        amount_cents: 800,
+        at: expect.any(String),
+      },
+    ],
+    currency: "USD",
+  });
+  // No answer in the conversation left an amount without its currency.
+  const answers = x.company((await x.events(t, id)).events);
+  expect(answers.length).toBeGreaterThan(5);
+  expect(answers.flatMap((message) => unpriced(message.data))).toEqual([]);
 });
 
 it("asks for the write scope first, and sends no operation to a request that doesn't declare Operations v3", async () => {
@@ -708,6 +744,26 @@ it("opens a Direct Conversation on Lantern's invitation and refunds a whole orde
     }
   ).refunds;
   expect(refunds.length).toBeGreaterThan(0);
+  // The whole order again: already refunded, with what was refunded.
+  const reported = await x.post(
+    t,
+    `${BASE}/${parent}/messages?wait=0&cursor=${(await x.events(t, parent)).cursor}`,
+    msg({ data: { request: "order_not_delivered", order_id: "ord_LNB0907" } }),
+  );
+  expect(x.company((reported.body as Read).events)[0]!.data).toMatchObject({
+    error: "already_refunded",
+    refunds: [{ amount_cents: 2900 }, { amount_cents: 800 }],
+    currency: "USD",
+  });
+  // Every amount in both conversations came with its currency: the refund
+  // Lantern said it would make, the one it made and the ones it lists.
+  for (const conversation of [parent, direct]) {
+    const answers = x.company((await x.events(t, conversation)).events);
+    expect(
+      answers.flatMap((message) => Object.keys(message.data ?? {})),
+    ).toContain(conversation === parent ? "refund_cents" : "refunds");
+    expect(answers.flatMap((message) => unpriced(message.data))).toEqual([]);
+  }
 });
 
 it("asks its question once in a Direct Conversation: after the answer, more words get the phone number (§8.10)", async () => {

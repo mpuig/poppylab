@@ -20,6 +20,7 @@ import type {
   TurnResult,
 } from "@poppy-lab/pap-company";
 import {
+  CURRENCY,
   customers,
   DELIVERY_CENTS,
   hours,
@@ -96,6 +97,8 @@ export function deliveredView(account: string, refunds: Refund[]) {
     id: d.id,
     status: "delivered",
     delivered_at: d.at,
+    // Of the dishes' prices and of the refunds below.
+    currency: CURRENCY,
     items: Object.entries(d.lines).map(([id, quantity]) => {
       const dish = menu.find((m) => m.id === id)!;
       const refunded = refunds
@@ -178,7 +181,11 @@ export function lanternAgent(deps: Deps): ConversationHandler {
         replies: [
           {
             text: `${item.name} on order ${order.id} was already refunded.`,
-            data: { error: "already_refunded", refunds: order.refunds },
+            data: {
+              error: "already_refunded",
+              refunds: order.refunds,
+              currency: CURRENCY,
+            },
           },
         ],
       };
@@ -215,7 +222,7 @@ export function lanternAgent(deps: Deps): ConversationHandler {
         dish_id: item.dish_id,
         quantity,
         refund_cents: amount,
-        currency: "USD",
+        currency: CURRENCY,
         method: "Simulated refund to the card used for the order",
       },
       summary: `Refund ${quantity} × ${item.name} (${usd(amount)}) missing from order ${order.id}, delivered ${order.delivered_at}, to the card used for it. Simulated: no real money moves.`,
@@ -235,7 +242,7 @@ export function lanternAgent(deps: Deps): ConversationHandler {
         };
         return {
           summary: `Refunded ${usd(record.amount_cents)} for ${record.quantity} × ${item.name} on order ${record.order_id}. Simulated: no real money moves.`,
-          data: { refund: record },
+          data: { refund: record, currency: CURRENCY },
         };
       },
     });
@@ -268,7 +275,11 @@ export function lanternAgent(deps: Deps): ConversationHandler {
           replies: [
             {
               text: `Order ${order.id} was already refunded.`,
-              data: { error: "already_refunded", refunds: order.refunds },
+              data: {
+                error: "already_refunded",
+                refunds: order.refunds,
+                currency: CURRENCY,
+              },
             },
           ],
         } satisfies TurnResult,
@@ -292,7 +303,7 @@ export function lanternAgent(deps: Deps): ConversationHandler {
         order_id: order.id,
         lines,
         refund_cents: amount,
-        currency: "USD",
+        currency: CURRENCY,
         method: "Simulated refund to the card used for the order",
       },
       summary: `Refund all of order ${order.id} (${usd(amount)}), which didn't arrive, to the card used for it. Simulated: no real money moves.`,
@@ -312,7 +323,7 @@ export function lanternAgent(deps: Deps): ConversationHandler {
         turn.memory.pending = { kind: "whole", order_id: order.id, done: true };
         return {
           summary: `Refunded ${usd(Number(t.refund_cents))} for order ${String(t.order_id)}. Simulated: no real money moves.`,
-          data: { refunds: records },
+          data: { refunds: records, currency: CURRENCY },
         };
       },
     });
@@ -509,7 +520,11 @@ export function lanternAgent(deps: Deps): ConversationHandler {
           replies: [
             {
               text: `Scheduled orders go out in these slots. Delivery is ${usd(DELIVERY_CENTS)}.`,
-              data: { slots, delivery_cents: DELIVERY_CENTS, currency: "USD" },
+              data: {
+                slots,
+                delivery_cents: DELIVERY_CENTS,
+                currency: CURRENCY,
+              },
             },
           ],
         };
@@ -590,6 +605,7 @@ export function lanternAgent(deps: Deps): ConversationHandler {
               data: {
                 order_id: found.order.id,
                 refund_cents: found.amount,
+                currency: CURRENCY,
                 next: "user_requested",
               },
             },

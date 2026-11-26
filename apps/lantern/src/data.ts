@@ -14,6 +14,12 @@ export const slots = [
   { id: "sun-1300", label: "Sunday 13:00–13:30" },
 ] as const;
 export const DELIVERY_CENTS = 300;
+/**
+ * The currency of every Lantern amount. The API's answers, an operation's
+ * terms and what the Company Agent says about a refund all state it from
+ * here, so an agent never has to guess what a number of cents is in.
+ */
+export const CURRENCY = "USD";
 /** Kitchen hours, for the website and the Company Agent. */
 export const hours = [
   { days: "Wednesday to Friday", open: "17:30–21:30" },
