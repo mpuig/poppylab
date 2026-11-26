@@ -79,6 +79,8 @@ Modeled business errors include:
 - `transaction_pending`;
 - `idempotency_conflict` and safe replay of performed operations.
 
+A refusal that carries an amount says its currency: `insufficient_funds` answers `{ error, available_cents, currency }`, and `recipient_limit_exceeded` and `transfer_limit_exceeded` answer `{ error, limit_cents, currency }`. `currency` is `"USD"`, from the constant the terms of the same operation and the account views take theirs from (`CURRENCY` in `src/data.ts`), so an agent can show the number as money without guessing.
+
 ## FDX-shaped API
 
 Harborline also serves a read-only API shaped after FDX 6.4 over the same fictional state. It is **FDX-shaped, not FDX-conformant or certified**: paths and field names follow the shape that public implementers use, and every rule, description and error text is Harborline's own. No FDX specification text or schema is in this repository, and Harborline uses no FDX branding. It exists to show a domain standard used through a Poppy extension, the way `ucp` does for commerce. The extension itself is described in [`poppylab.dev/fdx` v1](extensions/fdx.md).

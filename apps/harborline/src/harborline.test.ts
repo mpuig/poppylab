@@ -339,6 +339,77 @@ describe("Harborline Bank", () => {
     });
   });
 
+  it("says the currency of every amount in a refusal, as the terms of the same operation do", async () => {
+    const { sign, call } = await setup();
+    const token = await sign("robin", all);
+    const pay = (amount_cents: number, key: string) =>
+      call(token.access_token, "POST", "/api/account/payments", {
+        source_account_id: "acc_HLB_J100",
+        recipient_id: "rcp_HLB_J501",
+        amount_cents,
+        memo: "Deposit",
+        idempotency_key: key,
+      });
+    const move = (
+      amount_cents: number,
+      key: string,
+      approval?: Parameters<typeof call>[4],
+    ) =>
+      call(
+        token.access_token,
+        "POST",
+        "/api/account/transfers",
+        {
+          source_account_id: "acc_HLB_J100",
+          destination_account_id: "acc_HLB_J200",
+          amount_cents,
+          idempotency_key: key,
+        },
+        approval,
+      );
+    const overRecipient = await pay(600000, "currency-recipient-01");
+    expect(overRecipient.statusCode).toBe(422);
+    expect(overRecipient.json()).toEqual({
+      error: "recipient_limit_exceeded",
+      limit_cents: 500000,
+      currency: "USD",
+    });
+    const uncovered = await pay(400000, "currency-funds-01");
+    expect(uncovered.statusCode).toBe(409);
+    expect(uncovered.json()).toEqual({
+      error: "insufficient_funds",
+      available_cents: 382740,
+      currency: "USD",
+    });
+    const overTransfer = await move(250001, "currency-limit-01");
+    expect(overTransfer.statusCode).toBe(422);
+    expect(overTransfer.json()).toEqual({
+      error: "transfer_limit_exceeded",
+      limit_cents: 250000,
+      currency: "USD",
+    });
+    // A transfer the account covers is proposed with the same currency in
+    // its terms; once it is made, the next one is more than what is left.
+    const op = operation(await move(250000, "currency-out-01"));
+    expect(op.terms.currency).toBe("USD");
+    expect((await move(250000, "currency-out-01", op)).statusCode).toBe(200);
+    const drained = await move(200000, "currency-funds-02");
+    expect(drained.statusCode).toBe(409);
+    expect(drained.json()).toEqual({
+      error: "insufficient_funds",
+      available_cents: 132740,
+      currency: "USD",
+    });
+    // The published description says so for both kinds of answer.
+    const responses = (await inject("/openapi.json")).json().paths[
+      "/api/account/payments"
+    ].post.responses;
+    expect(responses["409"].description).toContain("available_cents");
+    expect(responses["409"].description).toContain("currency");
+    expect(responses["422"].description).toContain("limit_cents");
+    expect(responses["422"].description).toContain("currency");
+  });
+
   it("describes for each amount the most its handler takes", async () => {
     const { sign, call } = await setup();
     const token = await sign("elena", all);
@@ -371,6 +442,7 @@ describe("Harborline Bank", () => {
     expect(over.json()).toEqual({
       error: "transfer_limit_exceeded",
       limit_cents: most,
+      currency: "USD",
     });
     // A payment and a budget: one more than the description's maximum is
     // not an amount the handler reads.
@@ -1325,6 +1397,7 @@ describe("Harborline Bank", () => {
     expect(refused.json()).toEqual({
       error: "insufficient_funds",
       available_cents: 132740,
+      currency: "USD",
     });
     const attempt = {
       state: "refused",

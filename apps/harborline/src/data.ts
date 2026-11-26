@@ -311,6 +311,12 @@ export function withinGrant(
     cards: records.cards.filter((card) => ids.has(card.account_id)),
   };
 }
+/**
+ * The currency of every Harborline amount. An operation's terms, the
+ * account views and a refusal that carries an amount all state it from
+ * here, so an agent never has to guess what a number of cents is in.
+ */
+export const CURRENCY = "USD";
 export const usd = (cents: number) => `USD ${(cents / 100).toFixed(2)}`;
 export const FICTION_NOTICE =
   "Fictional Harborline Bank data. No real money moves; never enter real banking data or credentials.";

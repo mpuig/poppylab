@@ -15,6 +15,7 @@ import {
   accountLast4,
   bankPersona,
   categories,
+  CURRENCY,
   customers,
   FICTION_NOTICE,
   usd,
@@ -132,12 +133,12 @@ const generatedId = (prefix: string, key: string) =>
   `${prefix}_${createHash("sha256").update(key).digest("base64url").slice(0, 14)}`;
 const accountView = (account: Account) => ({
   ...account,
-  currency: "USD",
+  currency: CURRENCY,
   note: FICTION_NOTICE,
 });
 const transactionView = (transaction: Transaction) => ({
   ...transaction,
-  currency: "USD",
+  currency: CURRENCY,
   note: FICTION_NOTICE,
 });
 const cardView = (card: Card) => ({ ...card, note: FICTION_NOTICE });
@@ -147,7 +148,7 @@ const recipientView = (recipient: Recipient) => ({
 });
 const budgetView = (budget: Budget) => ({
   ...budget,
-  currency: "USD",
+  currency: CURRENCY,
   remaining_cents: budget.limit_cents - budget.spent_cents,
   note: FICTION_NOTICE,
 });
@@ -197,10 +198,10 @@ const operationResponses = {
     "approval_required with exact terms, or insufficient_scope/extension_required",
   ),
   "409": response(
-    "Stale account state, inactive resource, insufficient funds, or idempotency conflict",
+    "Stale account state, inactive resource, insufficient funds (insufficient_funds, with available_cents and its currency), or idempotency conflict",
   ),
   "422": response(
-    "A declared payment, transfer, card, or budget limit was exceeded",
+    "A declared payment, transfer, card, or budget limit was exceeded (recipient_limit_exceeded and transfer_limit_exceeded carry limit_cents and its currency)",
   ),
 };
 
@@ -544,7 +545,11 @@ function mount(app: Hono, ctx: Parameters<CompanyDefinition["mount"]>[1]) {
       reason: `${source.name} had ${usd(source.available_cents)} available when this was approved, less than the ${what}. No fictional state changed.`,
     });
     return c.json(
-      { error: "insufficient_funds", available_cents: source.available_cents },
+      {
+        error: "insufficient_funds",
+        available_cents: source.available_cents,
+        currency: CURRENCY,
+      },
       409,
     );
   };
@@ -581,7 +586,7 @@ function mount(app: Hono, ctx: Parameters<CompanyDefinition["mount"]>[1]) {
     const { customer, accounts } = reachOf(c);
     return c.json({
       customer: { id: customer.id, name: customer.name },
-      currency: "USD",
+      currency: CURRENCY,
       accounts: accounts.map(accountView),
       note: FICTION_NOTICE,
     });
@@ -677,6 +682,7 @@ function mount(app: Hono, ctx: Parameters<CompanyDefinition["mount"]>[1]) {
         {
           error: "recipient_limit_exceeded",
           limit_cents: recipient.payment_limit_cents,
+          currency: CURRENCY,
         },
         422,
       );
@@ -696,7 +702,7 @@ function mount(app: Hono, ctx: Parameters<CompanyDefinition["mount"]>[1]) {
       recipient_account_last4: recipient.account_last4,
       recipient_version: recipient.version,
       fee_cents: 0,
-      currency: "USD",
+      currency: CURRENCY,
       execution: "Immediate fictional payment after approval",
       notice: FICTION_NOTICE,
     };
@@ -797,7 +803,11 @@ function mount(app: Hono, ctx: Parameters<CompanyDefinition["mount"]>[1]) {
       return c.json({ error: "account_inactive" }, 409);
     if (amount > TRANSFER_LIMIT_CENTS)
       return c.json(
-        { error: "transfer_limit_exceeded", limit_cents: TRANSFER_LIMIT_CENTS },
+        {
+          error: "transfer_limit_exceeded",
+          limit_cents: TRANSFER_LIMIT_CENTS,
+          currency: CURRENCY,
+        },
         422,
       );
     if (amount > source.available_cents)
@@ -816,7 +826,7 @@ function mount(app: Hono, ctx: Parameters<CompanyDefinition["mount"]>[1]) {
       source_balance_after_cents: source.balance_cents - amount,
       destination_balance_before_cents: destination.balance_cents,
       destination_balance_after_cents: destination.balance_cents + amount,
-      currency: "USD",
+      currency: CURRENCY,
       notice: FICTION_NOTICE,
     };
     return ctx.gate(c, {
@@ -960,7 +970,7 @@ function mount(app: Hono, ctx: Parameters<CompanyDefinition["mount"]>[1]) {
       transaction_id: transaction.id,
       description: transaction.description,
       amount_cents: transaction.amount_cents,
-      currency: "USD",
+      currency: CURRENCY,
       from_category: transaction.category,
       to_category: next,
       transaction_version: transaction.version,
@@ -1047,7 +1057,7 @@ function mount(app: Hono, ctx: Parameters<CompanyDefinition["mount"]>[1]) {
       budget_id: id,
       ...request,
       spent_cents: 0,
-      currency: "USD",
+      currency: CURRENCY,
       idempotency_key: key,
       notice: FICTION_NOTICE,
     };
@@ -1113,7 +1123,7 @@ function mount(app: Hono, ctx: Parameters<CompanyDefinition["mount"]>[1]) {
       from_limit_cents: budget.limit_cents,
       to_limit_cents: limit,
       spent_cents: budget.spent_cents,
-      currency: "USD",
+      currency: CURRENCY,
       notice: FICTION_NOTICE,
     };
     return ctx.gate(c, {
