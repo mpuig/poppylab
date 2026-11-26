@@ -28,19 +28,27 @@ import type { Connection, Run } from "./runtime";
 
 /**
  * What a button of Iris's answers when it is pressed. It names Companies
- * by origin and is never words to read again: `remove` confirms taking
- * these Companies out of the conversation, `keep` leaves them in.
+ * by origin and is never words to read again: a Company's name is text
+ * the Company supplies, and a name sent back as the User's message could
+ * read as a request ("Disconnect from Harborline Bank").
+ *
+ * - `company`: the Company the request that waits is for.
+ * - `connect`: connect this Company, one of the lab's.
+ * - `remove`: take these Companies out of the conversation.
+ * - `keep`: leave them in.
  */
-export type Answer = { remove: string[] } | { keep: string[] };
+export type Answer =
+  | { company: string }
+  | { connect: string }
+  | { remove: string[] }
+  | { keep: string[] };
 
 /**
- * A reply the page can offer as a button. Pressing one with `say` sends
- * those words as the User's next message, as if they had typed them. One
- * with `answer` sends that back to the chat route in place of a message,
- * and the page shows `label` as what the User said.
+ * A reply the page offers as a button. Pressing it sends `answer` back to
+ * the chat route in place of a message, and the page shows `label` as
+ * what the User said. `label` is text to show and nothing else.
  */
-export type Choice =
-  { label: string; say: string } | { label: string; answer: Answer };
+export type Choice = { label: string; answer: Answer };
 
 /** A removal Iris asked the User to confirm, kept until they answer. */
 export type Removing = {
@@ -102,38 +110,77 @@ const labLine = (lab: readonly Nameable[]) =>
   )}. To connect another company, type its address in the address box.`;
 
 /**
- * An answer as a request carries it: one kind, and one to three origins.
- * Nothing for anything else, words included.
+ * An answer as a request carries it: one kind, with one origin, or one to
+ * three for a removal. Nothing for anything else, words included.
  */
 export function readAnswer(value: unknown): Answer | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value))
     return undefined;
-  const [[kind, origins] = [], ...more] = Object.entries(value);
+  const [[kind, named] = [], ...more] = Object.entries(value);
+  if (more.length) return undefined;
+  const origin = (one: unknown): one is string =>
+    typeof one === "string" && !!one && one.length <= 2048;
+  if (kind === "company" || kind === "connect")
+    return !origin(named)
+      ? undefined
+      : kind === "company"
+        ? { company: named }
+        : { connect: named };
   if (
-    more.length ||
     (kind !== "remove" && kind !== "keep") ||
-    !Array.isArray(origins) ||
-    !origins.length ||
-    origins.length > MAX_CONNECTIONS ||
-    !origins.every(
-      (origin): origin is string =>
-        typeof origin === "string" && !!origin && origin.length <= 2048,
-    )
+    !Array.isArray(named) ||
+    !named.length ||
+    named.length > MAX_CONNECTIONS ||
+    !named.every(origin)
   )
     return undefined;
-  return kind === "remove" ? { remove: origins } : { keep: origins };
+  return kind === "remove" ? { remove: named } : { keep: named };
 }
 
-/** What the button for an answer says, which is also the User's line. */
+/**
+ * A Company's name on a button. Two connected Companies can go by one
+ * name, since each chooses its own: they are then told apart by host.
+ */
+function buttonName(run: Pick<Run, "connections" | "former">, origin: string) {
+  const at = originOf({ url: origin });
+  const name = nameFor(run, at);
+  const same = run.connections.filter((c) => companyName(c) === name);
+  if (same.length < 2) return name;
+  try {
+    return `${name} (${new URL(at).host})`;
+  } catch {
+    return name;
+  }
+}
+
+/**
+ * What the button for an answer says. The page shows it as the User's
+ * line when the button is pressed, and the conversation keeps the same
+ * words, worked out here again from the answer and never taken from the
+ * request.
+ */
 export function answerLabel(
   run: Pick<Run, "connections" | "former">,
   answer: Answer,
+  lab: readonly Nameable[],
 ) {
+  if ("company" in answer) return buttonName(run, answer.company);
+  if ("connect" in answer) {
+    const at = originOf({ url: answer.connect });
+    return lab.find((c) => originOf(c) === at)?.name ?? buttonName(run, at);
+  }
   const names = ("remove" in answer ? answer.remove : answer.keep).map(
-    (origin) => nameFor(run, originOf({ url: origin })),
+    (origin) => buttonName(run, origin),
   );
   return `${"remove" in answer ? "Remove" : "Keep"} ${listed(names, "and")}`;
 }
+
+/** The button for an answer. */
+export const choice = (
+  run: Pick<Run, "connections" | "former">,
+  answer: Answer,
+  lab: readonly Nameable[],
+): Choice => ({ label: answerLabel(run, answer, lab), answer });
 
 /** The Companies an answer names, as a request to remove them names them. */
 export const companiesAt = (
@@ -162,7 +209,7 @@ export const answers = (asked: Removing, origins: readonly string[]) => {
 export function typedAnswer(
   message: string,
   asked: Removing,
-): Answer | undefined {
+): { remove: string[] } | { keep: string[] } | undefined {
   const said = message
     .trim()
     .toLowerCase()
@@ -235,10 +282,13 @@ export async function performCommand(
       told: say,
       changed: false,
       trace: [],
-      choices: names.map((name) => ({
-        label: name,
-        say: `${connecting ? "Connect with" : "Remove"} ${name}`,
-      })),
+      choices: command.which.map((c) =>
+        choice(
+          run,
+          connecting ? { connect: originOf(c) } : { remove: [originOf(c)] },
+          lab,
+        ),
+      ),
     };
   }
   if ("unknown" in command) {
@@ -258,15 +308,24 @@ export async function performCommand(
       choices: connecting
         ? lab
             .filter((c) => !connectionAt(run, c.url))
-            .map((c) => ({ label: c.name, say: `Connect with ${c.name}` }))
+            .map((c) => choice(run, { connect: originOf(c) }, lab))
         : command.unknown
           ? []
-          : connected.map((name) => ({ label: name, say: `Remove ${name}` })),
+          : run.connections.map((c) =>
+              choice(run, { remove: [originOf(c)] }, lab),
+            ),
     };
   }
   return connecting
     ? connect(run, command.companies, command.rest, allowedPrivateOrigins)
-    : remove(run, command.companies, command.rest, command.sure, confirmed);
+    : remove(
+        run,
+        command.companies,
+        command.rest,
+        command.sure,
+        confirmed,
+        lab,
+      );
 }
 
 /** The proposals of a Company that still wait for the User. */
@@ -387,6 +446,7 @@ async function remove(
   rest: string,
   sure: boolean,
   confirmed: boolean,
+  lab: readonly Nameable[],
 ): Promise<Performed> {
   const notes: string[] = [];
   const trace: string[] = [];
@@ -421,14 +481,8 @@ async function remove(
       changed: false,
       trace,
       choices: [
-        {
-          label: answerLabel(run, { remove: origins }),
-          answer: { remove: origins },
-        },
-        {
-          label: answerLabel(run, { keep: origins }),
-          answer: { keep: origins },
-        },
+        choice(run, { remove: origins }, lab),
+        choice(run, { keep: origins }, lab),
       ],
       ask: { remove: origins, ...(rest ? { rest } : {}) },
     };

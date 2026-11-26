@@ -152,7 +152,7 @@ describe("an answer to “Which company is this for?”", () => {
     ["ask Harborline", "Harborline Bank"],
     ["that's Fernwick", "Fernwick Power & Light"],
   ])("takes “%s” for %s", (said, name) => {
-    expect(answeredWith(said, all)?.name).toBe(name);
+    expect(names(answeredWith(said, all))).toEqual([name]);
   });
 
   it.each([
@@ -167,11 +167,19 @@ describe("an answer to “Which company is this for?”", () => {
     "the restaurant",
     "that's the utility",
   ])("takes “%s” for no answer", (said) => {
-    expect(answeredWith(said, all)).toBeUndefined();
+    expect(answeredWith(said, all)).toEqual([]);
   });
 
-  it("is none when the name fits two", () => {
+  it("gives both when the name fits two, for the caller to ask again", () => {
     const twin = { url: "https://trust.example", name: "Harborline Trust" };
-    expect(answeredWith("Harborline", [...all, twin])).toBeUndefined();
+    expect(names(answeredWith("Harborline", [...all, twin]))).toEqual([
+      "Harborline Bank",
+      "Harborline Trust",
+    ]);
+    // A name said in full is one Company's, though another's begins so.
+    const short = { url: "https://h.example", name: "Harborline" };
+    expect(names(answeredWith("for Harborline", [...all, short]))).toEqual([
+      "Harborline",
+    ]);
   });
 });

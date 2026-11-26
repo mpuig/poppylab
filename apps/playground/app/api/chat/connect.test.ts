@@ -240,15 +240,25 @@ describe("“connect with <Company>”, typed in the chat", () => {
   it("connects the first Company of a conversation that has none", async () => {
     const run = await conversation([]);
     const none = await say("What's on the menu?");
-    expect(none.answer.choices).toContainEqual({
+    // A button for each of the lab's, by its address.
+    expect(none.answer.choices).toHaveLength(5);
+    expect(none.answer.choices[1]).toEqual({
       label: "Lantern Noodle Bar",
-      say: "Connect with Lantern Noodle Bar",
+      answer: { connect: food },
     });
-    const turn = await say("Connect with Lantern Noodle Bar");
+    const turn = await press(none.answer.choices[1]);
     expect(turn.answer.text).toMatch(/^Connected to Lantern Noodle Bar\./);
     expect(run.connections.map((c) => c.url)).toEqual([food]);
-    // The words from before it are still there.
-    expect(shown(run)[0]).toEqual(["user", "What's on the menu?", undefined]);
+    // The words from before it are still there, and the label of the
+    // button is the User's line.
+    expect(shown(run).slice(0, 3)).toEqual([
+      ["user", "What's on the menu?", undefined],
+      ["assistant", none.answer.text, undefined],
+      ["user", "Lantern Noodle Bar", food],
+    ]);
+    // Typed, the same connects another.
+    await say("Connect with Harborline Bank");
+    expect(run.connections.map((c) => c.url)).toEqual([food, bank]);
   });
 
   it("connects several at once, up to three in the conversation", async () => {
@@ -298,9 +308,7 @@ describe("“connect with <Company>”, typed in the chat", () => {
         "Northwind Air",
         "Fernwick Power & Light",
       ]);
-      expect(turn.answer.choices[0].say).toBe(
-        "Connect with Lantern Noodle Bar",
-      );
+      expect(turn.answer.choices[0].answer).toEqual({ connect: food });
     }
     expect((await say("connect")).answer.text).toMatch(
       /^Which company\? The lab's companies are /,
@@ -320,14 +328,14 @@ describe("“connect with <Company>”, typed in the chat", () => {
     expect(turn.answer).toMatchObject({
       text: "Which one do you mean: Lantern Noodle Bar or Harborline Bank?",
       choices: [
-        { label: "Lantern Noodle Bar", say: "Connect with Lantern Noodle Bar" },
-        { label: "Harborline Bank", say: "Connect with Harborline Bank" },
+        { label: "Lantern Noodle Bar", answer: { connect: food } },
+        { label: "Harborline Bank", answer: { connect: bank } },
       ],
     });
     expect(discover).not.toHaveBeenCalled();
     expect(run.connections).toHaveLength(1);
-    // The button's words connect it.
-    await say(turn.answer.choices[1].say);
+    // The button connects it, by the lab's address for it.
+    await press(turn.answer.choices[1]);
     expect(run.connections.map((c) => c.url)).toEqual([shop, bank]);
   });
 

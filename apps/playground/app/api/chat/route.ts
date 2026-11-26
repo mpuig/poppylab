@@ -30,12 +30,14 @@ import { answeredWith } from "@/lib/company-names";
 import {
   answerLabel,
   answers,
+  choice,
   companiesAt,
   keepCompanies,
   listed,
   performCommand,
   readAnswer,
   typedAnswer,
+  type Answer,
   type Choice,
   type Performed,
 } from "@/lib/company-commands";
@@ -318,9 +320,11 @@ async function reply(request: Request, started: { id?: string }) {
     started.id = held.id;
     run = held.run;
     const conversation = run;
+    const lab = labCompanies(new URL(request.url).origin);
     // What the User said: their words, or the label of the button they
-    // pressed, which the page showed as their line.
-    const message = pressed ? answerLabel(run, pressed) : written;
+    // pressed, which the page showed as their line. The label is worked
+    // out again here: nothing a button sends is ever taken as words.
+    const message = pressed ? answerLabel(run, pressed, lab) : written;
     if (!pressed) run.title ??= message.trim().slice(0, 80);
     if (run.calls >= 20)
       throw new UserFacingError(
@@ -351,12 +355,32 @@ async function reply(request: Request, started: { id?: string }) {
         },
         { headers: { "Cache-Control": "no-store" } },
       );
-    // The Company the request names has to be one of the conversation's.
-    if (body.company !== undefined && !connectionAt(run, body.company))
-      return NextResponse.json(connectionNamed(run, body.company), {
+    // The Company the request names has to be one of the conversation's,
+    // and so has the Company a button picks.
+    const picked =
+      pressed && "company" in pressed ? pressed.company : body.company;
+    if (picked !== undefined && !connectionAt(run, picked))
+      return NextResponse.json(connectionNamed(run, picked), {
         status: 400,
         headers: { "Cache-Control": "no-store" },
       });
+    // A button connects a Company of the lab's and no other: an address
+    // is never taken from a request as something to read. One that is
+    // connected already is answered so.
+    if (
+      pressed &&
+      "connect" in pressed &&
+      !lab.some((c) => originOf(c) === originOf({ url: pressed.connect })) &&
+      !connectionAt(run, pressed.connect)
+    )
+      return NextResponse.json(
+        {
+          code: "invalid_answer",
+          error:
+            "That button is for a company the lab doesn't list. To connect another company, type its address in the address box.",
+        },
+        { status: 400, headers: { "Cache-Control": "no-store" } },
+      );
     const hint = body.company ?? body.url;
     // What Iris was asked before it asked which Company: this message may
     // say which, and otherwise that request is dropped.
@@ -381,15 +405,31 @@ async function reply(request: Request, started: { id?: string }) {
           headers: { "Cache-Control": "no-store" },
         });
       connection = target;
+    } else if (pressed && "company" in pressed) {
+      // The button for one of the Companies Iris asked about: the request
+      // that waited is asked there. A button of a question that is no
+      // longer open has nothing to ask.
+      if (!waiting) {
+        const say =
+          "No request is waiting for a company to be chosen. Type your request again.";
+        recordOwn(run, undefined, message, say, false);
+        return own(say);
+      }
+      connection = connectionAt(run, pressed.company);
+      asked = waiting;
+      typed = message;
     } else {
       // The User's own words can connect a Company or remove one. They are
       // read here, before any model or rule of the demo, and nothing else
       // is ever read for it: not Company content, not a model's answer.
-      const lab = labCompanies(new URL(request.url).origin);
       // What the User answers about a removal: a button, by origin, or
       // "yes" or "no" typed while Iris's question is open.
-      const decided =
-        pressed ?? (removing ? typedAnswer(message, removing) : undefined);
+      const decided: Exclude<Answer, { company: string }> | undefined =
+        pressed && !("company" in pressed)
+          ? pressed
+          : removing && !pressed
+            ? typedAnswer(message, removing)
+            : undefined;
       if (decided && "keep" in decided) {
         const done = keepCompanies(
           run,
@@ -405,14 +445,30 @@ async function reply(request: Request, started: { id?: string }) {
       // Confirmed only when it is the removal Iris asked about. A button
       // of a question that is no longer open asks again when it has to.
       const confirmed =
-        !!decided && !!removing && answers(removing, decided.remove);
+        !!decided &&
+        "remove" in decided &&
+        !!removing &&
+        answers(removing, decided.remove);
+      // A button's answer is carried out as the same request typed in
+      // words only ever meant for it, with the Companies it names.
       const command: ConnectCommand | undefined = decided
-        ? {
-            verb: "remove",
-            sure: true,
-            companies: companiesAt(run, decided.remove),
-            rest: (confirmed && removing?.rest) || "",
-          }
+        ? "connect" in decided
+          ? {
+              verb: "connect",
+              sure: true,
+              companies: [
+                lab.find(
+                  (c) => originOf(c) === originOf({ url: decided.connect }),
+                ) ?? { url: decided.connect, name: decided.connect },
+              ],
+              rest: "",
+            }
+          : {
+              verb: "remove",
+              sure: true,
+              companies: companiesAt(run, decided.remove),
+              rest: (confirmed && removing?.rest) || "",
+            }
         : body.companies === true
           ? connectCommand(message, {
               connected: run.connections.map((c) => nameable(c, lab)),
@@ -453,20 +509,36 @@ async function reply(request: Request, started: { id?: string }) {
         run.history = run.history.slice(-10);
         return own(
           say,
-          lab.map((c) => ({ label: c.name, say: `Connect with ${c.name}` })),
+          lab.map((c) => choice(conversation, { connect: originOf(c) }, lab)),
         );
       }
+      // A Company's name, typed in answer to Iris asking which one.
       const answered =
         waiting && !command
           ? answeredWith(
               message,
               run.connections.map((c) => nameable(c, lab)),
             )
-          : undefined;
-      if (answered) {
-        connection = connectionAt(run, answered.url);
+          : [];
+      if (answered.length === 1) {
+        connection = connectionAt(run, answered[0]!.url);
         asked = waiting!;
         typed = message;
+      } else if (answered.length > 1) {
+        // The name fits several: Iris asks again, and the request goes on
+        // waiting for the answer.
+        const say = `Which one is this for: ${listed(
+          answered.map((c) => c.name),
+          "or",
+        )}?`;
+        run.waiting = waiting!;
+        recordOwn(run, undefined, message, say, false);
+        return own(
+          say,
+          answered.map((c) =>
+            choice(conversation, { company: originOf(c) }, lab),
+          ),
+        );
       } else if (!connection) {
         const route = await turnConnection(
           run,
@@ -483,7 +555,9 @@ async function reply(request: Request, started: { id?: string }) {
           recordOwn(run, undefined, asked, say, false, typed !== null);
           return own(
             say,
-            names.map((name) => ({ label: name, say: name })),
+            route.ask.map((c) =>
+              choice(conversation, { company: originOf(c) }, lab),
+            ),
           );
         }
         connection = route.connection;

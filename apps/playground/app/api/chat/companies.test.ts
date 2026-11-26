@@ -194,8 +194,8 @@ describe("a turn in a conversation with several Companies", () => {
       trace: [],
       company: [],
       choices: [
-        { label: "Juniper Market", say: "Juniper Market" },
-        { label: "Lantern Noodle Bar", say: "Lantern Noodle Bar" },
+        { label: "Juniper Market", answer: { company: shop } },
+        { label: "Lantern Noodle Bar", answer: { company: food } },
       ],
     });
     expect(turn.answer).not.toHaveProperty("from");

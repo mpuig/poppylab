@@ -114,19 +114,19 @@ export function namedIn<T extends Nameable>(
 }
 
 /**
- * The Company a person names in answer to "Which company is this for?":
- * its name alone, or said as an answer ("for Lantern", "it's Harborline,
- * please"). Only a name counts, and only when exactly one of the
- * Companies is meant.
+ * The Companies a person names in answer to "Which company is this for?":
+ * a name alone, or said as an answer ("for Lantern", "it's Harborline,
+ * please"). Only a name counts (`namedBy`). One Company is the answer;
+ * several mean the name fits more than one, and the caller asks again;
+ * none means the message is no answer.
  */
 export function answeredWith<T extends Nameable>(
   text: string,
   companies: readonly T[],
-): T | undefined {
+): T[] {
   const said = plain(text)
     .replace(/^(?:it is|its|that is|thats|this is|this one is) /, "")
     .replace(/^(?:for|at|to|with|use|ask) /, "")
     .replace(/ (?:please|thanks|thank you)$/, "");
-  const [one, ...more] = namedBy(said, companies);
-  return one && !more.length ? one : undefined;
+  return namedBy(said, companies);
 }
