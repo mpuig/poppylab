@@ -8,7 +8,7 @@ what an agent may see while no customer has signed in.
 
 This page follows that first contact screen by screen, on Juniper's website
 and in Iris's conversation. Every screenshot is from the live lab, taken on
-25 November 2026.
+26 November 2026.
 
 ## Who does what
 
@@ -282,7 +282,7 @@ trimmed. The first names a permission and the second does not:
 
 ### 8. See what Iris checked
 
-![The Inspector lists seven discovery checks, each with a tick, and then the session and API calls](../../../apps/playground/public/learn-media/how-it-works/connecting-to-a-company/08-inspector-discovery.webp "The Inspector lists each check Iris made on Juniper's description.")
+![The Inspector lists seven discovery checks, each with a tick, and then the session and API calls, each with a time](../../../apps/playground/public/learn-media/how-it-works/connecting-to-a-company/08-inspector-discovery.webp "The Inspector lists each check Iris made on Juniper's description.")
 
 The Inspector view shows what stood behind the line in step 4. Iris found the
 description at the fixed place, checked that it names the address that served
@@ -295,13 +295,18 @@ runs the address is a separate matter, and the Inspector says so: the name
 
 ### 9. Read the permissions in Juniper's words
 
-![The company profile: protocol version, address, sign-in, and two permissions with Juniper's descriptions](../../../apps/playground/public/learn-media/how-it-works/connecting-to-a-company/09-company-profile.webp "Juniper names its two permissions and describes them for the customer.")
+![The company profile: protocol version, address, sign-in, the address of Juniper's task list, three tasks not offered, and two permissions with Juniper's descriptions](../../../apps/playground/public/learn-media/how-it-works/connecting-to-a-company/09-company-profile.webp "Juniper names what it does not offer to agents and describes its two permissions for the customer.")
 
 Lower in the same view is the part of the description that concerns Elena.
 Juniper offers two permissions and describes each in a sentence written for
 the person who will be asked: one to see her basket, orders, recurring
 delivery, profile, invoices and support cases, and one to propose changes,
 each of which she approves separately.
+
+Above the permissions the profile lists the tasks Juniper chose not to offer
+to agents: getting a refund, cancelling a placed order and deleting the
+account. Iris read that list when it opened its session in step 5, and for
+the first two Juniper says what the customer can do instead.
 
 Iris has neither permission yet.
 [Signing in and giving permission](signing-in-and-giving-permission.md)
