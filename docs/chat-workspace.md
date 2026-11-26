@@ -104,7 +104,7 @@ in the page; the server's approval endpoint is the one it always was.
   the foot of the panel while its terms scroll behind them, and so does the
   note that says why a card still waits: the Company refused the approval or
   answered it with new terms, or your standing instruction did not apply. In
-  a window up to 900px tall the panel does not scroll inside the
+  a window up to 1100px tall the panel does not scroll inside the
   conversation. The page grows instead and moves to the panel, the card is
   shown whole, and the buttons stay at the foot of the window until you reach
   the end of the card. The message box is then below the card; the panel's

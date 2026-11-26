@@ -1650,13 +1650,14 @@ footer .lab-links a:hover {
   min-height: 7.5rem;
 }
 /*
- * A short window has no room left for the panel: its card showed through a
- * slit. An approval is the one thing here that waits for the person, so
+ * A window of ordinary height has no room left for the panel: its card
+ * showed through a slit, and a note above the buttons left none for the
+ * terms. An approval is the one thing here that waits for the person, so
  * while the panel is open in such a window the workspace grows past it. The
  * card is shown whole and the page scrolls, not a box inside the page. A
  * taller window gives the panel its share and keeps it as it is.
  */
-@media (max-height: 900px) {
+@media (max-height: 1100px) {
   .chat-workspace:has(.needs-you-body) {
     height: auto;
     min-height: var(--workspace-height, 100dvh);
