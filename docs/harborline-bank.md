@@ -119,7 +119,25 @@ When a sign-in asks for any `fdx:*` scope, the User picks accounts on the consen
 - **The Company Agent** sees the same: `cash_position` sums only the chosen accounts, `spending_summary` counts only their transactions, `card_status` lists only their cards, and `freeze_card` finds no other card. The gateway puts the grant's resources on the conversation turn (`ConversationTurn.resources`).
 - **Recipients and budgets** aren't tied to an account and are shown in full. A budget's spend is a stored, simulated figure for the customer's category, not added up from any account's transactions, so the choice doesn't change it. A bank whose budgets add up account transactions should add up only the chosen accounts'.
 - **Grants without a choice** see every account, as before: a sign-in that asked for no FDX scope, and a grant approved before accounts were chosen.
-- **The customer portal** (`/account`) is the account holder signed in directly, not an agent, and always shows everything.
+- **The customer portal** (`/account`) shows the account holder, signed in directly, everything. An agent's own browser, joined to its Session and signed in through it, sees there only the accounts its grant shares, with their transactions and cards ([below](#an-agents-browser)).
+
+## An agent's browser
+
+An agent's own browser can be joined to the agent's Session at `/poppy/browser-session` ([Poppy 1.0, Web browsing](poppy-1.0.md#web-browsing-6)). Joined with an access token that has `poppy:browser-sign-in`, it is signed in to the token's account on the customer portal (`/account`), in place of any login it had, and the page tells it so: "This browser belongs to an agent's session. It is signed in through the agent and shows what you allowed the agent to read. Nothing can be changed here: changes are made through the agent and wait for your approval there." A part it has no scope for is left out and named with the scope to ask for.
+
+| On the account page                                                        | A joined browser                                                                          |
+| -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Accounts and balances                                                      | Sees them with `accounts:read`, the accounts its grant shares                             |
+| Recent transactions                                                        | Sees them with `transactions:read`, of those accounts                                     |
+| Cards                                                                      | Sees them with `cards:read`, of those accounts                                            |
+| Recipients                                                                 | Sees them with `recipients:read`                                                          |
+| Budgets                                                                    | Sees them with `budgets:read`                                                             |
+| The customer's email                                                       | Sees it with `fdx:CUSTOMER_CONTACT`, the one scope that reads it                          |
+| Payments and transfers made (in `/site/state`)                             | Never: no scope reads them                                                                |
+| Agent activity, feedback from agents, connected agents                     | Never sees them: they are the customer's own                                              |
+| The customer's own controls: disconnect an agent, switch customer, log out | Not rendered, and every request that isn't a read is refused with 403 `read_only_browser` |
+
+Without a token the joined browser is signed out: `/account` sends it to `/site/login`, which shows it no form. A customer's own browser, logged in on the website, keeps every control, whether or not an agent's browser is joined to the same copy. `src/browser-session.test.ts` runs the suite every Company shares (`browserJoinSuite` in `@poppy-lab/pap-company/testing`): the scope and its consent line, the signed-in join end to end, each part with and without its scope, every writing route refused, and the customer's browser unaffected.
 
 ## Conversations and tasks
 

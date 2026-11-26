@@ -152,6 +152,21 @@ A UsageSummary has `billingPeriod`, `billLastPeriod`, a `costAdditionalDetailLas
 
 A landing page with the last week and the last bill of a sample meter and the plans, `/for-agents` with endpoints, ESPI routes, customers and scopes, and the customer portal (`/account`): meters and this month, the last seven days, bills, agent activity, feedback reports and connected agents, refreshed every two seconds. `/how-it-works` shows, with the shared generator in `pap-core` (`how-it-works.ts`), the three steps as the site serves them: the discovery document, the own API's operations, and Elena's EV charger switching to the flat rate, priced on the last closed bill as the switch's terms price it; its questions say what the ESPI shape is and what is excluded. `src/how-it-works.test.ts` checks it against the served objects.
 
+### An agent's browser
+
+An agent's own browser can be joined to the agent's Session at `/poppy/browser-session` ([Poppy 1.0, Web browsing](poppy-1.0.md#web-browsing-6)). Joined with an access token that has `poppy:browser-sign-in`, it is signed in to the token's account on the customer portal (`/account`), in place of any login it had, and the page tells it so: "This browser belongs to an agent's session. It is signed in through the agent and shows what you allowed the agent to read. Nothing can be changed here: changes are made through the agent and wait for your approval there." A part it has no scope for is left out and named with the scope to ask for.
+
+| On the account page                                                                                   | A joined browser                                                                          |
+| ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| The meters its grant shares, with their rate plan and any scheduled switch; bills; the account number | Sees them with `account:read`                                                             |
+| This month's use and energy cost of those meters, and the last seven days                             | Sees them with `espi:usage`                                                               |
+| The service address                                                                                   | Sees it with `account:read` or `espi:customer`                                            |
+| The customer's email                                                                                  | Never: no scope reads it                                                                  |
+| Agent activity, feedback from agents, connected agents                                                | Never sees them: they are the customer's own                                              |
+| The customer's own controls: disconnect an agent, switch customer, log out                            | Not rendered, and every request that isn't a read is refused with 403 `read_only_browser` |
+
+Without a token the joined browser is signed out: `/account` sends it to `/site/login`, which shows it no form. A customer's own browser, logged in on the website, keeps every control, whether or not an agent's browser is joined to the same copy. `src/browser-session.test.ts` runs the suite every Company shares (`browserJoinSuite` in `@poppy-lab/pap-company/testing`): the scope and its consent line, the signed-in join end to end, each part with and without its scope, every writing route refused, and the customer's browser unaffected.
+
 ## In the playground
 
 Fernwick is the fifth card in the playground (**Fernwick Power & Light**, Utility), with "How much electricity did my EV use last week?" and "my bills" among its suggestions and "Switch my EV charger to the flat rate." as its change. Its account row has **Use ESPI**, the switch Harborline has as **Use FDX** ([Use ESPI](openapi-tools.md#use-espi)):

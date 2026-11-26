@@ -71,6 +71,19 @@ The full suite has 362 tests.
 
 `/site/login`, `/account` and `/site/*` (`src/portal.ts`, browser script `src/site/app.js`) give Lantern the same capabilities as Juniper's portal, in Lantern's terms: sign in as Elena or Robin; a live view (2 s polling) of the scheduled orders the agent reads; **Edit order** (slot and dish quantities), which moves the order's version on so a pending agent proposal becomes stale; the agent's activity, from the tenant's waiting Operations v3 proposals and its kept record of the requests that were applied or not (given to `mount` as `activity(account)`; see [portable runtime](portable-runtime.md)); connected agents with revocation; logout. POSTs need the session cookie, the Company's Origin and an `X-Lantern-Account` header naming the account the page was opened for. The gateway routes each browser to its own tenant, or, once it approved an agent's consent, to the agent user's tenant from that agent's first signed-in request on.
 
+### An agent's browser
+
+An agent's own browser can be joined to the agent's Session at `/poppy/browser-session` ([Poppy 1.0, Web browsing](poppy-1.0.md#web-browsing-6)). Joined with an access token that has `poppy:browser-sign-in`, it is signed in to the token's account on `/account`, in place of any login it had, and the page tells it so: "This browser belongs to an agent's session. It is signed in through the agent and shows what you allowed the agent to read. Nothing can be changed here: changes are made through the agent and wait for your approval there." A part it has no scope for is left out and named with the scope to ask for.
+
+| On the account page                                                                       | A joined browser                                                                          |
+| ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Scheduled orders, last delivery with its refunds                                          | Sees them with `orders:read`                                                              |
+| The customer's name, the menu and the delivery slots                                      | Sees them signed in                                                                       |
+| Agent activity, feedback from agents, connected agents                                    | Never sees them: they are the customer's own                                              |
+| The customer's own controls: edit an order, disconnect an agent, switch customer, log out | Not rendered, and every request that isn't a read is refused with 403 `read_only_browser` |
+
+Without a token the joined browser is signed out: `/account` sends it to `/site/login`, which shows it no form. A customer's own browser, logged in on the website, keeps every control, whether or not an agent's browser is joined to the same copy. `src/browser-session.test.ts` runs the suite every Company shares (`browserJoinSuite` in `@poppy-lab/pap-company/testing`): the scope and its consent line, the signed-in join end to end, each part with and without its scope, every writing route refused, and the customer's browser unaffected.
+
 ## Company Agent (4 November 2026)
 
 Lantern lists `agent.protocols` with a `poppy` endpoint at `/poppy/conversations`. Its agent answers structured requests: `opening_hours`, `delivery_info`, `order_status` and `report_missing_item`. A missing dish from the last delivery (`ord_LNB0907` for Elena, `ord_LNB1907` for Robin) gets a refund proposal, performed once after approval. The account page shows it under "Last delivery" and in the agent's activity. A handoff says nobody can join and gives +1 555-0142, a fictional number. Details in [conversations](conversations.md).

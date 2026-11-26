@@ -22,6 +22,18 @@ The `/site/state` projection contains customer data, operation summaries and the
 
 This is normal website login, **not Poppy browser Session joining**. Agent DPoP APIs remain protected independently. The website does not confirm agent operations, place orders, or share its cookie with Poppy. Basket/recurring edits, case submission/follow-up and profile saves are explicit browser actions protected by the website session and exact Origin, not by a Poppy token.
 
+## An agent's browser
+
+An agent's own browser can be joined to the agent's Session at `/poppy/browser-session` ([Poppy 1.0, Web browsing](poppy-1.0.md#web-browsing-6)). Joined with an access token that has `poppy:browser-sign-in`, it is signed in to the token's account on `/account`, in place of any login it had, and the page tells it so: "This browser belongs to an agent's session. It is signed in through the agent and shows what you allowed the agent to read. Nothing can be changed here: changes are made through the agent and wait for your approval there." A part it has no scope for is left out and named with the scope to ask for.
+
+| On the account page                                                                                                                                    | A joined browser                                                                                                           |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| Basket, recurring delivery, orders, billing documents, support cases, profile                                                                          | Sees them with `poppy:read`, Juniper's one read scope; without it the page shows only who is signed in, and runs no script |
+| Agent activity, feedback from agents, connected agents                                                                                                 | Never sees them: they are the customer's own                                                                               |
+| The customer's own controls: the basket, delivery and profile editors, the support forms and follow-ups, disconnect an agent, switch customer, log out | Not rendered, and every request that isn't a read is refused with 403 `read_only_browser`                                  |
+
+Without a token the joined browser is signed out: `/account` sends it to `/site/login`, which shows it no form. A customer's own browser, logged in on the website, keeps every control, whether or not an agent's browser is joined to the same copy. `src/browser-session.test.ts` runs the suite every Company shares (`browserJoinSuite` in `@poppy-lab/pap-company/testing`): the scope and its consent line, the signed-in join end to end, each part with and without its scope, every writing route refused, and the customer's browser unaffected.
+
 ## Live updates
 
 A same-origin, CSP-restricted external script polls every two seconds while visible, with a six-second timeout, no overlapping requests, and immediate refresh on returning to the tab. Manual refresh is available. Unchanged snapshots do not rebuild the DOM. Failures keep the last successful view and show a retry message; expired sessions return to login. Screen-reader status text is not reannounced on every successful poll. Dynamic Company content is inserted with textContent, never interpreted as HTML.

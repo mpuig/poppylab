@@ -46,6 +46,19 @@ Approval-gated mutations:
 
 Operations include booking and inventory versions and current prices. If inventory or price changes after a proposal, the old revision cannot execute: the Company returns fresh terms for a new approval. Approved execution is idempotent; a retry gets the first response.
 
+## An agent's browser
+
+An agent's own browser can be joined to the agent's Session at `/poppy/browser-session` ([Poppy 1.0, Web browsing](poppy-1.0.md#web-browsing-6)). Joined with an access token that has `poppy:browser-sign-in`, it is signed in to the token's account on My Northwind (`/account`), in place of any login it had, and the page tells it so: "This browser belongs to an agent's session. It is signed in through the agent and shows what you allowed the agent to read. Nothing can be changed here: changes are made through the agent and wait for your approval there." A part it has no scope for is left out and named with the scope to ask for.
+
+| On the account page                                                         | A joined browser                                                                          |
+| --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Upcoming trips                                                              | Sees them with `bookings:read`                                                            |
+| Gale loyalty, passenger preferences                                         | Sees them with `profile:read`                                                             |
+| Agent activity, feedback from agents, connected agents                      | Never sees them: they are the customer's own                                              |
+| The customer's own controls: disconnect an agent, switch passenger, log out | Not rendered, and every request that isn't a read is refused with 403 `read_only_browser` |
+
+Without a token the joined browser is signed out: `/account` sends it to `/site/login`, which shows it no form. A customer's own browser, logged in on the website, keeps every control, whether or not an agent's browser is joined to the same copy. `src/browser-session.test.ts` runs the suite every Company shares (`browserJoinSuite` in `@poppy-lab/pap-company/testing`): the scope and its consent line, the signed-in join end to end, each part with and without its scope, every writing route refused, and the customer's browser unaffected.
+
 ## Scopes
 
 | Scope               | Purpose                                           | Hint                   |
