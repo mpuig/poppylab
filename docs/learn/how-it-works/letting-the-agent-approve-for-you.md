@@ -11,7 +11,7 @@ This page follows the instruction screen by screen at Lantern, and then at
 [Harborline Bank](https://bank-demo.poppylab.dev), where Iris approves a small
 transfer on the same instruction, the bank declines the agent's approval, and
 Elena approves the transfer herself. Every screenshot is from the live lab,
-taken on 25 November 2026.
+taken on 26 November 2026.
 
 ## Who does what
 
@@ -64,7 +64,7 @@ the previous total or a fee, has to be within the limit as well.
 
 ### 3. Ask for a small change
 
-![Elena asks to add a matcha ice cream. Under the standing instruction a new line reads: approved by Iris, 43 dollars within your limit of 50 dollars, and the entry for the change reads Completed](../../../apps/playground/public/learn-media/how-it-works/letting-the-agent-approve-for-you/03-iris-approves-under-the-instruction.webp "Lantern asked for an approval as usual. This time Iris gave it.")
+![Elena asks to add a matcha ice cream. The answer says that Iris approved the change on the standing instruction. Under the instruction a new line reads: approved by Iris, 43 dollars within your limit of 50 dollars, and the entry for the change reads Completed](../../../apps/playground/public/learn-media/how-it-works/letting-the-agent-approve-for-you/03-iris-approves-under-the-instruction.webp "Lantern asked for an approval as usual. This time Iris gave it.")
 
 Elena types "Add a matcha ice cream". Iris asks Lantern for the change, and
 Lantern answers as it does for any change: with the terms it would apply and a
@@ -73,8 +73,9 @@ request for approval. The new total would be 43 dollars.
 Iris checks those terms against the instruction. The total is within 50
 dollars, so Iris approves, and Lantern makes the change. A line under the
 instruction records it: approved by Iris, 43 dollars within the limit of 50,
-with a reference. The answer above it was written a moment earlier, while the
-change was still waiting, which is why it still mentions Approve.
+with a reference. The answer above it says that Lantern held the change until
+it was approved, that Iris approved it on the standing instruction, and that
+there is nothing for Elena to approve.
 
 The check is fixed code that reads the numbers in Lantern's terms. The model
 does not decide whether an instruction applies.
@@ -138,7 +139,7 @@ of the two approved.
 
 ### 5. What Lantern recorded
 
-![Lantern's record of the agent's activity: the change, applied on 25 November at 20:57 UTC, approved by your agent on a standing instruction you gave it](../../../apps/playground/public/learn-media/how-it-works/letting-the-agent-approve-for-you/05-lantern-records-who-approved.webp "Lantern's own website says that the agent approved this change.")
+![Lantern's record of the agent's activity: the change, applied on 26 November at 08:39 UTC, approved by your agent on a standing instruction you gave it](../../../apps/playground/public/learn-media/how-it-works/letting-the-agent-approve-for-you/05-lantern-records-who-approved.webp "Lantern's own website says that the agent approved this change.")
 
 Lantern's website shows the change under Your agent's activity, with the line
 "Approved by your agent, on a standing instruction you gave it". Lantern knew
@@ -160,18 +161,21 @@ over her limit of 50. Elena declined this one, and the order stayed as it was.
 A refund also came to her. When she asked to remove the ice cream, 6 dollars
 would come back and the new total was 37 dollars, under the limit. Iris still
 waited for her approval, because the instruction does not cover money coming
-back.
-The reason on the panel was that Iris could not read the price difference,
-which Lantern states as a negative amount.
+back. The panel gave that reason: the price difference, minus 6 dollars, is
+below zero, and the instruction approves only amounts Elena pays or moves.
+
+When a change lowers the total, the panel has no amount in large type, and
+its button reads Approve this change.
 
 ### 7. A limit on the whole hour
 
-![Three approvals are listed under the instruction. A fourth change, a move to Sunday with a total of 48 dollars, waits in the Needs you panel with the reason: more than 3 times your limit, 150 dollars, within an hour](../../../apps/playground/public/learn-media/how-it-works/letting-the-agent-approve-for-you/07-hourly-total-reached.webp "A change within the limit waits, because the approvals of the last hour already add up to 134 dollars.")
+![Three approvals are listed under the instruction, and a fourth line reads left to you. That change, a move to Sunday with the total unchanged at 48 dollars, waits in the Needs you panel with the reason: more than 3 times your limit, 150 dollars, within an hour, and a button: Approve this change](../../../apps/playground/public/learn-media/how-it-works/letting-the-agent-approve-for-you/07-hourly-total-reached.webp "A change within the limit waits, because the approvals of the last hour already add up to 134 dollars.")
 
 Within the hour Iris approved three changes on the instruction, with totals
 of 43, 43 and 48 dollars. Elena then asks to move the delivery to Sunday
 lunchtime. The total stays at 48 dollars, within the limit of 50, and the
-change still waits for her.
+change still waits for her. Its button reads Approve this change, because the
+total does not rise.
 
 The approvals of one hour may add up to three times the limit, which is 150
 dollars here, and this one would bring them to 182. The limit on one change
@@ -273,10 +277,11 @@ Each company stays in charge of what an agent's approval is worth to it.
 
 ## For the technical reader
 
-![The Inspector's log: applying your standing instruction, 48 dollars within your limit of 50 dollars, operation succeeded, and later standing instruction not applied, with this change it would approve more than 3 times your limit within an hour](../../../apps/playground/public/learn-media/how-it-works/letting-the-agent-approve-for-you/12-inspector-log.webp "The Inspector shows each time the instruction was applied and the time it was not.")
+![The Inspector's log: applying your standing instruction, 48 dollars within your limit of 50 dollars, operation succeeded, and later standing instruction not applied, with this change it would approve more than 3 times your limit within an hour](../../../apps/playground/public/learn-media/how-it-works/letting-the-agent-approve-for-you/12-inspector-log.webp "The Inspector shows each time the instruction was applied and the time the hour's total held it back.")
 
-The Inspector view of the playground logs each use of the instruction and
-the reason when it is not applied.
+The Inspector view of the playground has a line for each approval Iris gave
+on the instruction, a line when the hour's total leaves a change to Elena,
+and a line when a company declines the agent's approval.
 [Approvals with Operations](../operations.md#who-approves) describes user
 and agent approvals, and how Iris checks an instruction against the exact
 terms before it approves.
