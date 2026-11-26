@@ -28,12 +28,16 @@ export const accountCompany = (origin: string) =>
  * one, `ask` changes it. Demo mode (no model) answers with keyword rules:
  * every phrase here was checked against them, and `demoChange` says the
  * rules can prepare that Company's change (see `lib/demo-changes.ts`).
+ * `brand` is the leading colour of the Company's own website, as on the
+ * home's cards (`site-chrome.tsx`): the mark that tells its messages, its
+ * proposals and its lines apart from another Company's.
  */
 export const labCompanies = [
   {
     url: exampleUrl,
     sector: "Grocery",
     name: "Juniper Market",
+    brand: "#17342b",
     people: "Elena or Robin",
     open: ["What are your products?", "When do you deliver?"],
     account: ["my deliveries", "my orders"],
@@ -44,6 +48,7 @@ export const labCompanies = [
     url: lanternUrl,
     sector: "Restaurant",
     name: "Lantern Noodle Bar",
+    brand: "#c62f1e",
     people: "Elena or Robin",
     open: ["What’s on the menu?", "Which delivery slots are there?"],
     account: ["my orders"],
@@ -54,6 +59,7 @@ export const labCompanies = [
     url: harborlineUrl,
     sector: "Bank",
     name: "Harborline Bank",
+    brand: "#073b5c",
     people: "Elena or Robin",
     open: [],
     account: ["my account balances", "my recent transactions"],
@@ -64,6 +70,7 @@ export const labCompanies = [
     url: northwindUrl,
     sector: "Airline",
     name: "Northwind Air",
+    brand: "#1d6882",
     people: "Elena or Robin",
     open: [],
     account: ["my upcoming trips"],
@@ -74,6 +81,7 @@ export const labCompanies = [
     url: fernwickUrl,
     sector: "Utility",
     name: "Fernwick Power & Light",
+    brand: "#2c5a41",
     people: "Elena or Robin",
     open: [],
     // The first reads through the ESPI-shaped tools: with Use ESPI on in
@@ -94,9 +102,25 @@ export const labCompany = (url: string | undefined) => {
 };
 
 export type View = "run" | "inspect" | "identity" | "history";
+/** A Company as the server names it to the page: by origin, with its name. */
+export type CompanyRef = { origin: string; name: string };
+/**
+ * A button under an answer of Iris's own. It sends `answer` as it came,
+ * never `label` as words: a Company's name is text the Company supplies.
+ */
+export type Choice = { label: string; answer: Record<string, unknown> };
 export type Message = {
-  role: "You" | "Agent" | "Demo" | "Error" | "Company";
+  /**
+   * `Iris` is Iris's own words about the conversation (connecting or
+   * removing a Company, asking which one a request is for), from no
+   * Company; `Agent` and `Demo` answer a turn with a Company.
+   */
+  role: "You" | "Agent" | "Demo" | "Error" | "Company" | "Iris";
   text: string;
+  /** The Company the answer, the content or the failed turn came from. */
+  from?: CompanyRef;
+  /** Iris's buttons, for the person to answer with. */
+  choices?: Choice[];
   /** A Company message (§8): who wrote it, its data and a short note. */
   author?: string;
   data?: string;
@@ -156,13 +180,14 @@ function earlierTurn(m: TranscriptEntry): Message[] | undefined {
  * steps and data.
  */
 export const historyToMessages = (
-  history: TranscriptEntry[] | undefined,
+  history: Array<TranscriptEntry & { from?: CompanyRef }> | undefined,
 ): Message[] =>
   (history ?? []).flatMap((m): Message[] => {
     const earlier = earlierTurn(m);
     if (earlier) return earlier;
     const direct = m.direct ? { direct: true } : {};
     const data = m.data ? { data: m.data } : {};
+    const from = m.from ? { from: m.from } : {};
     if (m.role === "company")
       return [
         {
@@ -172,6 +197,7 @@ export const historyToMessages = (
           ...data,
           ...(m.note ? { note: m.note } : {}),
           ...direct,
+          ...from,
         },
       ];
     if (m.role === "user") return [{ role: "You", text: m.content, ...direct }];
@@ -181,6 +207,11 @@ export const historyToMessages = (
         text: m.content,
         ...data,
         ...(m.steps?.length ? { steps: m.steps } : {}),
+        // An answer to a turn with a Company has its steps. One without
+        // any is Iris's own line about the conversation (it connected or
+        // removed a Company, or asked which one), which no Company wrote,
+        // though it is kept as being about one.
+        ...(m.demo || m.steps?.length ? from : {}),
       },
     ];
   });

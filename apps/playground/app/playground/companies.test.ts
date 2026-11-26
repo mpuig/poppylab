@@ -68,10 +68,11 @@ describe("a conversation restored from its transcript", () => {
     });
     recordTurn(run, connection, "Thanks", "You're welcome.", { trace: [] });
 
-    // Through JSON, as the page gets it from GET /api/account.
+    // Through JSON, as the page gets it from GET /api/account. Which
+    // Company each came from is checked on its own, below.
     const messages = historyToMessages(
       JSON.parse(JSON.stringify(shownTranscript(run))),
-    );
+    ).map(({ from: _from, ...message }) => message);
     expect(messages).toEqual([
       { role: "You", text: "My order never arrived" },
       { role: "Company", author: agent, text: "Sorry to hear that." },
@@ -194,6 +195,46 @@ describe("a conversation restored from its transcript", () => {
       { role: "You", text: "Refund my order" },
       { role: "Agent", text: "Lantern proposes a refund." },
       { role: "You", text: "Thanks" },
+    ]);
+  });
+
+  it("says which Company each answer and each piece of content came from", () => {
+    const lantern = { origin: "https://lantern.example", name: company };
+    const harborline = {
+      origin: "https://harborline.example",
+      name: "Harborline Bank",
+    };
+    const messages = historyToMessages([
+      { role: "user", content: "connect with Harborline" },
+      // Iris's own line about the conversation: kept as about a Company,
+      // written by none.
+      {
+        role: "assistant",
+        content: "Connected to Harborline Bank.",
+        from: harborline,
+      },
+      { role: "user", content: "the menu" },
+      { role: "company", author: agent, content: "Here.", from: lantern },
+      {
+        role: "assistant",
+        content: "Protocol demo (no LLM). Dishes.",
+        demo: true,
+        from: lantern,
+      },
+      {
+        role: "assistant",
+        content: "Your balances.",
+        steps: [{ text: "Read", how: "API", state: "done" }],
+        from: harborline,
+      },
+    ] as never);
+    expect(messages.map((m) => m.from?.name)).toEqual([
+      undefined,
+      undefined,
+      undefined,
+      company,
+      company,
+      "Harborline Bank",
     ]);
   });
 });
