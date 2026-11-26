@@ -11,6 +11,7 @@ import path from "node:path";
 import { Marked, type Token, type Tokens } from "marked";
 import { SPEC_LINK_ATTRIBUTES } from "@poppy-lab/pap-core";
 import { LAB_REPOSITORY } from "@poppy-lab/pap-core";
+import { codeBlock, readNotes } from "./learn-code";
 
 /**
  * Every page, in reading order. A page with a `parent` is one of that
@@ -335,6 +336,18 @@ function markdownIn(from: string) {
           ? html
           : `<p>${html}</p>\n`;
       },
+      // A fenced block, coloured. One that has numbered notes and is followed
+      // by an ordered list is annotated: see `markLegends`.
+      code(token) {
+        const { lang, text } = token as Tokens.Code;
+        return codeBlock(text, lang, (token as Annotated).annotated);
+      },
+      // The ordered list that explains an annotated block is its legend.
+      list(token) {
+        if (!(token as Annotated).legend) return false;
+        const items = token.items.map((item) => this.listitem(item)).join("");
+        return `<ol class="learn-legend">\n${items}</ol>\n`;
+      },
       table(token) {
         // Wide tables scroll inside their own box on small screens.
         const head = token.header
@@ -349,6 +362,36 @@ function markdownIn(from: string) {
         return `<div class="table-scroll" role="region" aria-label="Table" tabindex="0"><table><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>\n`;
       },
     },
+  });
+}
+
+/** A token that `markLegends` has marked as part of an annotated block. */
+type Annotated = Token & { annotated?: boolean; legend?: boolean };
+
+/**
+ * A code block whose lines carry numbered notes (`// (1)`) is annotated, and
+ * the ordered list right after it is its legend. The notes and the list must
+ * agree, 1 to n in order, or the page doesn't build: a mark that points at
+ * nothing, or a legend entry that points at no line, is a wrong explanation.
+ */
+export function markLegends(tokens: Token[]) {
+  tokens.forEach((token, i) => {
+    if (token.type !== "code") return;
+    const { notes } = readNotes((token as Tokens.Code).text);
+    if (notes.length === 0) return;
+    const where = `A code block with ${notes.length} numbered notes`;
+    const next = tokens.slice(i + 1).find((t) => t.type !== "space");
+    if (next?.type !== "list" || !(next as Tokens.List).ordered)
+      throw new Error(`${where} is not followed by an ordered list`);
+    const items = (next as Tokens.List).items.length;
+    if (items !== notes.length)
+      throw new Error(`${where} is followed by a list of ${items} items`);
+    notes.forEach(({ n }, k) => {
+      if (n !== k + 1)
+        throw new Error(`${where}: note ${k + 1} is numbered ${n}`);
+    });
+    (token as Annotated).annotated = true;
+    (next as Annotated).legend = true;
   });
 }
 
@@ -377,6 +420,7 @@ const STEPS_HEADING = "Step by step";
 export function renderMarkdown(markdown: string, from = "") {
   const marked = markdownIn(from);
   const tokens = marked.lexer(markdown);
+  markLegends(tokens);
   const parse = (part: Token[]) =>
     marked.parser(Object.assign(part, { links: tokens.links }));
   const heading = (token: Token | undefined, depth: number) =>

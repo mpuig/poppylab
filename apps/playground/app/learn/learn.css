@@ -70,6 +70,95 @@
   max-width: 66ch;
 }
 
+/* Colour on code. One of the site's own inks for each kind of token, so the
+   colour says what a piece of code is: a name, a value, a number or literal,
+   punctuation, a comment, or the method of a request. No other hue. */
+.learn-body .tk-k {
+  color: var(--ink);
+  font-weight: 500;
+}
+.learn-body .tk-s {
+  color: var(--green);
+}
+.learn-body .tk-n {
+  color: var(--ink-soft);
+}
+.learn-body .tk-p,
+.learn-body .tk-c {
+  color: var(--muted);
+}
+.learn-body .tk-m {
+  color: var(--green);
+  font-weight: 600;
+}
+
+/* Numbered notes on code. A line a note is about takes a wash of petrol and a
+   numbered ring in the margin, drawn as the ring of a stop on the steps rail;
+   the ordered list that follows is the legend, ruled like any list of points,
+   with the same numbers. */
+.learn-body pre.learn-annotated {
+  padding: 16px 0;
+}
+.learn-annotated .ln {
+  display: block;
+  position: relative;
+  min-height: 1lh;
+  padding: 0 18px 0 52px;
+}
+.learn-annotated .ln.has-note {
+  background: var(--green-wash);
+}
+.learn-annotated .mk,
+.learn-legend li::before {
+  box-sizing: border-box;
+  width: 22px;
+  height: 22px;
+  border: 1.5px solid var(--green);
+  border-radius: 50%;
+  background: var(--paper);
+  color: var(--green);
+  font: 600 13px/19px var(--sans);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+.learn-annotated .mk {
+  position: absolute;
+  left: 15px;
+  top: 0;
+}
+.learn-annotated .mk::before {
+  content: attr(data-n);
+}
+.site .learn-body ol.learn-legend {
+  max-width: none;
+  margin-top: 12px;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--ink);
+  counter-reset: note;
+}
+.learn-body .learn-legend li {
+  position: relative;
+  margin: 0;
+  padding: 13px 0 13px 40px;
+  border-bottom: 1px solid var(--line);
+  counter-increment: note;
+}
+.learn-body .learn-legend li + li {
+  margin-top: 0;
+}
+.learn-legend li::before {
+  content: counter(note);
+  position: absolute;
+  left: 0;
+  top: 14px;
+}
+.learn-legend li > * {
+  max-width: 66ch;
+  margin: 0;
+}
+
 /* What travelled underneath, folded away until asked for. */
 .site .learn-body details {
   margin-top: 24px;
@@ -228,6 +317,12 @@
   }
 }
 @media (max-width: 520px) {
+  .learn-annotated .ln {
+    padding: 0 12px 0 42px;
+  }
+  .learn-annotated .mk {
+    left: 10px;
+  }
   .learn-steps-toggle {
     margin-right: auto;
   }

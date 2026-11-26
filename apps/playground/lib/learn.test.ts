@@ -202,7 +202,7 @@ describe("learn links", () => {
     expect(parts!.steps[0]!.html).toContain(
       "<summary>What travelled</summary>",
     );
-    expect(parts!.steps[0]!.html).toContain("GET /x");
+    expect(parts!.steps[0]!.html).toContain('<span class="tk-m">GET</span> /x');
     expect(parts!.steps[0]!.html).not.toContain("<h3");
     expect(parts!.steps[1]!.html).toBe("<p>Second.</p>\n");
     // The section's own heading opens it; what follows the steps stays.

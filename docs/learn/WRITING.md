@@ -153,9 +153,22 @@ A page is as short as it can be while a reader loses nothing but padding.
 
 ## Shapes
 
-- **Code.** Fence it with a language: `http`, `json`, `ts`, `sh`; use `text`
-  only for the lines of an activity log. Don't wrap lines by hand: the site
-  wraps them, so a reader never scrolls sideways. Trim long values with `…`.
+- **Code.** Fence it with a language: `http`, `json`, `xml`, `ts`, `sh`; use
+  `text` only for the lines of an activity log. The site colours the code by
+  language, so a block without one stays plain. Don't wrap lines by hand: the
+  site wraps them, so a reader never scrolls sideways. Trim long values with
+  `…`.
+- **Notes on code.** When a page explains the parts of a sample one by one,
+  number the parts instead of writing a table or a bulleted list under it. End
+  each line the note is about with a comment holding its number, `// (1)` (in
+  `sh`, `# (1)`; in `xml`, `<!-- (1) -->`), and put an ordered list right after
+  the block with one item for each note, in the order of the lines. The site
+  draws a mark on each line and the list becomes its legend; on GitHub the
+  comment is just a comment and the list is just a list. Start an item with
+  what it is about, in bold (``**`revision`** is these terms.``). The page does
+  not build if the notes and the list disagree. Use it for a sample of ten
+  lines or more with three or more parts to explain; a single remark stays a
+  sentence.
 - **No ASCII art.** A picture is an SVG figure, never characters in a code
   block (see Diagrams).
 - **Diagrams.** Draw one when it shows something a paragraph takes longer to
