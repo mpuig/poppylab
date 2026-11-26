@@ -217,8 +217,18 @@ Part of the first answer:
     "delivered_at": "Friday 31 October, 19:12",
     "currency": "USD",
     "items": [
-      { "name": "Shoyu ramen", "quantity": 2, "refunded_quantity": 0 },
-      { "name": "Pork gyoza (6)", "quantity": 1, "refunded_quantity": 0 }
+      {
+        "name": "Shoyu ramen",
+        "quantity": 2,
+        "unit_price_cents": 1450,
+        "refunded_quantity": 0
+      },
+      {
+        "name": "Pork gyoza (6)",
+        "quantity": 1,
+        "unit_price_cents": 800,
+        "refunded_quantity": 0
+      }
     ],
     "refunds": []
   }
