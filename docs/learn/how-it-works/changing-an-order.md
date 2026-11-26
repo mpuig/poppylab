@@ -7,7 +7,7 @@ makes the change after Elena has read the exact terms and approved them, and
 at no point does Iris hold her password or decide for her.
 
 This page follows that request screen by screen, on Iris's side and on
-Lantern's. Every screenshot is from the live lab, taken on 25 November 2026.
+Lantern's. Every screenshot is from the live lab, taken on 26 November 2026.
 
 ## Who does what
 
@@ -175,7 +175,7 @@ Lantern's answer to the request, as Iris received it:
 ```json
 {
   "status": "approval_required",
-  "operation_id": "op_3wYLlRHeudkKG__xQVsgdhW2",
+  "operation_id": "op_T28R3qgsjNNlk-qUOdUM-2cL",
   "summary": "Change order ord_LNB1001 for Elena Maren. Move delivery from Friday 18:30–19:00 to Sunday 13:00–13:30. New dishes: 2 × Shoyu ramen, 1 × Salted edamame, 1 × Matcha ice cream. New total USD 43.00 (was USD 37.00; USD 6.00 more, charged — simulated, no real payment).",
   "terms": {
     "order_id": "ord_LNB1001",
@@ -189,7 +189,7 @@ Lantern's answer to the request, as Iris received it:
     "currency": "USD",
     "payment": "Simulated card on file — no real charge"
   },
-  "expires_at": "2026-11-25T20:52:23.895Z"
+  "expires_at": "2026-11-26T08:27:26.713Z"
 }
 ```
 
@@ -249,14 +249,18 @@ dishes, 43 dollars.
 
 ### 11. See what the agent did
 
-![Lantern's record of the agent's activity: the change, applied on 25 November at 20:42 UTC, approved by you in your agent](../../../apps/playground/public/learn-media/how-it-works/changing-an-order/11-agent-activity-at-lantern.webp "Lantern shows the customer what her agent asked for and who approved it.")
+![Lantern's record of the agent's activity: the change, applied on 26 November at 08:19 UTC, approved by you in your agent. Lower down, under Connected agents, Iris from poppylab.dev with what it may read and propose, the day its access ends and a Disconnect button](../../../apps/playground/public/learn-media/how-it-works/changing-an-order/11-agent-activity-at-lantern.webp "Lantern shows the customer what her agent asked for, who approved it, and which agents are connected.")
 
 Lower on the same page, Lantern lists what Elena's agent has asked for
 recently. The entry for this change says it was applied, at what time, and
 that Elena approved it in her agent. A customer who wonders how an order
 changed finds the answer on the company's site. Lantern keeps the entry: the
-screenshot is from about thirteen minutes after the approval, after Iris had
-read the order once more.
+screenshot is from fifteen minutes after the approval, after Iris had read the
+order once more.
+
+Under Connected agents, Lantern lists Iris in the words of its consent page:
+what it may read, what it may propose, and when its access ends. The
+Disconnect button under the entry is where Elena takes the permission away.
 
 ## What Lantern controls
 
@@ -276,6 +280,8 @@ Lantern stays in charge of its own business throughout.
 ![The Inspector view lists the discovery checks and the API calls of this conversation](../../../apps/playground/public/learn-media/how-it-works/changing-an-order/12-inspector.webp "The Inspector shows each check and each call, without the secrets.")
 
 The Inspector view of the playground lists every check and every call behind
-the screens above, and the trace can be downloaded.
+the screens above, and the trace can be downloaded. The calls stay with the
+conversation, so they are listed again after a reload or when the conversation
+is opened from History.
 [One task, request by request](../one-task.md) walks through the same kind of
 change with each request and response written out.
