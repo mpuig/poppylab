@@ -139,7 +139,7 @@ of the two approved.
 
 ### 5. What Lantern recorded
 
-![Lantern's record of the agent's activity: the change, applied on 26 November at 08:39 UTC, approved by your agent on a standing instruction you gave it](../../../apps/playground/public/learn-media/how-it-works/letting-the-agent-approve-for-you/05-lantern-records-who-approved.webp "Lantern's own website says that the agent approved this change.")
+![Lantern's record of the agent's activity: the change, applied on 26 November at 13:05 UTC, approved by your agent on a standing instruction you gave it](../../../apps/playground/public/learn-media/how-it-works/letting-the-agent-approve-for-you/05-lantern-records-who-approved.webp "Lantern's own website says that the agent approved this change.")
 
 Lantern's website shows the change under Your agent's activity, with the line
 "Approved by your agent, on a standing instruction you gave it". Lantern knew
@@ -277,11 +277,11 @@ Each company stays in charge of what an agent's approval is worth to it.
 
 ## For the technical reader
 
-![The Inspector's log: applying your standing instruction, 48 dollars within your limit of 50 dollars, operation succeeded, and later standing instruction not applied, with this change it would approve more than 3 times your limit within an hour](../../../apps/playground/public/learn-media/how-it-works/letting-the-agent-approve-for-you/12-inspector-log.webp "The Inspector shows each time the instruction was applied and the time the hour's total held it back.")
+![The Inspector's log: applying your standing instruction, 48 dollars within your limit of 50 dollars, operation succeeded, and later standing instruction not applied, with this change it would approve more than 3 times your limit, 150 dollars, within an hour, waiting for you](../../../apps/playground/public/learn-media/how-it-works/letting-the-agent-approve-for-you/12-inspector-log.webp "The Inspector shows each time the instruction was applied and each time it left a change to Elena, here because of the hour's total.")
 
 The Inspector view of the playground has a line for each approval Iris gave
-on the instruction, a line when the hour's total leaves a change to Elena,
-and a line when a company declines the agent's approval.
+on the instruction, a line with the reason for each change the instruction
+leaves to Elena, and a line when a company declines the agent's approval.
 [Approvals with Operations](../operations.md#who-approves) describes user
 and agent approvals, and how Iris checks an instruction against the exact
 terms before it approves.
