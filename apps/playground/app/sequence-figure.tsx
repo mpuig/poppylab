@@ -1,6 +1,13 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { Check, RotateCcw } from "lucide-react";
+import {
+  approveSequence,
+  firstMessageKey,
+  initialSequence,
+  replaySequence,
+  type SequenceState,
+} from "./sequence-state";
 
 /** Where each party's lifeline sits, as a share of the figure's width. */
 const AT = [16.667, 50, 83.333] as const;
@@ -65,7 +72,8 @@ function Row({
 
 export function SequenceFigure() {
   // Messages 1 to 4 have happened; the rest wait for the visitor's approval.
-  const [signed, setSigned] = useState(false);
+  const [state, setState] = useState(initialSequence);
+  const { signed, run } = state;
   // The button a click replaces takes the focus the click had, so a keyboard
   // goes from Approve to "Show it again" and back without losing its place.
   const approve = useRef<HTMLButtonElement>(null);
@@ -74,17 +82,9 @@ export function SequenceFigure() {
   useEffect(() => {
     if (acted.current) (signed ? again : approve).current?.focus();
   }, [signed]);
-  const set = (next: boolean) => {
+  const act = (next: SequenceState) => {
     acted.current = true;
-    setSigned(next);
-  };
-  // A CSS animation plays when its element is mounted, and messages 1 to 4 stay
-  // mounted when the figure is reset. Counting the runs in their keys mounts
-  // them again, so "Show it again" draws the sequence from its first message.
-  const [run, setRun] = useState(0);
-  const replay = () => {
-    setRun((n) => n + 1);
-    set(false);
+    setState(next);
   };
   return (
     <figure className="seq" aria-label="Sample of one agent request">
@@ -102,7 +102,7 @@ export function SequenceFigure() {
       <ol className="seq-rows">
         {asked.map((message, i) => (
           <Row
-            key={`${run}-${message.text}`}
+            key={firstMessageKey(run, message.text)}
             message={message}
             number={i + 1}
             order={i}
@@ -130,7 +130,7 @@ export function SequenceFigure() {
                 ref={approve}
                 type="button"
                 className="seq-button"
-                onClick={() => set(true)}
+                onClick={() => act(approveSequence(state))}
               >
                 Approve
               </button>
@@ -156,7 +156,7 @@ export function SequenceFigure() {
             ref={again}
             type="button"
             className="seq-again"
-            onClick={replay}
+            onClick={() => act(replaySequence(state))}
           >
             <RotateCcw size={15} aria-hidden="true" /> Show it again
           </button>
