@@ -367,7 +367,11 @@ describe("A category change at Harborline, which moves no money", () => {
         busy: false,
         decided: new Set(),
       }),
-    ).toBeNull();
+    ).toMatchObject({
+      kind: "left",
+      reason:
+        "it can't tell from the terms that the amount, $25.00, is paid or moved",
+    });
     expect(leftToUser(op, upTo(50), "Harborline Bank")).toBe(
       "it can't tell from the terms that the amount, $25.00, is paid or moved",
     );
