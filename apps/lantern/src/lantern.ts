@@ -473,7 +473,7 @@ export const lantern: CompanyDefinition = {
         },
       ],
     },
-    web: {},
+    web: { browser_session_endpoint: `${origin}/poppy/browser-session` },
     tasks: { endpoint: `${origin}/poppy/tasks` },
     extensions: { operations: [{ version: "3" }] },
   }),

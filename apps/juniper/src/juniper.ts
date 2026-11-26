@@ -190,7 +190,9 @@ export function juniperCompany(options: {
               "Products, delivery information, opening hours, and returns policies",
           },
         ],
-        web: {},
+        web: {
+          browser_session_endpoint: `${publicOrigin}/poppy/browser-session`,
+        },
         tasks: { endpoint: `${publicOrigin}/poppy/tasks` },
       };
     },
