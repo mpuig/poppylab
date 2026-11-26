@@ -19,7 +19,13 @@ vi.mock("next/headers", () => ({
 }));
 import { PapDiscoveryError } from "@poppy-lab/pap-core";
 import { connected, discovered } from "@/lib/company-fixture";
-import { readConversation, seedRun } from "@/lib/runs";
+import { bytesOf, RUN_LIMITS } from "@/lib/run-size";
+import {
+  configureBackend,
+  memoryBackend,
+  readConversation,
+  seedRun,
+} from "@/lib/runs";
 import type { Run } from "@/lib/runtime";
 import { recordTurn } from "@/lib/transcript";
 import { POST } from "./route";
@@ -154,6 +160,62 @@ describe("discovery for a conversation that is going on", () => {
       food,
       "https://bank.example",
     ]);
+  });
+
+  it("refuses a Company whose documents the stored conversation has no room for", async () => {
+    const run = await conversation();
+    // Three Companies that each publish as much as a document can hold
+    // would pass the size of the stored value: the second is refused.
+    const large = (origin: string) => {
+      const company = discovered(origin, names[origin]!);
+      company.document.apis![0]!.description = "x".repeat(480_000);
+      return company;
+    };
+    discover.mockImplementation(async (url: string) =>
+      large(new URL(url).origin),
+    );
+    expect((await connect(food)).status).toBe(200);
+    const third = await connect("https://bank.example");
+    expect(third.status).toBe(409);
+    expect(await third.json()).toEqual({
+      code: "conversation_full",
+      error:
+        "This conversation holds too much to take Harborline Bank as well. Remove a company, or start a new conversation to connect Harborline Bank.",
+    });
+    expect(run.connections.map((c) => c.url)).toEqual([shop, food]);
+    expect(bytesOf(run)).toBeLessThan(RUN_LIMITS.connect);
+    // What is stored is the conversation without it, unlocked.
+    const stored = await readConversation(visitor, id);
+    expect(stored!.connections).toHaveLength(2);
+    expect(stored!.busy).toBe(false);
+  });
+
+  it("says so when the conversation couldn't be saved with the Company, and not that it is connected", async () => {
+    // A store that refuses the value the request ends with.
+    const store = memoryBackend();
+    let refuse = false;
+    configureBackend({
+      ...store,
+      put: async (owner, key, value, expected) => {
+        if (refuse && !(value as Run).busy)
+          throw new Error("storage unavailable");
+        return store.put(owner, key, value, expected);
+      },
+    });
+    try {
+      await conversation();
+      refuse = true;
+      const added = await connect(food);
+      expect(added.status).toBe(503);
+      expect(await added.json()).toEqual({
+        code: "conversation_not_saved",
+        error:
+          "This conversation couldn't be saved just now, so what this request did wasn't kept and a reload won't show it. Try again in a moment.",
+      });
+      expect(added.headers.get("X-Poppy-Conversation")).toBeNull();
+    } finally {
+      configureBackend(memoryBackend());
+    }
   });
 
   it("adds nothing when discovery fails, and answers as a failed connection does", async () => {

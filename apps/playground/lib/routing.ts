@@ -22,6 +22,7 @@ import {
   type NoCompany,
 } from "./connections";
 import type { DirectAction } from "./conversations";
+import { bytesOf } from "./run-size";
 import type { Connection, Run } from "./runtime";
 
 /** A tool a Company offered, as the conversation remembers it. */
@@ -32,7 +33,25 @@ export type OfferedTool = {
   required: string[];
 };
 
-const MAX_TOOLS = 60;
+/**
+ * Bounds of what is kept of a Company's tools. They are stored with the
+ * conversation, one list for each of its Companies, in the value that
+ * holds everything else (`run-size.ts`): whatever a Company lists, its
+ * tools stay a small part of that. Sixty tools with a sentence each and
+ * a few arguments fit; only a list of very long ones is cut short.
+ */
+export const OFFERED_LIMITS = {
+  tools: 60,
+  /** Characters of a tool's name, its description and each argument. */
+  name: 64,
+  description: 160,
+  key: 48,
+  /** Required arguments kept for one tool. */
+  keys: 12,
+  /** UTF-8 bytes of one Company's list as JSON. */
+  bytes: 16 * 1024,
+} as const;
+
 const cut = (text: string, max: number) =>
   text.length > max ? `${text.slice(0, max - 1)}…` : text;
 
@@ -41,19 +60,32 @@ const cut = (text: string, max: number) =>
  * next turn can be matched to a Company before anything is asked of one:
  * each tool's name, the start of its description and its required
  * arguments. The demo's rules choose by tool name, and a model by both.
+ * Within `OFFERED_LIMITS`: over the size, the tools listed last are left
+ * out.
  */
 export function offeredTools(tools: Record<string, ApiTool>): OfferedTool[] {
-  return Object.entries(tools)
-    .slice(0, MAX_TOOLS)
-    .map(([name, tool]) => ({
-      name: cut(name, 64),
-      description: cut(tool.description ?? "", 160),
+  const kept: OfferedTool[] = [];
+  // The brackets of the list; each tool then adds itself and a comma.
+  let size = 2;
+  for (const [name, tool] of Object.entries(tools).slice(
+    0,
+    OFFERED_LIMITS.tools,
+  )) {
+    const offered = {
+      name: cut(name, OFFERED_LIMITS.name),
+      description: cut(tool.description ?? "", OFFERED_LIMITS.description),
       required: Array.isArray(tool.schema?.required)
         ? tool.schema.required
             .filter((key): key is string => typeof key === "string")
-            .slice(0, 12)
+            .slice(0, OFFERED_LIMITS.keys)
+            .map((key) => cut(key, OFFERED_LIMITS.key))
         : [],
-    }));
+    };
+    size += bytesOf(offered) + 1;
+    if (size > OFFERED_LIMITS.bytes) break;
+    kept.push(offered);
+  }
+  return kept;
 }
 
 /** One of the Companies a turn could be for, with what tells them apart. */

@@ -19,6 +19,7 @@ import {
   newConnection,
   originOf,
 } from "./connections";
+import { bytesOf, RUN_LIMITS, RunNotSaved } from "./run-size";
 import { importStateKey, sealedBackend } from "./sealed";
 
 export type Versioned<T = unknown> = { value: T; version: number };
@@ -549,18 +550,60 @@ export async function acquireRun(
 }
 
 /**
+ * Unlocks the conversation as it was last stored, after a save that
+ * didn't happen: the next request isn't told to wait for the two minutes
+ * a crashed lock takes. The memory backend holds the run itself, which is
+ * unlocked already.
+ */
+async function unlockStored(visitor: string, held: Held) {
+  try {
+    const b = backend();
+    const current = await b.get(visitor, `run:${held.id}`);
+    const stored = readRun(current?.value);
+    if (!current || !stored?.busy || current.version !== held.version) return;
+    const { busyUntil, ...rest } = stored;
+    void busyUntil;
+    await b.put(
+      visitor,
+      `run:${held.id}`,
+      { ...rest, busy: false },
+      current.version,
+    );
+  } catch {
+    // The lock then lapses by itself (`BUSY_MS`).
+  }
+}
+
+/**
  * Saves and unlocks. If the lock was lost (the request outlived BUSY_MS and
  * another request took the run), the newer copy wins, but this request's
  * operations are merged into it, each into its own Company's connection,
  * so a proposal the Company holds still gets its approval card. Returns
  * false when the lock was lost.
+ *
+ * A run too large to store (`RUN_LIMITS`), or one the store refuses, is
+ * not saved: this throws `RunNotSaved`, so the request can say so, and the
+ * conversation is left unlocked as it was last stored.
  */
 export async function releaseRun(visitor: string, held: Held) {
   const run = held.run;
   run.busy = false;
   delete run.busyUntil;
   const b = backend();
-  if (await b.put(visitor, `run:${held.id}`, run, held.version)) return true;
+  let stored: boolean;
+  try {
+    if (bytesOf(run) > RUN_LIMITS.bytes) throw new RunNotSaved("too_large");
+    stored = await b.put(visitor, `run:${held.id}`, run, held.version);
+  } catch (error) {
+    console.error(
+      "run_not_saved",
+      held.id.slice(0, 6),
+      error instanceof RunNotSaved ? error.reason : "failed",
+    );
+    await unlockStored(visitor, held);
+    throw error instanceof RunNotSaved ? error : new RunNotSaved("failed");
+  }
+  if (stored) return true;
   console.error("run_lock_lost", held.id.slice(0, 6));
   const current = await b.get(visitor, `run:${held.id}`);
   if (!current) return false;

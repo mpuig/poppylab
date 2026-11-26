@@ -14,6 +14,7 @@ import { signInCookie, signInCookieOptions } from "@/lib/sign-in-cookie";
 import { connectionAt } from "@/lib/connections";
 import { connectCompany } from "@/lib/connecting";
 import { conversationEnded, overBudget } from "@/lib/limits";
+import { notSaved } from "@/lib/run-size";
 import { publicMode } from "@/lib/deployment";
 
 export const runtime = "nodejs";
@@ -59,7 +60,12 @@ async function readBody(request: Request): Promise<unknown> {
  * answers with its discovery as a new conversation's is answered. What
  * the conversation holds stays as it is: its words, its other Companies,
  * a sign-in under way at one of them. Refused, with words the page can
- * show, for a Company it is already connected to and for a fourth one.
+ * show, for a Company it is already connected to, for a fourth one, and
+ * for one whose documents the stored conversation has no room for.
+ *
+ * The Company counts as connected once the conversation is saved with it:
+ * a save that fails is answered as such, not as a connection the next
+ * request wouldn't find.
  */
 async function addTo(
   held: Held,
@@ -67,15 +73,26 @@ async function addTo(
   url: string,
   allowedPrivateOrigins: string[],
 ) {
+  let added: Awaited<ReturnType<typeof connectCompany>>;
   try {
-    const added = await connectCompany(held.run, url, allowedPrivateOrigins);
-    if ("code" in added) return json(added, 409);
-    const response = json(added.company);
-    response.headers.set("X-Poppy-Conversation", held.id);
-    return response;
-  } finally {
+    added = await connectCompany(held.run, url, allowedPrivateOrigins);
+  } catch (error) {
     await releaseRun(visitor, held).catch(() => {});
+    throw error;
   }
+  if ("code" in added) {
+    await releaseRun(visitor, held).catch(() => {});
+    return json(added, 409);
+  }
+  try {
+    await releaseRun(visitor, held);
+  } catch (error) {
+    const { status, ...refusal } = notSaved(error);
+    return json(refusal, status);
+  }
+  const response = json(added.company);
+  response.headers.set("X-Poppy-Conversation", held.id);
+  return response;
 }
 
 export async function POST(request: Request) {

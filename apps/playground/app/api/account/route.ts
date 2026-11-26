@@ -418,7 +418,7 @@ async function act(request: Request, started: { id?: string }) {
   try {
     body = await readAction(request);
   } catch {
-    await releaseRun(visitor, held);
+    await releaseRun(visitor, held).catch(() => {});
     return NextResponse.json(
       {
         code: "account_request_failed",
@@ -441,7 +441,7 @@ async function act(request: Request, started: { id?: string }) {
     body.company ?? (shown && connectionAt(run, shown) ? shown : undefined),
   );
   if ("code" in connection) {
-    await releaseRun(visitor, held);
+    await releaseRun(visitor, held).catch(() => {});
     return NextResponse.json(connection, {
       status: 400,
       headers: { "Cache-Control": "no-store" },
@@ -466,7 +466,7 @@ async function act(request: Request, started: { id?: string }) {
     }
   }
   if (!isAccountCompany(new URL(connection.url).origin)) {
-    await releaseRun(visitor, held);
+    await releaseRun(visitor, held).catch(() => {});
     return NextResponse.json(
       { error: "Connect to a supported account Company first." },
       { status: 400 },

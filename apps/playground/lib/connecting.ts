@@ -11,11 +11,12 @@ import {
   connectionAt,
   MAX_CONNECTIONS,
 } from "./connections";
+import { bytesOf, RUN_LIMITS } from "./run-size";
 import type { Connection, Run } from "./runtime";
 
 /** Why a Company can't be connected, in words the page can show. */
 export type ConnectRefusal = {
-  code: "already_connected" | "too_many_companies";
+  code: "already_connected" | "too_many_companies" | "conversation_full";
   error: string;
 };
 
@@ -46,7 +47,9 @@ export function connectRefusal(
 /**
  * Connects the conversation to the Company at `url`: reads its discovery,
  * then adds a connection for it, signed out. Returns the refusal instead
- * when the conversation can't take it; a discovery that fails throws
+ * when the conversation can't take it, which includes a Company whose
+ * documents would take the stored conversation over the size a further
+ * Company is taken at; a discovery that fails throws
  * (`PapDiscoveryError`), and nothing is added.
  */
 export async function connectCompany(
@@ -59,6 +62,16 @@ export async function connectCompany(
   const company = await discoverCompany(url, { allowedPrivateOrigins });
   const settled = connectRefusal(run, company.requestedUrl);
   if (settled) return settled;
+  // What the Company publishes is kept with the conversation, and a
+  // conversation is one stored value of a bounded size (`run-size.ts`).
+  // Measured before anything is added, so a refusal changes nothing.
+  if (bytesOf(run) + bytesOf(company) > RUN_LIMITS.connect) {
+    const name = company.document.organization.name;
+    return {
+      code: "conversation_full",
+      error: `This conversation holds too much to take ${name} as well. Remove a company, or start a new conversation to connect ${name}.`,
+    };
+  }
   const connection = addConnection(run, company.requestedUrl);
   connection.company = company;
   return connection;

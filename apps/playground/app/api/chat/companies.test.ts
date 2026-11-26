@@ -43,6 +43,7 @@ vi.mock("@/lib/deployment", async (importOriginal) => ({
 import { createIdentity, ProtocolError } from "@poppy-lab/pap-client";
 import { connected, discovered } from "@/lib/company-fixture";
 import { forgetCompany } from "@/lib/transcript";
+import { RUN_LIMITS } from "@/lib/run-size";
 import { readConversation, seedRun, visitorOf } from "@/lib/runs";
 import type { Run } from "@/lib/runtime";
 import { POST } from "./route";
@@ -428,5 +429,45 @@ describe("a page that shows one Company", () => {
     expect(turn.conversation).not.toBe(id);
     expect(turn.answer.from).toEqual(lantern);
     expect(run.transcript).toBeUndefined();
+  });
+});
+
+describe("a conversation too large to store", () => {
+  it("answers the turn as not saved, and isn't left locked", async () => {
+    const run = await conversation([], [shop]);
+    // More than a stored conversation can hold.
+    run.connections[0]!.publicHistory = [
+      { role: "user", content: "x".repeat(RUN_LIMITS.bytes) },
+    ];
+    const turn = await say("What are your products?", { url: shop });
+    expect(turn.status).toBe(507);
+    expect(turn.answer).toEqual({
+      code: "conversation_too_large",
+      error:
+        "This conversation has grown too large to keep, so what this request did wasn't saved and a reload won't show it. Start a new conversation to go on.",
+      stage: "save",
+      trace: [],
+    });
+    expect(turn.conversation).toBe(id);
+    // The next request isn't told to wait for the last one.
+    expect(run.busy).toBe(false);
+    const again = await say("What are your products?", { url: shop });
+    expect(again.status).toBe(507);
+  });
+
+  it("takes no further Company on the User's words, and says why", async () => {
+    const run = await conversation([], [shop]);
+    discover.mockImplementation(async (url: string) => {
+      const company = discovered(new URL(url).origin, "Lantern Noodle Bar");
+      company.document.apis![0]!.description = "x".repeat(RUN_LIMITS.connect);
+      return company;
+    });
+    const turn = await say("connect with Lantern");
+    expect(turn.status).toBe(200);
+    expect(turn.answer.text).toBe(
+      "This conversation holds too much to take Lantern Noodle Bar as well. Remove a company, or start a new conversation to connect Lantern Noodle Bar.",
+    );
+    expect(turn.answer).not.toHaveProperty("connections");
+    expect(run.connections.map((c) => c.url)).toEqual([shop]);
   });
 });

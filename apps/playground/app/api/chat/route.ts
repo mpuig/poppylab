@@ -64,6 +64,7 @@ import {
   type Held,
 } from "@/lib/runs";
 import { conversationEnded, overBudget } from "@/lib/limits";
+import { notSaved } from "@/lib/run-size";
 import { pickDemoTool } from "@/lib/demo-tool";
 import { notSentReply, readable } from "@/lib/demo-text";
 import {
@@ -103,14 +104,33 @@ const turnState = (connection: Connection | undefined) => ({
 let active = 0;
 let count = 0;
 let windowStart = Date.now();
-/** Names the conversation in a header, so the page can keep its address. */
+/** What `reply` tells `POST` besides its answer. */
+type Outcome = {
+  /** The conversation the turn was in. */
+  id?: string;
+  /** Why the conversation couldn't be saved after the turn, if it wasn't. */
+  unsaved?: unknown;
+};
+/**
+ * Names the conversation in a header, so the page can keep its address.
+ * A turn whose conversation couldn't be saved is answered as that and not
+ * with its answer: a reload wouldn't show the answer, and a proposal in
+ * it couldn't be approved.
+ */
 export async function POST(request: Request) {
-  const started: { id?: string } = {};
-  const response = await reply(request, started);
+  const started: Outcome = {};
+  const answer = await reply(request, started);
+  const failed = started.unsaved ? notSaved(started.unsaved) : undefined;
+  const response = failed
+    ? NextResponse.json(
+        { code: failed.code, error: failed.error, stage: "save", trace: [] },
+        { status: failed.status, headers: { "Cache-Control": "no-store" } },
+      )
+    : answer;
   if (started.id) response.headers.set("X-Poppy-Conversation", started.id);
   return response;
 }
-async function reply(request: Request, started: { id?: string }) {
+async function reply(request: Request, started: Outcome) {
   if (!serving())
     return NextResponse.json(
       { error: "Chat is disabled on this deployment." },
@@ -314,7 +334,7 @@ async function reply(request: Request, started: { id?: string }) {
       !held ||
       (body.url !== undefined && !connectionAt(held.run, body.url))
     ) {
-      if (held) await releaseRun(visitor, held);
+      if (held) await releaseRun(visitor, held).catch(() => {});
       held = await createRun(visitor, body.url);
     }
     started.id = held.id;
@@ -1011,7 +1031,10 @@ async function reply(request: Request, started: { id?: string }) {
     // request in which the Company refused the sign-in. After the lines
     // are kept, so those written with the account go with the rest.
     if (run && connection) forgetLostAccount(run, connection, knewLost);
-    if (held && visitor) await releaseRun(visitor, held).catch(() => {});
+    if (held && visitor)
+      await releaseRun(visitor, held).catch((error: unknown) => {
+        started.unsaved = error;
+      });
     active--;
   }
 }

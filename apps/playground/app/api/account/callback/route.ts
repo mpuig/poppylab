@@ -143,7 +143,7 @@ export async function GET(request: Request) {
     url.searchParams.has("error") ||
     !url.searchParams.get("code")
   ) {
-    await releaseRun(visitor, held);
+    await releaseRun(visitor, held).catch(() => {});
     return leave("failed");
   }
   try {

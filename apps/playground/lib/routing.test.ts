@@ -5,6 +5,7 @@ import {
   candidates,
   directConnection,
   lastTurnCompany,
+  OFFERED_LIMITS,
   offeredTools,
   turnConnection,
 } from "./routing";
@@ -124,6 +125,53 @@ describe("what a deduction has at hand for each Company", () => {
       Array.from({ length: 80 }, (_, i) => [`tool_${i}`, tool("")]),
     );
     expect(offeredTools(many)).toHaveLength(60);
+  });
+
+  it("keeps what a Company's tools take within a size, whatever it lists", () => {
+    // Each key is cut, and twelve of them kept.
+    const [change] = offeredTools({
+      change: tool("A change.", [
+        "k".repeat(500),
+        ...Array.from({ length: 20 }, (_, i) => `key_${i}`),
+      ]),
+    });
+    expect(change!.required).toHaveLength(12);
+    expect(change!.required[0]).toBe(`${"k".repeat(47)}…`);
+    expect(change!.required[1]).toBe("key_0");
+    // Sixty tools, each as long as one can be: the first ones are kept,
+    // as many as fit.
+    const large = Object.fromEntries(
+      Array.from({ length: 60 }, (_, i) => [
+        `tool_${String(i).padStart(2, "0")}_${"n".repeat(80)}`,
+        tool(
+          "x".repeat(400),
+          Array.from({ length: 12 }, (_, k) => `${"k".repeat(80)}${k}`),
+        ),
+      ]),
+    );
+    const kept = offeredTools(large);
+    expect(
+      new TextEncoder().encode(JSON.stringify(kept)).length,
+    ).toBeLessThanOrEqual(OFFERED_LIMITS.bytes);
+    expect(kept.length).toBeGreaterThan(5);
+    expect(kept.length).toBeLessThan(60);
+    expect(kept.map((t) => t.name.slice(0, 7))).toEqual(
+      Array.from(
+        { length: kept.length },
+        (_, i) => `tool_${String(i).padStart(2, "0")}`,
+      ),
+    );
+    // The lab's own Companies list far less, and lose nothing.
+    const usual = Object.fromEntries(
+      Array.from({ length: 25 }, (_, i) => [
+        `tool_${i}`,
+        tool("What it does, in a sentence or two of the usual length.", [
+          "order_id",
+          "items",
+        ]),
+      ]),
+    );
+    expect(offeredTools(usual)).toHaveLength(25);
   });
 
   it("lists every Company with its name, its sign-in, what it says it offers and the tools it loaded", () => {

@@ -13,7 +13,9 @@ import {
   resetDemo,
   runForState,
   visitorOf,
+  type Backend,
 } from "./runs";
+import { bytesOf, RUN_LIMITS } from "./run-size";
 import { addConnection, connectionAt, onlyConnection } from "./connections";
 import { recordTurn, removeConnection } from "./transcript";
 
@@ -447,4 +449,87 @@ it("lists a conversation with no Company, by its words", async () => {
   expect((await listConversations("v")).map((c) => c.id).sort()).toEqual(
     [held.id, next.id].sort(),
   );
+});
+
+/**
+ * A store that keeps copies, as the Workers' does: what a request holds
+ * is its own until it is put.
+ */
+function copying(): Backend {
+  const inner = memoryBackend();
+  return {
+    ...inner,
+    get: async (visitor, key) => structuredClone(await inner.get(visitor, key)),
+    put: async (visitor, key, value, expected) =>
+      inner.put(visitor, key, structuredClone(value), expected),
+    list: async (visitor, prefix) =>
+      structuredClone(await inner.list(visitor, prefix)),
+  };
+}
+type Taken = Exclude<
+  Awaited<ReturnType<typeof acquireRun>>,
+  "busy" | undefined
+>;
+
+it("says so when a conversation has grown too large to store, keeps what was stored and leaves it unlocked", async () => {
+  configureBackend(copying());
+  const first = await createRun("v", "https://juniper.example");
+  first.run.title = "What do you sell?";
+  await releaseRun("v", first);
+  const turn = (await acquireRun("v", first.id)) as Taken;
+  turn.run.history.push({ role: "assistant", content: "Oranges." });
+  turn.run.transcript = [
+    { role: "assistant", content: "x".repeat(RUN_LIMITS.bytes) },
+  ];
+  await expect(releaseRun("v", turn)).rejects.toMatchObject({
+    name: "RunNotSaved",
+    reason: "too_large",
+  });
+  // The next request isn't told to wait, and finds the conversation as
+  // it was before the turn that couldn't be kept.
+  const next = (await acquireRun("v", first.id)) as Taken;
+  expect(next).toMatchObject({ run: { title: "What do you sell?" } });
+  expect(next.run.history).toEqual([]);
+  expect(next.run.transcript).toBeUndefined();
+  await releaseRun("v", next);
+});
+
+it("says so when the store refuses the value, and leaves the conversation unlocked", async () => {
+  const store = copying();
+  configureBackend(store);
+  const first = await createRun("v", "https://juniper.example");
+  first.run.title = "What do you sell?";
+  await releaseRun("v", first);
+  const turn = (await acquireRun("v", first.id)) as Taken;
+  turn.run.history.push({ role: "assistant", content: "Oranges." });
+  // The store takes the lock's release once the turn's value was refused.
+  const put = store.put;
+  let refused = 0;
+  store.put = async (visitor, key, value, expected) => {
+    if (!refused++) throw new Error("storage unavailable");
+    return put(visitor, key, value, expected);
+  };
+  await expect(releaseRun("v", turn)).rejects.toMatchObject({
+    name: "RunNotSaved",
+    reason: "failed",
+  });
+  const next = await acquireRun("v", first.id);
+  expect(next).not.toBe("busy");
+  expect((next as Taken).run.history).toEqual([]);
+});
+
+it("keeps a conversation of the usual size, three Companies and all", async () => {
+  configureBackend(copying());
+  const held = await createRun("v", "https://juniper.example");
+  addConnection(held.run, "https://food.example");
+  addConnection(held.run, "https://bank.example");
+  for (let i = 0; i < 30; i++)
+    recordTurn(
+      held.run,
+      held.run.connections[i % 3]!,
+      "What do you offer?",
+      "x".repeat(4000),
+    );
+  expect(bytesOf(held.run)).toBeLessThan(RUN_LIMITS.connect);
+  expect(await releaseRun("v", held)).toBe(true);
 });
