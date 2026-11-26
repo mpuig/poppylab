@@ -9,7 +9,7 @@ answers for her.
 
 This page follows that conversation screen by screen: Lantern's invitation,
 Elena's answer, the refund Lantern proposes, her approval, and her return to
-Iris. Every screenshot is from the live lab, taken on 25 November 2026. Before
+Iris. Every screenshot is from the live lab, taken on 26 November 2026. Before
 it starts, Elena has signed in at Lantern and allowed Iris to propose changes,
 the two consents shown in [Changing an order](changing-an-order.md). The lab
 ran in demo mode, without an AI model, so Iris sent a fixed report when Elena
@@ -198,23 +198,23 @@ the company checks.
 
 ### 7. Reload the page
 
-![After a reload the chat shows the same conversation: Lantern's question, Iris's notice, Elena's line headed You to Lantern Noodle Bar with the answer yes, Lantern's offer, a line from Iris that the company's operation succeeded, and the Completed refund. The yellow bar and the Leave and go back to Iris button are still there](../../../apps/playground/public/learn-media/how-it-works/talking-to-the-company-yourself/07-after-reload.webp "After a reload Elena is still in the Direct Conversation, and both sides of it are still shown.")
+![After a reload the chat shows the same conversation: Lantern's question with its Data opened, Iris's notice with the four steps under What Iris did, Elena's line headed You to Lantern Noodle Bar with the answer yes, Lantern's offer, and the Completed refund. The yellow bar and the Leave and go back to Iris button are still there](../../../apps/playground/public/learn-media/how-it-works/talking-to-the-company-yourself/07-after-reload.webp "After a reload Elena is still in the Direct Conversation, and both sides of it are still shown.")
 
 Elena reloads the page in the middle of the Direct Conversation. She is still
 in it afterwards: the yellow bar is there, the message box still writes to
 Lantern, and the next thing she types will again go as her own words.
 
-The conversation is still on the screen as well. Iris keeps a record of what
-the page showed and shows it again after a reload: Lantern's question and its
-offer, each marked Direct, without Iris; Elena's own line, headed "You →
-Lantern Noodle Bar"; Iris's notice; and the Completed refund with Lantern's
-confirmation. The Data and What Iris did disclosures open as before. A reload
-while the refund is still waiting keeps the approval panel too.
+The conversation is still on the screen as well, line for line. Iris keeps a
+record of what the page showed and shows it again after a reload: Lantern's
+question and its offer, each marked Direct, without Iris; Elena's own line,
+headed "You → Lantern Noodle Bar"; Iris's notice; and the Completed refund
+with Lantern's confirmation. The Data and What Iris did disclosures open as
+before, and two of them are opened in the screenshot. A reload while the
+refund is still waiting keeps the approval panel too.
 
-The record has one line that the screen did not show before the reload. Under
-Iris's name it notes that the company's operation succeeded, with the
-confirmation that the Completed entry already carries. The same record is
-what Elena sees if she opens this conversation later from the History view.
+The same record is what Elena sees if she opens this conversation later from
+the History view. The Inspector view lists the calls of the conversation
+again in both cases.
 
 ### 8. Leave, and Iris comes back
 
@@ -245,7 +245,7 @@ While Elena was talking, Lantern took no messages from the agent there.
 
 ### 9. Check the refund at Lantern
 
-![Lantern's account page: both dishes of order ord_LNB0907 are marked refunded, and the agent's activity lists the refund as applied on 25 November at 20:40 UTC, approved by you, in your agent](../../../apps/playground/public/learn-media/how-it-works/talking-to-the-company-yourself/09-refund-at-lantern.webp "Lantern's website shows the refund, when it was made and who approved it.")
+![Lantern's account page: both dishes of order ord_LNB0907 are marked refunded, and the agent's activity lists the refund as applied on 26 November at 08:29 UTC, approved by you, in your agent](../../../apps/playground/public/learn-media/how-it-works/talking-to-the-company-yourself/09-refund-at-lantern.webp "Lantern's website shows the refund, when it was made and who approved it.")
 
 Lantern's website shows the last delivery with both dishes refunded. Under
 Your agent's activity, Lantern lists the refund as applied, with its time in
@@ -272,7 +272,8 @@ leave. Lantern kept control of the rest.
 ## For the technical reader
 
 Each answer in the chat has a What Iris did disclosure with the calls behind
-it, and the Inspector view lists the calls made since the page was loaded.
+it, and the Inspector view lists the calls of the whole conversation, also
+after a reload.
 [Conversations with a Company Agent](../conversations.md#when-the-company-needs-to-hear-from-the-user)
 shows the invitation, the linked conversation and the customer's message with
 each request and response written out.
