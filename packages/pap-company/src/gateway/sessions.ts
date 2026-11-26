@@ -15,6 +15,7 @@ import {
 } from "@poppy-lab/pap-client/core";
 import type { Ctx } from "./context.ts";
 import {
+  BROWSER_SESSION_PATH,
   declares,
   hash,
   isChallenge,
@@ -32,12 +33,16 @@ export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
   /** Account routes (§7): scopes, a token challenge and Operations v3. */
   const account = (path: string) =>
     accountPrefixes.some((prefix) => path.startsWith(prefix));
-  /** Session destinations (§5.2): the APIs and the conversation routes (§8.2). */
+  /**
+   * Session destinations (§5.2): the APIs, the conversation routes (§8.2)
+   * and the browser authorization (§6).
+   */
   const guarded = (path: string) =>
     path.startsWith("/api/") ||
     account(path) ||
     path === "/poppy/conversations" ||
     path === "/poppy/feedback" ||
+    path === `${BROWSER_SESSION_PATH}/authorize` ||
     path.startsWith("/poppy/conversations/");
   app.use("*", async (c, next) => {
     if (!guarded(new URL(c.req.url).pathname)) return next();
@@ -169,6 +174,7 @@ export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
         ctx.holderOf(verified.clientId, verified.userId),
       );
     const operations = declares(declared, OPERATIONS);
+    ctx.sessionKeys.set(c.req.raw, sid);
     ctx.sessions.set(c.req.raw, {
       ...session,
       // As this request declares them: §3.4 asks the agent, not the

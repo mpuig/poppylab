@@ -14,6 +14,7 @@ import {
 } from "@poppy-lab/pap-client/core";
 import { assertionKey, type Ctx } from "./context.ts";
 import {
+  BROWSER_SIGN_IN,
   isChallenge,
   ObjectMap,
   type Code,
@@ -43,7 +44,13 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
 
   /** The authorization request's checks, for a query or a pushed request. */
   async function check(q: Record<string, string | undefined>) {
-    const requested = typeof q.scope === "string" ? q.scope.split(" ") : [];
+    // The protocol's own scope is known here and granted to nobody (§6), so
+    // a sign-in that asks for it with others is granted the others, as §4.7
+    // allows, and the token response's `scope` says so. Alone, it leaves
+    // nothing to grant.
+    const requested = (
+      typeof q.scope === "string" ? q.scope.split(" ") : []
+    ).filter((s) => s !== BROWSER_SIGN_IN);
     if (
       !requested.length ||
       requested.some((s) => !both.includes(s)) ||

@@ -14,6 +14,7 @@ import {
 } from "@poppy-lab/pap-client/core";
 import { calculateJwkThumbprint } from "jose";
 import {
+  BROWSER_SIGN_IN,
   hash,
   isChallenge,
   SHARED_TENANT,
@@ -66,6 +67,10 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
     !scopes.includes(def.writeScope)
   )
     throw new Error("Company scopes must include readScope and writeScope");
+  // A token with it would sign a joined browser in (§6), which the browser
+  // join here doesn't do: see `browser-session.ts` before offering it.
+  if (scopes.includes(BROWSER_SIGN_IN))
+    throw new Error(`Company scopes can't include ${BROWSER_SIGN_IN} yet`);
   // §7: account routes, never the sign-in, discovery or Poppy routes.
   const accountPrefixes = [...(def.accountPrefixes ?? ["/api/account"])];
   const reserved = ["/oauth/", "/.well-known/", "/poppy/"];
@@ -258,6 +263,8 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
     challengeBeforeConsuming,
     sessions,
     sessionFor,
+    /** Request → its Session's key in `state.sessions` (Session middleware). */
+    sessionKeys: new WeakMap<Request, string>(),
     /** Request → tenant key chosen by the Session or website middleware. */
     tenantKeys: new WeakMap<Request, string>(),
     /** Request → tenant it entered, for the store's per-tenant persistence. */

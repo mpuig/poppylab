@@ -118,6 +118,14 @@ export type GatewayState = {
   pushed?: Record<string, Pushed>;
   /** Browser → the agent user's tenant it approved consent for. */
   links?: Record<string, { tenant: string; used: number }>;
+  /**
+   * Browser join (§6): the key its codes and join cookies are made with,
+   * the codes that were authorized or submitted, by hash, and the joined
+   * browsers by the hash of their Session's cookie.
+   */
+  joinKey?: string;
+  joins?: Record<string, JoinCode>;
+  browsers?: Record<string, JoinedBrowser>;
   /** Before tenancy: shared operation records (moved to `shared`). */
   operations?: Record<string, OperationRecord>;
   /** Before tenancy: the single business copy (moved to `shared`). */
@@ -154,6 +162,29 @@ export type Code = {
   dpop?: string;
   /** What `selectResources` chose at consent, for the grant. */
   resources?: string[];
+};
+/**
+ * A browser-session code (§6), kept from its authorization, or from a form
+ * that submitted it first, until it expires.
+ */
+export type JoinCode = {
+  expires: number;
+  /**
+   * Authorized: by which Personal Agent, for which agent user (the tenant
+   * key) and which Session (its key in `sessions`).
+   */
+  client?: string;
+  holder?: string;
+  session?: string;
+  /** A form submitted it: a code is used by its first submission. */
+  used?: boolean;
+};
+/** A browser joined to a Session (§6), until `expires` or the Session ends. */
+export type JoinedBrowser = {
+  client: string;
+  holder: string;
+  session: string;
+  expires: number;
 };
 export type Tenant = {
   business: Record<string, unknown>;
@@ -428,7 +459,7 @@ export type CompanyDefinition = {
    * Company lists in `poppy.json`. A request that doesn't declare that
    * version gets `extension_required` before its token is looked at. Asked
    * for every request with the Session header (`/api/*`, the account
-   * prefixes, conversations, feedback). Leave out routes a request can use the extension at without
+   * prefixes, conversations, feedback, the browser authorization). Leave out routes a request can use the extension at without
    * declaring it (§3.3). Operations v3 on account POSTs is built in.
    */
   requiredExtension?: (input: {
@@ -629,5 +660,14 @@ export class ObjectMap<V> {
 export const SESSION_MS = 3600000,
   TOKEN_MS = 3600000,
   GRANT_MS = 7 * 86400000;
+/** §6: where a Company on this gateway has its browser-session endpoint. */
+export const BROWSER_SESSION_PATH = "/poppy/browser-session";
+/**
+ * §4.7: the protocol's own scope, which signs a joined browser in (§6). No
+ * Company on this gateway grants it. Their websites give a logged-in
+ * customer everything and can't apply scopes, so it would be the account's
+ * full access there, which no consent page here asks the User for.
+ */
+export const BROWSER_SIGN_IN = "poppy:browser-sign-in";
 export const hash = (value: string) =>
   createHash("sha256").update(value).digest("base64url");

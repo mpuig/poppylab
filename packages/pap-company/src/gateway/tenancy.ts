@@ -10,6 +10,7 @@ import { Hono, type Context } from "hono";
 import { randomId } from "@poppy-lab/pap-client/core";
 import { approvals, type OperationRecord } from "../approvals.ts";
 import { activityOf, agentActivity, keepActivity } from "./activity.ts";
+import { joinedBrowser } from "./browser-session.ts";
 import type { Ctx } from "./context.ts";
 import { when } from "./feedback.ts";
 import {
@@ -254,7 +255,15 @@ export function createTenancy(ctx: Ctx) {
       let cookie: string | undefined,
         own: string | undefined,
         browser: string | undefined;
-      if (isolated && website(path)) {
+      // §6: a browser joined to a Session sees the copy of that Session's
+      // agent user while the Session's cookie works, whatever it saw before
+      // and will see again after. It is given no cookie of its own for that.
+      const joined =
+        isolated && website(path) ? joinedBrowser(ctx, c) : undefined;
+      if (joined) {
+        browser = ctx.browserOf(c);
+        ctx.tenantKeys.set(c.req.raw, joined.holder);
+      } else if (isolated && website(path)) {
         browser = ctx.browserOf(c);
         if (!browser) {
           const raw = randomId();

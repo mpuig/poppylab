@@ -45,8 +45,14 @@ export async function setup(
   const keys = await createIdentity();
   const dpop = await createIdentity();
   const store = memoryStore();
-  /** A test sets `wait` to hold metadata fetches, so requests interleave. */
-  const metadata: { wait?: () => Promise<void> } = {};
+  /**
+   * A test sets `wait` to hold metadata fetches, so requests interleave, and
+   * `other` to answer for a second Personal Agent's documents.
+   */
+  const metadata: {
+    wait?: () => Promise<void>;
+    other?: (url: string) => unknown;
+  } = {};
   const app = createCompany(
     { ...company, ...overrides },
     {
@@ -54,6 +60,8 @@ export async function setup(
       store,
       fetchJson: async (url) => {
         await metadata.wait?.();
+        const other = metadata.other?.(url);
+        if (other) return other;
         return url === client
           ? {
               client_id: client,
