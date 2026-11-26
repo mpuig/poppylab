@@ -66,7 +66,7 @@ Each answers `{"request":"help"}` (and any message it doesn't understand) with t
 
 ## Iris's side
 
-`apps/playground/lib/conversations.ts` keeps one conversation per run, with its cursor and the event IDs it has handled. The model gets four tools: `company_agent_send` (`data` and/or `text`), `company_agent_read`, `company_agent_handoff` and `company_agent_cancel_handoff`.
+`apps/playground/lib/conversations.ts` keeps one conversation per connection (a run's connection to one Company), with its cursor and the event IDs it has handled. The model gets four tools: `company_agent_send` (`data` and/or `text`), `company_agent_read`, `company_agent_handoff` and `company_agent_cancel_handoff`.
 
 - Every request gets a fresh request ID; Iris's messages carry `as_of_cursor`, the last cursor it read.
 - Company replies are untrusted content: bounded, without control characters, and marked as such for the model. A message with an unknown `role` is Company content too. In the chat they show as separate entries labelled "Company content", with `data` collapsed.
