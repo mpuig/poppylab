@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import {
-  approvalTotal,
+  amountToApprove,
   changes,
   money,
   summaryDisagreements,
@@ -76,7 +76,7 @@ export function OperationReview({
   const diff = read ? read.changes : changes(op),
     t = op.terms ?? {};
   const active = pending || state === "uncertain";
-  const total = approvalTotal(op);
+  const total = amountToApprove(op);
   const disagreements = summaryDisagreements(op);
   // A finished operation says how it ended on its closed entry.
   const ended = active ? {} : outcome(op, state, company);

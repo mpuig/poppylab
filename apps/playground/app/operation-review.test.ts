@@ -344,6 +344,72 @@ it("always asks for approval and shows a slot change and exact money from the te
   expect(html).toContain("$8.00");
   expect(onAction).not.toHaveBeenCalled();
 });
+it("names no amount to approve when an order's total does not rise", () => {
+  const lantern = (before: number, after: number) =>
+    renderToStaticMarkup(
+      createElement(OperationReview, {
+        op: {
+          ...op,
+          summary: "Change order ord_LNB1001. New total USD 37.00.",
+          terms: {
+            order_id: "ord_LNB1001",
+            from_slot: "fri-1830",
+            to_slot: "fri-1830",
+            before_total_cents: before,
+            new_total_cents: after,
+            price_difference_cents: after - before,
+            currency: "USD",
+          },
+        },
+        company: "Lantern Noodle Bar",
+        busy: false,
+        signedIn: true,
+        onAction: vi.fn(),
+      }),
+    );
+  // A dish removed: $6.00 comes back. Nothing says "pay $37.00".
+  const cheaper = lantern(4300, 3700);
+  expect(cheaper).not.toContain("data-total");
+  expect(cheaper).not.toContain("Approve $");
+  expect(cheaper).toContain("Approve this change");
+  // The totals and the difference stay in the rows.
+  expect(cheaper).toContain("<dt>Previous total</dt><dd>$43.00</dd>");
+  expect(cheaper).toContain("<dt>Difference</dt><dd>-$6.00</dd>");
+  expect(cheaper).toContain("<dt>New total</dt><dd>$37.00</dd>");
+  // The same order, unchanged in price.
+  const same = lantern(3700, 3700);
+  expect(same).not.toContain("data-total");
+  expect(same).toContain("Approve this change");
+  // A dish added: the new total leads and is on the button, as before.
+  const dearer = lantern(3700, 4300);
+  expect(dearer).toMatch(/data-total[^>]*><span>Total<\/span>/);
+  expect(dearer).toContain("Approve $43.00");
+});
+it("leads a refund's card with the refund, and names it on the button", () => {
+  const html = renderToStaticMarkup(
+    createElement(OperationReview, {
+      op: {
+        ...op,
+        summary:
+          "Refund 1 × Pork gyoza ($8.00) missing from order ord_LNB0907.",
+        terms: {
+          order_id: "ord_LNB0907",
+          dish_id: "gyoza",
+          quantity: 1,
+          refund_cents: 800,
+          currency: "USD",
+        },
+      },
+      company: "Lantern Noodle Bar",
+      busy: false,
+      signedIn: true,
+      onAction: vi.fn(),
+    }),
+  );
+  expect(html).toContain("Review refund");
+  expect(html).toMatch(/data-total[^>]*><span>Refund<\/span>/);
+  expect(html).toContain("Approve $8.00");
+});
 it("blocks expired proposals locally without offering another action", () => {
   const html = render("proposed", new Date(Date.now() - 1000).toISOString());
   expect(html).not.toContain("Approve this change");

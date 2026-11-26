@@ -103,15 +103,16 @@ function amounts(
  * The fixed check of an operation's exact terms against a standing
  * instruction: what it covers, or why it doesn't.
  *
- * The limit is compared with the amount the User pays or moves: the one the
- * card leads with (`approvalTotal`: `amount_due_cents`, `amount_cents`,
- * `new_total_cents`, `total_cents`, in that order). A balance after the
- * change, a "before" value or a version is not that amount: each describes
- * the account or the order, not what the approval commits. Every other
- * amount in the terms must be within the limit too (a fee, a difference, a
- * previous total, a line), and so must the change to each balance. The
- * terms must be in the instruction's currency, hold no refund, and agree
- * with the Company's summary.
+ * The limit is compared with the amount the User pays or moves
+ * (`approvalTotal`: `amount_due_cents`, `amount_cents`, `new_total_cents`,
+ * `total_cents`, in that order). The card leads with the same amount, except
+ * for an order's total that did not rise (`amountToApprove`), which is still
+ * the amount here. A balance after the change, a "before" value or a version
+ * is not that amount: each describes the account or the order, not what the
+ * approval commits. Every other amount in the terms must be within the limit
+ * too (a fee, a difference, a previous total, a line), and so must the
+ * change to each balance. The terms must be in the instruction's currency,
+ * hold no refund, and agree with the Company's summary.
  *
  * Terms the check doesn't understand are not covered: no amount to pay or
  * move, an amount it can't read, a balance it can't follow. Nor are terms

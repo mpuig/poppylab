@@ -194,6 +194,23 @@ export function approvalTotal(op: ReviewOperation) {
     text: key === "new_total_cents" ? "Total" : fieldLabel(key),
   };
 }
+/**
+ * The amount the card leads with and puts on its Approve button: what
+ * approving pays, moves or refunds. That is `approvalTotal`, except for an
+ * order's new total that is no more than the total before. A change that
+ * lowers the total returns money and one that keeps it costs nothing, so
+ * "Approve $37.00" would name a payment nobody makes. The card then names
+ * no amount; its rows still give both totals and the difference.
+ */
+export function amountToApprove(op: ReviewOperation) {
+  const total = approvalTotal(op);
+  const t = op.terms ?? {};
+  return total?.key === "new_total_cents" &&
+    typeof t.before_total_cents === "number" &&
+    Number(t.new_total_cents) <= t.before_total_cents
+    ? null
+    : total;
+}
 /** Juniper's kinds of change, each with its own layout on the card. */
 const KINDS = new Set([
   "profile_change",

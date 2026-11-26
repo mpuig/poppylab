@@ -110,6 +110,11 @@ in the page; the server's approval endpoint is the one it always was.
     (a zero gives way to a later one), labelled by its field: "Amount due",
     "Amount", "Total", "Refund". A balance, a fee or a "before" value is
     never it.
+  - An order's new total leads the card only when it is more than
+    `before_total_cents`. A change that keeps the total costs nothing and one
+    that lowers it returns money, so the card then leads with no amount and
+    its button reads "Approve this change"; the previous total, the
+    difference and the new total stay in its rows.
   - Juniper's and Lantern's terms have their own layout. Any other Company's
     terms are read from their shape: a field's name is its label, `*_cents`
     is money, `from_x` and `to_x` (or `x_before` and `x_after`) are one
@@ -121,9 +126,10 @@ in the page; the server's approval endpoint is the one it always was.
   `poppy-lab:standing-instructions`, with the hour's approvals under
   `poppy-lab:auto-approvals`), is read as a rule of the User's and sends the
   same approve action a click would. The server does not know of it.
-  - The limit is compared with the amount you pay or move, the one the card
-    leads with (`amount_due_cents`, `amount_cents`, `new_total_cents` or
-    `total_cents`), in the rule's currency. **Every** other amount in the
+  - The limit is compared with the amount you pay or move
+    (`amount_due_cents`, `amount_cents`, `new_total_cents` or `total_cents`),
+    in the rule's currency. For a change to an order that is its new total,
+    whether or not the card leads with it. **Every** other amount in the
     terms, nested ones and fees included, must be within the limit too.
   - A balance is not an amount: it says what an account holds. It is read
     only as a pair, before and after, and the change between the two must be

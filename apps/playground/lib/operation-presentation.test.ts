@@ -89,7 +89,11 @@ it("shows days as changes and items as readable prices, never raw JSON", () => {
   expect(termValue("items", [], {})).toBe("No items");
 });
 
-import { approvalTotal, summaryDisagreements } from "./operation-presentation";
+import {
+  amountToApprove,
+  approvalTotal,
+  summaryDisagreements,
+} from "./operation-presentation";
 
 it("names the amount an approval commits to", () => {
   const op = {
@@ -333,6 +337,52 @@ it("leads with what the customer pays or moves, labelled by its field", () => {
   expect(headline(lantern.order)).toBe("Total $43.00");
   expect(headline(lantern.refund)).toBe("Refund $8.00");
   expect(headline(juniperCheckout)).toBe("Total $14.00");
+});
+
+it("names an order's new total on the card only when it is more than before", () => {
+  const card = (terms: Record<string, unknown>) => {
+    const total = amountToApprove(pending(terms));
+    return total && `${total.text} ${total.label}`;
+  };
+  // A dish added: the order comes to more, as the card has always said.
+  expect(card(lantern.order)).toBe("Total $43.00");
+  // A dish removed: $6.00 comes back, and nobody pays $37.00.
+  const cheaper = {
+    ...lantern.order,
+    before_total_cents: 4300,
+    new_total_cents: 3700,
+    price_difference_cents: -600,
+  };
+  expect(card(cheaper)).toBeNull();
+  // Only the slot moves: approving costs nothing.
+  expect(
+    card({
+      ...lantern.order,
+      new_total_cents: 3700,
+      price_difference_cents: 0,
+    }),
+  ).toBeNull();
+  // The order's total is still the amount of these terms.
+  expect(headline(cheaper)).toBe("Total $37.00");
+  // Every other amount leads its card as it is.
+  for (const terms of [
+    northwind.upgrade,
+    northwind.bag,
+    northwind.flightChange(11300, 0),
+    northwind.flightChange(0, 2500),
+    northwind.cancel,
+    harborline.transfer,
+    harborline.payment,
+    lantern.refund,
+    juniperCheckout,
+    // A total with nothing said about the one before.
+    { new_total_cents: 3700, ...usd },
+  ]) {
+    expect(card(terms)).not.toBeNull();
+    expect(card(terms)).toBe(headline(terms));
+  }
+  for (const terms of [northwind.seat, harborline.category, harborline.budget])
+    expect(card(terms)).toBeNull();
 });
 
 it("names no amount where the terms hold none to pay or move", () => {
