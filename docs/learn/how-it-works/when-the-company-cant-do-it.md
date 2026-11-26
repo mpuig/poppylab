@@ -7,7 +7,7 @@ that to agents. Iris says so, tells Lantern what its customer wanted, and
 passes on the other way Lantern suggests.
 
 This page follows that request screen by screen, on Iris's side and on
-Lantern's. Every screenshot is from the live lab, taken on 25 November 2026.
+Lantern's. Every screenshot is from the live lab, taken on 26 November 2026.
 
 ## Who does what
 
@@ -158,13 +158,12 @@ answering with the phone number.
 
 ### 5. Ask again
 
-![Elena asks again. The answer reads Sent: no, with the reason Already reported in this Session, and the steps show no request to Lantern](../../../apps/playground/public/learn-media/how-it-works/when-the-company-cant-do-it/05-not-sent-twice.webp "Asked a second time, Iris does not send the report again.")
+![Elena asks again. The answer is headed Feedback report not sent to the Company and reads Sent: no, with the reason Already reported in this Session. The steps show no request to Lantern](../../../apps/playground/public/learn-media/how-it-works/when-the-company-cant-do-it/05-not-sent-twice.webp "Asked a second time, Iris does not send the report again.")
 
 Elena asks the same thing a second time. Iris does not send a second report.
-The first line of the demo's answer is a fixed heading, and the lines under it
-give the result: the report was not sent, because the task was already
-reported in this session. The list of steps has no request to Lantern's
-feedback address this time.
+The answer says so in its heading and gives the reason under it: the task was
+already reported in this session. The list of steps has no request to
+Lantern's feedback address this time.
 
 Within one session Iris reports a task once, however many times Elena asks.
 The protocol asks an agent for one report for each task it could not do, and
@@ -186,10 +185,12 @@ they could not.
 
 ## For the technical reader
 
-![The Inspector lists the session, the read of Lantern's tasks with two excluded, and the feedback request answered with an alternative](../../../apps/playground/public/learn-media/how-it-works/when-the-company-cant-do-it/06-inspector.webp "The Inspector shows the read of the tasks and the report, without the secrets.")
+![The Inspector lists the session, the read of Lantern's tasks with two excluded, and the feedback request answered with an alternative and marked §9.3](../../../apps/playground/public/learn-media/how-it-works/when-the-company-cant-do-it/06-inspector.webp "The Inspector shows the read of the tasks and the report, without the secrets.")
 
 The Inspector view of the playground lists the read of Lantern's tasks and the
-report with its result, "200 with an alternative".
+report with its result, "200 with an alternative", each beside the section of
+the specification it follows. Its Company profile names the two tasks from
+step 1 under Tasks not offered, from the first message of a session on.
 [Build a Company](../build-a-company.md#feedback-on-the-wire) shows the
 request and both possible answers, and
 [section 9 of the specification](https://personalagentprotocol.org/docs/1.0/spec#task-coverage)
