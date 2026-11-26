@@ -100,7 +100,12 @@ const say = async (message: string, more: Record<string, unknown> = {}) => {
         "Content-Type": "application/json",
         "X-Poppy-Conversation": id,
       },
-      body: JSON.stringify({ message, provider: "demo", ...more }),
+      body: JSON.stringify({
+        message,
+        provider: "demo",
+        companies: true,
+        ...more,
+      }),
     }),
   );
   return { status: response.status, answer: await response.json() };
@@ -345,6 +350,18 @@ describe("“connect with <Company>”, typed in the chat", () => {
     expect(turn.answer).not.toHaveProperty("before");
     expect(run.connections).toHaveLength(1);
     expect(discover).toHaveBeenCalledWith(shop, expect.anything());
+  });
+
+  it("reads the words only for a page that shows several Companies", async () => {
+    // A page that shows one Company doesn't say `companies`. It couldn't
+    // show a second, so there the words connect nothing and go on as an
+    // ordinary message.
+    const run = await conversation();
+    const typed = await say("connect with Lantern", { companies: undefined });
+    expect(typed.answer.mode).not.toBe("iris");
+    expect(typed.answer).not.toHaveProperty("before");
+    expect(typed.answer.from).toEqual(juniper);
+    expect(run.connections).toHaveLength(1);
   });
 
   it("takes it from the User's message only: never from a model's answer", async () => {

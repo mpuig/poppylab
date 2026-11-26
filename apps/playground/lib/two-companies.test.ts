@@ -232,6 +232,7 @@ describe("One conversation with Lantern and Harborline, end to end", () => {
     const typed = await post(chat, "/api/chat", {
       message: "connect with Harborline",
       provider: "demo",
+      companies: true,
     });
     expect(typed.status).toBe(200);
     expect(typed.data.text).toBe(

@@ -192,6 +192,12 @@ async function reply(request: Request, started: { id?: string }) {
       model?: unknown;
       /** §8.10: the User's own action on a Direct Conversation; no model. */
       direct?: unknown;
+      /**
+       * `true` from a page that shows several Companies. Only then are the
+       * User's words read for connecting or removing one: a page that shows
+       * one Company could not show, or speak to, a second.
+       */
+      companies?: unknown;
     };
     const directActions: readonly DirectAction[] = [
       "accept",
@@ -347,10 +353,13 @@ async function reply(request: Request, started: { id?: string }) {
       // read here, before any model or rule of the demo, and nothing else
       // is ever read for it: not Company content, not a model's answer.
       const lab = labCompanies(new URL(request.url).origin);
-      const command = connectCommand(body.message, {
-        connected: run.connections.map((c) => nameable(c, lab)),
-        lab,
-      });
+      const command =
+        body.companies === true
+          ? connectCommand(body.message, {
+              connected: run.connections.map((c) => nameable(c, lab)),
+              lab,
+            })
+          : undefined;
       if (command) {
         stage = "connect";
         const done = await performCommand(run, command, lab, localOrigins);

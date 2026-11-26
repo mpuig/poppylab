@@ -104,7 +104,12 @@ const say = async (
         "Content-Type": "application/json",
         ...(conversationId ? { "X-Poppy-Conversation": conversationId } : {}),
       },
-      body: JSON.stringify({ message, provider: "demo", ...more }),
+      body: JSON.stringify({
+        message,
+        provider: "demo",
+        companies: true,
+        ...more,
+      }),
     }),
   );
   return {
