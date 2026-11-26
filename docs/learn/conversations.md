@@ -63,9 +63,9 @@ HTTP/1.1 201 Created
       "type": "message",
       "message": {
         "role": "company",
-        "author": { "type": "agent", "name": "Lantern's automated agent" },
+        "author": { "type": "agent", "name": "Lantern's automated agent" }, // (1)
         "as_of_request": "req_1",
-        "text": "Lantern's automated agent answers structured requests: send one in data.request. To reach a person, ask for a handoff.",
+        "text": "Lantern's automated agent answers structured requests: send one in data.request. To reach a person, ask for a handoff.", // (2)
         "data": {
           "requests": [
             { "request": "opening_hours", "scopes": [] },
@@ -79,24 +79,24 @@ HTTP/1.1 201 Created
       }
     }
   ],
-  "cursor": "evt_2_M9tBynN_",
-  "working": false, "handoff": "none", "responder": "agent", "closed": false
+  "cursor": "evt_2_M9tBynN_", // (3)
+  "working": false, "handoff": "none", "responder": "agent", "closed": false // (4)
 }
 ```
 
-- **Messages carry `text` and `data`.** Lantern's agent lists the requests it
-  understands as `data`, with the fields and scopes each needs, so the
-  Personal Agent doesn't parse prose.
-- **`author.type` says who wrote it.** `agent` for anything the Personal Agent
-  wrote, `human` only for the user's own words, never a paraphrase
-  ([§8.8](https://personalagentprotocol.org/docs/1.0/spec#human-or-ai)). The
-  Company does the same.
-- **Four state fields on every read**
-  ([§8.7](https://personalagentprotocol.org/docs/1.0/spec#state)): `working`
-  (still replying, read again), `handoff` (`none` or `pending`), `responder`
-  (`agent` or `human`) and `closed`.
-- **The cursor** is where the next read starts
-  ([§8.5](https://personalagentprotocol.org/docs/1.0/spec#reading-events)).
+1. **`author.type` says who wrote it.** `agent` for anything the Personal Agent
+   wrote, `human` only for the user's own words, never a paraphrase
+   ([§8.8](https://personalagentprotocol.org/docs/1.0/spec#human-or-ai)). The
+   Company does the same.
+2. **Messages carry `text` and `data`.** Lantern's agent lists the requests it
+   understands as `data`, with the fields and scopes each needs, so the
+   Personal Agent doesn't parse prose.
+3. **The cursor** is where the next read starts
+   ([§8.5](https://personalagentprotocol.org/docs/1.0/spec#reading-events)).
+4. **Four state fields on every read**
+   ([§8.7](https://personalagentprotocol.org/docs/1.0/spec#state)): `working`
+   (still replying, read again), `handoff` (`none` or `pending`), `responder`
+   (`agent` or `human`) and `closed`.
 
 ## Signing in without leaving the conversation
 

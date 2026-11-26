@@ -46,7 +46,7 @@ GET https://food-demo.poppylab.dev/.well-known/poppy.json
 ```json
 {
   "protocol_version": "1.0",
-  "organization": {
+  "organization": { // (1)
     "name": "Lantern Noodle Bar",
     "domain": "food-demo.poppylab.dev"
   },
@@ -56,7 +56,7 @@ GET https://food-demo.poppylab.dev/.well-known/poppy.json
       "orders:read": "See your scheduled orders: dishes, delivery slot, address and price. Read only.",
       "orders:write": "Change a scheduled order: move its slot, or add or remove dishes. …"
     },
-    "scope_hints": {
+    "scope_hints": { // (2)
       "orders:read": { "changes": "none", "personal_data": true },
       "orders:write": { "changes": "irreversible", "personal_data": true }
     }
@@ -78,20 +78,18 @@ GET https://food-demo.poppylab.dev/.well-known/poppy.json
     ]
   },
   "tasks": { "endpoint": "https://food-demo.poppylab.dev/poppy/tasks" },
-  "extensions": { "operations": [{ "version": "3" }] }
+  "extensions": { "operations": [{ "version": "3" }] } // (3)
 }
 ```
 
-The agent learns:
-
-- **who it's dealing with.** The name is the Company's claim; the domain is
-  what discovery proved.
-- **what it may ask for.** Two scopes, described for the approver;
-  `scope_hints` marks `orders:write` irreversible, so a read-only task can ask
-  for `orders:read` alone.
-- **that changes need approval.** `extensions.operations`: Lantern answers a
-  change with exact terms and waits for approval
-  ([Operations](https://personalagentprotocol.org/docs/1.0/extensions/operations)).
+1. **Who it's dealing with.** The name is the Company's claim; the domain is
+   what discovery proved.
+2. **What it may ask for.** Two scopes, described for the approver;
+   `scope_hints` marks `orders:write` irreversible, so a read-only task can ask
+   for `orders:read` alone.
+3. **That changes need approval.** Lantern answers a change with exact terms
+   and waits for approval
+   ([Operations](https://personalagentprotocol.org/docs/1.0/extensions/operations)).
 
 The agent chooses version 1.0, the newest it shares with the Company, and
 sends `Poppy-Version: 1.0` on every request after this
@@ -184,25 +182,26 @@ Decoded:
 }
 // payload
 {
-  "iss": "https://poppylab.dev/agent/client.json",
+  "iss": "https://poppylab.dev/agent/client.json", // (1)
   "aud": "https://food-demo.poppylab.dev",
-  "sub": "usr_noodles",
+  "sub": "usr_noodles", // (2)
   "sid": "RL9MLQq-RIp2pVW0a-dpEOLXBkNton_C",
-  "htm": "GET",
+  "htm": "GET", // (3)
   "htu": "https://food-demo.poppylab.dev/poppy/tasks",
   "iat": 1795599637,
   "jti": "qrMTRBeYhMszmk2XciKTTnBZFT43jqQ1"
 }
 ```
 
-- `iss` is the agent's `client_id`. Lantern checks that one of the agent's keys
-  signed the delegation in `poppy_dlg`, which vouches for the short-lived key
-  that signed this JWT. The long-term key never signs a request.
-- `sub` is the agent's pseudonymous ID for the user, stable but different at
-  each Company; `sid` names the Session. Together they let Lantern attribute
-  requests, keep state per Session and rate-limit per user before sign-in.
-- `htm` and `htu` bind the JWT to this one request, so a copied header can't
-  be replayed against another URL.
+1. **`iss`** is the agent's `client_id`. Lantern checks that one of the agent's
+   keys signed the delegation in `poppy_dlg`, which vouches for the short-lived
+   key that signed this JWT. The long-term key never signs a request.
+2. **`sub`** is the agent's pseudonymous ID for the user, stable but different
+   at each Company; `sid` names the Session. Together they let Lantern
+   attribute requests, keep state per Session and rate-limit per user before
+   sign-in.
+3. **`htm` and `htu`** bind the JWT to this one request, so a copied header
+   can't be replayed against another URL.
 
 ## 4. Read public data
 

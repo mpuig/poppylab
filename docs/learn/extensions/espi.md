@@ -55,13 +55,13 @@ GET https://energy-demo.poppylab.dev/.well-known/poppy.json
       "espi:customer": "…",
       "offline_access": "…"
     },
-    "scope_hints": {
+    "scope_hints": { // (1)
       "espi:usage": { "changes": "none", "personal_data": true },
       "espi:summary": { "changes": "none", "personal_data": true },
       "espi:customer": { "changes": "none", "personal_data": true }
     }
   },
-  "apis": [
+  "apis": [ // (2)
     {
       "type": "openapi",
       "url": "https://energy-demo.poppylab.dev/openapi.json",
@@ -70,11 +70,11 @@ GET https://energy-demo.poppylab.dev/.well-known/poppy.json
   ],
   "extensions": {
     "operations": [{ "version": "3" }],
-    "poppylab.dev/espi": [
+    "poppylab.dev/espi": [ // (3)
       {
         "version": "1",
         "espi_version": "4.0",
-        "resource_endpoint": "https://energy-demo.poppylab.dev/espi/1_1/resource",
+        "resource_endpoint": "https://energy-demo.poppylab.dev/espi/1_1/resource", // (4)
         "resources": [
           "UsagePoint",
           "MeterReading",
@@ -92,21 +92,21 @@ GET https://energy-demo.poppylab.dev/.well-known/poppy.json
 }
 ```
 
-- **The name carries a domain.** Names without one are reserved for the
-  protocol's own extensions
-  ([§3.3](https://personalagentprotocol.org/docs/1.0/spec#extensions)).
-- **The agent checks the entry before using it.** `resource_endpoint` must be an
-  HTTPS URL on `organization.domain`, with no credentials, query or fragment. A
-  failing entry counts as not listed, and the Inspector says why.
-  `espi_version`, `resources` and `function_blocks` are informational.
-- **There is no OpenAPI description of the ESPI-shaped API.** `apis` lists only
-  Fernwick's own, and ESPI serves Atom XML, so the entry under `extensions` is
-  the one place that says the API exists and where.
-- **Each scope has hints.** The three `espi:` scopes read personal data
-  ([§4.7](https://personalagentprotocol.org/docs/1.0/spec#scopes)). Their
-  descriptions, trimmed here, name the ESPI function blocks each covers: blocks
-  1, 3, 4, 5, 12 and 13 for `espi:usage`, 15 and 16 for `espi:summary`, and 51,
-  53, 54 and 55 for `espi:customer`.
+1. **Each scope has hints.** The three `espi:` scopes read personal data
+   ([§4.7](https://personalagentprotocol.org/docs/1.0/spec#scopes)). Their
+   descriptions, trimmed here, name the ESPI function blocks each covers: blocks
+   1, 3, 4, 5, 12 and 13 for `espi:usage`, 15 and 16 for `espi:summary`, and 51,
+   53, 54 and 55 for `espi:customer`.
+2. **There is no OpenAPI description of the ESPI-shaped API.** `apis` lists only
+   Fernwick's own, and ESPI serves Atom XML, so the entry under `extensions` is
+   the one place that says the API exists and where.
+3. **The name carries a domain.** Names without one are reserved for the
+   protocol's own extensions
+   ([§3.3](https://personalagentprotocol.org/docs/1.0/spec#extensions)).
+4. **The agent checks the entry before using it.** `resource_endpoint` must be an
+   HTTPS URL on `organization.domain`, with no credentials, query or fragment. A
+   failing entry counts as not listed, and the Inspector says why.
+   `espi_version`, `resources` and `function_blocks` are informational.
 
 ## 2. Declare the extension, or be refused
 

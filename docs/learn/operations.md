@@ -33,27 +33,28 @@ the extension only where it can show one.
 
 ```json
 {
-  "operation_id": "op_xs9hiC1D6rgUPCI-CV-jEARy",
-  "revision": "1795602001-9J3BYg4QmZBKbSiM",
-  "summary": "Refund 1 × Pork gyoza (6) (USD 8.00) missing from order ord_LNB0907, …",
-  "terms": {
+  "operation_id": "op_xs9hiC1D6rgUPCI-CV-jEARy", // (1)
+  "revision": "1795602001-9J3BYg4QmZBKbSiM", // (2)
+  "summary": "Refund 1 × Pork gyoza (6) (USD 8.00) missing from order ord_LNB0907, …", // (3)
+  "terms": { // (4)
     "order_id": "ord_LNB0907",
     "dish_id": "pork-gyoza",
     "quantity": 1,
     "refund_cents": 800,
     "currency": "USD"
   },
-  "expires_at": "2026-11-25T10:30:01.660Z"
+  "expires_at": "2026-11-25T10:30:01.660Z" // (5)
 }
 ```
 
-| Field          | What it is                                                                             |
-| -------------- | -------------------------------------------------------------------------------------- |
-| `operation_id` | The action. It stays the same when the terms change.                                   |
-| `revision`     | These terms. Any change to the terms or the expiry means a new revision.               |
-| `terms`        | Everything that affects the action, as data the agent can check and show.              |
-| `summary`      | The terms in plain language, optional: bold, italics and lists, never links or images. |
-| `expires_at`   | The last moment an approval of this revision counts.                                   |
+1. **`operation_id`** is the action. It stays the same when the terms change.
+2. **`revision`** is these terms. Any change to the terms or the expiry means a
+   new revision.
+3. **`summary`** is the terms in plain language, optional: bold, italics and
+   lists, never links or images.
+4. **`terms`** is everything that affects the action, as data the agent can
+   check and show.
+5. **`expires_at`** is the last moment an approval of this revision counts.
 
 The Company performs only what the approved revision describes, so anything
 missing from `terms` isn't part of the deal.

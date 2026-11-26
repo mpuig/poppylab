@@ -48,7 +48,7 @@ GET https://bank-demo.poppylab.dev/.well-known/poppy.json
 ```json
 {
   "auth": {
-    "scopes": {
+    "scopes": { // (1)
       "fdx:ACCOUNT_BASIC": "…",
       "fdx:ACCOUNT_DETAILED": "…",
       "fdx:TRANSACTIONS": "…",
@@ -60,16 +60,16 @@ GET https://bank-demo.poppylab.dev/.well-known/poppy.json
     { "type": "openapi", "url": "https://bank-demo.poppylab.dev/openapi.json" },
     {
       "type": "openapi",
-      "url": "https://bank-demo.poppylab.dev/openapi/fdx.json"
+      "url": "https://bank-demo.poppylab.dev/openapi/fdx.json" // (2)
     }
   ],
   "extensions": {
     "operations": [{ "version": "3" }],
-    "poppylab.dev/fdx": [
+    "poppylab.dev/fdx": [ // (3)
       {
         "version": "1",
         "fdx_version": "6.4",
-        "base_url": "https://bank-demo.poppylab.dev/fdx/v6",
+        "base_url": "https://bank-demo.poppylab.dev/fdx/v6", // (4)
         "resources": ["customer", "accounts", "transactions", "statements"],
         "consent_endpoint": "https://bank-demo.poppylab.dev/fdx/v6/consents"
       }
@@ -78,19 +78,19 @@ GET https://bank-demo.poppylab.dev/.well-known/poppy.json
 }
 ```
 
-- **The name carries a domain**, because names without one are reserved for the
-  protocol's own extensions
-  ([§3.3](https://personalagentprotocol.org/docs/1.0/spec#extensions)).
-- **The agent checks the entry before using it.** `base_url` and
-  `consent_endpoint` must be HTTPS URLs on `organization.domain`, with no
-  credentials, query or fragment. A failing entry counts as not listed, and the
-  Inspector says why. Otherwise a bank's document could send the agent, its
-  Session header and its token elsewhere.
-- **Each scope has hints.** All five are
-  `{ "changes": "none", "personal_data": true }`: they read personal data
-  ([§4.7](https://personalagentprotocol.org/docs/1.0/spec#scopes)).
-- **`apis` lists the FDX-shaped API too**, in Harborline's second OpenAPI
-  description, so an agent without the extension can still call it.
+1. **Each scope has hints.** All five are
+   `{ "changes": "none", "personal_data": true }`: they read personal data
+   ([§4.7](https://personalagentprotocol.org/docs/1.0/spec#scopes)).
+2. **`apis` lists the FDX-shaped API too**, in Harborline's second OpenAPI
+   description, so an agent without the extension can still call it.
+3. **The name carries a domain**, because names without one are reserved for the
+   protocol's own extensions
+   ([§3.3](https://personalagentprotocol.org/docs/1.0/spec#extensions)).
+4. **The agent checks the entry before using it.** `base_url` and
+   `consent_endpoint` must be HTTPS URLs on `organization.domain`, with no
+   credentials, query or fragment. A failing entry counts as not listed, and the
+   Inspector says why. Otherwise a bank's document could send the agent, its
+   Session header and its token elsewhere.
 
 ## 2. Declaring it, or being refused
 
