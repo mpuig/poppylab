@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { CompanyEntry } from "./conversations";
 import type { Run } from "./runtime";
 import {
+  forgetLostAccount,
   keepSignedOutTranscript,
   record,
   recordDirect,
@@ -477,5 +478,61 @@ describe("what a sign-in keeps of the transcript", () => {
     keepSignedOutTranscript(later);
     // Not words said to the Company in a Direct Conversation.
     expect(later.title).toBe("When do you deliver?");
+  });
+});
+
+describe("what stays when the Company takes the access back (§5.5)", () => {
+  const shown = (r: Run) => (r.transcript ?? []).map((entry) => entry.content);
+  /** Asked signed out, then signed in, with two proposals from the account. */
+  const conversation = () => {
+    const r = { history: [] } as unknown as Run;
+    recordTurn(r, "When do you deliver?", "Tuesday and Saturday.");
+    r.publicHistory = structuredClone(r.history);
+    r.accountToken = "refresh";
+    recordTurn(r, "my deliveries", "Elena's delivery is on Thursday.", {
+      data: '{"customer":"Elena Maren"}',
+    });
+    r.operations = {
+      waiting: { operation_id: "waiting", state: "proposed" },
+      sent: { operation_id: "sent", state: "uncertain" },
+    } as unknown as NonNullable<Run["operations"]>;
+    return r;
+  };
+
+  it("drops what was shown with the account, once, and keeps what was shown signed out", () => {
+    const r = conversation();
+    // Still accepted: nothing changes.
+    expect(forgetLostAccount(r, false)).toBeUndefined();
+    expect(shown(r)).toHaveLength(4);
+
+    r.accountUnavailable = true;
+    const left = forgetLostAccount(r, false);
+    expect(shown(r)).toEqual(["When do you deliver?", "Tuesday and Saturday."]);
+    expect(r.history).toEqual(r.publicHistory);
+    // What the answer carries for the page is what a reload would show.
+    expect(left).toEqual({
+      history: r.transcript,
+      operations: [{ operation_id: "sent", state: "uncertain" }],
+    });
+    // An approval that is out may have been performed: it stays, so the
+    // same one can be retried. A proposal that only waited goes.
+    expect(Object.keys(r.operations!)).toEqual(["sent"]);
+    expect(JSON.stringify([r.transcript, r.history])).not.toContain("Elena");
+    // The sign-in is kept, to be revoked or replaced at the next one.
+    expect(r.accountToken).toBe("refresh");
+
+    // Iris knew already: what is said next is not taken back.
+    recordTurn(r, "What do you sell?", "Oranges.");
+    expect(forgetLostAccount(r, true)).toBeUndefined();
+    expect(shown(r)).toHaveLength(4);
+  });
+
+  it("leaves a conversation that never had an account alone", () => {
+    const r = { history: [] } as unknown as Run;
+    recordTurn(r, "When do you deliver?", "Tuesday and Saturday.");
+    // A refused signed-out Session sets the same mark.
+    r.accountUnavailable = true;
+    expect(forgetLostAccount(r, false)).toBeUndefined();
+    expect(r.history).toHaveLength(2);
   });
 });

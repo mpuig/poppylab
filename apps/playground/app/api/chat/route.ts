@@ -11,7 +11,7 @@ import {
 import { shoppingTarget } from "@/lib/shopping-context";
 import { cookies } from "next/headers";
 import { connect, directConversation, type Run } from "@/lib/runtime";
-import { recordDirect, recordTurn } from "@/lib/transcript";
+import { forgetLostAccount, recordDirect, recordTurn } from "@/lib/transcript";
 import { keepLines } from "@/lib/inspector-log";
 import { shownTasks } from "@/lib/shown-tasks";
 import type { CompanyEntry, DirectAction } from "@/lib/conversations";
@@ -78,6 +78,10 @@ async function reply(request: Request, started: { id?: string }) {
   let held: Held | undefined;
   let visitor: string | undefined;
   let stage = "request";
+  // Iris already knew, before this turn, that the Company no longer takes
+  // the sign-in. A turn in which it learns that drops what it showed with
+  // the account (`forgetLostAccount`).
+  let knewLost = false;
   // What Iris did this turn. A turn that fails answers with it too, so the
   // Inspector lists the request the Company refused. Every answer of a run
   // carries it, and the run keeps it (`finally`).
@@ -199,6 +203,7 @@ async function reply(request: Request, started: { id?: string }) {
     }
     started.id = held.id;
     run = held.run;
+    knewLost = !!run.accountUnavailable;
     run.title ??= body.message.trim().slice(0, 80);
     if (run.calls >= 20)
       throw new UserFacingError(
@@ -264,6 +269,7 @@ async function reply(request: Request, started: { id?: string }) {
         { company: shown, trace },
       );
       run.history = run.history.slice(-10);
+      const lost = forgetLostAccount(run, knewLost);
       return NextResponse.json(
         {
           text,
@@ -276,6 +282,7 @@ async function reply(request: Request, started: { id?: string }) {
           company: shown,
           excludedTasks: shownTasks(run),
           ...directState(run),
+          ...lost,
         },
         { headers: { "Cache-Control": "no-store" } },
       );
@@ -473,6 +480,9 @@ async function reply(request: Request, started: { id?: string }) {
       data: exact,
     });
     run.history = run.history.slice(-10);
+    // The turn ended with an answer though the access went during it: what
+    // the page showed with the account goes all the same, this turn too.
+    const lost = forgetLostAccount(run, knewLost);
     return NextResponse.json(
       {
         text,
@@ -488,6 +498,7 @@ async function reply(request: Request, started: { id?: string }) {
         // §9.1: for the Inspector's "Tasks not offered".
         excludedTasks: shownTasks(run),
         ...directState(run),
+        ...lost,
       },
       { headers: { "Cache-Control": "no-store" } },
     );
@@ -527,8 +538,11 @@ async function reply(request: Request, started: { id?: string }) {
       );
     if (recovery) {
       if (run && recovery.next === "signin") run.accountUnavailable = true;
+      // With the message about the lost access goes what the page still
+      // shows: the answers Iris read with the account are gone from it.
+      const lost = run ? forgetLostAccount(run, knewLost) : undefined;
       return NextResponse.json(
-        { ...recovery, stage, trace },
+        { ...recovery, stage, trace, ...lost },
         { status: recovery.status, headers: { "Cache-Control": "no-store" } },
       );
     }
@@ -583,6 +597,10 @@ async function reply(request: Request, started: { id?: string }) {
   } finally {
     // The lines stay with the conversation, for a reload and History.
     if (run) keepLines(run, trace);
+    // However the turn ended: an error of another kind can follow the
+    // request in which the Company refused the sign-in. After the lines
+    // are kept, so those written with the account go with the rest.
+    if (run) forgetLostAccount(run, knewLost);
     if (held && visitor) await releaseRun(visitor, held).catch(() => {});
     active--;
   }

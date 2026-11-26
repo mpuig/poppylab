@@ -335,6 +335,23 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     setStartingDirect(false);
   }
 
+  /**
+   * The Company no longer takes the sign-in. An answer to the request in
+   * which Iris learned it carries what the conversation still shows: the
+   * part shown signed out. What was shown with the account goes from the
+   * page too, as after a sign-in. `said` is this request's own message.
+   */
+  function accessLost(
+    data: { history?: unknown; operations?: Operation[] },
+    said: Message[] = [],
+  ) {
+    setSignedIn(false);
+    setScopes("");
+    if (!Array.isArray(data.history)) return;
+    setMessages([...historyToMessages(data.history), ...said]);
+    setOperations(data.operations ?? []);
+  }
+
   async function accountAction(
     action: string,
     op?: Operation,
@@ -372,10 +389,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
       // The route's lines for the log: how an approval went, a sign-out.
       addTrace(data.trace ?? []);
       if (!response.ok) {
-        if (data.code === "account_unavailable") {
-          setSignedIn(false);
-          setScopes("");
-        }
+        if (data.code === "account_unavailable") accessLost(data);
         // New terms (Operations v3) or an unknown outcome: show current state.
         // New terms under another ID come with the operation they replace.
         showOperations(data.replaced, data.operation);
@@ -485,8 +499,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
       .then(({ response, data }) => {
         addTrace(data.trace ?? []);
         if (data.code === "account_unavailable") {
-          setSignedIn(false);
-          setScopes("");
+          accessLost(data);
           setError(data.error ?? "");
         }
         // A record the Company didn't return shows the id alone.
@@ -512,10 +525,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     try {
       const { response, data } = await grantCall(grants.revoke);
       addTrace(data.trace ?? []);
-      if (data.code === "account_unavailable") {
-        setSignedIn(false);
-        setScopes("");
-      }
+      if (data.code === "account_unavailable") accessLost(data);
       if (!response.ok) throw new Error(data.error);
       signedOutHere();
       setGrantRevoked(
@@ -771,6 +781,12 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
   ) {
     if (!result) return;
     setSending(true);
+    // The User's own line for this request, as `send` put it on the page.
+    // A button of the Direct Conversation leaves none.
+    const said: Message[] =
+      action === "accept" || action === "decline" || action === "close"
+        ? []
+        : [{ role: "You", text: message, ...(action ? { direct: true } : {}) }];
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
@@ -788,12 +804,11 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
         // What Iris did before the turn failed, such as the request the
         // Company refused: the Inspector shows it.
         addTrace(data.trace ?? []);
-        if (data.code === "account_unavailable") {
-          setSignedIn(false);
-          setScopes("");
-        }
+        if (data.code === "account_unavailable") accessLost(data, said);
         throw new Error(data.error ?? "Chat failed. Please try again.");
       }
+      // The turn got an answer though the access went during it.
+      if (Array.isArray(data.history)) accessLost(data, said);
       // What the Company's own agent said this turn comes before Iris's answer.
       const company: Message[] = (
         (data.company ?? []) as Array<{

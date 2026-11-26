@@ -1231,27 +1231,84 @@ describe("Human-controlled account boundary", () => {
       const r = await act("approve");
       expect(r.status).toBe(status);
       expect((await r.json()).code).toBe(code);
-      expect(state.run.operations.op_test.state).toBe("proposed");
+      // Without the permission the terms still wait. Without the access
+      // they go with everything else Iris got with the account.
+      if (code === "insufficient_scope")
+        expect(state.run.operations.op_test.state).toBe("proposed");
+      else expect(state.run.operations).toEqual({});
     },
   );
-  it("marks unavailable access without retrying or deleting pending review", async () => {
-    state.request.mockRejectedValue(new ProtocolError(401, "invalid_token"));
-    const r = await POST(
-      request({ action: "approve", id: "op_test", revision: "r1" }),
-    );
-    expect(r.status).toBe(401);
-    expect((await r.json()).code).toBe("account_unavailable");
-    expect(state.run.accountUnavailable).toBe(true);
-    const restored = await (
-      await GET(
-        new Request(
-          "http://localhost:3000/api/account?conversation=run_fixture_0001",
-        ),
-      )
-    ).json();
-    expect(restored.signedIn).toBe(false);
-    expect(state.run.operations.op_test.state).toBe("proposed");
-    expect(state.request).toHaveBeenCalledTimes(1);
+  it("marks unavailable access without retrying, and drops what was shown with the account", async () => {
+    const run = state.run as unknown as {
+      history: unknown[];
+      publicHistory?: unknown[];
+      transcript?: unknown[];
+      title?: string;
+    };
+    const publicTurns = [
+      { role: "user", content: "When do you deliver?" },
+      { role: "assistant", content: "Tuesday and Saturday." },
+    ];
+    const signedOut = publicTurns.map((turn) => ({ ...turn, signedOut: true }));
+    run.publicHistory = structuredClone(publicTurns);
+    run.history = [
+      ...publicTurns,
+      { role: "assistant", content: "Elena's delivery is on Thursday." },
+    ];
+    run.transcript = [
+      ...signedOut,
+      { role: "user", content: "my deliveries" },
+      { role: "assistant", content: "Elena's delivery is on Thursday." },
+    ];
+    run.title = "When do you deliver?";
+    try {
+      state.request.mockRejectedValue(new ProtocolError(401, "invalid_token"));
+      const r = await POST(
+        request({ action: "approve", id: "op_test", revision: "r1" }),
+      );
+      expect(r.status).toBe(401);
+      const body = await r.json();
+      // The message about the lost access, and what the page still shows.
+      expect(body).toMatchObject({
+        code: "account_unavailable",
+        error:
+          "The Company no longer accepts this access. It may have expired or been revoked. Sign in again to reconnect; no action has been retried.",
+        history: signedOut,
+      });
+      expect(state.run.accountUnavailable).toBe(true);
+      expect(state.request).toHaveBeenCalledTimes(1);
+      // As after a sign-in that may be someone else's: the public part
+      // stays, for the page and the model, and no proposal.
+      expect(run.transcript).toEqual(signedOut);
+      expect(run.history).toEqual(publicTurns);
+      expect(state.run.operations).toEqual({});
+      const restored = await (
+        await GET(
+          new Request(
+            "http://localhost:3000/api/account?conversation=run_fixture_0001",
+          ),
+        )
+      ).json();
+      expect(restored).toMatchObject({
+        signedIn: false,
+        history: signedOut,
+        operations: [],
+        recovery: { code: "account_unavailable" },
+      });
+      expect(JSON.stringify(restored)).not.toContain("Elena");
+      // Iris knew already: another refused request takes nothing more.
+      run.transcript.push({ role: "user", content: "What do you sell?" });
+      const again = await POST(
+        request({ action: "approve", id: "op_test", revision: "r1" }),
+      );
+      expect(await again.json()).not.toHaveProperty("history");
+      expect(run.transcript).toHaveLength(3);
+    } finally {
+      run.history = [];
+      delete run.publicHistory;
+      delete run.transcript;
+      delete run.title;
+    }
   });
   it("tells a reloaded page about an open Direct Conversation (§8.10)", async () => {
     const run = state.run as { conversation?: unknown };
@@ -2180,10 +2237,13 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
       "proposed",
       "uncertain",
     ],
+    // Refused at once, nothing was performed, and the proposal goes with
+    // what Iris got with the account. Refused on a retry, the approval
+    // sent first may have been performed: it stays, to be retried.
     [
       "access it no longer accepts",
       () => new ProtocolError(401, "invalid_token"),
-      "proposed",
+      "gone",
       "uncertain",
     ],
     ["no answer", lost, "uncertain", "uncertain"],
@@ -2208,8 +2268,14 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
           sendThenFail(answer);
           await (action === "retry" ? retry() : first());
           const sends = action === "retry" ? 2 : 1;
-          const op = run.operations.op_rule!;
           const expected = left[action === "retry" ? 1 : 0]!;
+          if (expected === "gone") {
+            expect(run.operations).not.toHaveProperty("op_rule");
+            expect((await retry()).status).toBe(400);
+            expect(approvers()).toEqual(Array(sends).fill(by));
+            return;
+          }
+          const op = run.operations.op_rule!;
           expect(op.state).toBe(
             typeof expected === "string" ? expected : expected[by],
           );

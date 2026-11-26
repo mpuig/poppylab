@@ -142,6 +142,49 @@ export function keepSignedOutTranscript(run: Run) {
   keepSignedOutLines(run);
 }
 
+/**
+ * The conversation as it was before any account access: the model's turns
+ * from then, what the page showed while signed out, and no proposal. For a
+ * sign-in that may be for another account, and for an access the Company
+ * took back.
+ */
+export function backToPublic(run: Run) {
+  run.history = structuredClone(run.publicHistory ?? []);
+  keepSignedOutTranscript(run);
+  run.operations = {};
+}
+
+/**
+ * §5.5: the Company no longer takes the sign-in, because the User
+ * disconnected Iris there or the access ended, and Iris learned it in this
+ * request (`knewBefore`: it was known when the request began). What Iris
+ * read and showed with the account then goes, as at a sign-in that may be
+ * someone else's, and what it showed signed out stays. The sign-in itself
+ * is kept: it is still revoked or replaced at the next one.
+ *
+ * One kind of proposal stays: an approval that was sent and whose outcome
+ * isn't known. It may have been performed, and only its own approval may be
+ * sent again (Operations v3 §7), so the User must still find it once the
+ * access is back, and not ask for the same change a second time.
+ *
+ * Returns what the page shows now, for the answer to carry, and nothing
+ * when this request changed nothing. What is said afterwards stays until
+ * the next sign-in: the run still holds an account, so it isn't marked as
+ * shown signed out.
+ */
+export function forgetLostAccount(run: Run, knewBefore: boolean) {
+  if (knewBefore || !run.accountToken || !run.accountUnavailable) return;
+  const unknown = Object.entries(run.operations ?? {}).filter(
+    ([, op]) => op.state === "uncertain",
+  );
+  backToPublic(run);
+  run.operations = Object.fromEntries(unknown);
+  return {
+    history: run.transcript ?? run.history,
+    operations: Object.values(run.operations),
+  };
+}
+
 /** A turn's Company content, as the page showed it. */
 const companyEntries = (shown: Shown): TranscriptEntry[] =>
   (shown.company ?? []).map((entry) => ({

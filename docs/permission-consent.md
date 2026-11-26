@@ -30,15 +30,17 @@ Earlier tokens and grants aren't widened or revoked automatically. Revoking the 
 
 ## Visible recovery
 
-| Situation                     | Behaviour                                                                                                                                                           |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Insufficient permission       | HTTP 403 and guidance to request permissions; approval blocked locally before anything is sent if write access is missing.                                          |
-| Access no longer accepted     | Explains that it may have expired or been revoked, without inventing an exact cause; offers Sign in and disables approval in the UI. Proposals stay for inspection. |
-| Expired proposal              | A local HTTP 410 when approving; nothing is sent. Ask for another proposal if needed.                                                                               |
-| Changed terms                 | The new terms take the place of the approved ones in "Needs you", and their card says the Company returned them instead. Approve them separately, or decline.       |
-| Refused request               | HTTP 409. The proposal keeps waiting and its card says the Company refused it, with the Company's status and error code. Approve again once it is sorted out.       |
-| Uncertain response            | HTTP 502 and the only action is to retry the same approval. No purchase is retried.                                                                                 |
-| Refused or incomplete consent | The previous access isn't taken as a new consent, and its context isn't cleared.                                                                                    |
+| Situation                     | Behaviour                                                                                                                                                       |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Insufficient permission       | HTTP 403 and guidance to request permissions; approval blocked locally before anything is sent if write access is missing.                                      |
+| Access no longer accepted     | Explains that it may have expired or been revoked, without inventing an exact cause, and offers Sign in. What the page showed with the account goes, see below. |
+| Expired proposal              | A local HTTP 410 when approving; nothing is sent. Ask for another proposal if needed.                                                                           |
+| Changed terms                 | The new terms take the place of the approved ones in "Needs you", and their card says the Company returned them instead. Approve them separately, or decline.   |
+| Refused request               | HTTP 409. The proposal keeps waiting and its card says the Company refused it, with the Company's status and error code. Approve again once it is sorted out.   |
+| Uncertain response            | HTTP 502 and the only action is to retry the same approval. No purchase is retried.                                                                             |
+| Refused or incomplete consent | The previous access isn't taken as a new consent, and its context isn't cleared.                                                                                |
+
+When Iris learns that the Company no longer takes the sign-in, for example after the customer disconnects the agent on the Company's website, the conversation goes back to its public part, as at a sign-in that may be for another account: the answers Iris read with the account, their data and the proposals leave the page and the model's history, and what was shown signed out stays, with the message about the lost access. This happens once, in the request that got the Company's refusal (`forgetLostAccount` in `lib/transcript.ts`). One kind of proposal stays: an approval that was sent and whose outcome is unknown, so the same approval can still be retried once the access is back. The run keeps the sign-in itself, to revoke or replace it at the next one, so what is said afterwards is not marked as shown signed out and goes at the next sign-in.
 
 A 5xx with an ambiguous error code isn't presented as a confirmed revocation. Arbitrary descriptions received from the Company aren't shown. Retry-After restrictions still apply.
 

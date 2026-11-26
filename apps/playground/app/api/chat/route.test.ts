@@ -398,3 +398,94 @@ it("answers with the tasks the Company excludes, and says whether a feedback rep
     again.asked.filter((url) => url === origin + "/poppy/feedback"),
   ).toHaveLength(1);
 });
+
+it("drops what it showed with the account once the Company no longer takes the sign-in, and keeps what it showed signed out", async () => {
+  // The customer pressed Disconnect at the Company: the token is dead.
+  transport.mockImplementation(async (url) => {
+    if (url === origin + "/poppy/openapi.json") return api;
+    if (url === origin + "/api/account/orders")
+      throw new ProtocolError(401, "invalid_token");
+    return { products: [{ name: "Cara cara oranges" }] };
+  });
+  const run = shop("poppy:read");
+  run.dpop = (await createIdentity()).privateKey;
+  const publicTurns = [
+    { role: "user" as const, content: "What do you sell?" },
+    { role: "assistant" as const, content: "Oranges and coffee." },
+  ];
+  const signedOut = [
+    { role: "user" as const, content: "What do you sell?", signedOut: true },
+    {
+      role: "assistant" as const,
+      content: "Oranges and coffee.",
+      data: '{"products":2}',
+      signedOut: true,
+    },
+  ] satisfies Run["transcript"];
+  Object.assign(run, {
+    title: "What do you sell?",
+    publicHistory: structuredClone(publicTurns),
+    history: [
+      ...publicTurns,
+      { role: "user", content: "my deliveries" },
+      { role: "assistant", content: "Customer: Elena Maren" },
+    ],
+    transcript: [
+      ...signedOut,
+      { role: "user", content: "my deliveries" },
+      {
+        role: "assistant",
+        content: "Customer: Elena Maren",
+        data: '{"customer":"Elena Maren"}',
+      },
+    ],
+    operations: {
+      op_1: { operation_id: "op_1", summary: "Move Elena's delivery" },
+    },
+  });
+
+  const turn = await say(run, "my orders");
+  expect(turn.status).toBe(401);
+  // The message about the lost access, and what the page still shows.
+  expect(turn.answer).toMatchObject({
+    code: "account_unavailable",
+    error:
+      "The Company no longer accepts this access. It may have expired or been revoked. Sign in again to reconnect; no action has been retried.",
+    history: signedOut,
+  });
+  expect(run.accountUnavailable).toBe(true);
+  expect(run.transcript).toEqual(signedOut);
+  expect(run.history).toEqual(publicTurns);
+  expect(run.operations).toEqual({});
+  expect(run.title).toBe("What do you sell?");
+  expect(
+    JSON.stringify([run.transcript, run.history, run.operations, turn.answer]),
+  ).not.toContain("Elena");
+
+  // Iris knows now. What is asked next isn't taken back by a later request.
+  const next = await say(run, "what do you sell?");
+  expect(next.status).toBe(200);
+  expect(next.answer).not.toHaveProperty("history");
+  const again = await say(run, "what do you sell?");
+  expect(again.answer).not.toHaveProperty("history");
+  expect(run.transcript!.map((entry) => entry.content)).toEqual([
+    "What do you sell?",
+    "Oranges and coffee.",
+    "what do you sell?",
+    next.answer.text,
+    "what do you sell?",
+    again.answer.text,
+  ]);
+});
+
+it("leaves a signed-out conversation alone when the Company refuses its Session", async () => {
+  transport.mockImplementation(async (url) => {
+    if (url === origin + "/poppy/openapi.json") return api;
+    throw new ProtocolError(401, "invalid_token");
+  });
+  const run = shop();
+  run.history = [{ role: "user", content: "hello" }];
+  const turn = await say(run, "what do you sell?");
+  expect(turn.answer).not.toHaveProperty("history");
+  expect(run.history).toEqual([{ role: "user", content: "hello" }]);
+});

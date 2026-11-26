@@ -26,7 +26,7 @@ import {
 } from "@/lib/runtime";
 import { extensionByKey, extensionsOn } from "@/lib/domain-extension";
 import { fdxStatementsByAccount } from "@/lib/demo-fdx";
-import { recordOutcome } from "@/lib/transcript";
+import { forgetLostAccount, recordOutcome } from "@/lib/transcript";
 import { refusalFacts } from "@/lib/protocol-log";
 import { applyingLine, keepLines, statementLine } from "@/lib/inspector-log";
 import { shownTasks } from "@/lib/shown-tasks";
@@ -356,6 +356,9 @@ async function act(request: Request, started: { id?: string }) {
   // A line the page writes itself, because no answer can carry it: kept
   // in the same words, and never answered, or the page would list it twice.
   const written: string[] = [];
+  // Iris already knew that the Company no longer takes the sign-in. An
+  // action in which it learns that drops what it showed with the account.
+  const knewLost = !!run.accountUnavailable;
   try {
     // All actions have a tiny fixed schema; bound the stream before parsing.
     const reader = request.body?.getReader();
@@ -1137,8 +1140,10 @@ async function act(request: Request, started: { id?: string }) {
     const recovery = accountRecovery(error);
     if (recovery) {
       if (recovery.next === "signin") run.accountUnavailable = true;
+      // With the message about the lost access goes what the page still
+      // shows: the answers and proposals Iris got with the account are gone.
       return NextResponse.json(
-        { ...recovery, trace },
+        { ...recovery, trace, ...forgetLostAccount(run, knewLost) },
         {
           status: recovery.status,
           headers: { "Cache-Control": "no-store" },
@@ -1186,6 +1191,10 @@ async function act(request: Request, started: { id?: string }) {
     );
   } finally {
     keepLines(run, [...written, ...trace], Date.now(), withAccount);
+    // However the action ended: a request inside it may have been the one
+    // in which the Company refused the sign-in. After the lines are kept,
+    // so those written with the account go with the rest.
+    forgetLostAccount(run, knewLost);
     await releaseRun(visitor, held).catch(() => {});
   }
 }

@@ -20,7 +20,7 @@ import {
 import { keepTokenFields, tokenResponse } from "../../../../lib/token-response";
 import { serving } from "@/lib/deployment";
 import { acquireRun, releaseRun, runForState, visitorOf } from "@/lib/runs";
-import { keepSignedOutTranscript } from "@/lib/transcript";
+import { backToPublic } from "@/lib/transcript";
 import { keepLines } from "@/lib/inspector-log";
 export const runtime = "nodejs";
 
@@ -210,11 +210,7 @@ export async function GET(request: Request) {
     // one. Any other may be someone else's, or there is no way to tell,
     // and the conversation goes back to what it was before any account
     // access. The page keeps that public part as it showed it.
-    if (!(used && same)) {
-      run.history = structuredClone(run.publicHistory ?? []);
-      keepSignedOutTranscript(run);
-      run.operations = {};
-    }
+    if (!(used && same)) backToPublic(run);
     // §4.7: revoke the refresh token the new sign-in replaced (best effort;
     // revoking a replaced token isn't sign-out).
     if (replaced) void revokeRefreshToken(run, replaced).catch(() => undefined);
