@@ -12,6 +12,7 @@ import { shoppingTarget } from "@/lib/shopping-context";
 import { cookies } from "next/headers";
 import { connect, directConversation, type Run } from "@/lib/runtime";
 import { recordDirect, recordTurn } from "@/lib/transcript";
+import { keepLines } from "@/lib/inspector-log";
 import type { CompanyEntry, DirectAction } from "@/lib/conversations";
 import { directState } from "@/lib/direct-state";
 import {
@@ -77,7 +78,8 @@ async function reply(request: Request, started: { id?: string }) {
   let visitor: string | undefined;
   let stage = "request";
   // What Iris did this turn. A turn that fails answers with it too, so the
-  // Inspector lists the request the Company refused.
+  // Inspector lists the request the Company refused. Every answer of a run
+  // carries it, and the run keeps it (`finally`).
   const trace: string[] = [];
   try {
     if (!request.headers.get("content-type")?.startsWith("application/json"))
@@ -572,6 +574,8 @@ async function reply(request: Request, started: { id?: string }) {
       { status: 400, headers: { "Cache-Control": "no-store" } },
     );
   } finally {
+    // The lines stay with the conversation, for a reload and History.
+    if (run) keepLines(run, trace);
     if (held && visitor) await releaseRun(visitor, held).catch(() => {});
     active--;
   }

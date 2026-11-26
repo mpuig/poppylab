@@ -34,6 +34,12 @@ import type { ReviewOperation } from "@/lib/operation-presentation";
 import { agentStep } from "@/lib/agent-steps";
 import { logEntry, type ProtocolEntry } from "@/lib/protocol-log";
 import {
+  applyingLine,
+  LOG_LIMITS,
+  shownLines,
+  statementLine,
+} from "@/lib/inspector-log";
+import {
   nextAutoApproval,
   usesAllowance,
   type ApprovalAnswer,
@@ -125,10 +131,15 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
   const [failedTrace, setFailedTrace] = useState<DiscoveryTraceStep[]>([]);
   const [task, setTask] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
+  /**
+   * The Inspector's "Session & API calls". The server keeps the same lines
+   * with the conversation (`inspector-log.ts`), within the same count, so a
+   * reload lists them again.
+   */
   const [chatLog, setChatLog] = useState<ProtocolEntry[]>([]);
   const addTrace = (lines: string[]) =>
     setChatLog((old) =>
-      [...old, ...lines.map((line) => logEntry(line))].slice(-30),
+      [...old, ...lines.map((line) => logEntry(line))].slice(-LOG_LIMITS.lines),
     );
   const [sending, setSending] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
@@ -240,6 +251,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
         // so the next message goes to the Company and not to Iris.
         applyDirect(data.directConversation);
         setMessages(historyToMessages(data.history));
+        setChatLog(shownLines(data.log));
       })
       .catch(() => {});
     return () => {
@@ -269,9 +281,9 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
             setGrantId(grantOf(data));
             setGrantRevoked(undefined);
             setWaitingSignIn(false);
-            addTrace([
-              "Direct Sign-In completed · PKCE + issuer validation · DPoP account Session",
-            ]);
+            // The lines follow the conversation: those written before any
+            // account stay, then the server's line for this sign-in.
+            setChatLog(shownLines(data.log));
           } else if (outcome === "not_completed") {
             setWaitingSignIn(false);
             setError(
@@ -348,7 +360,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
       adopt(response);
       const data = await response.json();
       answer = { status: response.status, operation: data.operation };
-      // How the Company answered an approval it didn't perform, for the log.
+      // The route's lines for the log: how an approval went, a sign-out.
       addTrace(data.trace ?? []);
       if (!response.ok) {
         if (data.code === "account_unavailable") {
@@ -377,20 +389,8 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
             "Allow popups for this site, then try the sign-in or permission request again.",
           );
       }
-      if (action === "signout") {
-        signedOutHere();
-        addTrace(["Account grant revoked · Session signed out"]);
-      }
-      if (data.operation) {
-        showOperations(data.operation);
-        // The route's own line, when it sent one, says more than the state.
-        if (!data.trace?.length)
-          addTrace([
-            data.code === "agent_approval_declined"
-              ? "Company declined the approval on your standing instruction · waiting for you"
-              : `Operation ${data.operation.state} · revision ${data.operation.revision}`,
-          ]);
-      }
+      if (action === "signout") signedOutHere();
+      if (data.operation) showOperations(data.operation);
     } catch (caught) {
       popup?.close();
       setError(
@@ -409,7 +409,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
    */
   async function chooseExtension(enabled: boolean) {
     if (busy || ended || !extension) return;
-    const { key, label, name } = extension;
+    const { key, label } = extension;
     setAccountBusy(true);
     setError("");
     try {
@@ -424,11 +424,9 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
       });
       adopt(response);
       const data = await response.json();
+      addTrace(data.trace ?? []);
       if (!response.ok) throw new Error(data.error);
       setExtensionOn(!!data[key]);
-      addTrace([
-        `Use ${label} ${data[key] ? "on" : "off"} · new Session · ${data[key] ? `${name} v1 declared` : `${name} not declared`}`,
-      ]);
     } catch (caught) {
       setError(
         caught instanceof Error && caught.message
@@ -604,9 +602,9 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
       link.click();
       link.remove();
       setTimeout(() => URL.revokeObjectURL(link.href), 10000);
-      addTrace([
-        `Statement ${statementId} · PDF downloaded · ${file.size} bytes · not shown to Iris`,
-      ]);
+      // The file carries no lines: the server keeps this one in the same
+      // words.
+      addTrace([statementLine(statementId, file.size)]);
     } catch (caught) {
       setError(
         caught instanceof Error && caught.message
@@ -658,8 +656,9 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
       ]);
       return;
     }
-    // The next line of the log says how the Company answered.
-    addTrace([`Applying your standing instruction · ${next.covered}`]);
+    // The next line of the log says how the Company answered. The server
+    // keeps this one in the same words when its own check agrees.
+    addTrace([applyingLine(next.covered)]);
     const { cents } = next;
     void accountAction("approve", next.op, "read", instruction, (answer) => {
       // Only an approval that was performed, or may have been, uses up the

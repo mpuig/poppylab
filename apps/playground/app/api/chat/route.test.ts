@@ -308,3 +308,47 @@ it("still shows the Company's answer, and the request, for a read that was sent"
   expect(turn.asked).toContain(origin + "/api/products");
   expect(turn.steps).toContain("Read /api/products");
 });
+
+it("keeps a turn's lines with the conversation, as the Inspector listed them and nothing more, even when the turn failed", async () => {
+  transport.mockImplementation(async (url) => {
+    if (url === origin + "/poppy/openapi.json") return api;
+    if (url === origin + "/api/account/delivery-change")
+      throw refusal(409, {
+        error: "insufficient_funds",
+        available_cents: 321055,
+        message: "Words of the Company's own.",
+      });
+    return { ok: true };
+  });
+  const run = shop("poppy:read poppy:write");
+  run.dpop = (await createIdentity()).privateKey;
+  const turn = await say(run, "Move my recurring delivery to Saturday.");
+  expect(turn.status).toBe(502);
+  // What a reload or History lists: the lines the page was sent.
+  expect(run.log!.map((line) => line.text)).toEqual(turn.answer.trace);
+  expect(run.log!.at(-1)!.text).toBe(
+    "POST /api/account/delivery-change · refused by the Company · HTTP 409 insufficient_funds",
+  );
+  // A time and the line's words: no token, key, header, body or query.
+  for (const line of run.log!)
+    expect(Object.keys(line).sort()).toEqual(["at", "text"]);
+  const kept = JSON.stringify(run.log);
+  for (const secret of [
+    "access-1",
+    "refresh-1",
+    "Words of the Company",
+    "321055",
+    "Saturday",
+    "eyJ",
+    "DPoP ",
+    "Bearer",
+    "?",
+  ])
+    expect(kept).not.toContain(secret);
+
+  // Signed out, the lines say so: they stay when a sign-in resets the rest.
+  const visitor = shop();
+  const asked = await say(visitor, "my orders");
+  expect(visitor.log!.map((line) => line.text)).toEqual(asked.answer.trace);
+  expect(visitor.log!.every((line) => line.signedOut)).toBe(true);
+});

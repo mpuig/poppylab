@@ -72,6 +72,7 @@ import {
   type TasksResponse,
 } from "@poppy-lab/pap-core";
 import type { Approval } from "@poppy-lab/pap-client";
+import type { KeptLine } from "./inspector-log";
 import type { TranscriptEntry } from "./transcript";
 
 export const agentOrigin = (
@@ -317,6 +318,8 @@ export type Run = {
    * wherever `history` does.
    */
   transcript?: TranscriptEntry[];
+  /** The Inspector's "Session & API calls" lines, kept as the page lists them. */
+  log?: KeptLine[];
   /** When the conversation started, and its first request, for the list. */
   created?: number;
   title?: string;

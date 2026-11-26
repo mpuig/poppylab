@@ -277,6 +277,7 @@ function ended(run: Run, now = Date.now()): Run {
     busy: false,
     history: [],
     transcript: run.transcript ?? run.history,
+    ...(run.log ? { log: run.log } : {}),
     ...(run.company ? { company: run.company } : {}),
     operations,
     ...(run.title ? { title: run.title } : {}),

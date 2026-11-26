@@ -169,7 +169,10 @@ in the page; the server's approval endpoint is the one it always was.
 - **The log.** The inspector lists the session's events with a time, their spec
   section, the method and address without its query, and an outcome read from
   the event's own words. Times are when the page received each event, and one
-  turn's events arrive together. The trace can be copied or downloaded as text
+  turn's events arrive together. The lines are kept with the conversation, up
+  to 400 of them, so a reload or the History view lists them again, with the
+  time the server kept each (see [chat continuity](chat-continuity.md)). The
+  trace can be copied or downloaded as text
   for an interop report; it holds no headers, bodies, tokens or keys. A request
   the Company refuses is logged after the request itself, with its status and
   error code and never the Company's words ("POST /api/account/payments ·
@@ -261,7 +264,7 @@ Session and API calls
 - 2026-11-25T12:22:03.971Z (Operations §4–6) Approval required · nothing performed [waiting]
 
 Recorded: time, spec section, method, address without its query, and the event's own words.
-Times are when this page received each event; one turn's events arrive together.
+Times are when this page received each event, or when the server kept it for events from before the page was loaded; one turn's events arrive together.
 Never recorded: headers, bodies, tokens, Session JWTs, DPoP proofs, keys, codes or sign-in values.
 ```
 

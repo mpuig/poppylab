@@ -211,6 +211,78 @@ beforeEach(async () => {
   state.revoke.mockReset();
   state.run.token = "general-token";
   state.run.tokenExpires = Date.now() + 60000;
+  // Each test starts with no Inspector lines kept.
+  delete (state.run as { log?: unknown }).log;
+});
+describe("The Inspector's lines, kept with the conversation", () => {
+  type Line = { at: number; text: string; signedOut?: true };
+  const run = state.run as typeof state.run & { log?: Line[] };
+  const act = (action = "approve") =>
+    POST(request({ action, id: "op_test", revision: "r1" }));
+  /** What a reload, or History, is answered. */
+  const reloaded = async () =>
+    (
+      (await (
+        await GET(
+          new Request(
+            "http://localhost:3000/api/account?conversation=run_fixture_0001",
+          ),
+        )
+      ).json()) as { log: Line[] }
+    ).log;
+
+  it("answers a reload with every line the page was sent, oldest first", async () => {
+    expect(await reloaded()).toEqual([]);
+    sendThenFail(() =>
+      Object.assign(new ProtocolError(409, undefined), {
+        companyCode: "insufficient_funds",
+        body: { message: "Call us on 555-0100", authorization: "Bearer x" },
+      }),
+    );
+    const refused =(await (await act()).json()).trace as string[];
+    state.request.mockResolvedValueOnce({ summary: "Done" });
+    const performed = (await (await act()).json()).trace as string[];
+    expect((await reloaded()).map((line) => line.text)).toEqual([
+      "POST /api/account/delivery-change · refused by the Company · HTTP 409 insufficient_funds",
+      "Operation succeeded · revision r1",
+    ]);
+    expect([...refused, ...performed]).toEqual(
+      run.log!.map((line) => line.text),
+    );
+    // A time and the line's words: nothing of the request or its answer.
+    expect(JSON.stringify(run.log)).not.toMatch(
+      /secret|general-token|555-0100|Bearer|Saturday/,
+    );
+    for (const line of run.log!)
+      expect(Object.keys(line).sort()).toEqual(["at", "text"]);
+  });
+
+  it("says the account was signed out, as a line of the account it was", async () => {
+    state.revoke.mockResolvedValue(undefined);
+    const r = await POST(request({ action: "signout" }));
+    expect((await r.json()).trace).toEqual([
+      "Account grant revoked · Session signed out",
+    ]);
+    // Written with the account: a later sign-in drops it.
+    expect(run.log).toEqual([
+      {
+        at: expect.any(Number),
+        text: "Account grant revoked · Session signed out",
+      },
+    ]);
+  });
+
+  it("marks what a signed-out request wrote, which a sign-in keeps", async () => {
+    delete (run as { accountToken?: string }).accountToken;
+    await act("decline");
+    expect(run.log).toEqual([
+      {
+        at: expect.any(Number),
+        text: "Operation declined · revision r1",
+        signedOut: true,
+      },
+    ]);
+  });
 });
 describe("Human-controlled account boundary", () => {
   it("keeps the active access if revocation has an uncertain failure", async () => {
@@ -1600,9 +1672,13 @@ describe("What the page's log is told when an approval isn't performed", () => {
     ]);
   });
 
-  it("leaves a performed approval to the page's own line", async () => {
+  it("says how an operation ended when nothing else is to be said: performed, or declined by the User", async () => {
     state.request.mockResolvedValueOnce({ summary: "Done" });
-    expect(await trace(act())).toBeUndefined();
+    expect(await trace(act())).toEqual(["Operation succeeded · revision r1"]);
+    state.run.operations.op_test.state = "proposed";
+    expect(await trace(act("decline"))).toEqual([
+      "Operation declined · revision r1",
+    ]);
   });
 });
 
@@ -1649,13 +1725,25 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
       expect.objectContaining({ operation_id: "op_rule" }),
       "agent",
     );
-    expect((await r.json()).operation).toMatchObject({
+    const body = await r.json();
+    expect(body.operation).toMatchObject({
       state: "succeeded",
       approvedBy: {
         approver: "agent",
         rule: expect.stringContaining("$20.00"),
       },
     });
+    // The page wrote "Applying…" before it asked, so the answer doesn't
+    // repeat it; a reload lists both lines.
+    expect(body.trace).toEqual(["Operation succeeded · revision r1"]);
+    expect(
+      (state.run as { log?: Array<{ text: string }> })
+        .log!.slice(-2)
+        .map((line) => line.text),
+    ).toEqual([
+      `Applying your standing instruction · ${body.operation.approvedBy.rule}`,
+      "Operation succeeded · revision r1",
+    ]);
   });
 
   it("leaves to the User what the rule doesn't cover, and never trusts a malformed rule", async () => {
@@ -2133,10 +2221,18 @@ describe("Use FDX (poppylab.dev/fdx v1)", () => {
     expect(body.sessionId).not.toBe("sid-before");
     expect(run.sessionId).toBe(body.sessionId);
     expect((await restored()).fdx).toBe(true);
+    // The Inspector's line, which a reload lists again.
+    expect(body.trace).toEqual([
+      "Use FDX on · new Session · poppylab.dev/fdx v1 declared",
+    ]);
+    expect((await restored()).log.at(-1).text).toBe(body.trace[0]);
     // The same choice again keeps the Session.
     await POST(request({ action: "fdx", enabled: true }));
     expect(run.sessionId).toBe(body.sessionId);
-    await POST(request({ action: "fdx", enabled: false }));
+    const off = await POST(request({ action: "fdx", enabled: false }));
+    expect((await off.json()).trace).toEqual([
+      "Use FDX off · new Session · poppylab.dev/fdx not declared",
+    ]);
     expect(run.fdx).toBeUndefined();
     expect(run.sessionId).not.toBe(body.sessionId);
   });
@@ -2499,7 +2595,11 @@ describe("Use ESPI (poppylab.dev/espi v1)", () => {
     const on = await POST(request({ action: "espi", enabled: true }));
     expect(on.status).toBe(200);
     const body = await on.json();
-    expect(body).toEqual({ espi: true, sessionId: expect.any(String) });
+    expect(body).toEqual({
+      espi: true,
+      sessionId: expect.any(String),
+      trace: ["Use ESPI on · new Session · poppylab.dev/espi v1 declared"],
+    });
     expect(run.espi).toBe(true);
     expect(run.fdx).toBeUndefined();
     expect(body.sessionId).not.toBe("sid-before");
@@ -2973,6 +3073,13 @@ describe("FDX statements in the account row (poppylab.dev/fdx v1)", () => {
     expect(headers["Poppy-Extensions"]).toContain('"poppylab.dev/fdx";v="1"');
     expect(dpopOption.token).toBe("general-token");
     expect(options).toEqual({ errorBody: true, binary: { maxBytes: 512000 } });
+    // The answer is the file, so the page writes the Inspector's line
+    // itself; the same line is kept for a reload, and no other.
+    expect(
+      (run as { log?: Array<{ text: string }> }).log!.map((line) => line.text),
+    ).toEqual([
+      `Statement stmt_1 · PDF downloaded · ${pdf.byteLength} bytes · not shown to Iris`,
+    ]);
     // A file name of our own, whatever the ids hold.
     bank(async () => ({ contentType: "application/pdf", bytes: pdf }));
     const odd = await POST(

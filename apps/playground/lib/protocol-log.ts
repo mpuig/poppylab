@@ -3,7 +3,10 @@ import { apiSection } from "./spec-sections";
 /** How an exchange ended, as far as its own words say. */
 export type ProtocolOutcome = "ok" | "error" | "refused" | "waiting" | "info";
 
-/** One exchange in the session, stamped when the page received it. */
+/**
+ * One exchange in the session, stamped when the page received it, or when
+ * the server kept it if the page was loaded since (`inspector-log.ts`).
+ */
 export type ProtocolEntry = {
   at: number;
   /** The spec section it meets; empty when none is known. */

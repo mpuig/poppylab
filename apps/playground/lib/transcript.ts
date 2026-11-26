@@ -1,5 +1,6 @@
 import { agentStep, type AgentStep } from "./agent-steps";
 import type { CompanyEntry, DirectAction } from "./conversations";
+import { keepSignedOutLines } from "./inspector-log";
 import { logEntry } from "./protocol-log";
 import type { Operation, Run } from "./runtime";
 
@@ -127,6 +128,8 @@ export function keepSignedOutTranscript(run: Run) {
   const kept = (run.transcript ?? []).filter((entry) => entry.signedOut);
   if (kept.length) run.transcript = kept;
   else delete run.transcript;
+  // The Inspector's lines follow the same rule.
+  keepSignedOutLines(run);
 }
 
 /** A turn's Company content, as the page showed it. */

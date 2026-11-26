@@ -162,6 +162,7 @@ it("ends an expired conversation: readable for a week, without tokens, never con
       scopes: "",
     },
     transcript: [{ role: "user", content: "Move my delivery" }],
+    log: [{ at: start, text: "GET /api/account/deliveries · Poppy Session" }],
     operations: {
       op_1: {
         operation_id: "op_1",
@@ -180,6 +181,8 @@ it("ends an expired conversation: readable for a week, without tokens, never con
   expect(read).toMatchObject({
     archived: true,
     transcript: [{ role: "user", content: "Move my delivery" }],
+    // The Inspector of an ended conversation lists its calls too.
+    log: [{ at: start, text: "GET /api/account/deliveries · Poppy Session" }],
     keepUntil: start + 7 * 86400000,
   });
   expect(JSON.stringify(read)).not.toMatch(/secret|private|"sid"|verifier/);

@@ -16,6 +16,7 @@ import { keepTokenFields, tokenResponse } from "../../../../lib/token-response";
 import { serving } from "@/lib/deployment";
 import { acquireRun, releaseRun, runForState, visitorOf } from "@/lib/runs";
 import { keepSignedOutTranscript } from "@/lib/transcript";
+import { keepLines } from "@/lib/inspector-log";
 export const runtime = "nodejs";
 
 /**
@@ -163,6 +164,11 @@ export async function GET(request: Request) {
     // §4.7: revoke the refresh token the new sign-in replaced (best effort;
     // revoking a replaced token isn't sign-out).
     if (replaced) void revokeRefreshToken(run, replaced).catch(() => undefined);
+    // The Inspector's line for it, which the page lists once it sees the
+    // sign-in is complete.
+    keepLines(run, [
+      `Direct Sign-In completed · PKCE + issuer validation · ${dpop ? "DPoP" : "Bearer"} account Session`,
+    ]);
     return leave("done");
   } catch {
     return leave("failed");

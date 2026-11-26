@@ -468,6 +468,61 @@ it("is single use", async () => {
   expect(s.request).toHaveBeenCalledTimes(1);
 });
 
+it("lists in the Inspector what was written before any account, then the sign-in, and nothing of the account before", async () => {
+  const run = s.run as typeof s.run & {
+    log?: Array<{ at: number; text: string; signedOut?: true }>;
+  };
+  const before = {
+    at: 1000,
+    text: "GET /api/products · Poppy Session",
+    signedOut: true as const,
+  };
+  run.log = [
+    before,
+    { at: 2000, text: "GET /api/account/orders/ord_7 · Poppy Session" },
+    { at: 3000, text: "Account grant revoked · Session signed out" },
+  ];
+  try {
+    s.request.mockResolvedValue(success());
+    expect(await landed()).toBe(DONE);
+    expect(run.log).toEqual([
+      before,
+      {
+        at: expect.any(Number),
+        text: "Direct Sign-In completed · PKCE + issuer validation · DPoP account Session",
+      },
+    ]);
+    // Bearer tokens are said to be that.
+    s.dpop = false;
+    s.run.auth = {
+      state: "state_test",
+      verifier: "verifier_test",
+      issuer: "https://food.papsandbox.com",
+      scopes: "orders:read",
+      expires: Date.now() + 60000,
+    };
+    s.request.mockResolvedValue(success({ token_type: "Bearer" }));
+    expect(await landed()).toBe(DONE);
+    expect(run.log.map((line) => line.text)).toEqual([
+      before.text,
+      "Direct Sign-In completed · PKCE + issuer validation · Bearer account Session",
+    ]);
+    // A sign-in that fails changes nothing.
+    s.request.mockRejectedValue(new Error("refused"));
+    s.run.auth = {
+      state: "state_test",
+      verifier: "verifier_test",
+      issuer: "https://food.papsandbox.com",
+      scopes: "orders:read",
+      expires: Date.now() + 60000,
+    };
+    expect(await landed()).toBe(FAILED);
+    expect(run.log).toHaveLength(2);
+  } finally {
+    delete run.log;
+  }
+});
+
 describe("what the page shows of the conversation after a sign-in", () => {
   const run = s.run as typeof s.run & { transcript?: unknown[] };
   // As the transcript keeps them: what the page showed while signed out…

@@ -28,6 +28,7 @@ import { extensionByKey, extensionsOn } from "@/lib/domain-extension";
 import { fdxStatementsByAccount } from "@/lib/demo-fdx";
 import { recordOutcome } from "@/lib/transcript";
 import { refusalFacts } from "@/lib/protocol-log";
+import { applyingLine, keepLines, statementLine } from "@/lib/inspector-log";
 import {
   accountRecovery,
   accountUnavailableNotice,
@@ -184,8 +185,8 @@ async function revocationAnswer(
   run: Run,
   revoke: (run: Run, trace: string[]) => Promise<void>,
   what: { name: string; code: string; named: Record<string, unknown> },
+  trace: string[],
 ) {
-  const trace: string[] = [];
   try {
     await revoke(run, trace);
   } catch (error) {
@@ -247,6 +248,8 @@ export async function GET(request: Request) {
       // content and each answer's label, steps and data. Not the model's
       // context, except in a run that has no transcript yet.
       history: run?.transcript ?? run?.history ?? [],
+      // The Inspector's "Session & API calls" lines, to list again.
+      log: run?.log ?? [],
       url: run?.url,
       scopes: run?.scopes,
       // Use FDX (poppylab.dev/fdx v1), a setting of this conversation.
@@ -335,6 +338,19 @@ async function act(request: Request, started: { id?: string }) {
     );
   }
   let operationRequested = false;
+  // The lines this request writes for the Inspector. The answer carries
+  // them, and they are kept with the conversation (`finally`) as lines of
+  // the account that was signed in when the request began.
+  const trace: string[] = [];
+  const withAccount = !!run.accountToken;
+  /** Lines of one answer, kept as well. */
+  const said = (...lines: string[]) => {
+    trace.push(...lines);
+    return lines;
+  };
+  // A line the page writes itself, because no answer can carry it: kept
+  // in the same words, and never answered, or the page would list it twice.
+  const written: string[] = [];
   try {
     // All actions have a tiny fixed schema; bound the stream before parsing.
     const reader = request.body?.getReader();
@@ -384,8 +400,15 @@ async function act(request: Request, started: { id?: string }) {
           { status: 400 },
         );
       setExtension(run, extension.key, body.enabled);
+      const on = !!run[extension.key];
       return NextResponse.json(
-        { [extension.key]: !!run[extension.key], sessionId: run.sessionId },
+        {
+          [extension.key]: on,
+          sessionId: run.sessionId,
+          trace: said(
+            `Use ${extension.label} ${on ? "on" : "off"} · new Session · ${extension.name} ${on ? "v1 declared" : "not declared"}`,
+          ),
+        },
         { headers: { "Cache-Control": "no-store" } },
       );
     }
@@ -410,7 +433,6 @@ async function act(request: Request, started: { id?: string }) {
           },
           { status: 400, headers: { "Cache-Control": "no-store" } },
         );
-      const trace: string[] = [];
       if (body.action === "fdx_consent") {
         const record = await fdxConsentRecord(run, trace);
         const resources = Array.isArray(record.resources)
@@ -439,11 +461,16 @@ async function act(request: Request, started: { id?: string }) {
           { headers: { "Cache-Control": "no-store" } },
         );
       }
-      return revocationAnswer(run, revokeFdxConsent, {
-        name: "FDX consent",
-        code: "fdx_revoke_failed",
-        named: { consent: run.fdxConsent },
-      });
+      return revocationAnswer(
+        run,
+        revokeFdxConsent,
+        {
+          name: "FDX consent",
+          code: "fdx_revoke_failed",
+          named: { consent: run.fdxConsent },
+        },
+        trace,
+      );
     }
     if (body.action === "espi_authorization" || body.action === "espi_revoke") {
       // poppylab.dev/espi v1: the User's own look at, and revocation of,
@@ -469,12 +496,16 @@ async function act(request: Request, started: { id?: string }) {
           { status: 400, headers: { "Cache-Control": "no-store" } },
         );
       if (body.action === "espi_revoke")
-        return revocationAnswer(run, revokeEspiAuthorization, {
-          name: "ESPI authorization",
-          code: "espi_revoke_failed",
-          named: { authorization: target.id },
-        });
-      const trace: string[] = [];
+        return revocationAnswer(
+          run,
+          revokeEspiAuthorization,
+          {
+            name: "ESPI authorization",
+            code: "espi_revoke_failed",
+            named: { authorization: target.id },
+          },
+          trace,
+        );
       const { authorization, meters } = await espiAuthorizationRecord(
         run,
         trace,
@@ -527,7 +558,6 @@ async function act(request: Request, started: { id?: string }) {
           },
           { status: 400, headers: { "Cache-Control": "no-store" } },
         );
-      const trace: string[] = [];
       if (body.action === "fdx_statements") {
         const answer = (await fdxStatementsByAccount(
           fdxUserTools(run, trace),
@@ -543,19 +573,23 @@ async function act(request: Request, started: { id?: string }) {
           },
           { status: 400, headers: { "Cache-Control": "no-store" } },
         );
+      // The answer to a download is the file, which carries no lines: the
+      // page writes one when the file arrives, and only that one is kept.
+      const asked: string[] = [];
       const result = await fdxStatementDownload(
         run,
         body.accountId,
         body.statementId,
-        trace,
+        asked,
       );
       if (!result.pdf) {
         const refusal = fdxRefusal(result);
         return NextResponse.json(
-          { code: refusal.code, error: refusal.error, trace },
+          { code: refusal.code, error: refusal.error, trace: said(...asked) },
           { status: refusal.status, headers: { "Cache-Control": "no-store" } },
         );
       }
+      written.push(statementLine(body.statementId, result.pdf.byteLength));
       // Our own file name, from the checked ids: never the Company's header.
       const name =
         `statement-${String(body.accountId)}-${String(body.statementId)}`
@@ -658,7 +692,10 @@ async function act(request: Request, started: { id?: string }) {
       // §5.5: sign-out revokes every refresh token held for the account.
       if (run.accountToken) await revokeRefreshToken(run, run.accountToken);
       signedOutLocally(run);
-      return NextResponse.json({ signedIn: false });
+      return NextResponse.json({
+        signedIn: false,
+        trace: said("Account grant revoked · Session signed out"),
+      });
     }
     if (!["approve", "decline", "retry"].includes(body.action))
       throw new Error();
@@ -673,7 +710,10 @@ async function act(request: Request, started: { id?: string }) {
       delete op.notPerformed;
       delete op.request;
       return NextResponse.json(
-        { operation: op },
+        {
+          operation: op,
+          trace: said(`Operation ${op.state} · revision ${op.revision}`),
+        },
         { headers: { "Cache-Control": "no-store" } },
       );
     }
@@ -715,6 +755,8 @@ async function act(request: Request, started: { id?: string }) {
     if (body.action === "approve" && body.instruction !== undefined) {
       const instruction = parseInstruction(body.instruction);
       const covered = instruction && coveredBy(op, instruction);
+      // The page wrote this line before it asked.
+      if (covered) written.push(applyingLine(covered.text));
       const recent = (run.agentApprovals ?? []).filter(
         (a) => a.at > Date.now() - 3_600_000,
       );
@@ -768,9 +810,9 @@ async function act(request: Request, started: { id?: string }) {
       if (!(error instanceof ProtocolError)) return [];
       // Both are short tokens by the time they get here (`ProtocolError`).
       const code = error.code ?? error.companyCode;
-      return [
+      return said(
         `POST ${sent ? new URL(sent).pathname : "approval"} · refused by the Company · HTTP ${error.status}${code ? ` ${code}` : ""}`,
-      ];
+      );
     };
     operationRequested = true;
     try {
@@ -818,7 +860,13 @@ async function act(request: Request, started: { id?: string }) {
             `The Company declined the approval Iris sent on the user's standing instruction; nothing was performed, and it's waiting for the user.${error.declined?.reason ? ` Its reason: ${error.declined.reason}` : ""}`,
           );
           return NextResponse.json(
-            { operation: op, code: "agent_approval_declined" },
+            {
+              operation: op,
+              code: "agent_approval_declined",
+              trace: said(
+                "Company declined the approval on your standing instruction · waiting for you",
+              ),
+            },
             { headers: { "Cache-Control": "no-store" } },
           );
         }
@@ -838,7 +886,7 @@ async function act(request: Request, started: { id?: string }) {
           {
             operation: op,
             code: "approval_declined",
-            trace: ["Approval declined by the Company · nothing performed"],
+            trace: said("Approval declined by the Company · nothing performed"),
           },
           { headers: { "Cache-Control": "no-store" } },
         );
@@ -881,7 +929,9 @@ async function act(request: Request, started: { id?: string }) {
               next: "status",
               operation: op,
               error: op.result.summary,
-              trace: ["Retry answered with new terms · outcome still unknown"],
+              trace: said(
+                "Retry answered with new terms · outcome still unknown",
+              ),
             },
             { status: 409, headers: { "Cache-Control": "no-store" } },
           );
@@ -924,9 +974,9 @@ async function act(request: Request, started: { id?: string }) {
               next: "review",
               operation: next,
               error: again,
-              trace: [
+              trace: said(
                 "Approval answered with the same terms again · nothing performed",
-              ],
+              ),
             },
             { status: 409, headers: { "Cache-Control": "no-store" } },
           );
@@ -964,7 +1014,7 @@ async function act(request: Request, started: { id?: string }) {
             // The retired operation, for the page to show as it now is.
             ...(sameOperation ? {} : { replaced: op }),
             error: changed,
-            trace: ["Approval answered with new terms · nothing performed"],
+            trace: said("Approval answered with new terms · nothing performed"),
           },
           { status: 409, headers: { "Cache-Control": "no-store" } },
         );
@@ -1070,17 +1120,25 @@ async function act(request: Request, started: { id?: string }) {
       `Company operation succeeded: ${op.result.summary}`,
     );
     return NextResponse.json(
-      { operation: op },
+      {
+        operation: op,
+        trace: said(`Operation ${op.state} · revision ${op.revision}`),
+      },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
+    // A request that failed answers with the lines written before it did,
+    // as a chat turn does: the page lists what is kept.
     const recovery = accountRecovery(error);
     if (recovery) {
       if (recovery.next === "signin") run.accountUnavailable = true;
-      return NextResponse.json(recovery, {
-        status: recovery.status,
-        headers: { "Cache-Control": "no-store" },
-      });
+      return NextResponse.json(
+        { ...recovery, trace },
+        {
+          status: recovery.status,
+          headers: { "Cache-Control": "no-store" },
+        },
+      );
     }
     if (
       error instanceof ProtocolError &&
@@ -1090,6 +1148,7 @@ async function act(request: Request, started: { id?: string }) {
       return NextResponse.json(
         {
           error: `${error.message}. Wait before trying again. An uncertain approval is retried with the same approval, never a new proposal.`,
+          trace,
         },
         {
           status: 429,
@@ -1113,6 +1172,7 @@ async function act(request: Request, started: { id?: string }) {
         error: operationRequested
           ? "The Company's response is unknown. The change may already have completed. Use Retry the same approval; it is performed at most once. Don't ask for a new proposal yet."
           : "Account request failed. Retry sign-in, or reconnect if the Company restarted.",
+        trace,
       },
       {
         status: operationRequested ? 502 : 400,
@@ -1120,6 +1180,7 @@ async function act(request: Request, started: { id?: string }) {
       },
     );
   } finally {
+    keepLines(run, [...written, ...trace], Date.now(), withAccount);
     await releaseRun(visitor, held).catch(() => {});
   }
 }
