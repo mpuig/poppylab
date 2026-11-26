@@ -260,6 +260,17 @@ it("says a limit the Company gave, and nothing of a body it doesn't know", async
   expect(limited.answer.trace!.at(-1)).toBe(
     "POST /api/account/delivery-change · refused by the Company · HTTP 422 transfer_limit_exceeded",
   );
+  // As money, in the currency the Company's answer names.
+  const priced = await refusedChange(
+    refusal(409, {
+      error: "insufficient_funds",
+      available_cents: 321055,
+      currency: "USD",
+    }),
+  );
+  expect(priced.answer.error).toBe(
+    "Juniper Market answered HTTP 409 insufficient_funds (available balance: $3,210.55). Nothing was retried; see the Inspector.",
+  );
   // Not a whole number, or under another key: left out.
   const odd = await refusedChange(
     refusal(409, {

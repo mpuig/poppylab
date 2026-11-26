@@ -882,6 +882,55 @@ describe("Human-controlled account boundary", () => {
       );
     },
   );
+  it.each([
+    // As Harborline's refusals, which name no currency.
+    [
+      409,
+      { error: "insufficient_funds", available_cents: 422000 },
+      "insufficient_funds; available balance: 4,220.00",
+    ],
+    [
+      422,
+      { error: "recipient_limit_exceeded", limit_cents: 500000 },
+      "recipient_limit_exceeded; limit: 5,000.00",
+    ],
+    // Money only in the currency the answer itself names.
+    [
+      409,
+      {
+        error: "insufficient_funds",
+        available_cents: 422000,
+        currency: "USD",
+        message: "Words of the Company's own.",
+      },
+      "insufficient_funds; available balance: $4,220.00",
+    ],
+  ])(
+    "puts on the card the number the Company gave with its refusal (%s %o)",
+    async (status, answer, shown) => {
+      sendThenFail(
+        () =>
+          new ProtocolError(
+            status,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            answer,
+            answer.error,
+          ),
+      );
+      const body = await (await act("approve")).json();
+      expect(body.code).toBe("not_performed");
+      const sentence = `Juniper refused this request (HTTP ${status}, ${shown}). Nothing was performed. The terms still wait for you: approve them again once what stopped it is sorted out, or ask for the change again to get fresh terms.`;
+      expect(body.error).toBe(sentence);
+      // The card shows the operation's own sentence.
+      expect(body.operation.result).toEqual({ summary: sentence });
+      expect(JSON.stringify(body)).not.toContain("Words of the Company");
+    },
+  );
   it("says nothing was performed when the Company answers an approval with terms it can't use", async () => {
     sendThenFail(
       () =>

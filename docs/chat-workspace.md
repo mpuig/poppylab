@@ -173,7 +173,11 @@ in the page; the server's approval endpoint is the one it always was.
   error code and never the Company's words ("POST /api/account/payments ·
   refused by the Company · HTTP 409 insufficient_funds", labelled Declined);
   the chat's error names the same status and code, and the available balance
-  or the limit when the Company gave one as a number.
+  or the limit when the Company gave one as a number. When the Company
+  refuses a request you approved, the note on the approval card says the same
+  ("Harborline Bank refused this request (HTTP 409, insufficient_funds;
+  available balance: 4,220.00)"). The number is written as money ("$4,220.00")
+  only when the Company's answer names its currency; none is assumed.
 - **Failed messages and links.** A message that fails offers Try again, which
   puts its text back in the composer, and Remove. A link that carries a token
   or signature in its query or fragment is shown with "…" in its place; a

@@ -37,6 +37,44 @@ export function refusedLine(
   return `${method} ${path} · ${status < 500 ? "refused by the Company" : "request failed"} · HTTP ${status}${code ? ` ${code}` : ""}`;
 }
 
+/**
+ * A number the Company put in its refusal under a key we know, in our own
+ * words: the balance available, or a limit, in cents (Harborline's
+ * `insufficient_funds` and `recipient_limit_exceeded`). Only a whole number
+ * under such a key is shown, never the Company's free text. It is written
+ * as money when the same answer names its currency as a three-letter code;
+ * without one the number stands alone, since no currency is assumed. The
+ * chat's error and the approval card both say a refusal with these.
+ */
+export function refusalFacts(body: unknown): string[] {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return [];
+  const from = body as Record<string, unknown>;
+  const currency =
+    typeof from.currency === "string" && /^[A-Z]{3}$/.test(from.currency)
+      ? from.currency
+      : undefined;
+  return (
+    [
+      ["available_cents", "available balance"],
+      ["limit_cents", "limit"],
+    ] as const
+  ).flatMap(([key, label]) => {
+    const cents = from[key];
+    return typeof cents === "number" &&
+      Number.isSafeInteger(cents) &&
+      cents >= 0 &&
+      cents <= 1e13
+      ? [
+          `${label}: ${(cents / 100).toLocaleString("en-US", {
+            ...(currency ? { style: "currency", currency } : {}),
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}`,
+        ]
+      : [];
+  });
+}
+
 function outcomeOf(text: string): ProtocolOutcome {
   // Iris stopped before asking: nothing happened, whatever the address
   // it names says.

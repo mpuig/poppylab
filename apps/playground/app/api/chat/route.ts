@@ -33,6 +33,7 @@ import {
 import { demoFdxAnswer, demoFdxRead, demoFdxReply } from "@/lib/demo-fdx";
 import { demoEspiAnswer, demoEspiRead, demoEspiReply } from "@/lib/demo-espi";
 import { UserFacingError } from "@/lib/user-error";
+import { refusalFacts } from "@/lib/protocol-log";
 import { companyProfile, PapDiscoveryError } from "@poppy-lab/pap-core";
 import { publicMode, serving } from "@/lib/deployment";
 import { runModel, ModelRequestError } from "@poppy-lab/llm-adapters/server";
@@ -41,41 +42,6 @@ export const runtime = "nodejs";
 let active = 0;
 let count = 0;
 let windowStart = Date.now();
-/**
- * A number the Company put in its refusal under a key we know, in our own
- * words: the balance available, or a limit, in cents (Harborline's
- * `insufficient_funds` and `transfer_limit_exceeded`). Only a whole number
- * under such a key is shown, with the body's currency when that is a
- * three-letter code: never the Company's free text.
- */
-function refusalFacts(body: unknown) {
-  if (!body || typeof body !== "object" || Array.isArray(body)) return "";
-  const from = body as Record<string, unknown>;
-  const currency =
-    typeof from.currency === "string" && /^[A-Z]{3}$/.test(from.currency)
-      ? ` ${from.currency}`
-      : "";
-  const facts = (
-    [
-      ["available_cents", "available balance"],
-      ["limit_cents", "limit"],
-    ] as const
-  ).flatMap(([key, label]) => {
-    const cents = from[key];
-    return typeof cents === "number" &&
-      Number.isSafeInteger(cents) &&
-      cents >= 0 &&
-      cents <= 1e13
-      ? [
-          `${label}: ${(cents / 100).toLocaleString("en-US", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}${currency}`,
-        ]
-      : [];
-  });
-  return facts.length ? ` (${facts.join(", ")})` : "";
-}
 /** Names the conversation in a header, so the page can keep its address. */
 export async function POST(request: Request) {
   const started: { id?: string } = {};
@@ -572,9 +538,11 @@ async function reply(request: Request, started: { id?: string }) {
       // A code of the Company's own, such as insufficient_funds, is shown
       // too; `code` below stays the protocol's.
       const shown = code ?? error.companyCode;
+      // And a number it gave, in our own words (`refusalFacts`).
+      const facts = refusalFacts(error.body);
       return NextResponse.json(
         {
-          error: `${run?.company?.document.organization.name ?? "The Company"} answered HTTP ${error.status}${shown ? ` ${shown}` : ""}${refusalFacts(error.body)}. Nothing was retried; see the Inspector.`,
+          error: `${run?.company?.document.organization.name ?? "The Company"} answered HTTP ${error.status}${shown ? ` ${shown}` : ""}${facts.length ? ` (${facts.join(", ")})` : ""}. Nothing was retried; see the Inspector.`,
           code: code ?? "company_error",
           stage,
           trace,

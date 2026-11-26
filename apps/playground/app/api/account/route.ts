@@ -27,6 +27,7 @@ import {
 import { extensionByKey, extensionsOn } from "@/lib/domain-extension";
 import { fdxStatementsByAccount } from "@/lib/demo-fdx";
 import { recordOutcome } from "@/lib/transcript";
+import { refusalFacts } from "@/lib/protocol-log";
 import {
   accountRecovery,
   accountUnavailableNotice,
@@ -1040,17 +1041,20 @@ async function act(request: Request, started: { id?: string }) {
         // became of the approval sent before it. Sign-in and permission
         // errors keep their own answers.
         const code = error.code ?? error.companyCode;
+        // A number it gave with the refusal, as the chat's error says it.
+        const facts = refusalFacts(error.body).join(", ");
         return NextResponse.json(
           {
             code: "not_performed",
             next: "review",
             operation: op,
             // The Company's status and error code, never its own words. A
-            // code of its own, such as insufficient_funds, says what to fix.
+            // code of its own, such as insufficient_funds, says what to fix,
+            // and the balance or the limit it gave says by how much.
             error: notPerformed(
               op,
               "refused",
-              `${run.company?.document.organization.name ?? "The Company"} refused this request (HTTP ${error.status}${code ? `, ${code}` : ""}). Nothing was performed. The terms still wait for you: approve them again once what stopped it is sorted out, or ask for the change again to get fresh terms.`,
+              `${run.company?.document.organization.name ?? "The Company"} refused this request (HTTP ${error.status}${code ? `, ${code}` : ""}${facts ? `; ${facts}` : ""}). Nothing was performed. The terms still wait for you: approve them again once what stopped it is sorted out, or ask for the change again to get fresh terms.`,
             ),
             trace: refusedTrace(error),
           },

@@ -983,8 +983,11 @@ export async function sendApproval(
       papRequest(r, url, method, body),
     );
   if (!op.request) throw new Error("Operation request unavailable");
+  // As for the request itself: a refusal's own body is kept on the error,
+  // so the card can show a number from it (never its words).
   return papRequest(run, op.request.url, "POST", op.request.body, {
     approval,
+    errorBody: true,
   });
 }
 

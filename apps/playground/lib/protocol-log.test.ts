@@ -3,6 +3,7 @@ import {
   clock,
   logEntry,
   outcomeLabel,
+  refusalFacts,
   refusedLine,
   traceFileName,
 } from "./protocol-log";
@@ -94,6 +95,46 @@ it("labels a request the Company refused as declined, whatever its error code sa
   const failed = logEntry(refusedLine("GET", "/api/orders", 503));
   expect(failed.text).toBe("GET /api/orders · request failed · HTTP 503");
   expect(outcomeLabel[failed.outcome]).toBe("Error");
+});
+
+it("says a number the Company gave in its refusal, as money only in a currency it named", () => {
+  // As Harborline's, which names no currency: the number stands alone.
+  expect(
+    refusalFacts({ error: "insufficient_funds", available_cents: 422000 }),
+  ).toEqual(["available balance: 4,220.00"]);
+  expect(
+    refusalFacts({
+      error: "insufficient_funds",
+      available_cents: 422000,
+      currency: "USD",
+    }),
+  ).toEqual(["available balance: $4,220.00"]);
+  expect(
+    refusalFacts({
+      error: "recipient_limit_exceeded",
+      limit_cents: 500000,
+      available_cents: 0,
+      currency: "EUR",
+    }),
+  ).toEqual(["available balance: €0.00", "limit: €5,000.00"]);
+  // Anything but a three-letter code is no currency, and none is assumed.
+  for (const currency of ["usd", "dollars", "$", 840, null, undefined])
+    expect(refusalFacts({ limit_cents: 500000, currency })).toEqual([
+      "limit: 5,000.00",
+    ]);
+  // Only a whole number under a key we know, never the Company's words.
+  expect(
+    refusalFacts({
+      error: "account_inactive",
+      available_cents: "plenty",
+      limit_cents: 12.5,
+      balance: 7,
+      message: "Words of the Company's own.",
+      currency: "USD",
+    }),
+  ).toEqual([]);
+  for (const body of [undefined, null, "insufficient_funds", [1], 7])
+    expect(refusalFacts(body)).toEqual([]);
 });
 
 it("reads the User's FDX consent revocation as done, and its failure as an error", () => {

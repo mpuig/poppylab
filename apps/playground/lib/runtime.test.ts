@@ -390,6 +390,8 @@ it("resends the recorded request with an RFC 9651 Poppy-Approval header and the 
   const [url, init] = transport.mock.calls[0]! as [string, RequestInit];
   expect(url).toBe("https://food.papsandbox.com/poppy/orders/1/changes");
   expect(init.body).toBe(JSON.stringify({ slot: "a" }));
+  // A refusal's own body is asked for, so the card can show a number in it.
+  expect(transport.mock.calls[0]![4]).toEqual({ errorBody: true });
   const headers = init.headers as Record<string, string>;
   // Operations v3 §6: a user approval, when and how, and our own reference.
   expect(headers["Poppy-Approval"]).toMatch(
