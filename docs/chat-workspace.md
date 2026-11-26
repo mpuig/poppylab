@@ -131,16 +131,18 @@ in the page; the server's approval endpoint is the one it always was.
     terms hold the amount moved and four balances.
   - It never covers a refund (a refund of zero, or a refund policy in words,
     is not one), terms with no amount to pay or move, an amount or a balance
-    it can't read, a proposal that has expired or a summary that disagrees
-    with the terms.
+    it can't read, an amount or a balance below zero (a price difference of
+    -$6.00 is money coming back), a proposal that has expired or a summary
+    that disagrees with the terms.
   - It makes at most 5 approvals an hour per Company and no more than three
     times the limit in total over that hour. The most a rule can allow is
     $1,000. When the hour's allowance is the reason, the log says so and the
     operation waits for you.
   - A waiting change the rule left to you says why in one sentence, on its
     card and under "Standing instruction": over the limit (with both
-    amounts), terms it can't read, the hour's allowance, or that the Company
-    declined Iris's approval or answered it with new terms.
+    amounts), an amount below zero (with the amount), terms it can't read,
+    the hour's allowance, or that the Company declined Iris's approval or
+    answered it with new terms.
   - The log says "Applying your standing instruction" when it sends the
     approval, and the next line says how the Company answered.
   - Removing the rule, or clearing the site's storage, removes the rule and the

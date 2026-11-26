@@ -16,6 +16,9 @@ const MAX = 1_000_00;
 
 const wholeCents = (value: unknown): value is number =>
   typeof value === "number" && Number.isInteger(value) && value >= 0;
+const belowZero = (value: unknown): value is number =>
+  typeof value === "number" && Number.isInteger(value) && value < 0;
+const BALANCE = /(^|_)balance(_|$)/;
 /** A field's name as it reads inside a sentence: "amount due". */
 const named = (key: string) => fieldLabel(key).toLowerCase();
 
@@ -30,13 +33,13 @@ const named = (key: string) => fieldLabel(key).toLowerCase();
  * after, and the difference between the two counts as an amount.
  *
  * Instead of the amounts, the reason the terms cannot be settled: an amount
- * that is not whole non-negative cents, a balance without both halves, a
- * refund, or more structure than a proposal needs. Words about refunds (a
- * refund policy) are text like any other, which this check never reads, and
- * a refund of zero is none.
+ * that is not whole cents, an amount or a balance below zero, a balance
+ * without both halves, a refund, or more structure than a proposal needs.
+ * Words about refunds (a refund policy) are text like any other, which this
+ * check never reads, and a refund of zero is none.
  */
 function amounts(
-  terms: unknown,
+  terms: Record<string, unknown>,
 ): { label: string; cents: number }[] | { why: string } {
   const found: { label: string; cents: number }[] = [];
   let visited = 0,
@@ -45,6 +48,14 @@ function amounts(
     why = reason;
     return false;
   };
+  // Whole cents below zero are read. They are not an amount paid or moved
+  // (a lower price returns money), so the reason names them as they are.
+  const below = (key: string, cents: number) =>
+    fail(
+      BALANCE.test(key)
+        ? `the ${named(sides(key)?.name || key)}, ${money(cents, terms.currency)}, is below zero, which it never approves`
+        : `the ${named(key)}, ${money(cents, terms.currency)}, is below zero, and it approves only amounts you pay or move`,
+    );
   const walk = (value: unknown, depth: number): boolean => {
     if (!value || typeof value !== "object") return true;
     if (depth > 4) return fail("the terms hold more than it can check");
@@ -59,15 +70,19 @@ function amounts(
         if (!walk(v, depth + 1)) return false;
         continue;
       }
+      if (belowZero(v)) return below(key, v);
       if (!wholeCents(v))
         return fail(`it can't read “${fieldLabel(key)}” in the terms`);
-      if (!/(^|_)balance(_|$)/.test(key)) {
+      if (!BALANCE.test(key)) {
         found.push({ label: `the ${named(key)}`, cents: v });
         continue;
       }
       const side = sides(key);
       const before = side?.name ? fields[side.from] : undefined,
         after = side?.name ? fields[side.to] : undefined;
+      // This half is at or above zero; the other may not be.
+      const low = [before, after].find(belowZero);
+      if (low !== undefined) return below(key, low);
       if (!side || !wholeCents(before) || !wholeCents(after))
         return fail(
           `it can't tell from the terms how the ${named(side?.name || key)} changes`,
@@ -99,7 +114,8 @@ function amounts(
  * with the Company's summary.
  *
  * Terms the check doesn't understand are not covered: no amount to pay or
- * move, an amount it can't read, a balance it can't follow.
+ * move, an amount it can't read, a balance it can't follow. Nor are terms
+ * with an amount below zero, which it reads and says so.
  */
 function check(
   op: ReviewOperation,

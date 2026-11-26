@@ -37,6 +37,12 @@ it("says, for each waiting change it left to the User, which reason applies", ()
     [
       op("over", { amount_cents: 12500 }),
       op("unread", { limit_cents: 4000 }),
+      // Lantern's order with a dish removed: $6.00 comes back.
+      op("cheaper", {
+        before_total_cents: 4300,
+        new_total_cents: 3700,
+        price_difference_cents: -600,
+      }),
       op("hour", { amount_cents: 1000 }),
       op(
         "declined",
@@ -50,6 +56,7 @@ it("says, for each waiting change it left to the User, which reason applies", ()
   for (const line of [
     "Left to you: the amount, $125.00, is over your limit of $50.00.",
     "Left to you: the terms name no amount to pay or move.",
+    "Left to you: the price difference, -$6.00, is below zero, and it approves only amounts you pay or move.",
     "Left to you: it already approved 5 changes in the last hour.",
     "Left to you: Harborline Bank declined the approval Iris sent on it. It says: “Approve money moves yourself.”",
     "Left to you: Harborline Bank answered the approval Iris sent on it with new terms.",

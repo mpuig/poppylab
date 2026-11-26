@@ -234,12 +234,11 @@ it("does not cover terms it does not understand, and says which", () => {
       rule,
     ),
   ).toBe("the terms name no amount to pay or move");
-  expect(
-    notCovered(
-      op({ amount_cents: -5420, from_category: "groceries", ...usd }),
-      rule,
-    ),
-  ).toBe("it can't read “Amount” in the terms");
+  // An amount that is not a whole number of cents is one it can't read.
+  for (const fee_cents of ["75", 100.5, null, true])
+    expect(notCovered(op({ total_cents: 100, fee_cents, ...usd }), rule)).toBe(
+      "it can't read “Fee” in the terms",
+    );
   expect(notCovered(op({ total_cents: 100, currency: "EUR" }), rule)).toBe(
     "the terms are in EUR and your limit is in USD",
   );
@@ -252,6 +251,47 @@ it("does not cover terms it does not understand, and says which", () => {
       rule,
     ),
   ).toBe("the Company's summary names an amount its terms don't hold");
+});
+
+it("reads an amount below zero, and says it approves only what is paid or moved", () => {
+  const below = (what: string) =>
+    `${what}, is below zero, and it approves only amounts you pay or move`;
+  // Lantern's order with the ice cream removed: $6.00 comes back.
+  const cheaper = {
+    ...lanternOrder,
+    lines: { "shoyu-ramen": 2 },
+    before_total_cents: 4300,
+    new_total_cents: 3700,
+    price_difference_cents: -600,
+  };
+  expect(coveredBy(op(cheaper), upTo(50))).toBeNull();
+  expect(notCovered(op(cheaper), upTo(50))).toBe(
+    below("the price difference, -$6.00"),
+  );
+  // Northwind's change to a cheaper flight, and a posted payment whose
+  // category Harborline changes: neither is an amount to pay or move.
+  expect(
+    notCovered(
+      op({ ...flightChange(0, 2000), fare_difference_cents: -2000 }),
+      upTo(500),
+    ),
+  ).toBe(below("the fare difference, -$20.00"));
+  expect(
+    notCovered(
+      op({ amount_cents: -5420, from_category: "groceries", currency: "USD" }),
+      rule,
+    ),
+  ).toBe(below("the amount, -$54.20"));
+  // A balance below zero, on either side of the change, is said as one.
+  for (const half of [
+    { source_balance_before_cents: -100 },
+    { source_balance_after_cents: -100 },
+  ]) {
+    expect(coveredBy(op({ ...transfer, ...half }), upTo(50))).toBeNull();
+    expect(notCovered(op({ ...transfer, ...half }), upTo(50))).toBe(
+      "the source balance, -$1.00, is below zero, which it never approves",
+    );
+  }
 });
 
 it("never covers a refund, but reads a refund of zero and words about refunds", () => {
