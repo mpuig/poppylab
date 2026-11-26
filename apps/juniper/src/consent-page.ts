@@ -48,10 +48,12 @@ export function consentPage(
     nonce,
     passwordRequired,
     chosen: account,
+    // This page is built before anyone is signed in, without the visitor's
+    // own copy of the account: its day may have moved, so none is named.
     people: personas.map((person) => ({
       id: person.id,
       name: person.name,
-      note: `Recurring delivery on ${person.day}`,
+      note: "Has a recurring delivery",
     })),
     reads: read
       ? [

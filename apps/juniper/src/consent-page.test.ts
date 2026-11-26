@@ -1,5 +1,6 @@
 import { it, expect } from "vitest";
 import { consentPage } from "./consent-page.js";
+import { personas } from "./personas.js";
 it("renders complete English consent with native accessible controls and no scripts", () => {
   const html = consentPage("test_nonce", false);
   expect(html).toContain('<html lang="en">');
@@ -16,7 +17,7 @@ it("renders complete English consent with native accessible controls and no scri
     "Test customers. Choosing one doesn&#39;t verify who you are.",
     'type="radio" name="account" id="account-elena" value="elena" checked',
     'type="radio" name="account" id="account-robin" value="robin">',
-    "Recurring delivery on Thursday",
+    "<strong>Elena Maren</strong><small>Has a recurring delivery</small>",
     'name="write" value="yes" checked>',
     "Nothing changes when you allow.",
     "Connected agents in your Juniper account",
@@ -29,6 +30,9 @@ it("renders complete English consent with native accessible controls and no scri
   expect(html).not.toContain('type="password"');
   // Nothing on the page leads away from the decision.
   expect(html).not.toContain("<a ");
+  // The page is built without the visitor's account, so it names no
+  // delivery day: the customer may have moved theirs since.
+  for (const person of personas) expect(html).not.toContain(person.day);
 });
 it("says so when nothing is read or no change can be proposed", () => {
   const readOnly = consentPage("n", false, "poppy:read");

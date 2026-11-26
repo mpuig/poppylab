@@ -8,6 +8,7 @@ import {
   splitStore,
   type KeyValue,
 } from "@poppy-lab/pap-company";
+import { slots } from "./data.ts";
 import { lantern } from "./lantern.ts";
 import {
   client,
@@ -419,6 +420,12 @@ it("opens the consent page on the customer the gateway names, else on the first"
   expect(page("robin")).toContain('id="account-robin" value="robin" checked>');
   expect(page("robin")).not.toContain('value="elena" checked');
   expect(page()).toContain('id="account-elena" value="elena" checked>');
+  // The page is built without the visitor's orders, so it names no
+  // delivery slot: the customer may have moved theirs since.
+  expect(page()).toContain(
+    "<strong>Elena Maren</strong><small>Has a scheduled order</small>",
+  );
+  for (const slot of slots) expect(page()).not.toContain(slot.label);
 });
 
 it("serves the website pages with their own headers and fonts allowed on consent", async () => {

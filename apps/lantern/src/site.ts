@@ -515,10 +515,12 @@ export function consentPage(input: {
     nonce: input.nonce,
     passwordRequired: input.passwordRequired,
     chosen: input.account,
+    // This page is built before anyone is signed in, without the visitor's
+    // own copy of the orders: a slot may have moved, so none is named.
     people: customers.map((customer) => ({
       id: customer.id,
       name: customer.name,
-      note: `Order for ${slots.find((slot) => slot.id === customer.order.slot)?.label ?? customer.order.slot}`,
+      note: "Has a scheduled order",
     })),
     reads: read
       ? [
