@@ -1,0 +1,23 @@
+# Compares the pinned Personal Agent Protocol 1.0 text (spec/upstream.json)
+# with the published text every week. A failed run is GitHub's notification
+# that the text changed: the log names each changed document. Review the
+# diff locally with `pnpm spec:drift` before updating the pin.
+name: Spec drift
+on:
+  schedule:
+    - cron: "23 7 * * 1"
+  workflow_dispatch:
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+      # `pnpm spec:drift` would install the workspace first; the script
+      # needs only Node.
+      - run: node scripts/spec-drift.mjs
