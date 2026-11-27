@@ -30,7 +30,7 @@ The gateway (`packages/pap-company/src/gateway.ts`) is a 50-line composition of 
 
   The whole Company runs inside a single Durable Object, so the single-writer model holds as it did on Node.
 
-- **Clients (CIMD):** the gateway now accepts any Personal Agent by its client metadata. The `client_id` must be an HTTPS URL; plain HTTP is allowed only for an explicit development allowlist. `redirect_uri` must match exactly one of the client's own `redirect_uris`, and the consent page names the client. This is what a public deployment needs. Before, only the local Poppy was accepted.
+- **Clients (CIMD):** the gateway now accepts any Personal Agent by its client metadata. The `client_id` must be an HTTPS URL; plain HTTP is allowed only for an explicit development allowlist. `redirect_uri` must match exactly one of the client's own `redirect_uris`, of which the gateway keeps only those on the client's own origin or at a loopback address (§4.1), and the consent page names the client. This is what a public deployment needs. Before, only the local Poppy was accepted.
 - **Consent cookie:** `__Host-` on HTTPS. OAuth pending consents and codes live in memory (5 and 1 minutes); if a Durable Object restarts mid-sign-in, the user signs in again.
 
 ## Status

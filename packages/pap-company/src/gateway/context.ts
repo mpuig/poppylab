@@ -157,6 +157,30 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
 
   // ---- Client metadata (CIMD) --------------------------------------------
   const clients = new Map<string, ClientInfo>();
+  /** A URL from client metadata, unless it doesn't parse or has credentials. */
+  const urlOf = (value: string) => {
+    try {
+      const url = new URL(value);
+      return url.username || url.password ? undefined : url;
+    } catch {
+      return undefined;
+    }
+  };
+  /**
+   * §4.1: a redirect URI is on the client's own origin, which is HTTPS but
+   * for a development client the deployment allows (`httpClients`), or a
+   * loopback redirect URI (RFC 8252 §7.3). No fragment (RFC 6749 §3.1.2).
+   */
+  const redirectAllowed = (value: string, client: URL) => {
+    const url = urlOf(value);
+    return (
+      !!url &&
+      !value.includes("#") &&
+      (url.origin === client.origin ||
+        (url.protocol === "http:" &&
+          (url.hostname === "127.0.0.1" || url.hostname === "[::1]")))
+    );
+  };
   /**
    * Fetches client metadata at `client_id`, without redirects (§4.1, §5.3).
    * Extensions aren't read from it: requests declare them (§3.4).
@@ -181,7 +205,7 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
     if (
       metadata?.client_id !== id ||
       typeof metadata.jwks_uri !== "string" ||
-      new URL(metadata.jwks_uri).origin !== url.origin ||
+      urlOf(metadata.jwks_uri)?.origin !== url.origin ||
       !Array.isArray(metadata.redirect_uris)
     )
       throw new Error("invalid_client");
@@ -192,8 +216,12 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
       throw new Error("invalid_client");
     const info: ClientInfo = {
       keys: jwks.keys.slice(0, 8),
+      // An entry §4.1 doesn't allow is dropped, not the client: a sign-in
+      // to it fails, and signed-out Sessions, which need only the keys, go on.
       redirects: metadata.redirect_uris
-        .filter((r): r is string => typeof r === "string")
+        .filter(
+          (r): r is string => typeof r === "string" && redirectAllowed(r, url),
+        )
         .slice(0, 8),
       name:
         typeof metadata.client_name === "string"
