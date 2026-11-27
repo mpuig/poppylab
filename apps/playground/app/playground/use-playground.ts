@@ -77,6 +77,7 @@ import {
   type ChatAnswer,
   type PageLine,
 } from "./answers";
+import { readAnswer, withDelta, withoutStreamed } from "./answer-events";
 import { rememberSignInCompany } from "./sign-in/company";
 import { signInAnswer, signInOf, typedWithoutModel } from "./typed";
 
@@ -1260,9 +1261,14 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
         modelConfig.provider === "free" && !request.direct && model
           ? await turnstileToken()
           : undefined;
-      const response = await fetch("/api/chat", {
+      const sent = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...named() },
+        headers: {
+          "Content-Type": "application/json",
+          // The model's answer as it is written, sentence by sentence.
+          Accept: "text/event-stream, application/json",
+          ...named(),
+        },
         body: JSON.stringify({
           ...(request.message !== undefined
             ? { message: request.message }
@@ -1277,6 +1283,22 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
           companies: true,
         }),
       });
+      const response = await readAnswer(sent, (delta) =>
+        setMessages((old) => withDelta(old, delta)),
+      );
+      if (!response) {
+        // The stream stopped before the turn's answer: what was written of
+        // it goes, and the conversation is read again as the server keeps
+        // it, with the whole answer once the turn has ended.
+        setMessages(withoutStreamed);
+        if (current.current) await restore(current.current);
+        else
+          setMessages((old) => [
+            ...old,
+            { role: "Error", text: "Chat failed. Please try again." },
+          ]);
+        return;
+      }
       const moved = adopt(response);
       const data = (await response.json()) as ChatReply;
       if (data.code === "conversation_ended") {
@@ -1308,7 +1330,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
           if (data.code === "account_unavailable") lostAt(from.origin, data);
         }
         setMessages((old) => [
-          ...old,
+          ...withoutStreamed(old),
           ...(data.before ? [{ role: "Own" as const, text: data.before }] : []),
           {
             role: "Error",
@@ -1321,7 +1343,8 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
         ]);
         return;
       }
-      setMessages((old) => [...old, ...turnMessages(data)]);
+      // The answer, in the place of what was written of it.
+      setMessages((old) => [...withoutStreamed(old), ...turnMessages(data)]);
       addAnswerLines(data, from);
       if (from) {
         setLastTurn(from.origin);
@@ -1342,7 +1365,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
       if (request.direct === "start") setStartingDirect(undefined);
     } catch (caught) {
       setMessages((old) => [
-        ...old,
+        ...withoutStreamed(old),
         {
           role: "Error",
           text:

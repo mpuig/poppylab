@@ -123,6 +123,11 @@ export type Message = {
   steps?: AgentStep[];
   /** §8.10: said in the User's Direct Conversation with the Company. */
   direct?: boolean;
+  /**
+   * An answer still being written, by the ID its sentences come under:
+   * the turn's answer takes its place when it comes (`answer-events.ts`).
+   */
+  streaming?: string;
 };
 /**
  * A turn of a transcript stored before it kept what the page showed: the
