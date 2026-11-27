@@ -346,19 +346,25 @@ const failures = (forget: boolean) => {
   return found;
 };
 
-describe("what an account's reset leaves, over random sequences", () => {
-  it("is nothing of that account: in no turn, entry, line or proposal of any Company", () => {
-    const found = failures(false);
-    expect(found.slice(0, 3).join("\n\n")).toBe("");
-    expect(found).toHaveLength(0);
-  });
+// Each test runs 5,000 sequences; a shared CI runner takes over the
+// default five seconds for that, a laptop about three.
+describe(
+  "what an account's reset leaves, over random sequences",
+  { timeout: 30_000 },
+  () => {
+    it("is nothing of that account: in no turn, entry, line or proposal of any Company", () => {
+      const found = failures(false);
+      expect(found.slice(0, 3).join("\n\n")).toBe("");
+      expect(found).toHaveLength(0);
+    });
 
-  it("is found out when a turn's proposals aren't listed with the accounts the model was sent", () => {
-    // The check itself has teeth: without the note, another Company's
-    // proposal outlives the account it was written from, and so does the
-    // model's line about how it ended. Each failure names the first place.
-    const found = failures(true);
-    for (const where of [/ in operation op_/, / in history: o\|/])
-      expect(found.some((failure) => where.test(failure))).toBe(true);
-  });
-});
+    it("is found out when a turn's proposals aren't listed with the accounts the model was sent", () => {
+      // The check itself has teeth: without the note, another Company's
+      // proposal outlives the account it was written from, and so does the
+      // model's line about how it ended. Each failure names the first place.
+      const found = failures(true);
+      for (const where of [/ in operation op_/, / in history: o\|/])
+        expect(found.some((failure) => where.test(failure))).toBe(true);
+    });
+  },
+);
