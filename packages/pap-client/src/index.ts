@@ -16,6 +16,8 @@ export {
 } from "./protocol-error.ts";
 export { vault } from "./vault.ts";
 export { addressKey } from "./address-key.ts";
+import { onWorkers } from "./on-workers.ts";
+export { onWorkers };
 export * from "./headers.ts";
 export * from "./operator-signature.ts";
 export { openApiTools, InvalidToolArguments, type ApiTool } from "./openapi.ts";
@@ -97,14 +99,6 @@ export function isPrivateAddress(address: string): boolean {
   return ipaddr.process(address).range() !== "unicast";
 }
 
-/**
- * Cloudflare Workers have no DNS API or socket pinning, and their `fetch`
- * can't reach private networks. There, only public HTTPS hostnames and
- * public IP literals are allowed; Node pins checked DNS answers instead.
- */
-export const onWorkers = () =>
-  typeof navigator !== "undefined" &&
-  navigator.userAgent === "Cloudflare-Workers";
 /** A name for this machine or network; `localhost.` is `localhost`. */
 const localName = (fqdn: string) => {
   const hostname = fqdn.replace(/\.+$/, "");
@@ -218,6 +212,9 @@ async function fetchJsonSafely(
 
   for (let redirect = 0; redirect <= MAX_REDIRECTS; redirect += 1) {
     checkCooldown(currentUrl.origin);
+    // Cloudflare Workers have no DNS API or socket pinning, and their `fetch`
+    // can't reach private networks. There, only public HTTPS hostnames and
+    // public IP literals are allowed; Node pins checked DNS answers instead.
     const workers = onWorkers() && options.fetchImpl === fetch;
     let addresses: Array<{ address: string; family: number }> = [];
     if (workers) assertPublicHttpsHost(currentUrl);

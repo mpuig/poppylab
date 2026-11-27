@@ -8,6 +8,7 @@ export * from "./session-header.ts";
 export * from "./headers.ts";
 export * from "./operator-signature.ts";
 export { addressKey } from "./address-key.ts";
+export { onWorkers } from "./on-workers.ts";
 export {
   ProtocolError,
   approvalHeader,

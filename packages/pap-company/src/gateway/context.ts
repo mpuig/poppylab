@@ -9,6 +9,7 @@ import type { Context } from "hono";
 import {
   addressKey,
   decodeProtectedHeader,
+  onWorkers,
   ReplayCache,
   verifyProof,
   type JWK,
@@ -187,11 +188,7 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
    * client can send to Node, else this browser's cookie.
    */
   const sourceOf = (c: Context) => {
-    const address =
-      typeof navigator !== "undefined" &&
-      navigator.userAgent === "Cloudflare-Workers"
-        ? c.req.header("cf-connecting-ip")
-        : undefined;
+    const address = onWorkers() ? c.req.header("cf-connecting-ip") : undefined;
     return address !== undefined ? addressKey(address) : browserOf(c);
   };
 
