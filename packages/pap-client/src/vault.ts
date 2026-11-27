@@ -7,9 +7,20 @@ import {
   fsyncSync,
   closeSync,
   chmodSync,
+  existsSync,
+  linkSync,
+  rmSync,
 } from "node:fs";
 import path from "node:path";
 import { randomBytes, createCipheriv, createDecipheriv } from "node:crypto";
+function sync(file: string) {
+  const fd = openSync(/* turbopackIgnore: true */ file, "r");
+  try {
+    fsyncSync(fd);
+  } finally {
+    closeSync(fd);
+  }
+}
 /** Local single-writer encrypted snapshots. A key beside the data is local protection,
  * not a substitute for an external KMS or encrypted backups in production. */
 export function vault<T>(
@@ -25,10 +36,22 @@ export function vault<T>(
   mkdirSync(directory, { recursive: true, mode: 0o700 });
   chmodSync(directory, 0o700);
   const keyfile = path.join(directory, "storage.key");
-  try {
-    writeFileSync(keyfile, randomBytes(32), { flag: "wx", mode: 0o600 });
-  } catch (e) {
-    if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
+  // Several processes can open a new vault at once (a build's page workers),
+  // so the key is written in full beside the keyfile and linked into place.
+  // Linking, unlike renaming, fails rather than replace a key another
+  // process already uses; that process won, and its key is read instead.
+  if (!existsSync(keyfile)) {
+    const draft = `${keyfile}.${process.pid}.tmp`;
+    try {
+      writeFileSync(draft, randomBytes(32), { mode: 0o600 });
+      sync(draft);
+      linkSync(draft, keyfile);
+      sync(directory);
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
+    } finally {
+      rmSync(draft, { force: true });
+    }
   }
   const key = readFileSync(keyfile);
   if (key.length !== 32) throw new Error("Invalid local storage key");
@@ -73,19 +96,9 @@ export function vault<T>(
       writeFileSync(tmp, Buffer.concat([iv, cipher.getAuthTag(), ciphertext]), {
         mode: 0o600,
       });
-      const fd = openSync(tmp, "r");
-      try {
-        fsyncSync(fd);
-      } finally {
-        closeSync(fd);
-      }
+      sync(tmp);
       renameSync(tmp, filename);
-      const dir = openSync(/* turbopackIgnore: true */ directory, "r");
-      try {
-        fsyncSync(dir);
-      } finally {
-        closeSync(dir);
-      }
+      sync(directory);
       committed = serialized;
     },
   };
