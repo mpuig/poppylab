@@ -61,6 +61,11 @@ export type WorkerConfig = {
   devHttpClient?: string | undefined;
   /** The Company's `*_PASSWORD_HASH` secret, when it has one. */
   passwordHash?: string | undefined;
+  /**
+   * Trusted clients' share of the caps, by exact client_id (see
+   * `Deployment.clientShares`): every other client keeps a fifth.
+   */
+  clientShares?: Record<string, number>;
 };
 
 /**
@@ -98,6 +103,7 @@ export function createWorkerCompany(
         fetchJson: (url) => workerFetchJson(url, devOrigin),
         ...(dev ? { httpClients: [dev] } : {}),
         ...(config.passwordHash ? { passwordHash: config.passwordHash } : {}),
+        ...(config.clientShares ? { clientShares: config.clientShares } : {}),
       });
     })();
     started.catch(() => {

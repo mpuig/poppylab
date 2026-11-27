@@ -21,6 +21,9 @@ export class LanternCompany extends DurableObject<Env> {
     origin: this.env.PUBLIC_ORIGIN,
     devHttpClient: this.env.DEV_HTTP_CLIENT,
     passwordHash: this.env.LANTERN_PASSWORD_HASH,
+    // Every playground visitor is the lab's one agent: give it room so
+    // the playground isn't refused before other clients are.
+    clientShares: { "https://poppylab.dev/agent/client.json": 0.6 },
   });
   override fetch(request: Request) {
     return this.company.fetch(request);

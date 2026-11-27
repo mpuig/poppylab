@@ -108,6 +108,24 @@ it("tries a start that failed again on the next request", async () => {
   expect((await worker.fetch(new Request(discovery))).status).toBe(200);
 });
 
+it("passes trusted clients' shares to the gateway, which checks them", async () => {
+  // A share outside (0, 1] stops the gateway from starting, so a request
+  // fails only if the shares reached it.
+  const kv = storage();
+  const refused = createWorkerCompany(company, {
+    storage: kv,
+    origin: "https://company.test",
+    clientShares: { "https://agent.test/client.json": 2 },
+  });
+  await expect(refused.fetch(new Request(discovery))).rejects.toThrow();
+  const fine = createWorkerCompany(company, {
+    storage: storage(),
+    origin: "https://company.test",
+    clientShares: { "https://agent.test/client.json": 0.6 },
+  });
+  expect((await fine.fetch(new Request(discovery))).status).toBe(200);
+});
+
 it("accepts a plain-HTTP Personal Agent only on a local origin", async () => {
   const devHttpClient = "http://localhost:3000/agent/client.json";
   const csp = async (origin: string) => {
