@@ -37,6 +37,7 @@ code and change with it.
 | [Product photos](product-photos.md)                                                                                                                                                      | The generated photos on Juniper and Lantern: files, serving, catalogue field, regenerating                                                     |
 | [Juniper website](juniper-web.md), [services](juniper-services.md), [profiles](juniper-profile.md), [shopping](juniper-shopping-web.md), [personas](juniper-personas.md)                 | The grocery Company, its customer website and its services                                                                                     |
 | [Chat workspace](chat-workspace.md), [chat continuity](chat-continuity.md), [permissions and recovery](permission-consent.md), [OpenAPI tools](openapi-tools.md), [MCP](mcp-readonly.md) | Iris's interface and how it uses each kind of interface                                                                                        |
+| [MCP at the Companies](mcp-company.md)                                                                                                                                                   | The MCP server the gateway runs at every Company: its tools, tokens and checks                                                                 |
 
 ## History: for the record
 

@@ -1,6 +1,6 @@
 # MCP: first read-only block
 
-Poppy can select MCP when a Company doesn't offer OpenAPI. This block implements **Streamable HTTP MCP 2025-06-18**, not the older SSE transport with separate endpoints. When a Company offers both OpenAPI and MCP, Poppy still prefers OpenAPI.
+Poppy can select MCP when a Company doesn't offer OpenAPI. This block implements **Streamable HTTP MCP 2025-06-18**, not the older SSE transport with separate endpoints. When a Company offers both OpenAPI and MCP, Poppy still prefers OpenAPI, so it uses OpenAPI at the lab's own Companies, which offer both ([MCP at the Companies](mcp-company.md)).
 
 ## Implemented
 
