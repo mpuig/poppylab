@@ -1,0 +1,30 @@
+# Advisories for the production dependencies, kept apart from Checks so a
+# registry outage fails only this workflow. The daily run catches an
+# advisory published after the last push; a failed run is GitHub's
+# notification. `pnpm audit` reads the lockfile, so nothing is installed.
+name: Audit
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "41 6 * * *"
+  workflow_dispatch:
+concurrency:
+  # One group per pull request; on main, one per commit, so no push waits
+  # behind another or is dropped while it waits.
+  group: audit-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+      - run: pnpm audit --prod --audit-level high
