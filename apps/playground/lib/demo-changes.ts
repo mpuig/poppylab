@@ -801,6 +801,29 @@ export function demoChangeKind(message: string, tools: DemoTools) {
 }
 
 /**
+ * What the demo says to a change of a booking it has no rule for, such as
+ * "Cancel my booking" or "Change my NA 402 flight to a later one": that it
+ * can't ask for it, what it can ask for there, and that a model can do more.
+ * Without this the trips were shown, as if that answered the request.
+ */
+export function demoUnsupported(message: string, tools: DemoTools) {
+  const lowered = message.toLowerCase();
+  if (
+    asking(lowered) ||
+    demoChangeKind(message, tools) ||
+    !tools.upcoming_trips ||
+    !/\b(cancel|change|rebook|reschedule|move|switch)\b/.test(lowered)
+  )
+    return undefined;
+  const can = [
+    tools.accept_upgrade ? "accept an upgrade offer" : "",
+    tools.add_baggage ? "add a checked bag" : "",
+  ].filter(Boolean);
+  if (!can.length) return undefined;
+  return `The demo can't ask for that change. Here it can only ${can.join(" or ")}${tools.accept_upgrade ? ", such as “Upgrade my flight to Business.”" : "."} Select a model to ask for anything else.`;
+}
+
+/**
  * Whether the message is for the Company's agent or is feedback: the demo's
  * two other ways in, each by its own words. In a payment with an amount,
  * what it is for is the memo, in the User's words to the recipient: "for

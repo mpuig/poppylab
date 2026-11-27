@@ -7,6 +7,7 @@ import {
   demoChangeReplyNow,
   demoMissing,
   demoMissingReport,
+  demoUnsupported,
   type DemoTools,
 } from "./demo-changes";
 import { readable } from "./demo-text";
@@ -768,6 +769,30 @@ it("reads words for the agent or for feedback outside a payment's memo only", as
   ).toBe("feedback");
   // A Company with neither is asked for neither.
   expect(demoAside("talk to support about a voucher", bank())).toBeUndefined();
+});
+
+it("says plainly which changes of a booking it can't ask for, and what it can", () => {
+  const line =
+    "The demo can't ask for that change. Here it can only accept an upgrade offer or add a checked bag, such as “Upgrade my flight to Business.” Select a model to ask for anything else.";
+  for (const message of [
+    "Cancel my booking",
+    "Change my NA 402 flight to a later one",
+    "Can I move to an earlier flight?",
+  ])
+    expect(demoUnsupported(message, airline())).toBe(line);
+  const bagsOnly = airline();
+  delete bagsOnly.accept_upgrade;
+  expect(demoUnsupported("Cancel my booking", bagsOnly)).toBe(
+    "The demo can't ask for that change. Here it can only add a checked bag. Select a model to ask for anything else.",
+  );
+  // What it can do, a question, a read, and another kind of Company aren't.
+  for (const message of [
+    "Upgrade my NA 118 flight to Business.",
+    "What does it cost to change my flight?",
+    "my upcoming trips",
+  ])
+    expect(demoUnsupported(message, airline())).toBeUndefined();
+  expect(demoUnsupported("Cancel my order", restaurant())).toBeUndefined();
 });
 
 it("reports a dish missing from the last delivery to the Company's agent, from what it lists", async () => {

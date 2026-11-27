@@ -59,6 +59,7 @@ What it says when it can't:
 - Signed out: "Sign in first: the demo reads your account to prepare this change, and nothing changes until you approve it."
 - Signed in without change permission: it says your access doesn't include the permission the change needs.
 - When the Company's own description of a tool rejects the values the demo chose: it says nothing was sent.
+- A change of a booking it has no rule for, such as "Cancel my booking" or "Change my NA 402 flight to a later one": "The demo can't ask for that change. Here it can only accept an upgrade offer or add a checked bag, such as “Upgrade my flight to Business.” Select a model to ask for anything else." It doesn't show the trips instead.
 - Anything else: "The demo can't prepare that change here." A model can.
 
 Four more things a message can start, when the Company offers them:
