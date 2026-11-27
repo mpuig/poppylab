@@ -1350,7 +1350,7 @@
     "/api/v1/account/sessions": {
       "get": {
         "operationId": "listSessions",
-        "summary": "The devices signed in to the account, most recent first.",
+        "summary": "The devices signed in to the account, most recent first. An account keeps at most 25: signing in on another device ends the one used least recently.",
         "security": [
           {
             "apiSession": []

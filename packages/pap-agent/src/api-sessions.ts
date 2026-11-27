@@ -37,6 +37,11 @@ export const SESSION_MS = 365 * day;
 export const BROWSER_MS = IDLE_MS;
 /** A session's last use is written at most this often. */
 const TOUCH_MS = 5 * minute;
+/**
+ * An account keeps at most this many sessions: signing in on one more
+ * device ends the one used least recently.
+ */
+export const MAX_SESSIONS = 25;
 /** The replaced refresh tokens a session remembers, to tell a reuse. */
 const REMEMBERED = 16;
 
@@ -140,10 +145,20 @@ export async function startSession(
  */
 async function stillHeld(session: ApiSession) {
   const found = await loadAccount(session.account);
-  if (found?.account.passkeys.some((p) => p.id === session.passkey))
+  if (found?.account.passkeys.some((p) => p.id === session.passkey)) {
+    await endLeastRecent(session);
     return true;
+  }
   await removeSession(session.account, session.id);
   return false;
+}
+/** Over `MAX_SESSIONS`, the ones used least recently end, never `kept`. */
+async function endLeastRecent(kept: ApiSession) {
+  const others = (await listSessions(kept.account)).filter(
+    (s) => s.id !== kept.id,
+  );
+  for (const session of others.slice(MAX_SESSIONS - 1))
+    await removeSession(kept.account, session.id);
 }
 const tokensOf = (
   session: ApiSession,

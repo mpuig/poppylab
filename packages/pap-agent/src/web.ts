@@ -6,6 +6,7 @@
  * helpers do it for the Fetch API's `Request` and `Response`, which the
  * playground's routes, a Worker and Node all have.
  */
+import { onWorkers } from "@poppy-lab/pap-client";
 import { BROWSER_MS, sessionOfCookie } from "./api-sessions";
 import { secureCookies, visitorOf } from "./runs";
 import { signInCookie, signInCookieOptions } from "./sign-in-cookie";
@@ -38,6 +39,15 @@ export const toResponse = (reply: Reply) =>
         headers: reply.headers,
       });
 
+/**
+ * The client's address, for budgets counted per source: Cloudflare's
+ * `cf-connecting-ip`, which it sets in front of a Worker. Anywhere else
+ * any client can send that header, so nothing is taken from it there, as
+ * at the Companies' gateway.
+ */
+export const clientAddress = (request: Request) =>
+  onWorkers() ? request.headers.get("cf-connecting-ip") : null;
+
 /** A cookie jar as Next's `cookies()` and the core's tests give one. */
 export type CookieStore = {
   get(name: string): { value: string } | undefined;
@@ -68,7 +78,7 @@ export type Caller = {
   origin: string;
   /** Development on the developer's own machine: their environment key may answer. */
   localDev: boolean;
-  /** The client's address, for the public budgets (Cloudflare's `cf-connecting-ip`). */
+  /** The client's address, for the public budgets (`clientAddress`). */
   ip: string | null;
   /**
    * Binds a sign-in to the person who started it: the callback completes
@@ -144,7 +154,7 @@ export async function browserCaller(
     localDev:
       process.env.NODE_ENV === "development" &&
       ["localhost", "127.0.0.1"].includes(url.hostname),
-    ip: request.headers.get("cf-connecting-ip"),
+    ip: clientAddress(request),
     signIns: cookieSignIns(cookies),
   };
 }

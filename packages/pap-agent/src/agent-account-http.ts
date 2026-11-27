@@ -44,6 +44,7 @@ import { UserFacingError } from "./user-error";
 import {
   accountCookie,
   accountCookieOptions,
+  clientAddress,
   readJson,
   type Caller,
   type CookieStore,
@@ -130,7 +131,6 @@ async function body(request: Request): Promise<Record<string, unknown>> {
 
 /** The page's own request, or an app's: anything else was refused before. */
 const fromPage = (request: Request) => request.headers.has("origin");
-const ipOf = (request: Request) => request.headers.get("cf-connecting-ip");
 
 /** A sign-in whose passkey was removed while it was under way. */
 const PASSKEY_GONE = () => refused(SIGN_IN_REFUSED);
@@ -183,7 +183,7 @@ const budget = async (
   claimed = false,
 ) => {
   const over = await overAccountBudget(kind, {
-    ip: ipOf(request),
+    ip: clientAddress(request),
     ...(account ? { account, claimed } : {}),
   });
   return over ? fromReply(over) : undefined;

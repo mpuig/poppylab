@@ -1,5 +1,7 @@
-import { describe, expect, it } from "vitest";
-import { readJson } from "./web";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { apiSessionCaller } from "./identity";
+import type { ApiSession } from "./account-store";
+import { browserCaller, clientAddress, readJson } from "./web";
 
 /** A JSON request whose body arrives in the given chunks. */
 const streamed = (chunks: Uint8Array[]) =>
@@ -43,5 +45,34 @@ describe("readJson", () => {
         6000,
       ),
     ).rejects.toThrow("Use JSON");
+  });
+});
+
+describe("the client's address", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  const from = (address: string) =>
+    new Request("https://poppylab.dev/api/v1/account", {
+      headers: { "cf-connecting-ip": address },
+    });
+  const none = { get: () => undefined, set: () => {} };
+
+  it("is Cloudflare's header on Workers, where Cloudflare sets it", async () => {
+    vi.stubGlobal("navigator", { userAgent: "Cloudflare-Workers" });
+    expect(clientAddress(from("203.0.113.9"))).toBe("203.0.113.9");
+    expect((await browserCaller(from("203.0.113.9"), none)).ip).toBe(
+      "203.0.113.9",
+    );
+  });
+
+  it("is taken from no header elsewhere, where any client can send one", async () => {
+    expect(clientAddress(from("203.0.113.9"))).toBeNull();
+    expect((await browserCaller(from("203.0.113.9"), none)).ip).toBeNull();
+    expect(
+      apiSessionCaller(from("203.0.113.9"), {
+        user: "u",
+        account: "a",
+        id: "s",
+      } as ApiSession).ip,
+    ).toBeNull();
   });
 });

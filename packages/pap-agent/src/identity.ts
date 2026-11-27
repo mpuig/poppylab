@@ -19,7 +19,7 @@
  */
 import type { ApiSession } from "./account-store";
 import { channelUser } from "./link-codes";
-import type { Caller } from "./web";
+import { clientAddress, type Caller } from "./web";
 
 export { browserCaller } from "./web";
 export { channelUser };
@@ -72,7 +72,7 @@ export function apiSessionCaller(
     authentic: true,
     origin: new URL(request.url).origin,
     localDev: false,
-    ip: request.headers.get("cf-connecting-ip"),
+    ip: clientAddress(request),
     signIns: {
       bind: () => {},
       holds: () => false,

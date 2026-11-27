@@ -30,8 +30,12 @@ beforeEach(() => {
 });
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllGlobals();
   forgetLinkingChannels();
 });
+/** On Workers, where Cloudflare sets `cf-connecting-ip` and it is believed. */
+const onWorkers = () =>
+  vi.stubGlobal("navigator", { userAgent: "Cloudflare-Workers" });
 
 /** A browser's cookies, as Next's `cookies()` keeps them for a request. */
 function jar(values: Record<string, string> = {}) {
@@ -608,6 +612,28 @@ describe("devices", () => {
     expect((await signIn({}, phone)).status).toBe(201);
   });
 
+  it("keeps 25 devices signed in, ending the one used least recently for another", async () => {
+    vi.useFakeTimers({ now: Date.now(), toFake: ["Date"] });
+    const created = await create({});
+    const first = created.data.tokens!.accessToken as string;
+    const tokens: string[] = [];
+    for (let i = 0; i < 25; i++) {
+      // Each a little later, and within the sign-in budget.
+      vi.setSystemTime(Date.now() + 5000);
+      const phone = await signIn({}, created.authenticator, `Phone ${i}`);
+      expect(phone.status).toBe(201);
+      tokens.push(phone.data.tokens!.accessToken as string);
+    }
+    const listed = await call("GET", "/account/sessions", {
+      token: tokens.at(-1)!,
+    });
+    expect((listed.data.sessions as unknown[]).length).toBe(25);
+    expect((await call("GET", "/account", { token: first })).status).toBe(401);
+    expect((await call("GET", "/account", { token: tokens[0]! })).status).toBe(
+      200,
+    );
+  });
+
   it("ends every session a removed passkey started, this device's too", async () => {
     const laptop = visitor();
     const created = await create(page(laptop));
@@ -728,6 +754,7 @@ describe("what is kept and said", () => {
   });
 
   it("counts ceremonies and refreshes per source, and says when to wait", async () => {
+    onWorkers();
     let last = 0;
     for (let i = 0; i < 11; i++)
       last = (
@@ -789,6 +816,7 @@ describe("what is kept and said", () => {
   });
 
   it("counts tries at an account per address, so naming it doesn't lock its owner out", async () => {
+    onWorkers();
     const created = await create({});
     const account = (created.data.account as { id: string }).id;
     const tokens = created.data.tokens!;

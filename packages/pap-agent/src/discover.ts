@@ -1,5 +1,6 @@
 import {
   browserUser,
+  clientAddress,
   readJson,
   setCookie,
   toResponse,
@@ -111,7 +112,7 @@ export async function discover(
   const limited =
     publicMode() &&
     (await overBudget(
-      request.headers.get("cf-connecting-ip"),
+      clientAddress(request),
       await browserUser(await jar(), true),
       "discover",
     ));

@@ -31,6 +31,7 @@ import { readConversation } from "./runs";
 import { APP_SIGN_IN_END, rememberAppSignIn } from "./sign-in-cookie";
 import {
   browserAccount,
+  clientAddress,
   cookieSignIns,
   type Caller,
   type CookieStore,
@@ -174,7 +175,7 @@ export async function openSignInLink(
   cookies: CookieStore,
   ticket: string,
 ): Promise<Response> {
-  const ip = request.headers.get("cf-connecting-ip");
+  const ip = clientAddress(request);
   if (await overAccountBudget("signInLink", { ip })) return failed();
   const record = isTicket(ticket)
     ? await takeOnce<Ticket>(ticketBucket(ticket), "ticket")
