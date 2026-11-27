@@ -140,3 +140,30 @@ it("challenges a revocation's DPoP proof as the token endpoint does, so the same
   expect(replayed.status).toBe(401);
   expect(await error(replayed)).toBe("invalid_client");
 });
+
+it("answers a DPoP header that isn't a JWT as a bad proof, not a bad client", async () => {
+  const x = await setup({ dpopNonces });
+  const jwt = (header: unknown, payload: unknown) =>
+    [header, payload, "x"]
+      .map((part) => Buffer.from(JSON.stringify(part)).toString("base64url"))
+      .join(".");
+  for (const dpop of [
+    "garbage",
+    "!!.!!.!!",
+    jwt({ jwk: 1 }, {}),
+    jwt({ jwk: { kty: "EC" } }, null),
+  ])
+    for (const [path, body] of [
+      ["/oauth/par", request],
+      ["/oauth/device", { scope: "things:read" }],
+      ["/oauth/token", { grant_type: "authorization_code", code: "unknown" }],
+    ] as const) {
+      const r = await x.form(
+        path,
+        { ...body, ...(await x.credentials()) },
+        { DPoP: dpop },
+      );
+      expect(r.status, `${path} ${dpop}`).toBe(400);
+      expect(await error(r), `${path} ${dpop}`).toBe("invalid_dpop_proof");
+    }
+});

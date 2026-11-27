@@ -300,16 +300,22 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
   const challengeBeforeConsuming = async (c: Context) => {
     const header = c.req.header("dpop");
     if (!deploy.dpopNonces || !header) return;
-    const jwk = (decodeProtectedHeader(header) as { jwk?: JWK }).jwk;
-    const payload = JSON.parse(
-      Buffer.from(header.split(".")[1] ?? "", "base64url").toString() || "{}",
-    ) as { nonce?: unknown };
-    if (jwk)
-      deploy.dpopNonces.check(
-        "token",
-        payload.nonce,
-        await calculateJwkThumbprint(jwk),
-      );
+    let nonce: unknown, binding: string | undefined;
+    try {
+      const jwk = (decodeProtectedHeader(header) as { jwk?: JWK }).jwk;
+      nonce = (
+        JSON.parse(
+          Buffer.from(header.split(".")[1] ?? "", "base64url").toString() ||
+            "{}",
+        ) as { nonce?: unknown } | null
+      )?.nonce;
+      if (jwk) binding = await calculateJwkThumbprint(jwk);
+    } catch {
+      // Not a proof: the endpoint's own check refuses it, as
+      // invalid_dpop_proof, not as the client.
+      return;
+    }
+    if (binding) deploy.dpopNonces.check("token", nonce, binding);
   };
 
   // ---- Per-request carriers ----------------------------------------------
