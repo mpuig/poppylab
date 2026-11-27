@@ -80,7 +80,6 @@ import {
   demoChangeReply,
   demoMissing,
   demoMissingReport,
-  demoUnsupported,
 } from "@/lib/demo-changes";
 import { demoFdxAnswer, demoFdxRead, demoFdxReply } from "@/lib/demo-fdx";
 import { demoEspiAnswer, demoEspiRead, demoEspiReply } from "@/lib/demo-espi";
@@ -643,9 +642,6 @@ async function reply(request: Request, started: Outcome) {
     const change =
       provider === "demo" ? demoChangeKind(asked, tools) : undefined;
     const aside = provider === "demo" ? demoAside(asked, tools) : undefined;
-    // A change the demo has no rule for is said so, not answered by reading.
-    const unsupported =
-      provider === "demo" ? demoUnsupported(asked, tools) : undefined;
     // Use FDX on: balances and transactions through the FDX-shaped tools.
     const fdxRead = provider === "demo" ? demoFdxRead(asked, tools) : undefined;
     // Use ESPI on: usage and bills through the ESPI-shaped tools.
@@ -789,8 +785,6 @@ async function reply(request: Request, started: Outcome) {
       } else {
         text = `Protocol demo (no LLM). ${plan?.say ?? "The demo can't prepare that change here."}`;
       }
-    } else if (provider === "demo" && unsupported) {
-      text = `Protocol demo (no LLM). ${unsupported}`;
     } else if (provider === "demo" && fdxRead) {
       text = demoFdxReply(await demoFdxAnswer(fdxRead, tools), show);
     } else if (provider === "demo" && espiRead) {
