@@ -87,7 +87,7 @@ At Harborline, with **Use FDX** on, reads use the bank's FDX-shaped API and are 
 
 Choosing the demo with **No key? Try the protocol demo** lasts for that browser tab. It is kept apart from the saved settings, so it never replaces a saved key and it survives a change of view or a reload; saving a model or forgetting the settings ends it.
 
-The rules are in the agent's core, `packages/pap-agent/src/` (`demo-changes.ts`, `demo-tool.ts`, `demo-text.ts`, `demo-fdx.ts`), each with its tests, and Juniper's in its chat turn (`chat.ts`); the guide is the playground's own (`apps/playground/lib/guide.ts`).
+The rules are in the agent's core, `packages/pap-agent/src/` (`demo-changes.ts`, `demo-tool.ts`, `demo-text.ts`, `demo-fdx.ts`), each with its tests, and Juniper's in the demo's chat turn (`chat-demo.ts`); the guide is the playground's own (`apps/playground/lib/guide.ts`).
 
 ## Several Companies in one turn
 

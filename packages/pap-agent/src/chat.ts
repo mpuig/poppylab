@@ -1,75 +1,53 @@
+import type { ApiTool } from "@poppy-lab/pap-client";
+import { companyProfile } from "@poppy-lab/pap-core";
+import { runModel } from "@poppy-lab/llm-adapters/server";
 import { agentName } from "./agent";
-import { accountRecovery, accountUnavailableNotice } from "./account-recovery";
 import { accountNote } from "./account-permissions";
+import { checkChatBody } from "./chat-body";
+import { chooseCompany } from "./chat-companies";
+import { demoReply } from "./chat-demo";
+import { failedTurn } from "./chat-failure";
+import { severalTurn } from "./chat-several";
 import {
-  InvalidToolArguments,
-  ProtocolError,
-  randomId,
-} from "@poppy-lab/pap-client";
-import { shoppingTarget } from "./shopping-context";
+  companiesNow,
+  turnState,
+  type HeldTurn,
+  type TurnScope,
+} from "./chat-turn";
+import { answerLabel } from "./company-commands";
+import {
+  companyRef,
+  connectionAt,
+  connectionNamed,
+  newConnection,
+  originOf,
+} from "./connections";
+import { lostAccess } from "./conversation-view";
+import type { CompanyEntry, DirectAction } from "./conversations";
+import { publicMode, serving } from "./deployment";
+import { directState } from "./direct-state";
+import { keepLines } from "./inspector-log";
+import { labCompanies } from "./lab-companies";
+import { conversationEnded, overBudget } from "./limits";
+import { noteOperationAccounts } from "./operation-store";
+import { offeredTools } from "./routing";
+import { notSaved } from "./run-size";
+import { acquireRun, createRun, releaseRun, type Held } from "./runs";
 import {
   connect,
   directConversation,
   type Connection,
-  type Operation,
   type Run,
-  type Turn,
 } from "./runtime";
-import { noteOperationAccounts } from "./operation-store";
-import {
-  companyName as nameOf,
-  companyRef,
-  connectionAt,
-  connectionNamed,
-  MAX_CONNECTIONS,
-  newConnection,
-  originOf,
-} from "./connections";
-import { answeredWith } from "./company-names";
-import {
-  answerLabel,
-  answers,
-  choice,
-  companiesAt,
-  connectFor,
-  keepCompanies,
-  listed,
-  noRoomFor,
-  performCommand,
-  readAnswer,
-  typedAnswer,
-  type Answer,
-  type Choice,
-  type Performed,
-} from "./company-commands";
-import { connectCommand, type ConnectCommand } from "./connect-command";
-import { companiesView, lostAccess } from "./conversation-view";
-import { labCompanies, nameable } from "./lab-companies";
-import { directConnection, offeredTools, turnConnection } from "./routing";
+import { shownSkills, shownTasks } from "./shown-tasks";
 import {
   accountsIn,
   forgetLostAccount,
-  offerChoices,
   recordDirect,
-  recordOwn,
   recordTurn,
   turnAccounts,
 } from "./transcript";
-import {
-  modelTools,
-  newParts,
-  recording,
-  SEVERAL_LIMITS,
-  severalNote,
-  severalSteps,
-  type Call,
-  type Part,
-} from "./several";
-import { keepLines } from "./inspector-log";
-import { shownSkills, shownTasks } from "./shown-tasks";
-import type { CompanyEntry, DirectAction } from "./conversations";
-import { directState } from "./direct-state";
-import { acquireRun, createRun, releaseRun, type Held } from "./runs";
+import { UserFacingError } from "./user-error";
 import {
   browserCaller,
   json,
@@ -79,52 +57,6 @@ import {
   type CookieStore,
   type Reply,
 } from "./web";
-import { conversationEnded, overBudget } from "./limits";
-import { notSaved } from "./run-size";
-import { pickDemoTool } from "./demo-tool";
-import {
-  agentAnswer,
-  feedbackAnswer,
-  notSentReply,
-  readable,
-} from "./demo-text";
-import { demoExamplesFor, demoGuidedReply } from "./demo-examples";
-import { demoPayBill } from "./demo-pay-bill";
-import {
-  demoAside,
-  demoChange,
-  demoChangeKind,
-  demoChangeReply,
-} from "./demo-changes";
-import { demoFdxAnswer, demoFdxRead, demoFdxReply } from "./demo-fdx";
-import { demoEspiAnswer, demoEspiRead, demoEspiReply } from "./demo-espi";
-import { UserFacingError } from "./user-error";
-import { refusalFacts } from "./protocol-log";
-import { companyProfile, PapDiscoveryError } from "@poppy-lab/pap-core";
-import { localOrigins, publicMode, serving } from "./deployment";
-import {
-  askModel,
-  runModel,
-  ModelRequestError,
-} from "@poppy-lab/llm-adapters/server";
-
-/**
- * One Company's state as a chat answer carries it: its Session, sign-in,
- * proposals, what its Session read (§9.1, §9.4; never for the model) and
- * its Direct Conversation. For a conversation with no Company, none.
- */
-const turnState = (connection: Connection | undefined) => ({
-  sessionId: connection?.sessionId,
-  signedIn: !!connection?.accountToken && !connection.accountUnavailable,
-  scopes: connection?.scopes,
-  recovery: connection?.accountUnavailable
-    ? accountUnavailableNotice
-    : undefined,
-  operations: Object.values(connection?.operations ?? {}),
-  excludedTasks: connection ? shownTasks(connection) : [],
-  skills: connection ? shownSkills(connection) : [],
-  ...directState(connection ?? {}),
-});
 
 let active = 0;
 let count = 0;
@@ -189,6 +121,12 @@ export async function chat(request: Request, cookies: CookieStore) {
     response.headers.set("X-Poppy-Conversation", turn.conversation);
   return response;
 }
+/**
+ * One turn, from the guards that let it in to the bookkeeping after it:
+ * the body is checked (`checkChatBody`), the conversation held, the
+ * Company chosen (`chooseCompany`), and the turn asked of it, of several
+ * (`severalTurn`), of the demo's rules (`demoReply`) or of the model.
+ */
 async function reply(
   input: ChatInput,
   caller: Caller,
@@ -213,166 +151,20 @@ async function reply(
     return json({ error: "Chat is busy; retry in a minute." }, { status: 429 });
   active++;
   count++;
-  let run: Run | undefined;
-  // The Company this turn is for (`turnConnection`). None for a turn Iris
-  // answers by itself: nothing is then sent to any Company.
-  let connection: Connection | undefined;
-  // A turn the task needs several Companies for (`several.ts`): one part
-  // for each, the one `connection` names among them, each with what the
-  // turn did there. None for a turn with one Company.
-  let parts: Part[] = [];
-  // The Company a call of such a turn failed at, with its error, so the
-  // answer names that Company and not the one the turn ended at.
-  let failure: { connection: Connection; error: unknown } | undefined;
+  const scope: TurnScope = {
+    parts: [],
+    stage: "request",
+    knewLost: false,
+    trace: [],
+    did: { changed: false, kept: 0 },
+  };
+  const { trace } = scope;
   let held: Held | undefined;
   let visitor: string | undefined;
-  let stage = "request";
-  // Iris already knew, before this turn, that the Company no longer takes
-  // the sign-in. A turn in which it learns that drops what it showed with
-  // the account (`forgetLostAccount`).
-  let knewLost = false;
-  // The proposals the turn's Company had when the turn began: the ones it
-  // leaves besides are this turn's (`noteOperationAccounts`).
-  let proposals: Set<Operation> | undefined;
-  // What Iris did this turn. A turn that fails answers with it too, so the
-  // Inspector lists the request the Company refused. Every answer of a run
-  // carries it, and the run keeps it (`finally`).
-  const trace: string[] = [];
-  // The turns a model was sent this turn; the demo's rules are sent none.
-  let context: Turn[] | undefined;
-  // What the User's words did to the conversation's Companies before the
-  // turn was asked of one ("connect with Lantern and show me the menu"):
-  // Iris's line about it, whether the Companies changed, what the
-  // conversation still shows after a removal, and how many of the trace's
-  // lines are kept with the conversation already. Every answer carries
-  // these, a failed turn's too.
-  const did: {
-    before?: string;
-    changed: boolean;
-    left?: Performed["left"];
-    kept: number;
-  } = { changed: false, kept: 0 };
   try {
-    const body = (await input.read()) as {
-      /**
-       * The Company the page shows, as a page with one Company sends it:
-       * where a conversation unknown here starts, and otherwise the
-       * Company the turn is for, as `company` says it.
-       */
-      url?: unknown;
-      /** The Company this turn is for, by origin, when the User chose it. */
-      company?: unknown;
-      message?: unknown;
-      /**
-       * In place of `message`: what one of the buttons under Iris's own
-       * answer carries (`Choice.answer`). It names Companies by origin and
-       * is never read as words.
-       */
-      answer?: unknown;
-      provider?: unknown;
-      apiKey?: unknown;
-      model?: unknown;
-      /** §8.10: the User's own action on a Direct Conversation; no model. */
-      direct?: unknown;
-      /**
-       * `true` from a page that shows several Companies. Only then are the
-       * User's words read for connecting or removing one: a page that shows
-       * one Company could not show, or speak to, a second.
-       */
-      companies?: unknown;
-    };
-    const directActions: readonly DirectAction[] = [
-      "accept",
-      "decline",
-      "start",
-      "say",
-      "close",
-    ];
-    if (
-      body.direct !== undefined &&
-      !directActions.includes(body.direct as DirectAction)
-    )
-      throw new UserFacingError("Unknown Direct Conversation action.");
-    const direct = body.direct as DirectAction | undefined;
-    const address = (value: unknown): value is string | undefined =>
-      value === undefined ||
-      (typeof value === "string" && value.length <= 2048);
-    // A button's answer comes in place of a message, never with one, and
-    // never as one of the User's own Direct Conversation actions.
-    const answer = readAnswer(body.answer);
-    if (
-      body.answer !== undefined &&
-      (!answer || body.message !== undefined || direct)
-    )
-      throw new UserFacingError(
-        `Send a message, or the answer one of ${agentName()}'s buttons carries, and not both.`,
-      );
-    // The button of one of demo mode's scripted examples sends it as the
-    // User's message. Only the demo's own words are taken so, never a
-    // Company's: anything else is refused.
-    if (
-      answer &&
-      "message" in answer &&
-      !demoExamplesFor(answer.message).length &&
-      !demoGuidedReply(
-        labCompanies(caller.origin).map((c) => c.id),
-      ).choices.some((c) => c.message === answer.message)
-    )
-      throw new UserFacingError(
-        "That button is for an example the demo doesn't have. Type your request instead.",
-      );
-    const pressed = answer && !("message" in answer) ? answer : undefined;
-    const written =
-      answer && "message" in answer
-        ? answer.message
-        : typeof body.message === "string"
-          ? body.message
-          : "";
-    if (
-      !address(body.url) ||
-      !address(body.company) ||
-      (!pressed && (!written.trim() || written.length > 2000))
-    )
-      throw new UserFacingError(
-        "Enter a Company URL and a message of at most 2000 characters.",
-      );
-    if (
-      (body.apiKey !== undefined &&
-        (typeof body.apiKey !== "string" ||
-          body.apiKey.length > 2048 ||
-          /[\r\n]/.test(body.apiKey))) ||
-      (body.model !== undefined &&
-        (typeof body.model !== "string" ||
-          body.model.length > 120 ||
-          !/^[a-zA-Z0-9._:/-]*$/.test(body.model)))
-    )
-      throw new UserFacingError("Invalid model configuration");
-    const localDev = caller.localDev;
-    if (
-      body.provider &&
-      body.provider !== "demo" &&
-      !localDev &&
-      !body.apiKey &&
-      !direct
-    )
-      return json(
-        { error: "Add your API key in Model settings." },
-        { status: 400 },
-      );
-    // Public: only the offered providers, each with the visitor's own key.
-    if (
-      !localDev &&
-      body.provider !== undefined &&
-      !["demo", "openai-compatible", "anthropic"].includes(
-        String(body.provider),
-      )
-    )
-      return json({ error: "Unsupported model provider." }, { status: 400 });
-    if (body.apiKey && body.provider === "ollama")
-      return json(
-        { error: "Ollama does not use an API key." },
-        { status: 400 },
-      );
+    const request = checkChatBody(await input.read(), caller);
+    if ("refused" in request) return request.refused;
+    const { body, direct, pressed } = request;
     visitor = caller.user(true);
     const limited = await overBudget(caller.ip, visitor, "chat");
     if (limited) return limited;
@@ -399,11 +191,6 @@ async function reply(
               body.url === undefined ? [] : [newConnection({}, body.url)],
           };
     const lab = labCompanies(caller.origin);
-    const provider = typeof body.provider === "string" ? body.provider : "demo";
-    const modelConfig = {
-      apiKey: typeof body.apiKey === "string" ? body.apiKey : undefined,
-      model: typeof body.model === "string" ? body.model : undefined,
-    };
     // What follows is refused before a conversation is started, so a
     // refusal leaves none behind.
     const refuse = (refusal: object) => {
@@ -446,961 +233,88 @@ async function reply(
     }
     if (!held) throw new Error("No conversation for the turn");
     started.id = held.id;
-    run = held.run;
-    const conversation = run;
+    const run = (scope.run = held.run);
     // What the User said: their words, or the label of the button they
     // pressed, which the page showed as their line. The label is worked
     // out again here: nothing a button sends is ever taken as words.
-    const message = pressed ? answerLabel(run, pressed, lab) : written;
+    const message = pressed ? answerLabel(run, pressed, lab) : request.written;
     if (!pressed) run.title ??= message.trim().slice(0, 80);
     if (run.calls >= 20)
       throw new UserFacingError(
         "This run reached its 20-turn limit. Connect again to start another run.",
       );
-    // What an answer says of the conversation's Companies when the User's
-    // words changed them: Iris's line about it when the turn went on to a
-    // Company, the Companies as they are now, and what the conversation
-    // still shows after a removal.
-    const companies = () => ({
-      ...(did.changed ? companiesView(conversation) : {}),
-      ...did.left,
-    });
-    // An answer of Iris's own, about the conversation and from no Company.
-    // The page that shows one Company gets the first one's state with it,
-    // as a reload does. Its buttons are kept with it, for a reload.
-    const own = (text: string, choices: Choice[] = []) => {
-      offerChoices(conversation, text, choices);
-      return json(
-        {
-          text,
-          ...(did.before ? { before: did.before } : {}),
-          trace,
-          mode: "iris",
-          ...(choices.length ? { choices } : {}),
-          ...turnState(conversation.connections[0]),
-          company: [],
-          ...companies(),
-        },
-        { headers: { "Cache-Control": "no-store" } },
-      );
+    const turn: HeldTurn = {
+      scope,
+      conversation: run,
+      lab,
+      provider: request.provider,
+      modelConfig: request.modelConfig,
+      message,
+      asked: message,
+      typed: undefined,
+      also: [],
     };
-    // A turn whose task needs several Companies (`several.ts`): the tools
-    // of each, every call made with its own Company's Session and sign-in,
-    // and an answer that says what went to each. `turn` is in the order
-    // the task uses them; `at` is the one it ends at, whose state the
-    // answer carries as any turn's, and the page gets all of theirs.
-    const severalTurn = async (turn: Connection[], at: Connection) => {
-      parts = newParts(
-        turn.map((c) => ({
-          connection: c,
-          ref: companyRef(conversation, originOf(c)),
-          lab: lab.find((l) => originOf(l) === originOf(c))?.id,
-        })),
-      );
-      knewLost = !!at.accountUnavailable;
-      stage = "pap";
-      for (const part of parts) {
-        try {
-          part.tools = await connect(part.connection, part.trace, part.shown);
-        } catch (error) {
-          failure = { connection: part.connection, error };
-          throw error;
-        }
-        part.connection.offered = offeredTools(part.tools);
-      }
-      conversation.calls++;
-      const calls: Call[] = [];
-      const tools = parts.map((part) =>
-        recording(part, calls, (c, error) => {
-          failure = { connection: c, error };
-        }),
-      );
-      if (provider === "demo") {
-        // Demo mode's one example across two Companies: the bill at the
-        // first, its payment at the second (`demo-pay-bill.ts`). The answer
-        // is about the one where something waits for the User, a sign-in
-        // under the answer, or else where the task ended.
-        const signedIn = (part: Part) =>
-          !!part.connection.accountToken && !part.connection.accountUnavailable;
-        const [biller, bank] = parts as [Part, Part];
-        const done = await demoPayBill(
-          {
-            tools: tools[0]!,
-            name: biller.ref.name,
-            signedIn: signedIn(biller),
-          },
-          { tools: tools[1]!, name: bank.ref.name, signedIn: signedIn(bank) },
-          randomId,
-          readable,
-        );
-        const end = done.at === "biller" ? biller : bank;
-        connection = end.connection;
-        knewLost = end.knewLost;
-        return severalAnswer(end.connection, done.text, calls, true);
-      }
-      stage = "provider";
-      context = conversation.history.slice(-10);
-      const offered = modelTools(parts, tools);
-      for (const { part, count } of offered.left)
-        part.trace.push(
-          `Offered the model ${Object.keys(part.tools).length - count} of ${part.ref.name}'s ${Object.keys(part.tools).length} tools · at most ${SEVERAL_LIMITS.tools} in a turn with several Companies`,
-        );
-      const text = await runModel(
-        provider,
-        [
-          ...context.map(({ role, content }) => ({ role, content })),
-          { role: "user", content: asked },
-        ],
-        offered.tools,
-        {
-          ...modelConfig,
-          name: agentName(),
-          steps: SEVERAL_LIMITS.steps,
-          // Whose each tool is and what may cross between them (§10.1),
-          // then the User's account at each, as a turn with one is told.
-          context: [
-            severalNote(parts),
-            ...parts.map(({ connection: c }) =>
-              accountNote(c.company!.document.organization.name, {
-                signedIn: !!c.accountToken,
-                lost: !!c.accountUnavailable,
-                granted: c.scopes ?? "",
-                profile: companyProfile(c.company!),
-              }),
-            ),
-          ].join("\n\n"),
-        },
-      );
-      return severalAnswer(at, text, calls, false);
-    };
-    // The answer to a turn with several Companies, kept as any turn is:
-    // each step and each piece of Company content with its own Company,
-    // "Data" with each call's, and the turn as holding what any of them
-    // showed with the User's account.
-    const severalAnswer = (
-      at: Connection,
-      text: string,
-      calls: Call[],
-      demo: boolean,
-    ) => {
-      const exact = calls.length
-        ? JSON.stringify(calls).slice(0, 20000)
-        : undefined;
-      const steps = severalSteps(parts, trace);
-      const content = parts.flatMap((part) =>
-        part.shown.map((entry) => ({ ...entry, company: part.ref.origin })),
-      );
-      recordTurn(conversation, at, asked, text, {
-        company: content,
-        steps,
-        turn: parts.map((part) => part.connection),
-        demo,
-        data: exact,
-        context,
-        typed,
-      });
-      conversation.history = conversation.history.slice(-10);
-      // Any of them may have stopped taking the sign-in during the turn.
-      let lost: Record<string, unknown> = {};
-      for (const part of parts) {
-        const gone = lostAccess(conversation, part.connection, part.knewLost);
-        if (!gone) continue;
-        const { operations, ...rest } = gone;
-        lost = {
-          ...lost,
-          ...rest,
-          ...(part.connection === at ? { operations } : {}),
-        };
-      }
-      const from = companyRef(conversation, originOf(at));
-      return json(
-        {
-          text,
-          ...(exact !== undefined ? { data: exact } : {}),
-          trace: [...trace, ...parts.flatMap((part) => part.trace)],
-          // Each Company's own lines, for the Inspector to say whose.
-          traces: [
-            ...(trace.length ? [{ from, trace }] : []),
-            ...parts.map((part) => ({ from: part.ref, trace: part.trace })),
-          ],
-          steps,
-          using: parts.map((part) => part.ref),
-          mode: provider,
-          from,
-          ...(did.before ? { before: did.before } : {}),
-          ...turnState(at),
-          company: parts.flatMap((part) =>
-            part.shown.map((entry) => ({ ...entry, from: part.ref })),
-          ),
-          ...companies(),
-          ...lost,
-          // Each Company's state, its proposals among it: a proposal at
-          // each makes its own card in Needs you.
-          ...companiesView(conversation),
-        },
-        { headers: { "Cache-Control": "no-store" } },
-      );
-    };
-    const hint = body.company ?? body.url;
-    // What Iris was asked before it asked which Company: this message may
-    // say which, and otherwise that request is dropped.
-    const waiting = run.waiting;
-    delete run.waiting;
-    // The removal Iris asked the User to confirm: this message or button
-    // may answer it, and otherwise the question is dropped.
-    const removing = run.removing;
-    delete run.removing;
-    // The request this turn answers, and what the User typed when that is
-    // something else: a Company's name in answer to Iris's question, or
-    // nothing more (`null`), when the request is the rest of a message the
-    // page already shows.
-    let asked = message;
-    let typed: string | null | undefined;
-    // The other Companies the turn's task needs, before `connection`, in
-    // the order it uses them.
-    let also: Connection[] = [];
-    if (direct) {
-      // §8.10: the User's own words or choice. Never worked out from them.
-      const target = directConnection(run, direct, hint);
-      if ("code" in target)
-        return json(target, {
-          status: 400,
-          headers: { "Cache-Control": "no-store" },
-        });
-      connection = target;
-    } else if (pressed && "company" in pressed) {
-      // The button for one of the Companies Iris asked about: the request
-      // that waited is asked there. A button of a question that is no
-      // longer open has nothing to ask.
-      if (!waiting) {
-        const say =
-          "No request is waiting for a company to be chosen. Type your request again.";
-        recordOwn(run, undefined, message, say, false);
-        return own(say);
-      }
-      connection = connectionAt(run, pressed.company);
-      asked = waiting;
-      typed = message;
-    } else {
-      // The User's own words can connect a Company or remove one. They are
-      // read here, before any model or rule of the demo, and nothing else
-      // is ever read for it: not Company content, not a model's answer.
-      // What the User answers about a removal: a button, by origin, or
-      // "yes" or "no" typed while Iris's question is open.
-      const decided: Exclude<Answer, { company: string }> | undefined =
-        pressed && !("company" in pressed)
-          ? pressed
-          : removing && !pressed
-            ? typedAnswer(message, removing)
-            : undefined;
-      if (decided && "keep" in decided) {
-        const done = keepCompanies(
-          run,
-          decided.keep,
-          removing && answers(removing, decided.keep)
-            ? removing.rest
-            : undefined,
-        );
-        recordOwn(run, done.about, message, done.say, done.told);
-        run.history = run.history.slice(-10);
-        return own(done.say);
-      }
-      // Confirmed only when it is the removal Iris asked about. A button
-      // of a question that is no longer open asks again when it has to.
-      const confirmed =
-        !!decided &&
-        "remove" in decided &&
-        !!removing &&
-        answers(removing, decided.remove);
-      // A button's answer is carried out as the same request typed in
-      // words only ever meant for it, with the Companies it names.
-      const command: ConnectCommand | undefined = decided
-        ? "connect" in decided
-          ? {
-              verb: "connect",
-              sure: true,
-              companies: [
-                lab.find(
-                  (c) => originOf(c) === originOf({ url: decided.connect }),
-                ) ?? { url: decided.connect, name: decided.connect },
-              ],
-              rest: "",
-            }
-          : {
-              verb: "remove",
-              sure: true,
-              companies: companiesAt(run, decided.remove),
-              rest: (confirmed && removing?.rest) || "",
-            }
-        : body.companies === true
-          ? connectCommand(message, {
-              connected: run.connections.map((c) => nameable(c, lab)),
-              lab,
-            })
-          : undefined;
-      // What Iris did about the Companies, said as its own line. When the
-      // message asks for something else as well, the turn carries on with
-      // that, and the line is shown first.
-      const performed = (done: Performed) => {
-        if (done.ask) conversation.removing = done.ask;
-        trace.push(...done.trace);
-        Object.assign(did, {
-          changed: done.changed,
-          ...(done.left ? { left: done.left } : {}),
-          kept: trace.length,
-        });
-        recordOwn(conversation, done.about, message, done.say, done.told);
-        conversation.history = conversation.history.slice(-10);
-        if (!done.rest) return own(done.say, done.choices);
-        did.before = done.say;
-        asked = done.rest;
-        typed = null;
-        connection = done.at;
-        return undefined;
-      };
-      if (command) {
-        stage = "connect";
-        const answered = performed(
-          await performCommand(run, command, lab, localOrigins, confirmed),
-        );
-        if (answered) return answered;
-      }
-      // A Company's name, typed in answer to Iris asking which one.
-      const answered =
-        waiting && !command
-          ? answeredWith(
-              message,
-              run.connections.map((c) => nameable(c, lab)),
-            )
-          : [];
-      if (answered.length === 1) {
-        connection = connectionAt(run, answered[0]!.url);
-        asked = waiting!;
-        typed = message;
-      } else if (answered.length > 1) {
-        // The name fits several: Iris asks again, and the request goes on
-        // waiting for the answer.
-        const say = `Which one is this for: ${listed(
-          answered.map((c) => c.name),
-          "or",
-        )}?`;
-        run.waiting = waiting!;
-        recordOwn(run, undefined, message, say, false);
-        return own(
-          say,
-          answered.map((c) =>
-            choice(conversation, { company: originOf(c) }, lab),
-          ),
-        );
-      } else if (!connection) {
-        // The Company the page had chosen may be the one just removed.
-        const chose =
-          hint !== undefined && connectionAt(run, hint) ? hint : undefined;
-        // Demo mode runs its scripted examples and nothing else: a message
-        // that is none, for no Company the User chose, is answered by Iris
-        // with the examples to try, and nothing is sent.
-        const keys = run.connections.flatMap((c) => {
-          const listed = lab.find((l) => originOf(l) === originOf(c));
-          return listed ? [listed.id] : [];
-        });
-        const examples =
-          provider === "demo" && chose === undefined
-            ? demoExamplesFor(asked)
-            : [];
-        // The same words can be an example at several Companies ("my
-        // orders"): the connected one is meant. With several connected,
-        // the example names none and the turn is worked out as any other;
-        // with none, the first is connected.
-        const connected = examples.filter((e) =>
-          keys.some((key) => key === e.company),
-        );
-        const example =
-          connected.length === 1
-            ? connected[0]
-            : connected.length
-              ? undefined
-              : examples[0];
-        if (provider === "demo" && chose === undefined && !examples.length) {
-          const guided = demoGuidedReply(keys);
-          recordOwn(run, undefined, asked, guided.text, false, typed !== null);
-          run.history = run.history.slice(-10);
-          return own(
-            guided.text,
-            guided.choices.map((c) => ({
-              label: c.label,
-              answer: { message: c.message },
-            })),
-          );
-        }
-        // An example across two Companies needs both in the conversation.
-        // Iris connects neither by itself: it says what is missing, with a
-        // button for each to connect, or to make room for it.
-        const pair = example?.with
-          ? [example.with, example.company].map((id) =>
-              lab.find((c) => c.id === id)!,
-            )
-          : undefined;
-        if (pair?.every(Boolean)) {
-          const absent = pair.filter((c) => !connectionAt(conversation, c.url));
-          if (!absent.length)
-            return await severalTurn(
-              pair.map((c) => connectionAt(conversation, c.url)!),
-              connectionAt(conversation, pair[1]!.url)!,
-            );
-          const room = MAX_CONNECTIONS - run.connections.length;
-          const others = run.connections.filter(
-            (c) => !pair.some((p) => originOf(p) === originOf(c)),
-          );
-          const say = `This takes two companies: ${pair[0]!.name}, where ${agentName()} reads your bill, and ${pair[1]!.name}, where it proposes the payment. ${listed(
-            absent.map((c) => c.name),
-            "and",
-          )} ${absent.length > 1 ? "aren't" : "isn't"} connected to this conversation yet. ${
-            absent.length > room
-              ? `It already has ${run.connections.length} companies, so remove ${absent.length - room > 1 ? `${absent.length - room} of them` : "one"} first, then connect ${absent.length > 1 ? "them" : "it"}, sign in at both and ask again.`
-              : `Connect ${absent.length > 1 ? "them" : "it"}, sign in at both and ask again.`
-          } Nothing was sent to any company.`;
-          recordOwn(run, undefined, asked, say, false, typed !== null);
-          run.history = run.history.slice(-10);
-          return own(
-            say,
-            absent.length > room
-              ? others.map((c) =>
-                  choice(conversation, { remove: [originOf(c)] }, lab),
-                )
-              : absent.map((c) =>
-                  choice(conversation, { connect: originOf(c) }, lab),
-                ),
-          );
-        }
-        const route = await turnConnection(run, asked, chose, {
-          // Only a page that shows several Companies can show another.
-          ...(body.companies === true ? { lab } : {}),
-          ...(example ? { example: example.company } : {}),
-          ...(provider !== "demo"
-            ? {
-                ask: (question) => askModel(provider, question, modelConfig),
-              }
-            : {}),
-        });
-        if ("connect" in route) {
-          // A request clearly for one of the lab's Companies, which isn't
-          // connected: Iris connects it, as "connect with" it does, and
-          // asks the request there. At as many Companies as a conversation
-          // works with, it says so and offers to remove one.
-          stage = "connect";
-          const answered = performed(
-            run.connections.length >= MAX_CONNECTIONS
-              ? noRoomFor(run, route.connect, lab)
-              : await connectFor(run, route.connect, asked, localOrigins),
-          );
-          if (answered) return answered;
-        } else if (!run.connections.length) {
-          const say = `This conversation isn't connected to a company yet, so ${agentName()} didn't send your request to any company. Connect one first: ${listed(
-            lab.map((c) => c.name),
-            "or",
-          )} from the lab, or another company by typing its address in the address box.`;
-          recordOwn(run, undefined, asked, say, say, typed !== null);
-          run.history = run.history.slice(-10);
-          return own(
-            say,
-            lab.map((c) => choice(conversation, { connect: originOf(c) }, lab)),
-          );
-        } else if ("ask" in route) {
-          // Nothing is sent to any Company. The request waits for the
-          // answer, which a button or the User's own words can give.
-          const names = route.ask.map(nameOf);
-          const say = `Is this for ${listed(names, "or")}? ${
-            route.why === "none"
-              ? "Nothing in your message says which."
-              : `${names.length > 2 ? "Each of them" : "Both"} could have what you asked about.`
-          }`;
-          run.waiting = asked;
-          recordOwn(run, undefined, asked, say, false, typed !== null);
-          return own(
-            say,
-            route.ask.map((c) =>
-              choice(conversation, { company: originOf(c) }, lab),
-            ),
-          );
-        } else {
-          connection = route.connection;
-          also = route.also ?? [];
-        }
-      }
-    }
+    const chosen = await chooseCompany(turn, request);
+    if (chosen) return chosen;
+    const connection = scope.connection;
     if (!connection) throw new Error("No connection for the turn");
-    if (also.length && !direct)
-      return await severalTurn([...also, connection], connection);
-    knewLost = !!connection.accountUnavailable;
-    proposals = new Set(Object.values(connection.operations ?? {}));
+    if (turn.also.length && !direct)
+      return await severalTurn(turn, [...turn.also, connection], connection);
+    scope.knewLost = !!connection.accountUnavailable;
+    scope.proposals = new Set(Object.values(connection.operations ?? {}));
     const shown: CompanyEntry[] = [];
-    stage = "pap";
+    scope.stage = "pap";
     const tools = await connect(connection, trace, shown);
     // What it offers stays with the connection, for the next turn's choice.
     connection.offered = offeredTools(tools);
     // A turn counts once the Company answered; a failed discovery is free.
     run.calls++;
-    let text: string;
-    // Demo mode has no model to put an answer into words: it shows the
-    // Company's answer as plain lines and keeps the exact JSON for "Data".
-    // A model's answer keeps what each tool it called answered.
-    let raw: unknown;
-    const show = (value: unknown) => {
-      raw = value;
-      return readable(value);
-    };
-    // What the Company's agent said is shown above as Company content; the
-    // demo's lines point to it, and "Data" keeps the exact answer.
-    const fromAgent = (value: unknown) => {
-      raw = value;
-      return agentAnswer(value, companyName);
-    };
-    const lowered = asked.toLowerCase();
-    const companyName = connection.company!.document.organization.name;
     // Which Company the answer and each piece of Company content came from.
     const from = companyRef(run, originOf(connection));
-    const change =
-      provider === "demo" ? demoChangeKind(asked, tools) : undefined;
-    const aside = provider === "demo" ? demoAside(asked, tools) : undefined;
-    // Use FDX on: balances and transactions through the FDX-shaped tools.
-    const fdxRead = provider === "demo" ? demoFdxRead(asked, tools) : undefined;
-    // Use ESPI on: usage and bills through the ESPI-shaped tools.
-    const espiRead =
-      provider === "demo" ? demoEspiRead(asked, tools) : undefined;
-    if (direct) {
-      // §8.10: the User, not the model. Their words go to the Company as
-      // written; Iris adds only a line about what happened.
-      const result = (await directConversation(
-        connection,
-        direct,
-        direct === "say" || direct === "start" ? message : undefined,
-        trace,
-        shown,
-      )) as { note?: string; error?: string };
-      text =
-        result.note ??
-        {
-          accept: `You're talking with ${companyName} directly. ${agentName()} doesn't read or answer here: what you type goes to ${companyName} as your own words.`,
-          start: `You're talking with ${companyName} directly. ${agentName()} doesn't read or answer here: what you type goes to ${companyName} as your own words.`,
-          say: "",
-          decline: `${agentName()} told ${companyName} you're not available to talk directly right now.`,
-          close: `You've left the direct conversation with ${companyName}. ${agentName()} is back.`,
-        }[direct];
-      // Their words are kept for the page, never for the model. They count
-      // as sent only when the Company answered and Iris has nothing to say
-      // about it: an error, or a note such as "this message wasn't sent",
-      // may mean they never reached the Company.
-      recordDirect(
-        run,
-        connection,
-        companyName,
-        direct,
-        message,
-        text,
-        !result.error && !result.note,
-        // What the page shows this turn, to show it again after a reload.
-        { company: shown, trace },
-      );
-      run.history = run.history.slice(-10);
-      const lost = lostAccess(run, connection, knewLost);
-      return json(
-        {
-          text,
-          trace,
-          sessionId: connection.sessionId,
-          mode: "direct",
-          // The Company the User is talking with, whose state this is.
-          from,
-          signedIn: !!connection.accountToken && !connection.accountUnavailable,
-          scopes: connection.scopes,
-          operations: Object.values(connection.operations ?? {}),
-          company: shown.map((entry) => ({ ...entry, from })),
-          excludedTasks: shownTasks(connection),
-          skills: shownSkills(connection),
-          ...directState(connection),
-          ...lost,
-        },
-        { headers: { "Cache-Control": "no-store" } },
-      );
-    } else if (
-      provider === "demo" &&
-      tools.company_agent_send &&
-      /never (arrived|came)|didn'?t arrive|nothing (arrived|came)|not delivered/.test(
-        lowered,
-      )
-    ) {
-      // The demo's way into a Direct Conversation (§8.10): report an order
-      // that never arrived; the Company may ask to talk with the user.
-      const status = (await tools.company_agent_send.execute({
-        data: { request: "order_status" },
-      })) as {
-        replies?: Array<{ data?: { last_delivery?: { id?: unknown } } }>;
-      };
-      const order = status.replies
-        ?.map((r) => r.data?.last_delivery?.id)
-        .find((id): id is string => typeof id === "string");
-      const result = order
-        ? await tools.company_agent_send.execute({
-            data: { request: "order_not_delivered", order_id: order },
-          })
-        : status;
-      text = `Protocol demo (no LLM). ${order ? `Told the Company's agent that order ${order} never arrived.` : "Asked the Company's agent for your orders first."} ${fromAgent(result)}\n\nIf the Company asks to talk with you, accept or decline with the buttons above the message box.`;
-    } else if (provider === "demo" && (change || aside)) {
-      // A change the demo can prepare comes first, whatever else the message
-      // says: "for the quarterly report" in a payment is its memo, not
-      // feedback. Short of one, words for the Company's agent or for
-      // feedback decide; only then does the demo ask for what is missing.
-      const plan =
-        change && connection.accountToken
-          ? await demoChange(asked, tools, randomId)
-          : undefined;
-      if (plan && "call" in plan) {
-        // Another kind of Company (orders, a bank, flights): the demo read
-        // the account and asks for one change with exact arguments. The
-        // Company answers approval_required and holds it for the User.
-        try {
-          const result = await tools[plan.call]!.execute(plan.args);
-          text = `Protocol demo (no LLM). ${demoChangeReply(plan, result, show)}`;
-        } catch (error) {
-          // The demo chose the arguments; when the Company's description
-          // of the tool rejects them, the request wasn't sent. Say that, not
-          // "check the Company is running".
-          if (!(error instanceof InvalidToolArguments)) throw error;
-          text = `Protocol demo (no LLM). The demo prepared a request for ${plan.call} that this Company's description of the tool doesn't accept, so the demo didn't send it. Ask for it in other words or with other values, or select a model.`;
-        }
-      } else if (aside === "agent") {
-        // The demo's way into a conversation (§8): ask what the Company's
-        // agent handles, or ask for a person (which needs a conversation first).
-        const person = /talk to|someone/.test(lowered);
-        const results: unknown[] = [];
-        if (!person || !connection.conversation?.id)
-          results.push(
-            await tools.company_agent_send!.execute({
-              data: { request: "help" },
-            }),
-          );
-        if (person)
-          results.push(await tools.company_agent_handoff!.execute({}));
-        text = `Protocol demo (no LLM). Live Company Agent ${person ? "handoff" : "reply"}. ${fromAgent(results.at(-1))}\n\nThe Company's agent answers structured requests. For a real conversation with it, select a model.`;
-      } else if (aside === "feedback") {
-        // The demo's way into feedback (§9.3): a fixed, identifier-free report.
-        const result = await tools.report_unsupported_task!.execute({
-          task: "Pay with a gift card",
-          description:
-            "The User wanted to pay with a gift card they were given. None of the Company's APIs or its agent's requests apply a gift card.",
-        });
-        // Iris doesn't send a report twice in a Session, or one for a task
-        // the Company already lists: the heading says which happened.
-        const sent = (result as { sent?: unknown } | null)?.sent !== false;
-        // An alternative the Company gave is shown above as its own entry.
-        raw = result;
-        text = `Protocol demo (no LLM). Feedback report ${sent ? "sent" : "not sent"} to the Company (§9.3):\n\n${feedbackAnswer(result, companyName)}\n\nWith a model, ${agentName()} reports a task only after trying the Company's tools.`;
-      } else if (!connection.accountToken) {
-        text =
-          "Protocol demo (no LLM). Sign in first: the demo reads your account to prepare this change, and nothing changes until you approve it.";
-      } else {
-        text = `Protocol demo (no LLM). ${plan?.say ?? "The demo can't prepare that change here."}`;
-      }
-    } else if (provider === "demo" && fdxRead) {
-      text = demoFdxReply(await demoFdxAnswer(fdxRead, tools), show);
-    } else if (provider === "demo" && espiRead) {
-      text = demoEspiReply(await demoEspiAnswer(espiRead, tools), show);
-    } else if (provider === "demo") {
-      const message = lowered;
-      const day = ["saturday", "tuesday", "thursday"].find((day) =>
-        message.includes(day),
-      );
-      const editingItem =
-        /\b(remove|add|set|quantity)\b/.test(message) &&
-        /orange|broccoli|apple|coffee/.test(message);
-      const target = shoppingTarget(message, run.history);
-      const selected =
-        editingItem && target
-          ? target === "delivery"
-            ? "propose_delivery_item_quantity"
-            : "propose_basket_quantity"
-          : /checkout|check out|place.*order/.test(message)
-            ? "propose_checkout"
-            : /basket|cart/.test(message)
-              ? /add|remove|quantity|set/.test(message)
-                ? "propose_basket_quantity"
-                : "my_basket"
-              : /my.*order|order.*my/.test(message)
-                ? "my_orders"
-                : /move|change|reschedul/.test(message) &&
-                    day &&
-                    tools.propose_delivery_change
-                  ? "propose_delivery_change"
-                  : /my.*deliver|deliver.*my/.test(message) &&
-                      tools.my_deliveries
-                    ? "my_deliveries"
-                    : /deliver|ship|saturday|tuesday|thursday/.test(message)
-                      ? "delivery_info"
-                      : "list_products";
-      // Another Company's tools: never guess arguments for unknown schemas,
-      // and never talk to the Company's agent unless asked (above).
-      const fallback = tools[selected]
-        ? selected
-        : pickDemoTool(
-            message,
-            Object.fromEntries(
-              Object.entries(tools).filter(
-                ([name]) => !name.startsWith("company_agent_"),
-              ),
-            ),
-          );
-      const selectedTool = fallback ? tools[fallback] : undefined;
-      const product_id = /coffee/.test(message)
-        ? "coffee"
-        : /broccoli/.test(message)
-          ? "broccoli"
-          : /apple/.test(message)
-            ? "apples"
-            : "oranges";
-      const quantity = /remove/.test(message)
-        ? 0
-        : Number(message.match(/\b\d+\b/)?.[0] ?? 1);
-      if (!selectedTool) {
-        text =
-          "Protocol demo (no LLM): every tool at this Company needs arguments the demo can't choose. Pick a model to try it, or inspect its tools in the Inspector.";
-      } else if (editingItem && !target) {
-        text =
-          "Do you mean your shopping basket or your recurring delivery? Please name which one; no changes have been proposed.";
-      } else {
-        const allowed = selectedTool.schema.properties as Record<
-          string,
-          unknown
-        >;
-        const args = {
-          product_id,
-          quantity,
-          day: day ? day[0]!.toUpperCase() + day.slice(1) : "Saturday",
-        };
-        const result = await selectedTool.execute(
-          Object.fromEntries(
-            Object.entries(args).filter(([key]) => Object.hasOwn(allowed, key)),
-          ),
-        );
-        // Signed out, or without the permission, Iris stops before asking:
-        // there is no answer of the Company's to show, only what to press.
-        const hints = companyProfile(connection.company!).scopeHints;
-        const unsent = notSentReply(
-          result,
-          companyName,
-          (scope) => hints[scope]?.changes !== "none",
-        );
-        text = unsent
-          ? `Protocol demo (no LLM). ${unsent}`
-          : `Protocol demo (no LLM). The company answered:\n\n${show(result)}\n\n${tools.my_basket ? "Try “my basket”, “set apples in my basket to 2”, “checkout on Saturday”, “my orders”, or “my deliveries”. Basket edits and checkout are proposals only until you click Approve. Demo quantities are absolute totals, not increments." : `The demo called ${fallback}, a tool that needs no arguments.`} For natural-language reasoning, select a model.`;
-      }
-    } else {
-      stage = "provider";
-      // The model is sent the last turns of the whole conversation, so what
-      // it read with any Company's account can be in this answer and in the
-      // requests it makes: both are kept as holding those accounts.
-      context = run.history.slice(-10);
-      // Each tool's answer as the Company gave it, in the order the model
-      // called them, for "Data" as demo mode keeps its one answer. The model
-      // itself gets each one cut short.
-      const answered: Array<{ tool: string; output: unknown }> = [];
-      const recorded = Object.fromEntries(
-        Object.entries(tools).map(([name, tool]) => [
-          name,
-          {
-            ...tool,
-            execute: async (input?: Record<string, unknown>) => {
-              const output = await tool.execute(input);
-              answered.push({ tool: name, output });
-              return output;
-            },
-          },
-        ]),
-      );
-      text = await runModel(
-        provider,
-        // The roles and the words, without the Company each turn was with.
-        [
-          ...context.map(({ role, content }) => ({ role, content })),
-          { role: "user", content: asked },
-        ],
-        recorded,
-        {
-          ...modelConfig,
-          name: agentName(),
-          // Whether the User is signed in here, and with what: Company
-          // content may say what a request needs, never what the User has.
-          context: accountNote(companyName, {
-            signedIn: !!connection.accountToken,
-            lost: !!connection.accountUnavailable,
-            granted: connection.scopes ?? "",
-            profile: companyProfile(connection.company!),
-          }),
-        },
-      );
-      if (answered.length) raw = answered;
-    }
+    if (direct) return await directReply(turn, connection, direct, shown);
+    // A model's answer keeps what each tool it called answered.
+    const { text, raw } =
+      turn.provider === "demo"
+        ? await demoReply(turn, connection, tools)
+        : await modelReply(turn, connection, tools);
     const exact =
       raw !== undefined ? JSON.stringify(raw).slice(0, 20000) : undefined;
     // The model's context gets the two turns. The page's transcript also
     // keeps what this turn shows, to show it again after a reload.
-    recordTurn(run, connection, asked, text, {
+    recordTurn(run, connection, turn.asked, text, {
       company: shown,
       trace,
-      demo: provider === "demo",
+      demo: turn.provider === "demo",
       data: exact,
-      context,
-      typed,
+      context: scope.context,
+      typed: turn.typed,
     });
     run.history = run.history.slice(-10);
     // The turn ended with an answer though the access went during it: what
     // the page showed with the account goes all the same, this turn too.
-    const lost = lostAccess(run, connection, knewLost);
+    const lost = lostAccess(run, connection, scope.knewLost);
     return json(
       {
         text,
         ...(exact !== undefined ? { data: exact } : {}),
         trace,
-        mode: provider,
+        mode: turn.provider,
         // The Company the turn was with: the answer came from there, and
         // the state that follows is that Company's.
         from,
         // Iris's own line from before it asked the Company, to show first.
-        ...(did.before ? { before: did.before } : {}),
+        ...(scope.did.before ? { before: scope.did.before } : {}),
         ...turnState(connection),
         company: shown.map((entry) => ({ ...entry, from })),
-        ...companies(),
+        ...companiesNow(turn),
         ...lost,
       },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
-    const recovery = accountRecovery(error);
-    // In a turn with several Companies, the one this failed at: the answer
-    // is about that one, and what it knew of its sign-in.
-    const at =
-      failure && failure.error === error ? failure.connection : connection;
-    const knew =
-      parts.find((part) => part.connection === at)?.knewLost ?? knewLost;
-    // Every line the turn wrote, each Company's too.
-    const lines = [...trace, ...parts.flatMap((part) => part.trace)];
-    // The Company the turn that failed was with, when it had got to one,
-    // and what the User's words had done to the Companies before it.
-    const turn = {
-      ...(run && at ? { from: companyRef(run, originOf(at)) } : {}),
-      ...(run && at && parts.length
-        ? {
-            traces: [
-              ...(trace.length
-                ? [{ from: companyRef(run, originOf(at)), trace }]
-                : []),
-              ...parts.map((part) => ({ from: part.ref, trace: part.trace })),
-            ],
-          }
-        : {}),
-      ...(did.before ? { before: did.before } : {}),
-      ...(run && did.changed ? companiesView(run) : {}),
-      ...did.left,
-    };
-    // Signed out, a token error means the Company refused the Session
-    // itself: there is no account access to renew (often a different draft).
-    if (
-      recovery &&
-      at &&
-      !at.accountToken &&
-      error instanceof ProtocolError &&
-      error.code === "invalid_token"
-    )
-      return json(
-        {
-          error:
-            "The Company refused this signed-out Poppy 1.0 Session. It may implement another version of the protocol; check its discovery in the Inspector.",
-          code: "session_refused",
-          stage,
-          trace: lines,
-          ...turn,
-        },
-        { status: 502, headers: { "Cache-Control": "no-store" } },
-      );
-    // Signed out, a plain sign-in challenge is not lost access.
-    if (recovery && at && !at.accountToken)
-      return json(
-        {
-          error:
-            "This needs your account at the Company, which didn't take the request without it. Use Sign in in the chat if the Company offers it, then ask again.",
-          code: "sign_in_required",
-          next: "signin",
-          stage,
-          trace: lines,
-          ...turn,
-        },
-        { status: 401, headers: { "Cache-Control": "no-store" } },
-      );
-    if (recovery) {
-      if (at && recovery.next === "signin") at.accountUnavailable = true;
-      // With the message about the lost access goes what the page still
-      // shows: the answers Iris read with the account are gone from it.
-      const lost = run && at ? lostAccess(run, at, knew) : undefined;
-      return json(
-        { ...recovery, stage, trace: lines, ...turn, ...lost },
-        { status: recovery.status, headers: { "Cache-Control": "no-store" } },
-      );
-    }
-    if (error instanceof ModelRequestError) {
-      return json(
-        {
-          error: error.message,
-          code: error.code,
-          stage: "provider",
-          trace: lines,
-          ...turn,
-        },
-        { status: 502, headers: { "Cache-Control": "no-store" } },
-      );
-    }
-    // A Company's protocol error: its status and code are safe to show
-    // (never its free text) and are what an interop report needs.
-    if (error instanceof ProtocolError) {
-      const code = /^[A-Za-z0-9_.:-]{1,64}$/.test(error.code ?? "")
-        ? error.code
-        : undefined;
-      // A code of the Company's own, such as insufficient_funds, is shown
-      // too; `code` below stays the protocol's.
-      const shown = code ?? error.companyCode;
-      // And a number it gave, in our own words (`refusalFacts`).
-      const facts = refusalFacts(error.body);
-      return json(
-        {
-          error: `${at?.company?.document.organization.name ?? "The Company"} answered HTTP ${error.status}${shown ? ` ${shown}` : ""}${facts.length ? ` (${facts.join(", ")})` : ""}. Nothing was retried; see the Inspector.`,
-          code: code ?? "company_error",
-          stage,
-          trace: lines,
-          ...turn,
-        },
-        { status: 502, headers: { "Cache-Control": "no-store" } },
-      );
-    }
-    const message = error instanceof Error ? error.message : "Chat failed";
-    // Operator log: stage and error class only; never the request, keys or tokens.
-    console.error(
-      "chat_failed",
-      stage,
-      error instanceof Error ? `${error.name}: ${message.slice(0, 160)}` : "",
-    );
-    // Only messages written for the visitor are shown; discovery errors are
-    // ours too (the same text the Connect step shows).
-    const safe =
-      error instanceof UserFacingError ||
-      error instanceof PapDiscoveryError ||
-      // Local provider configuration hints from the adapters, nothing else.
-      (stage === "provider" &&
-        /^(Set [A-Z_]+_API_KEY|Unknown model)/.test(message))
-        ? message
-        : "Chat request failed. Check the Company is running and the selected provider is configured; retry with Protocol demo.";
-    return json(
-      { error: safe, stage, trace: lines, ...turn },
-      { status: 400, headers: { "Cache-Control": "no-store" } },
-    );
+    return failedTurn(error, scope);
   } finally {
+    const { run, connection, parts, context, proposals, did, knewLost } = scope;
     // Whose accounts what the turn did could hold: in a turn with several
     // Companies, what it read at any of them.
     const accounts =
@@ -1454,4 +368,131 @@ async function reply(
       });
     active--;
   }
+}
+
+/**
+ * §8.10: the User's own action on a Direct Conversation, not the model's.
+ * Their words go to the Company as written; Iris adds only a line about
+ * what happened.
+ */
+async function directReply(
+  turn: HeldTurn,
+  connection: Connection,
+  direct: DirectAction,
+  shown: CompanyEntry[],
+) {
+  const { scope, conversation: run, message } = turn;
+  const { trace } = scope;
+  const companyName = connection.company!.document.organization.name;
+  const from = companyRef(run, originOf(connection));
+  const result = (await directConversation(
+    connection,
+    direct,
+    direct === "say" || direct === "start" ? message : undefined,
+    trace,
+    shown,
+  )) as { note?: string; error?: string };
+  const text =
+    result.note ??
+    {
+      accept: `You're talking with ${companyName} directly. ${agentName()} doesn't read or answer here: what you type goes to ${companyName} as your own words.`,
+      start: `You're talking with ${companyName} directly. ${agentName()} doesn't read or answer here: what you type goes to ${companyName} as your own words.`,
+      say: "",
+      decline: `${agentName()} told ${companyName} you're not available to talk directly right now.`,
+      close: `You've left the direct conversation with ${companyName}. ${agentName()} is back.`,
+    }[direct];
+  // Their words are kept for the page, never for the model. They count
+  // as sent only when the Company answered and Iris has nothing to say
+  // about it: an error, or a note such as "this message wasn't sent",
+  // may mean they never reached the Company.
+  recordDirect(
+    run,
+    connection,
+    companyName,
+    direct,
+    message,
+    text,
+    !result.error && !result.note,
+    // What the page shows this turn, to show it again after a reload.
+    { company: shown, trace },
+  );
+  run.history = run.history.slice(-10);
+  const lost = lostAccess(run, connection, scope.knewLost);
+  return json(
+    {
+      text,
+      trace,
+      sessionId: connection.sessionId,
+      mode: "direct",
+      // The Company the User is talking with, whose state this is.
+      from,
+      signedIn: !!connection.accountToken && !connection.accountUnavailable,
+      scopes: connection.scopes,
+      operations: Object.values(connection.operations ?? {}),
+      company: shown.map((entry) => ({ ...entry, from })),
+      excludedTasks: shownTasks(connection),
+      skills: shownSkills(connection),
+      ...directState(connection),
+      ...lost,
+    },
+    { headers: { "Cache-Control": "no-store" } },
+  );
+}
+
+/**
+ * The model's turn with one Company: its tools, the conversation's last
+ * turns and what the User has there. `raw` keeps what each tool it
+ * called answered, in order, for "Data".
+ */
+async function modelReply(
+  turn: HeldTurn,
+  connection: Connection,
+  tools: Record<string, ApiTool>,
+): Promise<{ text: string; raw: unknown }> {
+  const { scope, conversation: run } = turn;
+  const companyName = connection.company!.document.organization.name;
+  scope.stage = "provider";
+  // The model is sent the last turns of the whole conversation, so what
+  // it read with any Company's account can be in this answer and in the
+  // requests it makes: both are kept as holding those accounts.
+  const context = (scope.context = run.history.slice(-10));
+  // Each tool's answer as the Company gave it, in the order the model
+  // called them, for "Data" as demo mode keeps its one answer. The model
+  // itself gets each one cut short.
+  const answered: Array<{ tool: string; output: unknown }> = [];
+  const recorded = Object.fromEntries(
+    Object.entries(tools).map(([name, tool]) => [
+      name,
+      {
+        ...tool,
+        execute: async (input?: Record<string, unknown>) => {
+          const output = await tool.execute(input);
+          answered.push({ tool: name, output });
+          return output;
+        },
+      },
+    ]),
+  );
+  const text = await runModel(
+    turn.provider,
+    // The roles and the words, without the Company each turn was with.
+    [
+      ...context.map(({ role, content }) => ({ role, content })),
+      { role: "user", content: turn.asked },
+    ],
+    recorded,
+    {
+      ...turn.modelConfig,
+      name: agentName(),
+      // Whether the User is signed in here, and with what: Company
+      // content may say what a request needs, never what the User has.
+      context: accountNote(companyName, {
+        signedIn: !!connection.accountToken,
+        lost: !!connection.accountUnavailable,
+        granted: connection.scopes ?? "",
+        profile: companyProfile(connection.company!),
+      }),
+    },
+  );
+  return { text, raw: answered.length ? answered : undefined };
 }
