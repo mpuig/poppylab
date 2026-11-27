@@ -104,9 +104,15 @@ export function isPrivateAddress(address: string): boolean {
 export const onWorkers = () =>
   typeof navigator !== "undefined" &&
   navigator.userAgent === "Cloudflare-Workers";
-const localName = (hostname: string) =>
-  /(^|\.)(localhost|local|internal|localdomain|home\.arpa)$/i.test(hostname) ||
-  !hostname.includes(".");
+/** A name for this machine or network; `localhost.` is `localhost`. */
+const localName = (fqdn: string) => {
+  const hostname = fqdn.replace(/\.+$/, "");
+  return (
+    /(^|\.)(localhost|local|internal|localdomain|home\.arpa)$/i.test(
+      hostname,
+    ) || !hostname.includes(".")
+  );
+};
 function assertPublicHttpsHost(url: URL) {
   if (url.protocol !== "https:")
     throw new Error("Poppy discovery requires HTTPS");
