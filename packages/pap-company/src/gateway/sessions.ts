@@ -148,8 +148,11 @@ export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
           url,
           ...(token ? { accessToken: token } : {}),
           keysFor: async (id) => (await ctx.client(id)).keys,
-          // The Session JWT stands in for a Bearer token's DPoP proof.
-          ...(bearer ? { replay } : {}),
+          // Taken once (§5.3) unless a DPoP proof is: the Session JWT stands
+          // in for the proof a signed-out request or Bearer token lacks, and
+          // its `htu` doesn't cover the body. A DPoP-bound request may send
+          // it again with a new proof after a nonce challenge.
+          ...(scheme !== "DPoP" ? { replay } : {}),
         },
       );
     } catch {
