@@ -7,8 +7,8 @@ it, Iris has to find out what Juniper offers to agents, and Juniper decides
 what an agent may see while no customer has signed in.
 
 This page follows that first contact screen by screen, on Juniper's website
-and in Iris's conversation. Every screenshot is from the live lab, taken on
-26 November 2026.
+and in Iris's conversation. Every screenshot is from the live lab at
+[poppylab.dev](https://poppylab.dev), taken on 26 and 27 November 2026.
 
 ## Who does what
 
@@ -38,7 +38,7 @@ own.
 
 Next to its pages for people, Juniper publishes one description for agents.
 It says who the company is, how a customer signs in, which permissions a
-customer can give, and where its API and its own agent are. The For agents
+customer can give, and where its APIs and its own agent are. The For agents
 page lists the same addresses for the people who build agents.
 
 The description sits at a fixed place on the company's address, and that
@@ -50,7 +50,7 @@ website therefore knows where to look.
 
 Anyone can fetch the description, and no credentials are sent with the
 request. This is Juniper's, as served on the day of the run, with the long
-descriptions shortened:
+descriptions shortened and the hints on each permission left out:
 
 ```http
 GET https://grocery-demo.poppylab.dev/.well-known/poppy.json
@@ -86,6 +86,11 @@ GET https://grocery-demo.poppylab.dev/.well-known/poppy.json
       "type": "openapi",
       "url": "https://grocery-demo.poppylab.dev/openapi.json",
       "description": "Products, delivery information, opening hours, and returns policies"
+    },
+    {
+      "type": "mcp",
+      "url": "https://grocery-demo.poppylab.dev/mcp",
+      "description": "The same operations as MCP tools: products, delivery and policies, and your basket, …"
     }
   ],
   "web": {
@@ -110,17 +115,19 @@ given.
 
 ### 4. Iris finds Juniper
 
-![A line under the settings reads: Found Juniper Market, grocery-demo.poppylab.dev, 1 API, Company agent, Poppy 1.0](../../../apps/playground/public/learn-media/how-it-works/connecting-to-a-company/04-iris-finds-juniper.webp "Everything in the line that begins with Found comes from Juniper's description.")
+![Juniper Market, marked Public access, is open in the bar above the conversation. Its line reads: Juniper Market, grocery-demo.poppylab.dev, 2 APIs, Company agent, Poppy 1.0, and a green button reads Sign in to Juniper Market, read only](../../../apps/playground/public/learn-media/how-it-works/connecting-to-a-company/04-iris-finds-juniper.webp "Everything in the line after the name comes from Juniper's description.")
 
-Iris fetches the description from Juniper's address and reports what it
-found: the company's name, the address that served the description, one API,
-an agent of Juniper's own that Iris could talk to, and version 1.0 of the
-protocol.
+Iris fetches the description from Juniper's address and lists Juniper in the
+bar above the conversation. Opened, the entry says what Iris found: the
+company's name, the address that served the description, two APIs, an agent
+of Juniper's own that Iris could talk to, and version 1.0 of the protocol.
+The two APIs offer the same operations, one as an OpenAPI description and
+one as an MCP server.
 
 Nothing about Juniper is built into Iris. The name is what Juniper says about
 itself, and the address is what Iris checked. The conversation is marked
 Public access, because Elena has not signed in, and the green button is how
-she would.
+she would. She can also answer "yes" when Iris asks her in the chat.
 
 <details>
 <summary>What travelled</summary>
@@ -148,9 +155,10 @@ Elena asks what Juniper sells. Juniper answers, because it decided that its
 catalogue is public. The four products and their prices are the ones on the
 website in step 1, since both come from Juniper.
 
-The lab runs here in demo mode, without an AI model, so the answer is the
-company's data set out as plain lines. With a model connected Iris would
-answer in sentences. The requests to Juniper are the same either way.
+The lab runs here in demo mode, which answers its guided examples without an
+AI model, so the answer is the company's data set out as plain lines. With a
+model connected Iris would answer in sentences. The requests to Juniper are
+the same either way.
 
 <details>
 <summary>What travelled</summary>
@@ -234,13 +242,17 @@ Read /api/delivery
 
 ### 7. Ask about the account
 
-![Elena asks for her orders. Iris answers that this needs her account at Juniper Market, that she is not signed in, and that nothing was sent to the company](../../../apps/playground/public/learn-media/how-it-works/connecting-to-a-company/07-orders-need-sign-in.webp "Orders belong to an account, and no account is connected yet.")
+![Elena asks for her orders. The answer says this needs her account at Juniper Market, that she is not signed in and that Iris didn't send the request. Below it Iris asks whether to sign in to Juniper Market to go on with Show my orders, with a button to sign in read only](../../../apps/playground/public/learn-media/how-it-works/connecting-to-a-company/07-orders-need-sign-in.webp "Orders belong to an account, and no account is connected yet.")
 
 Elena asks for her orders. This time there is no answer to give: orders
 belong to an account, and Iris has no permission to read hers. Iris says that
 the request needs her account at Juniper, that she is not signed in, and that
-nothing was sent to the company. The green button under the answer is where
-Elena would start.
+it didn't send the request to the company.
+
+Then Iris asks a question of its own: sign in to Juniper Market to go on with
+"Show my orders"? Elena can press the button under the question or answer
+"yes" in the chat. Either way the sign-in happens on Juniper's own page, and
+once it is done Iris can go on with her request.
 
 Juniper drew this line. In the description of its API, the catalogue and the
 delivery days need nothing, and everything under the account needs a
@@ -259,7 +271,7 @@ Inspector lists it as "Not sent · GET /api/account/orders · sign-in needed".
 Started a Poppy Session, signed out
 Company Agent conversations at https://grocery-demo.poppylab.dev/poppy/conversations
 Found 19 API tools at the Company
-Did not ask for /api/account/orders (sign-in needed); nothing was sent
+Did not send a request to /api/account/orders (sign-in needed)
 ```
 
 The two entries in Juniper's API description that made the difference,
@@ -300,10 +312,12 @@ runs the address is a separate matter, and the Inspector says so: the name
 
 ### 9. Read the permissions in Juniper's words
 
-![The company profile: protocol version, address, sign-in, the address of Juniper's task list, three tasks not offered, two skills published, and three permissions with Juniper's descriptions](../../../apps/playground/public/learn-media/how-it-works/connecting-to-a-company/09-company-profile.webp "Juniper names what it does not offer to agents, lists its notes for agents and describes its three permissions for the customer.")
+![The company profile: protocol version, address, sign-in by Direct and Device, the address of Juniper's task list, three tasks not offered, two skills published, and three permissions with Juniper's descriptions](../../../apps/playground/public/learn-media/how-it-works/connecting-to-a-company/09-company-profile.webp "Juniper names what it does not offer to agents, lists its notes for agents and describes its three permissions for the customer.")
 
 Lower in the same view is the part of the description that concerns Elena.
-Juniper offers three permissions and describes each in a sentence written for
+Under Sign-in, the profile names the two ways Juniper offers: Direct, on
+Juniper's page in the same browser, and Device, with a short code entered on
+another screen. Iris uses Direct. Juniper offers three permissions and describes each in a sentence written for
 the person who will be asked. One is to see her basket, orders, recurring
 delivery, profile, invoices and support cases, and one is to propose changes,
 each of which she approves separately.
@@ -336,22 +350,24 @@ she types the address of a bank.
 
 ### 11. The same agent finds another company
 
-![The line now reads: Found Harborline Bank, bank-demo.poppylab.dev, 2 APIs, Company agent, Poppy 1.0](../../../apps/playground/public/learn-media/how-it-works/connecting-to-a-company/11-harborline-found.webp "Iris did for the bank what it did for the grocery shop.")
+![The bar now holds Harborline Bank, marked Public access. Its line reads: Harborline Bank, bank-demo.poppylab.dev, 3 APIs, Company agent, Poppy 1.0, next to a Use FDX box and a green button to sign in read only](../../../apps/playground/public/learn-media/how-it-works/connecting-to-a-company/11-harborline-found.webp "Iris did for the bank what it did for the grocery shop.")
 
 Iris fetches the bank's description from the same fixed place and reports
-what it found: Harborline Bank, two APIs, an agent of its own. Nothing about
+what it found: Harborline Bank, three APIs, an agent of its own. Nothing about
 the bank was built into Iris either.
 
 What differs between the two companies is what each one published. The bank
-describes two APIs where the shop describes one, and here Iris offers no
-public questions and asks Elena to sign in first.
+describes three APIs where the shop describes two, and here Iris offers no
+public questions and asks Elena to sign in first. The third API is
+[FDX-shaped](../extensions/fdx.md), for bank data, and Iris uses it when
+Elena ticks Use FDX.
 
 ## What Juniper controls
 
 Juniper stays in charge of what an agent learns about it.
 
-- It writes the description that agents read: its name, its API, its own
-  agent and the way its customers sign in.
+- It writes the description that agents read: its name, its APIs, its own
+  agent and the ways its customers sign in.
 - It decides what is public. Juniper made the catalogue and the delivery days
   public and put everything under the account behind a permission.
 - It names its permissions and describes them in its own words for the
