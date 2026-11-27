@@ -152,13 +152,14 @@ const schemas: Record<string, Schema> = {
     {
       provider: {
         type: "string",
-        enum: ["demo", "openai-compatible", "anthropic"],
+        enum: ["demo", "free", "openai-compatible", "anthropic"],
       },
       apiKey: string,
       model: string,
+      turnstile: string,
     },
     ["provider"],
-    "The model a turn is asked of, with the User's own key; demo mode, which runs scripted examples only, when left out.",
+    "The model a turn is asked of, with the User's own key; demo mode, which runs scripted examples only, when left out. `free` is the deployment's own small model, with no key: each turn needs a Turnstile token (`turnstile`) for the deployment's site key, and one without a good token, or past the free model's limits, runs in demo mode with a line that says why.",
   ),
   Decision: object({
     proposal: ref("Proposal"),

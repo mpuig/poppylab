@@ -358,6 +358,9 @@ const model = (value: unknown) => {
       provider: (text(m.provider) ?? "demo") as "demo",
       ...(text(m.apiKey) !== undefined ? { apiKey: text(m.apiKey)! } : {}),
       ...(text(m.model) !== undefined ? { model: text(m.model)! } : {}),
+      ...(text(m.turnstile) !== undefined
+        ? { turnstile: text(m.turnstile)! }
+        : {}),
     },
   };
 };

@@ -26,6 +26,7 @@ import { lostAccess } from "./conversation-view";
 import type { CompanyEntry, DirectAction } from "./conversations";
 import { publicMode, serving } from "./deployment";
 import { directState } from "./direct-state";
+import { admitFreeTurn, modelProvider, type FreeTurn } from "./free-model";
 import { keepLines } from "./inspector-log";
 import { labCompanies } from "./lab-companies";
 import { conversationEnded, overBudget } from "./limits";
@@ -161,6 +162,7 @@ async function reply(
   const { trace } = scope;
   let held: Held | undefined;
   let visitor: string | undefined;
+  let free: FreeTurn | undefined;
   try {
     const request = checkChatBody(await input.read(), caller);
     if ("refused" in request) return request.refused;
@@ -168,6 +170,21 @@ async function reply(
     visitor = caller.user(true);
     const limited = await overBudget(caller.ip, visitor, "chat");
     if (limited) return limited;
+    // The free model past its checks and limits, or demo mode with
+    // Iris's line about why, shown before the answer. A Direct
+    // Conversation asks no model.
+    let provider = request.provider;
+    let modelConfig: HeldTurn["modelConfig"] = request.modelConfig;
+    if (provider === "free" && !direct) {
+      const admitted = await admitFreeTurn(caller, visitor, request.turnstile);
+      if ("notice" in admitted) {
+        provider = "demo";
+        scope.did.before = admitted.notice;
+      } else {
+        free = admitted;
+        modelConfig = { ...modelConfig, workersAi: admitted.workersAi };
+      }
+    }
     const named = input.conversation;
     const current = await acquireRun(visitor, named);
     if (current === "busy")
@@ -247,8 +264,8 @@ async function reply(
       scope,
       conversation: run,
       lab,
-      provider: request.provider,
-      modelConfig: request.modelConfig,
+      provider,
+      modelConfig,
       message,
       asked: message,
       typed: undefined,
@@ -366,6 +383,8 @@ async function reply(
       await releaseRun(visitor, held).catch((error: unknown) => {
         started.unsaved = error;
       });
+    // What the free model cost, however the turn ended.
+    if (free) await free.settle().catch(() => {});
     active--;
   }
 }
@@ -474,7 +493,7 @@ async function modelReply(
     ]),
   );
   const text = await runModel(
-    turn.provider,
+    modelProvider(turn.provider),
     // The roles and the words, without the Company each turn was with.
     [
       ...context.map(({ role, content }) => ({ role, content })),

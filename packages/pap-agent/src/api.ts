@@ -125,11 +125,17 @@ export type TurnResult = {
   state: ConversationState;
 };
 
-/** The model a turn is asked of; demo mode when none is given. */
+/**
+ * The model a turn is asked of; demo mode when none is given. `free` is
+ * the deployment's own small model (`free-model.ts`), which takes no key
+ * but a Turnstile token for each turn; without a good one, or past its
+ * limits, the turn runs in demo mode and says why.
+ */
 export type ModelChoice = {
-  provider: "demo" | "openai-compatible" | "anthropic";
+  provider: "demo" | "free" | "openai-compatible" | "anthropic";
   apiKey?: string;
   model?: string;
+  turnstile?: string;
 };
 
 // ---- Mapping ---------------------------------------------------------------
@@ -369,6 +375,7 @@ const model = (choice: ModelChoice | undefined) => ({
   provider: choice?.provider ?? "demo",
   ...(choice?.apiKey !== undefined ? { apiKey: choice.apiKey } : {}),
   ...(choice?.model !== undefined ? { model: choice.model } : {}),
+  ...(choice?.turnstile !== undefined ? { turnstile: choice.turnstile } : {}),
 });
 
 /**

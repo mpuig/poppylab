@@ -6,6 +6,7 @@ import { accountNote } from "./account-permissions";
 import { companyRef, originOf } from "./connections";
 import { companiesView, lostAccess } from "./conversation-view";
 import { demoPayBill } from "./demo-pay-bill";
+import { modelProvider } from "./free-model";
 import { readable } from "./demo-text";
 import { offeredTools } from "./routing";
 import { connect, type Connection } from "./runtime";
@@ -93,7 +94,7 @@ export async function severalTurn(
       `Offered the model ${Object.keys(part.tools).length - count} of ${part.ref.name}'s ${Object.keys(part.tools).length} tools · at most ${SEVERAL_LIMITS.tools} in a turn with several Companies`,
     );
   const text = await runModel(
-    provider,
+    modelProvider(provider),
     [
       ...scope.context.map(({ role, content }) => ({ role, content })),
       { role: "user", content: turn.asked },

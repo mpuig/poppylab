@@ -2,6 +2,7 @@ import { accountUnavailableNotice } from "./account-recovery";
 import type { Choice, Performed } from "./company-commands";
 import { companiesView } from "./conversation-view";
 import { directState } from "./direct-state";
+import type { FreeTurn } from "./free-model";
 import type { LabCompany } from "./lab-companies";
 import type { Connection, Operation, Run, Turn } from "./runtime";
 import type { Part } from "./several";
@@ -73,8 +74,14 @@ export type HeldTurn = {
   scope: TurnScope;
   conversation: Run;
   lab: LabCompany[];
+  /** `demo`, `free` (the deployment's own model) or the User's provider. */
   provider: string;
-  modelConfig: { apiKey: string | undefined; model: string | undefined };
+  modelConfig: {
+    apiKey: string | undefined;
+    model: string | undefined;
+    /** The free model's binding, for a turn `admitFreeTurn` let in. */
+    workersAi?: FreeTurn["workersAi"];
+  };
   /**
    * What the User said: their words, or the label of the button they
    * pressed, which the page showed as their line.

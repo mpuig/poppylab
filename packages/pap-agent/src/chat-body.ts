@@ -26,6 +26,8 @@ export type ChatBody = {
   provider?: unknown;
   apiKey?: unknown;
   model?: unknown;
+  /** For the free model: a Turnstile token, good for this one turn. */
+  turnstile?: unknown;
   /** §8.10: the User's own action on a Direct Conversation; no model. */
   direct?: unknown;
   /**
@@ -47,6 +49,7 @@ export type ChatRequest = {
   written: string;
   provider: string;
   modelConfig: { apiKey: string | undefined; model: string | undefined };
+  turnstile: string | undefined;
 };
 
 const directActions: readonly DirectAction[] = [
@@ -126,10 +129,18 @@ export function checkChatBody(
         !/^[a-zA-Z0-9._:/-]*$/.test(body.model)))
   )
     throw new UserFacingError("Invalid model configuration");
+  if (
+    body.turnstile !== undefined &&
+    (typeof body.turnstile !== "string" || body.turnstile.length > 2048)
+  )
+    throw new UserFacingError("Invalid model configuration");
   const localDev = caller.localDev;
+  // The free model is the deployment's, and takes no key of the User's.
+  const free = body.provider === "free";
   if (
     body.provider &&
     body.provider !== "demo" &&
+    !free &&
     !localDev &&
     !body.apiKey &&
     !direct
@@ -140,11 +151,14 @@ export function checkChatBody(
         { status: 400 },
       ),
     };
-  // Public: only the offered providers, each with the visitor's own key.
+  // Public: only the offered providers, each with the visitor's own key,
+  // and the free model.
   if (
     !localDev &&
     body.provider !== undefined &&
-    !["demo", "openai-compatible", "anthropic"].includes(String(body.provider))
+    !["demo", "free", "openai-compatible", "anthropic"].includes(
+      String(body.provider),
+    )
   )
     return {
       refused: json({ error: "Unsupported model provider." }, { status: 400 }),
@@ -163,9 +177,17 @@ export function checkChatBody(
     pressed,
     written,
     provider: typeof body.provider === "string" ? body.provider : "demo",
-    modelConfig: {
-      apiKey: typeof body.apiKey === "string" ? body.apiKey : undefined,
-      model: typeof body.model === "string" ? body.model : undefined,
-    },
+    // The free model's model is the deployment's to choose, never the
+    // request's: another Workers AI model could cost many times more.
+    modelConfig: free
+      ? { apiKey: undefined, model: undefined }
+      : {
+          apiKey: typeof body.apiKey === "string" ? body.apiKey : undefined,
+          model: typeof body.model === "string" ? body.model : undefined,
+        },
+    turnstile:
+      typeof body.turnstile === "string" && body.turnstile
+        ? body.turnstile
+        : undefined,
   };
 }

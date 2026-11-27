@@ -26,6 +26,7 @@ import {
 } from "./connections";
 import { demoExamplesFor, demoGuidedReply } from "./demo-examples";
 import { localOrigins } from "./deployment";
+import { modelProvider } from "./free-model";
 import { nameable } from "./lab-companies";
 import { directConnection, turnConnection } from "./routing";
 import { recordOwn } from "./transcript";
@@ -152,7 +153,8 @@ export async function chooseCompany(
     recordOwn(run, done.about, message, done.say, done.told);
     run.history = run.history.slice(-10);
     if (!done.rest) return own(done.say, done.choices);
-    did.before = done.say;
+    // After the line about the free model, when the turn has one.
+    did.before = did.before ? `${did.before} ${done.say}` : done.say;
     turn.asked = done.rest;
     turn.typed = null;
     scope.connection = done.at;
@@ -274,7 +276,8 @@ export async function chooseCompany(
     ...(example ? { example: example.company } : {}),
     ...(provider !== "demo"
       ? {
-          ask: (question) => askModel(provider, question, turn.modelConfig),
+          ask: (question) =>
+            askModel(modelProvider(provider), question, turn.modelConfig),
         }
       : {}),
   });
