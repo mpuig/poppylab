@@ -95,18 +95,39 @@ const say = async (message: string) => {
 const told = () =>
   (model.mock.calls.at(-1)![3] as { context?: string }).context ?? "";
 
+/** Juniper's answer to every feedback report (§9.3), as it gives it. */
+const alternative = {
+  instructions:
+    "What Juniper's API, agent and website can't do can be asked of its staff in a support case.",
+  references: [
+    {
+      type: "openapi",
+      url: `${shop}/poppy/openapi.json`,
+      operation_id: "propose_support_case",
+    },
+  ],
+};
+
 let now = Date.now();
 beforeEach(() => {
   // A minute apart, so the route's per-minute limit never counts.
   vi.useFakeTimers({ toFake: ["Date"], now: (now += 61_000) });
-  transport
-    .mockReset()
-    .mockImplementation(async (url) =>
-      url.endsWith("/poppy/openapi.json") ? api : { ok: true },
-    );
-  discover
-    .mockReset()
-    .mockImplementation(async () => discovered(shop, "Juniper Market"));
+  transport.mockReset().mockImplementation(async (url) => {
+    const path = new URL(url).pathname;
+    if (path === "/poppy/openapi.json") return api;
+    if (path === "/poppy/tasks")
+      return {
+        excluded_tasks: [],
+        feedback: { endpoint: `${shop}/poppy/feedback` },
+      };
+    if (path === "/poppy/feedback") return alternative;
+    return { ok: true };
+  });
+  discover.mockReset().mockImplementation(async () => {
+    const company = discovered(shop, "Juniper Market");
+    company.profile!.tasksEndpoint = `${shop}/poppy/tasks`;
+    return company;
+  });
   model.mockReset().mockResolvedValue("Done.");
 });
 
@@ -130,5 +151,40 @@ describe("what the model is told of the account", () => {
     expect(told()).toContain(
       "Juniper Market no longer accepts the user's sign-in",
     );
+  });
+});
+
+/** A model that files one feedback report, then answers. */
+const reporting = () =>
+  model.mockImplementationOnce(
+    async (
+      _provider: string,
+      _turns: unknown,
+      tools: Record<string, { execute: (input: unknown) => unknown }>,
+    ) => {
+      await tools.report_unsupported_task!.execute({
+        task: "Report a wrong item in a delivery",
+        description: "The delivery had another product than the one ordered.",
+      });
+      return "I reported it.";
+    },
+  );
+
+describe("what a Company says, in a model's turn", () => {
+  it("shows the alternative to a feedback report as the Company's own words", async () => {
+    await conversation("poppy:read");
+    reporting();
+    const turn = await say("Something in my delivery was wrong.");
+    expect(turn.status).toBe(200);
+    expect(turn.answer.company).toEqual([
+      {
+        author: "Juniper Market",
+        human: false,
+        text: alternative.instructions,
+        data: JSON.stringify({ references: alternative.references }),
+        note: "Answered the feedback report with another way to do this.",
+        from: { origin: shop, name: "Juniper Market" },
+      },
+    ]);
   });
 });

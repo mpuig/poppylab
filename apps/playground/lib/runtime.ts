@@ -1212,7 +1212,12 @@ export async function connect(
     return tools;
   };
   if (feedbackEndpoint(connection))
-    taskTools.report_unsupported_task = feedbackTool(connection, trace, names);
+    taskTools.report_unsupported_task = feedbackTool(
+      connection,
+      trace,
+      names,
+      shown,
+    );
   if (!api) {
     if (endpoint || fdx || espi)
       return offered({ ...conversation, ...domainSet, ...taskTools });
@@ -1865,13 +1870,16 @@ function identifies(text: string, tools: ReadonlySet<string>) {
 /**
  * §9.3: report a task the User wanted that can't be done here. Once per task
  * and Session, never for an excluded task, and never with identifiers. The
- * Company answers 202, or 200 with an alternative (Company content).
+ * Company answers 202, or 200 with an alternative (Company content), which
+ * the chat shows as the Company's own words, as it shows its agent's.
  * `tools` are the names of the tools this connection offers, which a report may say.
  */
 export function feedbackTool(
   connection: Connection,
   trace: string[],
   tools: ReadonlySet<string> = new Set(),
+  /** Company messages the chat shows for this turn. */
+  shown: CompanyEntry[] = [],
 ): ApiTool {
   return {
     description:
@@ -1966,6 +1974,19 @@ export function feedbackTool(
       trace.push(
         `POST ${new URL(endpoint).pathname} · feedback · ${alternative ? "200 with an alternative" : "202 accepted"}`,
       );
+      // A model put it in its own words, as if Iris had said it (§10.1).
+      if (alternative)
+        shown.push({
+          author: connection.company!.document.organization.name,
+          human: false,
+          ...(alternative.instructions
+            ? { text: alternative.instructions }
+            : {}),
+          ...(alternative.references.length
+            ? { data: JSON.stringify({ references: alternative.references }) }
+            : {}),
+          note: "Answered the feedback report with another way to do this.",
+        });
       return alternative
         ? { sent: true, untrusted_company_content: true, alternative }
         : { sent: true };
