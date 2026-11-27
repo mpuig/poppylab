@@ -208,11 +208,11 @@ export function notSentReply(
   const reason = notSent(value);
   if (!reason) return undefined;
   if (reason === "sign_in")
-    return `This needs your account at ${company}, and you are not signed in. ${agentName()} didn't send this request to the Company. Press “Sign in to ${company}”, then ask again.`;
+    return `This needs your account at ${company}, and you are not signed in. ${agentName()} didn't send this request to the Company. Press “Sign in to ${company}”; ${agentName()} can then go on with it.`;
   const missing = (value as Json).missing;
   return Array.isArray(missing) &&
     missing.some((scope) => typeof scope === "string" && changes(scope))
-    ? `This needs the change permission, which your sign-in to ${company} doesn't include. ${agentName()} didn't send this request to the Company. Press “Request change permission”, review the Company's consent, and ask again.`
+    ? `This needs the change permission, which your sign-in to ${company} doesn't include. ${agentName()} didn't send this request to the Company. Press “Request change permission” and review the Company's consent; ${agentName()} can then go on with it.`
     : `This needs a permission your sign-in to ${company} doesn't include. ${agentName()} didn't send this request to the Company. Sign out, then sign in again and keep every permission ticked on the Company's consent page.`;
 }
 

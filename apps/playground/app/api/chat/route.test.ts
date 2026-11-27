@@ -178,7 +178,7 @@ it("says to sign in, and that the request wasn't sent, when a signed-out custome
   const turn = await say(shop(), "my orders");
   expect(turn.status).toBe(200);
   expect(turn.answer.text).toBe(
-    "Protocol demo (no LLM). This needs your account at Juniper Market, and you are not signed in. Iris didn't send this request to the Company. Press “Sign in to Juniper Market”, then ask again.",
+    "Protocol demo (no LLM). This needs your account at Juniper Market, and you are not signed in. Iris didn't send this request to the Company. Press “Sign in to Juniper Market”; Iris can then go on with it.",
   );
   // Nothing of the Company's to show under Data.
   expect(turn.answer).not.toHaveProperty("data");
@@ -199,7 +199,7 @@ it("names the change permission, and says the request wasn't sent, when a read-o
   );
   expect(turn.status).toBe(200);
   expect(turn.answer.text).toBe(
-    "Protocol demo (no LLM). This needs the change permission, which your sign-in to Juniper Market doesn't include. Iris didn't send this request to the Company. Press “Request change permission”, review the Company's consent, and ask again.",
+    "Protocol demo (no LLM). This needs the change permission, which your sign-in to Juniper Market doesn't include. Iris didn't send this request to the Company. Press “Request change permission” and review the Company's consent; Iris can then go on with it.",
   );
   expect(turn.answer).not.toHaveProperty("data");
   expect(turn.asked).not.toContain(origin + "/api/account/delivery-change");

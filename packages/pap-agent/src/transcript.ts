@@ -60,6 +60,13 @@ export type TranscriptEntry = {
    * the last thing said: the next entry takes them away (`show`).
    */
   choices?: Choice[];
+  /**
+   * The words to say aloud, when they were made from facts the words
+   * alone don't hold: a proposal's question, made from its terms
+   * (`approval-question.ts`). Any other answer's are made from its words
+   * when it is read (`spokenText`).
+   */
+  spoken?: string;
 };
 
 /** What a turn put on the page besides the words. */
@@ -128,7 +135,7 @@ const cut = (text: string, max: number) =>
 
 /** One entry within its own limits. Data too large to keep is left out. */
 function clipped(entry: TranscriptEntry): TranscriptEntry {
-  const { data, steps, note, author, choices, ...rest } = entry;
+  const { data, steps, note, author, choices, spoken, ...rest } = entry;
   // A button whose answer is longer than any Iris makes is left out: three
   // addresses of at most 2048 characters each.
   const buttons = (choices ?? [])
@@ -141,6 +148,7 @@ function clipped(entry: TranscriptEntry): TranscriptEntry {
     content: cut(entry.content, TRANSCRIPT_LIMITS.text),
     ...(author ? { author: cut(author, 200) } : {}),
     ...(note ? { note: cut(note, 600) } : {}),
+    ...(spoken ? { spoken: cut(spoken, 600) } : {}),
     ...(steps?.length
       ? {
           steps: steps.slice(0, TRANSCRIPT_LIMITS.steps).map((step) => ({
@@ -657,6 +665,43 @@ export function recordOwn(
   });
   if (told !== false)
     tell(run, about, [], user, { role: "assistant", content: told });
+}
+
+/**
+ * A question of Iris's own, or its answer to one, that can hold what a
+ * Company's account showed: a proposal's terms, the request a sign-in
+ * stopped. `about` is the Company it is about, and `accounts` the
+ * Companies whose accounts could be in it, as for any turn. `said` is
+ * the User's line before it, when the page showed one. The model is told
+ * nothing: a question the next message answers is no part of what was
+ * asked, and how an approval ended reaches it in its own line
+ * (`recordOutcome`). The buttons stay while it is the last thing said.
+ */
+export function recordAsked(
+  run: Run,
+  about: Pick<Connection, "url"> | undefined,
+  accounts: readonly string[],
+  asked: {
+    said?: string | undefined;
+    text: string;
+    spoken?: string | undefined;
+    choices?: Choice[] | undefined;
+  },
+) {
+  show(
+    run,
+    about,
+    accounts,
+    ...(asked.said !== undefined
+      ? [{ role: "user" as const, content: asked.said }]
+      : []),
+    {
+      role: "assistant",
+      content: asked.text,
+      ...(asked.spoken ? { spoken: asked.spoken } : {}),
+      ...(asked.choices?.length ? { choices: asked.choices } : {}),
+    },
+  );
 }
 
 /**

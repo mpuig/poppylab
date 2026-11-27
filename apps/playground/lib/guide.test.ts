@@ -207,7 +207,7 @@ it("speaks about the proposal something happened to last, not the last in the li
     );
   // A new proposal that waits beside the refused one is the news too.
   expect(hintFor(proposal("proposed", { changed: 4000 }), refused)).toBe(
-    "Juniper Market is holding the change. Check the exact terms, then approve it yourself.",
+    "Juniper Market is holding the change. Check the exact terms, then approve it yourself: on its card, or by answering Iris’s question in the chat.",
   );
   // What waits comes before what is finished, however recent that is.
   expect(hintFor(refused, proposal("succeeded", { changed: 5000 }))).toContain(

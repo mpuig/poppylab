@@ -1,4 +1,5 @@
 import { accountUnavailableNotice } from "./account-recovery";
+import type { Before } from "./chat-answers";
 import type { Choice, Performed } from "./company-commands";
 import { companiesView } from "./conversation-view";
 import { directState } from "./direct-state";
@@ -7,6 +8,7 @@ import type { LabCompany } from "./lab-companies";
 import type { Connection, Operation, Run, Turn } from "./runtime";
 import type { Part } from "./several";
 import { shownSkills, shownTasks } from "./shown-tasks";
+import { spokenText } from "./spoken";
 import { offerChoices } from "./transcript";
 import { json } from "./web";
 
@@ -67,6 +69,13 @@ export type TurnScope = {
     left?: Performed["left"];
     kept: number;
   };
+  /**
+   * The proposals and invitations the conversation had before the turn:
+   * the agent asks about what is new once it answers (`askAfter`).
+   */
+  before?: Before;
+  /** The request "try again" asks again if the turn fails, and where. */
+  retry?: { asked: string; company?: string };
 };
 
 /** A turn once it holds its conversation: what it was asked, and how. */
@@ -140,12 +149,16 @@ export function ownAnswer(
   turn: HeldTurn,
   text: string,
   choices: Choice[] = [],
+  /** More of what the answer says: what an approval did, say. */
+  extra: Record<string, unknown> = {},
 ) {
   const { conversation, scope } = turn;
   offerChoices(conversation, text, choices);
   return json(
     {
       text,
+      // For a voice: made from the same words, by fixed rules.
+      spoken: spokenText(text),
       ...(scope.did.before ? { before: scope.did.before } : {}),
       trace: scope.trace,
       // The agent's own words, under no name of its own: the page reads
@@ -155,6 +168,7 @@ export function ownAnswer(
       ...turnState(conversation.connections[0]),
       company: [],
       ...companiesNow(turn),
+      ...extra,
     },
     { headers: { "Cache-Control": "no-store" } },
   );

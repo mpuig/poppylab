@@ -11,6 +11,7 @@ import { unsentFor } from "@poppy-lab/pap-agent/agent-steps";
 import { FromCompany } from "./company-mark";
 import type { Message } from "./companies";
 import { mayChange, type CompanyState, type Operation } from "./company-state";
+import { openQuestion, signInOf } from "./typed";
 import { extensionOf, type Playground } from "./use-playground";
 
 /** What the account row says of each domain extension's grant. */
@@ -110,6 +111,11 @@ export function AccountRow({
   const canWrite = p.canWrite(c);
   const moreAccess = p.moreAccess(c);
   const grant = p.grantShown(c) ? c.grantId : undefined;
+  // Iris asks about this sign-in in the conversation: it can be answered
+  // there as well as here.
+  const asked = !!openQuestion(p.messages)?.some(
+    (choice) => signInOf(choice)?.company === c.origin,
+  );
   return (
     <div className="account-row">
       {named && (
@@ -122,7 +128,9 @@ export function AccountRow({
           ? `${canWrite ? "Reading and change proposals" : "Read-only access"} · ${c.scopes.split(" ").join(", ")}`
           : waiting
             ? `Finish sign-in in the ${c.name} tab.`
-            : "Account access is optional · only connect accounts you trust"}
+            : asked
+              ? "Iris asks about this in the chat: answer “yes” there, or press the button · only connect accounts you trust"
+              : "Account access is optional · only connect accounts you trust"}
       </span>
       {extension && (
         // Use FDX or Use ESPI, per Company: the domain extension is
@@ -241,8 +249,9 @@ export function AccountRow({
       )}
       {signedIn && moreAccess && (
         <p className="permission-note">
-          This opens a new Company consent. Afterwards, ask for the change
-          again; you will approve it separately.
+          This opens a new Company consent. Afterwards Iris asks whether to go
+          on with the request that waited for it; you will approve the change
+          itself separately.
         </p>
       )}
     </div>

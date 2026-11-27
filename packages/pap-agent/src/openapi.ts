@@ -30,21 +30,39 @@ const schemas: Record<string, Schema> = {
     ["origin", "name"],
     "A Company, named by its origin; `name` is to show.",
   ),
+  ProposalRef: object(
+    { company: string, proposal: string, revision: string },
+    ["company", "proposal", "revision"],
+    "One proposal at its exact revision: the Company's origin, the proposal's ID and the revision the question named.",
+  ),
   Answer: {
     description:
-      "What a choice carries, in place of a message. Exactly one member; Companies are named by origin and nothing here is read as words.",
+      "What a choice carries, in place of a message. Exactly one member; Companies are named by origin and nothing here is read as words. `approve` and `decline` decide the proposal the agent asked about, at that revision only. `signin` is for the client to carry out: open the sign-in with `POST …/sign-ins` for that Company and access (sent to `answers`, it is answered with the same choice). `signout` signs out there, `resume` goes on with the request that waited for the sign-in there, and `invitation` accepts or declines the Company's invitation to talk directly.",
     oneOf: [
       object({ company: string }),
       object({ connect: string }),
       object({ remove: array(string) }),
       object({ keep: array(string) }),
       object({ message: string }),
+      object({ approve: ref("ProposalRef") }),
+      object({ decline: ref("ProposalRef") }),
+      object({
+        signin: object({
+          company: string,
+          access: { type: "string", enum: ["read", "write"] },
+        }),
+      }),
+      object({ signout: string }),
+      object({ resume: string }),
+      object({
+        invitation: object({ company: string, accept: boolean }),
+      }),
     ],
   },
   Choice: object(
     { label: string, answer: ref("Answer") },
     ["label", "answer"],
-    "A quick reply. Show `label`; send `answer` to `answers`, never the label as a message.",
+    "A quick reply. Show `label`; send `answer` to `answers`, never the label as a message. The User can answer the same question in words instead, as a message.",
   ),
   AgentStep: object(
     {
@@ -67,6 +85,11 @@ const schemas: Record<string, Schema> = {
     {
       from: { type: "string", enum: ["user", "agent", "company"] },
       text: string,
+      spoken: {
+        type: "string",
+        description:
+          "On the agent's messages: the same in one or two short sentences to read aloud, with no markdown or identifier and amounts as they are said. Made by fixed rules from the same words or facts, never by a model.",
+      },
       company: ref("CompanyRef"),
       using: array(ref("CompanyRef")),
       author: string,
@@ -126,8 +149,13 @@ const schemas: Record<string, Schema> = {
       },
       expiresAt: string,
       result: string,
+      spoken: {
+        type: "string",
+        description:
+          "What it is, to read aloud, in the agent's words from its terms: the Company, what it wants and how much. Never the Company's summary.",
+      },
     },
-    ["id", "company", "revision", "terms", "state", "expiresAt"],
+    ["id", "company", "revision", "terms", "state", "expiresAt", "spoken"],
     "A change a Company holds for the User's approval, with its exact terms. Nothing is performed until it is approved.",
   ),
   ConversationState: object(

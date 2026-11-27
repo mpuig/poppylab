@@ -212,7 +212,9 @@ export async function decide(request: AccountRequest) {
   };
   request.operationRequested = true;
   try {
-    const result = (await sendApproval(connection, op, approver)) as {
+    // How the User answered: in words in the chat, or with a button.
+    const input = body.input === "typed" ? "typed" : "tap";
+    const result = (await sendApproval(connection, op, approver, input)) as {
       summary?: unknown;
     } | null;
     op.state = "succeeded";

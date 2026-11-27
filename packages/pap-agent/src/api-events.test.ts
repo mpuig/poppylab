@@ -27,6 +27,7 @@ const proposal = (change: Partial<Proposal> = {}): Proposal => ({
   terms: { amount_cents: 2500 },
   state: "proposed",
   expiresAt: new Date(10_000).toISOString(),
+  spoken: "Harborline Bank wants your approval for a change.",
   ...change,
 });
 const state = (change: Partial<ConversationState> = {}): ConversationState => ({

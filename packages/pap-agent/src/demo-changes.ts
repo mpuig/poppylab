@@ -705,7 +705,7 @@ export function demoChangeReply(
 ) {
   const error = refusal(result);
   if (error)
-    return `The demo read your account and prepared this change, but didn't send it to the Company: ${unsent(error)}.${error === "insufficient_scope" ? " Press “Request change permission”, review the Company's consent, and ask again." : ""}`;
+    return `The demo read your account and prepared this change, but didn't send it to the Company: ${unsent(error)}.${error === "insufficient_scope" ? ` Press “Request change permission” and review the Company's consent; ${agentName()} can then go on with it.` : ""}`;
   const held =
     (result as { status?: unknown } | null)?.status !== "outcome_unknown";
   return `${plan.because}\n\n${ANSWERED}${show(result)}\n\n${held ? HOLDS : ""}${MODEL}`;

@@ -49,6 +49,7 @@ import {
 import {
   exampleUrl,
   historyToMessages,
+  labCompanies,
   labCompany,
   type Choice,
   type CompanyRef,
@@ -77,6 +78,7 @@ import {
   type PageLine,
 } from "./answers";
 import { rememberSignInCompany } from "./sign-in/company";
+import { signInAnswer, signInOf, typedWithoutModel } from "./typed";
 
 /** The conversation the address names, if it names one. */
 const conversationInAddress = () =>
@@ -522,15 +524,19 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     byInstruction?: Instruction,
     /** Told how the route answered, if the request was sent at all. */
     answered?: (answer: ApprovalAnswer) => void,
+    /**
+     * A sign-in in answer to Iris's question: what the User typed, or
+     * `true` for the question's button. The server keeps it as their line.
+     */
+    said?: string | true,
   ) {
     if (busy || ended) return;
     const company = companies.find((c) => c.origin === origin);
     if (!company) return;
     // One tab for each Company, so two sign-ins can be under way at once.
-    const popup =
-      action === "signin"
-        ? window.open("about:blank", `company-signin-${new URL(origin).host}`)
-        : null;
+    // Opened now, in the click or keystroke: a browser opens one only then.
+    const tab = `company-signin-${new URL(origin).host}`;
+    const popup = action === "signin" ? window.open("about:blank", tab) : null;
     setAccountBusy(true);
     setError("");
     let answer: ApprovalAnswer = "lost";
@@ -543,6 +549,8 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
           id: op?.operation_id,
           revision: op?.revision,
           ...(byInstruction ? { instruction: byInstruction } : {}),
+          // Only when the tab opened: the server's line says it did.
+          ...(said !== undefined && popup ? { said } : {}),
         }),
       );
       adopt(response);
@@ -567,13 +575,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
         throw new Error(data.error);
       }
       if (data.url) {
-        if (popup) {
-          popup.opener = null;
-          // For the page that tab lands on, which names the Company: in
-          // that tab's own storage, so a second sign-in elsewhere doesn't
-          // change what this one says.
-          rememberSignInCompany(company.name, () => popup.sessionStorage);
-          popup.location.href = data.url;
+        const signingIn = () =>
           setCompanies((all) =>
             patchCompany(all, origin, {
               signingIn: {
@@ -582,6 +584,33 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
               },
             }),
           );
+        if (popup) {
+          popup.opener = null;
+          // For the page that tab lands on, which names the Company: in
+          // that tab's own storage, so a second sign-in elsewhere doesn't
+          // change what this one says.
+          rememberSignInCompany(company.name, () => popup.sessionStorage);
+          popup.location.href = data.url;
+          signingIn();
+          // Iris's line after the User's answer, as the server keeps it.
+          if (typeof data.said === "string")
+            setMessages((old) => [...old, { role: "Own", text: data.said }]);
+        } else if (said !== undefined) {
+          // The browser kept the tab closed: Iris says so, with the page
+          // to open, which a click on it can.
+          signingIn();
+          setMessages((old) => [
+            ...old,
+            {
+              role: "Own",
+              text: `Your browser didn't open ${company.name}'s page in a new tab. Open it with the link below to sign in; Iris never sees your password.`,
+              link: {
+                href: data.url,
+                label: `Open ${company.name}'s sign-in page`,
+                target: tab,
+              },
+            },
+          ]);
         } else
           throw new Error(
             "Allow popups for this site, then try the sign-in or permission request again.",
@@ -1113,6 +1142,23 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     setTask("");
     // §8.10: in a Direct Conversation, the User's words go to the Company.
     const action = directWith ? "say" : startingDirect ? "start" : undefined;
+    // "Yes" to Iris's question about a sign-in opens the Company's page
+    // now, in this keystroke, as its button does; the server keeps the
+    // words as the User's answer.
+    const signIn = action ? undefined : signInAnswer(message, messages);
+    if (signIn) {
+      setMessages((old) => [...old, { role: "You", text: message }]);
+      void accountAction(
+        "signin",
+        signIn.company,
+        undefined,
+        signIn.access,
+        undefined,
+        undefined,
+        message,
+      );
+      return;
+    }
     const company =
       directWith?.origin ??
       startingDirect ??
@@ -1127,6 +1173,14 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     await post(
       { message, ...(action ? { direct: action } : {}), company },
       said,
+      // A command, a scripted example or an answer to Iris's question
+      // needs no model, and waits for no browser check.
+      !action &&
+        !typedWithoutModel(message, {
+          messages,
+          companies,
+          lab: labCompanies,
+        }),
     );
   }
 
@@ -1139,7 +1193,8 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     if (busy || ended || missing) return;
     const said: Message[] = [{ role: "You", text }];
     setMessages((old) => [...old, ...said]);
-    await post({ message: text, company: origin }, said);
+    // A scripted example: the demo's rules run it, with no browser check.
+    await post({ message: text, company: origin }, said, false);
   }
 
   /** One of Iris's buttons: its answer goes as it came, its label is shown. */
@@ -1147,7 +1202,27 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     if (busy || ended) return;
     const said: Message[] = [{ role: "You", text: choice.label }];
     setMessages((old) => [...old, ...said]);
-    await post({ answer: choice.answer }, said);
+    // A sign-in opens the Company's page now, in this click.
+    const signIn = signInOf(choice);
+    if (signIn) {
+      void accountAction(
+        "signin",
+        signIn.company,
+        undefined,
+        signIn.access,
+        undefined,
+        undefined,
+        true,
+      );
+      return;
+    }
+    // Only a request asked again needs the model: the one that waited
+    // for a Company to be chosen, or for a sign-in.
+    await post(
+      { answer: choice.answer },
+      said,
+      "company" in choice.answer || "resume" in choice.answer,
+    );
   }
 
   /** §8.10: the User's own choices about a Direct Conversation. */
@@ -1173,6 +1248,8 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
       company?: string | undefined;
     },
     said: Message[],
+    /** The turn may be asked of a model, not only of Iris's own rules. */
+    model = true,
   ) {
     setSending(true);
     setError("");
@@ -1180,7 +1257,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     try {
       // The free model's turn carries a Turnstile token of its own.
       const turnstile =
-        modelConfig.provider === "free" && !request.direct
+        modelConfig.provider === "free" && !request.direct && model
           ? await turnstileToken()
           : undefined;
       const response = await fetch("/api/chat", {

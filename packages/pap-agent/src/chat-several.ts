@@ -21,7 +21,9 @@ import {
   type Part,
 } from "./several";
 import { recordTurn } from "./transcript";
+import { askAfter, before } from "./chat-answers";
 import { companiesNow, turnState, type HeldTurn } from "./chat-turn";
+import { spokenText } from "./spoken";
 import { json } from "./web";
 
 /**
@@ -154,6 +156,16 @@ function severalAnswer(
     typed: turn.typed,
   });
   conversation.history = conversation.history.slice(-10);
+  // What waits for the User now, asked in the agent's own words: a
+  // proposal at any of them, or the sign-in the task stopped for.
+  const question = askAfter(turn, scope.before ?? before(conversation), [
+    ...parts
+      .filter((part) => part.connection !== at)
+      .map((part) => ({ connection: part.connection, trace: part.trace })),
+    ...parts
+      .filter((part) => part.connection === at)
+      .map((part) => ({ connection: part.connection, trace: part.trace })),
+  ]);
   // Any of them may have stopped taking the sign-in during the turn.
   let lost: Record<string, unknown> = {};
   for (const part of parts) {
@@ -170,6 +182,8 @@ function severalAnswer(
   return json(
     {
       text,
+      spoken: spokenText(text),
+      ...(question ? { question } : {}),
       ...(exact !== undefined ? { data: exact } : {}),
       trace: [...trace, ...parts.flatMap((part) => part.trace)],
       // Each Company's own lines, for the Inspector to say whose.

@@ -411,8 +411,22 @@ describe("Pay my Fernwick bill from checking, in demo mode", () => {
     ).find((s) => s.text === "Sent a request to /api/account/payments")!;
     expect(step.company).toBe(bank);
     expect(JSON.parse(step.args!)).toEqual(body);
-    // A reload shows the same answer, with both Companies and the steps.
-    const last = (await reload()).history.at(-1)!;
+    // Iris asks about the payment in its own words, from the terms, and a
+    // reload shows the question last, with its buttons.
+    expect(turn.data.question.text).toBe(
+      `Harborline Bank proposes a payment of ${dollars} to Fernwick Power & Light. The terms expire in 10 minutes. Approve it?`,
+    );
+    const shown = (await reload()).history;
+    expect(shown.at(-1)).toMatchObject({
+      role: "assistant",
+      content: turn.data.question.text,
+      choices: [
+        { label: `Approve the ${dollars} payment at Harborline Bank` },
+        { label: `Decline the ${dollars} payment at Harborline Bank` },
+      ],
+    });
+    // Before it, the same answer, with both Companies and the steps.
+    const last = shown.at(-2)!;
     expect(last.from?.name).toBe("Harborline Bank");
     expect(last.using?.map((c) => c.name)).toEqual([
       "Fernwick Power & Light",

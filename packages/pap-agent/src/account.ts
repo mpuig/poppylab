@@ -296,13 +296,32 @@ async function act(
       await releaseRun(visitor, held).catch(() => {});
     }
   }
-  if (!isAccountCompany(new URL(connection.url).origin)) {
+  try {
+    return await actOn(run, connection, body, caller);
+  } finally {
     await releaseRun(visitor, held).catch(() => {});
+  }
+}
+
+/**
+ * One account action on a conversation the caller holds: done by its
+ * handler (`ACTIONS`), and answered with the lines it wrote however it
+ * ended, which are kept with the conversation. The page's buttons come
+ * here through the account route, and the User's answers to the agent's
+ * questions through the chat (`chat-answers.ts`): the same handler, the
+ * same checks and the same record, whichever way the User said it.
+ */
+export async function actOn(
+  run: Run,
+  connection: AccountRequest["connection"],
+  body: Action,
+  caller: Caller,
+): Promise<Reply> {
+  if (!isAccountCompany(new URL(connection.url).origin))
     return json(
       { error: "Connect to a supported account Company first." },
       { status: 400 },
     );
-  }
   const trace: string[] = [];
   const request: AccountRequest = {
     run,
@@ -397,6 +416,5 @@ async function act(
     // in which the Company refused the sign-in. After the lines are kept,
     // so those written with the account go with the rest.
     forgetLostAccount(run, connection, knewLost);
-    await releaseRun(visitor, held).catch(() => {});
   }
 }

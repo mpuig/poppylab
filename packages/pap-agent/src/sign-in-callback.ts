@@ -25,6 +25,7 @@ import { acquireRun, releaseRun, runForState } from "./runs";
 import { browserCaller, type CookieStore } from "./web";
 import { backToPublic, keepPublicHistory } from "./transcript";
 import { keepLines } from "./inspector-log";
+import { askToResume } from "./chat-answers";
 
 /** A thread's events from its saved cursor: a read that changes nothing here. */
 const events = (endpoint: string, thread: { id?: string; cursor?: string }) => {
@@ -278,6 +279,9 @@ export async function signInCallback(request: Request, cookies: CookieStore) {
       Date.now(),
       false,
     );
+    // The request that stopped for this sign-in: the agent asks whether to
+    // go on with it, and sends nothing until the User says so.
+    askToResume(run, connection);
     return leave(
       "done",
       labCompanies(caller.origin).find(

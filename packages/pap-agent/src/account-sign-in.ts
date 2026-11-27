@@ -16,7 +16,10 @@ import {
   type Connection,
   type Run,
 } from "./runtime";
-import { forgetCompany } from "./transcript";
+import { agentName } from "./agent";
+import { answerLabel } from "./company-commands";
+import { companyName, originOf } from "./connections";
+import { forgetCompany, recordAsked } from "./transcript";
 import { json } from "./web";
 
 /**
@@ -42,6 +45,26 @@ export function signedOutLocally(run: Run, connection: Connection) {
   delete connection.auth;
   connection.operations = {};
   delete connection.operationAccounts;
+  // A request that waited for a sign-in here, and the agent's question
+  // about anything here, go with the account.
+  delete connection.resume;
+  const asked = run.asking;
+  const here = (url: string) => {
+    try {
+      return new URL(url).origin === new URL(connection.url).origin;
+    } catch {
+      return false;
+    }
+  };
+  if (
+    asked &&
+    (("approve" in asked && asked.approve.some((ref) => here(ref.company))) ||
+      ("signin" in asked && here(asked.signin.company)) ||
+      ("resume" in asked && here(asked.resume)) ||
+      ("invitation" in asked && here(asked.invitation)) ||
+      ("signout" in asked && asked.signout.some(here)))
+  )
+    delete run.asking;
   // The words, and the Inspector's lines with them: none of an exchange
   // the page no longer shows. The lines of this request are kept after it.
   // History lists the conversation under its first request, which is gone
@@ -56,7 +79,12 @@ export function signedOutLocally(run: Run, connection: Connection) {
  * §4.2: plain OAuth Direct Sign-In. It doesn't know the Session; the
  * callback starts a new Session for the signed-in account.
  */
-export async function signIn({ connection, caller, body }: AccountRequest) {
+export async function signIn({
+  run,
+  connection,
+  caller,
+  body,
+}: AccountRequest) {
   const candidate = { ...connection };
   await connect(candidate, []);
   const profile = companyProfile(candidate.company!);
@@ -131,9 +159,54 @@ export async function signIn({ connection, caller, body }: AccountRequest) {
   } else
     for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
   return json(
-    { url: url.toString(), consentVersion: connection.consentVersion ?? 0 },
+    {
+      url: url.toString(),
+      consentVersion: connection.consentVersion ?? 0,
+      ...answered(run, connection, body),
+    },
     { headers: { "Cache-Control": "no-store" } },
   );
+}
+
+/**
+ * The agent asked the User to sign in here, and this sign-in is their
+ * answer: the question's button, or their own "yes", which the page read
+ * in the same keystroke to open the Company's tab (a browser opens one
+ * only then). The question is answered, and the User's line is kept with
+ * the agent's: the label of the button as the agent words it, never as
+ * the request carries it, or what they typed. The agent's line is given
+ * back for the page to show.
+ */
+function answered(
+  run: AccountRequest["run"],
+  connection: AccountRequest["connection"],
+  body: AccountRequest["body"],
+) {
+  const asked = run.asking;
+  if (
+    !asked ||
+    !("signin" in asked) ||
+    originOf({ url: asked.signin.company }) !== originOf(connection)
+  )
+    return {};
+  delete run.asking;
+  const typed =
+    typeof body.said === "string" ? body.said.trim().slice(0, 200) : "";
+  const access = body.access === "write" ? "write" : "read";
+  const said =
+    typed ||
+    (body.said === true
+      ? answerLabel(
+          run,
+          { signin: { company: originOf(connection), access } },
+          [],
+        )
+      : "");
+  if (!said) return {};
+  const name = companyName(connection);
+  const text = `${name}'s own page is open in a new tab${access === "write" ? ", for the change permission" : ""}. You sign in there, and ${agentName()} never sees your password.`;
+  recordAsked(run, undefined, [], { said, text });
+  return { said: text };
 }
 
 /** §5.5: sign-out revokes every refresh token held for the account. */

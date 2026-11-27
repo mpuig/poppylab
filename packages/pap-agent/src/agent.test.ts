@@ -21,7 +21,7 @@ it("says what the channel calls its agent, in the agent's own sentences", () => 
       () => true,
     ),
   ).toBe(
-    "This needs your account at Lantern, and you are not signed in. Mira didn't send this request to the Company. Press “Sign in to Lantern”, then ask again.",
+    "This needs your account at Lantern, and you are not signed in. Mira didn't send this request to the Company. Press “Sign in to Lantern”; Mira can then go on with it.",
   );
   // Its name before a request changes nothing about it, and another
   // agent's name is no part of a command.

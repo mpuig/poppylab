@@ -1,6 +1,7 @@
 import type { SessionKey } from "@poppy-lab/pap-client";
 import type { DiscoveredCompany, TasksResponse } from "@poppy-lab/pap-core";
 import type { JWK } from "jose";
+import type { Asking } from "./chat-answers";
 import type { Removing } from "./company-commands";
 import type { ConversationState } from "./conversations";
 import type { KeptLine } from "./inspector-log";
@@ -53,6 +54,8 @@ export type Operation = {
     approver?: "user" | "agent";
     approved_at: number;
     reference: string;
+    /** How the User answered, when it wasn't a tap: `typed`, in words. */
+    input_type?: "typed";
   };
   /** Who approved a performed operation, and the rule it was approved under. */
   approvedBy?: {
@@ -187,6 +190,14 @@ export type Connection = {
    * safe to go back to when a sign-in may be for another account.
    */
   publicHistory?: Turn[];
+  /**
+   * The User's request a turn stopped for want of a sign-in here, or of
+   * the change permission (`access`), kept so that once it completes the
+   * agent can ask whether to go on with it (`chat-answers.ts`). One at a
+   * time: a newer turn here replaces it, and an answer, a sign-out or the
+   * conversation's end takes it away. `at` is when it was asked.
+   */
+  resume?: { asked: string; access: "read" | "write"; at: number };
 };
 /**
  * One turn of the model's context. `company` is the origin of the Company
@@ -257,6 +268,13 @@ export type Run = {
    * next message, or a button, says yes or no (`company-commands.ts`).
    */
   removing?: Removing;
+  /**
+   * The agent's own question that waits for the User's answer: approve a
+   * proposal, sign in, go on with a request, and the like
+   * (`chat-answers.ts`). Only the next message can answer it, by a button
+   * or in the User's own words; any other message drops it.
+   */
+  asking?: Asking;
   /** When the conversation started, and its first request, for the list. */
   created?: number;
   title?: string;

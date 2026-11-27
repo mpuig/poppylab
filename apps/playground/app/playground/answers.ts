@@ -58,6 +58,12 @@ export type ChatAnswer = {
   from?: CompanyRef;
   before?: string;
   choices?: Choice[];
+  /**
+   * Iris's question after the answer, when something now waits for the
+   * person: a proposal to approve, a sign-in the turn stopped for, an
+   * invitation. Its buttons are quick replies; a typed answer works too.
+   */
+  question?: { text: string; choices?: Choice[] };
   data?: unknown;
   trace?: string[];
   /**
@@ -130,6 +136,18 @@ export function turnMessages(data: ChatAnswer): Message[] {
                 ...from,
                 ...(data.using?.length ? { using: data.using } : {}),
               },
+        ]
+      : []),
+    // Iris's own words, from no Company, as the server keeps them.
+    ...(data.question?.text
+      ? [
+          {
+            role: "Own" as const,
+            text: data.question.text,
+            ...(data.question.choices?.length
+              ? { choices: data.question.choices }
+              : {}),
+          },
         ]
       : []),
   ];

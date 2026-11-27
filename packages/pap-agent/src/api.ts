@@ -18,7 +18,9 @@ import { originOf, type CompanyRef } from "./connections";
 import type { ConnectionView, FormerView } from "./conversation-view";
 import { localOrigins, serving } from "./deployment";
 import { overBudget } from "./limits";
+import { spokenProposal } from "./approval-question";
 import { hideLinkSecrets } from "./link-display";
+import { spokenText } from "./spoken";
 import { notSaved } from "./run-size";
 import {
   createRun,
@@ -66,6 +68,11 @@ export type Proposal = {
   expiresAt: string;
   /** How it ended, in the Company's words or the agent's. */
   result?: string;
+  /**
+   * What it is, said aloud in the agent's words, from its terms: the
+   * Company, what it wants and how much. Never the Company's summary.
+   */
+  spoken: string;
 };
 
 /** Something said in the conversation. */
@@ -79,6 +86,13 @@ export type AgentMessage = {
    */
   from: "user" | "agent" | "company";
   text: string;
+  /**
+   * The agent's words in a form to read aloud: one or two short
+   * sentences, with no markdown or identifier and amounts as they are
+   * said. Made by fixed rules from the same words or facts, never by a
+   * model. Only on the agent's messages: a Company's are its own.
+   */
+  spoken?: string;
   /** The Company it came from or the turn was with. */
   company?: CompanyRef;
   /** A turn with several Companies: each, in the order the task used them. */
@@ -87,7 +101,12 @@ export type AgentMessage = {
   author?: string;
   /** Said in a Direct Conversation (§8.10), between the User and the Company. */
   direct?: boolean;
-  /** Quick replies: send one's `answer` to `answerChoice`, never its label as words. */
+  /**
+   * Quick replies: send one's `answer` to `answerChoice`, never its label
+   * as words. The User can also answer in words, with `sendMessage`. A
+   * `signin` answer is the client's to carry out: open `startSignIn` for
+   * that Company and access.
+   */
   choices?: Choice[];
   /** The addresses in the text, with any token or signature in them hidden. */
   links?: string[];
@@ -150,6 +169,7 @@ type PageEntry = {
   choices?: Choice[];
   steps?: AgentStep[];
   data?: string;
+  spoken?: string;
 };
 const LINK = /https?:\/\/[^\s<>"')\]]+/gi;
 /** A kept entry of the page's, as a message any channel can show. */
@@ -165,6 +185,10 @@ export function messageOf(entry: PageEntry): AgentMessage {
           ? "company"
           : "user",
     text: entry.content,
+    // The agent's own words only: a Company's are never rewritten.
+    ...(entry.role === "assistant"
+      ? { spoken: entry.spoken ?? spokenText(entry.content) }
+      : {}),
     ...(entry.from ? { company: entry.from } : {}),
     ...(entry.using?.length ? { using: entry.using } : {}),
     ...(entry.author ? { author: entry.author } : {}),
@@ -184,6 +208,7 @@ const proposalOf = (company: CompanyRef, op: Operation): Proposal => ({
   state: op.state,
   expiresAt: op.expires_at,
   ...(op.result?.summary ? { result: op.result.summary } : {}),
+  spoken: spokenProposal(op, company.name),
 });
 /**
  * A sign-in waiting for its callback there, and only that. The page's

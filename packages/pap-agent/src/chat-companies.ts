@@ -90,8 +90,15 @@ export async function chooseCompany(
   // is ever read for it: not Company content, not a model's answer.
   // What the User answers about a removal: a button, by origin, or
   // "yes" or "no" typed while Iris's question is open.
-  const decided: Exclude<Answer, { company: string }> | undefined =
-    pressed && !("company" in pressed)
+  // The agent's other questions were answered before (`chat-answers.ts`).
+  const decided:
+    | Extract<
+        Answer,
+        { connect: string } | { remove: string[] } | { keep: string[] }
+      >
+    | undefined =
+    pressed &&
+    ("connect" in pressed || "remove" in pressed || "keep" in pressed)
       ? pressed
       : removing && !pressed
         ? typedAnswer(message, removing)

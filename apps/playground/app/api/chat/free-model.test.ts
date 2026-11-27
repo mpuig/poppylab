@@ -233,6 +233,23 @@ describe("a turn the free model doesn't take runs in demo mode", () => {
     expect(binding.run).not.toHaveBeenCalled();
   });
 
+  it("a command or a scripted example without a token: no browser check, and no word of one", async () => {
+    // Iris's own command needs no model: it is never held for the check.
+    discover.mockResolvedValueOnce(
+      discovered("http://noodles.localhost:4200", "Lantern Noodle Bar"),
+    );
+    const command = await say("connect with Lantern");
+    expect(command.status).toBe(200);
+    expect(command.answer.before).toBeUndefined();
+    expect(command.answer.text).toMatch(/^Connected to Lantern Noodle Bar\./);
+    // A scripted example runs as the demo runs it, saying nothing of it.
+    const example = await say("What are your products?");
+    expect(example.answer.before).toBeUndefined();
+    expect(example.answer.text).not.toContain("browser check");
+    expect(siteverify).not.toHaveBeenCalled();
+    expect(binding.run).not.toHaveBeenCalled();
+  });
+
   it("with a token Turnstile refuses, or one for another action", async () => {
     for (const token of ["bad", "other-action"]) {
       const turn = await say("What do you sell?", token);

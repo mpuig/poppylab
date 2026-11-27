@@ -3,6 +3,7 @@ import { companyProfile } from "@poppy-lab/pap-core";
 import { runModel } from "@poppy-lab/llm-adapters/server";
 import { agentName } from "./agent";
 import { accountNote } from "./account-permissions";
+import { answerQuestion, askAfter, before, withoutModel } from "./chat-answers";
 import { checkChatBody } from "./chat-body";
 import { chooseCompany } from "./chat-companies";
 import { demoReply } from "./chat-demo";
@@ -14,7 +15,8 @@ import {
   type HeldTurn,
   type TurnScope,
 } from "./chat-turn";
-import { answerLabel, answers } from "./company-commands";
+import { answerLabel, answers, typedAnswer } from "./company-commands";
+import { connectCommand } from "./connect-command";
 import {
   companyRef,
   connectionAt,
@@ -28,7 +30,7 @@ import { publicMode, serving } from "./deployment";
 import { directState } from "./direct-state";
 import { admitFreeTurn, modelProvider, type FreeTurn } from "./free-model";
 import { keepLines } from "./inspector-log";
-import { labCompanies } from "./lab-companies";
+import { labCompanies, nameable } from "./lab-companies";
 import { conversationEnded, overBudget } from "./limits";
 import { noteOperationAccounts } from "./operation-store";
 import { offeredTools } from "./routing";
@@ -41,6 +43,7 @@ import {
   type Run,
 } from "./runtime";
 import { shownSkills, shownTasks } from "./shown-tasks";
+import { spokenText } from "./spoken";
 import {
   accountsIn,
   forgetLostAccount,
@@ -166,7 +169,8 @@ async function reply(
   try {
     const request = checkChatBody(await input.read(), caller);
     if ("refused" in request) return request.refused;
-    const { body, direct, pressed } = request;
+    const { body, pressed } = request;
+    let direct = request.direct;
     visitor = caller.user(true);
     const limited = await overBudget(caller.ip, visitor, "chat");
     if (limited) return limited;
@@ -245,22 +249,47 @@ async function reply(
       throw new UserFacingError(
         "This run reached its 20-turn limit. Connect again to start another run.",
       );
+    // The agent's own question, open until this message, which may answer
+    // it; and what the conversation held before, for the question after.
+    const open = run.asking;
+    delete run.asking;
+    scope.before = before(run);
+    // A message that needs no model: an answer to the agent's question,
+    // one of its commands or a scripted example (`withoutModel`). It runs
+    // as the demo does, and never waits for or mentions the browser check.
+    const typedOnly =
+      !direct &&
+      !pressed &&
+      withoutModel(run, request, open, lab, (words) => {
+        if (run.removing && typedAnswer(words, run.removing)) return true;
+        if (body.companies !== true) return false;
+        const command = connectCommand(words, {
+          connected: run.connections.map((c) => nameable(c, lab)),
+          lab,
+        });
+        return !!command && (!("rest" in command) || !command.rest);
+      });
     // The free model past its checks and limits, or demo mode with Iris's
     // line about why, shown before the answer. Checked only after the
     // conversation's cheap pre-flight guards and only when the request
-    // needs a model (never for Direct Conversations or buttons that don't
-    // continue to a model turn), so rejected/non-model requests don't burn
-    // a Turnstile token or free-model quota.
+    // needs a model (never for Direct Conversations, buttons that don't
+    // continue to a model turn, or what `typedOnly` holds), so rejected
+    // and non-model requests don't burn a Turnstile token or free-model
+    // quota.
     let provider = request.provider;
     let modelConfig: HeldTurn["modelConfig"] = request.modelConfig;
     const needsModel =
       !direct &&
-      (!pressed ||
-        ("company" in pressed && !!run.waiting) ||
-        ("remove" in pressed &&
-          !!run.removing &&
-          answers(run.removing, pressed.remove) &&
-          !!run.removing.rest));
+      (pressed
+        ? ("company" in pressed && !!run.waiting) ||
+          // The request that waited for a sign-in, asked now.
+          "resume" in pressed ||
+          ("remove" in pressed &&
+            !!run.removing &&
+            answers(run.removing, pressed.remove) &&
+            !!run.removing.rest)
+        : !typedOnly);
+    if (provider === "free" && typedOnly) provider = "demo";
     if (provider === "free" && needsModel) {
       const admitted = await admitFreeTurn(caller, visitor, request.turnstile);
       if ("notice" in admitted) {
@@ -282,10 +311,33 @@ async function reply(
       typed: undefined,
       also: [],
     };
-    const chosen = await chooseCompany(turn, request);
-    if (chosen) return chosen;
+    // The User's answer to that question, read before any model or rule
+    // of the demo sees the message.
+    const answered = await answerQuestion(turn, request, open, caller);
+    if (answered && "reply" in answered) {
+      delete run.waiting;
+      delete run.removing;
+      return answered.reply;
+    }
+    if (answered) {
+      // "Yes" to a Company's invitation: the User's own §8.10 action.
+      delete run.waiting;
+      delete run.removing;
+      direct = answered.direct;
+      scope.connection = answered.connection;
+    } else {
+      const chosen = await chooseCompany(turn, request);
+      if (chosen) return chosen;
+    }
     const connection = scope.connection;
     if (!connection) throw new Error("No connection for the turn");
+    // A newer request here takes the place of one that waited for a
+    // sign-in; this one is kept if it stops for one too.
+    delete connection.resume;
+    // What "try again" asks again, should the turn fail. A User's words
+    // to a Company in a Direct Conversation are theirs to send again.
+    if (!direct)
+      scope.retry = { asked: turn.asked, company: originOf(connection) };
     if (turn.also.length && !direct)
       return await severalTurn(turn, [...turn.also, connection], connection);
     scope.knewLost = !!connection.accountUnavailable;
@@ -318,12 +370,16 @@ async function reply(
       typed: turn.typed,
     });
     run.history = run.history.slice(-10);
+    // What waits for the User now, asked in the agent's own words.
+    const question = askAfter(turn, scope.before!, [{ connection, trace }]);
     // The turn ended with an answer though the access went during it: what
     // the page showed with the account goes all the same, this turn too.
     const lost = lostAccess(run, connection, scope.knewLost);
     return json(
       {
         text,
+        spoken: spokenText(text),
+        ...(question ? { question } : {}),
         ...(exact !== undefined ? { data: exact } : {}),
         trace,
         mode: turn.provider,
@@ -340,6 +396,8 @@ async function reply(
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
+    // "Try again", typed next, asks the same request again.
+    if (scope.run && scope.retry) scope.run.asking = { retry: scope.retry };
     return failedTurn(error, scope);
   } finally {
     const { run, connection, parts, context, proposals, did, knewLost } = scope;
@@ -451,6 +509,7 @@ async function directReply(
   return json(
     {
       text,
+      ...(text ? { spoken: spokenText(text) } : {}),
       trace,
       sessionId: connection.sessionId,
       mode: "direct",

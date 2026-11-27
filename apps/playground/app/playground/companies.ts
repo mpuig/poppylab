@@ -110,6 +110,11 @@ export type Message = {
   using?: CompanyRef[];
   /** Iris's buttons, for the person to answer with. */
   choices?: Choice[];
+  /**
+   * A page for the person to open themselves: a Company's sign-in, when
+   * the browser kept its tab from opening. The page's own, never kept.
+   */
+  link?: { href: string; label: string; target: string };
   /** A Company message (§8): who wrote it, its data and a short note. */
   author?: string;
   data?: string;

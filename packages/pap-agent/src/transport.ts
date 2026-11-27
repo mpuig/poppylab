@@ -476,19 +476,28 @@ export async function renewAccount(connection: Connection) {
 export function approvalFor(
   op: Operation,
   approver: "user" | "agent" = "user",
+  /**
+   * How the User gave their answer (Operations v3 §6): `tap` for a button,
+   * `typed` for their own words in the chat. Kept with the approval, so a
+   * retry says the same.
+   */
+  input: "tap" | "typed" = "tap",
 ): Approval {
   if (!op.approval || (op.approval.approver ?? "user") !== approver)
     op.approval = {
       approver,
       approved_at: Math.floor(Date.now() / 1000),
       reference: `apr_${newSessionId().slice(0, 24)}`,
+      ...(approver === "user" && input !== "tap" ? { input_type: input } : {}),
     };
   return {
     operation_id: op.operation_id,
     revision: op.revision,
     approver,
     approved_at: op.approval.approved_at,
-    ...(approver === "user" ? { input_type: "tap" } : {}),
+    ...(approver === "user"
+      ? { input_type: op.approval.input_type ?? "tap" }
+      : {}),
     reference: op.approval.reference,
   };
 }
@@ -503,8 +512,9 @@ export async function sendApproval(
   connection: Connection,
   op: Operation,
   approver: "user" | "agent" = "user",
+  input: "tap" | "typed" = "tap",
 ) {
-  const approval = approvalFor(op, approver);
+  const approval = approvalFor(op, approver, input);
   if (op.request?.conversation)
     return approveInConversation(
       connection,

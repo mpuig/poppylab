@@ -1911,8 +1911,28 @@
         ],
         "description": "A Company, named by its origin; `name` is to show."
       },
+      "ProposalRef": {
+        "type": "object",
+        "properties": {
+          "company": {
+            "type": "string"
+          },
+          "proposal": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "company",
+          "proposal",
+          "revision"
+        ],
+        "description": "One proposal at its exact revision: the Company's origin, the proposal's ID and the revision the question named."
+      },
       "Answer": {
-        "description": "What a choice carries, in place of a message. Exactly one member; Companies are named by origin and nothing here is read as words.",
+        "description": "What a choice carries, in place of a message. Exactly one member; Companies are named by origin and nothing here is read as words. `approve` and `decline` decide the proposal the agent asked about, at that revision only. `signin` is for the client to carry out: open the sign-in with `POST …/sign-ins` for that Company and access (sent to `answers`, it is answered with the same choice). `signout` signs out there, `resume` goes on with the request that waited for the sign-in there, and `invitation` accepts or declines the Company's invitation to talk directly.",
         "oneOf": [
           {
             "type": "object",
@@ -1974,6 +1994,100 @@
             "required": [
               "message"
             ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "approve": {
+                "$ref": "#/components/schemas/ProposalRef"
+              }
+            },
+            "required": [
+              "approve"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "decline": {
+                "$ref": "#/components/schemas/ProposalRef"
+              }
+            },
+            "required": [
+              "decline"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "signin": {
+                "type": "object",
+                "properties": {
+                  "company": {
+                    "type": "string"
+                  },
+                  "access": {
+                    "type": "string",
+                    "enum": [
+                      "read",
+                      "write"
+                    ]
+                  }
+                },
+                "required": [
+                  "company",
+                  "access"
+                ]
+              }
+            },
+            "required": [
+              "signin"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "signout": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "signout"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "resume": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "resume"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "invitation": {
+                "type": "object",
+                "properties": {
+                  "company": {
+                    "type": "string"
+                  },
+                  "accept": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "company",
+                  "accept"
+                ]
+              }
+            },
+            "required": [
+              "invitation"
+            ]
           }
         ]
       },
@@ -1991,7 +2105,7 @@
           "label",
           "answer"
         ],
-        "description": "A quick reply. Show `label`; send `answer` to `answers`, never the label as a message."
+        "description": "A quick reply. Show `label`; send `answer` to `answers`, never the label as a message. The User can answer the same question in words instead, as a message."
       },
       "AgentStep": {
         "type": "object",
@@ -2054,6 +2168,10 @@
           },
           "text": {
             "type": "string"
+          },
+          "spoken": {
+            "type": "string",
+            "description": "On the agent's messages: the same in one or two short sentences to read aloud, with no markdown or identifier and amounts as they are said. Made by fixed rules from the same words or facts, never by a model."
           },
           "company": {
             "$ref": "#/components/schemas/CompanyRef"
@@ -2190,6 +2308,10 @@
           },
           "result": {
             "type": "string"
+          },
+          "spoken": {
+            "type": "string",
+            "description": "What it is, to read aloud, in the agent's words from its terms: the Company, what it wants and how much. Never the Company's summary."
           }
         },
         "required": [
@@ -2198,7 +2320,8 @@
           "revision",
           "terms",
           "state",
-          "expiresAt"
+          "expiresAt",
+          "spoken"
         ],
         "description": "A change a Company holds for the User's approval, with its exact terms. Nothing is performed until it is approved."
       },

@@ -2158,6 +2158,7 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
       expect.anything(),
       expect.objectContaining({ operation_id: "op_rule" }),
       "agent",
+      "tap",
     );
     const body = await r.json();
     expect(body.operation).toMatchObject({
@@ -2277,6 +2278,7 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
       expect.anything(),
       expect.anything(),
       "user",
+      "tap",
     );
   });
 
@@ -2327,6 +2329,7 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
       expect.anything(),
       expect.anything(),
       "user",
+      "tap",
     );
   });
 
@@ -2375,6 +2378,7 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
       expect.anything(),
       expect.objectContaining({ revision: "r2" }),
       "user",
+      "tap",
     );
   });
 
@@ -2453,6 +2457,7 @@ describe("Agent approvals on a standing instruction (Operations v3 §5)", () => 
       expect.anything(),
       expect.anything(),
       "agent",
+      "tap",
     );
   });
 

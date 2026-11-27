@@ -145,11 +145,11 @@ export function guideHint(state: GuideState, context: GuideContext) {
       return "Pick one of the fictional companies, or enter any company’s address.";
     case 1:
       return context.signInOffered
-        ? `Sign in to ${company}${context.people ? ` as ${context.people}, its test customers` : ""}. You do it on the company’s own page; Iris never sees a password.`
+        ? `Sign in to ${company}${context.people ? ` as ${context.people}, its test customers` : ""}. You do it on the company’s own page; Iris never sees a password. Press the button, or answer “yes” when Iris asks in the chat.`
         : `${company} doesn’t offer sign-in to agents, so Iris can only ask its public questions.`;
     case 2:
       if (!state.canWrite)
-        return "Iris can read your account. To let it propose changes, press “Request change permission”.";
+        return "Iris can read your account. To let it propose changes, press “Request change permission”, or answer “yes” when Iris asks in the chat.";
       if (context.demo && !context.demoCanChange)
         return `Demo mode only reads at ${company}. To ask for a change${context.ask ? ` like “${context.ask}”` : ""}, add your own model in Model settings.`;
       return context.ask
@@ -179,7 +179,7 @@ function waitingHint(state: GuideState, company: string) {
       // it is known whether the first one was performed.
       return `The approval was sent, but ${company} hasn’t said whether the change was made, so it may or may not have been. Retry the same approval: ${company} performs it at most once. Don’t ask for the change again until the outcome is known.`;
     default:
-      return `${company} is holding the change. Check the exact terms, then approve it yourself.`;
+      return `${company} is holding the change. Check the exact terms, then approve it yourself: on its card, or by answering Iris’s question in the chat.`;
   }
 }
 

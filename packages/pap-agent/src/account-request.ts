@@ -24,6 +24,16 @@ export type Action = {
   /** `fdx_statement`: which statement of which shared account. */
   accountId?: unknown;
   statementId?: unknown;
+  /**
+   * `signin`, in answer to the agent's question about it: what the User
+   * typed, or `true` for the question's button (`account-sign-in.ts`).
+   */
+  said?: unknown;
+  /**
+   * `approve`: `typed` when the User approved in their own words in the
+   * chat, which the approval then says (`input_type`); a button otherwise.
+   */
+  input?: unknown;
 };
 
 /**

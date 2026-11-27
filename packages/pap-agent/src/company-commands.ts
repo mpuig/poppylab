@@ -13,6 +13,12 @@
  */
 import { agentName } from "./agent";
 import { PapDiscoveryError } from "@poppy-lab/pap-core";
+import {
+  proposalName,
+  questionCents,
+  type ProposalRef,
+} from "./approval-question";
+import { money } from "./operation-presentation";
 import type { Nameable } from "./company-names";
 import type { ConnectCommand } from "./connect-command";
 import { connectCompany } from "./connecting";
@@ -40,13 +46,28 @@ import type { Connection, Run } from "./runtime";
  * - `message`: one of demo mode's scripted examples, sent as the User's
  *   message. Its words are the demo's own (`demo-examples.ts`), and the
  *   chat route takes no others.
+ * - `approve`, `decline`: the User's decision on the proposal the agent
+ *   asked about, at that exact revision (`chat-answers.ts`).
+ * - `signin`: open this Company's sign-in. Only the User's browser or app
+ *   can open it, so a channel carries it out itself (the page opens the
+ *   Company's tab); sent to the chat, it is answered with the same button.
+ * - `signout`: sign out at this Company.
+ * - `resume`: go on with the request that waited for the sign-in there.
+ * - `invitation`: accept or decline the Company's invitation to a Direct
+ *   Conversation (§8.10).
  */
 export type Answer =
   | { company: string }
   | { connect: string }
   | { remove: string[] }
   | { keep: string[] }
-  | { message: string };
+  | { message: string }
+  | { approve: ProposalRef }
+  | { decline: ProposalRef }
+  | { signin: { company: string; access: "read" | "write" } }
+  | { signout: string }
+  | { resume: string }
+  | { invitation: { company: string; accept: boolean } };
 
 /**
  * A reply the page offers as a button. Pressing it sends `answer` back to
@@ -125,6 +146,53 @@ export function readAnswer(value: unknown): Answer | undefined {
   if (more.length) return undefined;
   const origin = (one: unknown): one is string =>
     typeof one === "string" && !!one && one.length <= 2048;
+  const fields = (one: unknown) =>
+    one && typeof one === "object" && !Array.isArray(one)
+      ? (one as Record<string, unknown>)
+      : undefined;
+  if (kind === "approve" || kind === "decline") {
+    const ref = fields(named);
+    const short = (one: unknown): one is string =>
+      typeof one === "string" && !!one && one.length <= 256;
+    if (
+      !ref ||
+      Object.keys(ref).length !== 3 ||
+      !origin(ref.company) ||
+      !short(ref.proposal) ||
+      !short(ref.revision)
+    )
+      return undefined;
+    const proposal = {
+      company: ref.company,
+      proposal: ref.proposal,
+      revision: ref.revision,
+    };
+    return kind === "approve" ? { approve: proposal } : { decline: proposal };
+  }
+  if (kind === "signin") {
+    const asked = fields(named);
+    return asked &&
+      Object.keys(asked).length === 2 &&
+      origin(asked.company) &&
+      (asked.access === "read" || asked.access === "write")
+      ? { signin: { company: asked.company, access: asked.access } }
+      : undefined;
+  }
+  if (kind === "invitation") {
+    const asked = fields(named);
+    return asked &&
+      Object.keys(asked).length === 2 &&
+      origin(asked.company) &&
+      typeof asked.accept === "boolean"
+      ? { invitation: { company: asked.company, accept: asked.accept } }
+      : undefined;
+  }
+  if (kind === "signout" || kind === "resume")
+    return !origin(named)
+      ? undefined
+      : kind === "signout"
+        ? { signout: named }
+        : { resume: named };
   if (kind === "message")
     return typeof named === "string" && named.trim() && named.length <= 2000
       ? { message: named }
@@ -175,6 +243,31 @@ export function answerLabel(
 ) {
   if ("message" in answer) return answer.message;
   if ("company" in answer) return buttonName(run, answer.company);
+  if ("approve" in answer || "decline" in answer) {
+    const ref = "approve" in answer ? answer.approve : answer.decline;
+    const verb = "approve" in answer ? "Approve" : "Decline";
+    const op = connectionAt(run, ref.company)?.operations?.[ref.proposal];
+    const name = buttonName(run, ref.company);
+    // With several Companies, which one's; with one, as its card says it.
+    if (run.connections.length > 1 || !op)
+      return `${verb} ${op ? proposalName(op, name) : `the proposal at ${name}`}`;
+    const amount = questionCents(op);
+    const currency = op.terms?.currency;
+    return "approve" in answer && amount && typeof currency === "string"
+      ? `Approve ${money(amount, currency)}`
+      : `${verb} this change`;
+  }
+  if ("signin" in answer)
+    return answer.signin.access === "write"
+      ? `Request change permission at ${buttonName(run, answer.signin.company)}`
+      : `Sign in to ${buttonName(run, answer.signin.company)} · read only`;
+  if ("signout" in answer)
+    return `Sign out of ${buttonName(run, answer.signout)}`;
+  if ("resume" in answer) return "Yes, go on";
+  if ("invitation" in answer)
+    return answer.invitation.accept
+      ? `Talk to ${buttonName(run, answer.invitation.company)}`
+      : "Not now";
   if ("connect" in answer) {
     const at = originOf({ url: answer.connect });
     return lab.find((c) => originOf(c) === at)?.name ?? buttonName(run, at);

@@ -20,6 +20,7 @@ import {
   type Operation,
 } from "./company-state";
 import { guideAt, useProposalClock } from "./guide";
+import { liveChoices, openQuestion, signInOf } from "./typed";
 import type { Playground } from "./use-playground";
 
 /** A Company message's data, indented for reading (it arrives compact). */
@@ -170,10 +171,16 @@ export function Conversation({
   // needs its sign-in has the button right there. Otherwise its controls
   // are in its panel in the Companies bar.
   const focus = inFocus(companies, p.lastTurn);
+  // Iris's question about that sign-in, when it is the last thing said,
+  // has the button under it already.
+  const asked = openQuestion(messages)?.some(
+    (choice) => signInOf(choice)?.company === focus?.origin,
+  );
   const rowFor =
     focus &&
     offersSignIn(focus) &&
     !p.readOnly &&
+    !asked &&
     p.panel !== focus.origin &&
     rowWaits(p, focus, messages, guideAt(companies, p.lastTurn, now))
       ? focus
@@ -339,23 +346,37 @@ export function Conversation({
                     )}
               </div>
             )}
+            {message.link && (
+              <div className="message-choices">
+                <a
+                  className="ghost-button"
+                  href={message.link.href}
+                  target={message.link.target}
+                  rel="noopener noreferrer"
+                >
+                  {message.link.label}
+                </a>
+              </div>
+            )}
             {/* Iris's question is answered with a button while it is the
-                last thing said; the answer goes as it came. */}
+                last thing said, or in words; the answer goes as it came. */}
             {!!message.choices?.length &&
               index === lastIndex &&
               !p.readOnly && (
                 <div className="message-choices">
-                  {message.choices.map((choice) => (
-                    <button
-                      type="button"
-                      key={JSON.stringify(choice.answer)}
-                      className="ghost-button"
-                      disabled={busy}
-                      onClick={() => void p.choose(choice)}
-                    >
-                      {choice.label}
-                    </button>
-                  ))}
+                  {liveChoices(message.choices, companies, now).map(
+                    (choice) => (
+                      <button
+                        type="button"
+                        key={JSON.stringify(choice.answer)}
+                        className="ghost-button"
+                        disabled={busy}
+                        onClick={() => void p.choose(choice)}
+                      >
+                        {choice.label}
+                      </button>
+                    ),
+                  )}
                 </div>
               )}
             {!!message.steps?.length && (
