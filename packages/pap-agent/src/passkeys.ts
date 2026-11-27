@@ -103,6 +103,17 @@ const NOT_VERIFIED = refusal(
   "passkey_not_verified",
   "The passkey couldn't be verified. Nothing changed; try again.",
 );
+/**
+ * A sign-in that didn't prove an account, for whatever reason: a passkey
+ * no account has, one removed, a signature or counter that fails. One
+ * answer for all, so the answer doesn't tell whether an account or a
+ * passkey exists.
+ */
+export const SIGN_IN_REFUSED = refusal(
+  400,
+  "passkey_not_verified",
+  "This passkey couldn't be verified for an account here. If it was removed, or its account deleted, sign in with another one; otherwise try again.",
+);
 const EXPIRED = refusal(
   400,
   "ceremony_expired",
@@ -375,12 +386,7 @@ export async function verifySignIn(
   const passkey = found?.account.passkeys.find(
     (p) => typeof response?.id === "string" && p.credentialId === response.id,
   );
-  if (!found || !passkey)
-    return refusal(
-      401,
-      "passkey_unknown",
-      "This passkey isn't one of an account here. It may have been removed, or the account deleted.",
-    );
+  if (!found || !passkey) return SIGN_IN_REFUSED;
   let newCounter: number;
   try {
     const verified = await verifyAuthenticationResponse({
@@ -396,10 +402,10 @@ export async function verifySignIn(
         transports: passkey.transports as AuthenticatorTransport[],
       },
     });
-    if (!verified.verified) return NOT_VERIFIED;
+    if (!verified.verified) return SIGN_IN_REFUSED;
     newCounter = verified.authenticationInfo.newCounter;
   } catch {
-    return NOT_VERIFIED;
+    return SIGN_IN_REFUSED;
   }
   // Removed on another device in the meantime: it signs in no one.
   const next = await updateAccount<true>(found.account.id, (current) =>
@@ -414,6 +420,6 @@ export async function verifySignIn(
         }
       : { refused: true },
   );
-  if (!next || "refused" in next) return NOT_VERIFIED;
+  if (!next || "refused" in next) return SIGN_IN_REFUSED;
   return { account: next, passkey };
 }

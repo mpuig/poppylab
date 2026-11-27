@@ -23,6 +23,7 @@ import {
   deviceLabel,
   relyingParty,
   removePasskey,
+  SIGN_IN_REFUSED,
   signInOptions,
   verifySignIn,
   type Refusal,
@@ -132,12 +133,7 @@ const fromPage = (request: Request) => request.headers.has("origin");
 const ipOf = (request: Request) => request.headers.get("cf-connecting-ip");
 
 /** A sign-in whose passkey was removed while it was under way. */
-const PASSKEY_GONE = () =>
-  refuse(
-    400,
-    "passkey_not_verified",
-    "This passkey was removed from the account. Sign in with another one.",
-  );
+const PASSKEY_GONE = () => refused(SIGN_IN_REFUSED);
 
 /** Starts the device's session and answers it the way its client keeps it. */
 async function signedIn(
@@ -174,14 +170,21 @@ async function signedIn(
   );
 }
 
+/**
+ * 429 when the request is over its budget. `account` is the account it
+ * names; `claimed` when nothing has proved it yet (a passkey's user
+ * handle, a refresh token's prefix), so it is counted with the source
+ * and no one can spend another person's budget by naming their account.
+ */
 const budget = async (
   kind: AccountBudget,
   request: Request,
   account?: string,
+  claimed = false,
 ) => {
   const over = await overAccountBudget(kind, {
     ip: ipOf(request),
-    ...(account ? { account } : {}),
+    ...(account ? { account, claimed } : {}),
   });
   return over ? fromReply(over) : undefined;
 };
@@ -242,6 +245,7 @@ export async function openOperation(
         "signIn",
         request,
         claimedAccount(input.credential),
+        true,
       );
       if (over) return over;
       const proved = await verifySignIn(rp, {
@@ -264,6 +268,7 @@ export async function openOperation(
         "refresh",
         request,
         refreshAccount(input.refreshToken),
+        true,
       );
       if (over) return over;
       const refreshed = await refreshSession(input.refreshToken);

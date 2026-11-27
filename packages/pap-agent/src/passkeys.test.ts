@@ -170,7 +170,7 @@ describe("signing in", () => {
         ceremony: one.ceremony,
         credential: await stranger.get(one.options),
       }),
-    ).toMatchObject({ status: 401, code: "passkey_unknown" });
+    ).toMatchObject({ status: 400, code: "passkey_not_verified" });
 
     const two = await signInOptions(rp);
     const answer = await authenticator.get(two.options, { counts: true });
@@ -190,6 +190,36 @@ describe("signing in", () => {
         credential: await authenticator.get(three.options, { counts: true }),
       }),
     ).toMatchObject({ code: "passkey_not_verified" });
+  });
+
+  it("answers alike whether the account, the passkey or the signature is wrong", async () => {
+    const { authenticator, account } = await newAccount();
+    const answers = [];
+    // No such account; the account, with a passkey it doesn't have; the
+    // account's own passkey, signed without user verification.
+    const nobody = softwareAuthenticator(origin);
+    await nobody.create({
+      challenge: "x",
+      rp: {},
+      user: { id: "a".repeat(22) },
+    });
+    const impostor = softwareAuthenticator(origin);
+    await impostor.create({ challenge: "x", rp: {}, user: { id: account.id } });
+    for (const answer of [
+      (o: { challenge: string }) => nobody.get(o),
+      (o: { challenge: string }) => impostor.get(o),
+      (o: { challenge: string }) => authenticator.get(o, { uv: false }),
+    ]) {
+      const { ceremony, options } = await signInOptions(rp);
+      answers.push(
+        await verifySignIn(rp, { ceremony, credential: await answer(options) }),
+      );
+    }
+    expect(new Set(answers.map((a) => JSON.stringify(a))).size).toBe(1);
+    expect(answers[0]).toMatchObject({
+      status: 400,
+      code: "passkey_not_verified",
+    });
   });
 
   it("refuses an answer without user verification", async () => {
@@ -249,7 +279,7 @@ describe("an account's passkeys", () => {
         ceremony,
         credential: await authenticator.get(options),
       }),
-    ).toMatchObject({ code: "passkey_unknown" });
+    ).toMatchObject({ code: "passkey_not_verified" });
   });
 
   it("keeps one when two devices remove the last two at once", async () => {

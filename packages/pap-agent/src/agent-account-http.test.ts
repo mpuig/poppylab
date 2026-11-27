@@ -602,7 +602,7 @@ describe("devices", () => {
     expect(last).toMatchObject({ status: 409, data: { code: "last_passkey" } });
     // The removed passkey signs in no one; the other does.
     expect((await signIn({}, created.authenticator)).data.code).toBe(
-      "passkey_unknown",
+      "passkey_not_verified",
     );
     expect((await signIn({}, phone)).status).toBe(201);
   });
@@ -787,7 +787,72 @@ describe("what is kept and said", () => {
       expect(write.expires).toBeLessThanOrEqual(Date.now() + 5 * 60000);
   });
 
-  it("counts sign-ins per account, from any address", async () => {
+  it("counts tries at an account per address, so naming it doesn't lock its owner out", async () => {
+    const created = await create({});
+    const account = (created.data.account as { id: string }).id;
+    const tokens = created.data.tokens!;
+    // Someone who knows the account's ID, from one address: answers that
+    // name it, and refresh tokens with its ID in front.
+    const stranger = softwareAuthenticator(site);
+    await stranger.create({
+      challenge: "x",
+      rp: { id: "localhost" },
+      user: { id: account },
+    });
+    const tries: number[] = [];
+    for (let i = 0; i < 21; i++) {
+      const started = await call("POST", "/sessions/options", {
+        body: {},
+        ip: `203.0.113.${i}`,
+      });
+      tries.push(
+        (
+          await call("POST", "/sessions", {
+            ip: "198.51.100.7",
+            body: {
+              ceremony: started.data.ceremony,
+              credential: await stranger.get(
+                started.data.options as { challenge: string },
+              ),
+            },
+          })
+        ).status,
+      );
+    }
+    expect(tries.at(-1)).toBe(429);
+    const forged = `poppy_rt.${account}.${account}.${"a".repeat(43)}`;
+    for (let i = 0; i < 31; i++)
+      await call("POST", "/sessions/refresh", {
+        body: { refreshToken: forged },
+        ip: "192.0.2.1",
+      });
+    // The owner, from their own address, signs in and refreshes.
+    const owner = { ip: "203.0.113.200" };
+    const started = await call("POST", "/sessions/options", {
+      ...owner,
+      body: {},
+    });
+    const signedIn = await call("POST", "/sessions", {
+      ...owner,
+      body: {
+        ceremony: started.data.ceremony,
+        credential: await created.authenticator.get(
+          started.data.options as { challenge: string },
+        ),
+      },
+    });
+    expect(signedIn.status).toBe(201);
+    expect(
+      (
+        await call("POST", "/sessions/refresh", {
+          ...owner,
+          body: { refreshToken: tokens.refreshToken },
+        })
+      ).status,
+    ).toBe(200);
+  });
+
+  it("counts sign-ins at an account from one address", async () => {
     const created = await create({});
     const statuses: number[] = [];
     for (let i = 0; i < 21; i++)

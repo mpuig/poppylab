@@ -7,9 +7,12 @@
  * the store, and none needs many tries.
  *
  * Each is counted per source address and, once the request names one,
- * per account, with a global ceiling. An address is hashed before it is
- * a key. An IPv6 address counts by its /64 (`addressKey`), as in
- * `limits.ts` and at the Companies.
+ * per account, with a global ceiling. An account named before anything
+ * proved it (a sign-in's user handle, a refresh token's prefix) is
+ * counted together with the source, so someone who knows an account's ID
+ * can spend only their own tries at it, not its owner's. An address is
+ * hashed before it is a key. An IPv6 address counts by its /64
+ * (`addressKey`), as in `limits.ts` and at the Companies.
  */
 import { createHash } from "node:crypto";
 import { addressKey } from "@poppy-lab/pap-client";
@@ -80,7 +83,7 @@ const hashed = (text: string) =>
  */
 export async function overAccountBudget(
   kind: AccountBudget,
-  who: { ip: string | null; account?: string },
+  who: { ip: string | null; account?: string; claimed?: boolean },
 ): Promise<Reply | undefined> {
   const b = budgets[kind];
   const ok =
@@ -91,9 +94,14 @@ export async function overAccountBudget(
       }))) &&
     (!who.account ||
       !b.account.length ||
-      (await allow(`acct-budget:${hashed(who.account)}`, {
-        visitor: b.account,
-      })));
+      (await allow(
+        `acct-budget:${hashed(
+          who.claimed
+            ? `${who.ip ? addressKey(who.ip) : ""}\n${who.account}`
+            : who.account,
+        )}`,
+        { visitor: b.account },
+      )));
   if (ok) return undefined;
   return json(
     {
