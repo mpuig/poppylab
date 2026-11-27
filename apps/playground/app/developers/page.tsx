@@ -49,7 +49,31 @@ const legend = [
     "Poppy-Session and Poppy-Version: 1.0 on every request",
     "§3.4, §5.2–5.3",
   ],
+  [
+    "DS",
+    "Device Sign-In",
+    "POST /oauth/device, the same consent page · not at Harborline",
+    "§4.3",
+  ],
   ["AP", "APIs", "/openapi.json · OpenAPI 3.1", "§7"],
+  [
+    "MC",
+    "MCP",
+    "/mcp, with /.well-known/oauth-protected-resource/mcp · a token for that resource only",
+    "§7",
+  ],
+  [
+    "BJ",
+    "Browser join",
+    "/poppy/browser-session · poppy:browser-sign-in, read-only",
+    "§6",
+  ],
+  [
+    "EX",
+    "Domain extensions",
+    "poppylab.dev/fdx v1 at Harborline · poppylab.dev/espi v1 at Fernwick",
+    "§3.3",
+  ],
   [
     "TS",
     "Tasks",
@@ -65,7 +89,7 @@ const legend = [
   [
     "OP",
     "Approvals",
-    '403 approval_required → resend with Poppy-Approval (approver="user")',
+    '403 approval_required → resend with Poppy-Approval (approver="user", or "agent" under a standing instruction)',
     "Operations v3",
   ],
 ] as const;
@@ -87,9 +111,39 @@ const covers = [
     "§4.2",
   ],
   [
+    "Device Sign-In.",
+    "The agent shows a link and a short code, and the person signs in on the Company's own page on any device. Four Companies offer it; Harborline doesn't.",
+    "§4.3",
+  ],
+  [
     "Approvals.",
     "A change comes back as approval_required with exact terms. The Company performs it only when the same request returns with the user's approval, at most once.",
     "Operations v3",
+  ],
+  [
+    "Agent approvals.",
+    'Under a standing instruction the person set for one Company, Iris approves within its limits with approver="agent". Harborline declines an agent approval for a payment or a transfer, with the reason.',
+    "Operations §6",
+  ],
+  [
+    "MCP.",
+    "Each Company's MCP server at /mcp offers its API's operations as tools, with its own protected resource metadata, a token requested for it alone, and the same approvals.",
+    "§7",
+  ],
+  [
+    "Browser join.",
+    "A Personal Agent's browser can join its Session on the Company's website with poppy:browser-sign-in, and sees what the token's scopes cover. A joined browser changes nothing.",
+    "§6",
+  ],
+  [
+    "Domain extensions.",
+    "Harborline serves FDX-shaped bank data (poppylab.dev/fdx v1) and Fernwick ESPI-shaped energy data (poppylab.dev/espi v1), each with its own scopes and consent.",
+    "§3.3",
+  ],
+  [
+    "Operator signatures.",
+    "Iris signs each request with HTTP Message Signatures and names its key directory in Signature-Agent.",
+    "§5.3",
   ],
   [
     "Conversations.",
@@ -191,6 +245,14 @@ export default function Developers() {
               </dd>
             </div>
             <div>
+              <dt>Signatures</dt>
+              <dd>
+                <a href="/.well-known/http-message-signatures-directory">
+                  /.well-known/http-message-signatures-directory
+                </a>
+              </dd>
+            </div>
+            <div>
               <dt>Shown as</dt>
               <dd>Iris from poppylab.dev</dd>
             </div>
@@ -204,7 +266,11 @@ export default function Developers() {
               Each one is a separate deployment with its own scopes and consent
               page, and the same two fictional customers: Elena Maren and Robin
               Ito. Every visitor gets a private copy of them; an idle copy
-              starts again after 24 hours.
+              starts again after 24 hours. The scopes are each Company&apos;s
+              own API&apos;s; every Company also offers{" "}
+              <code>poppy:browser-sign-in</code>, and Harborline and Fernwick
+              their extensions&apos; scopes. Each Company&apos;s For agents page
+              has its endpoints, MCP tools and skills.
             </p>
           </div>
           <div
@@ -218,6 +284,7 @@ export default function Developers() {
                   <th scope="col">Company</th>
                   <th scope="col">Host</th>
                   <th scope="col">Scopes</th>
+                  <th scope="col">For agents</th>
                   <th scope="col">Playground</th>
                 </tr>
               </thead>
@@ -231,6 +298,11 @@ export default function Developers() {
                       </a>
                     </td>
                     <td data-label="Scopes">{c.scopes}</td>
+                    <td data-label="For agents">
+                      <a href={`${c.url}/for-agents`}>
+                        <code>/for-agents</code>
+                      </a>
+                    </td>
                     <td data-label="Playground">
                       <a href={connect(c.url)}>Connect</a>
                     </td>
@@ -290,12 +362,12 @@ export default function Developers() {
           <div>
             <h2 id="covers-title">What the lab implements</h2>
             <p className="aside">
-              Poppy Lab makes no claim of conformance. The draft changes, and
-              interop findings are expected output. Other implementations are
-              listed in the{" "}
+              Poppy Lab makes no claim of conformance, and interop findings are
+              expected output. Other implementations are listed in the{" "}
               <a href={DEMOS_URL}>protocol&apos;s community demos</a>. How each
-              side is built, and what the official validator found, is in{" "}
-              <a href="/learn">Learn</a>.
+              side is built is in <a href="/learn">Learn</a>, and{" "}
+              <a href="/learn/validator">what the official validator found</a>{" "}
+              is on its own page.
             </p>
           </div>
           <ul>

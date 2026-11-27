@@ -89,7 +89,8 @@ export const companies = [
       { what: "Operating checking", before: "", after: "− $500.00" },
       { what: "Reserve savings", before: "", after: "+ $500.00" },
     ],
-    scopes: "Reads · reversible changes · payment requests",
+    scopes:
+      "accounts:read · transactions:read · cards:read · recipients:read · budgets:read · cards:write · transactions:write · budgets:write · payments:request · transfers:request",
     site: { label: "Visit the bank", href: harborline },
   },
   {
@@ -107,7 +108,8 @@ export const companies = [
     change: [
       { what: "Flight NA 118", before: "Gale Flex", after: "Aurora Business" },
     ],
-    scopes: "bookings:read · bookings:change",
+    scopes:
+      "flights:search · bookings:read · profile:read · preferences:write · bookings:change",
     site: { label: "Visit the airline", href: northwind },
   },
   {
@@ -126,8 +128,7 @@ export const companies = [
       { what: "Meters shared", before: "", after: "EV charger only" },
       { what: "Access", before: "", after: "Read only" },
     ],
-    scopes:
-      "account:read · plan:write · espi:usage · espi:summary · espi:customer",
+    scopes: "account:read · plan:write",
     site: { label: "Visit the utility", href: fernwick },
   },
 ] as const;
