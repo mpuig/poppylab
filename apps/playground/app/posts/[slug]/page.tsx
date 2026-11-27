@@ -5,6 +5,9 @@ import { loadPosts, postDate, renderPost } from "@/lib/posts";
 import { SITE_NAME, pageMetadata } from "@/lib/site";
 import { SiteBar, SiteFoot } from "../../site-chrome";
 import "../../site.css";
+// Posts render with Learn's renderer, so they need its styles too
+// (screenshots and figures sized to the column).
+import "../../learn/learn.css";
 
 // Every post is built from content/posts at build time; nothing else exists.
 export const dynamicParams = false;
