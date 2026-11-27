@@ -12,8 +12,8 @@ Elena's answer, the refund Lantern proposes, her approval, and her return to
 Iris. Every screenshot is from the live lab, taken on 26 November 2026. Before
 it starts, Elena has signed in at Lantern and allowed Iris to propose changes,
 the two consents shown in [Changing an order](changing-an-order.md). The lab
-ran in demo mode, without an AI model, so Iris sent a fixed report when Elena
-said that her order never arrived.
+ran in demo mode, which answers its guided examples without an AI model, so
+Iris sent a fixed report when Elena said that her order never arrived.
 
 ## Who does what
 
@@ -85,8 +85,10 @@ The invitation sits above the message box, apart from the conversation. It
 gives Lantern's reason and says what accepting means: Iris will not read or
 answer there, and Elena can leave at any time.
 
-Lantern can ask for this conversation and cannot open it. It opens when Elena
-presses the button, and Iris does not open one without her. If she chooses Not
+Lantern can ask for this conversation and cannot open it. Iris also asks in
+the chat whether Elena wants to talk with Lantern. The conversation opens when
+she presses the button or answers "yes", and Iris does not open one without
+her. If she chooses Not
 now, Iris tells Lantern that she is not available, and Lantern's agent answers
 with its phone number and the option of reporting the missing dishes one by
 one.
@@ -183,8 +185,9 @@ those terms, in the same Direct Conversation. Lantern checks it, makes the
 refund and confirms it. The panel becomes an entry marked Completed. Without
 being opened, the entry shows Lantern's confirmation and who approved.
 
-The approval is the press of the button. A sentence typed into the
-conversation would not count as one, even though Elena herself is writing.
+The approval is the press of the button. In the Direct Conversation what
+Elena types goes to Lantern, not to Iris, so a sentence there is not an
+approval, even though Elena herself is writing.
 
 <details>
 <summary>What travelled</summary>

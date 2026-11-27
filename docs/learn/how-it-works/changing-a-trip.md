@@ -66,13 +66,15 @@ The ticked box stands for the last two. Northwind describes
 changes that can cost money or cannot be undone.
 
 Before the second consent, with read-only access, the same request for an
-upgrade got this answer from Iris: nothing was sent to the company, because
-Elena's access did not include the permission the change needs. The steps
-under that answer said so too:
+upgrade got this answer from Iris: it didn't send the request to the company,
+because Elena's access did not include the permission the change needs. Iris
+then asked whether to ask Northwind for that permission, and after the consent
+it asked whether to go on with the request. The steps under that answer said
+so too:
 
 ```text
 Read /api/account/bookings
-Did not ask for /api/account/bookings/NW7K2P/upgrade (permission not granted); nothing was sent
+Did not send a request to /api/account/bookings/NW7K2P/upgrade (permission not granted)
 ```
 
 </details>
@@ -90,8 +92,8 @@ Iris answered by reading and asked Northwind for nothing else. Elena has
 already allowed change proposals, as the line under the answer says, and her
 question still bought nothing and put nothing in front of her to approve.
 
-The lab runs here in demo mode, without an AI model, so the answer is the
-whole booking set out as plain lines. With a model connected Iris would answer
+The lab runs here in demo mode, which answers its guided examples without an
+AI model, so the answer is the whole booking set out as plain lines. With a model connected Iris would answer
 in a sentence, from the same data.
 
 <details>
@@ -202,8 +204,9 @@ part of that answer.
 
 ![The proposal is now a finished entry in the conversation. It reads Completed, with Northwind's confirmation, upgrade accepted for 248 dollars, and the line Approved by you](../../../apps/playground/public/learn-media/how-it-works/changing-a-trip/06-upgrade-approved.webp "Northwind upgraded the flight when the approval arrived, and said so.")
 
-Elena presses the Approve button. Iris sends Northwind the same request
-again, this time with her approval attached. Northwind checks that the
+Elena presses the Approve button. Answering "yes" to Iris's question, which
+names the upgrade and its 248 dollars, would do the same. Iris sends Northwind
+the same request again, this time with her approval attached. Northwind checks that the
 approval matches the terms it offered, upgrades the flight and confirms it:
 upgrade accepted for 248 dollars. The proposal stays in the conversation as a
 finished entry, with that confirmation and the line "Approved by you."

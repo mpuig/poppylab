@@ -52,7 +52,8 @@ Read /api/account/orders
 
 Elena then asks for a change Lantern can make: add a matcha ice cream and move
 the order to Sunday lunchtime. Lantern answers with its terms, 43 dollars in
-place of 37, and waits. This time Elena presses Decline.
+place of 37, and waits. This time Elena presses Decline. Answering "no" to
+Iris's question about the terms would do the same.
 
 The card closes with the word Declined and says what that means: Elena
 declined it, and nothing was sent to Lantern. The line above the conversation
@@ -299,6 +300,6 @@ Each company stays in charge of its own records in every one of these cases.
 declines and retries with the requests and answers written out. The Inspector
 view of the playground lists a refusal and an answer with new terms each as a
 line of its own. The messages Iris shows for each outcome are set in
-[`route.ts`](../../../apps/playground/app/api/account/route.ts),
-[`operation-presentation.ts`](../../../apps/playground/lib/operation-presentation.ts)
+[`account-approvals.ts`](../../../packages/pap-agent/src/account-approvals.ts),
+[`operation-presentation.ts`](../../../packages/pap-agent/src/operation-presentation.ts)
 and [`guide.ts`](../../../apps/playground/lib/guide.ts).

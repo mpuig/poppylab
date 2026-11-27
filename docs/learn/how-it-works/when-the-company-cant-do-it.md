@@ -32,8 +32,8 @@ and Lantern gives no suggestion for it.
 
 Iris reads this list at the start of every session with Lantern, so it knows
 the answer to these two requests without trying them. The lab runs here in
-demo mode, without an AI model, which is why Elena has to name the list to see
-it. With a model connected, Iris checks the list itself before it looks for a
+demo mode, which answers its guided examples without an AI model, which is
+why Elena has to name the list to see it. With a model connected, Iris checks the list itself before it looks for a
 way to do an unusual task.
 
 <details>

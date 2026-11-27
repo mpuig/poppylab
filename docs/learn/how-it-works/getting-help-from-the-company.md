@@ -9,8 +9,9 @@ already run, and Iris talks to it on Elena's behalf.
 
 This page follows that conversation screen by screen, on Iris's side and on
 Lantern's. Every screenshot is from the live lab, taken on 26 November 2026.
-The lab ran in demo mode, without an AI model, so Iris sent fixed requests in
-answer to Elena's messages, and each step says which. No refund is proposed
+The lab ran in demo mode, which answers its guided examples without an AI
+model, so Iris sent fixed requests in answer to Elena's messages, and each
+step says which. No refund is proposed
 on this page. [Talking to the company yourself](talking-to-the-company-yourself.md)
 carries on from here to a refund that Elena approves.
 

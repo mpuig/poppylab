@@ -77,10 +77,12 @@ transfer.
 Harborline does not make it. It answers that the transfer needs the customer's
 approval and sends back the terms it would apply, including the balance each
 account would have afterwards. Iris shows them in a panel called Needs you,
-with the amount first and each balance before and after.
+with the amount first and each balance before and after. In the conversation
+Iris asks in its own words, from the terms: Harborline proposes a transfer of
+1,000 dollars from Operating checking to Reserve savings, approve it?
 
-The lab runs here in demo mode, without an AI model, so the answer is the
-company's data set out as plain lines. With a model connected Iris would
+The lab runs here in demo mode, which answers its guided examples without an
+AI model, so the answer is the company's data set out as plain lines. With a model connected Iris would
 answer in sentences. The requests to Harborline are the same either way.
 
 <details>
@@ -174,14 +176,16 @@ expired without change.
 
 ![The entry for the transfer now reads Completed, with Harborline's confirmation that 1,000 dollars was transferred and the line Approved by you](../../../apps/playground/public/learn-media/how-it-works/moving-money/06-transfer-approved.webp "Harborline made the transfer when the approval arrived, and said so.")
 
-Elena presses Approve $1,000.00. Iris sends Harborline the same request
-again, this time with her approval attached. Harborline checks that the
+Elena presses Approve $1,000.00, or answers "yes" to Iris's question. Iris
+sends Harborline the same request again, this time with her approval
+attached. Harborline checks that the
 approval matches the terms it offered, moves the money and confirms it. The
 entry in the conversation shows the bank's confirmation and who approved.
 
-The approval is something Elena gives by pressing the button. A sentence in
-the conversation cannot stand in for it, whether Elena writes it or the model
-does.
+The approval is something only Elena gives: the button, or her own answer
+to the question Iris asked about these terms. Iris reads that answer by fixed
+words, before any model sees the message. Nothing a model or the bank writes
+can stand in for it.
 
 <details>
 <summary>What travelled</summary>
@@ -330,6 +334,8 @@ open until their time runs out. Harborline then marks it Expired without
 change.
 
 The money movements themselves stay in the account's history, as in step 9.
+[Paying a bill from another company](paying-a-bill-from-another-company.md)
+follows a payment whose amount and reference come from a utility's bill.
 
 ## What Harborline controls
 
