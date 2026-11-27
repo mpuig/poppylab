@@ -18,7 +18,7 @@
  * person. Its conversations follow it to every device signed in to it.
  */
 import type { ApiSession } from "./account-store";
-import { channelUser } from "./runs";
+import { channelUser } from "./link-codes";
 import type { Caller } from "./web";
 
 export { browserCaller } from "./web";

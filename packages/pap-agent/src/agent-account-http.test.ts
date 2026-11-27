@@ -16,7 +16,8 @@ import {
 } from "./agent-account-http";
 import { v1 } from "./api-http";
 import { connected } from "./company-fixture";
-import { channelUser, configureBackend, memoryBackend } from "./runs";
+import { channelUser } from "./link-codes";
+import { configureBackend, memoryBackend } from "./runs";
 import type { Run } from "./runtime";
 import { rememberAppSignIn } from "./sign-in-cookie";
 import { softwareAuthenticator } from "./webauthn-fixture";

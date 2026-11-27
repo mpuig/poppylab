@@ -169,52 +169,103 @@ export function readRun(stored: unknown): Run | undefined {
 /** A conversation still worth keeping: running, or ended and readable. */
 const kept = (run: Run, now = Date.now()) =>
   run.archived ? (run.keepUntil ?? 0) > now : run.expires > now;
+type Row = [bucket: string, key: string, value: unknown];
 /**
- * Node: memory plus an encrypted snapshot of the conversations still kept
- * and of each visitor's demo epoch.
+ * What of an account's bucket outlives a Node process: the account with
+ * its passkeys, and the sessions that haven't ended. A ceremony or a link
+ * code under way doesn't, nor does a count of open streams.
  */
-function nodeBackend() {
-  const storage = vault<Array<[string, string, unknown]>>(
-    "visitor-runs",
-    () => [],
-  );
-  const persist = () => {
-    const rows: Array<[string, string, unknown]> = [];
-    for (const [visitor, entries] of backend.data)
-      for (const [key, entry] of entries) {
-        if (key === DEMO) rows.push([visitor, key, entry.value]);
-        const run = key.startsWith("run:") ? readRun(entry.value) : undefined;
-        // A sign-in under way doesn't outlive the process.
-        if (run && kept(run))
-          rows.push([
-            visitor,
-            key,
-            {
-              ...run,
-              busy: false,
-              connections: run.connections.map((c) => ({
-                ...c,
-                auth: undefined,
-              })),
-            },
-          ]);
+function lastingOfAccount(key: string, value: unknown, now: number) {
+  if (key === "account") return value;
+  if (!key.startsWith("session:")) return undefined;
+  const session = value as { expires: number; until: number };
+  return session.expires > now && session.until > now ? value : undefined;
+}
+/**
+ * The rows a Node process keeps in its encrypted snapshot: the agent
+ * accounts and their devices' sessions, the channels' users and links,
+ * each visitor's demo epoch and the conversations still kept, without a
+ * sign-in under way.
+ */
+export function snapshotRows(
+  data: Map<string, Map<string, Entry>>,
+  now = Date.now(),
+) {
+  const rows: Row[] = [];
+  for (const [bucket, entries] of data)
+    for (const [key, entry] of entries) {
+      if (bucket.startsWith("account:")) {
+        const value = lastingOfAccount(key, entry.value, now);
+        if (value !== undefined) rows.push([bucket, key, value]);
+        continue;
       }
-    storage.value.splice(0, storage.value.length, ...rows);
-    storage.save();
-  };
-  const backend = memoryBackend(persist);
-  // Runs from 0.2 used Session Tokens: never restore them.
-  for (const [visitor, key, value] of storage.value) {
+      if (bucket.startsWith("channel:")) {
+        if (key.startsWith("user:")) rows.push([bucket, key, entry.value]);
+        continue;
+      }
+      if (key === DEMO) rows.push([bucket, key, entry.value]);
+      const run = key.startsWith("run:") ? readRun(entry.value) : undefined;
+      // A sign-in under way doesn't outlive the process.
+      if (run && kept(run, now))
+        rows.push([
+          bucket,
+          key,
+          {
+            ...run,
+            busy: false,
+            connections: run.connections.map((c) => ({
+              ...c,
+              auth: undefined,
+            })),
+          },
+        ]);
+    }
+  return rows;
+}
+/** The rows of a snapshot still worth restoring, as they are restored. */
+export function restoredRows(rows: Row[], now = Date.now()) {
+  const restored: Row[] = [];
+  for (const [bucket, key, value] of rows) {
+    if (bucket.startsWith("account:")) {
+      const kept = lastingOfAccount(key, value, now);
+      if (kept !== undefined) restored.push([bucket, key, kept]);
+      continue;
+    }
+    if (bucket.startsWith("channel:")) {
+      if (key.startsWith("user:")) restored.push([bucket, key, value]);
+      continue;
+    }
+    // Runs from 0.2 used Session Tokens: never restore them.
     const run = key === DEMO ? undefined : readRun(value);
     const restore =
       key === DEMO
         ? value
-        : run?.protocol === "1.0" && kept(run)
+        : run?.protocol === "1.0" && kept(run, now)
           ? { ...run, busy: false }
           : undefined;
-    if (!restore) continue;
-    if (!backend.data.has(visitor)) backend.data.set(visitor, new Map());
-    backend.data.get(visitor)!.set(key, { value: restore, version: 1 });
+    if (restore) restored.push([bucket, key, restore]);
+  }
+  return restored;
+}
+/**
+ * Node: memory plus an encrypted snapshot (`snapshotRows`), so the
+ * accounts, the channels' links and the conversations still kept outlive
+ * a restart.
+ */
+function nodeBackend() {
+  const storage = vault<Row[]>("visitor-runs", () => []);
+  const persist = () => {
+    storage.value.splice(
+      0,
+      storage.value.length,
+      ...snapshotRows(backend.data),
+    );
+    storage.save();
+  };
+  const backend = memoryBackend(persist);
+  for (const [bucket, key, value] of restoredRows(storage.value)) {
+    if (!backend.data.has(bucket)) backend.data.set(bucket, new Map());
+    backend.data.get(bucket)!.set(key, { value, version: 1 });
   }
   return backend;
 }
@@ -706,63 +757,6 @@ export async function pendingSignIns(visitor: string) {
       if (connection.auth && connection.auth.expires > Date.now())
         states.push(connection.auth.state);
   return states;
-}
-
-// ---- Channel users ---------------------------------------------------------
-/**
- * The agent user a channel's own user is (a Telegram chat, a device), made
- * the first time the channel names them: a random key, kept under
- * `user:<SHA-256 of their ID>` in the channel's own bucket. The link is a
- * record of its own so that a later step can point it at another agent
- * user, when a person links the channel to their account.
- */
-const channelKey = (channel: string, id: string) => ({
-  bucket: `channel:${channel}`,
-  key: `user:${createHash("sha256").update(id).digest("base64url")}`,
-});
-export async function channelUser(channel: string, id: string) {
-  const b = backend();
-  const { bucket, key } = channelKey(channel, id);
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const linked = (await b.get(bucket, key))?.value as
-      { user?: string } | undefined;
-    if (typeof linked?.user === "string") return linked.user;
-    const user = createHash("sha256")
-      .update(randomBytes(32))
-      .digest("base64url");
-    if (await b.put(bucket, key, { user, linked: Date.now() }, null))
-      return user;
-  }
-  throw new Error("Channel user conflict");
-}
-
-/**
- * Points a channel's user at another agent user: an account's, once the
- * person redeemed a link code there (`link-codes.ts`). From then on the
- * channel's requests are the account's; what it said before stays under
- * the agent user it had.
- */
-export async function linkChannelUser(
-  channel: string,
-  id: string,
-  user: string,
-  account: string,
-) {
-  const b = backend();
-  const { bucket, key } = channelKey(channel, id);
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const current = await b.get(bucket, key);
-    if (
-      await b.put(
-        bucket,
-        key,
-        { user, account, linked: Date.now() },
-        current?.version ?? null,
-      )
-    )
-      return;
-  }
-  throw new Error("Channel user conflict");
 }
 
 // ---- Moving conversations --------------------------------------------------

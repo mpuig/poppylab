@@ -10,7 +10,7 @@
  * channel user and per source (`account-limits.ts`), so guessing one in
  * its five minutes doesn't pay.
  */
-import { createHash, randomInt } from "node:crypto";
+import { createHash, randomBytes, randomInt } from "node:crypto";
 import {
   accountBackend,
   loadAccount,
@@ -18,7 +18,81 @@ import {
   updateAccount,
   type AgentAccount,
 } from "./account-store";
-import { linkChannelUser } from "./runs";
+import { storage } from "./runs";
+
+// ---- Channel users ---------------------------------------------------------
+/**
+ * The agent user a channel's own user is (a Telegram chat, a device), made
+ * the first time the channel names them: a random key, kept under
+ * `user:<SHA-256 of their ID>` in the channel's own bucket. The link is a
+ * record of its own so that it can be pointed at another agent user, when
+ * a person links the channel to their account. It is kept with the
+ * accounts (`accountBackend`), so a link lasts as long as its account.
+ */
+const channelKey = (channel: string, id: string) => ({
+  bucket: `channel:${channel}`,
+  key: `user:${createHash("sha256").update(id).digest("base64url")}`,
+});
+/**
+ * The channel user's record, moved first from where conversations are
+ * kept, where it was stored before, when it is still only there.
+ */
+async function channelRecord(bucket: string, key: string) {
+  const found = await accountBackend().get(bucket, key);
+  if (found || accountBackend() === storage()) return found;
+  const before = await storage().get(bucket, key);
+  if (!before) return undefined;
+  if (await accountBackend().put(bucket, key, before.value, null)) {
+    await storage().remove(bucket, key);
+  }
+  return accountBackend().get(bucket, key);
+}
+export async function channelUser(channel: string, id: string) {
+  const b = accountBackend();
+  const { bucket, key } = channelKey(channel, id);
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const linked = (await channelRecord(bucket, key))?.value as
+      { user?: string } | undefined;
+    if (typeof linked?.user === "string") return linked.user;
+    const user = createHash("sha256")
+      .update(randomBytes(32))
+      .digest("base64url");
+    if (await b.put(bucket, key, { user, linked: Date.now() }, null))
+      return user;
+  }
+  throw new Error("Channel user conflict");
+}
+
+/**
+ * Points a channel's user at another agent user: an account's, once the
+ * person redeemed a link code there. From then on the channel's requests
+ * are the account's; what it said before stays under the agent user it
+ * had.
+ */
+export async function linkChannelUser(
+  channel: string,
+  id: string,
+  user: string,
+  account: string,
+) {
+  const b = accountBackend();
+  const { bucket, key } = channelKey(channel, id);
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const current = await channelRecord(bucket, key);
+    if (
+      await b.put(
+        bucket,
+        key,
+        { user, account, linked: Date.now() },
+        current?.version ?? null,
+      )
+    )
+      return;
+  }
+  throw new Error("Channel user conflict");
+}
+
+// ---- Link codes ------------------------------------------------------------
 
 /** Crockford's base32: no I, L, O or U. */
 const ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
