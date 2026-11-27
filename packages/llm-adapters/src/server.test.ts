@@ -1,7 +1,7 @@
 import { createServer } from "node:http";
 import { once } from "node:events";
 import { afterEach, expect, it, vi } from "vitest";
-import { runModel } from "./server";
+import { askModel, runModel } from "./server";
 
 afterEach(() => vi.unstubAllEnvs());
 
@@ -59,6 +59,56 @@ it("executes a Company tool through an OpenAI-compatible model loop", async () =
     expect(result).toBe("The Company has apples.");
     expect(execute).toHaveBeenCalledTimes(1);
     expect(requests).toBe(2);
+  } finally {
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+});
+
+it("asks the same model one short question, with no tools", async () => {
+  const bodies: Array<Record<string, unknown>> = [];
+  const server = createServer(async (request, response) => {
+    let body = "";
+    for await (const chunk of request) body += chunk;
+    bodies.push(JSON.parse(body));
+    response.setHeader("Content-Type", "application/json");
+    response.end(
+      JSON.stringify({
+        id: "test-completion",
+        object: "chat.completion",
+        created: 1,
+        model: "test-model",
+        choices: [
+          {
+            index: 0,
+            message: { role: "assistant", content: "unsure" },
+            finish_reason: "stop",
+          },
+        ],
+        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+      }),
+    );
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const address = server.address();
+  if (!address || typeof address === "string")
+    throw new Error("Missing test address");
+  vi.stubEnv("OPENAI_API_KEY", "test-placeholder-not-a-secret");
+  vi.stubEnv("OPENAI_BASE_URL", `http://127.0.0.1:${address.port}/v1`);
+  vi.stubEnv("OPENAI_MODEL", "test-model");
+  try {
+    const answer = await askModel("openai-compatible", {
+      system: "Answer with one word.",
+      prompt: '{"message":"hello"}',
+    });
+    expect(answer).toBe("unsure");
+    expect(bodies).toHaveLength(1);
+    expect(bodies[0]).not.toHaveProperty("tools");
+    expect(bodies[0]!.messages).toEqual([
+      { role: "system", content: "Answer with one word." },
+      { role: "user", content: '{"message":"hello"}' },
+    ]);
   } finally {
     server.closeAllConnections();
     await new Promise<void>((resolve) => server.close(() => resolve()));
