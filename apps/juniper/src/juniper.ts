@@ -8,13 +8,12 @@
 import {
   MCP_PATH,
   mcpToolRowsHtml,
-  ObjectMap,
   type CompanyDefinition,
 } from "@poppy-lab/pap-company";
 import { accountPaths } from "./openapi.js";
 import { servicePaths } from "./service-openapi.js";
 import { operations, type Commerce } from "./operations.js";
-import { loginLimit, website, type WebSession } from "./website.js";
+import { loginLimit, website } from "./website.js";
 import { browserSignInHint, browserSignInScope } from "@poppy-lab/pap-core";
 import { consentExpiredPage, consentPage } from "./consent-page.js";
 import { persona, personas } from "./personas.js";
@@ -273,10 +272,7 @@ export function juniperCompany(options: {
         howItWorksPage(publicOrigin, guide(publicOrigin)),
     },
     mount(app, ctx) {
-      const business = ctx.state as {
-        commerce?: Commerce;
-        webSessions?: Record<string, WebSession>;
-      };
+      const business = ctx.state as { commerce?: Commerce };
       business.commerce ??= { customers: {}, records: {} };
       const commerce = operations(
         app,
@@ -287,16 +283,10 @@ export function juniperCompany(options: {
       );
       website(
         app,
-        ctx.origin,
+        ctx,
         commerce.view,
-        // Read from the state each time: the gateway moves a browser's
-        // logins here when it starts to see this copy.
-        new ObjectMap((business.webSessions ??= {})),
         commerce.services,
-        ctx.grants,
         options.portal,
-        ctx.feedback,
-        ctx.browser,
         logins,
       );
       app.get("/api/products", (c) =>

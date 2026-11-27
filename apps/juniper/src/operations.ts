@@ -74,18 +74,6 @@ export type Commerce = {
   /** Without the gateway: what the gate finished (the gateway keeps its own). */
   activity?: ActivityEntry[];
 };
-// A proposal that waits. Declining one is between the customer and their
-// agent: the protocol has the agent send an approval or nothing
-// (Operations §5), so until the proposal ends we can't tell the two apart.
-const waiting = (until: string) =>
-  `It waits for your approval in Poppy Lab until ${until}. If you decline it there or let it run out, your data doesn't change. Poppy Lab doesn't tell us when you decline, so it shows as awaiting until then.`;
-// What a request that changed nothing says, when the gate gave no reason.
-const unchanged: Record<string, string> = {
-  expired: "The proposal expired without changing anything.",
-  declined: "Juniper declined this approval without changing anything.",
-  refused:
-    "Your account had changed when this was approved, so the proposal changed nothing.",
-};
 /** Operations v3 from the gateway; standalone (tests) builds its own. */
 export type Approve = (ctx: Context, action: Action) => Response;
 export function operations(
@@ -414,6 +402,8 @@ export function operations(
     };
   }
   return {
+    /** What the agents asked for, for the website to list. */
+    activity,
     services: {
       ...services,
       updateBasket(s: Session, data: unknown) {
@@ -451,15 +441,6 @@ export function operations(
           version: c.deliveryVersion,
         },
         orders: c.orders.slice().reverse(),
-        activity: activity(account(s)).map((item) => ({
-          ...item,
-          result:
-            item.result ??
-            (item.state === "proposed"
-              ? waiting(item.when)
-              : unchanged[item.state]) ??
-            null,
-        })),
       };
     },
   };

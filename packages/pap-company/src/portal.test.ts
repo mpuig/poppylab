@@ -7,7 +7,11 @@ import { afterEach, expect, it, vi } from "vitest";
 import { Hono } from "hono";
 import type { ActivityItem } from "./gateway/activity.ts";
 import type { BrowserJoin, GrantAccess } from "./gateway/types.ts";
-import { mountCustomerPortal, type PortalLogin } from "./portal.ts";
+import {
+  mountCustomerPortal,
+  type CustomerPortalOptions,
+  type PortalLogin,
+} from "./portal.ts";
 
 const origin = "https://company.test";
 const grant = {
@@ -26,7 +30,7 @@ const proposal: ActivityItem = {
   when: "Nov 27, 10:00 UTC",
 };
 
-function portal() {
+function portal(login?: CustomerPortalOptions["login"]) {
   const state: Record<string, unknown> = { webLogins: { old: 1 } };
   const revoked: string[] = [];
   const grants: GrantAccess = {
@@ -48,6 +52,7 @@ function portal() {
     {
       name: "test",
       isCustomer: (account) => account === "elena",
+      ...(login ? { login } : {}),
       pages: {
         joined: () => "<p>joined</p>",
         form: (token) => `<input name="login_token" value="${token}">`,
@@ -126,6 +131,24 @@ it("refuses a form from another site, with another token or customer", async () 
   }
   expect((await x.logIn({ account: "robin" })).status).toBe(400);
   expect(x.state.webSessions).toEqual({});
+});
+
+it("lets the Company refuse a valid form with its own check", async () => {
+  const seen: Record<string, string>[] = [];
+  const x = portal((c, form) => {
+    seen.push(form);
+    return form.account === "elena" ? undefined : c.text("No.", 401);
+  });
+  // Before the account is read, with the form's own fields.
+  const refused = await x.logIn({ account: "robin" });
+  expect(refused.status).toBe(401);
+  expect(await refused.text()).toBe("No.");
+  expect(seen[0]).toMatchObject({ account: "robin" });
+  expect(x.state.webSessions).toEqual({});
+  expect((await x.logIn()).status).toBe(302);
+  // A form that is no longer valid never reaches it.
+  expect((await x.logIn({ token: "x" })).status).toBe(403);
+  expect(seen).toHaveLength(2);
 });
 
 it("keeps at most a thousand logins, and forgets ended ones", async () => {

@@ -1,5 +1,5 @@
 import { it, expect, vi } from "vitest";
-import { juniperApp, testApp } from "./test-app.js";
+import { juniperApp, testApp, websiteContext } from "./test-app.js";
 import { website } from "./website.js";
 import { approvalOf } from "./test-v2.js";
 import { operations } from "./operations.js";
@@ -14,7 +14,7 @@ async function setup() {
     account: "elena",
     expires: Date.now() + 60000,
   }));
-  website(app, origin, commerce.view);
+  website(app, websiteContext(origin, commerce.activity), commerce.view);
   return app;
 }
 async function login(
@@ -28,6 +28,7 @@ async function login(
     url: "/site/login",
     headers: { origin, cookie },
     payload: {
+      account: "elena",
       login_token: cookie.split("=")[1],
       ...(password ? { password } : {}),
     },
@@ -163,7 +164,7 @@ it("accepts the login form after a restart", async () => {
       method: "POST",
       url: "/site/login",
       headers: { origin, cookie },
-      payload: { login_token: token },
+      payload: { account: "elena", login_token: token },
     });
     expect(entered.statusCode).toBe(302);
     expect(entered.headers.location).toBe("/account");
@@ -354,11 +355,32 @@ it("counts wrong website passwords across visitor copies, by source only on Work
 it("frames each website's pages with its own origin", async () => {
   const local = testApp(),
     hosted = testApp();
-  website(local, origin, () => ({}));
-  website(hosted, "https://juniper.example", () => ({}));
+  website(local, websiteContext(origin), () => ({}));
+  website(hosted, websiteContext("https://juniper.example"), () => ({}));
   const help = (await local.inject("/help")).body;
   expect(help).toContain(encodeURIComponent(origin));
   expect(help).not.toContain(encodeURIComponent("https://juniper.example"));
+});
+it("keeps the demo portal closed away from the local origin", async () => {
+  const app = testApp();
+  const joined = {
+    ...websiteContext("https://juniper.example"),
+    browser: () => ({ account: "elena", scopes: ["poppy:read"] }),
+  };
+  website(app, joined, () => ({}));
+  for (const method of ["GET", "POST"])
+    expect(
+      (
+        await app.inject({
+          method,
+          url: "/site/login",
+          headers: { origin: "https://juniper.example" },
+        })
+      ).json(),
+    ).toEqual({ error: "local_demo_only" });
+  // Not even an agent's browser joined to its Session is shown the account.
+  expect((await app.inject("/site/state")).statusCode).toBe(401);
+  expect((await app.inject("/account")).headers.location).toBe("/site/login");
 });
 it("serves parseable customer code without HTML injection sinks", async () => {
   const app = await setup();
@@ -402,7 +424,7 @@ it("serves the generated client script, in sync with src/site/app.js and in Engl
     render(readFileSync(source, "utf8")),
   );
   const app = testApp();
-  website(app, "http://juniper.localhost:4100", () => ({}));
+  website(app, websiteContext("http://juniper.localhost:4100"), () => ({}));
   const script = (await app.inject("/site/app.js")).body;
   expect(script.startsWith('"use strict";')).toBe(true);
   expect(() => new Function(script)).not.toThrow();

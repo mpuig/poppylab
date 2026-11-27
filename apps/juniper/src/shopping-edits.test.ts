@@ -1,5 +1,5 @@
 import { it, expect } from "vitest";
-import { testApp } from "./test-app.js";
+import { testApp, websiteContext } from "./test-app.js";
 import { operations, catalogue, type Commerce } from "./operations.js";
 import { website } from "./website.js";
 import { approvalOf } from "./test-v2.js";
@@ -29,7 +29,7 @@ async function setup() {
     state,
   );
   const sent = new Map<string, Sent>();
-  website(app, origin, c.view, new Map(), c.services);
+  website(app, websiteContext(origin, c.activity), c.view, c.services);
   const page = await app.inject("/site/login");
   const login = await app.inject({
     method: "POST",
@@ -39,6 +39,7 @@ async function setup() {
       cookie: String(page.headers["set-cookie"]).split(";")[0]!,
     },
     payload: {
+      account: "elena",
       login_token: String(page.headers["set-cookie"])
         .split(";")[0]!
         .split("=")[1],

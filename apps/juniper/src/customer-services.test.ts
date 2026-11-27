@@ -1,5 +1,5 @@
 import { it, expect } from "vitest";
-import { testApp } from "./test-app.js";
+import { testApp, websiteContext } from "./test-app.js";
 import { operations, type Commerce } from "./operations.js";
 import { website } from "./website.js";
 import { approvalOf } from "./test-v2.js";
@@ -16,7 +16,7 @@ async function setup(state: Commerce = { customers: {}, records: {} }) {
     }),
     state,
   );
-  website(app, origin, c.view, new Map(), c.services);
+  website(app, websiteContext(origin, c.activity), c.view, c.services);
   return app;
 }
 async function cookie(app: Awaited<ReturnType<typeof setup>>) {
@@ -26,6 +26,7 @@ async function cookie(app: Awaited<ReturnType<typeof setup>>) {
     url: "/site/login",
     headers: { origin, cookie: String(p.headers["set-cookie"]).split(";")[0]! },
     payload: {
+      account: "elena",
       login_token: String(p.headers["set-cookie"]).split(";")[0]!.split("=")[1],
     },
   });

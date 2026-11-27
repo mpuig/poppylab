@@ -39,6 +39,12 @@ export type CustomerPortalOptions = {
   name: string;
   /** Whether a posted `account` is one of the Company's test customers. */
   isCustomer: (account: unknown) => boolean;
+  /**
+   * A Company's own check of a posted login, after its form is found valid
+   * and before its account is read, such as a demo password: an answer
+   * refuses the login with it.
+   */
+  login?: (c: Context, form: Record<string, string>) => Response | undefined;
   /** Whole pages, in the Company's own shell and words. */
   pages: {
     /** In the form's place, for an agent's browser that isn't signed in. */
@@ -186,6 +192,8 @@ export function mountCustomerPortal(
     const body = (await c.req.parseBody()) as Record<string, string>;
     if (!sameOrigin(c) || !loginFormValid(cookie(c, login), body.login_token))
       return c.html(options.pages.expired(), 403, PORTAL_PAGE_HEADERS);
+    const refused = options.login?.(c, body);
+    if (refused) return refused;
     if (!options.isCustomer(body.account))
       return c.json({ error: "invalid_account" }, 400);
     delete sessions[tokenHash(cookie(c, web))];

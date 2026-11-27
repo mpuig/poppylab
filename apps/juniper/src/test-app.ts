@@ -12,6 +12,7 @@ import {
   type Store,
 } from "@poppy-lab/pap-company";
 import { juniperCompany } from "./juniper.js";
+import type { WebsiteContext } from "./website.js";
 
 export type Injected = {
   statusCode: number;
@@ -34,7 +35,10 @@ function injector(fetch: (r: Request) => Response | Promise<Response>) {
     let body: string | undefined;
     if (o.payload !== undefined) {
       if (typeof o.payload === "string") body = o.payload;
-      else if (o.url.startsWith("/oauth/") && o.method === "POST") {
+      else if (
+        (o.url.startsWith("/oauth/") || o.url === "/site/login") &&
+        o.method === "POST"
+      ) {
         body = new URLSearchParams(
           o.payload as Record<string, string>,
         ).toString();
@@ -112,6 +116,22 @@ export function testApp() {
     lifecycle((r) => hono.fetch(r)),
   );
 }
+
+/**
+ * What the website takes from the gateway, for the business modules alone:
+ * no agent connected and no browser joined.
+ */
+export const websiteContext = (
+  origin: string,
+  activity: WebsiteContext["activity"] = () => [],
+): WebsiteContext => ({
+  state: {},
+  grants: { list: () => [], revoke: () => false },
+  origin,
+  activity,
+  browser: () => undefined,
+  feedback: () => [],
+});
 
 /** The full Juniper Company (gateway included) for protocol tests. */
 export function juniperApp(
