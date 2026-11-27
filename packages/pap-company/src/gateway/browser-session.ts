@@ -148,7 +148,9 @@ export function browserJoin(ctx: Ctx, c: Context): BrowserJoin | undefined {
  * opens nothing at: the join's own form, the Session destinations, which
  * take a verified Session header and no cookie, and the OAuth endpoints an
  * agent calls with its own credentials. The consent page is not among
- * them: an agent's browser can't allow its own agent.
+ * them: a joined browser can't allow its own agent. A browser the agent
+ * drives without joining it is a visitor like any other, which the lab's
+ * password-free consent can't tell from the customer (docs/poppy-1.0.md).
  */
 export function mountBrowserGuard(app: Hono, ctx: Ctx) {
   const text = `This browser belongs to an agent's session, so it can't change anything at ${ctx.def.name}. Changes are made through the agent and wait for your approval there. Nothing has changed.`;
