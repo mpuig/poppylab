@@ -53,8 +53,7 @@ function storage() {
  * A Company whose visitors each count their own POSTs, on the split store.
  * A test holds a POST in its route, after its tenant was entered.
  */
-async function counting(deploy: Partial<Deployment>) {
-  const kv = storage();
+async function counting(deploy: Partial<Deployment>, kv = storage()) {
   const route: Held = {};
   const company: Partial<CompanyDefinition> = {
     mount: (app, ctx) => {
@@ -70,9 +69,10 @@ async function counting(deploy: Partial<Deployment>) {
     { isolation: "visitor", store: await splitStore(kv), ...deploy },
     company,
   );
+  const post = (user: string) => x.call("/api/count", { method: "POST", user });
   /** One more POST of this visitor: its count so far. */
   const count = async (user: string) => {
-    const r = await x.call("/api/count", { method: "POST", user });
+    const r = await post(user);
     expect(r.status).toBe(200);
     return ((await r.json()) as { count: number }).count;
   };
@@ -81,7 +81,22 @@ async function counting(deploy: Partial<Deployment>) {
     Object.values((await splitStore(kv)).value.tenants)
       .map((tenant) => tenant.business.count)
       .sort();
-  return { kv, route, count, stored };
+  return { kv, route, post, count, stored };
+}
+
+/** Fails the next `put` once it is released, as a store that fails once. */
+function failNext(kv: Held) {
+  let arrived!: () => void, release!: () => void;
+  const reached = new Promise<void>((done) => (arrived = done));
+  const failing = new Promise<void>((_, fail) => {
+    release = () => fail(new Error("storage failed"));
+  });
+  kv.wait = () => {
+    delete kv.wait;
+    arrived();
+    return failing;
+  };
+  return { reached, release };
 }
 
 afterEach(() => vi.useRealTimers());
@@ -139,4 +154,42 @@ it("deletes the tenant of a visitor evicted for a newer one", async () => {
   vi.setSystemTime(Date.now() + 1000);
   expect(await x.count("usr_a")).toBe(1);
   expect(await x.stored()).toEqual([1, 1]);
+});
+
+it("after a failed save, answers 503 and has the host start again from storage", async () => {
+  const discard = vi.fn();
+  const x = await counting({ discard });
+  await x.count("usr_a");
+  await x.count("usr_a");
+  const put = failNext(x.kv);
+  const failing = x.post("usr_a");
+  await put.reached;
+  put.release();
+  expect((await failing).status).toBe(503);
+  expect(discard).toHaveBeenCalledOnce();
+  // This gateway holds a count storage never got, so it answers no more,
+  // even with storage working again.
+  expect((await x.post("usr_a")).status).toBe(503);
+  expect(discard).toHaveBeenCalledOnce();
+  // The one the host creates next loads what was stored, and goes on.
+  const next = await counting({}, x.kv);
+  expect(await next.count("usr_a")).toBe(3);
+});
+
+it("keeps an eviction for the next save when the save that had it fails", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  const x = await counting({ maxTenants: 2 });
+  await x.count("usr_a");
+  vi.setSystemTime(Date.now() + 1000);
+  await x.count("usr_b");
+  vi.setSystemTime(Date.now() + 1000);
+  // usr_c evicts usr_a, and its save fails; usr_b's, which overlaps it,
+  // still deletes usr_a.
+  const put = failNext(x.kv);
+  const failing = x.post("usr_c");
+  await put.reached;
+  expect(await x.count("usr_b")).toBe(2);
+  put.release();
+  expect((await failing).status).toBe(503);
+  expect(await x.stored()).toEqual([2]);
 });

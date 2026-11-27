@@ -53,6 +53,10 @@ export class FernwickCompany extends DurableObject<Env> {
     this.app = createCompany(fernwick, {
       origin: this.env.PUBLIC_ORIGIN,
       store,
+      // After a failed save, the next request starts again from storage.
+      discard: () => {
+        delete this.app;
+      },
       isolation: "visitor",
       fetchJson: (url) => fetchJson(url, dev ? new URL(dev).origin : undefined),
       ...(dev ? { httpClients: [dev] } : {}),

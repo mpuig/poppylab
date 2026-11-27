@@ -50,17 +50,36 @@ export function mountPersistence(app: Hono, ctx: Ctx) {
       ctx.markDirty(request);
     await next();
     if (ctx.dirty.has(request) || ctx.removed.length) {
-      state.replays = replay.snapshot();
-      const touched = ctx.tenantsTouched.get(request);
-      const changes: Changes = {
-        tenants: touched ? [touched] : [],
-        removed: ctx.removed.splice(0),
-      };
-      try {
-        await store.save(changes);
-      } catch {
-        flags.failed = true;
-        c.res = c.json({ error: "storage_unavailable_restart_required" }, 503);
+      const unavailable = () =>
+        (c.res = c.json(
+          { error: "storage_unavailable_restart_required" },
+          503,
+        ));
+      // After a failed save, what this gateway holds isn't what is stored,
+      // so a request that ends later saves nothing either.
+      if (flags.failed) unavailable();
+      else {
+        state.replays = replay.snapshot();
+        const touched = ctx.tenantsTouched.get(request);
+        // Kept until saved: a save that fails, or one that overlaps it,
+        // still has them to delete.
+        const removed = [...ctx.removed];
+        const changes: Changes = {
+          tenants: touched ? [touched] : [],
+          removed,
+        };
+        try {
+          await store.save(changes);
+          for (const key of removed) {
+            const at = ctx.removed.indexOf(key);
+            if (at >= 0) ctx.removed.splice(at, 1);
+          }
+        } catch {
+          // The host creates another gateway from the store, when it can.
+          if (!flags.failed) deploy.discard?.();
+          flags.failed = true;
+          unavailable();
+        }
       }
     }
     const formTargets = new Set<string>();

@@ -62,6 +62,10 @@ export class LanternCompany extends DurableObject<Env> {
     this.app = createCompany(lantern, {
       origin: this.env.PUBLIC_ORIGIN,
       store,
+      // After a failed save, the next request starts again from storage.
+      discard: () => {
+        delete this.app;
+      },
       // Public: every agent user gets a fresh copy of the fictional customers.
       isolation: "visitor",
       fetchJson: (url) => fetchJson(url, dev ? new URL(dev).origin : undefined),

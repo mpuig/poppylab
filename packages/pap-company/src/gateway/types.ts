@@ -717,6 +717,13 @@ export type CompanyDefinition = {
 export type Deployment = {
   origin: string;
   store: Store;
+  /**
+   * Called once when a save fails. This gateway's memory then no longer
+   * matches the store, so it answers 503 from then on; the host drops it and
+   * creates another from the store for the next request. Without it, the
+   * 503s last until the process restarts.
+   */
+  discard?: () => void;
   fetchJson: FetchJson;
   /** Plain-HTTP Personal Agents accepted in development, by exact client_id. */
   httpClients?: string[];
