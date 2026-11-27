@@ -33,7 +33,7 @@ Reviewed: [personalagentprotocol.org/docs/demos](https://personalagentprotocol.o
 
 ### Done
 
-1. **Protocol demo without a key** in the public playground (keyword rules call the Company's tools; proposals still need approval).
+1. **Protocol demo without a key** in the public playground (scripted examples call the Company's tools; proposals still need approval).
 2. **`Cache-Control`** on metadata.
 3. **Inspector:** a spec section on every discovery and API step, **Copy trace for an interop report** (no secrets), and a link to the independent validator (sends only the domain).
 4. **Spec pin and drift check** (`pnpm spec:drift`). It found the `poppy_dlg` change immediately.
