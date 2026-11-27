@@ -294,6 +294,12 @@ export function createTenancy(ctx: Ctx) {
   /** The grant behind a request's token, in the request's own tenant. */
   const grantOf = (c: Context) =>
     grantFor(ctx.tenantKeys.get(c.req.raw) ?? SHARED_TENANT)(c);
-  return { enter, gate, grantOf, mountDispatch };
+  /**
+   * A verified request for a business route, made by the gateway itself
+   * (an MCP tool call), answered by its tenant's routes as if it came in.
+   */
+  const forward = (request: Request) =>
+    viewer.run(undefined, () => enter(request).app.fetch(request));
+  return { enter, gate, grantOf, mountDispatch, forward };
 }
 export type Tenancy = ReturnType<typeof createTenancy>;

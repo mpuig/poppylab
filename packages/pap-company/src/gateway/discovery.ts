@@ -42,7 +42,8 @@ export function mountDiscovery(app: Hono, ctx: Ctx) {
           : {}),
         token_endpoint: `${origin}/oauth/token`,
         revocation_endpoint: `${origin}/oauth/revoke`,
-        protected_resources: [origin],
+        // §3.2: the domain, and the MCP server, whose tokens are its own.
+        protected_resources: [origin, ...(ctx.mcp ? [ctx.mcp] : [])],
         grant_types_supported: [
           "authorization_code",
           ...(device ? [DEVICE_GRANT] : []),

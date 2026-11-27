@@ -17,6 +17,7 @@ import {
   BROWSER_SIGN_IN,
   hash,
   isChallenge,
+  MCP_PATH,
   SHARED_TENANT,
   type CompanyDefinition,
   type Deployment,
@@ -88,6 +89,16 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
     throw new Error(
       "Company accountPrefixes must be paths outside /oauth, /.well-known and /poppy",
     );
+  // Section 7: the MCP server, when `poppy.json` lists it at MCP_PATH.
+  const listed = def.discovery(origin, new URL(origin).host).apis;
+  const mcp = Array.isArray(listed)
+    ? listed.some(
+        (api: { type?: unknown; url?: unknown } | null) =>
+          api?.type === "mcp" && api.url === `${origin}${MCP_PATH}`,
+      )
+      ? `${origin}${MCP_PATH}`
+      : undefined
+    : undefined;
   const replay = new ReplayCache(new Map(state.replays));
   const secure = origin.startsWith("https:"),
     cookiePrefix = secure ? "__Host-" : "";
@@ -250,6 +261,8 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
     replay,
     both: scopes,
     accountPrefixes,
+    /** The MCP server's URL, the `resource` of its tokens, when listed. */
+    mcp,
     secure,
     cookiePrefix,
     flags,

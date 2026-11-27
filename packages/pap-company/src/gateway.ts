@@ -21,8 +21,9 @@
  * The sections live under `gateway/`: `context` (shared state and helpers),
  * `persistence`, `discovery`, `signin`, `device` (§4.3), `tokens`, `sessions`, `tenancy`,
  * `conversations` (§8, when the Company defines an `agent`), `feedback`
- * (§9.3), `skills` (§9.4, when the Company publishes any) and
- * `browser-session` (§6).
+ * (§9.3), `skills` (§9.4, when the Company publishes any),
+ * `browser-session` (§6) and `mcp` (section 7, when `poppy.json` lists the
+ * MCP server: the OpenAPI operations as tools, through the same checks).
  * Middleware order matters: body limit and persistence first, then the
  * refusal of changes from a joined browser, and the Session middleware
  * before the business dispatch.
@@ -38,6 +39,7 @@ import { mountSessions } from "./gateway/sessions.ts";
 import { createTenancy } from "./gateway/tenancy.ts";
 import { mountConversations } from "./gateway/conversations.ts";
 import { mountFeedback } from "./gateway/feedback.ts";
+import { mountMcp } from "./gateway/mcp.ts";
 import {
   mountBrowserGuard,
   mountBrowserSession,
@@ -47,6 +49,12 @@ import type { CompanyDefinition, Deployment } from "./gateway/types.ts";
 export * from "./gateway/types.ts";
 export { feedbackSection } from "./gateway/feedback.ts";
 export { skillRowsHtml } from "./gateway/skills.ts";
+export {
+  mcpToolRowsHtml,
+  mcpToolsOf,
+  MCP_VERSION,
+  type McpTool,
+} from "./gateway/mcp.ts";
 export {
   agentActivity,
   keepActivity,
@@ -65,7 +73,8 @@ export function createCompany(def: CompanyDefinition, deploy: Deployment) {
   if (def.deviceSignIn !== false) mountDevice(app, ctx, signIn);
   mountTokens(app, ctx, signIn.codes);
   const tenancy = createTenancy(ctx);
-  mountSessions(app, ctx, tenancy);
+  const sessions = mountSessions(app, ctx, tenancy);
+  mountMcp(app, ctx, sessions, tenancy);
   mountConversations(app, ctx, tenancy);
   mountFeedback(app, ctx, tenancy);
   mountBrowserSession(app, ctx);

@@ -104,6 +104,12 @@ export type Token = {
   accountId: string;
   scopes: string;
   grant: string;
+  /**
+   * §4.5: the one service this token works at, when it was requested with
+   * `resource` (the MCP server, section 7). Without it, the default token,
+   * which works everywhere but there.
+   */
+  resource?: string;
 };
 export type GatewayState = {
   sessions: Record<string, SessionRecord>;
@@ -609,8 +615,12 @@ export type CompanyDefinition = {
   consentExpired?: (how: "answered" | "reopened") => string;
   persona: (id: unknown) => { id: string } | undefined;
   defaultAccount: string;
-  /** `poppy.json` for this origin (the gateway adds nothing to it). */
-  /** `poppy.json` for this origin; `domain` is its host, with a non-443 port (§3.1). */
+  /**
+   * `poppy.json` for this origin; `domain` is its host, with a non-443 port
+   * (§3.1). The gateway adds nothing to it. An `apis` entry of type `mcp`
+   * whose `url` is `{origin}/mcp` (`MCP_PATH`) turns on the gateway's MCP
+   * server, which offers `paths` as tools (`gateway/mcp.ts`).
+   */
   discovery: (origin: string, domain: string) => Record<string, unknown>;
   /** §9.1: tasks not offered through the protocol, for `tasks.endpoint`. */
   excludedTasks?: (origin: string) => Array<Record<string, unknown>>;
@@ -737,6 +747,12 @@ export class ObjectMap<V> {
 export const SESSION_MS = 3600000,
   TOKEN_MS = 3600000,
   GRANT_MS = 7 * 86400000;
+/**
+ * Section 7: where a Company on this gateway has its MCP server, when its
+ * `poppy.json` lists one. Tokens for it are requested with `resource` set
+ * to `{origin}/mcp` and work nowhere else (§4.5).
+ */
+export const MCP_PATH = "/mcp";
 /** §6: where a Company on this gateway has its browser-session endpoint. */
 export const BROWSER_SESSION_PATH = "/poppy/browser-session";
 /**

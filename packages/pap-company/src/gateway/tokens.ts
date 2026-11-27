@@ -5,6 +5,8 @@
  * tokens are bound to the DPoP key they were issued with (§4.4). A grant
  * keeps the scopes and resources of its consent through every refresh, and
  * ends when its lifetime does (`grantLifetime`): no access token outlives it.
+ * A token request may name a `resource` (§4.5, RFC 8707): the domain, for
+ * the default token, or the MCP server, for a token that works only there.
  */
 import type { Hono } from "hono";
 import {
@@ -47,7 +49,7 @@ const STANDARD = new Set([
 ]);
 
 export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
-  const { def, origin, state, replay } = ctx;
+  const { def, origin, state, replay, mcp } = ctx;
   const devices = new ObjectMap<DeviceRequest>((state.devices ??= {}));
   /** The Company's own fields for a grant's token response, string-valued. */
   const extra = (grant: Grant) =>
@@ -99,9 +101,12 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
         throw new Error("invalid_client");
       });
       fallback = "invalid_grant";
-      // §4.5: one resource, the domain; naming it gets the default token.
-      if (body.resource && body.resource !== origin)
+      // §4.5: the domain, whose naming gets the default token, and the MCP
+      // server when there is one, whose token works only there (section 7).
+      // A sign-in names no resource, so every grant covers both.
+      if (body.resource && body.resource !== origin && body.resource !== mcp)
         return c.json({ error: "invalid_target" }, 400);
+      const resource = body.resource && body.resource === mcp ? mcp : undefined;
       // An unknown, expired or another client's refresh token is
       // invalid_grant whatever the DPoP proof (RFC 6749 §5.2); a valid one
       // still needs the key it was bound to, below.
@@ -224,6 +229,7 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
         accountId: grant.account,
         scopes,
         grant: grantKey,
+        ...(resource ? { resource } : {}),
       };
       return c.json(
         {

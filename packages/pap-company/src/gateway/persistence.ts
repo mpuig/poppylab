@@ -5,7 +5,7 @@
 import type { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import type { Ctx } from "./context.ts";
-import type { Changes } from "./types.ts";
+import { MCP_PATH, type Changes } from "./types.ts";
 
 const securityHeaders = (formTargets: string[]) => ({
   "X-Content-Type-Options": "nosniff",
@@ -30,7 +30,9 @@ export function mountPersistence(app: Hono, ctx: Ctx) {
    * Save only when state may have changed: any non-GET, any request with a
    * Session header (sessions, replays), or a path that marked itself dirty
    * (consent pages, tenant creation and eviction, grant links). Website polls
-   * and discovery reads then cost no storage write. Each request answers for
+   * and discovery reads then cost no storage write, and nor does a POST to
+   * the MCP server without a Session header, which only reads what it
+   * offers (`mcp.ts`). Each request answers for
    * itself: requests overlap while one awaits, and a change is saved by the
    * end of the request that made it.
    */
@@ -40,7 +42,11 @@ export function mountPersistence(app: Hono, ctx: Ctx) {
         "Retry-After": "60",
       });
     const request = c.req.raw;
-    if (c.req.method !== "GET" || c.req.header("poppy-session"))
+    if (
+      (c.req.method !== "GET" &&
+        !(ctx.mcp && new URL(c.req.url).pathname === MCP_PATH)) ||
+      c.req.header("poppy-session")
+    )
       ctx.markDirty(request);
     await next();
     if (ctx.dirty.has(request) || ctx.removed.length) {

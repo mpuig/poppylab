@@ -5,9 +5,10 @@
  * routes that need an undeclared extension (§3.3), keeps one account per
  * Session, enforces scopes and Operations v3 on account routes (the
  * Company's `accountPrefixes`), and replays performed operations
- * (Operations §7).
+ * (Operations §7). The MCP server (`mcp.ts`) verifies its requests and
+ * checks each tool's route with the same two functions.
  */
-import type { Hono } from "hono";
+import type { Context, Hono } from "hono";
 import {
   parseExtensionsHeader,
   tokenHash,
@@ -20,19 +21,23 @@ import {
   hash,
   isChallenge,
   SESSION_MS,
+  type CompanyDefinition,
   type ExtensionVersion,
   type Token,
 } from "./types.ts";
 import type { Tenancy } from "./tenancy.ts";
 
 /** Operations v3 (Operations §2), which account POSTs always need. */
-const OPERATIONS: ExtensionVersion = { name: "operations", version: "3" };
+export const OPERATIONS: ExtensionVersion = {
+  name: "operations",
+  version: "3",
+};
 
 /**
  * Session destinations (§5.2): the APIs, the account routes (§7), the
  * conversation routes (§8.2), feedback and the browser authorization (§6).
  * Every request to one needs a verified Session header, and none reads a
- * cookie.
+ * cookie. The MCP server checks its own (`mcp.ts`).
  */
 export const sessionDestination = (ctx: Ctx, path: string) =>
   path.startsWith("/api/") ||
@@ -42,14 +47,63 @@ export const sessionDestination = (ctx: Ctx, path: string) =>
   path === `${BROWSER_SESSION_PATH}/authorize` ||
   path.startsWith("/poppy/conversations/");
 
+/** Where a request is verified: the service its token must be for. */
+export type Service = {
+  /** The token's `resource` (§4.5); none for the default token. */
+  resource?: string;
+  /** RFC 9728 §5.1: named in every challenge, as an MCP server does (§7). */
+  metadata?: string;
+};
+
+/**
+ * Why an account route turns a request down before its handler (§7,
+ * Operations §2), or the first response of an operation it performed
+ * (Operations §7). Each interface says it in its own way.
+ */
+export type RouteAnswer =
+  | { kind: "sign_in"; scopes: string[] }
+  | { kind: "insufficient_scope"; scopes: string[] }
+  | { kind: "extension_required"; extension: string }
+  | { kind: "replay"; body: unknown };
+
+/** The scopes an account route needs, or `undefined` for another route. */
+export const routeScopes = (
+  def: CompanyDefinition,
+  path: string,
+  method: string,
+) =>
+  (def.accountPrefixes ?? ["/api/account"]).some((prefix) =>
+    path.startsWith(prefix),
+  )
+    ? (def.requiredScopes?.({ path, method }) ?? [
+        method === "POST" ? def.writeScope : def.readScope,
+      ])
+    : undefined;
+
 export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
-  const { def, origin, state, replay, isolated, accountPrefixes } = ctx;
-  /** Account routes (§7): scopes, a token challenge and Operations v3. */
-  const account = (path: string) =>
-    accountPrefixes.some((prefix) => path.startsWith(prefix));
-  const guarded = (path: string) => sessionDestination(ctx, path);
-  app.use("*", async (c, next) => {
-    if (!guarded(new URL(c.req.url).pathname)) return next();
+  const { def, origin, state, replay, isolated } = ctx;
+  /** A DPoP challenge, with the service's metadata when it names one. */
+  const challenge = (
+    service: { metadata?: string | undefined },
+    params?: string,
+  ) =>
+    [
+      "DPoP",
+      [params, service.metadata && `resource_metadata="${service.metadata}"`]
+        .filter(Boolean)
+        .join(", "),
+    ]
+      .filter(Boolean)
+      .join(" ");
+  /**
+   * Verifies a request's Session header and token for `service`, and keeps
+   * the Session for its handlers (`sessionFor`, `tenantKeys`). Returns the
+   * refusal, or nothing when the request may go on.
+   */
+  async function verify(
+    c: Context,
+    service: Service = {},
+  ): Promise<Response | undefined> {
     // Without a Session header, nothing else can be checked (§5.3).
     if (!c.req.header("poppy-session"))
       return c.json({ error: "invalid_session" }, 400);
@@ -61,10 +115,11 @@ export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
     const token = authorization.startsWith("DPoP ")
       ? authorization.slice(5)
       : undefined;
-    if (authorization && !token)
-      return c.json({ error: "invalid_token" }, 401, {
-        "WWW-Authenticate": 'DPoP error="invalid_token"',
+    const invalidToken = (metadata = service.metadata) =>
+      c.json({ error: "invalid_token" }, 401, {
+        "WWW-Authenticate": challenge({ metadata }, 'error="invalid_token"'),
       });
+    if (authorization && !token) return invalidToken();
     const url = `${origin}${new URL(c.req.url).pathname}${new URL(c.req.url).search}`;
     let verified;
     try {
@@ -120,9 +175,14 @@ export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
         !grant ||
         grant.expires < now
       )
-        return c.json({ error: "invalid_token" }, 401, {
-          "WWW-Authenticate": 'DPoP error="invalid_token"',
-        });
+        return invalidToken();
+      // §4.5: a token for one service works only there, and the default
+      // token works everywhere else. The challenge names this service's
+      // metadata, so an agent with stale metadata learns where it is.
+      if (record.resource !== service.resource)
+        return invalidToken(
+          service.metadata ?? `${origin}/.well-known/oauth-protected-resource`,
+        );
       try {
         await ctx.proofOf(
           c.req.header("dpop") ?? "",
@@ -136,11 +196,11 @@ export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
       } catch (e) {
         if (isChallenge(e))
           return c.json({ error: "use_dpop_nonce" }, 401, {
-            "WWW-Authenticate": 'DPoP error="use_dpop_nonce"',
+            "WWW-Authenticate": challenge(service, 'error="use_dpop_nonce"'),
             "DPoP-Nonce": e.nonce,
           });
         return c.json({ error: "invalid_dpop_proof" }, 401, {
-          "WWW-Authenticate": 'DPoP error="invalid_dpop_proof"',
+          "WWW-Authenticate": challenge(service, 'error="invalid_dpop_proof"'),
         });
       }
       // One account per Session: a second one ends it (§5.4).
@@ -148,10 +208,7 @@ export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
         return c.json({ error: "session_ended" }, 400);
       // A grant serves only the agent user that first used it.
       const holder = ctx.holderOf(verified.clientId, verified.userId);
-      if (grant.holder && grant.holder !== holder)
-        return c.json({ error: "invalid_token" }, 401, {
-          "WWW-Authenticate": 'DPoP error="invalid_token"',
-        });
+      if (grant.holder && grant.holder !== holder) return invalidToken();
       if (grant.holder !== holder) ctx.markDirty(c.req.raw);
       grant.holder = holder;
       // The browser that approved this consent now sees this user's copy.
@@ -177,7 +234,6 @@ export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
         c.req.raw,
         ctx.holderOf(verified.clientId, verified.userId),
       );
-    const operations = declares(declared, OPERATIONS);
     ctx.sessionKeys.set(c.req.raw, sid);
     ctx.sessions.set(c.req.raw, {
       ...session,
@@ -185,7 +241,7 @@ export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
       // Company, to keep them the same throughout a Session.
       extensions: declared,
       // Operations v3 §2: used only when this request declares version 3.
-      operations,
+      operations: declares(declared, OPERATIONS),
       ...(record
         ? {
             account: record.accountId,
@@ -194,43 +250,74 @@ export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
           }
         : {}),
     });
-    if (account(path)) {
-      const needed = def.requiredScopes?.({ path, method: c.req.method }) ?? [
-        c.req.method === "POST" ? def.writeScope : def.readScope,
-      ];
-      const scope = needed.join(" ");
-      // An empty list: a token of any scope, and the route checks the rest.
-      if (!record)
-        return c.body(null, 401, {
-          "WWW-Authenticate": needed.length ? `DPoP scope="${scope}"` : "DPoP",
-        });
-      const granted = record.scopes.split(" ");
-      if (needed.some((required) => !granted.includes(required)))
-        return c.json({ error: "insufficient_scope" }, 403, {
-          "WWW-Authenticate": `DPoP error="insufficient_scope", scope="${scope}"`,
-        });
-      // Operations v3 §2: never return operations to a request that doesn't
-      // declare version 3. A JSON body, not a token error (§3.3). Only POSTs
-      // propose operations; other methods are the route's own business.
-      if (c.req.method === "POST" && !operations)
-        return c.json(
-          { error: "extension_required", extension: OPERATIONS.name },
-          403,
-        );
-      // §7: a retry of a performed operation gets its first response.
-      if (c.req.method === "POST") {
-        const s = ctx.sessions.get(c.req.raw)!;
-        const first = tenancy.enter(c.req.raw).engine.replay(
-          {
-            client: s.client,
-            user: s.user,
-            account: s.account ?? def.defaultAccount,
-          },
-          c.req.header("poppy-approval"),
-        );
-        if (first) return c.json(first, 200);
-      }
-    }
+    return undefined;
+  }
+  /**
+   * An account route's checks (§7) for a verified request: the scopes, a
+   * token challenge without a token, Operations v3 on POST, and the first
+   * response of a performed operation. Nothing for any other route.
+   */
+  function route(
+    request: Request,
+    path: string,
+    method: string,
+    approval: string | undefined,
+  ): RouteAnswer | undefined {
+    const needed = routeScopes(def, path, method);
+    if (!needed) return undefined;
+    const s = ctx.sessions.get(request)!;
+    // An empty list: a token of any scope, and the route checks the rest.
+    if (s.scopes === undefined) return { kind: "sign_in", scopes: needed };
+    const granted = s.scopes.split(" ");
+    if (needed.some((required) => !granted.includes(required)))
+      return { kind: "insufficient_scope", scopes: needed };
+    // Operations v3 §2: never return operations to a request that doesn't
+    // declare version 3. Only POSTs propose operations; other methods are
+    // the route's own business.
+    if (method !== "POST") return undefined;
+    if (!s.operations)
+      return { kind: "extension_required", extension: OPERATIONS.name };
+    // §7: a retry of a performed operation gets its first response.
+    const first = tenancy.enter(request).engine.replay(
+      {
+        client: s.client,
+        user: s.user,
+        account: s.account ?? def.defaultAccount,
+      },
+      approval,
+    );
+    return first ? { kind: "replay", body: first } : undefined;
+  }
+  app.use("*", async (c, next) => {
+    const path = new URL(c.req.url).pathname;
+    if (!sessionDestination(ctx, path)) return next();
+    const refused = await verify(c);
+    if (refused) return refused;
+    const answer = route(
+      c.req.raw,
+      path,
+      c.req.method,
+      c.req.header("poppy-approval"),
+    );
+    if (answer?.kind === "sign_in")
+      return c.body(null, 401, {
+        "WWW-Authenticate": answer.scopes.length
+          ? `DPoP scope="${answer.scopes.join(" ")}"`
+          : "DPoP",
+      });
+    if (answer?.kind === "insufficient_scope")
+      return c.json({ error: "insufficient_scope" }, 403, {
+        "WWW-Authenticate": `DPoP error="insufficient_scope", scope="${answer.scopes.join(" ")}"`,
+      });
+    // A JSON body, not a token error (§3.3).
+    if (answer?.kind === "extension_required")
+      return c.json(
+        { error: "extension_required", extension: answer.extension },
+        403,
+      );
+    if (answer?.kind === "replay") return c.json(answer.body, 200);
     await next();
   });
+  return { verify, route };
 }
+export type Sessions = ReturnType<typeof mountSessions>;
