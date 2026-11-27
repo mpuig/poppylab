@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { addressKey } from "@poppy-lab/pap-client";
 import { allow, endedConversation, type Limit } from "./runs";
 import { publicMode } from "./deployment";
 import { json } from "./web";
@@ -15,7 +16,9 @@ const l = (name: string, limit: number, windowMs: number): Limit => ({
  * protect the Companies and this deployment's compute, not model spend.
  * The visitor cookie is the client's to rotate, so per-visitor budgets only
  * bound honest users; the per-IP (Cloudflare's `cf-connecting-ip`) and
- * global budgets are the ones that hold against abuse.
+ * global budgets are the ones that hold against abuse. An IPv6 address
+ * counts by its /64 (`addressKey`), as at the Companies, since one
+ * subscriber usually holds the whole of it.
  */
 const budgets = {
   chat: {
@@ -48,7 +51,7 @@ export async function overBudget(
     (await allow(visitor, { visitor: b.visitor, global: b.global })) &&
     (!ip ||
       (await allow(
-        `ip:${createHash("sha256").update(ip).digest("base64url")}`,
+        `ip:${createHash("sha256").update(addressKey(ip)).digest("base64url")}`,
         { visitor: b.ip },
       )));
   if (ok) return undefined;

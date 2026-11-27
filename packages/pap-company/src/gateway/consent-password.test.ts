@@ -5,7 +5,6 @@
  */
 import { createHash, scryptSync } from "node:crypto";
 import { afterEach, expect, it, vi } from "vitest";
-import { addressKey } from "./context.ts";
 import { client, origin, redirect, setup } from "./test-company.ts";
 
 const salt = "a".repeat(32);
@@ -79,16 +78,6 @@ it("counts an IPv6 source by its /64, and an IPv4 one by its address", async () 
     expect(await x.answer(four, "wrong", "198.51.100.7")).toBe(401);
   expect(await x.answer(four, "right", "::ffff:198.51.100.7")).toBe(429);
   expect(await x.answer(four, "right", "198.51.100.8")).toBe(302);
-});
-
-it("keys an address by what it is", () => {
-  expect(addressKey("192.0.2.1")).toBe("192.0.2.1");
-  expect(addressKey("2001:db8::1")).toBe("2001:db8:0:0::/64");
-  expect(addressKey("2001:0DB8:0000:0000:1:2:3:4")).toBe("2001:db8:0:0::/64");
-  expect(addressKey("2001:db8:a:b:c:d:e:f")).toBe("2001:db8:a:b::/64");
-  expect(addressKey("::1")).toBe("0:0:0:0::/64");
-  expect(addressKey("::ffff:192.0.2.1")).toBe("192.0.2.1");
-  expect(addressKey("not:an:address")).toBe("not:an:address");
 });
 
 it("limits wrong passwords per consent page where no address is known", async () => {

@@ -15,6 +15,7 @@ export {
   type RetryState,
 } from "./protocol-error.ts";
 export { vault } from "./vault.ts";
+export { addressKey } from "./address-key.ts";
 export * from "./headers.ts";
 export * from "./operator-signature.ts";
 export { openApiTools, InvalidToolArguments, type ApiTool } from "./openapi.ts";

@@ -7,6 +7,7 @@ export * from "./session.ts";
 export * from "./session-header.ts";
 export * from "./headers.ts";
 export * from "./operator-signature.ts";
+export { addressKey } from "./address-key.ts";
 export {
   ProtocolError,
   approvalHeader,

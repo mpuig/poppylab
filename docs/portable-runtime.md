@@ -169,7 +169,7 @@ The same Next.js app runs with `next dev`/`next start` on Node and on Cloudflare
   - chat: 8/min and 150/day per visitor, 20/min per IP, 600/min global;
   - account: 20/min per visitor, 40/min per IP;
   - discovery: 20/min per visitor, 40/min per IP.
-    Counters are Durable Objects on Workers.
+    An IPv6 address counts by its /64, as at the Companies (`addressKey` in `pap-client`). Counters are Durable Objects on Workers.
 - **Build:** `pnpm --filter @poppy-lab/playground build:worker` (`scripts/build-worker.mjs`).
   - OpenNext copies `.env*` values into `next-env.mjs`; the first build contained the local model keys and was deleted before any deployment.
   - The script now empties that file and scans the whole bundle for every local secret-like value and the local identity. If it finds one, it deletes the artifact and fails, printing names only.
