@@ -748,12 +748,7 @@ async function reply(request: Request, started: Outcome) {
         // Company answers approval_required and holds it for the User.
         try {
           const result = await tools[plan.call]!.execute(plan.args);
-          text = `Protocol demo (no LLM). ${demoChangeReply(
-            plan,
-            result,
-            show,
-            Object.values(connection.operations ?? {}),
-          )}`;
+          text = `Protocol demo (no LLM). ${demoChangeReply(plan, result, show)}`;
         } catch (error) {
           // The demo chose the arguments; when the Company's description
           // of the tool rejects them, nothing was sent. Say that, not
