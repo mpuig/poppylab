@@ -48,8 +48,7 @@ it("has every message a Learn page has the reader type", () => {
   const answers = asked.filter((text) => yesOrNo(text, verbs));
   const messages = asked.filter((text) => !answers.includes(text));
   expect(messages.length).toBeGreaterThan(8);
-  for (const text of messages)
-    expect(demoExampleFor(text), text).toBeDefined();
+  for (const text of messages) expect(demoExampleFor(text), text).toBeDefined();
 });
 
 it("matches whatever the case, the spaces, the quotes or the last punctuation", () => {
