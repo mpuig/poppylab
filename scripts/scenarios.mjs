@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath, URL } from "node:url";
@@ -27,11 +27,10 @@ const groups = {
         "src/authority-regression.test.ts",
       ],
     ],
+    ["pap-agent", ["src/account-permissions.test.ts", "src/runtime.test.ts"]],
     [
       "playground",
       [
-        "lib/account-permissions.test.ts",
-        "lib/runtime.test.ts",
         "app/api/account/route.test.ts",
         "app/api/account/callback/route.test.ts",
       ],
@@ -51,14 +50,10 @@ const groups = {
       ],
     ],
     ["lantern", ["src/pap10.test.ts"]],
+    ["pap-agent", ["src/mcp-runtime.test.ts", "src/runtime.test.ts"]],
     [
       "playground",
-      [
-        "app/company-profile.test.ts",
-        "lib/mcp-runtime.test.ts",
-        "lib/runtime.test.ts",
-        "app/api/account/callback/route.test.ts",
-      ],
+      ["app/company-profile.test.ts", "app/api/account/callback/route.test.ts"],
     ],
   ],
   noodles: [
@@ -96,12 +91,11 @@ const groups = {
       ],
     ],
     ["pap-client", ["src/fdx.test.ts", "src/protocol-error.test.ts"]],
+    ["pap-agent", ["src/fdx-runtime.test.ts", "src/demo-fdx.test.ts"]],
     [
       "playground",
       [
-        "lib/fdx-runtime.test.ts",
         "lib/fdx-harborline.test.ts",
-        "lib/demo-fdx.test.ts",
         "app/playground/fdx-consent.test.ts",
         "app/playground/fdx-statements.test.ts",
       ],
@@ -122,13 +116,18 @@ const groups = {
     ["pap-company", ["src/gateway/account-routes.test.ts"]],
     ["pap-client", ["src/espi.test.ts", "src/xml.test.ts"]],
     [
+      "pap-agent",
+      [
+        "src/espi-runtime.test.ts",
+        "src/demo-espi.test.ts",
+        "src/token-response.test.ts",
+      ],
+    ],
+    [
       "playground",
       [
         "lib/espi-fernwick.test.ts",
-        "lib/espi-runtime.test.ts",
         "lib/use-espi-fernwick.test.ts",
-        "lib/demo-espi.test.ts",
-        "lib/token-response.test.ts",
         "app/playground/espi-authorization.test.ts",
       ],
     ],
@@ -139,11 +138,11 @@ const groups = {
     ["northwind", ["src/conversations.test.ts"]],
     ["fernwick", ["src/conversations.test.ts"]],
     ["juniper", ["src/conversations.test.ts"]],
-    ["playground", ["lib/conversations.test.ts"]],
+    ["pap-agent", ["src/conversations.test.ts"]],
   ],
   mcp: [
     ["pap-client", ["src/mcp.test.ts", "src/mcp-transport.test.ts"]],
-    ["playground", ["lib/mcp-runtime.test.ts"]],
+    ["pap-agent", ["src/mcp-runtime.test.ts"]],
   ],
   nonce: [
     ["pap-client", ["src/nonce-request.test.ts"]],
@@ -158,16 +157,14 @@ const groups = {
         "src/openapi.test.ts",
       ],
     ],
-    [
-      "playground",
-      ["app/api/account/juniper-approval.test.ts", "lib/runtime.test.ts"],
-    ],
+    ["pap-agent", ["src/runtime.test.ts"]],
+    ["playground", ["app/api/account/juniper-approval.test.ts"]],
   ],
   operations: [
+    ["pap-agent", ["src/operation-validation.test.ts"]],
     [
       "playground",
       [
-        "lib/operation-validation.test.ts",
         "app/api/account/route.test.ts",
         "app/api/account/callback/route.test.ts",
         "app/operation-review.test.ts",
@@ -186,6 +183,22 @@ const groups = {
     ["juniper", ["src/authority-regression.test.ts"]],
   ],
 };
+// A test file that moved or was renamed would otherwise run nothing and
+// fail its group with no reason given.
+const missing = Object.values(groups)
+  .flat()
+  .flatMap(([workspace, files]) => {
+    const folder = ["apps", "packages"]
+      .map((parent) => path.join(root, parent, workspace))
+      .find((candidate) => existsSync(candidate));
+    return files
+      .filter((file) => !folder || !existsSync(path.join(folder, file)))
+      .map((file) => `${workspace}/${file}`);
+  });
+if (missing.length) {
+  console.error(`Listed test files not found:\n${missing.join("\n")}`);
+  process.exit(2);
+}
 const selected = process.argv.slice(2);
 if (selected.includes("--list")) {
   console.log(Object.keys(groups).join("\n"));
