@@ -17,6 +17,11 @@ const codes = new Set([
   "user_approval_required",
   "operation_not_found",
   "unsupported_grant_type",
+  // Device Sign-In's polls (1.0 §4.3, RFC 8628 §3.5).
+  "authorization_pending",
+  "slow_down",
+  "expired_token",
+  "access_denied",
   "approval_required",
   "approval_declined",
   // Sessions and versions (1.0 §5, §3.4).

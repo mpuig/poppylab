@@ -960,4 +960,5 @@ export async function mcpRequest(
 }
 export * from "./session.ts";
 export * from "./session-header.ts";
+export * from "./device-sign-in.ts";
 export { decodeProtectedHeader, type JWK } from "jose";
