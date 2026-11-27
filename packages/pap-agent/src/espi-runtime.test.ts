@@ -34,6 +34,12 @@ import {
   type Connection,
 } from "./runtime";
 import { UserFacingError } from "./user-error";
+import {
+  askedHere,
+  askedOfLantern,
+  callEach,
+  refusedAt,
+} from "./addressed-fixture";
 
 const origin = "https://energy.example";
 const RE = `${origin}/espi/1_1/resource`;
@@ -389,4 +395,29 @@ it("has nothing to revoke with Use ESPI off, signed out, refused, or with an aut
     id: SUB,
     url: `${RE}/Authorization/${SUB}`,
   });
+});
+
+it("sends no ESPI request, nor any other, for a request that wasn't asked of the utility", async () => {
+  rediscover.mockResolvedValue(utility({ espi: true }).company!);
+  const name = utility().company!.document.organization.name;
+  const tools = await connect(
+    utility({ espi: true }),
+    [],
+    [],
+    askedOfLantern(origin, name),
+  );
+  expect(Object.keys(tools)).toContain("espi_meters");
+  const calls = transport.mock.calls.length;
+  expect(await callEach(tools)).toEqual(
+    Object.keys(tools).map((tool) => [tool, refusedAt(name)]),
+  );
+  expect(transport.mock.calls.length).toBe(calls);
+  const asked = await connect(
+    utility({ espi: true }),
+    [],
+    [],
+    askedHere(origin, name),
+  );
+  await asked.espi_meters!.execute({});
+  expect(espiCalls().length).toBeGreaterThan(0);
 });

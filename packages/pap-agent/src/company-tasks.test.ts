@@ -24,7 +24,16 @@ import {
   feedbackTool,
   papRequest,
 } from "./runtime";
+import {
+  askedHere,
+  askedOfLantern,
+  callEach,
+  refusedAt,
+} from "./addressed-fixture";
 import { example, headersOf } from "./runtime-fixture";
+
+/** A turn whose request names no Company: it is the turn's Company's. */
+const asked = { asked: "", companies: () => [], chosen: [] };
 
 let dpop: JWK;
 beforeEach(async () => {
@@ -45,7 +54,7 @@ it("reports an unsupported task once per Session, with the token when signed in,
     },
   };
   const trace: string[] = [];
-  const tool = feedbackTool(r, trace);
+  const tool = feedbackTool(r, trace, asked);
   const report = {
     task: "Pay with a gift card",
     description: "No API takes one.",
@@ -118,7 +127,7 @@ it("sends a report with a date, a time, an amount or the name of one of the Comp
       },
     };
     const tools = new Set(["change_order", "my_basket"]);
-    return feedbackTool(r, [], tools).execute({ task, description });
+    return feedbackTool(r, [], asked, tools).execute({ task, description });
   };
   transport.mockReset().mockResolvedValue(null);
   for (const description of [
@@ -195,7 +204,7 @@ it("lets a report name the tools this run offers, and no other (§9.3)", async (
           ? null
           : { paths: { "/orders": { get: { operationId: "my_orders" } } } },
     );
-    const tools = await connect(r, []);
+    const tools = await connect(r, [], [], asked);
     expect(tools.my_orders).toBeTruthy();
     const sends = () =>
       transport.mock.calls.filter(([url]) => url === feedback).length;
@@ -246,7 +255,7 @@ it("reads the tasks again when a new Session started during the turn, before lis
   };
   const trace: string[] = [];
   const excluded = excludedTasksTool(r, trace);
-  const report = feedbackTool(r, trace);
+  const report = feedbackTool(r, trace, asked);
   const listed = {
     untrusted_company_content: true,
     tasks: [{ task: "Cancel an order" }],
@@ -293,7 +302,7 @@ it("sends no report, Session header or token to a feedback endpoint outside the 
       sid: "",
       value: { excludedTasks: [], feedbackEndpoint: endpoint, skills: [] },
     };
-    return feedbackTool(r, []).execute(report);
+    return feedbackTool(r, [], asked).execute(report);
   };
   for (const endpoint of [
     "https://collector.example/x",
@@ -311,4 +320,113 @@ it("sends no report, Session header or token to a feedback endpoint outside the 
   expect(headersOf(transport.mock.calls[0]!).Authorization).toBe(
     "DPoP access-1",
   );
+});
+
+/** The shop with its API, its agent, excluded tasks and feedback. */
+function shopWithEverything() {
+  const r = example("shop", false);
+  const origin = "https://shop.papsandbox.com";
+  r.company!.profile.tasksEndpoint = `${origin}/poppy/tasks`;
+  r.company!.document.agent = {
+    protocols: [{ type: "poppy", endpoint: `${origin}/poppy/agent` }],
+  } as NonNullable<typeof r.company>["document"]["agent"];
+  rediscover.mockResolvedValue(r.company!);
+  transport.mockImplementation(async (url) =>
+    url === `${origin}/poppy/tasks`
+      ? {
+          excluded_tasks: [{ task: "Close an account" }],
+          feedback: { endpoint: `${origin}/poppy/feedback` },
+        }
+      : url === `${origin}/poppy/openapi.json`
+        ? { paths: { "/orders": { get: { operationId: "my_orders" } } } }
+        : { ok: true },
+  );
+  return { r, origin };
+}
+
+it("sends nothing with any tool to a Company the User's request wasn't asked of, and tells the model why", async () => {
+  vi.stubEnv("PAP_ACCOUNT_ORIGINS", "https://shop.papsandbox.com");
+  try {
+    const { r, origin } = shopWithEverything();
+    // "conéctate con lantern noodle bar", in a conversation with the shop
+    // alone: the turn went to the shop for want of another.
+    const trace: string[] = [];
+    const tools = await connect(r, trace, [], askedOfLantern(origin, "shop"));
+    // Each kind: the API's, the Company's agent's, the tasks' and feedback.
+    expect(Object.keys(tools).sort()).toEqual([
+      "company_agent_cancel_handoff",
+      "company_agent_handoff",
+      "company_agent_read",
+      "company_agent_send",
+      "excluded_tasks",
+      "my_orders",
+      "report_unsupported_task",
+    ]);
+    const sent = transport.mock.calls.length;
+    expect(await callEach(tools)).toEqual(
+      Object.keys(tools).map((name) => [name, refusedAt("shop")]),
+    );
+    expect(transport.mock.calls.length).toBe(sent);
+    expect(trace).toContain(
+      "Not sent · my_orders · the user's request wasn't asked of this Company",
+    );
+    // Asked of the shop, the same tools reach it.
+    const asked = await connect(r, [], [], askedHere(origin, "shop"));
+    transport.mockClear();
+    expect(await asked.my_orders!.execute({})).toEqual({ ok: true });
+    expect(transport.mock.calls[0]![0]).toBe(`${origin}/orders`);
+  } finally {
+    vi.unstubAllEnvs();
+  }
+});
+
+it("reports only to the Company the request was asked of, never about connecting Companies or naming another (§9.3)", async () => {
+  vi.stubEnv("PAP_ACCOUNT_ORIGINS", "https://shop.papsandbox.com");
+  try {
+    const { r, origin } = shopWithEverything();
+    const feedback = `${origin}/poppy/feedback`;
+    const sends = () =>
+      transport.mock.calls.filter(([url]) => url === feedback).length;
+    const report = {
+      task: "Pay with a gift card",
+      description: "The User wanted to pay with a gift card.",
+    };
+    // Asked of another Company: refused before anything is sent.
+    const elsewhere = await connect(r, [], [], askedOfLantern(origin, "shop"));
+    expect(
+      await elsewhere.report_unsupported_task!.execute(report),
+    ).toMatchObject({ sent: false, not_addressed: true });
+    // A turn about the conversation's Companies reports nothing either.
+    const about = await connect(r, [], [], {
+      ...askedHere(origin, "shop"),
+      aboutCompanies: () => true,
+    });
+    expect(await about.report_unsupported_task!.execute(report)).toEqual({
+      sent: false,
+      reason:
+        "This turn is about which companies the conversation is connected to. That is no task shop can't do, so nothing was reported to shop.",
+    });
+    // Nor does a report that names another Company.
+    const here = await connect(r, [], [], askedHere(origin, "shop"));
+    expect(
+      await here.report_unsupported_task!.execute({
+        task: "Connect with Lantern Noodle Bar",
+        description: "The User asked to connect Lantern Noodle Bar.",
+      }),
+    ).toEqual({
+      sent: false,
+      reason:
+        "The report names Lantern Noodle Bar. A report to shop describes a task asked of shop, and names no other company.",
+    });
+    expect(sends()).toBe(0);
+    // The shop's own task, asked of it, is reported.
+    expect(await here.report_unsupported_task!.execute(report)).toEqual({
+      sent: true,
+    });
+    expect(sends()).toBe(1);
+    // Without a turn's request, no report tool is offered at all.
+    expect(await connect(r, [])).not.toHaveProperty("report_unsupported_task");
+  } finally {
+    vi.unstubAllEnvs();
+  }
 });

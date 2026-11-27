@@ -22,7 +22,12 @@ import {
 } from "./several";
 import { recordTurn } from "./transcript";
 import { askAfter, before } from "./chat-answers";
-import { companiesNow, turnState, type HeldTurn } from "./chat-turn";
+import {
+  companiesNow,
+  turnAddressed,
+  turnState,
+  type HeldTurn,
+} from "./chat-turn";
 import { spokenText } from "./spoken";
 import { json } from "./web";
 
@@ -49,9 +54,16 @@ export async function severalTurn(
   const parts = scope.parts;
   scope.knewLost = !!at.accountUnavailable;
   scope.stage = "pap";
+  // The task spans each of them: each is asked what the task needs of it.
+  const addressed = turnAddressed(turn, companies);
   for (const part of parts) {
     try {
-      part.tools = await connect(part.connection, part.trace, part.shown);
+      part.tools = await connect(
+        part.connection,
+        part.trace,
+        part.shown,
+        addressed,
+      );
     } catch (error) {
       scope.failure = { connection: part.connection, error };
       throw error;

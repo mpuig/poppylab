@@ -9,7 +9,9 @@
  * lab's, and the ones the conversation is connected to), and against
  * nothing else: a name is never turned into an address.
  *
- * English only. Two kinds of wording:
+ * English only: in another language, or with a typo, the message goes on
+ * to the model, which can ask for the same with a Company's name alone
+ * (`namedCommand`). Two kinds of wording:
  *
  * - "connect with …", "connect to …" and "disconnect from …" are only
  *   ever meant for this (`sure`). After them a Company can be named by
@@ -165,22 +167,21 @@ function named(words: string, pool: readonly Nameable[], sure: boolean) {
   return companies.length && (sure || !rest) ? { companies, rest } : undefined;
 }
 
+/** The Companies a request can name: the conversation's, then the lab's. */
+export type Known = {
+  connected: readonly Nameable[];
+  lab: readonly Nameable[];
+};
+
 /**
- * What the message asks about the conversation's Companies, if it does.
- * `connected` are the conversation's Companies, each by its own name, and
- * `lab` the lab's. A name is looked for among all of them. Whether the
- * Company named can be connected, or removed, is for the caller to say.
+ * Every Company a name is looked for among, once each. A connected Company
+ * of the lab's goes by its own name, and by the lab's name and words for
+ * it as well.
  */
-export function connectCommand(
-  message: string,
-  known: { connected: readonly Nameable[]; lab: readonly Nameable[] },
-): ConnectCommand | undefined {
-  const text = message.trim().replace(polite(), "");
-  // A connected Company of the lab's goes by its own name, and by the
-  // lab's name and words for it as well.
+export function namePool(known: Known): Nameable[] {
   const labAt = (url: string) =>
     known.lab.find((c) => place(c.url) === place(url));
-  const pool: Nameable[] = [
+  return [
     ...known.connected.map((c) => {
       const listed = labAt(c.url);
       return listed
@@ -195,6 +196,20 @@ export function connectCommand(
       (c) => !known.connected.some((own) => place(own.url) === place(c.url)),
     ),
   ];
+}
+
+/**
+ * What the message asks about the conversation's Companies, if it does.
+ * `connected` are the conversation's Companies, each by its own name, and
+ * `lab` the lab's. A name is looked for among all of them. Whether the
+ * Company named can be connected, or removed, is for the caller to say.
+ */
+export function connectCommand(
+  message: string,
+  known: Known,
+): ConnectCommand | undefined {
+  const text = message.trim().replace(polite(), "");
+  const pool = namePool(known);
   for (const { verb, sure, start } of WORDINGS) {
     const begins = start.exec(text);
     if (!begins) continue;
@@ -215,4 +230,26 @@ export function connectCommand(
   return also.length === 1
     ? { verb: "connect", sure: false, companies: also, rest: "" }
     : undefined;
+}
+
+/**
+ * The same request, when a model read it from the User's message, in
+ * whatever language it was written, and gives the Company's name alone
+ * (`companies-tool.ts`). The name is matched as it is after "connect
+ * with", against the same Companies and nothing else, and has to be all
+ * that is given: a name and something more names nothing. A removal is
+ * never `sure`, so Iris asks the User before it removes anything, as for
+ * "remove …": the model's reading of the message is no confirmation.
+ */
+export function namedCommand(
+  verb: "connect" | "remove",
+  name: string,
+  known: Known,
+): ConnectCommand {
+  const sure = verb === "connect";
+  const found = named(name, namePool(known), true);
+  if (found && "which" in found) return { verb, sure, ...found };
+  if (found && !found.rest) return { verb, sure, ...found };
+  const said = tidy(name);
+  return { verb, sure, unknown: NOTHING.test(said) ? "" : said.slice(0, 80) };
 }

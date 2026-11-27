@@ -13,6 +13,7 @@ import {
   feedbackTool,
   readTasks,
 } from "./company-tasks";
+import { notAddressed, type Addressed } from "./addressed";
 import { isSandbox } from "./company-policy";
 import {
   conversationEndpoint,
@@ -93,6 +94,7 @@ export {
   revokeEspiAuthorization,
 } from "./espi-runtime";
 export { excludedTasksTool, feedbackTool } from "./company-tasks";
+export type { Addressed } from "./addressed";
 export { tokenResponse } from "./token-response";
 export { recordOperation } from "./operation-store";
 export { localOrigins } from "./deployment";
@@ -102,12 +104,22 @@ export { localOrigins } from "./deployment";
  * this Session, and the tools of each interface it offers (OpenAPI or MCP,
  * the domain extensions with Use FDX or Use ESPI on, its agent's
  * conversations, the excluded tasks and feedback).
+ *
+ * A chat turn says what the User asked and of whom (`addressed`). Every
+ * tool is then this Company's only on that condition: a call while the
+ * User's request wasn't asked of this Company (`notAddressed`) sends
+ * nothing, and the model is told why. This is the one place each tool of
+ * every kind passes through. Feedback (§9.3) is offered only then, since
+ * without it there is no telling whether a report would go to the Company
+ * the request was for. What `connect` itself sends (discovery, the
+ * Session, the tasks response) carries nothing of the User's request.
  */
 export async function connect(
   connection: Connection,
   trace: string[],
   /** Company messages the chat shows for this turn (conversations, §8). */
   shown: CompanyEntry[] = [],
+  addressed?: Addressed,
 ): Promise<Record<string, ApiTool>> {
   const company = await discoverCompany(connection.url, {
     allowedPrivateOrigins: localOrigins,
@@ -167,12 +179,13 @@ export async function connect(
   const names = new Set<string>();
   const offered = (tools: Record<string, ApiTool>) => {
     for (const name of Object.keys(tools)) names.add(name);
-    return tools;
+    return addressed ? onlyAsked(connection, tools, addressed, trace) : tools;
   };
-  if (feedbackEndpoint(connection))
+  if (addressed && feedbackEndpoint(connection))
     taskTools.report_unsupported_task = feedbackTool(
       connection,
       trace,
+      addressed,
       names,
       shown,
     );
@@ -196,6 +209,35 @@ export async function connect(
       ? await mcpConnect(connection, api.url, trace)
       : await openApiConnect(connection, api.url, trace, sandbox, spec);
   return offered({ ...tools, ...domainSet, ...conversation, ...taskTools });
+}
+
+/**
+ * Each tool, called only while the User's request was asked of this
+ * Company. Otherwise nothing is sent, the Inspector says so, and the model
+ * reads why.
+ */
+function onlyAsked(
+  connection: Connection,
+  tools: Record<string, ApiTool>,
+  addressed: Addressed,
+  trace: string[],
+): Record<string, ApiTool> {
+  return Object.fromEntries(
+    Object.entries(tools).map(([name, tool]) => [
+      name,
+      {
+        ...tool,
+        execute: async (input?: Record<string, unknown>) => {
+          const reason = notAddressed(connection, addressed);
+          if (!reason) return tool.execute(input);
+          trace.push(
+            `Not sent · ${name} · the user's request wasn't asked of this Company`,
+          );
+          return { sent: false, not_addressed: true, reason };
+        },
+      },
+    ]),
+  );
 }
 
 /** What a conversation needs from its connection: transport, policy and output. */

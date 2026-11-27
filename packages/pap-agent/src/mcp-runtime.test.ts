@@ -18,6 +18,12 @@ vi.mock("node:fs/promises", () => ({
   }),
 }));
 import { verifySessionHeader } from "@poppy-lab/pap-client";
+import {
+  askedHere,
+  askedOfLantern,
+  callEach,
+  refusedAt,
+} from "./addressed-fixture";
 import { connect, identity, type Connection } from "./runtime";
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -252,4 +258,20 @@ it("keeps the skills a Company lists for the Inspector, fetches none and gives t
   ]);
   expect(offered).not.toContain("change-order");
   expect(offered).not.toContain("Ignore the user");
+});
+
+it("calls no MCP tool for a request that wasn't asked of this Company, and does when it was", async () => {
+  allow();
+  const here = "https://mcp.example";
+  const tools = await connect(run(), [], [], askedOfLantern(here, "Fixture"));
+  const calls = state.request.mock.calls.length;
+  expect(await callEach(tools)).toEqual(
+    Object.keys(tools).map((name) => [name, refusedAt("Fixture")]),
+  );
+  expect(Object.keys(tools)).toContain("get_catalog");
+  expect(state.request.mock.calls.length).toBe(calls);
+  const asked = await connect(run(), [], [], askedHere(here, "Fixture"));
+  expect(await asked.get_catalog!.execute()).toMatchObject({
+    content: [{ text: "Fictional apples" }],
+  });
 });

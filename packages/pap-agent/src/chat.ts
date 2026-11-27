@@ -17,10 +17,16 @@ import { failedTurn } from "./chat-failure";
 import { severalTurn } from "./chat-several";
 import {
   companiesNow,
+  turnAddressed,
   turnState,
   type HeldTurn,
   type TurnScope,
 } from "./chat-turn";
+import {
+  companiesTool,
+  newCompaniesUse,
+  type CompaniesUse,
+} from "./companies-tool";
 import { answerLabel, answers, typedAnswer } from "./company-commands";
 import { connectCommand } from "./connect-command";
 import {
@@ -53,6 +59,7 @@ import { spokenText } from "./spoken";
 import {
   accountsIn,
   forgetLostAccount,
+  recordAsked,
   recordDirect,
   recordTurn,
   turnAccounts,
@@ -394,7 +401,15 @@ async function reply(
     scope.proposals = new Set(Object.values(connection.operations ?? {}));
     const shown: CompanyEntry[] = [];
     scope.stage = "pap";
-    const tools = await connect(connection, trace, shown);
+    // What the model does about the conversation's Companies this turn.
+    const use = newCompaniesUse();
+    // Each tool is this Company's only while the request was asked of it.
+    const tools = await connect(
+      connection,
+      trace,
+      shown,
+      turnAddressed(turn, [connection], () => use.used),
+    );
     // What it offers stays with the connection, for the next turn's choice.
     connection.offered = offeredTools(tools);
     // A turn counts once the Company answered; a failed discovery is free.
@@ -406,7 +421,13 @@ async function reply(
     const { text, raw } =
       turn.provider === "demo"
         ? await demoReply(turn, connection, tools)
-        : await modelReply(turn, connection, tools);
+        : await modelReply(
+            turn,
+            connection,
+            tools,
+            // Only a page that shows several Companies can show another.
+            body.companies === true ? use : undefined,
+          );
     const exact =
       raw !== undefined ? JSON.stringify(raw).slice(0, 20000) : undefined;
     // The model's context gets the two turns. The page's transcript also
@@ -420,8 +441,12 @@ async function reply(
       typed: turn.typed,
     });
     run.history = run.history.slice(-10);
-    // What waits for the User now, asked in the agent's own words.
-    const question = askAfter(turn, scope.before!, [{ connection, trace }]);
+    // What waits for the User now, asked in the agent's own words: the
+    // removal the model asked for comes first, as the typed one would.
+    const asked = use.question;
+    if (asked) recordAsked(run, undefined, [], asked);
+    const question =
+      asked ?? askAfter(turn, scope.before!, [{ connection, trace }]);
     // The turn ended with an answer though the access went during it: what
     // the page showed with the account goes all the same, this turn too.
     const lost = lostAccess(run, connection, scope.knewLost);
@@ -432,6 +457,18 @@ async function reply(
         ...(question ? { question } : {}),
         ...(exact !== undefined ? { data: exact } : {}),
         trace,
+        // A Company the model connected has its own lines, under its name.
+        ...(use.lines.length
+          ? {
+              traces: [
+                ...use.lines.map(({ company, line }) => ({
+                  from: companyRef(run, company),
+                  trace: [line],
+                })),
+                { from, trace },
+              ],
+            }
+          : {}),
         mode: turn.provider,
         // The Company the turn was with: the answer came from there, and
         // the state that follows is that Company's.
@@ -587,6 +624,8 @@ async function modelReply(
   turn: HeldTurn,
   connection: Connection,
   tools: Record<string, ApiTool>,
+  /** The tool that connects or removes a Company, when the page can show it. */
+  companies?: CompaniesUse,
 ): Promise<{ text: string; raw: unknown }> {
   const { scope, conversation: run } = turn;
   const companyName = connection.company!.document.organization.name;
@@ -621,7 +660,11 @@ async function modelReply(
       ...context.map(({ role, content }) => ({ role, content })),
       { role: "user", content: turn.asked },
     ],
-    recorded,
+    // Iris's own tool, last, so no Company's tool takes its name. What it
+    // answers is Iris's, not the Company's, and isn't under "Data".
+    companies
+      ? { ...recorded, connect_company: companiesTool(turn, companies) }
+      : recorded,
     {
       ...turn.modelConfig,
       name: agentName(),

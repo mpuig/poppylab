@@ -1,11 +1,14 @@
 import { accountUnavailableNotice } from "./account-recovery";
+import type { Addressed } from "./addressed";
 import type { TurnStream } from "./answer-stream";
 import type { Before } from "./chat-answers";
 import type { Choice, Performed } from "./company-commands";
+import { namePool } from "./connect-command";
+import { originOf } from "./connections";
 import { companiesView } from "./conversation-view";
 import { directState } from "./direct-state";
 import type { FreeTurn } from "./free-model";
-import type { LabCompany } from "./lab-companies";
+import { nameable, type LabCompany } from "./lab-companies";
 import type { Connection, Operation, Run, Turn } from "./runtime";
 import type { Part } from "./several";
 import { shownSkills, shownTasks } from "./shown-tasks";
@@ -25,6 +28,13 @@ export type TurnScope = {
    * answers by itself: nothing is then sent to any Company.
    */
   connection?: Connection | undefined;
+  /**
+   * The turn went to `connection` for no reason in the request: it is the
+   * conversation's only Company, or the last turn's (`Routed.fallback`).
+   * Otherwise it was chosen for this request, by the User, the model's
+   * choice, a name in it or a scripted example (`addressed.ts`).
+   */
+  fallback?: boolean;
   /**
    * A turn the task needs several Companies for (`several.ts`): one part
    * for each, the one `connection` names among them, each with what the
@@ -113,6 +123,30 @@ export type HeldTurn = {
   /** Where the model's answer goes as it is written, when it is streamed. */
   stream?: TurnStream | undefined;
 };
+
+/**
+ * What the turn was asked, and of whom, for the tools of each Company it
+ * uses (`addressed.ts`): `at` are the Companies it was asked of, the one
+ * it is for last. A turn that went to its Company only as the fallback
+ * chose none of them for the request.
+ */
+export function turnAddressed(
+  turn: HeldTurn,
+  at: readonly Connection[],
+  aboutCompanies?: () => boolean,
+): Addressed {
+  const { conversation: run, lab, scope } = turn;
+  return {
+    asked: turn.asked,
+    companies: () =>
+      namePool({
+        connected: run.connections.map((c) => nameable(c, lab)),
+        lab,
+      }),
+    chosen: scope.fallback && at.length < 2 ? [] : at.map(originOf),
+    ...(aboutCompanies ? { aboutCompanies } : {}),
+  };
+}
 
 /**
  * One Company's state as a chat answer carries it: its Session, sign-in,

@@ -189,7 +189,16 @@ export function directConnection(
  * connected and that the request is clearly for, to connect first.
  */
 export type Routed =
-  | { connection: Connection; also?: Connection[] }
+  | {
+      connection: Connection;
+      also?: Connection[];
+      /**
+       * Chosen for no reason in the request: it is the conversation's only
+       * Company, or the last turn's. A request that names other Companies
+       * and not this one asks nothing of it (`addressed.ts`).
+       */
+      fallback?: true;
+    }
   | { ask: Connection[]; why: "both" | "none" }
   | { connect: LabCompany };
 
@@ -374,7 +383,7 @@ export async function turnConnection(
   const example = lab.find((c) => c.id === how.example);
   if (example) return labRoute(example);
   const [only, ...rest] = run.connections;
-  if (only && !rest.length) return { connection: only };
+  if (only && !rest.length) return { connection: only, fallback: true };
   const connected = candidates(run);
   const last = lastTurnCompany(run);
   const chosen =
@@ -413,7 +422,7 @@ export async function turnConnection(
       ? { connection: one as Connection }
       : { connect: one as LabCompany };
   }
-  if (last && followsOn(message)) return { connection: last };
+  if (last && followsOn(message)) return { connection: last, fallback: true };
   const among = named.filter((c): c is Connection =>
     run.connections.includes(c as Connection),
   );

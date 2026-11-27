@@ -360,6 +360,11 @@ describe("a model turn with two Companies", () => {
     const turn = await say("What is my bank balance?");
     expect(turn.answer.from).toEqual(kestrel);
     expect(turn.answer).not.toHaveProperty("using");
-    expect(Object.keys(given().tools).sort()).toEqual(["accounts", "pay_bill"]);
+    // The bank's tools, and Iris's own for connecting or removing one.
+    expect(Object.keys(given().tools).sort()).toEqual([
+      "accounts",
+      "connect_company",
+      "pay_bill",
+    ]);
   });
 });

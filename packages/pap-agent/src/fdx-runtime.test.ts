@@ -33,6 +33,12 @@ import {
   type Connection,
 } from "./runtime";
 import { UserFacingError } from "./user-error";
+import {
+  askedHere,
+  askedOfLantern,
+  callEach,
+  refusedAt,
+} from "./addressed-fixture";
 
 const origin = "https://bank.example";
 const fdxEntry = {
@@ -482,4 +488,34 @@ it("downloads a statement for the User from the entry and checked ids only", asy
     fdxStatementDownload(run, "acc_1", "stmt_1", []),
   ).rejects.toBeInstanceOf(UserFacingError);
   expect(transport).not.toHaveBeenCalled();
+});
+
+it("sends no FDX request, nor any other, for a request that wasn't asked of the bank", async () => {
+  rediscover.mockResolvedValue(bank({ fdx: true }).company!);
+  const tools = await connect(
+    bank({ fdx: true }),
+    [],
+    [],
+    askedOfLantern(origin, "Bank"),
+  );
+  expect(
+    Object.keys(tools).filter((n) => n.startsWith("fdx_")).length,
+  ).toBeGreaterThan(0);
+  const calls = transport.mock.calls.length;
+  expect(await callEach(tools)).toEqual(
+    Object.keys(tools).map((name) => [name, refusedAt("Bank")]),
+  );
+  expect(transport.mock.calls.length).toBe(calls);
+  // Asked of the bank, its FDX tools read there.
+  const asked = await connect(
+    bank({ fdx: true }),
+    [],
+    [],
+    askedHere(origin, "Bank"),
+  );
+  const first = Object.keys(asked).find((n) => n.startsWith("fdx_"))!;
+  await asked[first]!.execute({});
+  expect(
+    transport.mock.calls.some(([url]) => url.startsWith(fdxEntry.base_url)),
+  ).toBe(true);
 });

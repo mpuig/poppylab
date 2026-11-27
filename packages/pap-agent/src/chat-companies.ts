@@ -329,6 +329,7 @@ export async function chooseCompany(
     );
   }
   scope.connection = route.connection;
+  if (route.fallback) scope.fallback = true;
   turn.also = route.also ?? [];
   return undefined;
 }

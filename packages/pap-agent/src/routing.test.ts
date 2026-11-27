@@ -36,8 +36,10 @@ const conversation = (...origins: string[]): Run => ({
 describe("the Company a turn is for", () => {
   it("is the conversation's only one, whatever the message says", async () => {
     const run = conversation(shop);
+    // For no reason in the message: what it asks of another Company is
+    // asked of none (`addressed.ts`).
     expect(await turnConnection(run, "What's on the menu at Lantern?")).toEqual(
-      { connection: run.connections[0] },
+      { connection: run.connections[0], fallback: true },
     );
   });
 
@@ -55,6 +57,7 @@ describe("the Company a turn is for", () => {
     recordTurn(run, run.connections[1]!, "What's on the menu?", "Ramen.");
     expect(await turnConnection(run, "And for dessert?")).toEqual({
       connection: run.connections[1],
+      fallback: true,
     });
     expect(lastTurnCompany(run)).toBe(run.connections[1]);
     // What Iris said by itself about no Company since changes nothing.
@@ -64,6 +67,7 @@ describe("the Company a turn is for", () => {
     recordOwn(run, run.connections[0], "connect with Juniper", "Connected.");
     expect(await turnConnection(run, "What do you sell?")).toEqual({
       connection: run.connections[0],
+      fallback: true,
     });
   });
 
