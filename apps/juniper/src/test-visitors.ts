@@ -27,7 +27,11 @@ export async function visitors() {
         : { keys: [keys.publicKey] },
   });
   const key = await createSessionKey(keys.privateKey, client);
-  async function visitor(user: string, browser?: { cookie: string }) {
+  async function visitor(
+    user: string,
+    browser?: { cookie: string },
+    scope = "poppy:read poppy:write",
+  ) {
     const dpop = await createIdentity(),
       sid = newSessionId(),
       verifier = "v".repeat(64);
@@ -38,7 +42,7 @@ export async function visitors() {
         redirect_uri: redirect,
         response_type: "code",
         state: "s".repeat(32),
-        scope: "poppy:read poppy:write",
+        scope,
         code_challenge_method: "S256",
         code_challenge: createHash("sha256")
           .update(verifier)

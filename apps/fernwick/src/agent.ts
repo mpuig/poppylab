@@ -53,19 +53,36 @@ export const agentRequests = [
   },
 ] as const;
 
+/** What each scope lets the agent do, in the consent page's plain words. */
+const permissions: Record<string, string> = {
+  "account:read": "see your meters, rate plans and bills",
+  "plan:write": "propose switching a meter's rate plan",
+};
+
 export function fernwickAgent(deps: Deps): ConversationHandler {
-  const needs = (turn: ConversationTurn, required: readonly string[]) =>
-    !turn.account || required.some((scope) => !turn.scopes.includes(scope))
-      ? ({
-          replies: [
-            {
+  // §8.11. A customer who is signed in is told which permission is
+  // missing, not to sign in.
+  const needs = (
+    turn: ConversationTurn,
+    required: readonly string[],
+  ): TurnResult | undefined => {
+    const missing = required.filter((scope) => !turn.scopes.includes(scope));
+    if (turn.account && !missing.length) return undefined;
+    return {
+      replies: [
+        turn.account
+          ? {
+              text: `You're signed in, but you haven't allowed this agent to ${missing.map((s) => permissions[s] ?? s).join(" or ")}. Allow it from your agent, then send the request again.`,
+              data: { error: "insufficient_scope", scopes: required },
+            }
+          : {
               text: "That needs Fernwick account access. Sign in or add the listed permissions, then send the request again.",
               data: { error: "sign_in_required", scopes: required },
             },
-          ],
-          authorization: required.join(" "),
-        } satisfies TurnResult)
-      : undefined;
+      ],
+      authorization: required.join(" "),
+    };
+  };
   /** The signed-in customer and the meters chosen at consent. */
   const reachOf = (turn: ConversationTurn) => {
     const customer = deps.customerFor(turn.account!);

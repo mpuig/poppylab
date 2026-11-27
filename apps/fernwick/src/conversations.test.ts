@@ -60,6 +60,31 @@ describe("Fernwick conversations and portal", () => {
         }),
       ]),
     );
+    expect(companyMessages(usage.json()).at(-1)).toMatchObject({
+      text: "That needs Fernwick account access. Sign in or add the listed permissions, then send the request again.",
+      data: { error: "sign_in_required", scopes: ["account:read"] },
+    });
+  });
+
+  it("tells a customer signed in without a permission which one is missing, not to sign in", async () => {
+    const tokens = await h.sign("elena", ["account:read"]);
+    const change = await h.call(
+      tokens.access_token,
+      "POST",
+      "/poppy/conversations?wait=0",
+      say({ request: "change_plan", usage_point_id: "UP-E1", plan: "flat" }),
+    );
+    expect(companyMessages(change.json()).at(-1)).toMatchObject({
+      text: "You're signed in, but you haven't allowed this agent to propose switching a meter's rate plan. Allow it from your agent, then send the request again.",
+      data: {
+        error: "insufficient_scope",
+        scopes: ["account:read", "plan:write"],
+      },
+    });
+    expect(change.json().events.at(-1)).toMatchObject({
+      type: "authorization",
+      scope: "account:read plan:write",
+    });
   });
 
   it("keeps to the meters chosen at consent", async () => {

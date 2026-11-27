@@ -44,19 +44,36 @@ export const agentRequests = [
   },
 ] as const;
 
+/** What each scope lets the agent do, in the consent page's plain words. */
+const permissions: Record<string, string> = {
+  "bookings:read": "see your trips and bookings",
+  "profile:read": "see your loyalty points and preferences",
+};
+
 export function northwindAgent(deps: Deps): ConversationHandler {
-  const needs = (turn: ConversationTurn, scopes: string[]) =>
-    !turn.account || scopes.some((scope) => !turn.scopes.includes(scope))
-      ? ({
-          replies: [
-            {
+  // §8.11. A customer who is signed in is told which permission is
+  // missing, not to sign in.
+  const needs = (
+    turn: ConversationTurn,
+    scopes: string[],
+  ): TurnResult | undefined => {
+    const missing = scopes.filter((scope) => !turn.scopes.includes(scope));
+    if (turn.account && !missing.length) return undefined;
+    return {
+      replies: [
+        turn.account
+          ? {
+              text: `You're signed in, but you haven't allowed this agent to ${missing.map((s) => permissions[s] ?? s).join(" or ")}. Allow it from your agent, then send the request again.`,
+              data: { error: "insufficient_scope", scopes },
+            }
+          : {
               text: "That needs your fictional Northwind account. Sign in with the listed read permission, then send the request again.",
               data: { error: "sign_in_required", scopes },
             },
-          ],
-          authorization: scopes.join(" "),
-        } satisfies TurnResult)
-      : undefined;
+      ],
+      authorization: scopes.join(" "),
+    };
+  };
   const help = (note?: string): TurnResult => ({
     replies: [
       {

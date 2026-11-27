@@ -133,7 +133,8 @@ export async function setup(deploy: Partial<Deployment> = {}) {
         },
       })
     ).json();
-  const sign = async (account: string, write: boolean) => {
+  /** `scope` asks for exactly those scopes instead. */
+  const sign = async (account: string, write: boolean, scope?: string) => {
     const verifier = "v".repeat(64);
     const page = await inject(
       `/oauth/authorize?${new URLSearchParams({
@@ -141,7 +142,7 @@ export async function setup(deploy: Partial<Deployment> = {}) {
         redirect_uri: redirect,
         response_type: "code",
         state: "s".repeat(32),
-        scope: write ? allScopes : readScopes,
+        scope: scope ?? (write ? allScopes : readScopes),
         code_challenge_method: "S256",
         code_challenge: createHash("sha256")
           .update(verifier)

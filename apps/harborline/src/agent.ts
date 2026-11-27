@@ -40,19 +40,39 @@ export const agentRequests = [
   },
 ] as const;
 
+/** What each scope lets the agent do, in the consent page's plain words. */
+const permissions: Record<string, string> = {
+  "accounts:read": "see your accounts and balances",
+  "transactions:read": "see your transactions",
+  "budgets:read": "see your budgets",
+  "cards:read": "see your cards",
+  "cards:write": "propose freezing or unfreezing a card",
+};
+
 export function harborlineAgent(deps: Deps): ConversationHandler {
-  const needs = (turn: ConversationTurn, required: readonly string[]) =>
-    !turn.account || required.some((scope) => !turn.scopes.includes(scope))
-      ? ({
-          replies: [
-            {
+  // §8.11. A customer who is signed in is told which permission is
+  // missing, not to sign in.
+  const needs = (
+    turn: ConversationTurn,
+    required: readonly string[],
+  ): TurnResult | undefined => {
+    const missing = required.filter((scope) => !turn.scopes.includes(scope));
+    if (turn.account && !missing.length) return undefined;
+    return {
+      replies: [
+        turn.account
+          ? {
+              text: `You're signed in, but you haven't allowed this agent to ${missing.map((s) => permissions[s] ?? s).join(" or ")}. Allow it from your agent, then send the request again.`,
+              data: { error: "insufficient_scope", scopes: required },
+            }
+          : {
               text: "That needs additional Harborline account access. Sign in or add the listed permissions, then send the request again.",
               data: { error: "sign_in_required", scopes: required },
             },
-          ],
-          authorization: required.join(" "),
-        } satisfies TurnResult)
-      : undefined;
+      ],
+      authorization: required.join(" "),
+    };
+  };
   /**
    * The signed-in customer and what the grant may see and act on of it: the
    * accounts chosen at consent, or every account (`withinGrant`).

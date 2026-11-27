@@ -91,6 +91,28 @@ it("uses authorization events for booking and loyalty scopes", async () => {
     type: "authorization",
     scope: "bookings:read",
   });
+  expect(started.events.at(-2)!.message).toMatchObject({
+    text: "That needs your fictional Northwind account. Sign in with the listed read permission, then send the request again.",
+    data: { error: "sign_in_required", scopes: ["bookings:read"] },
+  });
+  // Signed in without the scope: what is missing, not a sign-in.
+  const bookings = await x.sign("robin", false, "bookings:read");
+  const loyalty = (
+    await x.call(
+      bookings.access_token,
+      "POST",
+      `${BASE}?wait=0`,
+      message({ request: "loyalty_summary" }),
+    )
+  ).json() as Read;
+  expect(loyalty.events.at(-2)!.message).toMatchObject({
+    text: "You're signed in, but you haven't allowed this agent to see your loyalty points and preferences. Allow it from your agent, then send the request again.",
+    data: { error: "insufficient_scope", scopes: ["profile:read"] },
+  });
+  expect(loyalty.events.at(-1)).toMatchObject({
+    type: "authorization",
+    scope: "profile:read",
+  });
   const read = await x.sign("robin", false);
   const continued = (
     await x.call(
