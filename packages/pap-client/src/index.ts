@@ -54,6 +54,8 @@ export {
   type XmlLimits,
 } from "./xml.ts";
 import { sseRpc } from "./mcp-wire.ts";
+import { sseParser } from "./sse.ts";
+export { sseParser, type SseEvent } from "./sse.ts";
 export { mcpTools, mcpResourcePolicy } from "./mcp.ts";
 import { proof, assertion } from "./session.ts";
 import type { JWK } from "jose";
@@ -204,6 +206,15 @@ async function fetchJsonSafely(
      * its content type, as `BinaryBody`. Errors are read as JSON as ever.
      */
     binary?: { maxBytes: number };
+    /**
+     * A success that is `text/event-stream` is read by this function, with
+     * the request's signal, while the connection is still open; its result
+     * is the value. Any other success is read as JSON, as ever.
+     */
+    stream?: (
+      reader: ReadableStreamDefaultReader<Uint8Array>,
+      signal: AbortSignal,
+    ) => Promise<unknown>;
   },
 ): Promise<{ value: unknown; finalUrl: URL; durationMs: number }> {
   let currentUrl = initialUrl;
@@ -291,6 +302,22 @@ async function fetchJsonSafely(
           throw Error("Unsupported MCP response content type");
         let streamed: unknown;
         const reader = response.body?.getReader();
+        if (
+          options.stream &&
+          reader &&
+          response.ok &&
+          response.headers.get("content-type")?.split(";")[0]?.trim() ===
+            "text/event-stream"
+        )
+          try {
+            return {
+              value: await options.stream(reader, signal),
+              finalUrl: currentUrl,
+              durationMs: Math.round(performance.now() - started),
+            };
+          } finally {
+            await reader.cancel().catch(() => {});
+          }
         if (!reader) {
           if (!response.ok)
             throw new ProtocolError(response.status, undefined, retryAt);
@@ -913,6 +940,185 @@ export async function protocolRequest(
     ).value;
   }
 }
+/** §8.6: what a stream of a conversation's events carries. */
+export type ConversationStreamItem =
+  /** An event, as a read returns it (§8.5): its `id` is the SSE `id`. */
+  | {
+      type: "event";
+      event: { id: string; type: string } & Record<string, unknown>;
+    }
+  | { type: "working"; working: boolean }
+  /** A piece of a message the Company Agent is writing. */
+  | { type: "text-delta"; message_id: string; text: string };
+
+export type ConversationStreamResult =
+  /** The Company doesn't stream: the read's JSON, as ever. */
+  | { streamed: false; read: unknown }
+  | {
+      streamed: true;
+      /**
+       * The last event `onItem` handled, for `Last-Event-ID` on the next
+       * stream; the request's own cursor if none was.
+       */
+      lastEventId: string | undefined;
+      /**
+       * `closed`: the Company ended the stream; `stopped`: `onItem` returned
+       * false; `timeout`: `timeoutMs` passed. The caller reconnects after
+       * the first and last, unless the conversation is closed.
+       */
+      ended: "closed" | "stopped" | "timeout";
+    };
+
+const STREAM_ID = /^[A-Za-z0-9_-]{1,256}$/;
+
+/**
+ * §8.6: reads a conversation's events as a stream. The request asks for
+ * `text/event-stream`; `lastEventId`, when given, goes in `Last-Event-ID`,
+ * which a Company takes over any `cursor` in the URL. Each event, `working`
+ * and `text-delta` reaches `onItem` in order; an SSE event name it doesn't
+ * know, or data that isn't what its name says, is skipped. A Company that
+ * doesn't stream answers JSON, returned as `read`. Errors are thrown as
+ * `protocolRequest` throws them, with one retry after a DPoP nonce
+ * challenge. `timeoutMs` bounds the whole stream, `maxBytes` what it reads.
+ */
+export async function streamConversationEvents(
+  url: string,
+  request: RequestInit,
+  onItem: (item: ConversationStreamItem) => unknown,
+  options: {
+    lastEventId?: string | undefined;
+    allowedPrivateOrigins?: readonly string[];
+    dpop?: {
+      key: JWK;
+      token?: string | undefined;
+      resign?: () => Promise<Record<string, string>>;
+    };
+    timeoutMs?: number;
+    maxBytes?: number;
+  } = {},
+): Promise<ConversationStreamResult> {
+  const maxBytes = options.maxBytes ?? 4_000_000;
+  let lastEventId = options.lastEventId;
+  const results = new WeakSet<object>();
+  const consume = async (
+    reader: ReadableStreamDefaultReader<Uint8Array>,
+    signal: AbortSignal,
+  ) => {
+    const result = await consumeStream(reader, signal);
+    results.add(result);
+    return result;
+  };
+  const consumeStream = async (
+    reader: ReadableStreamDefaultReader<Uint8Array>,
+    signal: AbortSignal,
+  ): Promise<ConversationStreamResult> => {
+    const parser = sseParser();
+    const decoder = new TextDecoder();
+    let size = 0;
+    for (;;) {
+      let chunk: ReadableStreamReadResult<Uint8Array>;
+      try {
+        chunk = await reader.read();
+      } catch (error) {
+        if (signal.aborted)
+          return { streamed: true, lastEventId, ended: "timeout" };
+        throw error;
+      }
+      if (chunk.done) return { streamed: true, lastEventId, ended: "closed" };
+      size += chunk.value.byteLength;
+      if (size > maxBytes) throw new Error("Stream is too large");
+      for (const sse of parser.push(
+        decoder.decode(chunk.value, { stream: true }),
+      )) {
+        const item = streamItem(sse.event, sse.data, sse.id);
+        if (!item) continue;
+        if ((await onItem(item)) === false) {
+          if (item.type === "event") lastEventId = item.event.id;
+          return { streamed: true, lastEventId, ended: "stopped" };
+        }
+        if (item.type === "event") lastEventId = item.event.id;
+      }
+    }
+  };
+  const send = async (init: RequestInit) => {
+    const headers = new Headers(init.headers);
+    headers.set("accept", "text/event-stream");
+    if (lastEventId) headers.set("last-event-id", lastEventId);
+    const { value } = await fetchJsonSafely(new URL(url), {
+      request: { ...init, headers },
+      protocol: true,
+      allowedPrivateOrigins: options.allowedPrivateOrigins ?? [],
+      fetchImpl: fetch,
+      timeoutMs: options.timeoutMs ?? 120_000,
+      stream: consume,
+    });
+    // Only what `consume` returned is a stream's result, never a JSON body.
+    return value && typeof value === "object" && results.has(value)
+      ? (value as ConversationStreamResult)
+      : ({ streamed: false, read: value } as const);
+  };
+  try {
+    return await send(request);
+  } catch (e) {
+    const dpop = options.dpop;
+    if (
+      !dpop ||
+      !(e instanceof ProtocolError) ||
+      ![400, 401].includes(e.status) ||
+      e.code !== "use_dpop_nonce" ||
+      !e.nonce ||
+      !/^[\x21-\x7e]{1,256}$/.test(e.nonce)
+    )
+      throw e;
+    const headers = new Headers(request.headers);
+    for (const [name, value] of Object.entries((await dpop.resign?.()) ?? {}))
+      headers.set(name, value);
+    headers.set(
+      "DPoP",
+      await proof(dpop.key, url, request.method ?? "GET", dpop.token, e.nonce),
+    );
+    return send({ ...request, headers });
+  }
+}
+
+/** A stream event as §8.6 defines it, or undefined to skip it. */
+function streamItem(
+  name: string,
+  data: string,
+  id: string | undefined,
+): ConversationStreamItem | undefined {
+  let value: unknown;
+  try {
+    value = JSON.parse(data);
+  } catch {
+    return undefined;
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    return undefined;
+  const v = value as Record<string, unknown>;
+  if (name === "message")
+    return typeof v.id === "string" &&
+      STREAM_ID.test(v.id) &&
+      (id === undefined || id === v.id) &&
+      typeof v.type === "string"
+      ? {
+          type: "event",
+          event: v as { id: string; type: string } & Record<string, unknown>,
+        }
+      : undefined;
+  if (name === "working")
+    return typeof v.working === "boolean"
+      ? { type: "working", working: v.working }
+      : undefined;
+  if (name === "text-delta")
+    return typeof v.message_id === "string" &&
+      STREAM_ID.test(v.message_id) &&
+      typeof v.text === "string"
+      ? { type: "text-delta", message_id: v.message_id, text: v.text }
+      : undefined;
+  return undefined;
+}
+
 export async function mcpRequest(
   url: string,
   request: RequestInit,
