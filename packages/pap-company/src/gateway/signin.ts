@@ -13,7 +13,12 @@ import {
   tokenHash,
   verifyAssertion,
 } from "@poppy-lab/pap-client/core";
-import { assertionKey, type ClientInfo, type Ctx } from "./context.ts";
+import {
+  assertionKey,
+  attemptLimit,
+  type ClientInfo,
+  type Ctx,
+} from "./context.ts";
 import { answeredPage, deviceNotice } from "./device-pages.ts";
 import {
   BROWSER_SIGN_IN,
@@ -38,8 +43,16 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
   const codes = new ObjectMap<Code>((state.codes ??= {}));
   const pushed = new ObjectMap<Pushed>((state.pushed ??= {}));
   const devices = new ObjectMap<DeviceRequest>((state.devices ??= {}));
-  let failures = 0,
-    windowStart = Date.now();
+  /**
+   * Wrong passwords: ten a minute from one source (`sourceOf`, else that
+   * consent page), so nobody can lock everyone else out, and a backstop
+   * for all.
+   */
+  const failures = attemptLimit(10, 60000, 100);
+  /** The demo password's salt and scrypt hash, checked once, here. */
+  const password = deploy.passwordHash?.match(/^([^:]+):([0-9a-f]{128})$/i);
+  if (deploy.passwordHash !== undefined && !password)
+    throw new Error("passwordHash must be salt:hex of a 64-byte scrypt hash");
   /** Whether that consent page is still open: not answered, not expired. */
   const live = (nonce: string) =>
     (pending.get(nonce)?.expires ?? 0) >= Date.now();
@@ -315,7 +328,7 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
     const account = allowedBefore(c, client);
     let html = def.consent({
       nonce,
-      passwordRequired: !!deploy.passwordHash,
+      passwordRequired: !!password,
       scopes,
       client: info.name,
       clientHost: new URL(client).host,
@@ -390,20 +403,16 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
       if (ended && own) return ranOut(c, "answered", "invalid_request");
       return c.json({ error: "invalid_request" }, 400);
     }
-    if (Date.now() - windowStart > 60000) {
-      failures = 0;
-      windowStart = Date.now();
-    }
-    if (failures >= 10) return c.json({ error: "rate_limited" }, 429);
-    if (body.decision === "approve" && deploy.passwordHash) {
-      const [salt, expected] = deploy.passwordHash.split(":");
+    const source = ctx.sourceOf(c) ?? `consent:${nonce}`;
+    if (failures.blocked(source)) return c.json({ error: "rate_limited" }, 429);
+    if (body.decision === "approve" && password) {
       const actual = scryptSync(
         String(body.password ?? "").slice(0, 256),
-        salt!,
+        password[1]!,
         64,
       );
-      if (!timingSafeEqual(actual, Buffer.from(expected!, "hex"))) {
-        failures++;
+      if (!timingSafeEqual(actual, Buffer.from(password[2]!, "hex"))) {
+        failures.count(source);
         return c.json({ error: "invalid_credentials" }, 401);
       }
     }

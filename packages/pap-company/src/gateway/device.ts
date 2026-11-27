@@ -13,7 +13,7 @@ import {
   tokenHash,
   verifyAssertion,
 } from "@poppy-lab/pap-client/core";
-import { assertionKey, type Ctx } from "./context.ts";
+import { assertionKey, attemptLimit, type Ctx } from "./context.ts";
 import {
   CODE_LENGTH,
   CODE_LETTERS,
@@ -38,9 +38,12 @@ const INTERVAL = 5;
  * rather than `invalid_grant`.
  */
 const KEPT_MS = 600000;
-/** Wrong codes from one source in `WINDOW_MS`, and from everyone in a minute. */
+/**
+ * Wrong codes from one source in `WINDOW_MS`, and from everyone in a
+ * minute: a backstop far above what one source may send.
+ */
 const WRONG_PER_SOURCE = 10,
-  WRONG_IN_ALL = 200,
+  WRONG_IN_ALL = 1000,
   WINDOW_MS = 600000;
 
 export function mountDevice(app: Hono, ctx: Ctx, signIn: SignIn) {
@@ -161,50 +164,23 @@ export function mountDevice(app: Hono, ctx: Ctx, signIn: SignIn) {
     entry(c, 200, { code: normalizeCode(c.req.query("user_code") ?? "") }),
   );
 
-  /**
-   * Wrong codes, by where they come from: the visitor's address behind
-   * Cloudflare, else the browser's cookie. Kept in memory: a restart
-   * forgets them, which costs a guesser more than it gains.
-   */
-  const wrong = new Map<string, { count: number; start: number }>();
-  let everyone = { count: 0, start: Date.now() };
-  const sourceOf = (c: Context) =>
-    c.req.header("cf-connecting-ip") ?? ctx.browserOf(c) ?? "unknown";
-  const blocked = (source: string) => {
-    const now = Date.now();
-    if (now - everyone.start > 60000) everyone = { count: 0, start: now };
-    const mine = wrong.get(source);
-    if (mine && now - mine.start > WINDOW_MS) wrong.delete(source);
-    return (
-      everyone.count >= WRONG_IN_ALL ||
-      (wrong.get(source)?.count ?? 0) >= WRONG_PER_SOURCE
-    );
-  };
-  const count = (source: string) => {
-    everyone.count++;
-    const mine = wrong.get(source);
-    if (mine) mine.count++;
-    else {
-      // Least recently inserted goes first (Map order).
-      if (wrong.size >= 1000) wrong.delete(wrong.keys().next().value!);
-      wrong.set(source, { count: 1, start: Date.now() });
-    }
-  };
+  /** Wrong codes, by where they come from (`sourceOf`). */
+  const wrong = attemptLimit(WRONG_PER_SOURCE, WINDOW_MS, WRONG_IN_ALL);
 
   app.post(DEVICE_PAGE, async (c) => {
     // Only this page's own form: another site can't send a code in.
     if (c.req.header("origin") !== origin)
       return c.json({ error: "invalid_request" }, 400);
     const body = (await c.req.parseBody()) as Record<string, string>;
-    const source = sourceOf(c);
-    if (blocked(source)) return entry(c, 429, { problem: "too_many" });
+    const source = ctx.sourceOf(c) ?? "unknown";
+    if (wrong.blocked(source)) return entry(c, 429, { problem: "too_many" });
     const entered = normalizeCode(String(body.user_code ?? ""));
     prune();
     const found = entered
       ? [...devices].find(([, d]) => d.userCode === entered && live(d))
       : undefined;
     if (!found) {
-      count(source);
+      wrong.count(source);
       // Kept in the field, so a typo can be corrected.
       return entry(c, 400, {
         ...(entered ? { code: entered } : {}),

@@ -47,6 +47,37 @@ export function assertionKey(info: ClientInfo, assertion: string) {
   return info.keys.find((k) => k.kid === kid);
 }
 
+/**
+ * Failed attempts, such as wrong passwords or codes, counted per source and
+ * for everyone. A source is blocked after `mine` in `mineMs`, and everyone
+ * after `all` in a minute: a backstop high enough that one source can't
+ * reach it alone. Kept in memory: a restart forgets them, which costs a
+ * guesser more than it gains.
+ */
+export function attemptLimit(mine: number, mineMs: number, all: number) {
+  const sources = new Map<string, { count: number; start: number }>();
+  let everyone = { count: 0, start: Date.now() };
+  return {
+    blocked(source: string) {
+      const now = Date.now();
+      if (now - everyone.start > 60000) everyone = { count: 0, start: now };
+      const own = sources.get(source);
+      if (own && now - own.start > mineMs) sources.delete(source);
+      return everyone.count >= all || (sources.get(source)?.count ?? 0) >= mine;
+    },
+    count(source: string) {
+      everyone.count++;
+      const own = sources.get(source);
+      if (own) own.count++;
+      else {
+        // Least recently inserted goes first (Map order).
+        if (sources.size >= 1000) sources.delete(sources.keys().next().value!);
+        sources.set(source, { count: 1, start: Date.now() });
+      }
+    },
+  };
+}
+
 export function createContext(def: CompanyDefinition, deploy: Deployment) {
   const { origin, store } = deploy;
   const state: GatewayState = store.value;
@@ -135,6 +166,16 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
         delete links[k];
   };
   const holderOf = (client: string, user: string) => hash(`${client}\n${user}`);
+  /**
+   * Where a request comes from, for attempt limits: the visitor's address,
+   * which Cloudflare sets in front of a Worker and any client can send to
+   * Node, else this browser's cookie.
+   */
+  const sourceOf = (c: Context) =>
+    (typeof navigator !== "undefined" &&
+    navigator.userAgent === "Cloudflare-Workers"
+      ? c.req.header("cf-connecting-ip")
+      : undefined) ?? browserOf(c);
 
   /**
    * No client may hold more than a fifth of a shared cap, so one agent can't
@@ -300,6 +341,7 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
     browserCookie,
     link,
     holderOf,
+    sourceOf,
     overShare,
     client,
     proofOf,

@@ -19,7 +19,13 @@ type Started = {
 const error = async (r: Response) =>
   ((await r.json()) as { error?: string }).error;
 
-afterEach(() => vi.useRealTimers());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
+/** Behind Cloudflare, which sets `CF-Connecting-IP` itself. */
+const onWorkers = () =>
+  vi.stubGlobal("navigator", { userAgent: "Cloudflare-Workers" });
 
 /** A Company with one Device Sign-In started, and a browser's steps. */
 async function started(
@@ -247,6 +253,7 @@ it("tells the poll the customer declined", async () => {
 });
 
 it("refuses a wrong code, and stops checking after ten from one place", async () => {
+  onWorkers();
   const x = await started();
   const wrong = await x.enter("BBBB-BBBB", { "cf-connecting-ip": "192.0.2.1" });
   expect(wrong.status).toBe(400);
@@ -271,6 +278,28 @@ it("refuses a wrong code, and stops checking after ten from one place", async ()
   expect(
     (await x.enter(undefined, { "cf-connecting-ip": "192.0.2.2" })).status,
   ).toBe(200);
+});
+
+it("keeps checking codes from elsewhere while many places enter wrong ones", async () => {
+  onWorkers();
+  const x = await started();
+  for (let place = 1; place <= 25; place++)
+    for (let i = 0; i < 10; i++)
+      await x.enter("CCCC-CCCC", { "cf-connecting-ip": `192.0.2.${place}` });
+  expect(
+    (await x.enter(undefined, { "cf-connecting-ip": "198.51.100.1" })).status,
+  ).toBe(200);
+});
+
+it("takes CF-Connecting-IP only on Workers, where Cloudflare sets it", async () => {
+  // On Node anyone can send it, so it can't make ten wrong codes look like
+  // ten places: they come from the same browser.
+  const x = await started();
+  for (let i = 1; i <= 10; i++)
+    await x.enter("CCCC-CCCC", { "cf-connecting-ip": `192.0.2.${i}` });
+  expect(
+    (await x.enter(undefined, { "cf-connecting-ip": "192.0.2.11" })).status,
+  ).toBe(429);
 });
 
 it("takes a code only from its own page's form", async () => {
