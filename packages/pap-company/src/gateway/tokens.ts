@@ -7,6 +7,8 @@
  * ends when its lifetime does (`grantLifetime`): no access token outlives it.
  * A token request may name a `resource` (§4.5, RFC 8707): the domain, for
  * the default token, or the MCP server, for a token that works only there.
+ * Every token is DPoP-bound, except one for the MCP server requested without
+ * a proof: that is a Bearer token, and so is every token its grant gets.
  */
 import type { Hono } from "hono";
 import {
@@ -115,15 +117,20 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
         if (!found || found.client !== id || found.expires < now)
           throw new Error("invalid_grant");
       }
-      const binding = await ctx.proofOf(
-        c.req.header("dpop") ?? "",
-        `${origin}/oauth/token`,
-        "POST",
-        replay,
-        undefined,
-        undefined,
-        ctx.nonceFor("token"),
-      );
+      // §4.5, section 7: a token for the MCP server may be a Bearer token,
+      // for MCP clients without DPoP. Every other one needs the proof.
+      const binding =
+        c.req.header("dpop") || !resource
+          ? await ctx.proofOf(
+              c.req.header("dpop") ?? "",
+              `${origin}/oauth/token`,
+              "POST",
+              replay,
+              undefined,
+              undefined,
+              ctx.nonceFor("token"),
+            )
+          : undefined;
       if (ctx.overShare(Object.values(state.tokens), id, 2000))
         throw new Error("rate_limited");
       let refreshToken: string | undefined,
@@ -155,7 +162,7 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
         if (device.declined) return polled("access_denied");
         if (device.expires < now) return polled("expired_token");
         // Bound to one key from the first poll on, if not from the start.
-        device.dpop ??= binding;
+        if (binding) device.dpop ??= binding;
         if (device.dpop !== binding) throw new Error("invalid_grant");
         if (!device.approved) {
           // A second of grace, for polls that a slow network bunches up.
@@ -192,8 +199,9 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
           created: now,
           expires: now + lifetime,
           ...(approved.browser ? { browser: approved.browser } : {}),
-          // §4.4: refreshed only with the DPoP key it was issued with.
-          dpop: binding,
+          // §4.4: refreshed only with the DPoP key it was issued with, or,
+          // issued without one, only to Bearer tokens for the MCP server.
+          ...(binding ? { dpop: binding } : { bearer: true as const }),
           // The consent's resources; a refresh keeps this grant, and them.
           ...(approved.resources ? { resources: [...approved.resources] } : {}),
         };
@@ -206,7 +214,10 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
           !found ||
           found.client !== id ||
           found.expires < now ||
-          (found.dpop !== undefined && found.dpop !== binding)
+          (found.dpop !== undefined && found.dpop !== binding) ||
+          // A refresh keeps the token type the grant was issued with.
+          (!found.bearer && !binding) ||
+          (found.bearer && !resource)
         )
           throw new Error("invalid_grant");
         grant = found;
@@ -222,9 +233,11 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
       const token = randomId();
       // No access token outlives its grant (`grantLifetime`).
       const expires = Math.min(now + TOKEN_MS, grant.expires);
+      // A Bearer grant's proof, if a refresh sends one, binds nothing.
+      const bound = grant.bearer ? undefined : binding;
       state.tokens[tokenHash(token)] = {
         client: id,
-        binding,
+        ...(bound ? { binding: bound } : {}),
         expires,
         accountId: grant.account,
         scopes,
@@ -236,7 +249,7 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
           // First, so the standard fields below always win (RFC 6749 §5.1).
           ...extra(grant),
           access_token: token,
-          token_type: "DPoP",
+          token_type: bound ? "DPoP" : "Bearer",
           expires_in: Math.floor((expires - now) / 1000),
           ...(body.scope && body.scope === scopes ? {} : { scope: scopes }),
           ...(refreshToken ? { refresh_token: refreshToken } : {}),

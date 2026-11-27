@@ -9,6 +9,7 @@
  * checks each tool's route with the same two functions.
  */
 import type { Context, Hono } from "hono";
+import { decodeJwt } from "jose";
 import {
   parseExtensionsHeader,
   tokenHash,
@@ -53,6 +54,41 @@ export type Service = {
   resource?: string;
   /** RFC 9728 §5.1: named in every challenge, as an MCP server does (§7). */
   metadata?: string;
+  /**
+   * Also takes Bearer tokens issued for it (§4.5), as the MCP server does:
+   * each only with a Session header whose `ath` covers it (§5.2).
+   */
+  bearer?: boolean;
+};
+
+/**
+ * A token challenge for each scheme `service` accepts (§7), each with its
+ * metadata when it names one.
+ */
+export const challengeFor = (
+  service: { metadata?: string | undefined; bearer?: boolean | undefined },
+  params?: string,
+) =>
+  (service.bearer ? ["DPoP", "Bearer"] : ["DPoP"])
+    .map((scheme) =>
+      [
+        scheme,
+        [params, service.metadata && `resource_metadata="${service.metadata}"`]
+          .filter(Boolean)
+          .join(", "),
+      ]
+        .filter(Boolean)
+        .join(" "),
+    )
+    .join(", ");
+
+/** The `ath` a Session JWT claims, before it is verified. */
+const claimedAth = (jwt: string) => {
+  try {
+    return decodeJwt(jwt).ath;
+  } catch {
+    return undefined;
+  }
 };
 
 /**
@@ -82,19 +118,6 @@ export const routeScopes = (
 
 export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
   const { def, origin, state, replay, isolated } = ctx;
-  /** A DPoP challenge, with the service's metadata when it names one. */
-  const challenge = (
-    service: { metadata?: string | undefined },
-    params?: string,
-  ) =>
-    [
-      "DPoP",
-      [params, service.metadata && `resource_metadata="${service.metadata}"`]
-        .filter(Boolean)
-        .join(", "),
-    ]
-      .filter(Boolean)
-      .join(" ");
   /**
    * Verifies a request's Session header and token for `service`, and keeps
    * the Session for its handlers (`sessionFor`, `tenantKeys`). Returns the
@@ -112,14 +135,24 @@ export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
       return c.json({ error: "version_unsupported" }, 400);
     const declared = parseExtensionsHeader(c.req.header("poppy-extensions"));
     const authorization = c.req.header("authorization") ?? "";
-    const token = authorization.startsWith("DPoP ")
-      ? authorization.slice(5)
-      : undefined;
+    const [, scheme, token] = /^(DPoP|Bearer) (\S+)$/.exec(authorization) ?? [];
     const invalidToken = (metadata = service.metadata) =>
       c.json({ error: "invalid_token" }, 401, {
-        "WWW-Authenticate": challenge({ metadata }, 'error="invalid_token"'),
+        "WWW-Authenticate": challengeFor(
+          { ...service, metadata },
+          'error="invalid_token"',
+        ),
       });
     if (authorization && !token) return invalidToken();
+    // A Bearer token is bound only by the Session header: one that doesn't
+    // cover it leaves the token unbound, so the token is what's refused.
+    // The Session JWT is checked in full below, and used once only.
+    const bearer = scheme === "Bearer";
+    if (
+      bearer &&
+      claimedAth(c.req.header("poppy-session") ?? "") !== tokenHash(token!)
+    )
+      return invalidToken();
     const url = `${origin}${new URL(c.req.url).pathname}${new URL(c.req.url).search}`;
     let verified;
     try {
@@ -131,6 +164,8 @@ export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
           url,
           ...(token ? { accessToken: token } : {}),
           keysFor: async (id) => (await ctx.client(id)).keys,
+          // The Session JWT stands in for a Bearer token's DPoP proof.
+          ...(bearer ? { replay } : {}),
         },
       );
     } catch {
@@ -173,36 +208,47 @@ export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
         record.expires < now ||
         record.client !== verified.clientId ||
         !grant ||
-        grant.expires < now
+        grant.expires < now ||
+        // Each token in its own scheme (RFC 9449 §7.1, RFC 6750 §2.1).
+        bearer !== !record.binding
       )
         return invalidToken();
       // §4.5: a token for one service works only there, and the default
       // token works everywhere else. The challenge names this service's
       // metadata, so an agent with stale metadata learns where it is.
-      if (record.resource !== service.resource)
+      if (
+        record.resource !== service.resource ||
+        (!record.binding && !service.bearer)
+      )
         return invalidToken(
           service.metadata ?? `${origin}/.well-known/oauth-protected-resource`,
         );
-      try {
-        await ctx.proofOf(
-          c.req.header("dpop") ?? "",
-          url,
-          c.req.method,
-          replay,
-          token,
-          record.binding,
-          ctx.nonceFor("api"),
-        );
-      } catch (e) {
-        if (isChallenge(e))
-          return c.json({ error: "use_dpop_nonce" }, 401, {
-            "WWW-Authenticate": challenge(service, 'error="use_dpop_nonce"'),
-            "DPoP-Nonce": e.nonce,
+      // Errors of the DPoP proof name DPoP only: a Bearer token has none.
+      const dpop = { metadata: service.metadata };
+      if (record.binding)
+        try {
+          await ctx.proofOf(
+            c.req.header("dpop") ?? "",
+            url,
+            c.req.method,
+            replay,
+            token,
+            record.binding,
+            ctx.nonceFor("api"),
+          );
+        } catch (e) {
+          if (isChallenge(e))
+            return c.json({ error: "use_dpop_nonce" }, 401, {
+              "WWW-Authenticate": challengeFor(dpop, 'error="use_dpop_nonce"'),
+              "DPoP-Nonce": e.nonce,
+            });
+          return c.json({ error: "invalid_dpop_proof" }, 401, {
+            "WWW-Authenticate": challengeFor(
+              dpop,
+              'error="invalid_dpop_proof"',
+            ),
           });
-        return c.json({ error: "invalid_dpop_proof" }, 401, {
-          "WWW-Authenticate": challenge(service, 'error="invalid_dpop_proof"'),
-        });
-      }
+        }
       // One account per Session: a second one ends it (§5.4).
       if (session?.account && session.account !== record.accountId)
         return c.json({ error: "session_ended" }, 400);

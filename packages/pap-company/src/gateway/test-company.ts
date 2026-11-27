@@ -2,7 +2,7 @@
  * TEST ONLY. A small Company on the gateway, with a Company Agent, and a
  * Personal Agent's keys to call it: form posts to the OAuth endpoints,
  * signed-out conversation requests, Direct Sign-In and signed calls with a
- * DPoP-bound token.
+ * DPoP-bound token, or a Bearer one.
  */
 import { createHash } from "node:crypto";
 import {
@@ -115,25 +115,37 @@ export async function setup(
       },
       body: JSON.stringify(body),
     });
-  type Tokens = { access_token: string; refresh_token: string; scope?: string };
-  /** The token endpoint, with the agent's DPoP key. */
-  const token = async (body: Record<string, string>) => {
+  type Tokens = {
+    access_token: string;
+    refresh_token: string;
+    token_type: string;
+    scope?: string;
+  };
+  /** The token endpoint, with the agent's DPoP key unless `bound` is false. */
+  const token = async (body: Record<string, string>, bound = true) => {
     const r = await form(
       "/oauth/token",
       { ...body, ...(await credentials()) },
-      { DPoP: await proof(dpop.privateKey, `${origin}/oauth/token`, "POST") },
+      bound
+        ? {
+            DPoP: await proof(dpop.privateKey, `${origin}/oauth/token`, "POST"),
+          }
+        : {},
     );
     if (r.status !== 200) throw new Error(`token: ${await r.text()}`);
     return (await r.json()) as Tokens;
   };
   /**
-   * Direct Sign-In as Elena; `consent` adds fields to the consent form, and
-   * `browser` is the `pap_browser` cookie of the browser that approves.
+   * Direct Sign-In as Elena; `consent` adds fields to the consent form,
+   * `browser` is the `pap_browser` cookie of the browser that approves, and
+   * the code exchange names `resource` when given, with no DPoP proof when
+   * `bound` is false.
    */
   const signIn = async (
     scope = "things:read",
     consent: Record<string, string> = {},
     browser?: string,
+    { bound = true, resource }: { bound?: boolean; resource?: string } = {},
   ) => {
     const verifier = "v".repeat(64);
     const page = await app.request(
@@ -171,12 +183,16 @@ export async function setup(
     if (approved.status !== 302 || !location)
       return { refused: approved } as const;
     const code = new URL(location).searchParams.get("code")!;
-    return token({
-      grant_type: "authorization_code",
-      code,
-      code_verifier: verifier,
-      redirect_uri: redirect,
-    });
+    return token(
+      {
+        grant_type: "authorization_code",
+        code,
+        code_verifier: verifier,
+        redirect_uri: redirect,
+        ...(resource ? { resource } : {}),
+      },
+      bound,
+    );
   };
   /** A signed call: the User's Session, and the token when given. */
   const call = async (
@@ -191,6 +207,10 @@ export async function setup(
       approval?: string;
       /** A JSON body for a POST or PUT (default `{}`). */
       body?: Record<string, unknown>;
+      /** Sends `access` as a Bearer token, with no DPoP proof. */
+      bearer?: boolean;
+      /** The token the Session JWT's `ath` covers, if not `access`. */
+      ath?: string;
     } = {},
   ) => {
     const method = options.method ?? "GET";
@@ -211,14 +231,23 @@ export async function setup(
           userId: options.user ?? "usr_test",
           method,
           url: origin + path,
-          ...(access ? { accessToken: access } : {}),
+          ...((options.ath ?? access)
+            ? { accessToken: options.ath ?? access }
+            : {}),
         }),
-        ...(access
-          ? {
-              Authorization: `DPoP ${access}`,
-              DPoP: await proof(dpop.privateKey, origin + path, method, access),
-            }
-          : {}),
+        ...(access && options.bearer
+          ? { Authorization: `Bearer ${access}` }
+          : access
+            ? {
+                Authorization: `DPoP ${access}`,
+                DPoP: await proof(
+                  dpop.privateKey,
+                  origin + path,
+                  method,
+                  access,
+                ),
+              }
+            : {}),
         ...(method !== "GET" ? { "content-type": "application/json" } : {}),
       },
       ...(method !== "GET" ? { body: JSON.stringify(options.body ?? {}) } : {}),
@@ -235,5 +264,7 @@ export async function setup(
     signIn,
     call,
     dpop,
+    sessionKey,
+    sessionId,
   };
 }

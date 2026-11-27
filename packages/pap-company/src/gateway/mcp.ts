@@ -9,7 +9,8 @@
  * request, made by the gateway and answered by the same business route of
  * the same tenant, after the same checks as at the API: the Session header
  * and token (`sessions.verify`, with a token issued for this server only,
- * §4.5), the route's extension, its scopes, Operations v3 and the replay of
+ * §4.5, DPoP-bound or a Bearer token that the Session header's `ath` binds
+ * instead), the route's extension, its scopes, Operations v3 and the replay of
  * a performed operation (`sessions.route`). So a proposal returns the same
  * operation, and nothing is done until the User approves it, with the
  * approval in `_meta` (Operations §6).
@@ -25,7 +26,7 @@ import {
   tokenHash,
 } from "@poppy-lab/pap-client/core";
 import type { Ctx } from "./context.ts";
-import { routeScopes, type Sessions } from "./sessions.ts";
+import { challengeFor, routeScopes, type Sessions } from "./sessions.ts";
 import type { Tenancy } from "./tenancy.ts";
 import { declares, MCP_PATH, type CompanyDefinition } from "./types.ts";
 
@@ -250,13 +251,14 @@ export function mountMcp(
       annotations,
     }),
   );
-  /** A DPoP challenge that names this server's metadata (§7). */
-  const challenge = (params?: string) =>
-    `DPoP ${[params, `resource_metadata="${metadata}"`].filter(Boolean).join(", ")}`;
+  /** What this server takes: its own tokens, DPoP-bound or Bearer (§4.5). */
+  const service = { resource: url, metadata, bearer: true };
+  /** A challenge for each scheme, naming this server's metadata (§7). */
+  const challenge = (params?: string) => challengeFor(service, params);
   const used = new Set(tools.flatMap((tool) => tool.scopes ?? []));
 
   // RFC 9728: `resource` is the server's URL, and the issuer the
-  // Company's (§7). Its tokens are DPoP-bound, like the API's (§4.5).
+  // Company's (§7). It takes DPoP-bound tokens, and Bearer ones (§4.5).
   app.get(metadataPath, (c) =>
     c.json(
       {
@@ -266,7 +268,6 @@ export function mountMcp(
         scopes_supported: ctx.both.filter((scope) => used.has(scope)),
         bearer_methods_supported: ["header"],
         dpop_signing_alg_values_supported: ["ES256"],
-        dpop_bound_access_tokens_required: true,
       },
       200,
       { "Cache-Control": "public, max-age=300" },
@@ -277,7 +278,11 @@ export function mountMcp(
     c.body(null, 405, { Allow: "POST" }),
   );
 
-  /** Whether a token without a Session header is one of this server's. */
+  /**
+   * Whether a token without a Session header is one of this server's
+   * DPoP-bound ones. A Bearer token never is: without the header, nothing
+   * binds it.
+   */
   const known = (authorization: string) => {
     if (!authorization.startsWith("DPoP ")) return false;
     const record = state.tokens[tokenHash(authorization.slice(5))];
@@ -358,7 +363,7 @@ export function mountMcp(
     // §5.3: verified as at the API, with a token for this server only.
     const authorization = c.req.header("authorization");
     if (c.req.header("poppy-session")) {
-      const refused = await sessions.verify(c, { resource: url, metadata });
+      const refused = await sessions.verify(c, service);
       if (refused) return refused;
     } else if (authorization && !known(authorization))
       return c.json({ error: "invalid_token" }, 401, {

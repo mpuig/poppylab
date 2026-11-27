@@ -25,6 +25,7 @@ Iris, Juniper, Lantern, Harborline and Northwind implement **only** Poppy 1.0, p
 - **Assertion lifetime:** at most 5 minutes from `iat` to `exp`. The Companies used to refuse any assertion older than 65 seconds, which 1.0 forbids; now the lifetime decides.
 - **Refresh with the same DPoP key:** the Companies bind each refresh token to the DPoP key it was issued with and refuse a refresh with another key (`invalid_grant`). Iris keeps the key until the User signs in again.
 - **One sign-in for every resource:** a token request naming `resource` = the domain gets the default token, and one naming the Company's MCP server (`https://{domain}/mcp`) gets a token that works only there ([MCP at the Companies](mcp-company.md#tokens)); any other `resource` gets `invalid_target`.
+- **Bearer tokens for the MCP server only (§4.5):** a token request for the MCP server without a DPoP proof gets `token_type: "Bearer"`, and its grant gets only Bearer tokens for the server at refresh. Every other token request still needs a proof. The server takes a Bearer token only with a Session header whose `ath` covers it, and each such Session JWT once; everywhere else it gets `invalid_token`.
 
 ## Sessions (§5)
 
@@ -48,7 +49,7 @@ See [conversations](conversations.md). In short: every `POST` has a request `id`
 
 ## MCP (§7)
 
-Every Company lists an MCP server at `https://{domain}/mcp` in `apis`, after its OpenAPI description, and in its issuer's `protected_resources`, with RFC 9728 metadata at `/.well-known/oauth-protected-resource/mcp`. The gateway serves it for all five (Streamable HTTP, MCP 2025-06-18): one tool per OpenAPI operation, each call the operation's own request to the same route, after the API's checks of the Session header, the token (one requested with `resource` set to the server's URL, and used only there), the route's extension, its scopes and Operations v3. A proposal returns the same operation as a tool error with `operation` in `structuredContent`, and the approval comes back in `_meta`. Details in [MCP at the Companies](mcp-company.md). Iris prefers OpenAPI, so it doesn't use these servers.
+Every Company lists an MCP server at `https://{domain}/mcp` in `apis`, after its OpenAPI description, and in its issuer's `protected_resources`, with RFC 9728 metadata at `/.well-known/oauth-protected-resource/mcp`. The gateway serves it for all five (Streamable HTTP, MCP 2025-06-18): one tool per OpenAPI operation, each call the operation's own request to the same route, after the API's checks of the Session header, the token (one requested with `resource` set to the server's URL, and used only there: DPoP-bound, or a Bearer token bound by the Session header's `ath`), the route's extension, its scopes and Operations v3. A proposal returns the same operation as a tool error with `operation` in `structuredContent`, and the approval comes back in `_meta`. Details in [MCP at the Companies](mcp-company.md). Iris prefers OpenAPI, so it doesn't use these servers.
 
 ## Web browsing (§6)
 

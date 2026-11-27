@@ -4,14 +4,17 @@
  * same Session, token, scope and Operations v3 checks.
  */
 import { describe, expect, it } from "vitest";
-import { newSessionId } from "@poppy-lab/pap-client/core";
+import { newSessionId, signSessionHeader } from "@poppy-lab/pap-client/core";
 import { mcpToolsOf } from "./mcp.ts";
-import { origin, setup } from "./test-company.ts";
+import { client, origin, setup } from "./test-company.ts";
 import type { CompanyDefinition } from "./types.ts";
 
 const mcp = `${origin}/mcp`;
 const metadata = `${origin}/.well-known/oauth-protected-resource/mcp`;
 const OPERATIONS = '"operations";v="3"';
+/** A challenge in each scheme the server takes (§7), with its metadata. */
+const both = (params: string) =>
+  `DPoP ${params}, resource_metadata="${metadata}", Bearer ${params}, resource_metadata="${metadata}"`;
 
 /** A Company whose `poppy.json` lists the MCP server, with four operations. */
 const company: Partial<CompanyDefinition> = {
@@ -172,7 +175,6 @@ describe("discovery", () => {
       scopes_supported: ["things:read", "things:write"],
       bearer_methods_supported: ["header"],
       dpop_signing_alg_values_supported: ["ES256"],
-      dpop_bound_access_tokens_required: true,
     });
     // The domain's own metadata is unchanged (§3.2).
     expect(
@@ -381,13 +383,13 @@ describe("Sessions and tokens", () => {
     );
     expect(invented.status).toBe(401);
     expect(invented.headers.get("www-authenticate")).toBe(
-      `DPoP error="invalid_token", resource_metadata="${metadata}"`,
+      both('error="invalid_token"'),
     );
     const tokens = await x.signedIn();
     const wrong = await x.tool("list_things", {}, { access: tokens.default });
     expect(wrong.status).toBe(401);
     expect(wrong.headers.get("www-authenticate")).toBe(
-      `DPoP error="invalid_token", resource_metadata="${metadata}"`,
+      both('error="invalid_token"'),
     );
     // Without a Session header, a token of the server's is no help.
     const known = await x.bare(
@@ -451,6 +453,179 @@ describe("Sessions and tokens", () => {
   });
 });
 
+describe("Bearer tokens", () => {
+  /** Elena signed in for the MCP server without a DPoP proof. */
+  const bearerSignIn = async (x: Awaited<ReturnType<typeof withMcp>>) => {
+    const tokens = await x.signIn("things:read things:write", {}, undefined, {
+      resource: mcp,
+      bound: false,
+    });
+    if ("refused" in tokens) throw new Error("refused");
+    return tokens;
+  };
+
+  it("issues one for the MCP server without a DPoP proof, and keeps the type at refresh", async () => {
+    const x = await withMcp();
+    const tokens = await bearerSignIn(x);
+    expect(tokens.token_type).toBe("Bearer");
+    // Refreshed, with or without a proof, it is a Bearer token again.
+    const refresh = { grant_type: "refresh_token", resource: mcp };
+    for (const bound of [false, true])
+      expect(
+        (
+          await x.token(
+            { ...refresh, refresh_token: tokens.refresh_token },
+            bound,
+          )
+        ).token_type,
+      ).toBe("Bearer");
+    // Its grant gets no token for any other service.
+    await expect(
+      x.token({
+        grant_type: "refresh_token",
+        refresh_token: tokens.refresh_token,
+      }),
+    ).rejects.toThrow(/invalid_grant/);
+    await expect(
+      x.token(
+        { grant_type: "refresh_token", refresh_token: tokens.refresh_token },
+        false,
+      ),
+    ).rejects.toThrow(/invalid_dpop_proof/);
+    // Every other token still needs a proof.
+    await expect(
+      x.signIn("things:read", {}, undefined, { bound: false }),
+    ).rejects.toThrow(/invalid_dpop_proof/);
+    // A grant issued with a proof keeps DPoP, and its key, for the server too.
+    const bound = await x.signIn();
+    if ("refused" in bound) throw new Error("refused");
+    expect(bound.token_type).toBe("DPoP");
+    expect(
+      (await x.token({ ...refresh, refresh_token: bound.refresh_token }))
+        .token_type,
+    ).toBe("DPoP");
+    await expect(
+      x.token({ ...refresh, refresh_token: bound.refresh_token }, false),
+    ).rejects.toThrow(/invalid_grant/);
+  });
+
+  it("takes one at the MCP server only with a Session header whose ath covers it", async () => {
+    const x = await withMcp();
+    const tokens = await bearerSignIn(x);
+    const options = { access: tokens.access_token, bearer: true };
+    const r = await x.tool("thing", { id: "1" }, options);
+    expect(r.status).toBe(200);
+    expect((await json(r)).result?.structuredContent).toMatchObject({
+      account: "elena",
+    });
+    // Without the Session header, nothing binds it.
+    const alone = await x.bare(
+      { jsonrpc: "2.0", id: 1, method: "ping" },
+      { authorization: `Bearer ${tokens.access_token}` },
+    );
+    expect(alone.status).toBe(401);
+    expect(await alone.json()).toEqual({ error: "invalid_token" });
+    expect(alone.headers.get("www-authenticate")).toBe(
+      both('error="invalid_token"'),
+    );
+    // A Session header that covers another token doesn't bind it either.
+    const other = await x.tool(
+      "thing",
+      { id: "1" },
+      { ...options, ath: "another-token" },
+    );
+    expect(other.status).toBe(401);
+    expect(await other.json()).toEqual({ error: "invalid_token" });
+    expect(other.headers.get("www-authenticate")).toBe(
+      both('error="invalid_token"'),
+    );
+    // Each token only in its own scheme (RFC 9449 §7.1).
+    const dpop = await x.signedIn();
+    expect(
+      (await x.tool("thing", { id: "1" }, { access: dpop.mcp, bearer: true }))
+        .status,
+    ).toBe(401);
+    expect(
+      (await x.tool("thing", { id: "1" }, { access: dpop.mcp })).status,
+    ).toBe(200);
+    expect(
+      (await x.tool("thing", { id: "1" }, { access: tokens.access_token }))
+        .status,
+    ).toBe(401);
+  });
+
+  it("takes each Session header that binds one only once", async () => {
+    const x = await withMcp();
+    const tokens = await bearerSignIn(x);
+    const headers = {
+      "content-type": "application/json",
+      "Poppy-Version": "1.0",
+      Authorization: `Bearer ${tokens.access_token}`,
+      "Poppy-Session": await signSessionHeader({
+        key: x.sessionKey,
+        clientId: client,
+        audience: origin,
+        sessionId: x.sessionId,
+        userId: "usr_test",
+        method: "POST",
+        url: mcp,
+        accessToken: tokens.access_token,
+      }),
+    };
+    const send = (id: number) =>
+      x.app.request("/mcp", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id,
+          method: "tools/call",
+          params: { name: "thing", arguments: { id: String(id) } },
+        }),
+      });
+    expect((await send(1)).status).toBe(200);
+    // A copied request can't be sent again, whatever its body.
+    const again = await send(2);
+    expect(again.status).toBe(400);
+    expect(await again.json()).toEqual({ error: "invalid_session" });
+  });
+
+  it("refuses one at the API, conversations and browser authorization", async () => {
+    const x = await withMcp();
+    const tokens = await bearerSignIn(x);
+    const options = { access: tokens.access_token, bearer: true };
+    for (const r of [
+      await x.call("/api/account/things/1", options),
+      await x.call("/poppy/conversations", {
+        ...options,
+        method: "POST",
+        body: { message: { text: "Hello" } },
+      }),
+      await x.call("/poppy/browser-session/authorize", {
+        ...options,
+        method: "POST",
+        body: { code: "x" },
+      }),
+    ]) {
+      expect(r.status).toBe(401);
+      expect(await r.json()).toEqual({ error: "invalid_token" });
+      expect(r.headers.get("www-authenticate")).toBe(
+        `DPoP error="invalid_token", resource_metadata="${origin}/.well-known/oauth-protected-resource"`,
+      );
+    }
+    // A token for the API is refused there in the Bearer scheme too.
+    const dpop = await x.signedIn();
+    expect(
+      (
+        await x.call("/api/account/things/1", {
+          access: dpop.default,
+          bearer: true,
+        })
+      ).status,
+    ).toBe(401);
+  });
+});
+
 describe("tool calls", () => {
   it("calls a read signed out, as the API answers it", async () => {
     const x = await withMcp();
@@ -466,7 +641,7 @@ describe("tool calls", () => {
     const out = await x.tool("thing", { id: "7" });
     expect(out.status).toBe(401);
     expect(out.headers.get("www-authenticate")).toBe(
-      `DPoP scope="things:read", resource_metadata="${metadata}"`,
+      both('scope="things:read"'),
     );
     // The API's answer to the same request, without the metadata.
     const api = await x.call("/api/account/things/7");
@@ -484,7 +659,7 @@ describe("tool calls", () => {
     expect(short.status).toBe(403);
     expect(await short.json()).toEqual({ error: "insufficient_scope" });
     expect(short.headers.get("www-authenticate")).toBe(
-      `DPoP error="insufficient_scope", scope="things:write", resource_metadata="${metadata}"`,
+      both('error="insufficient_scope", scope="things:write"'),
     );
   });
 

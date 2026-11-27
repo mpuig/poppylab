@@ -63,6 +63,11 @@ export type Grant = {
   /** §4.4: the DPoP key the refresh token was issued with (thumbprint). */
   dpop?: string;
   /**
+   * §4.5: issued without a DPoP proof, for the MCP server: every token it
+   * gets is a Bearer token for that server (section 7), and nothing else.
+   */
+  bearer?: true;
+  /**
    * What the consent granted beyond scopes (`selectResources`), such as the
    * accounts the User chose. A grant approved before this field existed, or
    * at a Company without `selectResources`, has none: each route decides
@@ -99,7 +104,12 @@ export const declares = (
 ) => Object.hasOwn(extensions, name) && extensions[name] === version;
 export type Token = {
   client: string;
-  binding: string;
+  /**
+   * The DPoP key it is bound to (thumbprint). None for a Bearer token, which
+   * works only at the MCP server and only with a Session header whose `ath`
+   * covers it (§5.2).
+   */
+  binding?: string;
   expires: number;
   accountId: string;
   scopes: string;
