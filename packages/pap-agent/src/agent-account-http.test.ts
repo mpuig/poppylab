@@ -14,8 +14,11 @@ import {
   configureLinkingChannel,
   forgetLinkingChannels,
 } from "./agent-account-http";
+import { conversationEvents } from "./api-events";
 import { v1 } from "./api-http";
+import { sessionOfAccessToken } from "./api-sessions";
 import { connected } from "./company-fixture";
+import { apiSessionCaller } from "./identity";
 import { channelUser } from "./link-codes";
 import { configureBackend, memoryBackend } from "./runs";
 import type { Run } from "./runtime";
@@ -975,6 +978,40 @@ describe("a conversation's event stream", () => {
     });
     await until(heard, "event: session.ended");
     expect(heard.text).toContain('"code":"session_revoked"');
+  });
+
+  it("leaves no listener on the signal behind after each reading", async () => {
+    fake();
+    const created = await create({});
+    const token = created.data.tokens!.accessToken as string;
+    const started = await call("POST", "/conversations", { token, body: {} });
+    const caller = apiSessionCaller(
+      new Request(site),
+      (await sessionOfAccessToken(token))!,
+    );
+    const stop = new AbortController();
+    const signal = stop.signal;
+    let listening = 0;
+    const add = signal.addEventListener.bind(signal),
+      remove = signal.removeEventListener.bind(signal);
+    signal.addEventListener = ((...args: Parameters<typeof add>) => {
+      listening++;
+      add(...args);
+    }) as typeof add;
+    signal.removeEventListener = ((...args: Parameters<typeof remove>) => {
+      listening--;
+      remove(...args);
+    }) as typeof remove;
+    const events = conversationEvents(caller, started.data.id as string, {
+      signal,
+      every: 1000,
+    });
+    expect((await events.next()).value).toMatchObject({ type: "state" });
+    const next = events.next();
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(listening).toBeLessThanOrEqual(1);
+    stop.abort();
+    expect((await next).done).toBe(true);
   });
 
   it("holds an account to ten open streams, and counts how often they are opened", async () => {

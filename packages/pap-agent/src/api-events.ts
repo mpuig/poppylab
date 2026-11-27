@@ -163,12 +163,18 @@ export async function* conversationEvents(
   let readings = 0;
   yield { type: "state", state: last };
   while (!options.signal?.aborted && Date.now() < until && last.active) {
+    // One listener a reading, gone when the reading comes: a stream of
+    // five minutes would otherwise leave 150 on the request's signal.
     await new Promise<void>((resolve) => {
-      const timer = setTimeout(resolve, every);
-      options.signal?.addEventListener("abort", () => {
+      const stop = () => {
         clearTimeout(timer);
         resolve();
-      });
+      };
+      const timer = setTimeout(() => {
+        options.signal?.removeEventListener("abort", stop);
+        resolve();
+      }, every);
+      options.signal?.addEventListener("abort", stop, { once: true });
     });
     if (options.signal?.aborted) return;
     if (options.signedIn && ++readings % CHECK_EVERY === 0) {
