@@ -1718,6 +1718,23 @@ footer .lab-links a:hover {
     overflow: visible;
   }
 }
+/*
+ * On a phone that left the transcript a slit of 7.5rem above the card, a
+ * box with a scroll of its own inside the page's: the latest answer showed
+ * a line or two, and a swipe on it moved neither. There the transcript is
+ * part of the page as well, shown whole, so one scroll reads the answer and
+ * then the card, whose buttons stay at the window's foot. The page brings
+ * the latest message to the top when a proposal arrives (`showLatest`).
+ */
+@media (max-width: 600px) and (max-height: 1100px) {
+  .chat-workspace .conversation:has(.needs-you-body) .messages {
+    flex: none;
+    overflow: visible;
+  }
+  .chat-workspace .conversation:has(.needs-you-body) .message {
+    scroll-margin-top: 8px;
+  }
+}
 
 /* Conversations: each has its own address; ended ones are read-only. */
 .conversation-note {

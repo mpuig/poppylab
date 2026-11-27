@@ -31,6 +31,22 @@ function prettyData(json: string) {
   }
 }
 
+/** Whether the transcript is part of the page, not a box with its own scroll. */
+const inPage = (transcript: HTMLElement | null) =>
+  !!transcript && getComputedStyle(transcript).overflowY === "visible";
+
+/**
+ * On a phone with a proposal waiting, the transcript is part of the page
+ * (playground.css). The page then shows the latest message from its top,
+ * with the card under it, as a box of its own would show its end.
+ */
+export function showLatest(transcript: HTMLElement | null) {
+  if (!inPage(transcript)) return;
+  [...transcript!.querySelectorAll(":scope > .message")]
+    .at(-1)
+    ?.scrollIntoView({ block: "start" });
+}
+
 /** A proposal, and the Company that holds it, as one card of the page. */
 type Held = { op: Operation; c: CompanyState; operation_id: string };
 
@@ -98,11 +114,21 @@ export function Conversation({
   // page moves to show all of it, or its top when it is the taller of the two.
   useEffect(() => {
     const element = panel.current;
-    if (waitingKey && panelOpen && element)
+    if (waitingKey && panelOpen && element && !inPage(transcript.current))
       element.scrollIntoView({
         block: element.offsetHeight > window.innerHeight ? "start" : "nearest",
       });
   }, [waitingKey, panelOpen, shownId]);
+  // With the transcript in the page, the answer that brought the proposal
+  // is read first. A card the person opens stays where they opened it.
+  useEffect(() => {
+    if (waitingKey && panelOpen) showLatest(transcript.current);
+  }, [waitingKey, panelOpen]);
+  // A hidden panel gives the transcript back its own scroll, from its end.
+  useEffect(() => {
+    const element = transcript.current;
+    if (!panelOpen && element) element.scrollTop = element.scrollHeight;
+  }, [panelOpen]);
   // Whether Iris approved an operation on the standing instruction: the
   // demo's answer about it was written before, while it still waited.
   const approvedByIris = (id: string) =>

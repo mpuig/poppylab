@@ -8,7 +8,7 @@ import type { View } from "./companies";
 import { usePlayground } from "./use-playground";
 import { ConnectionSetup } from "./connection-setup";
 import { CompaniesBar } from "./companies-bar";
-import { Conversation } from "./conversation";
+import { Conversation, showLatest } from "./conversation";
 import { Inspector } from "./inspector";
 import { IdentityPanel } from "./identity-panel";
 import { AccountPanel } from "./account-panel";
@@ -102,6 +102,9 @@ export function Workspace() {
     const element = transcript.current;
     if (element) element.scrollTop = element.scrollHeight;
   }, [p.messages, p.sending, p.companies, p.error]);
+  // Part of the page, on a phone with a proposal waiting: only a new
+  // message moves the page, never a refresh of the Companies.
+  useEffect(() => showLatest(transcript.current), [p.messages.length]);
 
   return (
     <div
