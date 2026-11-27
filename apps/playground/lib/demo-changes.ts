@@ -701,13 +701,50 @@ export function demoChangeReply(
   plan: Extract<DemoPlan, { call: string }>,
   result: unknown,
   show: (answer: unknown) => string,
+  /** The conversation's operations at this Company, as the runtime keeps them. */
+  earlier: readonly Earlier[] = [],
 ) {
   const error = refusal(result);
   if (error)
     return `The demo read your account and prepared this change, but nothing was sent to the Company: ${unsent(error)}.${error === "insufficient_scope" ? " Press “Request change permission”, review the Company's consent, and ask again." : ""}`;
   const held =
     (result as { status?: unknown } | null)?.status !== "outcome_unknown";
-  return `${plan.because}\n\n${ANSWERED}${show(result)}\n\n${held ? HOLDS : ""}${MODEL}`;
+  const again = held ? madeBefore(plan, earlier) : undefined;
+  return `${again ? `${again}\n\n` : ""}${plan.because}\n\n${ANSWERED}${show(result)}\n\n${held ? HOLDS : ""}${MODEL}`;
+}
+
+type Earlier = { state: string; terms?: Record<string, unknown> };
+/**
+ * Says so when the User already approved this same transfer or payment in
+ * the conversation and the Company made it: the same words again ask for
+ * it a second time, under a new idempotency key. The demo still asks, as
+ * the User may mean it; the line keeps the new card from passing for the
+ * one approved before.
+ */
+function madeBefore(
+  plan: Extract<DemoPlan, { call: string }>,
+  earlier: readonly Earlier[],
+) {
+  const what =
+    plan.call === "transfer_between_accounts"
+      ? "transfer"
+      : plan.call === "request_payment"
+        ? "payment"
+        : undefined;
+  if (!what) return undefined;
+  const same = [
+    "source_account_id",
+    "destination_account_id",
+    "recipient_id",
+    "amount_cents",
+  ].filter((key) => key in plan.args);
+  return earlier.some(
+    (op) =>
+      op.state === "succeeded" &&
+      same.every((key) => op.terms?.[key] === plan.args[key]),
+  )
+    ? `You approved this same ${what} earlier in this conversation, and it was made. This asks for a second one.`
+    : undefined;
 }
 
 /**

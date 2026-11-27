@@ -51,7 +51,7 @@ How it reads a request:
 - **Numbers.** "$1,000" is one amount. A count is the number beside the thing it counts ("add 2 vegetable gyoza"), and a time such as "18:30" is never a count. At Juniper a quantity is the new total, not an increase.
 - **Days.** An order moves to the day the message names as its destination ("to Friday"), not to the day it is on ("from Friday").
 - **Several things at once.** "Remove the edamame and add a matcha ice cream" removes and adds, each by its own verb. It removes only a dish the order has.
-- **Money.** A payment goes only to a saved, active recipient, from the account the message names. Words after "for" are the payment's memo.
+- **Money.** A payment goes only to a saved, active recipient, from the account the message names. Words after "for" are the payment's memo. Asked again for a transfer or payment that was approved and made in the conversation (same accounts or recipient, same amount), the demo still asks for it, and its answer starts with "You approved this same transfer earlier in this conversation, and it was made. This asks for a second one."
 - **Flights.** A flight number is taken only from the flights that are booked.
 
 What it says when it can't:

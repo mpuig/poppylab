@@ -8,6 +8,7 @@ import {
   demoMissing,
   demoMissingReport,
   demoUnsupported,
+  type DemoPlan,
   type DemoTools,
 } from "./demo-changes";
 import { readable } from "./demo-text";
@@ -795,6 +796,61 @@ it("reads words for the agent or for feedback outside a payment's memo only", as
   ).toBe("feedback");
   // A Company with neither is asked for neither.
   expect(demoAside("talk to support about a voucher", bank())).toBeUndefined();
+});
+
+it("says when the same transfer was approved and made already, and still asks for it", async () => {
+  const plan = (await demoChange(
+    "Transfer $500 from checking to savings",
+    bank(),
+    key,
+  )) as Extract<DemoPlan, { call: string }>;
+  const held = {
+    status: "approval_required",
+    operation_id: "op_2",
+    summary: "Transfer $500.00 from Operating checking to Reserve savings.",
+  };
+  const made = {
+    state: "succeeded",
+    terms: {
+      source_account_id: "acc_A100",
+      destination_account_id: "acc_A200",
+      amount_cents: 50000,
+      idempotency_key: "key_earlier",
+    },
+  };
+  const said = demoChangeReply(plan, held, readable, [made]);
+  expect(said).toMatch(
+    /^You approved this same transfer earlier in this conversation, and it was made\. This asks for a second one\.\n\nThe demo read your accounts and asked to transfer \$500\.00 from Operating checking to Reserve savings\./,
+  );
+  expect(said).toContain("The Company holds a change until you click Approve.");
+  // Another amount, one that wasn't made, or one the User declined: no line.
+  for (const earlier of [
+    { ...made, terms: { ...made.terms, amount_cents: 40000 } },
+    { ...made, state: "proposed" },
+    { ...made, state: "declined" },
+  ])
+    expect(demoChangeReply(plan, held, readable, [earlier])).toMatch(
+      /^The demo read your accounts/,
+    );
+  // A payment is the same payment by its account, recipient and amount.
+  const payment = (await demoChange(
+    "Pay Beacon Studio $125 for November design work",
+    bank(),
+    key,
+  )) as Extract<DemoPlan, { call: string }>;
+  expect(
+    demoChangeReply(payment, held, readable, [
+      {
+        state: "succeeded",
+        terms: {
+          source_account_id: "acc_A100",
+          recipient_id: "rcp_1",
+          amount_cents: 12500,
+          memo: "October design work",
+        },
+      },
+    ]),
+  ).toMatch(/^You approved this same payment earlier/);
 });
 
 it("says plainly which changes of a booking it can't ask for, and what it can", () => {
