@@ -21,6 +21,58 @@ const completion = (message: Record<string, unknown>, neurons = 10) => ({
   ],
   usage: { prompt_tokens: 100, completion_tokens: 10, neurons },
 });
+/**
+ * A streamed call as the binding sends it: OpenAI's chunks, each with its
+ * own tokens' Neurons and padding, then the call's usage in the older
+ * shape, then `[DONE]`, cut at odd places as a network would.
+ */
+const streamed = (deltas: Array<Record<string, unknown>>, neurons = 1) => {
+  const chunk = (delta: Record<string, unknown>, finish: string | null) => ({
+    id: "c1",
+    object: "chat.completion.chunk",
+    created: 1,
+    model: "@cf/google/gemma-4-26b-a4b-it-external",
+    choices: [
+      {
+        index: 0,
+        delta: {
+          reasoning_content: null,
+          ...delta,
+          // A stream names each tool call by its place.
+          ...(Array.isArray(delta.tool_calls)
+            ? {
+                tool_calls: delta.tool_calls.map((c: object, index) => ({
+                  index,
+                  ...c,
+                })),
+              }
+            : {}),
+        },
+        finish_reason: finish,
+      },
+    ],
+    usage: { prompt_tokens: 0, completion_tokens: 1, neurons: 0.03 },
+    p: "padding",
+  });
+  const tools = deltas.some((d) => d.tool_calls);
+  const events = [
+    chunk({ role: "assistant", content: "" }, null),
+    ...deltas.map((d) => chunk(d, null)),
+    chunk({}, tools ? "tool_calls" : "stop"),
+    {
+      response: "",
+      usage: { prompt_tokens: 50, completion_tokens: 9, neurons },
+    },
+  ].map((event) => `data: ${JSON.stringify(event)}\n\n`);
+  const bytes = new TextEncoder().encode(`${events.join("")}data: [DONE]\n\n`);
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      for (let at = 0; at < bytes.length; at += 37)
+        controller.enqueue(bytes.slice(at, at + 37));
+      controller.close();
+    },
+  });
+};
 const call = (name: string) => ({
   content: null,
   tool_calls: [
@@ -183,6 +235,100 @@ describe("Workers AI through its binding", () => {
       );
     }
     expect(onUsage.mock.calls).toEqual([[51], [20], [20], [31]]);
+  });
+
+  it("streams the answer through the binding, tools and all, and counts the whole call's Neurons once", async () => {
+    const inputs: Array<Input & { stream?: boolean }> = [];
+    const binding = {
+      run: vi.fn(async (_model: string, input: Record<string, unknown>) => {
+        inputs.push(input as Input);
+        return inputs.length === 1
+          ? streamed([{ tool_calls: call("list_products").tool_calls }], 2.5)
+          : streamed(
+              [
+                { content: "We sell" },
+                { content: " apples. They" },
+                { content: " are fresh." },
+              ],
+              1.75,
+            );
+      }),
+    };
+    const onUsage = vi.fn();
+    const pieces: string[] = [];
+    const text = await runModel(
+      "workers-ai",
+      [{ role: "user", content: "What do you sell?" }],
+      {
+        list_products: {
+          description: "List products",
+          execute: async () => ({ products: ["Apples"] }),
+        },
+      },
+      { workersAi: { binding, onUsage }, onText: (t) => pieces.push(t) },
+    );
+    expect(text).toBe("We sell apples. They are fresh.");
+    expect(pieces.join("").trim()).toBe(text);
+    expect(pieces.slice(0, 3)).toEqual([
+      "We sell",
+      " apples. They",
+      " are fresh.",
+    ]);
+    expect(inputs.map((input) => input.stream)).toEqual([true, true]);
+    // The binding still refuses `content: null` after a tool call.
+    const assistant = inputs[1]!.messages.find((m) => m.role === "assistant")!;
+    expect(assistant.content).toBe("");
+    // Each call's total, from the binding's last event: not every chunk's.
+    expect(onUsage.mock.calls).toEqual([[2.5], [1.75]]);
+  });
+
+  it("keeps what the model said before a tool, as a paragraph of the answer", async () => {
+    let calls = 0;
+    const binding = {
+      run: vi.fn(async () =>
+        ++calls === 1
+          ? streamed([
+              { content: "Let me look." },
+              { tool_calls: call("list_products").tool_calls },
+            ])
+          : streamed([{ content: "Apples." }]),
+      ),
+    };
+    const pieces: string[] = [];
+    const text = await runModel(
+      "workers-ai",
+      [{ role: "user", content: "What do you sell?" }],
+      {
+        list_products: {
+          description: "List products",
+          execute: async () => ({}),
+        },
+      },
+      { workersAi: { binding }, onText: (t) => pieces.push(t) },
+    );
+    expect(text).toBe("Let me look.\n\nApples.");
+    expect(pieces.join("").trim()).toBe(text);
+  });
+
+  it("answers whole when the stream fails before anything was said or done", async () => {
+    let calls = 0;
+    const binding = {
+      run: vi.fn(async (_model: string, input: Record<string, unknown>) => {
+        calls++;
+        if (input.stream) return { not: "a stream" };
+        return completion({ content: "Apples." });
+      }),
+    };
+    const pieces: string[] = [];
+    const text = await runModel(
+      "workers-ai",
+      [{ role: "user", content: "What do you sell?" }],
+      {},
+      { workersAi: { binding }, onText: (t) => pieces.push(t) },
+    );
+    expect(text).toBe("Apples.");
+    expect(pieces).toEqual([]);
+    expect(calls).toBe(2);
   });
 
   it("is refused without a binding", async () => {

@@ -75,6 +75,76 @@ it("executes a Company tool through an OpenAI-compatible model loop", async () =
   }
 });
 
+it("streams an OpenAI-compatible model's answer, and answers whole from one that doesn't stream", async () => {
+  const asked: boolean[] = [];
+  let streams = true;
+  const server = createServer(async (request, response) => {
+    let body = "";
+    for await (const chunk of request) body += chunk;
+    const stream = (JSON.parse(body) as { stream?: boolean }).stream === true;
+    asked.push(stream);
+    if (stream && streams) {
+      response.setHeader("Content-Type", "text/event-stream");
+      for (const content of ["Apples", " are", " in. Pears too."])
+        response.write(
+          `data: ${JSON.stringify({ id: "s", object: "chat.completion.chunk", created: 1, model: "m", choices: [{ index: 0, delta: { content }, finish_reason: null }] })}\n\n`,
+        );
+      response.end(
+        `data: ${JSON.stringify({ id: "s", object: "chat.completion.chunk", created: 1, model: "m", choices: [{ index: 0, delta: {}, finish_reason: "stop" }] })}\n\ndata: [DONE]\n\n`,
+      );
+      return;
+    }
+    // A server that answers every request whole, streamed or not.
+    response.setHeader("Content-Type", "application/json");
+    response.end(
+      JSON.stringify({
+        id: "w",
+        object: "chat.completion",
+        created: 1,
+        model: "m",
+        choices: [
+          {
+            index: 0,
+            message: { role: "assistant", content: "Whole." },
+            finish_reason: "stop",
+          },
+        ],
+      }),
+    );
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const address = server.address();
+  if (!address || typeof address === "string")
+    throw new Error("Missing test address");
+  vi.stubEnv("OPENAI_API_KEY", "test-placeholder-not-a-secret");
+  vi.stubEnv("OPENAI_BASE_URL", `http://127.0.0.1:${address.port}/v1`);
+  vi.stubEnv("OPENAI_MODEL", "test-model");
+  try {
+    const pieces: string[] = [];
+    const text = await runModel(
+      "openai-compatible",
+      [{ role: "user", content: "Fruit?" }],
+      {},
+      { onText: (t) => pieces.push(t) },
+    );
+    expect(text).toBe("Apples are in. Pears too.");
+    expect(pieces.slice(0, 3)).toEqual(["Apples", " are", " in. Pears too."]);
+    streams = false;
+    const whole = await runModel(
+      "openai-compatible",
+      [{ role: "user", content: "Fruit?" }],
+      {},
+      { onText: (t) => pieces.push(t) },
+    );
+    expect(whole).toBe("Whole.");
+    expect(asked).toEqual([true, true, false]);
+  } finally {
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+});
+
 it("asks the same model one short question, with no tools", async () => {
   const bodies: Array<Record<string, unknown>> = [];
   const server = createServer(async (request, response) => {
