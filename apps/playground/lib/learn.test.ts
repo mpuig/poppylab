@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   LEARN_GROUPS,
   LEARN_PAGES,
+  clip,
   imageSize,
   learnHref,
   renderMarkdown,
@@ -28,6 +29,16 @@ describe("learn links", () => {
     );
     expect(learnHref("https://example.com/x")).toBe("https://example.com/x");
     expect(learnHref("#top")).toBe("#top");
+  });
+
+  it("clips a description at a sentence, or at a word", () => {
+    const sentence = `${"A sentence that runs on. ".repeat(10)}And then some more words`;
+    expect(clip("Short.")).toBe("Short.");
+    expect(clip(sentence)).toMatch(/runs on\.$/);
+    expect(clip(sentence).length).toBeLessThanOrEqual(200);
+    const words = "word ".repeat(60).trim();
+    expect(clip(words)).toMatch(/word…$/);
+    expect(clip(words).length).toBeLessThanOrEqual(201);
   });
 
   it("makes GitHub-style heading anchors", () => {

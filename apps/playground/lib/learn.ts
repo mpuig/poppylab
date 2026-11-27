@@ -485,9 +485,23 @@ export async function renderPage(page: LearnPage) {
       )
       ?.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
       .replace(/[*_`]/g, "")
-      .replace(/\s+/g, " ")
-      .slice(0, 200) ?? "";
+      .replace(/\s+/g, " ") ?? "";
   // The page heading is drawn by the layout.
   const body = markdown.replace(/^# .+\n/m, "");
-  return { title, description, ...renderMarkdown(body, folderOf(page)) };
+  return {
+    title,
+    description: clip(description),
+    ...renderMarkdown(body, folderOf(page)),
+  };
+}
+
+/**
+ * A description short enough for a search result or a shared link: whole
+ * sentences when they fit, otherwise whole words and an ellipsis.
+ */
+export function clip(text: string, max = 200) {
+  if (text.length <= max) return text;
+  const sentences = text.slice(0, max + 1).match(/^.*[.!?](?=\s)/)?.[0];
+  if (sentences && sentences.length >= max / 2) return sentences;
+  return `${text.slice(0, max).replace(/\s+\S*$/, "")}…`;
 }

@@ -1,0 +1,138 @@
+<!doctype html>
+<!--
+  The share images under public/share/, 1200x630: the card a link to the
+  site shows. Not served; open it in a browser with a 1200x630 viewport,
+  pick an image with ?image=<name> and save a screenshot as
+  public/share/<name>.png. With agent-browser:
+
+    agent-browser set viewport 1200 630
+    agent-browser open "file://$PWD/scripts/share-images.html?image=learn"
+    agent-browser screenshot public/share/learn.png
+
+  The names and the alt text are SHARE_IMAGES in lib/site.ts. The type and
+  colours are the site's (DESIGN.md): STIX Two Text and Hanken Grotesk,
+  ink on paper, one petrol rule.
+
+  ?image=icon draws the site's icon instead, the wordmark's P in paper on
+  petrol, at 512x512 (viewport 512 512): public/icon.png (192),
+  public/apple-touch-icon.png (180) and public/favicon.ico (32) are made
+  from it with `sips -z`, and the .ico with `sips -s format ico`.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Share image</title>
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600&family=STIX+Two+Text:wght@500;600&display=block"
+    />
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 1200px;
+        height: 630px;
+        overflow: hidden;
+        background: #ffffff;
+      }
+      .card {
+        box-sizing: border-box;
+        width: 1200px;
+        height: 630px;
+        padding: 72px 80px 64px;
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        color: #171a1f;
+        font-family: "Hanken Grotesk", "Helvetica Neue", Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .top {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+      }
+      .wordmark {
+        font-family: "STIX Two Text", Georgia, serif;
+        font-weight: 600;
+        font-size: 38px;
+        letter-spacing: -0.01em;
+      }
+      .host {
+        font-size: 24px;
+        color: #5b626c;
+      }
+      .middle {
+        align-self: center;
+        display: grid;
+        gap: 22px;
+      }
+      .section {
+        font-size: 26px;
+        font-weight: 600;
+        color: #0d5c4a;
+      }
+      h1 {
+        margin: 0;
+        font-family: "STIX Two Text", Georgia, serif;
+        font-weight: 500;
+        font-size: 66px;
+        line-height: 1.08;
+        letter-spacing: -0.02em;
+        max-width: 24ch;
+        text-wrap: balance;
+      }
+      .foot {
+        display: flex;
+        justify-content: space-between;
+        padding-top: 22px;
+        border-top: 2px solid #0d5c4a;
+        font-size: 24px;
+        color: #3a4049;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="top">
+        <span class="wordmark">Poppy Lab</span>
+        <span class="host">poppylab.dev</span>
+      </div>
+      <div class="middle">
+        <span class="section" id="section"></span>
+        <h1 id="headline"></h1>
+      </div>
+      <div class="foot">
+        <span>An independent lab for Personal Agent Protocol 1.0</span>
+        <span>Fictional companies only</span>
+      </div>
+    </div>
+    <script>
+      const images = {
+        default: ["", "How AI agents and companies agree on the rules."],
+        playground: [
+          "Playground",
+          "Watch Iris, a Personal Agent, work with five fictional companies.",
+        ],
+        learn: [
+          "Learn",
+          "How Personal Agent Protocol 1.0 works, request by request.",
+        ],
+        developers: [
+          "Developers",
+          "Test your own Company or Personal Agent against the lab.",
+        ],
+        posts: ["Posts", "Notes on Personal Agent Protocol 1.0 from the lab."],
+      };
+      const name = new URLSearchParams(location.search).get("image");
+      if (name === "icon")
+        document.body.innerHTML =
+          "<div style=\"width:512px;height:512px;background:#0d5c4a;color:#fff;display:grid;place-items:center;font:600 420px/1 'STIX Two Text',Georgia,serif;padding-bottom:28px;box-sizing:border-box\">P</div>";
+      else {
+        const [section, headline] = images[name] ?? images.default;
+        document.getElementById("section").textContent = section;
+        document.getElementById("section").hidden = !section;
+        document.getElementById("headline").textContent = headline;
+      }
+    </script>
+  </body>
+</html>

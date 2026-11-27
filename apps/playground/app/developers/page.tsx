@@ -8,14 +8,17 @@ import {
   connect,
   host,
 } from "../site-chrome";
+import { SITE_NAME, pageMetadata } from "@/lib/site";
 import { SpecRef } from "../spec-ref";
 import "../site.css";
 
-export const metadata: Metadata = {
-  title: "Developers · Poppy Lab",
+export const metadata: Metadata = pageMetadata({
+  title: `Developers · ${SITE_NAME}`,
   description:
     "Endpoints, scopes and spec sections for the five fictional Poppy 1.0 Companies, and how to test your own Company or Personal Agent against the lab.",
-};
+  path: "/developers",
+  image: "developers",
+});
 
 const legend = [
   ["DI", "Discovery", "/.well-known/poppy.json", "§3"],

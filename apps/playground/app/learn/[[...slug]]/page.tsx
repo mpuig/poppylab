@@ -10,6 +10,7 @@ import {
   subsections,
   type LearnPage,
 } from "@/lib/learn";
+import { SITE_NAME, pageMetadata } from "@/lib/site";
 import { SiteBar, SiteFoot } from "../../site-chrome";
 import { LearnSteps } from "../learn-steps";
 import "../../site.css";
@@ -31,10 +32,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const page = findPage((await params).slug?.join("/"));
   if (!page) return {};
   const { title, description } = await renderPage(page);
-  return {
-    title: page.slug ? `${title} · Learn · Poppy Lab` : "Learn · Poppy Lab",
+  return pageMetadata({
+    title: page.slug
+      ? `${title} · Learn · ${SITE_NAME}`
+      : `Learn · ${SITE_NAME}`,
     description,
-  };
+    path: hrefOf(page),
+    image: "learn",
+  });
 }
 
 export default async function Learn({ params }: Props) {
