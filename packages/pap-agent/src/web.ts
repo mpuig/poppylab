@@ -7,6 +7,7 @@
  * playground's routes, a Worker and Node all have.
  */
 import { visitorOf } from "./runs";
+import { signInCookie, signInCookieOptions } from "./sign-in-cookie";
 import { UserFacingError } from "./user-error";
 
 /** An answer of the core's, before any channel puts it on the wire. */
@@ -24,8 +25,17 @@ export const json = <T>(
   body,
   headers: { ...init.headers },
 });
+/** A body of bytes (a statement's PDF) goes as it is; any other as JSON. */
 export const toResponse = (reply: Reply) =>
-  Response.json(reply.body, { status: reply.status, headers: reply.headers });
+  reply.body instanceof Uint8Array
+    ? new Response(reply.body as Uint8Array<ArrayBuffer>, {
+        status: reply.status,
+        headers: reply.headers,
+      })
+    : Response.json(reply.body, {
+        status: reply.status,
+        headers: reply.headers,
+      });
 
 /** A cookie jar as Next's `cookies()` and the core's tests give one. */
 export type CookieStore = {
@@ -57,6 +67,16 @@ export type Caller = {
   localDev: boolean;
   /** The client's address, for the public budgets (Cloudflare's `cf-connecting-ip`). */
   ip: string | null;
+  /**
+   * Binds a sign-in to the person who started it: the callback completes
+   * one only for the caller that `holds` its OAuth `state`. In a browser,
+   * a cookie for each sign-in (`sign-in-cookie.ts`).
+   */
+  signIns: {
+    bind(state: string): void;
+    holds(state: string): boolean;
+    release(state: string): void;
+  };
 };
 
 /** A browser request to the playground's own routes, as a `Caller`. */
@@ -70,6 +90,20 @@ export function browserCaller(request: Request, cookies: CookieStore): Caller {
       process.env.NODE_ENV === "development" &&
       ["localhost", "127.0.0.1"].includes(url.hostname),
     ip: request.headers.get("cf-connecting-ip"),
+    signIns: {
+      bind: (state) => {
+        const name = signInCookie(state);
+        if (name) cookies.set(name, state, signInCookieOptions());
+      },
+      holds: (state) => {
+        const name = signInCookie(state);
+        return !!name && cookies.get(name)?.value === state;
+      },
+      release: (state) => {
+        const name = signInCookie(state);
+        if (name) cookies.set(name, "", signInCookieOptions(0));
+      },
+    },
   };
 }
 

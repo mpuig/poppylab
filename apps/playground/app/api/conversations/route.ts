@@ -1,54 +1,20 @@
 /**
- * The visitor's conversations: a list for the Conversations view, and the
- * one action that starts the demo over. Only names and times leave here;
- * a conversation's words come from `/api/account?conversation=`.
+ * The visitor's conversations, and the action that starts the demo over.
+ * The work is the agent core's (`@poppy-lab/pap-agent/conversation-list`).
  */
 import "@/lib/agent";
-import { toResponse } from "@poppy-lab/pap-agent/web";
-import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import {
-  listConversations,
-  resetDemo,
-  visitorOf,
-} from "@poppy-lab/pap-agent/runs";
-import { overBudget } from "@poppy-lab/pap-agent/limits";
+  conversationAction,
+  conversationList,
+} from "@poppy-lab/pap-agent/conversation-list";
 
 export const runtime = "nodejs";
-const headers = { "Cache-Control": "no-store" };
 
 export async function GET() {
-  const visitor = visitorOf(await cookies());
-  return NextResponse.json(
-    { conversations: visitor ? await listConversations(visitor) : [] },
-    { headers },
-  );
+  return conversationList(await cookies());
 }
 
 export async function POST(request: Request) {
-  if (request.headers.get("origin") !== new URL(request.url).origin)
-    return NextResponse.json(
-      { error: "Same-origin requests required" },
-      { status: 403, headers },
-    );
-  const visitor = visitorOf(await cookies(), true);
-  const limited = await overBudget(
-    request.headers.get("cf-connecting-ip"),
-    visitor,
-    "account",
-  );
-  if (limited) return toResponse(limited);
-  let action: unknown;
-  try {
-    action = ((await request.json()) as { action?: unknown }).action;
-  } catch {
-    action = undefined;
-  }
-  if (action !== "reset-demo")
-    return NextResponse.json(
-      { error: "Unknown action" },
-      { status: 400, headers },
-    );
-  await resetDemo(visitor);
-  return NextResponse.json({ reset: true }, { headers });
+  return conversationAction(request, await cookies());
 }
