@@ -28,10 +28,10 @@ The gateway (`packages/pap-company/src/gateway.ts`) is a 50-line composition of 
   | State (single writer) | encrypted vault file                                                            | Durable Object SQLite storage (`state` key)                                                  |
   | Outbound HTTPS        | `protocolRequest`: pinned DNS, private addresses blocked, no redirects, bounded | `fetch` with `redirect: "manual"`, HTTPS only, bounded; Workers can't reach private networks |
 
-  The whole Company runs inside a single Durable Object, so the single-writer model holds as it did on Node.
+  The whole Company runs inside a single Durable Object, so the single-writer model holds as it did on Node. What that costs in scale is in [Scaling boundary](#scaling-boundary).
 
 - **Clients (CIMD):** the gateway now accepts any Personal Agent by its client metadata. The `client_id` must be an HTTPS URL; plain HTTP is allowed only for an explicit development allowlist. `redirect_uri` must match exactly one of the client's own `redirect_uris`, of which the gateway keeps only those on the client's own origin or at a loopback address (§4.1), and the consent page names the client. This is what a public deployment needs. Before, only the local Poppy was accepted.
-- **Consent cookie:** `__Host-` on HTTPS. OAuth pending consents and codes live in memory (5 and 1 minutes); if a Durable Object restarts mid-sign-in, the user signs in again.
+- **Consent cookie:** `__Host-` on HTTPS. Pending consent pages (5 minutes) and one-time codes (1 minute) are kept in the protocol state, so a Durable Object that restarts mid-sign-in still answers them.
 
 ## Status
 
@@ -107,6 +107,46 @@ Verified by tests (Lantern: separate copies, stolen token, eviction and split pe
 Deployed: `https://noodles.poppylab.dev` (`334aa256`) and `https://juniper.poppylab.dev` (`7a5a276d`). Both serve discovery, metadata, excluded tasks and OpenAPI. The API without a Session header and plain-HTTP clients at authorize return 400; Juniper's portal returns 403.
 
 **Still open for the public Companies:** global caps (2000 Sessions, 2000 tokens, 1000 grants) are shared by all clients; an edge rate-limit rule should go in front before Poppy is public.
+
+## Scaling boundary
+
+On Workers each Company is one Durable Object, found by name (`idFromName("juniper")`, and `lantern`, `harborline`, `northwind` and `fernwick` in each `src/worker.ts`). Every request to that Company, from every visitor and every agent, goes to that one object, which lives in one Cloudflare location.
+
+- **One writer.** The object runs one request's code at a time; requests interleave only where one awaits, such as a fetch of client metadata or a storage call. The gateway changes its state in memory and saves at the end of each request that may have changed it (`src/gateway/persistence.ts`): every request but a GET or an MCP request without a Session header, every request with a `Poppy-Session` header, and every path that marks itself dirty. A save that fails answers 503 `storage_unavailable_restart_required`, and the next request starts again from what was stored (`discard` in each `worker.ts`).
+- **One row for the protocol state.** `splitStore` (`src/split-store.ts`) keeps the protocol state as one value under `state`, one row of the object's SQLite storage: Sessions, tokens, grants, the replay cache, pending consent pages, codes, pushed and device requests, browser links and joined browsers. Each tenant has a row of its own (`tenant:<hash>`). Every save writes the whole `state` row again, with the row of the one tenant the request touched. When the object starts, it reads `state` and every tenant row at once.
+- **Why that is right for a lab.** The customers are fictional and the traffic is people trying the demos. With one writer, the protocol's once-only rules hold without any coordination: a code is exchanged once, a Session header or DPoP proof is accepted once, a grant has one holder, and an approved operation is performed once, with a retry answered by its first response. A restart reads two things and has everything.
+
+The limits the code sets, for each Company:
+
+| What                                                            | Limit                                                                             | Set in                                                  |
+| --------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| Tenants: agent users, website browsers' own copies and `shared` | 500, the least recently used evicted first; one idle for 24 h starts again        | `maxTenants`, `tenantIdleMs` (no Worker overrides them) |
+| Sessions                                                        | 2,000, each counted until a day after it ends                                     | `src/gateway/sessions.ts`                               |
+| Access tokens; grants                                           | 2,000 that haven't expired; 1,000 that haven't ended                              | `src/gateway/tokens.ts`                                 |
+| Pending consent pages; codes; pushed requests; device requests  | 500 each                                                                          | `src/gateway/signin.ts`, `src/gateway/device.ts`        |
+| Browser links (browser → agent user's copy)                     | 2,000, the least recently used dropped                                            | `src/gateway/context.ts`                                |
+| Browser-join codes; joined browsers                             | 500 authorized and 500 used before authorization; 1,000 joined, 20 per agent user | `src/gateway/browser-session.ts`                        |
+| Replay cache (Session headers, DPoP proofs, client assertions)  | 10,000 entries, for everyone                                                      | `ReplayCache` in `pap-client` (`src/session.ts`)        |
+| Agent activity                                                  | 20 per account (5 that changed nothing), 200 per tenant, 90 days                  | `src/gateway/activity.ts`                               |
+| Request body                                                    | 16 KiB                                                                            | `src/gateway/persistence.ts`                            |
+
+No client may hold more than a fifth of the Session, token, grant, consent, code, pushed, device, join-code or joined-browser caps. Poppy Lab is one client, so all its visitors together get at most 400 Sessions, 400 tokens, 200 grants and 100 sign-ins in progress at each Company. A grant lasts 7 days unless it is revoked (Harborline's without `offline_access` last 1 hour), so 200 sign-ins through Poppy Lab in a week fill its share at that Company, and the next code exchange answers 429.
+
+Two limits come from the single row and the single object rather than from a cap:
+
+- **Size.** Cloudflare stores at most 2 MB in one value, and nothing measures `state` before a save. Filled to every cap with records the size Poppy Lab sends, `state` comes to about 4 MB of JSON; Sessions, tokens and the replay cache alone come to about 1.9 MB. A save over the limit fails like any other: 503, then a start from the last stored state.
+- **Rate.** Each request signed with a Session header and a DPoP proof puts two entries in the replay cache for about 70 seconds, and at 10,000 the next header or proof is refused as invalid. That is about 70 signed requests a second, for all clients together. Each of them also writes the whole `state` row. Cloudflare's own soft limit for one object is about 1,000 requests a second.
+
+**Sharding by visitor** would give each tenant its own object, so one visitor's load and records stop counting against everyone else's. It would take:
+
+1. **Routing before the object.** The Worker picks the object, so it needs the tenant key first: the SHA-256 of `client_id` and the Session header's user. Either the Worker verifies the Session header itself, which means fetching client metadata there, or it routes on the unverified claim and the object refuses a header that doesn't verify as that user.
+2. **A home for sign-in.** Discovery, consent pages, pushed and device requests, the token endpoint and revocation all run before any user is known. They stay in one sign-in object, or the object a request belongs to travels with it, in the code, the token or a cookie.
+3. **Moving a grant to its holder.** A grant gets its holder on its first use with a Session (`src/gateway/sessions.ts`). Its record and its tokens then move from the sign-in object to the holder's. A move across two objects isn't atomic, so it has to be safe to repeat.
+4. **Finding a browser's copy.** The website dispatch reads `links` (`pap_browser` → agent user) and `browsers` (`poppy_session` → agent user) before it picks a copy, and `follow` moves a browser's website logins into the agent user's copy. Those lookups move to the Worker, for example as a signed cookie that names the tenant, and the login move becomes a call between objects.
+5. **Grants for a website.** The account page lists the grants for an account (`ctx.grants.list`), and the activity reads them to mark a proposal `disconnected`. Both read all grants today; sharded, the tenant's object holds its own, and a grant without a holder yet is shown to the browser that approved it from the sign-in object.
+6. **Caps and counters.** The caps and the fifth for each client, the wrong-password and wrong-code limits and the client-metadata cache are per object, mostly in memory. Sharded, each would multiply by the number of objects, or move to one counter object or to Cloudflare rate-limiting rules.
+
+The replay cache shards without change: a Session header names its user and a DPoP proof is bound to a token, so a replay reaches the same object as the original. Shared mode (Node's default) has no tenant to shard by.
 
 ## Poppy Lab on Workers (`https://poppylab.dev`)
 
