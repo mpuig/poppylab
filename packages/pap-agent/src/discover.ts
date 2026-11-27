@@ -1,4 +1,4 @@
-import { setCookie, toResponse, type CookieStore } from "./web";
+import { readJson, setCookie, toResponse, type CookieStore } from "./web";
 import { discoverCompany } from "@poppy-lab/pap-client";
 import { LOCAL_COMPANY_ORIGINS, PapDiscoveryError } from "@poppy-lab/pap-core";
 import {
@@ -14,7 +14,7 @@ import { connectionAt } from "./connections";
 import { connectCompany } from "./connecting";
 import { conversationEnded, overBudget } from "./limits";
 import { notSaved } from "./run-size";
-import { publicMode } from "./deployment";
+import { publicMode, serving } from "./deployment";
 
 // Single-process safeguards, not a substitute for shared edge rate limiting.
 let activeRequests = 0;
@@ -26,30 +26,6 @@ function json(body: unknown, status = 200) {
     status,
     headers: { "Cache-Control": "no-store" },
   });
-}
-
-async function readBody(request: Request): Promise<unknown> {
-  const reader = request.body?.getReader();
-  if (!reader) throw new Error("Missing body");
-  const chunks: Uint8Array[] = [];
-  let size = 0;
-  let timer: ReturnType<typeof setTimeout>;
-  const deadline = new Promise<never>((_resolve, reject) => {
-    timer = setTimeout(() => reject(new Error("Body timed out")), 3000);
-  });
-  try {
-    while (true) {
-      const { done, value } = await Promise.race([reader.read(), deadline]);
-      if (done) break;
-      size += value.byteLength;
-      if (size > 4096) throw new Error("Body too large");
-      chunks.push(value);
-    }
-    return JSON.parse(Buffer.concat(chunks).toString("utf8")) as unknown;
-  } finally {
-    clearTimeout(timer!);
-    void reader.cancel();
-  }
 }
 
 /**
@@ -101,11 +77,11 @@ export async function discover(
   /** Read only once the request is let in, as Next's `cookies()`. */
   jar: () => Promise<CookieStore>,
 ) {
-  const origin = request.headers.get("origin");
-  if (
-    (origin && origin !== new URL(request.url).origin) ||
-    request.headers.get("sec-fetch-site") === "cross-site"
-  ) {
+  if (!serving())
+    return json({ error: "Discovery is disabled on this deployment." }, 403);
+  // As on every route that changes something: the page's own requests
+  // always carry its Origin, so one without it is refused too.
+  if (request.headers.get("origin") !== new URL(request.url).origin) {
     return json(
       { error: "Cross-origin discovery requests are not allowed" },
       403,
@@ -140,7 +116,7 @@ export async function discover(
   try {
     let body: unknown;
     try {
-      body = await readBody(request);
+      body = await readJson(request, 4096);
     } catch {
       return json(
         { error: "Request must be valid JSON no larger than 4096 bytes" },

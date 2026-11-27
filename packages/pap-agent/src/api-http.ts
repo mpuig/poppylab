@@ -17,6 +17,7 @@ import {
   type Result,
 } from "./api";
 import { conversationEvents } from "./api-events";
+import { serving } from "./deployment";
 import { openApiDocument } from "./openapi";
 import { UserFacingError } from "./user-error";
 import { browserCaller, readJson, type Caller, type CookieStore } from "./web";
@@ -131,6 +132,14 @@ async function serve(
   caller: Caller,
 ): Promise<Response> {
   const id = route.names.id ?? "";
+  // A deployment without its configuration serves no route, whatever
+  // each function would check, and reads no body.
+  if (!serving())
+    return error({
+      status: 403,
+      code: "disabled",
+      error: "The agent is disabled on this deployment.",
+    });
   // Reads need only the user; anything else must come from the user's own
   // page, as the playground's other routes require.
   if (request.method !== "GET" && !caller.authentic)

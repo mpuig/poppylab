@@ -109,7 +109,8 @@ export function browserCaller(request: Request, cookies: CookieStore): Caller {
 
 /**
  * A JSON body of at most `limit` bytes, read within three seconds; a
- * larger or slower one is refused before it is parsed.
+ * larger or slower one is refused before it is parsed. Every route that
+ * takes a body reads it with this.
  */
 export async function readJson(
   request: Request,
@@ -119,7 +120,8 @@ export async function readJson(
     throw new UserFacingError("Use JSON");
   const reader = request.body?.getReader();
   if (!reader) throw new UserFacingError("Missing request");
-  let data = "";
+  const chunks: Uint8Array[] = [];
+  let size = 0;
   let timer: ReturnType<typeof setTimeout>;
   const deadline = new Promise<never>((_, reject) => {
     timer = setTimeout(
@@ -131,15 +133,16 @@ export async function readJson(
     while (true) {
       const chunk = await Promise.race([reader.read(), deadline]);
       if (chunk.done) break;
-      data += Buffer.from(chunk.value).toString("utf8");
-      if (Buffer.byteLength(data) > limit)
-        throw new UserFacingError("Request too large");
+      size += chunk.value.byteLength;
+      if (size > limit) throw new UserFacingError("Request too large");
+      chunks.push(chunk.value);
     }
   } finally {
     clearTimeout(timer!);
     void reader.cancel();
   }
-  return JSON.parse(data) as unknown;
+  // Decoded once: a character split between two chunks stays whole.
+  return JSON.parse(Buffer.concat(chunks).toString("utf8")) as unknown;
 }
 
 /** A `Set-Cookie` header in the words Next writes it, for a plain Response. */

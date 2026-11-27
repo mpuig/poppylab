@@ -2,6 +2,7 @@ import { agentName } from "./agent";
 import {
   browserCaller,
   json,
+  readJson,
   toResponse,
   type Caller,
   type CookieStore,
@@ -296,27 +297,7 @@ type Action = {
 
 /** All actions have a tiny fixed schema; bound the stream before parsing. */
 async function readAction(request: Request): Promise<Action> {
-  const reader = request.body?.getReader();
-  if (!reader) throw new Error();
-  const chunks: Uint8Array[] = [];
-  let size = 0;
-  let timer: ReturnType<typeof setTimeout>;
-  const deadline = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error("Request timed out")), 3000);
-  });
-  try {
-    while (true) {
-      const r = await Promise.race([reader.read(), deadline]);
-      if (r.done) break;
-      size += r.value.byteLength;
-      if (size > 2048) throw new Error();
-      chunks.push(r.value);
-    }
-  } finally {
-    clearTimeout(timer!);
-    void reader.cancel();
-  }
-  const body: unknown = JSON.parse(Buffer.concat(chunks).toString());
+  const body = await readJson(request, 2048);
   if (!body || typeof body !== "object") throw new Error();
   return body as Action;
 }

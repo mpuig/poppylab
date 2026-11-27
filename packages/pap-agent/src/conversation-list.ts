@@ -3,14 +3,21 @@
  * one action that starts the demo over. Only names and times leave here;
  * a conversation's words come from `/api/account?conversation=`.
  */
+import { serving } from "./deployment";
 import { listConversations, resetDemo, visitorOf } from "./runs";
 import { overBudget } from "./limits";
-import { browserCaller, toResponse, type CookieStore } from "./web";
+import { browserCaller, readJson, toResponse, type CookieStore } from "./web";
 
 const headers = { "Cache-Control": "no-store" };
+const disabled = () =>
+  Response.json(
+    { error: "Conversations are disabled on this deployment." },
+    { status: 403, headers },
+  );
 
 /** `GET /api/conversations`. */
 export async function conversationList(cookies: CookieStore) {
+  if (!serving()) return disabled();
   const visitor = visitorOf(cookies);
   return Response.json(
     { conversations: visitor ? await listConversations(visitor) : [] },
@@ -23,6 +30,7 @@ export async function conversationAction(
   request: Request,
   cookies: CookieStore,
 ) {
+  if (!serving()) return disabled();
   const caller = browserCaller(request, cookies);
   if (!caller.authentic)
     return Response.json(
@@ -34,7 +42,8 @@ export async function conversationAction(
   if (limited) return toResponse(limited);
   let action: unknown;
   try {
-    action = ((await request.json()) as { action?: unknown }).action;
+    action = ((await readJson(request, 1024)) as { action?: unknown } | null)
+      ?.action;
   } catch {
     action = undefined;
   }

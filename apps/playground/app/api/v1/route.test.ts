@@ -148,6 +148,26 @@ it("describes every route it serves, and serves every route it describes", async
   expect(await served.json()).toEqual(document);
 });
 
+it("serves nothing, and reads no body, on a deployment that isn't configured", async () => {
+  vi.stubEnv("NODE_ENV", "production");
+  try {
+    const refused = await call("GET", "/conversations/run_unknown_0001");
+    expect(refused.status).toBe(403);
+    expect(refused.data.code).toBe("disabled");
+    const unread = await POST(
+      new Request(`${agent}/api/v1/conversations`, {
+        method: "POST",
+        headers: { origin: agent, "Content-Type": "text/plain" },
+        body: "not JSON",
+      }),
+    );
+    expect(unread.status).toBe(403);
+    expect(((await unread.json()) as { code: string }).code).toBe("disabled");
+  } finally {
+    vi.stubEnv("NODE_ENV", "development");
+  }
+});
+
 describe("a new conversation in demo mode", () => {
   it("starts, takes a message and a choice, and answers as described", async () => {
     const started = await call("POST", "/conversations", {});

@@ -6,6 +6,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const discover = vi.hoisted(() => vi.fn());
 const jar = vi.hoisted(() => ({ set: vi.fn() }));
+vi.mock("@poppy-lab/pap-agent/deployment", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@poppy-lab/pap-agent/deployment")>()),
+  serving: () => true,
+}));
 vi.mock("@poppy-lab/pap-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@poppy-lab/pap-client")>()),
   discoverCompany: discover,
