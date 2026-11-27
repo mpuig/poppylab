@@ -13,6 +13,7 @@ import {
   answerChoice,
   decideProposal,
   getConversation,
+  listPending,
   sendMessage,
   startConversation,
   startSignIn,
@@ -60,6 +61,7 @@ export const API_PREFIX = "/api/v1";
 export const ROUTES = [
   { method: "GET", path: "/openapi.json", operation: "getOpenApi" },
   { method: "POST", path: "/conversations", operation: "startConversation" },
+  { method: "GET", path: "/pending", operation: "listPending" },
   { method: "GET", path: "/conversations/{id}", operation: "getConversation" },
   {
     method: "POST",
@@ -292,6 +294,8 @@ async function serve(
     switch (operation) {
       case "getConversation":
         return answer(await getConversation(caller, id));
+      case "listPending":
+        return answer(await listPending(caller));
       case "conversationEvents":
         return events(caller, id, request, cookies);
       case "startConversation": {

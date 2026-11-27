@@ -329,6 +329,15 @@ session.start()`)}
               transfer&quot;, decides it through the same check as the decision
               request.
             </p>
+            <p>
+              The agent&apos;s message about new terms names them in its{" "}
+              <code>proposals</code>: show the proposal&apos;s card after that
+              message, and leave it there once it is decided. For a badge or an
+              inbox, list what waits for the person in all their conversations:
+              proposals, sign-ins to finish, and the agent&apos;s open
+              questions, each with its conversation to open.
+            </p>
+            {example("listPending")}
 
             <h2 id="events">Follow the events</h2>
             <p>

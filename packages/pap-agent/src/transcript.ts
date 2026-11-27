@@ -1,5 +1,6 @@
 import { agentName } from "./agent";
 import { agentStep, type AgentStep } from "./agent-steps";
+import type { ProposalRef } from "./approval-question";
 import type { Choice } from "./company-commands";
 import type { CompanyEntry, DirectAction } from "./conversations";
 import {
@@ -67,6 +68,13 @@ export type TranscriptEntry = {
    * when it is read (`spokenText`).
    */
   spoken?: string;
+  /**
+   * The proposals that arrived with this entry, each at the revision it
+   * came with: Iris's question about new terms names them. The page shows
+   * each one's card here, where it arrived, and keeps it there once it is
+   * decided. Unlike `choices`, kept when the next entry comes.
+   */
+  proposals?: ProposalRef[];
 };
 
 /** What a turn put on the page besides the words. */
@@ -135,7 +143,12 @@ const cut = (text: string, max: number) =>
 
 /** One entry within its own limits. Data too large to keep is left out. */
 function clipped(entry: TranscriptEntry): TranscriptEntry {
-  const { data, steps, note, author, choices, spoken, ...rest } = entry;
+  const { data, steps, note, author, choices, spoken, proposals, ...rest } =
+    entry;
+  // As many as one question names, each as long as a button's answer.
+  const arrived = (proposals ?? [])
+    .filter((ref) => JSON.stringify(ref).length <= 8_000)
+    .slice(0, TRANSCRIPT_LIMITS.choices);
   // A button whose answer is longer than any Iris makes is left out: three
   // addresses of at most 2048 characters each.
   const buttons = (choices ?? [])
@@ -145,6 +158,7 @@ function clipped(entry: TranscriptEntry): TranscriptEntry {
   return {
     ...rest,
     ...(buttons.length ? { choices: buttons } : {}),
+    ...(arrived.length ? { proposals: arrived } : {}),
     content: cut(entry.content, TRANSCRIPT_LIMITS.text),
     ...(author ? { author: cut(author, 200) } : {}),
     ...(note ? { note: cut(note, 600) } : {}),
@@ -686,6 +700,8 @@ export function recordAsked(
     text: string;
     spoken?: string | undefined;
     choices?: Choice[] | undefined;
+    /** The proposals the question brought: their cards go here. */
+    proposals?: ProposalRef[] | undefined;
   },
 ) {
   show(
@@ -700,6 +716,7 @@ export function recordAsked(
       content: asked.text,
       ...(asked.spoken ? { spoken: asked.spoken } : {}),
       ...(asked.choices?.length ? { choices: asked.choices } : {}),
+      ...(asked.proposals?.length ? { proposals: asked.proposals } : {}),
     },
   );
 }

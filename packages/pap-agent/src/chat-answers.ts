@@ -72,8 +72,16 @@ export type Asking =
   | { invitation: string }
   | { retry: { asked: string; company?: string } };
 
-/** A question of the agent's own: its words, the words to say, its buttons. */
-export type Question = { text: string; spoken: string; choices: Choice[] };
+/**
+ * A question of the agent's own: its words, the words to say, its buttons,
+ * and the proposals that arrived with it, whose cards a page shows here.
+ */
+export type Question = {
+  text: string;
+  spoken: string;
+  choices: Choice[];
+  proposals?: ProposalRef[];
+};
 
 /** How long a request waits for its sign-in: the conversation's own time. */
 export const RESUME_MS = 30 * 60000;
@@ -164,6 +172,8 @@ function askApproval(
     text: lead ? `${lead} ${asked.text}` : asked.text,
     spoken: lead ? `${lead} ${asked.spoken}` : asked.spoken,
     choices: decisionChoices(run, all, lab),
+    // The new ones arrived here; the others' cards are where they came.
+    proposals: fresh.map(({ connection, op }) => refOf(connection, op)),
   };
   run.asking = {
     approve: all.map(({ connection, op }) => refOf(connection, op)),
@@ -635,6 +645,7 @@ async function decide(
       return {
         reply: ownAnswer(turn, question.text, question.choices, {
           spoken: question.spoken,
+          proposals: question.proposals,
         }),
       };
     }
@@ -702,6 +713,7 @@ async function decide(
       reply: ownAnswer(turn, question.text, question.choices, {
         ...extra,
         spoken: question.spoken,
+        proposals: question.proposals,
       }),
     };
   }

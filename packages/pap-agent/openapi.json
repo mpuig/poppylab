@@ -148,6 +148,50 @@
         }
       }
     },
+    "/api/v1/pending": {
+      "get": {
+        "tags": [
+          "Conversations"
+        ],
+        "operationId": "listPending",
+        "summary": "List what waits for the user",
+        "description": "Lists everything that waits for the user across their running conversations, newest conversation first: proposals to approve or decline, sign-ins to finish or do again, and questions the agent asked. For an inbox: open the item's `conversation` to act on it there. Ended conversations, and decided, answered or expired items, are left out.",
+        "responses": {
+          "200": {
+            "description": "What waits, possibly nothing.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/PendingItem"
+                      },
+                      "description": "What waits, in order."
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The agent is disabled on this deployment.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/conversations/{id}": {
       "get": {
         "tags": [
@@ -2556,6 +2600,13 @@
           "data": {
             "type": "string",
             "description": "Pretty-printed structured payload attached to a message."
+          },
+          "proposals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProposalRef"
+            },
+            "description": "Proposals that arrived with this message, at the revision they came with. A client that shows proposals as cards shows each one after this message, found in `ConversationState.proposals` by `company` and `proposal`, and keeps it there once it is decided."
           }
         },
         "required": [
@@ -2563,6 +2614,60 @@
           "text"
         ],
         "description": "A single message in the conversation transcript."
+      },
+      "PendingItem": {
+        "type": "object",
+        "properties": {
+          "conversation": {
+            "type": "string",
+            "description": "ID of the conversation it waits in."
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "proposal",
+              "signin",
+              "question"
+            ],
+            "description": "`proposal`: a Company holds a change for the user's approval. `signin`: a Company sign-in to finish or to do again. `question`: the agent asked, and the user's next message or a quick reply answers."
+          },
+          "company": {
+            "$ref": "#/components/schemas/CompanyRef",
+            "description": "Company it is at, when it is at one."
+          },
+          "text": {
+            "type": "string",
+            "description": "What it is, in the agent's own words (never a Company's summary), such as `Approve or decline the $88.00 change`."
+          },
+          "expiresAt": {
+            "type": "string",
+            "description": "ISO 8601 timestamp after which it no longer waits, when it runs out on its own."
+          },
+          "proposal": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "Proposal (operation) ID."
+              },
+              "revision": {
+                "type": "string",
+                "description": "Exact revision a decision binds to."
+              }
+            },
+            "required": [
+              "id",
+              "revision"
+            ],
+            "description": "For a `proposal`: which one, to decide with `decideProposal`."
+          }
+        },
+        "required": [
+          "conversation",
+          "kind",
+          "text"
+        ],
+        "description": "One thing that waits for the user. Decided, answered and expired items are not listed."
       },
       "CompanyState": {
         "type": "object",

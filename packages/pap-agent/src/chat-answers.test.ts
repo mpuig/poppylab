@@ -164,6 +164,34 @@ describe("a typed answer to Iris's question about a proposal", () => {
     );
     // The question now names the new revision, and only that.
     expect(run.asking).toEqual({ approve: [ref(food, order("r2"))] });
+    // The new terms arrived with this question: a page shows their card
+    // here, from the answer and from the entry a reload reads.
+    const reply = answered && "reply" in answered ? answered.reply : undefined;
+    expect((reply?.body as { proposals?: unknown }).proposals).toEqual([
+      ref(food, order("r2")),
+    ]);
+    expect(run.transcript?.at(-1)?.proposals).toEqual([ref(food, order("r2"))]);
+  });
+
+  it("keeps the proposals a question brought once the next entry comes", async () => {
+    const run = conversation([food, "Lantern Noodle Bar", order("r2")]);
+    await answerQuestion(
+      turnOf(run, "approve"),
+      requestOf("approve"),
+      { approve: [ref(food, order("r1"))] },
+      caller,
+    );
+    // A typed "yes" answers it; the question keeps its proposal, not its buttons.
+    await answerQuestion(
+      turnOf(run, "yes"),
+      requestOf("yes"),
+      run.asking,
+      caller,
+    );
+    const question = run.transcript!.find((e) => e.proposals?.length);
+    expect(question?.proposals).toEqual([ref(food, order("r2"))]);
+    expect(question?.choices).toBeUndefined();
+    expect(run.transcript!.at(-1)!.content).toMatch(/^You approved/);
   });
 
   it("asks again, naming each, when two wait and the answer doesn't say which", async () => {

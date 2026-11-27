@@ -340,6 +340,57 @@ describe("a conversation stored before the core was a package", () => {
     expect(state.proposals[1]!.terms).toMatchObject({ amount_cents: 2500 });
   });
 
+  it("lists what waits for the user, and drops a proposal once it is decided", async () => {
+    await seed();
+    type Item = {
+      conversation: string;
+      kind: string;
+      text: string;
+      company?: { origin: string; name: string };
+      proposal?: { id: string; revision: string };
+    };
+    const listed = await call("GET", "/pending");
+    expect(listed.status).toBe(200);
+    fits("listPending", listed);
+    const items = listed.data.items as Item[];
+    const proposals = items.filter((item) => item.kind === "proposal");
+    expect(
+      proposals.map((item) => [item.conversation, item.company?.name]),
+    ).toEqual([
+      [two.id, "Lantern Noodle Bar"],
+      [two.id, "Harborline Bank"],
+    ]);
+    // In the agent's words, from the terms: never the Company's summary.
+    expect(proposals[1]!.text).toBe("Approve or decline the $25.00 transfer");
+    // Nothing secret rides along: no token, code, verifier or OAuth state.
+    expect(JSON.stringify(listed.data)).not.toMatch(
+      /verifier|access_?token|refresh|"state"|request_uri/i,
+    );
+
+    const transfer = proposals[1]!;
+    const declined = await call(
+      "POST",
+      `/conversations/${two.id}/proposals/${transfer.proposal!.id}/decision`,
+      {
+        company: transfer.company!.origin,
+        revision: transfer.proposal!.revision,
+        decision: "decline",
+      },
+    );
+    expect(declined.status).toBe(200);
+    const after = (await call("GET", "/pending")).data.items as Item[];
+    expect(
+      after
+        .filter((item) => item.kind === "proposal")
+        .map((item) => item.company?.name),
+    ).toEqual(["Lantern Noodle Bar"]);
+  });
+
+  it("lists nothing for a visitor with no conversation", async () => {
+    const listed = await call("GET", "/pending");
+    expect(listed).toEqual({ status: 200, data: { items: [] } });
+  });
+
   it("declines a proposal, and streams its events from the state they start at", async () => {
     await seed();
     const { proposals } = (await call("GET", `/conversations/${two.id}`))

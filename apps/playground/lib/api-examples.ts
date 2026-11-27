@@ -303,6 +303,23 @@ data: {"type":"turn","result":{"conversation":"${CONVERSATION}","messages":[{"fr
       },
     },
   },
+  listPending: {
+    operation: "listPending",
+    headers: BEARER,
+    status: 200,
+    response: {
+      items: [
+        {
+          conversation: CONVERSATION,
+          kind: "proposal",
+          company: LANTERN,
+          text: "Approve or decline the $43.00 change",
+          expiresAt: proposal.expiresAt,
+          proposal: { id: proposal.id, revision: proposal.revision },
+        },
+      ],
+    },
+  },
   conversationEvents: {
     operation: "conversationEvents",
     path: { id: CONVERSATION },

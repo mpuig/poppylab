@@ -533,6 +533,14 @@ export async function listConversations(
     .sort((a, c) => c.created - a.created);
 }
 
+/**
+ * The visitor's conversations as stored, running and ended, for what waits
+ * in them (`pending-runs.ts`). Read as the list reads them.
+ */
+export async function storedConversations(visitor: string) {
+  return (await sweep(visitor)).map(({ id, run }) => ({ id, run }));
+}
+
 /** A conversation to show: running, or ended and read-only. */
 export async function readConversation(visitor: string, id: unknown) {
   if (!isConversationId(id)) return undefined;

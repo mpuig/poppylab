@@ -23,6 +23,8 @@ import { spokenProposal } from "./approval-question";
 import { hideLinkSecrets } from "./link-display";
 import { spokenText } from "./spoken";
 import { notSaved } from "./run-size";
+import type { PendingItem } from "./pending";
+import { pendingFor } from "./pending-runs";
 import {
   createRun,
   readConversation as storedConversation,
@@ -32,7 +34,7 @@ import type { Operation, Run } from "./runtime";
 import type { Caller, Reply } from "./web";
 import { PapDiscoveryError } from "@poppy-lab/pap-core";
 
-export type { Answer, Choice, CompanyRef };
+export type { Answer, Choice, CompanyRef, PendingItem };
 
 /** What went wrong, in words a channel can show the User as they are. */
 export type ApiError = { status: number; code?: string; error: string };
@@ -120,6 +122,20 @@ export type AgentMessage = {
   steps?: AgentStep[];
   /** The Companies' exact answers behind the text, as JSON. */
   data?: string;
+  /**
+   * The proposals that arrived with this message, at the revision they
+   * came with: a client that shows a proposal as a card shows it after
+   * this message, and leaves it there once it is decided. Find each in
+   * `ConversationState.proposals` by its Company and ID.
+   */
+  proposals?: ProposalRef[];
+};
+
+/** One proposal at one Company, at the exact revision a question named. */
+export type ProposalRef = {
+  company: string;
+  proposal: string;
+  revision: string;
 };
 
 /** A conversation as a channel shows it. */
@@ -176,6 +192,7 @@ type PageEntry = {
   steps?: AgentStep[];
   data?: string;
   spoken?: string;
+  proposals?: ProposalRef[];
 };
 const LINK = /https?:\/\/[^\s<>"')\]]+/gi;
 /** A kept entry of the page's, as a message any channel can show. */
@@ -203,6 +220,15 @@ export function messageOf(entry: PageEntry): AgentMessage {
     ...(links.length ? { links } : {}),
     ...(entry.steps?.length ? { steps: entry.steps } : {}),
     ...(entry.data ? { data: entry.data } : {}),
+    ...(entry.proposals?.length
+      ? {
+          proposals: entry.proposals.map(({ company, proposal, revision }) => ({
+            company,
+            proposal,
+            revision,
+          })),
+        }
+      : {}),
   };
 }
 const proposalOf = (company: CompanyRef, op: Operation): Proposal => ({
@@ -457,6 +483,25 @@ export async function answerChoice(
     { answer: input.answer, ...model(input.model) },
     options,
   );
+}
+
+/**
+ * Everything that waits for the user in their running conversations: a
+ * proposal to approve or decline, a sign-in to finish or do again, a
+ * question the agent asked. For a client's inbox; each item names its
+ * conversation, to open it there.
+ */
+export async function listPending(
+  caller: Caller,
+): Promise<Result<{ items: PendingItem[] }>> {
+  if (!serving())
+    return refused(
+      403,
+      "disabled",
+      "The agent is disabled on this deployment.",
+    );
+  const user = caller.user();
+  return { ok: true, value: { items: user ? await pendingFor(user) : [] } };
 }
 
 // ---- Proposals and sign-in -------------------------------------------------

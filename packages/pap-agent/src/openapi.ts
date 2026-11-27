@@ -188,9 +188,41 @@ const schemas: Record<string, Schema> = {
         "Protocol steps executed during this turn.",
       ),
       data: str("Pretty-printed structured payload attached to a message."),
+      proposals: array(
+        ref("ProposalRef"),
+        "Proposals that arrived with this message, at the revision they came with. A client that shows proposals as cards shows each one after this message, found in `ConversationState.proposals` by `company` and `proposal`, and keeps it there once it is decided.",
+      ),
     },
     ["from", "text"],
     "A single message in the conversation transcript.",
+  ),
+  PendingItem: object(
+    {
+      conversation: str("ID of the conversation it waits in."),
+      kind: {
+        type: "string",
+        enum: ["proposal", "signin", "question"],
+        description:
+          "`proposal`: a Company holds a change for the user's approval. `signin`: a Company sign-in to finish or to do again. `question`: the agent asked, and the user's next message or a quick reply answers.",
+      },
+      company: ref("CompanyRef", "Company it is at, when it is at one."),
+      text: str(
+        "What it is, in the agent's own words (never a Company's summary), such as `Approve or decline the $88.00 change`.",
+      ),
+      expiresAt: str(
+        "ISO 8601 timestamp after which it no longer waits, when it runs out on its own.",
+      ),
+      proposal: object(
+        {
+          id: str("Proposal (operation) ID."),
+          revision: str("Exact revision a decision binds to."),
+        },
+        ["id", "revision"],
+        "For a `proposal`: which one, to decide with `decideProposal`.",
+      ),
+    },
+    ["conversation", "kind", "text"],
+    "One thing that waits for the user. Decided, answered and expired items are not listed.",
   ),
   CompanyState: object(
     {
@@ -771,6 +803,29 @@ export function openApiDocument() {
               ...json(ref("Error")),
             },
             ...errors,
+          },
+        },
+      },
+      "/api/v1/pending": {
+        get: {
+          tags: ["Conversations"],
+          operationId: "listPending",
+          summary: "List what waits for the user",
+          description:
+            "Lists everything that waits for the user across their running conversations, newest conversation first: proposals to approve or decline, sign-ins to finish or do again, and questions the agent asked. For an inbox: open the item's `conversation` to act on it there. Ended conversations, and decided, answered or expired items, are left out.",
+          responses: {
+            "200": {
+              description: "What waits, possibly nothing.",
+              ...json(
+                object({
+                  items: array(ref("PendingItem"), "What waits, in order."),
+                }),
+              ),
+            },
+            "403": {
+              description: "The agent is disabled on this deployment.",
+              ...json(ref("Error")),
+            },
           },
         },
       },
