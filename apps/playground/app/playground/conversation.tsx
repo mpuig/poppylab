@@ -283,7 +283,11 @@ export function Conversation({
               {several &&
                 message.from &&
                 message.role !== "Company" &&
-                message.role !== "Iris" && <FromCompany from={message.from} />}
+                message.role !== "Iris" &&
+                // A turn that used several Companies names each of them.
+                (message.using?.length ? message.using : [message.from]).map(
+                  (c) => <FromCompany key={c.origin} from={c} />,
+                )}
               {message.role === "Company" && (
                 <span className="company-badge">Company content</span>
               )}
@@ -336,11 +340,17 @@ export function Conversation({
                     <li key={i} className={`step-${step.state}`}>
                       <span>{step.text}</span>
                       <small>
+                        {/* In a turn with several Companies, where it was. */}
+                        {step.company
+                          ? `${message.using?.find((c) => c.origin === step.company)?.name ?? new URL(step.company).host} · `
+                          : ""}
                         {step.how}
                         {step.access ? ` · ${step.access}` : ""}
                         {step.state === "waiting" ? " · waiting for you" : ""}
                         {step.state === "failed" ? " · failed" : ""}
                       </small>
+                      {/* What the call sent: what crossed, in a turn with several. */}
+                      {step.args && <code>{step.args}</code>}
                     </li>
                   ))}
                 </ol>

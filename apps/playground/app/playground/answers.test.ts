@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { keptLines, linesFor, shownCompanies, turnMessages } from "./answers";
+import {
+  answerLines,
+  keptLines,
+  linesFor,
+  shownCompanies,
+  turnMessages,
+} from "./answers";
 
 const lantern = { origin: "https://lantern.example", name: "Lantern" };
 const harborline = { origin: "https://harbor.example", name: "Harborline" };
@@ -42,6 +48,43 @@ describe("what a chat answer adds to the conversation", () => {
     });
   });
 
+  it("names every Company a turn with several used, with the steps the server made at each", () => {
+    const steps = [
+      {
+        text: "Read /api/bills",
+        how: "API" as const,
+        access: "view" as const,
+        state: "done" as const,
+        company: lantern.origin,
+      },
+      {
+        text: "Sent a request to /api/pay",
+        how: "API" as const,
+        access: "view and change" as const,
+        state: "done" as const,
+        company: harborline.origin,
+        args: '{"amount_cents":1200}',
+      },
+    ];
+    const [answer] = turnMessages({
+      text: "Paid.",
+      mode: "demo",
+      from: harborline,
+      using: [lantern, harborline],
+      trace: [
+        "GET /api/bills · Poppy Session",
+        "POST /api/pay · Poppy Session",
+      ],
+      steps,
+    });
+    expect(answer).toMatchObject({
+      role: "Demo",
+      from: harborline,
+      using: [lantern, harborline],
+      steps,
+    });
+  });
+
   it("says nothing of its own in a Direct Conversation, unless something changed", () => {
     expect(
       turnMessages({
@@ -73,6 +116,32 @@ describe("the Inspector's lines", () => {
       ]).map((l) => l.from?.name),
     ).toEqual(["Harborline", undefined]);
     expect(keptLines(undefined)).toEqual([]);
+  });
+
+  it("names each line of a turn with several Companies with its own", () => {
+    const lines = answerLines(
+      {
+        trace: [
+          "GET /api/bills · Poppy Session",
+          "POST /api/pay · Poppy Session",
+        ],
+        traces: [
+          { from: lantern, trace: ["GET /api/bills · Poppy Session"] },
+          { from: harborline, trace: ["POST /api/pay · Poppy Session"] },
+        ],
+      },
+      harborline,
+    );
+    expect(lines.map((l) => [l.url, l.from?.name])).toEqual([
+      ["/api/bills", "Lantern"],
+      ["/api/pay", "Harborline"],
+    ]);
+    // Any other answer's lines are its Company's.
+    expect(
+      answerLines({ trace: ["GET /api/menu · Poppy Session"] }, lantern).map(
+        (l) => l.from?.name,
+      ),
+    ).toEqual(["Lantern"]);
   });
 
   it("counts a Company once, connected or removed", () => {

@@ -3,7 +3,7 @@
  * with the Company it came from. Plain data, so a turn with several
  * Companies can be checked without a page.
  */
-import { agentStep } from "@/lib/agent-steps";
+import { agentStep, type AgentStep } from "@/lib/agent-steps";
 import { logEntry, type ProtocolEntry } from "@/lib/protocol-log";
 import type { Choice, CompanyRef, Message } from "./companies";
 
@@ -20,6 +20,22 @@ export const linesFor = (
     ...logEntry(line, at),
     ...(from ? { from } : {}),
   }));
+
+/**
+ * The lines an answer carries, each with its Company: a turn with several
+ * says whose each line is (`traces`); any other turn's are its Company's.
+ */
+export const answerLines = (
+  data: {
+    trace?: string[];
+    traces?: Array<{ from: CompanyRef; trace: string[] }>;
+  },
+  from?: CompanyRef,
+  at = Date.now(),
+): PageLine[] =>
+  data.traces
+    ? data.traces.flatMap((group) => linesFor(group.trace, group.from, at))
+    : linesFor(data.trace, from, at);
 
 /** The lines the conversation keeps, as a reload or an answer lists them. */
 export const keptLines = (kept: unknown): PageLine[] =>
@@ -41,6 +57,14 @@ export type ChatAnswer = {
   choices?: Choice[];
   data?: unknown;
   trace?: string[];
+  /**
+   * A turn with several Companies: each Company's own lines, its steps as
+   * the server made them (each with its Company and the call's
+   * arguments), and the Companies it used, in that order.
+   */
+  traces?: Array<{ from: CompanyRef; trace: string[] }>;
+  steps?: AgentStep[];
+  using?: CompanyRef[];
   company?: Array<{
     author: string;
     text?: string;
@@ -89,10 +113,11 @@ export function turnMessages(data: ChatAnswer): Message[] {
                 // The Company's exact answer, behind "Data": the demo's one,
                 // or each one a model's tools got.
                 ...(typeof data.data === "string" ? { data: data.data } : {}),
-                steps: (data.trace ?? []).map((line) =>
-                  agentStep(logEntry(line)),
-                ),
+                steps:
+                  data.steps ??
+                  (data.trace ?? []).map((line) => agentStep(logEntry(line))),
                 ...from,
+                ...(data.using?.length ? { using: data.using } : {}),
               },
         ]
       : []),

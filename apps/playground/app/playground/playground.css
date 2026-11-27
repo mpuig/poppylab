@@ -1536,6 +1536,13 @@ footer .lab-links a:hover {
 .agent-steps small {
   font-size: 12px;
 }
+/* What a call sent, in a turn with several Companies. */
+.agent-steps li code {
+  flex-basis: 100%;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-soft);
+}
 .message-actions {
   display: flex;
   gap: 16px;

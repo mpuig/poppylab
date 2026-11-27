@@ -98,6 +98,11 @@ export async function runModel(
      * system prompt.
      */
     context?: string | undefined;
+    /**
+     * The most model steps the turn may take, 5 when not given. A task at
+     * several Companies, read at one and proposed at another, takes more.
+     */
+    steps?: number | undefined;
   },
 ) {
   const selected = selectedModel(provider, config);
@@ -127,7 +132,7 @@ export async function runModel(
       .join("\n\n"),
     messages,
     tools,
-    stopWhen: stepCountIs(5),
+    stopWhen: stepCountIs(config?.steps ?? 5),
     maxOutputTokens: 1800,
     ...selected,
     abortSignal: AbortSignal.timeout(60000),

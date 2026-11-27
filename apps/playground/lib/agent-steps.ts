@@ -10,6 +10,13 @@ export type AgentStep = {
   how: StepHow;
   access: StepAccess | null;
   state: StepState;
+  /**
+   * In a turn with several Companies (`several.ts`): the origin of the
+   * Company the step was at, and the arguments of the call that made it,
+   * as JSON, so the User sees what went to each Company.
+   */
+  company?: string;
+  args?: string;
 };
 
 const UNSENT = "Did not send a request to ";

@@ -57,7 +57,18 @@ import {
   recordDirect,
   recordOwn,
   recordTurn,
+  turnAccounts,
 } from "@/lib/transcript";
+import {
+  modelTools,
+  newParts,
+  recording,
+  SEVERAL_LIMITS,
+  severalNote,
+  severalSteps,
+  type Call,
+  type Part,
+} from "@/lib/several";
 import { keepLines } from "@/lib/inspector-log";
 import { shownSkills, shownTasks } from "@/lib/shown-tasks";
 import type { CompanyEntry, DirectAction } from "@/lib/conversations";
@@ -173,6 +184,13 @@ async function reply(request: Request, started: Outcome) {
   // The Company this turn is for (`turnConnection`). None for a turn Iris
   // answers by itself: nothing is then sent to any Company.
   let connection: Connection | undefined;
+  // A turn the task needs several Companies for (`several.ts`): one part
+  // for each, the one `connection` names among them, each with what the
+  // turn did there. None for a turn with one Company.
+  let parts: Part[] = [];
+  // The Company a call of such a turn failed at, with its error, so the
+  // answer names that Company and not the one the turn ended at.
+  let failure: { connection: Connection; error: unknown } | undefined;
   let held: Held | undefined;
   let visitor: string | undefined;
   let stage = "request";
@@ -463,6 +481,139 @@ async function reply(request: Request, started: Outcome) {
         { headers: { "Cache-Control": "no-store" } },
       );
     };
+    // A turn whose task needs several Companies (`several.ts`): the tools
+    // of each, every call made with its own Company's Session and sign-in,
+    // and an answer that says what went to each. `turn` is in the order
+    // the task uses them; `at` is the one it ends at, whose state the
+    // answer carries as any turn's, and the page gets all of theirs.
+    const severalTurn = async (turn: Connection[], at: Connection) => {
+      parts = newParts(
+        turn.map((c) => ({
+          connection: c,
+          ref: companyRef(conversation, originOf(c)),
+          lab: lab.find((l) => originOf(l) === originOf(c))?.id,
+        })),
+      );
+      knewLost = !!at.accountUnavailable;
+      stage = "pap";
+      for (const part of parts) {
+        try {
+          part.tools = await connect(part.connection, part.trace, part.shown);
+        } catch (error) {
+          failure = { connection: part.connection, error };
+          throw error;
+        }
+        part.connection.offered = offeredTools(part.tools);
+      }
+      conversation.calls++;
+      const calls: Call[] = [];
+      const tools = parts.map((part) =>
+        recording(part, calls, (c, error) => {
+          failure = { connection: c, error };
+        }),
+      );
+      stage = "provider";
+      context = conversation.history.slice(-10);
+      const offered = modelTools(parts, tools);
+      for (const { part, count } of offered.left)
+        part.trace.push(
+          `Offered the model ${Object.keys(part.tools).length - count} of ${part.ref.name}'s ${Object.keys(part.tools).length} tools · at most ${SEVERAL_LIMITS.tools} in a turn with several Companies`,
+        );
+      const text = await runModel(
+        provider,
+        [
+          ...context.map(({ role, content }) => ({ role, content })),
+          { role: "user", content: asked },
+        ],
+        offered.tools,
+        {
+          ...modelConfig,
+          steps: SEVERAL_LIMITS.steps,
+          // Whose each tool is and what may cross between them (§10.1),
+          // then the User's account at each, as a turn with one is told.
+          context: [
+            severalNote(parts),
+            ...parts.map(({ connection: c }) =>
+              accountNote(c.company!.document.organization.name, {
+                signedIn: !!c.accountToken,
+                lost: !!c.accountUnavailable,
+                granted: c.scopes ?? "",
+                profile: companyProfile(c.company!),
+              }),
+            ),
+          ].join("\n\n"),
+        },
+      );
+      return severalAnswer(at, text, calls, false);
+    };
+    // The answer to a turn with several Companies, kept as any turn is:
+    // each step and each piece of Company content with its own Company,
+    // "Data" with each call's, and the turn as holding what any of them
+    // showed with the User's account.
+    const severalAnswer = (
+      at: Connection,
+      text: string,
+      calls: Call[],
+      demo: boolean,
+    ) => {
+      const exact = calls.length
+        ? JSON.stringify(calls).slice(0, 20000)
+        : undefined;
+      const steps = severalSteps(parts, trace);
+      const content = parts.flatMap((part) =>
+        part.shown.map((entry) => ({ ...entry, company: part.ref.origin })),
+      );
+      recordTurn(conversation, at, asked, text, {
+        company: content,
+        steps,
+        turn: parts.map((part) => part.connection),
+        demo,
+        data: exact,
+        context,
+        typed,
+      });
+      conversation.history = conversation.history.slice(-10);
+      // Any of them may have stopped taking the sign-in during the turn.
+      let lost: Record<string, unknown> = {};
+      for (const part of parts) {
+        const gone = lostAccess(conversation, part.connection, part.knewLost);
+        if (!gone) continue;
+        const { operations, ...rest } = gone;
+        lost = {
+          ...lost,
+          ...rest,
+          ...(part.connection === at ? { operations } : {}),
+        };
+      }
+      const from = companyRef(conversation, originOf(at));
+      return NextResponse.json(
+        {
+          text,
+          ...(exact !== undefined ? { data: exact } : {}),
+          trace: [...trace, ...parts.flatMap((part) => part.trace)],
+          // Each Company's own lines, for the Inspector to say whose.
+          traces: [
+            ...(trace.length ? [{ from, trace }] : []),
+            ...parts.map((part) => ({ from: part.ref, trace: part.trace })),
+          ],
+          steps,
+          using: parts.map((part) => part.ref),
+          mode: provider,
+          from,
+          ...(did.before ? { before: did.before } : {}),
+          ...turnState(at),
+          company: parts.flatMap((part) =>
+            part.shown.map((entry) => ({ ...entry, from: part.ref })),
+          ),
+          ...companies(),
+          ...lost,
+          // Each Company's state, its proposals among it: a proposal at
+          // each makes its own card in Needs you.
+          ...companiesView(conversation),
+        },
+        { headers: { "Cache-Control": "no-store" } },
+      );
+    };
     const hint = body.company ?? body.url;
     // What Iris was asked before it asked which Company: this message may
     // say which, and otherwise that request is dropped.
@@ -478,6 +629,9 @@ async function reply(request: Request, started: Outcome) {
     // page already shows.
     let asked = message;
     let typed: string | null | undefined;
+    // The other Companies the turn's task needs, before `connection`, in
+    // the order it uses them.
+    let also: Connection[] = [];
     if (direct) {
       // §8.10: the User's own words or choice. Never worked out from them.
       const target = directConnection(run, direct, hint);
@@ -701,10 +855,15 @@ async function reply(request: Request, started: Outcome) {
               choice(conversation, { company: originOf(c) }, lab),
             ),
           );
-        } else connection = route.connection;
+        } else {
+          connection = route.connection;
+          also = route.also ?? [];
+        }
       }
     }
     if (!connection) throw new Error("No connection for the turn");
+    if (also.length && !direct)
+      return await severalTurn([...also, connection], connection);
     knewLost = !!connection.accountUnavailable;
     proposals = new Set(Object.values(connection.operations ?? {}));
     const shown: CompanyEntry[] = [];
@@ -1048,11 +1207,27 @@ async function reply(request: Request, started: Outcome) {
     );
   } catch (error) {
     const recovery = accountRecovery(error);
+    // In a turn with several Companies, the one this failed at: the answer
+    // is about that one, and what it knew of its sign-in.
+    const at =
+      failure && failure.error === error ? failure.connection : connection;
+    const knew =
+      parts.find((part) => part.connection === at)?.knewLost ?? knewLost;
+    // Every line the turn wrote, each Company's too.
+    const lines = [...trace, ...parts.flatMap((part) => part.trace)];
     // The Company the turn that failed was with, when it had got to one,
     // and what the User's words had done to the Companies before it.
     const turn = {
-      ...(run && connection
-        ? { from: companyRef(run, originOf(connection)) }
+      ...(run && at ? { from: companyRef(run, originOf(at)) } : {}),
+      ...(run && at && parts.length
+        ? {
+            traces: [
+              ...(trace.length
+                ? [{ from: companyRef(run, originOf(at)), trace }]
+                : []),
+              ...parts.map((part) => ({ from: part.ref, trace: part.trace })),
+            ],
+          }
         : {}),
       ...(did.before ? { before: did.before } : {}),
       ...(run && did.changed ? companiesView(run) : {}),
@@ -1062,8 +1237,8 @@ async function reply(request: Request, started: Outcome) {
     // itself: there is no account access to renew (often a different draft).
     if (
       recovery &&
-      connection &&
-      !connection.accountToken &&
+      at &&
+      !at.accountToken &&
       error instanceof ProtocolError &&
       error.code === "invalid_token"
     )
@@ -1073,13 +1248,13 @@ async function reply(request: Request, started: Outcome) {
             "The Company refused this signed-out Poppy 1.0 Session. It may implement another version of the protocol; check its discovery in the Inspector.",
           code: "session_refused",
           stage,
-          trace,
+          trace: lines,
           ...turn,
         },
         { status: 502, headers: { "Cache-Control": "no-store" } },
       );
     // Signed out, a plain sign-in challenge is not lost access.
-    if (recovery && connection && !connection.accountToken)
+    if (recovery && at && !at.accountToken)
       return NextResponse.json(
         {
           error:
@@ -1087,20 +1262,18 @@ async function reply(request: Request, started: Outcome) {
           code: "sign_in_required",
           next: "signin",
           stage,
-          trace,
+          trace: lines,
           ...turn,
         },
         { status: 401, headers: { "Cache-Control": "no-store" } },
       );
     if (recovery) {
-      if (connection && recovery.next === "signin")
-        connection.accountUnavailable = true;
+      if (at && recovery.next === "signin") at.accountUnavailable = true;
       // With the message about the lost access goes what the page still
       // shows: the answers Iris read with the account are gone from it.
-      const lost =
-        run && connection ? lostAccess(run, connection, knewLost) : undefined;
+      const lost = run && at ? lostAccess(run, at, knew) : undefined;
       return NextResponse.json(
-        { ...recovery, stage, trace, ...turn, ...lost },
+        { ...recovery, stage, trace: lines, ...turn, ...lost },
         { status: recovery.status, headers: { "Cache-Control": "no-store" } },
       );
     }
@@ -1110,7 +1283,7 @@ async function reply(request: Request, started: Outcome) {
           error: error.message,
           code: error.code,
           stage: "provider",
-          trace,
+          trace: lines,
           ...turn,
         },
         { status: 502, headers: { "Cache-Control": "no-store" } },
@@ -1129,10 +1302,10 @@ async function reply(request: Request, started: Outcome) {
       const facts = refusalFacts(error.body);
       return NextResponse.json(
         {
-          error: `${connection?.company?.document.organization.name ?? "The Company"} answered HTTP ${error.status}${shown ? ` ${shown}` : ""}${facts.length ? ` (${facts.join(", ")})` : ""}. Nothing was retried; see the Inspector.`,
+          error: `${at?.company?.document.organization.name ?? "The Company"} answered HTTP ${error.status}${shown ? ` ${shown}` : ""}${facts.length ? ` (${facts.join(", ")})` : ""}. Nothing was retried; see the Inspector.`,
           code: code ?? "company_error",
           stage,
-          trace,
+          trace: lines,
           ...turn,
         },
         { status: 502, headers: { "Cache-Control": "no-store" } },
@@ -1156,20 +1329,31 @@ async function reply(request: Request, started: Outcome) {
         ? message
         : "Chat request failed. Check the Company is running and the selected provider is configured; retry with Protocol demo.";
     return NextResponse.json(
-      { error: safe, stage, trace, ...turn },
+      { error: safe, stage, trace: lines, ...turn },
       { status: 400, headers: { "Cache-Control": "no-store" } },
     );
   } finally {
+    // Whose accounts what the turn did could hold: in a turn with several
+    // Companies, what it read at any of them.
+    const accounts =
+      run && connection
+        ? parts.length
+          ? turnAccounts(
+              run,
+              parts.map((part) => part.connection),
+              context,
+            )
+          : accountsIn(run, connection, context)
+        : [];
     // A proposal this turn left can hold what a model read with another
     // Company's account, as the turn's answer can: it is listed with the
     // same accounts, and goes when one of them is reset.
     if (run && connection && proposals)
-      noteOperationAccounts(
-        connection,
-        proposals,
-        accountsIn(run, connection, context),
-      );
-    // The lines stay with the conversation, for a reload and History.
+      noteOperationAccounts(connection, proposals, accounts);
+    for (const part of parts)
+      noteOperationAccounts(part.connection, part.proposals, accounts);
+    // The lines stay with the conversation, for a reload and History, each
+    // with the Company it was written for.
     if (run && connection)
       keepLines(
         run,
@@ -1177,12 +1361,25 @@ async function reply(request: Request, started: Outcome) {
         trace.slice(did.kept),
         Date.now(),
         !!connection.accountToken,
-        accountsIn(run, connection, context),
+        accounts,
       );
+    for (const part of parts)
+      if (run)
+        keepLines(
+          run,
+          part.connection,
+          part.trace,
+          Date.now(),
+          !!part.connection.accountToken,
+          accounts,
+        );
     // However the turn ended: an error of another kind can follow the
     // request in which the Company refused the sign-in. After the lines
     // are kept, so those written with the account go with the rest.
     if (run && connection) forgetLostAccount(run, connection, knewLost);
+    for (const part of parts)
+      if (run && part.connection !== connection)
+        forgetLostAccount(run, part.connection, part.knewLost);
     if (held && visitor)
       await releaseRun(visitor, held).catch((error: unknown) => {
         started.unsaved = error;

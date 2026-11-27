@@ -368,12 +368,44 @@ describe("the Company a message is for, among the lab's", () => {
     ).toBe("ask none: Harborline Bank, Lantern Noodle Bar");
   });
 
+  it("is several connected Companies when the model says the task needs each, the last one's turn", async () => {
+    const run = companies([harborline, lantern, fernwick], lantern);
+    const routed = await turnConnection(
+      run,
+      "Pay my Fernwick bill from checking.",
+      undefined,
+      { lab, ask: model(async () => `${fernwick} ${harborline}\n`) },
+    );
+    expect(routed).toEqual({
+      connection: connectionAt(run, harborline),
+      also: [connectionAt(run, fernwick)],
+    });
+    // The question says that several may be answered, and how.
+    let question: { system: string } | undefined;
+    await turnConnection(run, "Pay my Fernwick bill.", undefined, {
+      lab,
+      ask: async (q) => {
+        question = q;
+        return "unsure";
+      },
+    });
+    expect(question!.system).toContain(
+      "When the User's task clearly needs several of the connected Companies together, such as reading a bill at one and paying it at another, answer with the origin of each of them on that one line, separated by spaces, in the order the task uses them.",
+    );
+  });
+
   it.each([
     ["an answer that is no origin", async () => "Harborline Bank, I think."],
     [
       "an origin that isn't among them",
       async () => "https://elsewhere.example",
     ],
+    [
+      "several, one of them not connected",
+      async () => `${harborline} ${juniper}`,
+    ],
+    ["the same one twice", async () => `${harborline} ${harborline}`],
+    ["several, put another way", async () => `${harborline}, ${lantern}`],
     ["an error", async () => Promise.reject(new Error("HTTP 500"))],
     ["no answer in time", () => new Promise<string>(() => {})],
   ])("leaves it to the names in the message on %s", async (_, answer) => {

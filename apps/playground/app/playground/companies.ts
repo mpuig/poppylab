@@ -121,6 +121,11 @@ export type Message = {
   text: string;
   /** The Company the answer, the content or the failed turn came from. */
   from?: CompanyRef;
+  /**
+   * An answer to a turn that used several Companies: each of them, in
+   * the order it used them. `from` is the one it ended at.
+   */
+  using?: CompanyRef[];
   /** Iris's buttons, for the person to answer with. */
   choices?: Choice[];
   /** A Company message (§8): who wrote it, its data and a short note. */
@@ -139,7 +144,7 @@ export type Message = {
  * as an answer of Iris's. Ended conversations are kept for seven days, so
  * these lines are still read for that long after the change.
  */
-function earlierTurn(m: TranscriptEntry): Message[] | undefined {
+function earlierTurn(m: Omit<TranscriptEntry, "using">): Message[] | undefined {
   if (m.role === "user") {
     const direct =
       /^\((?:Said|Written) to .+? directly, without Iris(?:; it may not have been sent)?\) /.exec(
@@ -182,7 +187,14 @@ function earlierTurn(m: TranscriptEntry): Message[] | undefined {
  * steps and data.
  */
 export const historyToMessages = (
-  history: Array<TranscriptEntry & { from?: CompanyRef }> | undefined,
+  history:
+    | Array<
+        Omit<TranscriptEntry, "using"> & {
+          from?: CompanyRef;
+          using?: CompanyRef[];
+        }
+      >
+    | undefined,
 ): Message[] =>
   (history ?? []).flatMap((m): Message[] => {
     const earlier = earlierTurn(m);
@@ -214,6 +226,8 @@ export const historyToMessages = (
         // removed a Company, or asked which one), which no Company wrote,
         // though it is kept as being about one.
         ...(m.demo || m.steps?.length ? from : {}),
+        // A turn with several Companies names each.
+        ...(m.using?.length ? { using: m.using } : {}),
         // Its buttons, while it is the last thing said.
         ...(m.choices?.length ? { choices: m.choices } : {}),
       },

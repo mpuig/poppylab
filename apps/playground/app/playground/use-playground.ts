@@ -64,6 +64,7 @@ import {
   type Operation,
 } from "./company-state";
 import {
+  answerLines,
   keptLines,
   linesFor,
   turnMessages,
@@ -205,6 +206,11 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
   const addTrace = (lines: string[] | undefined, from?: CompanyRef) =>
     setChatLog((old) =>
       [...old, ...linesFor(lines, from)].slice(-LOG_LIMITS.lines),
+    );
+  /** A chat answer's lines: with several Companies, each with its own. */
+  const addAnswerLines = (data: ChatReply, from?: CompanyRef) =>
+    setChatLog((old) =>
+      [...old, ...answerLines(data, from)].slice(-LOG_LIMITS.lines),
     );
   const [sending, setSending] = useState(false);
   const [accountBusy, setAccountBusy] = useState(false);
@@ -1208,7 +1214,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
       if (!response.ok) {
         // What Iris did before the turn failed, such as the request the
         // Company refused: the Inspector shows it.
-        addTrace(data.trace, from);
+        addAnswerLines(data, from);
         if (from) {
           setLastTurn(from.origin);
           if (data.code === "account_unavailable") lostAt(from.origin, data);
@@ -1230,7 +1236,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
         return;
       }
       setMessages((old) => [...old, ...turnMessages(data)]);
-      addTrace(data.trace, from);
+      addAnswerLines(data, from);
       if (from) {
         setLastTurn(from.origin);
         setCompanies((all) =>

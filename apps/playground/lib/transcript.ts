@@ -4,6 +4,7 @@ import type { CompanyEntry, DirectAction } from "./conversations";
 import {
   cameFrom,
   companyName,
+  companyRef,
   forPage,
   from,
   holdsAccount,
@@ -48,6 +49,12 @@ export type TranscriptEntry = {
   /** The origins of the Companies whose accounts could be in it. */
   accounts?: string[];
   /**
+   * An answer to a turn with several Companies (`several.ts`): the origin
+   * of each, in the order the turn used them. `company` is the one it
+   * ended at.
+   */
+  using?: string[];
+  /**
    * Iris's buttons under a question of its own, kept while the question is
    * the last thing said: the next entry takes them away (`show`).
    */
@@ -56,10 +63,20 @@ export type TranscriptEntry = {
 
 /** What a turn put on the page besides the words. */
 export type Shown = {
-  /** Company content, in the order it arrived. */
-  company?: CompanyEntry[];
+  /**
+   * Company content, in the order it arrived. In a turn with several
+   * Companies each entry says which it came from (`company`).
+   */
+  company?: Array<CompanyEntry & { company?: string }>;
   /** The turn's trace: the steps behind "What Iris did". */
   trace?: string[];
+  /**
+   * A turn with several Companies: its steps, each at its Company
+   * (`severalSteps`), in place of `trace`'s, and its Companies in the
+   * order it used them, the one it ended at among them.
+   */
+  steps?: AgentStep[];
+  turn?: readonly Connection[];
   /** The demo's rules answered, not a model. */
   demo?: boolean;
   /** The Company's exact answer, as the page got it for "Data". */
@@ -125,9 +142,11 @@ function clipped(entry: TranscriptEntry): TranscriptEntry {
     ...(note ? { note: cut(note, 600) } : {}),
     ...(steps?.length
       ? {
-          steps: steps
-            .slice(0, TRANSCRIPT_LIMITS.steps)
-            .map((step) => ({ ...step, text: cut(step.text, 300) })),
+          steps: steps.slice(0, TRANSCRIPT_LIMITS.steps).map((step) => ({
+            ...step,
+            text: cut(step.text, 300),
+            ...(step.args ? { args: cut(step.args, 400) } : {}),
+          })),
         }
       : {}),
     ...(data && data.length <= TRANSCRIPT_LIMITS.data ? { data } : {}),
@@ -187,6 +206,16 @@ export const accountsIn = (
 ];
 
 /**
+ * The same for a turn with several Companies: what it says, and every
+ * request it made, can hold what it read at any of them.
+ */
+export const turnAccounts = (
+  run: Pick<Run, "connections">,
+  turn: readonly Connection[],
+  context: readonly Turn[] = [],
+) => [...new Set(turn.flatMap((c) => accountsIn(run, c, context)))];
+
+/**
  * Adds entries to the transcript the page shows, and not to the model's.
  * `connection` is the Company the turn was with, and `accounts` the
  * Companies whose accounts could be in it: each entry says both, and is
@@ -205,8 +234,9 @@ function show(
     ...entries.map((entry) => ({
       ...clipped(entry),
       ...signedOut,
-      // A turn Iris answered by itself may be about no Company.
-      ...(connection ? from(connection) : {}),
+      // A turn Iris answered by itself may be about no Company. In a turn
+      // with several, Company content says which one it came from.
+      ...(connection && entry.company === undefined ? from(connection) : {}),
       accounts: [...accounts],
     })),
   ]);
@@ -240,7 +270,11 @@ export function offerChoices(run: Run, answer: string, choices: Choice[]) {
  */
 export const shownTranscript = (
   run: Pick<Run, "transcript" | "history" | "connections" | "former">,
-) => forPage<TranscriptEntry>(run, run.transcript ?? run.history);
+) =>
+  forPage<TranscriptEntry>(run, run.transcript ?? run.history).map(
+    ({ using, ...entry }) =>
+      using ? { ...entry, using: using.map((o) => companyRef(run, o)) } : entry,
+  );
 
 /**
  * History lists the conversation under its first request (`title`), which
@@ -503,6 +537,7 @@ const companyEntries = (shown: Shown): TranscriptEntry[] =>
     ...(entry.data ? { data: entry.data } : {}),
     ...(entry.note ? { note: entry.note } : {}),
     ...(entry.direct ? { direct: true } : {}),
+    ...(entry.company ? { company: entry.company } : {}),
   }));
 
 /**
@@ -513,10 +548,13 @@ const answerEntry = (content: string, shown: Shown): TranscriptEntry => ({
   role: "assistant",
   content,
   ...(shown.demo ? { demo: true } : {}),
-  ...(shown.trace?.length
-    ? { steps: shown.trace.map((line) => agentStep(logEntry(line))) }
-    : {}),
+  ...(shown.steps?.length
+    ? { steps: shown.steps }
+    : shown.trace?.length
+      ? { steps: shown.trace.map((line) => agentStep(logEntry(line))) }
+      : {}),
   ...(shown.data ? { data: shown.data } : {}),
+  ...(shown.turn?.length ? { using: shown.turn.map(originOf) } : {}),
 });
 
 /**
@@ -564,7 +602,12 @@ export function recordTurn(
 ) {
   const user = { role: "user" as const, content: said };
   // The User's own words too: they are kept or dropped with the answer.
-  const accounts = accountsIn(run, connection, shown.context);
+  // With several Companies, the answer can hold what any of them showed.
+  const accounts = turnAccounts(
+    run,
+    shown.turn?.length ? shown.turn : [connection],
+    shown.context,
+  );
   show(
     run,
     connection,
