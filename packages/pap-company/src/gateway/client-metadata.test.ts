@@ -54,6 +54,33 @@ it("takes redirect URIs on the client's own HTTPS origin and at loopback address
   for (const redirect of good) expect(await x.opens(redirect)).toBe(200);
 });
 
+it("takes a loopback redirect URI on any port, and nothing else that differs (§4.2)", async () => {
+  const x = await agent([
+    "http://127.0.0.1/callback?app=1",
+    "http://[::1]:8123/callback",
+    "https://agent.test/callback",
+  ]);
+  for (const redirect of [
+    "http://127.0.0.1/callback?app=1",
+    "http://127.0.0.1:51234/callback?app=1",
+    "http://[::1]:51234/callback",
+    "http://[::1]/callback",
+  ])
+    expect(await x.opens(redirect), redirect).toBe(200);
+  for (const redirect of [
+    "http://127.0.0.1:51234/callback",
+    "http://127.0.0.1:51234/callback?app=2",
+    "http://127.0.0.1:51234/other?app=1",
+    "http://127.0.0.1:51234/callback?app=1#here",
+    "http://[::1]:51234/callback/",
+    "http://[::1]:51234/Callback",
+    "http://localhost:51234/callback?app=1",
+    "http://127.0.0.2:51234/callback?app=1",
+    "https://agent.test:8443/callback",
+  ])
+    expect(await x.opens(redirect), redirect).toBe("invalid_request");
+});
+
 it("drops the redirect URIs §4.1 doesn't allow, and keeps the others", async () => {
   const bad = [
     "http://agent.test/callback",

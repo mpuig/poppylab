@@ -35,6 +35,28 @@ const REQUEST_URI = "urn:ietf:params:oauth:request_uri:";
 /** Resources one consent may grant (`selectResources`). */
 const MAX_RESOURCES = 100;
 
+/**
+ * §4.2: a requested redirect URI is a registered one exactly, except for
+ * the port of a loopback one, which an app on the User's computer picks
+ * when it starts (RFC 8252 §7.3).
+ */
+function sameRedirect(registered: string, requested: string) {
+  if (registered === requested) return true;
+  let url: URL;
+  try {
+    url = new URL(registered);
+    if (
+      url.protocol !== "http:" ||
+      (url.hostname !== "127.0.0.1" && url.hostname !== "[::1]")
+    )
+      return false;
+    url.port = new URL(requested).port;
+  } catch {
+    return false;
+  }
+  return url.href === requested;
+}
+
 export function mountSignIn(app: Hono, ctx: Ctx) {
   const { def, deploy, origin, state, both, isolated, cookiePrefix, secure } =
     ctx;
@@ -93,8 +115,8 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
     } catch {
       return { error: "invalid_client" } as const;
     }
-    // Exact redirect_uri from the client's own metadata (§4.2).
-    if (!info.redirects.includes(q.redirect_uri))
+    // A redirect_uri from the client's own metadata (§4.2).
+    if (!info.redirects.some((r) => sameRedirect(r, q.redirect_uri!)))
       return { error: "invalid_request" } as const;
     return {
       info,
