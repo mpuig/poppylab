@@ -1707,6 +1707,19 @@ body:has(.site) {
 .learn-next {
   font-weight: 600;
 }
+
+/* A page to read with no rail beside it (/about, /privacy, the posts): a
+   Learn article on its own, in the same column and type. */
+.reading {
+  width: var(--wrap);
+  margin: 0 auto;
+  padding: clamp(40px, 6vw, 72px) 0 var(--sec);
+}
+.site .reading-lead {
+  max-width: 62ch;
+  margin-top: -12px;
+  margin-bottom: 28px;
+}
 @media (max-width: 900px) {
   .learn {
     grid-template-columns: 1fr;

@@ -4,7 +4,9 @@ import {
   LAB_AUTHOR,
   SPEC_URL,
   labFootGroups,
+  type LabFootGroup,
 } from "@poppy-lab/pap-core";
+import { SITE_NAME } from "@/lib/site";
 import { BarNav } from "./bar-nav";
 import { specLink } from "./spec-ref";
 
@@ -130,7 +132,7 @@ export function SiteBar({ current }: { current?: "developers" | "learn" }) {
   return (
     <header className="bar">
       <a className="wordmark" href="/">
-        Poppy Lab
+        {SITE_NAME}
       </a>
       <BarNav current={current} />
       <a className="button small" href="/playground">
@@ -141,11 +143,35 @@ export function SiteBar({ current }: { current?: "developers" | "learn" }) {
   );
 }
 
+/**
+ * The footer's groups: the ones every Company's footer shows too, with the
+ * lab's own pages about itself (About and Privacy) added to its group
+ * here, since they are this site's and not the Companies'.
+ */
+export function footGroups(): LabFootGroup[] {
+  const own = [
+    { label: "About", href: "/about" },
+    { label: "Privacy", href: "/privacy" },
+  ];
+  return labFootGroups(juniper, "").map((group) =>
+    group.id === "lab"
+      ? {
+          ...group,
+          links: [
+            ...group.links.filter((l) => !l.leaves),
+            ...own,
+            ...group.links.filter((l) => l.leaves),
+          ],
+        }
+      : group,
+  );
+}
+
 export function SiteFoot() {
   return (
     <footer className="foot">
       <div className="foot-about">
-        <p className="wordmark">Poppy Lab</p>
+        <p className="wordmark">{SITE_NAME}</p>
         <p>
           An independent experiment with Personal Agent Protocol 1.0, following
           the text as published on 14 November 2026. Poppy Lab is not affiliated
@@ -162,7 +188,7 @@ export function SiteFoot() {
         </p>
       </div>
       {/* The same groups the Companies' footers show; the lab's own links stay relative. */}
-      {labFootGroups(juniper, "").map((group) => (
+      {footGroups().map((group) => (
         <nav key={group.id} aria-labelledby={`foot-${group.id}`}>
           <p id={`foot-${group.id}`} className="foot-title">
             {group.title}
