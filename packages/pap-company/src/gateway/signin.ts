@@ -147,7 +147,7 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
           c.req.header("dpop")!,
           `${origin}/oauth/par`,
           "POST",
-          ctx.replay,
+          ctx.replay.for(id),
           undefined,
           undefined,
           ctx.nonceFor("token"),

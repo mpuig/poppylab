@@ -5,7 +5,7 @@
  */
 import type { Context, Hono } from "hono";
 import { createHash } from "node:crypto";
-import type { Approval } from "@poppy-lab/pap-client/core";
+import type { Approval, ReplayEntry } from "@poppy-lab/pap-client/core";
 import type {
   Action,
   OperationRecord,
@@ -126,7 +126,7 @@ export type GatewayState = {
   sessions: Record<string, SessionRecord>;
   tokens: Record<string, Token>;
   grants: Record<string, Grant>;
-  replays: Array<[string, number]>;
+  replays: ReplayEntry[];
   tenants: Record<string, Tenant>;
   /** Pending consent pages by nonce, and one-time codes by hash. */
   consents?: Record<string, Consent>;

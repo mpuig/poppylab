@@ -126,7 +126,7 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
               c.req.header("dpop") ?? "",
               `${origin}/oauth/token`,
               "POST",
-              replay,
+              replay.for(id),
               undefined,
               undefined,
               ctx.nonceFor("token"),

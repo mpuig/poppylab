@@ -250,6 +250,7 @@ export async function verifySessionHeader(
   options.replay?.accept(
     `session:${clientId}:${payload.jti}`,
     payload.iat + (options.windowSeconds ?? 60) + 10,
+    clientId,
   );
   return {
     clientId,

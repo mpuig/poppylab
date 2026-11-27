@@ -7,7 +7,15 @@
 import { createHash } from "node:crypto";
 import { calculateJwkThumbprint } from "jose";
 import { expect, it } from "vitest";
-import { proof, signSessionHeader } from "@poppy-lab/pap-client/core";
+import {
+  createIdentity,
+  createSessionKey,
+  newSessionId,
+  proof,
+  ReplayCache,
+  signSessionHeader,
+} from "@poppy-lab/pap-client/core";
+import { memoryStore } from "../memory.ts";
 import { client, origin, setup } from "./test-company.ts";
 import { NonceChallenge, type DpopNonces } from "./types.ts";
 
@@ -58,6 +66,64 @@ it("takes a signed-out request's Session JWT once, whatever the body", async () 
     expect(again.status, path).toBe(400);
     expect(await again.json()).toEqual({ error: "invalid_session" });
   }
+});
+
+it("refuses a client that floods the replay cache, and no other client", async () => {
+  // Another client signs many signed-out requests in a minute, more than
+  // the whole cache holds. Only its share of them is kept.
+  const flood = "https://flood.test/client.json";
+  const keys = await createIdentity();
+  const cache = new ReplayCache();
+  const until = Math.floor(Date.now() / 1000) + 60;
+  for (let i = 0; i < 10000; i++)
+    try {
+      cache.accept(`session:${flood}:${i}`, until, flood);
+    } catch {
+      // Past its share.
+    }
+  const store = memoryStore();
+  store.value.replays = cache.snapshot();
+  const x = await setup({ store });
+  x.metadata.other = (url) =>
+    url === flood
+      ? {
+          client_id: flood,
+          jwks_uri: "https://flood.test/jwks.json",
+          redirect_uris: [],
+        }
+      : url === "https://flood.test/jwks.json"
+        ? { keys: [keys.publicKey] }
+        : undefined;
+  const path = "/poppy/conversations";
+  const send = (header: string, id: string) =>
+    x.app.request(path, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "Poppy-Version": "1.0",
+        "Poppy-Session": header,
+      },
+      body: JSON.stringify({
+        id,
+        message: { author: { type: "agent" }, text: "Hi." },
+      }),
+    });
+  const flooded = await signSessionHeader({
+    key: await createSessionKey(keys.privateKey, flood),
+    clientId: flood,
+    audience: origin,
+    sessionId: newSessionId(),
+    userId: "usr_flood",
+    method: "POST",
+    url: origin + path,
+  });
+  expect((await send(flooded, "req_flood")).status).toBe(400);
+  // This client still gets through, and its copy is still refused.
+  const header = await session(x, "POST", path);
+  expect((await send(header, "req_1")).status).toBeLessThan(300);
+  const again = await send(header, "req_2");
+  expect(again.status).toBe(400);
+  expect(await again.json()).toEqual({ error: "invalid_session" });
 });
 
 it("takes a DPoP-bound request's Session JWT again with a fresh proof after a nonce challenge", async () => {

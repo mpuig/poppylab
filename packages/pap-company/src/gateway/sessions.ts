@@ -218,7 +218,7 @@ export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
             c.req.header("dpop") ?? "",
             url,
             c.req.method,
-            replay,
+            replay.for(record.client),
             token,
             record.binding,
             ctx.nonceFor("api"),

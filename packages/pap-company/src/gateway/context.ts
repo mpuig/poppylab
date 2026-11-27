@@ -130,7 +130,7 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
       ? `${origin}${MCP_PATH}`
       : undefined
     : undefined;
-  const replay = new ReplayCache(new Map(state.replays));
+  const replay = new ReplayCache(state.replays);
   const secure = origin.startsWith("https:"),
     cookiePrefix = secure ? "__Host-" : "";
   const flags = { failed: false };

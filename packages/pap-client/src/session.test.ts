@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import {
   createIdentity,
   assertion,
@@ -155,5 +155,84 @@ describe("Session cryptography", () => {
         "wrong-binding",
       ),
     ).rejects.toThrow();
+  });
+});
+
+describe("Replay cache", () => {
+  afterEach(() => vi.useRealTimers());
+  const soon = () => Math.floor(Date.now() / 1000) + 60;
+
+  it("keeps one client that fills it from refusing every other", () => {
+    const cache = new ReplayCache();
+    const flood = "https://flood.example/client.json";
+    let taken = 0;
+    for (let i = 0; i < 10000; i++)
+      try {
+        cache.accept(`session:${flood}:${i}`, soon(), flood);
+        taken++;
+      } catch {
+        // Past its share: the rest of the flood is refused.
+      }
+    // A fifth of the cache, and no more.
+    expect(taken).toBe(2000);
+    const other = "https://agent.example/client.json";
+    expect(() =>
+      cache.accept(`session:${other}:a`, soon(), other),
+    ).not.toThrow();
+    // A copy is still refused, the flood's own and the other's.
+    expect(() => cache.accept(`session:${other}:a`, soon(), other)).toThrow();
+    expect(() => cache.accept(`session:${flood}:0`, soon(), flood)).toThrow();
+  });
+
+  it("gives a client its larger share when the deployment names one", () => {
+    const trusted = "https://lab.example/client.json";
+    const cache = new ReplayCache([], {
+      total: 10,
+      share: (owner) => (owner === trusted ? 0.5 : 0.2),
+    });
+    for (let i = 0; i < 5; i++) cache.accept(`t${i}`, soon(), trusted);
+    expect(() => cache.accept("t5", soon(), trusted)).toThrow();
+    cache.accept("o0", soon(), "https://other.example/client.json");
+    cache.accept("o1", soon(), "https://other.example/client.json");
+    expect(() =>
+      cache.accept("o2", soon(), "https://other.example/client.json"),
+    ).toThrow();
+  });
+
+  it("makes room when many clients fill it, and refuses none within its share", () => {
+    const cache = new ReplayCache([], { total: 10 });
+    const now = Math.floor(Date.now() / 1000);
+    // Five clients at their share of two fill it; "c0-0" ends first.
+    for (let c = 0; c < 5; c++)
+      for (let i = 0; i < 2; i++)
+        cache.accept(`c${c}-${i}`, now + 60 + c * 10 + i, `client ${c}`);
+    expect(() => cache.accept("new-0", now + 60, "new client")).not.toThrow();
+    // The entry nearest its end made room, and only it.
+    expect(() => cache.accept("c0-0", now + 60, "client 0")).not.toThrow();
+    expect(() => cache.accept("c4-1", now + 60, "client 4")).toThrow();
+  });
+
+  it("keeps an entry only until it ends, and frees its share then", () => {
+    vi.useFakeTimers();
+    const cache = new ReplayCache([], { total: 10 });
+    const until = Math.floor(Date.now() / 1000) + 60;
+    cache.accept("a", until, "client");
+    cache.accept("b", until, "client");
+    expect(() => cache.accept("c", until, "client")).toThrow();
+    vi.advanceTimersByTime(61000);
+    expect(() => cache.accept("a", until + 60, "client")).not.toThrow();
+    expect(cache.snapshot()).toHaveLength(1);
+  });
+
+  it("survives a restart with its owners, and reads entries saved before them", () => {
+    const cache = new ReplayCache([], { total: 10 });
+    cache.accept("a", soon(), "client");
+    cache.accept("b", soon(), "client");
+    const restarted = new ReplayCache(cache.snapshot(), { total: 10 });
+    expect(() => restarted.accept("a", soon(), "other")).toThrow();
+    expect(() => restarted.accept("c", soon(), "client")).toThrow();
+    // An entry from before owners were kept: its raw id and expiry.
+    const old = new ReplayCache([["session:x:1", soon()]]);
+    expect(() => old.accept("session:x:1", soon(), "x")).toThrow();
   });
 });

@@ -97,7 +97,7 @@ export function mountDevice(app: Hono, ctx: Ctx, signIn: SignIn) {
           c.req.header("dpop")!,
           `${origin}${DEVICE_ENDPOINT}`,
           "POST",
-          ctx.replay,
+          ctx.replay.for(id),
           undefined,
           undefined,
           ctx.nonceFor("token"),

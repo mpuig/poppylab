@@ -69,18 +69,72 @@ export async function proof(
     .sign(await importJWK(key, "ES256"));
 }
 
+/** A saved entry: its id's hash, when it ends, and its owner's hash. */
+export type ReplayEntry = [string, number, string?];
+const digest = (value: string, length: number) =>
+  createHash("sha256").update(value).digest("base64url").slice(0, length);
+
+/**
+ * The `jti`s taken, each until its JWT ends, so a copy is refused. Each entry
+ * counts against its owner, the client that signed it, which may hold at
+ * most its `share` of the cache: one client can't fill it, and a client
+ * within its share is never refused. When many clients fill it together,
+ * the entry nearest its end makes room, and only that copy could then come
+ * back. Rejecting a reused `jti` is optional (RFC 7523 §3, RFC 9449 §11.1),
+ * and refusing everyone would let one sender stop every client. Ids and
+ * owners are kept as hashes, so a long `client_id` costs no more room.
+ */
 export class ReplayCache {
-  constructor(private entries = new Map<string, number>()) {}
-  snapshot() {
-    return [...this.entries] as Array<[string, number]>;
+  private entries = new Map<string, { until: number; owner: string }>();
+  private owners = new Map<string, number>();
+  private total: number;
+  private share: (owner: string) => number;
+  constructor(
+    saved: Iterable<ReplayEntry> = [],
+    limits: { total?: number; share?: (owner: string) => number } = {},
+  ) {
+    this.total = limits.total ?? 10000;
+    this.share = limits.share ?? (() => 0.2);
+    // An entry saved before owners were kept has its raw id and no owner.
+    for (const [id, until, owner] of saved)
+      if (owner === undefined) this.add(digest(id, 22), until, digest("", 16));
+      else this.add(id, until, owner);
   }
-  accept(id: string, until: number) {
+  snapshot(): ReplayEntry[] {
+    return [...this.entries].map(([id, e]) => [id, e.until, e.owner]);
+  }
+  /** This cache, with every entry counted against `owner`. */
+  for(owner: string) {
+    return {
+      accept: (id: string, until: number) => this.accept(id, until, owner),
+    };
+  }
+  accept(id: string, until: number, owner = "") {
     const now = Date.now() / 1000;
-    for (const [key, expiry] of this.entries)
-      if (expiry < now) this.entries.delete(key);
-    if (this.entries.has(id) || this.entries.size >= 10000)
-      throw new Error("Replay or capacity limit");
-    this.entries.set(id, until);
+    const key = digest(id, 22),
+      mine = digest(owner, 16);
+    let first: string | undefined;
+    for (const [k, e] of this.entries)
+      if (e.until < now) this.remove(k);
+      else if (!first || e.until < this.entries.get(first)!.until) first = k;
+    if (this.entries.has(key)) throw new Error("Replayed JWT");
+    if (
+      (this.owners.get(mine) ?? 0) >= Math.ceil(this.total * this.share(owner))
+    )
+      throw new Error("Replay cache share full");
+    if (this.entries.size >= this.total && first) this.remove(first);
+    this.add(key, until, mine);
+  }
+  private add(key: string, until: number, owner: string) {
+    this.entries.set(key, { until, owner });
+    this.owners.set(owner, (this.owners.get(owner) ?? 0) + 1);
+  }
+  private remove(key: string) {
+    const owner = this.entries.get(key)!.owner;
+    this.entries.delete(key);
+    const left = this.owners.get(owner)! - 1;
+    if (left) this.owners.set(owner, left);
+    else this.owners.delete(owner);
   }
 }
 
@@ -128,7 +182,7 @@ export async function verifyAssertion(
     payload.iat > Date.now() / 1000 + 5
   )
     throw new Error("Invalid assertion");
-  replay.accept(`${issuer}:${payload.jti}`, payload.exp);
+  replay.accept(`${issuer}:${payload.jti}`, payload.exp, issuer);
   return payload;
 }
 
@@ -136,7 +190,7 @@ export async function verifyProof(
   jwt: string,
   url: string,
   method: string,
-  replay: ReplayCache,
+  replay: Pick<ReplayCache, "accept">,
   token?: string,
   binding?: string,
   validateNonce?: (nonce: unknown, binding: string) => void,
