@@ -16,3 +16,11 @@ apps/playground/public/validator-agent/
 
 # Written by its test from src/openapi.ts, byte for byte
 packages/pap-agent/openapi.json
+
+# Learn pages whose code samples put a numbered note (`// (1)`) after an
+# opening brace; Prettier moves the note to a line of its own, away from the
+# line it explains
+docs/learn/extensions/espi.md
+docs/learn/extensions/fdx.md
+docs/learn/one-task.md
+docs/learn/operations.md

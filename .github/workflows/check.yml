@@ -25,7 +25,19 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm format:check
+      - run: pnpm learn:diagrams:check
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+      # Tests and builds regenerate committed files (each Company's
+      # src/site/app-script.ts, packages/pap-agent/openapi.json); a stale
+      # copy shows up here as a change or a new file.
+      - name: Committed generated files are current
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            git status --porcelain
+            git diff
+            echo "::error::Generated files differ from the commit. Run pnpm test and pnpm build, then commit the result."
+            exit 1
+          fi
       - run: pnpm audit --prod --audit-level high

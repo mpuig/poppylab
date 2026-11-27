@@ -47,6 +47,7 @@ To use local environment keys instead, `cp apps/playground/.env.example apps/pla
 ```sh
 pnpm lint
 pnpm format:check
+pnpm learn:diagrams:check
 pnpm typecheck
 pnpm test
 pnpm scenarios

@@ -54,11 +54,11 @@ A Personal Agent that uses the extension declares it on every request of the Ses
 
 Poppy scopes, not ESPI's `FB=…` scope strings. Each is described in `auth.scopes`, names the function blocks it covers in the Company's own words, and is hinted as `{ "changes": "none", "personal_data": true }` (§4.7):
 
-| Scope           | Allows                                                                                    | Function blocks |
-| --------------- | ----------------------------------------------------------------------------------------- | --------------- |
+| Scope           | Allows                                                                                    | Function blocks    |
+| --------------- | ----------------------------------------------------------------------------------------- | ------------------ |
 | `espi:usage`    | The chosen meters (UsagePoints), their readings, reading types and hourly intervals, cost | 1, 3, 4, 5, 12, 13 |
-| `espi:summary`  | Bill summaries (UsageSummary) of the chosen meters; also the meters and their local time  | 15, 16          |
-| `espi:customer` | The customer's name and service address (RetailCustomer)                                   | 51, 53, 54, 55  |
+| `espi:summary`  | Bill summaries (UsageSummary) of the chosen meters; also the meters and their local time  | 15, 16             |
+| `espi:customer` | The customer's name and service address (RetailCustomer)                                  | 51, 53, 54, 55     |
 
 `espi:summary` alone also reads the UsagePoint routes and `LocalTimeParameters`, so that a Personal Agent can place bills in local dates without reading intervals. The Company applies the scopes of the token in hand. A Personal Agent asks only for what its tools use: Iris asks for `espi:usage` and `espi:summary` and never `espi:customer`, for which it has no tool.
 
@@ -89,18 +89,18 @@ Other Personal Agents ignore fields they don't know (RFC 6749 §5.1). A Personal
 
 Relative to `resource_endpoint`, `GET` unless said:
 
-| Route                                                                       | Scope                          | Answers                                                                                                            |
-| --------------------------------------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
-| `Batch/Subscription/{sub}`                                                  | `espi:usage`                   | A feed of every chosen UsagePoint with what hangs off it; UsageSummaries only with `espi:summary`                    |
-| `Subscription/{sub}/UsagePoint`, `…/UsagePoint/{up}`                        | `espi:usage` or `espi:summary` | The chosen meters; one meter                                                                                       |
-| `…/UsagePoint/{up}/MeterReading`, `…/MeterReading/{mr}`                     | `espi:usage`                   | Its readings; one reading                                                                                          |
-| `…/MeterReading/{mr}/IntervalBlock`, `…/IntervalBlock/{id}`                 | `espi:usage`                   | Interval blocks in the window; one block                                                                           |
-| `…/UsagePoint/{up}/UsageSummary`, `…/UsageSummary/{id}`                     | `espi:summary`                 | Bill summaries in the window; one bill                                                                             |
-| `ReadingType/{id}`                                                          | `espi:usage`                   | What a reading measures, and in which unit                                                                         |
-| `LocalTimeParameters/{id}`                                                  | `espi:usage` or `espi:summary` | The meters' time zone and daylight saving rules                                                                    |
-| `Authorization/{sub}`                                                       | any token of the grant         | The grant as an Authorization                                                                                      |
-| `DELETE Authorization/{sub}`                                                | any token of the grant         | `204`; revokes the grant                                                                                           |
-| `Batch/RetailCustomer/{sub}`                                                | `espi:customer`                | The customer's name and service address, in the customer namespace                                                 |
+| Route                                                       | Scope                          | Answers                                                                                           |
+| ----------------------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------- |
+| `Batch/Subscription/{sub}`                                  | `espi:usage`                   | A feed of every chosen UsagePoint with what hangs off it; UsageSummaries only with `espi:summary` |
+| `Subscription/{sub}/UsagePoint`, `…/UsagePoint/{up}`        | `espi:usage` or `espi:summary` | The chosen meters; one meter                                                                      |
+| `…/UsagePoint/{up}/MeterReading`, `…/MeterReading/{mr}`     | `espi:usage`                   | Its readings; one reading                                                                         |
+| `…/MeterReading/{mr}/IntervalBlock`, `…/IntervalBlock/{id}` | `espi:usage`                   | Interval blocks in the window; one block                                                          |
+| `…/UsagePoint/{up}/UsageSummary`, `…/UsageSummary/{id}`     | `espi:summary`                 | Bill summaries in the window; one bill                                                            |
+| `ReadingType/{id}`                                          | `espi:usage`                   | What a reading measures, and in which unit                                                        |
+| `LocalTimeParameters/{id}`                                  | `espi:usage` or `espi:summary` | The meters' time zone and daylight saving rules                                                   |
+| `Authorization/{sub}`                                       | any token of the grant         | The grant as an Authorization                                                                     |
+| `DELETE Authorization/{sub}`                                | any token of the grant         | `204`; revokes the grant                                                                          |
+| `Batch/RetailCustomer/{sub}`                                | `espi:customer`                | The customer's name and service address, in the customer namespace                                |
 
 A Company MAY serve more of the ESPI route tree, such as the feed and entry routes its links name. Fernwick does, so every `self` and `up` link resolves.
 
@@ -145,10 +145,10 @@ As the ESPI schemas define them:
 
 ## Errors
 
-| Situation                                                                       | Response                                                                 |
-| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| Another subscription, a meter not chosen, another customer's resource, no route | `404` with an empty body                                                 |
-| A malformed `published-min`, `published-max`, `max-results` or `start-index`    | `400 { "error": "invalid_parameter", "description": "…" }`              |
+| Situation                                                                       | Response                                                   |
+| ------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Another subscription, a meter not chosen, another customer's resource, no route | `404` with an empty body                                   |
+| A malformed `published-min`, `published-max`, `max-results` or `start-index`    | `400 { "error": "invalid_parameter", "description": "…" }` |
 
 The Company never says whether a resource it won't show exists. ESPI defines no error body, so the `400` body is this extension's own, in the lab's usual shape. Session, version, extension and token errors stay the protocol's (§7): `invalid_session`, `session_ended`, `version_unsupported`, `extension_required`, `insufficient_scope`, and OAuth challenges in `WWW-Authenticate`.
 

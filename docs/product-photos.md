@@ -10,10 +10,10 @@ not photographs of real food and show no real brand.
 
 ## Where the files are
 
-| Company | Folder                             | Files                                                                           |
-| ------- | ---------------------------------- | ------------------------------------------------------------------------------- |
+| Company | Folder                     | Files                                                                           |
+| ------- | -------------------------- | ------------------------------------------------------------------------------- |
 | Juniper | `apps/juniper/public/img/` | `oranges`, `broccoli`, `apples`, `coffee`                                       |
-| Lantern | `apps/lantern/public/img/`         | `shoyu-ramen`, `miso-ramen`, `pork-gyoza`, `veg-gyoza`, `edamame`, `matcha-ice` |
+| Lantern | `apps/lantern/public/img/` | `shoyu-ramen`, `miso-ramen`, `pork-gyoza`, `veg-gyoza`, `edamame`, `matcha-ice` |
 
 Each is `<id>.webp`, where `<id>` is the product or dish id, 1024 by 1024
 pixels and about 60 to 110 KB. The pages show them cropped to 4:3.
