@@ -22,7 +22,7 @@ A second **fictional** example Company, so Poppy can be tested against more than
 | Skills              | `change-scheduled-order`, a `SKILL.md` at `/poppy/skills/change-scheduled-order/SKILL.md`, listed in the tasks response's `skill_index` (§9.4) |
 | State               | Encrypted vault `noodles`, separate from Juniper's                                                                                             |
 
-It reuses the same Poppy 1.0 gateway as Juniper, parameterized by a `CompanyDefinition` in `pap.ts`. That gateway provides:
+It reuses the same Poppy 1.0 gateway as Juniper, parameterized by a `CompanyDefinition` in `src/lantern.ts`. That gateway provides:
 
 - discovery metadata (RFC 8414/9728);
 - OAuth with PKCE and `private_key_jwt`;
