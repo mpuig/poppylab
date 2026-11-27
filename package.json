@@ -9,7 +9,7 @@
     "dev:playground": "pnpm --filter @poppy-lab/playground dev",
     "dev:company": "pnpm --filter @poppy-lab/juniper dev",
     "build": "pnpm -r build",
-    "typecheck": "pnpm -r typecheck",
+    "typecheck": "pnpm -r typecheck && tsc -p scripts/smoke",
     "test": "pnpm --workspace-concurrency=1 -r test --maxWorkers=2",
     "scenarios": "node scripts/scenarios.mjs",
     "lint": "eslint apps packages scripts eslint.config.mjs",
@@ -20,6 +20,7 @@
     "dev:northwind": "pnpm --filter @poppy-lab/northwind dev",
     "dev:fernwick": "pnpm --filter @poppy-lab/fernwick dev",
     "spec:drift": "node scripts/spec-drift.mjs",
+    "smoke:production": "pnpm --filter @poppy-lab/juniper exec tsx --tsconfig ../../scripts/smoke/tsconfig.json ../../scripts/smoke/production.ts",
     "learn:diagrams": "node scripts/learn-diagrams/index.mjs",
     "learn:diagrams:check": "node scripts/learn-diagrams/index.mjs --check"
   },

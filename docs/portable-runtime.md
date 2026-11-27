@@ -156,3 +156,16 @@ The demo Companies are named by what they are: `grocery-demo.poppylab.dev` (Juni
 4. Optional secrets: `wrangler secret put JUNIPER_PASSWORD_HASH`, `LANTERN_PASSWORD_HASH`, `HARBORLINE_PASSWORD_HASH` or `NORTHWIND_PASSWORD_HASH` in the corresponding workspace.
 
 Lantern can go live on its own, as a public Poppy 1.0 test Company that any agent with an HTTPS `client_id` can use. Poppy still needs its own port before `poppylab.dev` hosts the playground.
+
+## Checking production
+
+`scripts/smoke/production.ts` checks what a visitor sees, and the Production checks workflow (`.github/workflows/production-checks.yml`) runs it every hour at 17 minutes past and on demand. A failed check fails the run, which GitHub notifies. Deploys are made from a workstation, not from a push, so the workflow has no push trigger: after a deploy, run it with `gh workflow run production-checks.yml` or locally.
+
+- **Each Company:** discovery through `pap-client`'s `discoverCompany`, as the playground does it (poppy.json, the domain's protected resource metadata, the issuer's metadata and the two-way link), with the Company's name and an issuer; its home page, `/for-agents`, `/how-it-works` and `/site/login` answer 200 and name it.
+- **The playground and Learn:** `/playground`, `/learn` and every Learn page its navigation lists answer 200. The media those pages reference answer a HEAD: one third of them each hour, so every file is checked every three hours and a run stays near 110 requests; `--all-media` checks them all.
+- **The demo, through the playground's own API,** as a new anonymous visitor whose cookies stay in memory: a conversation for each Company, connected with `POST /api/discover`, then its public examples from `labCompanies` (Juniper's and Lantern's `open`). A Company with none is asked its first account example signed out, which Iris answers by asking to sign in. Each answer has to be a demo answer from that Company and not an error. Then, from a second visitor so the chat's per-visitor budget holds, "connect with Harborline and Lantern", an example of each, which has to come from its own Company, and a message that is no example, which has to get the guided answer.
+- **Timing:** a request that takes longer than 20 seconds fails its check; one over 8 seconds is listed as slow. The table's `ms` is each check's slowest request.
+
+`pnpm smoke:production` runs it against production and prints the table; it exits 1 when a check fails, and in GitHub Actions writes the table to the job summary. `--local` points it at the local servers (`localhost:3000` and the Companies' ports), and `--lab=<url>` or `--juniper=<url>`, `--lantern=`, `--harborline=`, `--northwind=`, `--fernwick=` at others. The playground always works with the Companies of its own deployment.
+
+It doesn't sign in, approve or change anything, so it doesn't cover sign-in and consent, account reads, proposals and approvals, Direct Conversations, FDX or ESPI, or model mode. Those still need a person after a deploy that touches them.

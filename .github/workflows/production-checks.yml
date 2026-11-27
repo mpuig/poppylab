@@ -1,0 +1,33 @@
+# What a visitor to poppylab.dev sees, checked every hour and on demand
+# (scripts/smoke/production.ts). A failed run is GitHub's notification.
+# Deploys are made with Wrangler from a workstation, not from a push, so a
+# push to main says nothing about production: there is no push trigger.
+# Run it by hand after a deploy (`gh workflow run production-checks.yml`).
+name: Production checks
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+    inputs:
+      all_media:
+        description: Check every Learn media file, not this hour's third
+        type: boolean
+        default: false
+concurrency:
+  group: production-checks
+  cancel-in-progress: false
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm smoke:production ${{ inputs.all_media && '--all-media' || '' }}
