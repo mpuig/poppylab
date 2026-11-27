@@ -5,6 +5,7 @@
  */
 import { createHash, scryptSync } from "node:crypto";
 import { afterEach, expect, it, vi } from "vitest";
+import { addressKey } from "./context.ts";
 import { client, origin, redirect, setup } from "./test-company.ts";
 
 const salt = "a".repeat(32);
@@ -58,6 +59,36 @@ it("limits wrong passwords per source, so others can still approve", async () =>
   const theirs = await x.open();
   expect(await x.answer(theirs, "wrong", "192.0.2.2")).toBe(401);
   expect(await x.answer(theirs, "right", "192.0.2.2")).toBe(302);
+});
+
+it("counts an IPv6 source by its /64, and an IPv4 one by its address", async () => {
+  vi.stubGlobal("navigator", { userAgent: "Cloudflare-Workers" });
+  const x = await lab();
+  const mine = await x.open();
+  // Ten addresses in one /64, written as Cloudflare or anyone might.
+  for (let i = 0; i < 9; i++)
+    expect(await x.answer(mine, "wrong", `2001:db8:1:2::${i + 1}`)).toBe(401);
+  expect(await x.answer(mine, "wrong", "2001:DB8:1:2:0:0:abcd:1")).toBe(401);
+  expect(await x.answer(mine, "right", "2001:db8:1:2:ffff::9")).toBe(429);
+  // The next /64 is someone else.
+  const theirs = await x.open();
+  expect(await x.answer(theirs, "right", "2001:db8:1:3::1")).toBe(302);
+  // IPv4 addresses stay one each, mapped into IPv6 or not.
+  const four = await x.open();
+  for (let i = 0; i < 10; i++)
+    expect(await x.answer(four, "wrong", "198.51.100.7")).toBe(401);
+  expect(await x.answer(four, "right", "::ffff:198.51.100.7")).toBe(429);
+  expect(await x.answer(four, "right", "198.51.100.8")).toBe(302);
+});
+
+it("keys an address by what it is", () => {
+  expect(addressKey("192.0.2.1")).toBe("192.0.2.1");
+  expect(addressKey("2001:db8::1")).toBe("2001:db8:0:0::/64");
+  expect(addressKey("2001:0DB8:0000:0000:1:2:3:4")).toBe("2001:db8:0:0::/64");
+  expect(addressKey("2001:db8:a:b:c:d:e:f")).toBe("2001:db8:a:b::/64");
+  expect(addressKey("::1")).toBe("0:0:0:0::/64");
+  expect(addressKey("::ffff:192.0.2.1")).toBe("192.0.2.1");
+  expect(addressKey("not:an:address")).toBe("not:an:address");
 });
 
 it("limits wrong passwords per consent page where no address is known", async () => {

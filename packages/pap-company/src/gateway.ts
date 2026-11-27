@@ -47,6 +47,7 @@ import {
 import type { CompanyDefinition, Deployment } from "./gateway/types.ts";
 
 export * from "./gateway/types.ts";
+export { addressKey } from "./gateway/context.ts";
 export { feedbackSection } from "./gateway/feedback.ts";
 export { skillRowsHtml } from "./gateway/skills.ts";
 export {

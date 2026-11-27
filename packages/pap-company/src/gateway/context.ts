@@ -48,6 +48,39 @@ export function assertionKey(info: ClientInfo, assertion: string) {
 }
 
 /**
+ * What an address counts as for attempt limits: an IPv4 address itself,
+ * and an IPv6 address its /64, which one subscriber usually holds whole, so
+ * moving to another address in it starts no new count. An IPv4 address
+ * mapped into IPv6 counts as that IPv4 address. Anything else is as given.
+ */
+export function addressKey(address: string) {
+  if (!address.includes(":")) return address;
+  let host: string;
+  try {
+    // The URL parser writes it one way: lowercase, shortest, hex groups.
+    host = new URL(`http://[${address}]/`).hostname.slice(1, -1);
+  } catch {
+    return address;
+  }
+  const [head = "", tail] = host.split("::");
+  const left = head ? head.split(":") : [];
+  const right = tail ? tail.split(":") : [];
+  const groups =
+    tail === undefined
+      ? left
+      : [
+          ...left,
+          ...Array<string>(8 - left.length - right.length).fill("0"),
+          ...right,
+        ];
+  if (groups.slice(0, 6).join(":") === "0:0:0:0:0:ffff") {
+    const [high, low] = groups.slice(6).map((g) => parseInt(g, 16));
+    return [high! >> 8, high! & 255, low! >> 8, low! & 255].join(".");
+  }
+  return `${groups.slice(0, 4).join(":")}::/64`;
+}
+
+/**
  * Failed attempts, such as wrong passwords or codes, counted per source and
  * for everyone. A source is blocked after `mine` in `mineMs`, and everyone
  * after `all` in a minute: a backstop high enough that one source can't
@@ -167,15 +200,18 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
   };
   const holderOf = (client: string, user: string) => hash(`${client}\n${user}`);
   /**
-   * Where a request comes from, for attempt limits: the visitor's address,
-   * which Cloudflare sets in front of a Worker and any client can send to
-   * Node, else this browser's cookie.
+   * Where a request comes from, for attempt limits: the visitor's address
+   * (`addressKey`), which Cloudflare sets in front of a Worker and any
+   * client can send to Node, else this browser's cookie.
    */
-  const sourceOf = (c: Context) =>
-    (typeof navigator !== "undefined" &&
-    navigator.userAgent === "Cloudflare-Workers"
-      ? c.req.header("cf-connecting-ip")
-      : undefined) ?? browserOf(c);
+  const sourceOf = (c: Context) => {
+    const address =
+      typeof navigator !== "undefined" &&
+      navigator.userAgent === "Cloudflare-Workers"
+        ? c.req.header("cf-connecting-ip")
+        : undefined;
+    return address !== undefined ? addressKey(address) : browserOf(c);
+  };
 
   /**
    * No client may hold more than a fifth of a shared cap, so one agent can't

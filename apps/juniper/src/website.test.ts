@@ -342,6 +342,11 @@ it("counts wrong website passwords across visitor copies, by source only on Work
       expect(await attempt(workers, "192.0.2.1")).toBe(401);
     expect(await attempt(workers, "192.0.2.1")).toBe(429);
     expect(await attempt(workers, "192.0.2.2")).toBe(401);
+    // An IPv6 visitor counts by its /64: moving within it starts no new count.
+    for (let i = 0; i < 10; i++)
+      expect(await attempt(workers, `2001:db8:5:6::${i + 1}`)).toBe(401);
+    expect(await attempt(workers, "2001:db8:5:6:abcd::1")).toBe(429);
+    expect(await attempt(workers, "2001:db8:5:7::1")).toBe(401);
   } finally {
     vi.unstubAllEnvs();
   }

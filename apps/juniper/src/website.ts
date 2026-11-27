@@ -9,6 +9,7 @@ import {
 import { randomId, tokenHash } from "@poppy-lab/pap-client";
 import { scryptSync, timingSafeEqual } from "node:crypto";
 import {
+  addressKey,
   AGENT_BROWSER_LOGIN,
   agentBrowserNotice,
   agentBrowserState,
@@ -122,8 +123,9 @@ export function publicPage(
  * Wrong website passwords in a minute, by where they come from, and from
  * everyone as a backstop. One for the whole Company: with `isolation:
  * "visitor"` each browser cookie has its own copy of the website, so a
- * count kept there starts again when the cookie is cleared. Without a
- * source every attempt counts as one source.
+ * count kept there starts again when the cookie is cleared. An IPv6
+ * source counts by its /64 (`addressKey`). Without a source every attempt
+ * counts as one source.
  */
 export function loginLimit(sourceOf: (c: Context) => string = () => "") {
   const wrong = new Map<string, { count: number; start: number }>();
@@ -132,14 +134,14 @@ export function loginLimit(sourceOf: (c: Context) => string = () => "") {
     blocked(c: Context) {
       const now = Date.now();
       if (now - everyone.start > 60000) everyone = { count: 0, start: now };
-      const source = sourceOf(c),
+      const source = addressKey(sourceOf(c)),
         mine = wrong.get(source);
       if (mine && now - mine.start > 60000) wrong.delete(source);
       return everyone.count >= 200 || (wrong.get(source)?.count ?? 0) >= 10;
     },
     failed(c: Context) {
       everyone.count++;
-      const source = sourceOf(c),
+      const source = addressKey(sourceOf(c)),
         mine = wrong.get(source);
       if (mine) mine.count++;
       else {
