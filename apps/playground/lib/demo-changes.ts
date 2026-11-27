@@ -524,6 +524,13 @@ async function moneyChange(
       };
     const over = overLimit(tools.request_payment, amount);
     if (over) return over;
+    // Each recipient has its own limit, in the bank's answer about them; a
+    // payment above it is refused, so the demo says so instead of asking.
+    const most = to.payment_limit_cents;
+    if (typeof most === "number" && amount > most)
+      return {
+        say: `${usd(amount)} is more than this bank pays ${text(to.name)} in one payment: ${usd(most)} at most. Nothing was sent; ask for a smaller amount.`,
+      };
     // What the payment is for; a memo of nothing but punctuation is none.
     const memo = (
       message.match(MEMO)?.[1]?.replace(/[\s.!?]+$/, "") ||

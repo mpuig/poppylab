@@ -489,6 +489,27 @@ it("keeps a payment or transfer within what the bank's tools take", async () => 
   expect(
     await demoChange("Transfer $10,000 from checking to savings", tools, key),
   ).toMatchObject({ args: { amount_cents: 1000000 } });
+  // A recipient's own limit, as the bank lists it with the recipient.
+  const limited = described();
+  limited.recipients = tool({
+    recipients: [
+      {
+        id: "rcp_1",
+        name: "Beacon Studio LLC",
+        status: "active",
+        payment_limit_cents: 500000,
+      },
+    ],
+  });
+  expect(
+    await demoChange("Pay Beacon Studio $6,000 for the retainer", limited, key),
+  ).toEqual({
+    say: "$6000.00 is more than this bank pays Beacon Studio LLC in one payment: $5000.00 at most. Nothing was sent; ask for a smaller amount.",
+  });
+  expect(limited.request_payment!.execute).not.toHaveBeenCalled();
+  expect(
+    await demoChange("Pay Beacon Studio $5,000 for the retainer", limited, key),
+  ).toMatchObject({ call: "request_payment", args: { amount_cents: 500000 } });
   // A memo of nothing but punctuation is no memo: the demo's own stands in.
   expect(
     await demoChange("Pay Beacon Studio $125 for .", tools, key),
