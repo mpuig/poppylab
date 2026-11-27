@@ -80,7 +80,7 @@ The page shows every Company of the conversation, up to three, and the person ca
 - **Account controls.** The Company the conversation is with (the last turn's, or the one just connected) has its account row at the end of the transcript, headed with its name, so a request that needs a sign-in there has "Sign in to Harborline Bank · read only" right under the answer. The others' are in their panels. Two sign-ins can be under way at once, each in its own tab.
 - **Needs you** lists the proposals of every Company in the order they came, each card with its Company's mark and name, and every action goes to the card's Company.
 - **The guide** speaks about one Company and names it in each sentence: the one whose proposal waits for the person, the newest first, and otherwise the one the last turn was with.
-- **The Inspector** lists every line with its Company and offers a choice of Company, which shows that one's discovery, lines, profile and document. **History** lists each conversation with all its Companies.
+- **The Inspector** lists every line with its Company and offers a choice of Company, which shows that one's discovery, lines, profile and document. **History** lists each conversation with all its Companies, and after them those removed from it, marked "(removed)".
 
 At Harborline, with **Use FDX** on, reads use the bank's FDX-shaped API and are worded as that API words them; see [the FDX extension](extensions/fdx.md).
 
