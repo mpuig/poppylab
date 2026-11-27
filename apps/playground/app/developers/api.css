@@ -35,26 +35,27 @@
   padding: 0;
   font-size: 15px;
 }
-/* The method pill, coloured by HTTP verb for quick scanning. */
+/* The method pill, using only the site's ink and petrol tokens. */
 .api-method {
   display: inline-block;
   padding: 2px 7px;
+  border: 1px solid transparent;
   border-radius: 4px;
   background: var(--green-wash);
   color: var(--green-deep);
   font-family: var(--mono);
   font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.02em;
   vertical-align: 1px;
 }
 [data-method="POST"] .api-method {
-  background: #edf1f6;
-  color: #1d3557;
+  background: var(--tint);
+  border-color: var(--line-strong);
+  color: var(--ink);
 }
 [data-method="DELETE"] .api-method {
-  background: #fbeeed;
-  color: #9b2c2c;
+  background: var(--ink);
+  color: var(--paper);
 }
 .site .learn-body .api-summary {
   color: var(--ink);
@@ -70,8 +71,7 @@
 .api-req {
   font-size: 12px;
   font-weight: 600;
-  color: #9b5a00;
-  letter-spacing: 0.01em;
+  color: var(--ink);
 }
 .api-opt {
   font-size: 12px;
@@ -81,10 +81,10 @@
   color: var(--green-deep);
 }
 .api-answers [data-status="3"] dt .api-name {
-  color: #1d3557;
+  color: var(--ink-soft);
 }
 .api-answers [data-status="4"] dt .api-name {
-  color: #9b2c2c;
+  color: var(--muted);
 }
 .site .learn-body .api-ex-toggle {
   margin-top: 18px;
