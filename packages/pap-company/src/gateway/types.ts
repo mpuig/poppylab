@@ -63,8 +63,9 @@ export type Grant = {
   /** §4.4: the DPoP key the refresh token was issued with (thumbprint). */
   dpop?: string;
   /**
-   * §4.5: issued without a DPoP proof, for the MCP server: every token it
-   * gets is a Bearer token for that server (section 7), and nothing else.
+   * §4.5: issued without a DPoP proof, for the MCP server: its tokens for
+   * that server are Bearer tokens (section 7). A refresh with a proof for
+   * any other service binds it to that key (`dpop`) and ends this.
    */
   bearer?: true;
   /**

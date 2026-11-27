@@ -9,7 +9,6 @@
  * checks each tool's route with the same two functions.
  */
 import type { Context, Hono } from "hono";
-import { decodeJwt } from "jose";
 import {
   parseExtensionsHeader,
   tokenHash,
@@ -82,15 +81,6 @@ export const challengeFor = (
     )
     .join(", ");
 
-/** The `ath` a Session JWT claims, before it is verified. */
-const claimedAth = (jwt: string) => {
-  try {
-    return decodeJwt(jwt).ath;
-  } catch {
-    return undefined;
-  }
-};
-
 /**
  * Why an account route turns a request down before its handler (§7,
  * Operations §2), or the first response of an operation it performed
@@ -144,15 +134,9 @@ export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
         ),
       });
     if (authorization && !token) return invalidToken();
-    // A Bearer token is bound only by the Session header: one that doesn't
-    // cover it leaves the token unbound, so the token is what's refused.
-    // The Session JWT is checked in full below, and used once only.
+    // A Bearer token is bound only by the Session header's `ath`, which the
+    // verification below checks, as it does for a DPoP token (§5.3).
     const bearer = scheme === "Bearer";
-    if (
-      bearer &&
-      claimedAth(c.req.header("poppy-session") ?? "") !== tokenHash(token!)
-    )
-      return invalidToken();
     const url = `${origin}${new URL(c.req.url).pathname}${new URL(c.req.url).search}`;
     let verified;
     try {

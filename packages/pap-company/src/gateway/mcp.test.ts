@@ -4,7 +4,12 @@
  * same Session, token, scope and Operations v3 checks.
  */
 import { describe, expect, it } from "vitest";
-import { newSessionId, signSessionHeader } from "@poppy-lab/pap-client/core";
+import {
+  createIdentity,
+  newSessionId,
+  proof,
+  signSessionHeader,
+} from "@poppy-lab/pap-client/core";
 import { mcpToolsOf } from "./mcp.ts";
 import { client, origin, setup } from "./test-company.ts";
 import type { CompanyDefinition } from "./types.ts";
@@ -479,19 +484,18 @@ describe("Bearer tokens", () => {
           )
         ).token_type,
       ).toBe("Bearer");
-    // Its grant gets no token for any other service.
-    await expect(
-      x.token({
-        grant_type: "refresh_token",
-        refresh_token: tokens.refresh_token,
-      }),
-    ).rejects.toThrow(/invalid_grant/);
-    await expect(
-      x.token(
-        { grant_type: "refresh_token", refresh_token: tokens.refresh_token },
-        false,
-      ),
-    ).rejects.toThrow(/invalid_dpop_proof/);
+    // Any other service still needs a proof.
+    for (const resource of [undefined, origin])
+      await expect(
+        x.token(
+          {
+            grant_type: "refresh_token",
+            refresh_token: tokens.refresh_token,
+            ...(resource ? { resource } : {}),
+          },
+          false,
+        ),
+      ).rejects.toThrow(/invalid_dpop_proof/);
     // Every other token still needs a proof.
     await expect(
       x.signIn("things:read", {}, undefined, { bound: false }),
@@ -507,6 +511,54 @@ describe("Bearer tokens", () => {
     await expect(
       x.token({ ...refresh, refresh_token: bound.refresh_token }, false),
     ).rejects.toThrow(/invalid_grant/);
+  });
+
+  it("gets a DPoP-bound token for another service at refresh, and is bound from then on", async () => {
+    const x = await withMcp();
+    const tokens = await bearerSignIn(x);
+    const refresh = {
+      grant_type: "refresh_token",
+      refresh_token: tokens.refresh_token,
+    };
+    // §4.5: a token for every service, the default one with a proof.
+    const api = await x.token(refresh);
+    expect(api.token_type).toBe("DPoP");
+    expect(
+      (await x.call("/api/account/things/1", { access: api.access_token }))
+        .status,
+    ).toBe(200);
+    expect((await x.token({ ...refresh, resource: origin })).token_type).toBe(
+      "DPoP",
+    );
+    // The grant is now bound to that key, for the MCP server too (§4.4).
+    await expect(x.token({ ...refresh, resource: mcp }, false)).rejects.toThrow(
+      /invalid_grant/,
+    );
+    const server = await x.token({ ...refresh, resource: mcp });
+    expect(server.token_type).toBe("DPoP");
+    expect(
+      (await x.tool("thing", { id: "1" }, { access: server.access_token }))
+        .status,
+    ).toBe(200);
+    // Another key gets nothing.
+    const other = await createIdentity();
+    const r = await x.form(
+      "/oauth/token",
+      { ...refresh, resource: mcp, ...(await x.credentials()) },
+      { DPoP: await proof(other.privateKey, `${origin}/oauth/token`, "POST") },
+    );
+    expect(r.status).toBe(400);
+    expect(await r.json()).toEqual({ error: "invalid_grant" });
+    // The Bearer token it had still works at the server until it expires.
+    expect(
+      (
+        await x.tool(
+          "thing",
+          { id: "1" },
+          { access: tokens.access_token, bearer: true },
+        )
+      ).status,
+    ).toBe(200);
   });
 
   it("takes one at the MCP server only with a Session header whose ath covers it", async () => {
@@ -528,15 +580,22 @@ describe("Bearer tokens", () => {
     expect(alone.headers.get("www-authenticate")).toBe(
       both('error="invalid_token"'),
     );
-    // A Session header that covers another token doesn't bind it either.
+    // A Session header that covers another token fails its check (§5.3).
     const other = await x.tool(
       "thing",
       { id: "1" },
       { ...options, ath: "another-token" },
     );
-    expect(other.status).toBe(401);
-    expect(await other.json()).toEqual({ error: "invalid_token" });
-    expect(other.headers.get("www-authenticate")).toBe(
+    expect(other.status).toBe(400);
+    expect(await other.json()).toEqual({ error: "invalid_session" });
+    // A token the Company never issued, under a Session header that covers it.
+    const invented = await x.tool(
+      "thing",
+      { id: "1" },
+      { access: "invented", bearer: true },
+    );
+    expect(invented.status).toBe(401);
+    expect(invented.headers.get("www-authenticate")).toBe(
       both('error="invalid_token"'),
     );
     // Each token only in its own scheme (RFC 9449 §7.1).

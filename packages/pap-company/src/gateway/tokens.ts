@@ -8,7 +8,8 @@
  * A token request may name a `resource` (§4.5, RFC 8707): the domain, for
  * the default token, or the MCP server, for a token that works only there.
  * Every token is DPoP-bound, except one for the MCP server requested without
- * a proof: that is a Bearer token, and so is every token its grant gets.
+ * a proof: that is a Bearer token, and so is every token its grant gets for
+ * the server until a refresh with a proof, for another service, binds it.
  */
 import type { Hono } from "hono";
 import {
@@ -215,9 +216,8 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
           found.client !== id ||
           found.expires < now ||
           (found.dpop !== undefined && found.dpop !== binding) ||
-          // A refresh keeps the token type the grant was issued with.
-          (!found.bearer && !binding) ||
-          (found.bearer && !resource)
+          // §4.4: a grant bound to a key refreshes only with it.
+          (!found.bearer && !binding)
         )
           throw new Error("invalid_grant");
         grant = found;
@@ -229,11 +229,19 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
           requested.some((s) => !grant.scopes.split(" ").includes(s))
         )
           throw new Error("invalid_scope");
+        // §4.5: a grant from a sign-in without `resource` gets a token for
+        // every service at refresh. A Bearer grant asking for one that needs
+        // DPoP is bound to that proof's key from then on, for every service,
+        // as if it had been issued with it (§4.4).
+        if (grant.bearer && !resource) {
+          delete grant.bearer;
+          grant.dpop = binding!;
+        }
       }
       const token = randomId();
       // No access token outlives its grant (`grantLifetime`).
       const expires = Math.min(now + TOKEN_MS, grant.expires);
-      // A Bearer grant's proof, if a refresh sends one, binds nothing.
+      // A Bearer grant's proof at an MCP refresh binds nothing.
       const bound = grant.bearer ? undefined : binding;
       state.tokens[tokenHash(token)] = {
         client: id,
