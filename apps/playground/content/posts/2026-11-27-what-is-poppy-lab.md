@@ -36,6 +36,8 @@ Because PAP 1.0 is so new, a single toy store demo hides too much of what the pr
 - **Northwind Air** ([airline-demo.poppylab.dev](https://airline-demo.poppylab.dev)), with bookings, seat selection, and paid cabin upgrades.
 - **Fernwick Power & Light** ([energy-demo.poppylab.dev](https://energy-demo.poppylab.dev)), an electricity utility with hourly meters, rate plans, bills, and an ESPI-shaped Atom XML feed.
 
+![You talk to Iris, the playground's agent, as one of two fictional customers, Elena or Robin. Iris connects to five fictional companies, each exercising a different part of the protocol: Juniper Market a reversible delivery move, Lantern Noodle Bar a support conversation, Harborline Bank moving money, Northwind Air a paid cabin upgrade, and Fernwick Power & Light hourly meter readings. Every request and answer between Iris and the companies passes through the Inspector, where it can be read as it was sent.](../../public/posts/what-is-poppy-lab/five-companies.svg "One agent and five fictional companies, each exercising a different part of the protocol, with every request between them readable in the Inspector.")
+
 Each company also has its own customer website. If you keep Juniper or Harborline open in a second tab while you approve a change in Iris, the website updates a couple of seconds later and records which agent made the change. Everything is fictional, nothing is charged or shipped, and each visitor gets an isolated copy of the state.
 
 ## The Inspector matters more than the chat
