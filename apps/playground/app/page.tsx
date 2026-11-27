@@ -379,14 +379,50 @@ export default function Home() {
                 </div>
               </article>
             ))}
+            <article
+              className="case case-multi"
+              style={{ "--brand": "#0d5c4a" } as React.CSSProperties}
+            >
+              <header className="case-head">
+                <h3>Fernwick &amp; Harborline</h3>
+                <span className="sector">Two companies</span>
+              </header>
+              <p className="ask">“Pay my Fernwick bill from checking.”</p>
+              <div className="change">
+                <p className="change-head">
+                  What crosses between them
+                  <span className="waiting">Only its part</span>
+                </p>
+                <dl>
+                  <div>
+                    <dt>Sent to Harborline</dt>
+                    <dd>
+                      <Delta before="" after="Amount · reference · month" />
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Kept private</dt>
+                    <dd>
+                      <Delta before="" after="Your meter · your balance" />
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+              <p className="shows">
+                Iris reads the bill at Fernwick, then asks Harborline to pay it.
+                Fernwick never learns where you bank, and Harborline never sees
+                your meter.
+              </p>
+              <div className="case-links">
+                <a className="button small" href="/playground">
+                  Try two companies
+                </a>
+                <a href="/learn/how-it-works">
+                  How it works <ArrowUpRight size={15} aria-hidden="true" />
+                </a>
+              </div>
+            </article>
           </div>
-          <p className="aside">
-            One request can use two companies, and each learns only its part.
-            Connect Fernwick and Harborline and ask “Pay my Fernwick bill from
-            checking.” Iris reads the bill at Fernwick, then asks Harborline to
-            pay it with the amount and the bill&apos;s reference. Fernwick never
-            learns where you bank, and Harborline never sees your meter.
-          </p>
           <p className="note">
             The companies are fictional: nothing is charged, shipped or
             transferred. Each visitor gets a private copy of the test customers,

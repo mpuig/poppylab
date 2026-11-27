@@ -24,7 +24,7 @@ body:has(.site) {
   --mono: var(--font-mono), ui-monospace, "SF Mono", Menlo, monospace;
   --gutter: clamp(20px, 4vw, 40px);
   --wrap: min(1120px, 100% - 2 * var(--gutter));
-  --sec: clamp(64px, 8vw, 104px);
+  --sec: clamp(52px, 6.5vw, 84px);
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
   color: var(--ink);
   background: var(--paper);
@@ -890,8 +890,7 @@ body:has(.site) {
   font-weight: 600;
 }
 
-/* The five companies: a card each, headed in that company's own colour. An
-   odd last card keeps one column's width. */
+/* The five companies plus the two-company card: a balanced 2x3 grid on desktop. */
 .cases {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -930,6 +929,9 @@ body:has(.site) {
 .case .sector {
   font-size: 14px;
   color: color-mix(in srgb, var(--paper) 80%, var(--brand));
+}
+.case-multi .case-head {
+  background: linear-gradient(115deg, #2c5a41 0%, #1d2f4a 100%);
 }
 .case > :not(.case-head) {
   margin-inline: 24px;
@@ -1362,11 +1364,17 @@ body:has(.site) {
   .hero .actions {
     margin-bottom: 8px;
   }
-  .bar nav {
-    display: none;
+  /* Keep destination links (Learn, Developers, Posts) reachable on narrow
+     screens; drop only the home page's in-page section anchors. */
+  .bar {
+    gap: 14px;
   }
-  .bar .button.small {
-    margin-left: auto;
+  .bar nav {
+    gap: 14px;
+    font-size: 14px;
+  }
+  .bar nav a[href^="/#"] {
+    display: none;
   }
   /* The screen drops under its step's words; the rail stays at the left. */
   .steps > li {
@@ -1530,8 +1538,40 @@ body:has(.site) {
   .seq-heads small {
     font-size: 12px;
   }
+  .bar {
+    flex-wrap: wrap;
+    row-gap: 4px;
+    column-gap: 12px;
+    padding-top: 10px;
+    padding-bottom: 8px;
+  }
+  .wordmark {
+    font-size: 19px;
+  }
+  .bar .button.small {
+    margin-left: auto;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .bar nav {
+    order: 3;
+    flex-basis: 100%;
+    margin-left: 0;
+    gap: 18px;
+    font-size: 14px;
+    border-top: 1px solid var(--line);
+    padding-top: 6px;
+  }
+  .hero .actions {
+    width: 100%;
+  }
+  .hero .actions .button {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
   .msg-label {
-    font-size: 13px;
+    font-size: 12.5px;
+    padding: 0 5px;
   }
 }
 @media (max-width: 380px) {

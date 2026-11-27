@@ -123,7 +123,7 @@ export function SequenceFigure() {
               </strong>
               {signed
                 ? "The delivery is now on Saturday, and a retry can't repeat the change."
-                : "Nothing has changed yet. The AI can't approve it."}
+                : "Nothing has changed yet. Only you can approve."}
             </p>
             {signed ? null : (
               <button
