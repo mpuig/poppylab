@@ -346,6 +346,15 @@ it("counts wrong website passwords across visitor copies, by source only on Work
     vi.unstubAllEnvs();
   }
 });
+it("frames each website's pages with its own origin", async () => {
+  const local = testApp(),
+    hosted = testApp();
+  website(local, origin, () => ({}));
+  website(hosted, "https://juniper.example", () => ({}));
+  const help = (await local.inject("/help")).body;
+  expect(help).toContain(encodeURIComponent(origin));
+  expect(help).not.toContain(encodeURIComponent("https://juniper.example"));
+});
 it("serves parseable customer code without HTML injection sinks", async () => {
   const app = await setup();
   try {

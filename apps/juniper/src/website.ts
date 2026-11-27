@@ -70,8 +70,6 @@ const foot = (origin: string) =>
       "Juniper Market is a fictional shop. Nothing is charged or shipped.",
     ],
   });
-let lab = "",
-  bar = "";
 const sections = [
   ["/", "Shop"],
   ["/help", "Help"],
@@ -97,16 +95,6 @@ function frame(
     )
     .join("");
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} · Juniper Market</title><style>${css}${style}</style>${script ? '<script defer src="/site/app.js"></script>' : ""}</head><body data-account="${account}">${parts.bar}<header><a class="brand" href="/">Juniper Market</a><nav class="site-nav" aria-label="Site">${nav}</nav></header><main>${body}</main><footer>${parts.lab}</footer></body></html>`;
-}
-function page(title: string, body: string, script = false, account = "") {
-  return frame(
-    { bar, lab },
-    title,
-    body,
-    title === "Help" ? "/help" : "/account",
-    script,
-    account,
-  );
 }
 /** The shop front and the page for agent builders, which need no session. */
 export function publicPage(
@@ -180,8 +168,20 @@ export function website(
   /** Wrong passwords, shared by every visitor's copy of the website. */
   logins = loginLimit(),
 ) {
-  lab = foot(origin);
-  bar = labBarHtml(origin, "Juniper Market");
+  // This website's own: another one may have another origin.
+  const parts = {
+    bar: labBarHtml(origin, "Juniper Market"),
+    lab: foot(origin),
+  };
+  const page = (title: string, body: string, script = false, account = "") =>
+    frame(
+      parts,
+      title,
+      body,
+      title === "Help" ? "/help" : "/account",
+      script,
+      account,
+    );
   app.addHook("onSend", async (req, reply) => {
     // By path: `req.url` carries the query string too.
     const path = req.url.split("?")[0]!;
