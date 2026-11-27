@@ -74,7 +74,9 @@ export const labCompanies = [
     people: "Elena or Robin",
     open: [],
     account: ["my upcoming trips"],
-    ask: "Upgrade my NA 118 flight to Business.",
+    // No flight number: Elena's offer is on NA 118 and Robin's on NA 274,
+    // and the page doesn't know which of them signed in.
+    ask: "Upgrade my flight to Business.",
     demoChange: true,
   },
   {

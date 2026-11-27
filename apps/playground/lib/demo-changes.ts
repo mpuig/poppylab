@@ -650,7 +650,7 @@ async function tripChange(
     return { say: "There is no flight in your bookings to add a bag to." };
   }
   return {
-    say: "The demo can accept an upgrade offer or add a checked bag here. For example: “Upgrade my NA 118 flight to Business.”",
+    say: "The demo can accept an upgrade offer or add a checked bag here. For example: “Upgrade my flight to Business.”",
   };
 }
 

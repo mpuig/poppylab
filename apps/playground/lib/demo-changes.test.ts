@@ -529,6 +529,32 @@ it("accepts the upgrade offer on the flight named, and adds bags", async () => {
   });
 });
 
+it("upgrades the flight with an offer when the request names none, for each passenger", async () => {
+  // The playground's suggestion, which fits Elena and Robin alike.
+  const ask = "Upgrade my flight to Business.";
+  expect(await demoChange(ask, airline(), key)).toMatchObject({
+    call: "accept_upgrade",
+    args: { booking_reference: "NW7K2P", offer_id: "upg_elena_1" },
+    because: expect.stringContaining("upgrade offer on NA 118"),
+  });
+  const robin: DemoTools = {
+    ...airline(),
+    upcoming_trips: tool({
+      trips: [
+        {
+          booking_reference: "NW4D8R",
+          itinerary: [{ id: "flt_na274", flight_number: "NA 274" }],
+          upgrade_offer: { id: "upg_robin_1", flight_id: "flt_na274" },
+        },
+      ],
+    }),
+  };
+  expect(await demoChange(ask, robin, key)).toMatchObject({
+    args: { booking_reference: "NW4D8R", offer_id: "upg_robin_1" },
+    because: expect.stringContaining("upgrade offer on NA 274"),
+  });
+});
+
 it("takes a flight number only from the flights that are booked", async () => {
   // "to 118" and "my 13" have the shape of a flight number and are not one.
   expect(await demoChange("add 2 bags to 118", airline(), key)).toMatchObject({
