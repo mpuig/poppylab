@@ -3,7 +3,8 @@
  * local secrets. OpenNext embeds `.env*` values in `next-env.mjs`; a deployed
  * Poppy takes its configuration from wrangler vars and secrets only, so that
  * file is emptied and the whole bundle is scanned for any local secret value
- * from `.env*` and `.dev.vars*`. Only names are ever printed.
+ * from `.env*` and `.dev.vars*`, and for any app's `.env*`, `.dev.vars*` or
+ * `.poppy` itself. Only names are ever printed.
  *
  * `deploy:worker` then uploads exactly this checked artifact: it sets
  * OPEN_NEXT_DEPLOY so `wrangler deploy` doesn't hand over to
@@ -92,10 +93,15 @@ if (existsSync(identityFile))
   );
 
 const found = new Set();
+// Any app's local state or secrets file, whatever it holds: next.config's
+// outputFileTracingExcludes keeps them out, and this checks it did.
+const localFile = (name) =>
+  name === ".poppy" || name.startsWith(".env") || name.startsWith(".dev.vars");
 const walk = (dir) => {
   for (const name of readdirSync(dir)) {
     const p = path.join(dir, name);
-    if (statSync(p).isDirectory()) walk(p);
+    if (localFile(name)) found.add(`local file ${path.relative(root, p)}`);
+    else if (statSync(p).isDirectory()) walk(p);
     else {
       const data = readFileSync(p);
       for (const [label, value] of secrets)

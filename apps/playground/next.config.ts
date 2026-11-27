@@ -26,15 +26,16 @@ const nextConfig: NextConfig = {
   // (`agentName` in @poppy-lab/pap-agent/agent).
   env: { AGENT_NAME },
   poweredByHeader: false,
+  // Local state and secrets anywhere in the workspace, whichever app or
+  // package they belong to; build-worker refuses a bundle that has any.
   outputFileTracingExcludes: {
     "/*": [
       ".poppy/**/*",
       ".env*",
-      "../../.poppy/**/*",
-      "../juniper/.poppy/**/*",
-      "../juniper/.env*",
-      "../northwind/.poppy/**/*",
-      "../northwind/.env*",
+      ".dev.vars*",
+      "../../**/.poppy/**/*",
+      "../../**/.env*",
+      "../../**/.dev.vars*",
     ],
   },
   // OAuth callback query strings contain one-time credentials. Browser logs
