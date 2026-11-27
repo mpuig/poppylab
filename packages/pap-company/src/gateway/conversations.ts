@@ -19,15 +19,22 @@
  * `user_requested` event; the parent gets `direct_opened` and
  * `direct_closed` and takes no messages while it's open. A Company Agent
  * that sets `agent.direct` answers the User there; otherwise the gateway
- * answers with the handoff reply. Streaming (§8.6) isn't offered: a stream
- * request gets JSON.
+ * answers with the handoff reply.
+ *
+ * Streaming (§8.6): a read that asks for `text/event-stream` gets the events
+ * as server-sent events, then each new one as it is added, until the stream
+ * reaches its time, the access token or Session ends, or the conversation
+ * closes or goes. A stream only reads what other requests write, so it
+ * never holds the Durable Object's writes. There are no `text-delta`
+ * events: a reply is complete before any read can see it.
  */
 import type { Context, Hono } from "hono";
-import { approvalFrom, randomId } from "@poppy-lab/pap-client/core";
+import { approvalFrom, randomId, tokenHash } from "@poppy-lab/pap-client/core";
 import type { Ctx } from "./context.ts";
 import type { Tenancy } from "./tenancy.ts";
 import {
   hash,
+  SHARED_TENANT,
   type CompanyReply,
   type Conversation,
   type ConversationEvent,
@@ -51,6 +58,15 @@ const PER_USER = 8,
   EVENTS = 120,
   BYTES = 64 * 1024,
   PAGE = 50;
+/**
+ * §8.6: open streams per agent user and in all (each client a share, as for
+ * Sessions), how often a stream checks that its reader may still read, and
+ * how long it stays quiet before a comment keeps proxies from closing it.
+ */
+const STREAMS_PER_USER = 4,
+  STREAMS = 100,
+  STREAM_CHECK_MS = 5000,
+  STREAM_BEAT_MS = 15000;
 
 const object = (v: unknown): v is Record<string, unknown> =>
   !!v && typeof v === "object" && !Array.isArray(v);
@@ -66,10 +82,21 @@ const canonical = (v: unknown): string =>
       : JSON.stringify(v);
 const size = (v: unknown) => JSON.stringify(v).length;
 const idOf = (c: Context) => c.req.param("id") ?? "";
+/** An event's number, from its ID. */
+const seqOf = (e: ConversationEvent) => Number(CURSOR.exec(e.id)![1]);
+/** §8.6: whether `Accept` asks for a stream (`text/event-stream`, not q=0). */
+const wantsStream = (c: Context) =>
+  (c.req.header("accept") ?? "")
+    .split(",")
+    .some((range) =>
+      /^\s*text\/event-stream\s*(;(?!\s*q\s*=\s*0(\.0*)?\s*(;|$)).*)?$/i.test(
+        range,
+      ),
+    );
 
 class Refusal extends Error {
   constructor(
-    public status: 400 | 401 | 404 | 409 | 410,
+    public status: 400 | 401 | 404 | 409 | 410 | 429,
     public code: string,
     public headers: Record<string, string> = {},
     /** More members of the error body, such as `conversation_id`. */
@@ -169,6 +196,11 @@ export function mountConversations(app: Hono, ctx: Ctx, tenancy: Tenancy) {
     return conv;
   }
 
+  /** §8.6: the open streams, and what wakes each when its conversation changes. */
+  const streams = new Set<{ client: string; holder: string; until: number }>();
+  const listeners = new Map<string, Set<() => void>>();
+  const streamMs = ctx.deploy.streamMs ?? 60000;
+
   function add(conv: Conversation, event: Omit<ConversationEvent, "id">) {
     conv.seq++;
     conv.events.push({ id: `evt_${conv.seq}_${conv.tag}`, ...event });
@@ -179,6 +211,7 @@ export function mountConversations(app: Hono, ctx: Ctx, tenancy: Tenancy) {
     )
       conv.events.shift();
     conv.updated = Date.now();
+    for (const wake of listeners.get(conv.id) ?? []) wake();
   }
   const now = () => new Date().toISOString();
   /** §8.7: every change to handoff, responder or closed adds a state event. */
@@ -212,23 +245,24 @@ export function mountConversations(app: Hono, ctx: Ctx, tenancy: Tenancy) {
     const wait = c.req.query("wait");
     if (wait !== undefined && !/^\d{1,6}$/.test(wait))
       throw new Refusal(400, "invalid_request");
-    const cursor = c.req.header("last-event-id") ?? c.req.query("cursor");
+    // §8.6: Last-Event-ID wins over `cursor`; an empty one names nothing.
+    const cursor = c.req.header("last-event-id") || c.req.query("cursor");
     return { waiting: wait !== undefined, cursor };
+  }
+  /** The number of the last event before `cursor`, or a Refusal for it. */
+  function after(conv: Conversation, cursor: string | undefined) {
+    if (cursor === undefined) return 0;
+    const m = CURSOR.exec(cursor);
+    if (!m || m[2] !== conv.tag || Number(m[1]) > conv.seq)
+      throw new Refusal(400, "invalid_cursor");
+    const first = Number(CURSOR.exec(conv.events[0]?.id ?? "")?.[1] ?? 1);
+    if (Number(m[1]) < first - 1) throw new Refusal(410, "cursor_expired");
+    return Number(m[1]);
   }
   /** §8.5: events after the cursor, a page at a time, with the state. */
   function read(conv: Conversation, cursor: string | undefined) {
-    let after = 0;
-    if (cursor !== undefined) {
-      const m = CURSOR.exec(cursor);
-      if (!m || m[2] !== conv.tag || Number(m[1]) > conv.seq)
-        throw new Refusal(400, "invalid_cursor");
-      after = Number(m[1]);
-      const first = Number(CURSOR.exec(conv.events[0]?.id ?? "")?.[1] ?? 1);
-      if (after < first - 1) throw new Refusal(410, "cursor_expired");
-    }
-    const pending = conv.events.filter(
-      (e) => Number(CURSOR.exec(e.id)![1]) > after,
-    );
+    const from = after(conv, cursor);
+    const pending = conv.events.filter((e) => seqOf(e) > from);
     const events = pending.slice(0, PAGE);
     return {
       conversation_id: conv.id,
@@ -251,6 +285,148 @@ export function mountConversations(app: Hono, ctx: Ctx, tenancy: Tenancy) {
       q.waiting ? read(conv, q.cursor) : { conversation_id: conv.id },
       status,
     );
+
+  /**
+   * §8.6: the events after event number `from` as server-sent events, then
+   * each new one as it is added. `working` comes first, as an event with no
+   * ID, and again only if it changes (here it never does). The stream ends
+   * at its time, or as soon as the request could no longer read the
+   * conversation: the access token, its grant or the Session ended, the
+   * conversation now uses an account this request doesn't carry, or the
+   * conversation or its tenant went. A closed conversation ends it once its
+   * last events are sent. If events it hadn't sent were dropped meanwhile,
+   * it ends too, and the reconnect gets `cursor_expired`.
+   *
+   * It only reads: woken by `add`, and checking every few seconds for what
+   * changes without an event, it holds no lock and no write.
+   */
+  function stream(c: Context, conv: Conversation, from: number) {
+    const who = caller(c);
+    const now = Date.now();
+    const holder = ctx.holderOf(who.client, who.user);
+    // A stream whose response was never read has no cancel to let it go.
+    for (const s of streams) if (s.until < now) streams.delete(s);
+    const mine = [...streams].filter((s) => s.holder === holder);
+    if (
+      mine.length >= STREAMS_PER_USER ||
+      ctx.overShare(streams, who.client, STREAMS)
+    ) {
+      const soonest = Math.min(
+        ...(mine.length >= STREAMS_PER_USER ? mine : [...streams]).map(
+          (s) => s.until,
+        ),
+      );
+      throw new Refusal(429, "rate_limited", {
+        "Retry-After": String(Math.max(1, Math.ceil((soonest - now) / 1000))),
+      });
+    }
+    const key = ctx.tenantKeys.get(c.req.raw) ?? SHARED_TENANT;
+    const tenant = ctx.state.tenants[key];
+    const sid = ctx.sessionKeys.get(c.req.raw);
+    const [, , token] =
+      /^(DPoP|Bearer) (\S+)$/.exec(c.req.header("authorization") ?? "") ?? [];
+    const tokenKey = token ? tokenHash(token) : undefined;
+    const record = tokenKey ? ctx.state.tokens[tokenKey] : undefined;
+    const until = Math.min(
+      now + streamMs,
+      record?.expires ?? Infinity,
+      (record && ctx.state.grants[record.grant]?.expires) ?? Infinity,
+    );
+    /** Whether this request could still read the conversation. */
+    const readable = () => {
+      const t = Date.now();
+      if (ctx.flags.failed || t >= until) return false;
+      if (ctx.state.tenants[key] !== tenant) return false;
+      if (tenant?.conversations?.[conv.id] !== conv) return false;
+      if (conv.account && conv.account !== who.account) return false;
+      const session = sid ? ctx.state.sessions[sid] : undefined;
+      if (!session || session.expires < t) return false;
+      if (tokenKey) {
+        const r = ctx.state.tokens[tokenKey];
+        const g = r && ctx.state.grants[r.grant];
+        if (!r || r.expires < t || !g || g.expires < t) return false;
+      }
+      return true;
+    };
+    const slot = { client: who.client, holder, until };
+    streams.add(slot);
+    let wake: (() => void) | undefined;
+    const notify = () => wake?.();
+    const woken = listeners.get(conv.id) ?? new Set();
+    listeners.set(conv.id, woken);
+    woken.add(notify);
+    let over = false;
+    const end = () => {
+      over = true;
+      streams.delete(slot);
+      woken.delete(notify);
+      if (!woken.size && listeners.get(conv.id) === woken)
+        listeners.delete(conv.id);
+      notify();
+    };
+    let working: boolean | undefined;
+    /** What to send now: "" for nothing yet, null when the stream ends. */
+    const next = (): string | null => {
+      if (!readable()) return null;
+      let out = "";
+      // Replies are computed when a request is accepted (§8.7).
+      const current: boolean = false;
+      if (working !== current) {
+        working = current;
+        out += `event: working\ndata: ${JSON.stringify({ working })}\n\n`;
+      }
+      const pending = conv.events.filter((e) => seqOf(e) > from);
+      if (pending.length && seqOf(pending[0]!) > from + 1) return null;
+      for (const e of pending) {
+        out += `id: ${e.id}\ndata: ${JSON.stringify(e)}\n\n`;
+        from = seqOf(e);
+      }
+      return !out && conv.closed ? null : out;
+    };
+    const encoder = new TextEncoder();
+    let quiet = Date.now();
+    const body = new ReadableStream<Uint8Array>({
+      async pull(controller) {
+        while (!over) {
+          const out = next();
+          if (out === null) {
+            end();
+            controller.close();
+            return;
+          }
+          const t = Date.now();
+          if (out || t - quiet >= STREAM_BEAT_MS) {
+            quiet = t;
+            controller.enqueue(encoder.encode(out || ": keep-alive\n\n"));
+            return;
+          }
+          await new Promise<void>((resolve) => {
+            const timer = setTimeout(
+              resolve,
+              Math.max(
+                0,
+                Math.min(
+                  STREAM_CHECK_MS,
+                  until - t,
+                  quiet + STREAM_BEAT_MS - t,
+                ),
+              ),
+            );
+            wake = () => {
+              clearTimeout(timer);
+              resolve();
+            };
+          });
+          wake = undefined;
+        }
+      },
+      cancel: end,
+    });
+    return c.body(body, 200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-store",
+    });
+  }
 
   /**
    * Accepts one User-side message and runs the Company Agent on it. Without
@@ -613,12 +789,15 @@ export function mountConversations(app: Hono, ctx: Ctx, tenancy: Tenancy) {
     }),
   );
 
-  // GET {endpoint}/{id}/events (§8.5). No streaming: JSON for every Accept.
+  // GET {endpoint}/{id}/events (§8.5), or a stream of them (§8.6).
   app.get(
     `${BASE}/:id/events`,
     guard((c) => {
       const q = query(c);
-      return c.json(read(owned(c, idOf(c)), q.cursor), 200);
+      const conv = owned(c, idOf(c));
+      return wantsStream(c)
+        ? stream(c, conv, after(conv, q.cursor))
+        : c.json(read(conv, q.cursor), 200);
     }),
   );
 

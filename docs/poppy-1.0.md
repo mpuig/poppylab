@@ -44,7 +44,7 @@ Iris, Juniper, Lantern, Harborline, Northwind and Fernwick implement **only** Po
 
 ## Conversations (§8)
 
-See [conversations](conversations.md). In short: every `POST` has a request `id`, a reused ID with another path or body gets `request_id_conflict`, and a `POST` without `wait` returns only `conversation_id`. State is four fields: `working`, `handoff`, `responder` and `closed`. A handoff can be withdrawn at `handoff/cancel`, and a close returns 202.
+See [conversations](conversations.md). In short: every `POST` has a request `id`, a reused ID with another path or body gets `request_id_conflict`, and a `POST` without `wait` returns only `conversation_id`. State is four fields: `working`, `handoff`, `responder` and `closed`. A handoff can be withdrawn at `handoff/cancel`, and a close returns 202. A read with `Accept: text/event-stream` gets the events as server-sent events, then each new one (§8.6), with no `text-delta`; Iris reads JSON.
 
 ## MCP (§7)
 

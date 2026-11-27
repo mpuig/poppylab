@@ -746,6 +746,11 @@ export type Deployment = {
   maxTenants?: number;
   /** A visitor tenant idle this long starts again from the seed data. */
   tenantIdleMs?: number;
+  /**
+   * How long a conversation's event stream stays open at most (§8.6), in
+   * milliseconds; less when the access token ends first. Default a minute.
+   */
+  streamMs?: number;
 };
 export const SHARED_TENANT = "shared";
 /** A Map view over a persisted plain object. */

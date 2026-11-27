@@ -211,6 +211,8 @@ export async function setup(
       bearer?: boolean;
       /** The token the Session JWT's `ath` covers, if not `access`. */
       ath?: string;
+      /** More headers, such as `Accept` or `Last-Event-ID`. */
+      headers?: Record<string, string>;
     } = {},
   ) => {
     const method = options.method ?? "GET";
@@ -249,6 +251,7 @@ export async function setup(
               }
             : {}),
         ...(method !== "GET" ? { "content-type": "application/json" } : {}),
+        ...options.headers,
       },
       ...(method !== "GET" ? { body: JSON.stringify(options.body ?? {}) } : {}),
     });
