@@ -42,7 +42,8 @@ vi.mock("@/lib/deployment", async (importOriginal) => ({
 }));
 import { createIdentity, ProtocolError } from "@poppy-lab/pap-client";
 import { connected, discovered } from "@/lib/company-fixture";
-import { forgetCompany } from "@/lib/transcript";
+import { forgetCompany, shownTranscript } from "@/lib/transcript";
+import { historyToMessages } from "@/app/playground/companies";
 import { RUN_LIMITS } from "@/lib/run-size";
 import {
   listConversations,
@@ -406,6 +407,26 @@ describe("a conversation with no Company", () => {
       ["assistant", turn.answer.text, undefined],
     ]);
     expect(run.title).toBe("What's on the menu?");
+  });
+
+  it("keeps Iris's buttons with its question for a reload, until something follows it", async () => {
+    const run = await conversation([], []);
+    const asked = await say("What's on the menu?");
+    expect(asked.answer.choices).toHaveLength(5);
+    // A reload, or History, shows the question with its buttons.
+    expect(historyToMessages(shownTranscript(run)).at(-1)).toEqual({
+      role: "Agent",
+      text: asked.answer.text,
+      choices: asked.answer.choices,
+    });
+    // Once something follows it, its buttons go; the question asked again
+    // has its own.
+    const again = await say("hello");
+    expect(run.transcript!.filter((e) => e.choices)).toHaveLength(1);
+    expect(run.transcript!.at(-1)!.choices).toEqual(again.answer.choices);
+    expect(
+      historyToMessages(shownTranscript(run)).filter((m) => m.choices),
+    ).toHaveLength(1);
   });
 
   it("starts one for a message that names no conversation and no Company", async () => {

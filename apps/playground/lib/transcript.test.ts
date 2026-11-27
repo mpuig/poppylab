@@ -361,6 +361,38 @@ describe("what the page shows again after a reload", () => {
     expect(companyEntry!.note!.length).toBeLessThanOrEqual(600);
   });
 
+  it("bounds Iris's buttons, and keeps them only on the question it asked last", () => {
+    const r = run();
+    transcript.recordOwn(r, undefined, "q", "Which one?", false);
+    transcript.offerChoices(r, "Which one?", [
+      // A name is text the Company supplies.
+      { label: "n".repeat(5000), answer: { company: "https://a.example" } },
+      // Longer than any answer Iris makes: left out.
+      {
+        label: "Long",
+        answer: { remove: ["https://b.example/" + "p".repeat(9000)] },
+      },
+      ...Array.from({ length: 20 }, (_, i) => ({
+        label: `Company ${i}`,
+        answer: { connect: `https://c${i}.example` },
+      })),
+    ]);
+    const asked = r.transcript!.at(-1)!;
+    expect(asked.choices).toHaveLength(TRANSCRIPT_LIMITS.choices);
+    expect(asked.choices![0]!.label.length).toBeLessThanOrEqual(200);
+    expect(asked.choices!.map((c) => c.label)).not.toContain("Long");
+    // Only Iris's own last line takes them.
+    transcript.offerChoices(r, "Something else", [
+      { label: "x", answer: { company: "https://a.example" } },
+    ]);
+    expect(r.transcript!.at(-1)!.choices).toHaveLength(
+      TRANSCRIPT_LIMITS.choices,
+    );
+    // Whatever follows the question takes its buttons away.
+    recordTurn(r, "q2", "a2");
+    expect(r.transcript!.some((e) => e.choices)).toBe(false);
+  });
+
   it("bounds the whole transcript, dropping the oldest data first", () => {
     const r = run();
     const bytes = () =>

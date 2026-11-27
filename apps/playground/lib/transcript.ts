@@ -1,4 +1,5 @@
 import { agentStep, type AgentStep } from "./agent-steps";
+import type { Choice } from "./company-commands";
 import type { CompanyEntry, DirectAction } from "./conversations";
 import {
   cameFrom,
@@ -46,6 +47,11 @@ export type TranscriptEntry = {
   company?: string;
   /** The origins of the Companies whose accounts could be in it. */
   accounts?: string[];
+  /**
+   * Iris's buttons under a question of its own, kept while the question is
+   * the last thing said: the next entry takes them away (`show`).
+   */
+  choices?: Choice[];
 };
 
 /** What a turn put on the page besides the words. */
@@ -87,6 +93,11 @@ export const TRANSCRIPT_LIMITS = {
   /** Characters of one entry's data: what the chat route sends the page. */
   data: 20_000,
   steps: 30,
+  /**
+   * Buttons under one question: Iris offers one for each of the lab's
+   * Companies at most. Their labels are names, cut like an author's.
+   */
+  choices: 8,
   /** UTF-8 bytes of the whole transcript as JSON. */
   bytes: 256 * 1024,
 } as const;
@@ -99,9 +110,16 @@ const cut = (text: string, max: number) =>
 
 /** One entry within its own limits. Data too large to keep is left out. */
 function clipped(entry: TranscriptEntry): TranscriptEntry {
-  const { data, steps, note, author, ...rest } = entry;
+  const { data, steps, note, author, choices, ...rest } = entry;
+  // A button whose answer is longer than any Iris makes is left out: three
+  // addresses of at most 2048 characters each.
+  const buttons = (choices ?? [])
+    .filter((c) => JSON.stringify(c.answer).length <= 8_000)
+    .slice(0, TRANSCRIPT_LIMITS.choices)
+    .map((c) => ({ ...c, label: cut(c.label, 200) }));
   return {
     ...rest,
+    ...(buttons.length ? { choices: buttons } : {}),
     content: cut(entry.content, TRANSCRIPT_LIMITS.text),
     ...(author ? { author: cut(author, 200) } : {}),
     ...(note ? { note: cut(note, 600) } : {}),
@@ -182,7 +200,8 @@ function show(
 ) {
   const signedOut = accounts.length ? {} : { signedOut: true as const };
   run.transcript = bounded([
-    ...(run.transcript ?? run.history),
+    // A question is answered, or passed by, once anything follows it.
+    ...(run.transcript ?? run.history).map(withoutChoices),
     ...entries.map((entry) => ({
       ...clipped(entry),
       ...signedOut,
@@ -190,6 +209,28 @@ function show(
       ...(connection ? from(connection) : {}),
       accounts: [...accounts],
     })),
+  ]);
+}
+
+function withoutChoices(entry: TranscriptEntry): TranscriptEntry {
+  if (!entry.choices) return entry;
+  const rest = { ...entry };
+  delete rest.choices;
+  return rest;
+}
+
+/**
+ * Iris's buttons under the question it just asked (`recordOwn`), so a
+ * reload or the History view offers them again while that question is
+ * the last thing said. They go with the next entry.
+ */
+export function offerChoices(run: Run, answer: string, choices: Choice[]) {
+  const last = run.transcript?.at(-1);
+  if (!choices.length || last?.role !== "assistant" || last.content !== answer)
+    return;
+  run.transcript = bounded([
+    ...run.transcript!.slice(0, -1),
+    clipped({ ...last, choices }),
   ]);
 }
 

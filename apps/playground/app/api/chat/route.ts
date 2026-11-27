@@ -49,6 +49,7 @@ import { directConnection, offeredTools, turnConnection } from "@/lib/routing";
 import {
   accountsIn,
   forgetLostAccount,
+  offerChoices,
   recordDirect,
   recordOwn,
   recordTurn,
@@ -406,9 +407,10 @@ async function reply(request: Request, started: Outcome) {
     });
     // An answer of Iris's own, about the conversation and from no Company.
     // The page that shows one Company gets the first one's state with it,
-    // as a reload does.
-    const own = (text: string, choices: Choice[] = []) =>
-      NextResponse.json(
+    // as a reload does. Its buttons are kept with it, for a reload.
+    const own = (text: string, choices: Choice[] = []) => {
+      offerChoices(conversation, text, choices);
+      return NextResponse.json(
         {
           text,
           ...(did.before ? { before: did.before } : {}),
@@ -421,6 +423,7 @@ async function reply(request: Request, started: Outcome) {
         },
         { headers: { "Cache-Control": "no-store" } },
       );
+    };
     const hint = body.company ?? body.url;
     // What Iris was asked before it asked which Company: this message may
     // say which, and otherwise that request is dropped.
