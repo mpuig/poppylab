@@ -5,11 +5,9 @@ import {
   demoChangeKind,
   demoChangeReply,
   demoChangeReplyNow,
-  demoMissing,
-  demoMissingReport,
   type DemoTools,
 } from "./demo-changes";
-import { agentAnswer, readable } from "./demo-text";
+import { readable } from "./demo-text";
 
 const tool = (value: unknown) => ({ execute: vi.fn(async () => value) });
 const key = () => "key_fixture_0001";
@@ -794,72 +792,4 @@ it("reads words for the agent or for feedback outside a payment's memo only", as
   ).toBe("feedback");
   // A Company with neither is asked for neither.
   expect(demoAside("talk to support about a voucher", bank())).toBeUndefined();
-});
-
-it("reports a dish missing from the last delivery to the Company's agent, from what it lists", async () => {
-  const message =
-    "The pork gyoza was missing from my last delivery. Can I get a refund?";
-  // As Lantern's agent answers, through company_agent_send.
-  const send = {
-    execute: vi.fn(async (input?: Record<string, unknown>) => {
-      const data = input?.data as Record<string, unknown>;
-      return data.request === "order_status"
-        ? {
-            replies: [
-              {
-                author: "agent",
-                data: {
-                  scheduled: [],
-                  last_delivery: {
-                    id: "ord_LNB0907",
-                    status: "delivered",
-                    items: [
-                      { dish_id: "shoyu-ramen", name: "Shoyu ramen" },
-                      { dish_id: "pork-gyoza", name: "Pork gyoza (6)" },
-                    ],
-                  },
-                },
-              },
-            ],
-          }
-        : {
-            replies: [{ author: "agent", text: "I can refund USD 8.00." }],
-            approval: { status: "approval_required" },
-          };
-    }),
-  };
-  const tools = { ...restaurant(), company_agent_send: send };
-  // Not a change, not feedback: before, "delivery" picked the slots.
-  expect(demoChangeKind(message, tools)).toBeUndefined();
-  expect(demoAside(message, tools)).toBeUndefined();
-  expect(demoMissing(message, tools)).toBe(true);
-  const lantern = (answer: unknown) =>
-    agentAnswer(answer, "Lantern Noodle Bar");
-  const said = await demoMissingReport(message, send, lantern);
-  expect(send.execute).toHaveBeenLastCalledWith({
-    data: {
-      request: "report_missing_item",
-      order_id: "ord_LNB0907",
-      dish_id: "pork-gyoza",
-    },
-  });
-  // The agent's reply is shown above as Lantern's own content.
-  expect(said).toBe(
-    "Told the Company's agent that Pork gyoza (6) was missing from order ord_LNB0907. Lantern Noodle Bar answered; its reply is shown above.\n\nIf it proposes a refund, approve or decline it in Needs you, above the message box.",
-  );
-  // A dish the delivery didn't have is asked about, and nothing is reported.
-  send.execute.mockClear();
-  expect(
-    await demoMissingReport(
-      "The edamame was missing from my order",
-      send,
-      lantern,
-    ),
-  ).toBe(
-    "Which dish was missing? Your last delivery, order ord_LNB0907, had Shoyu ramen and Pork gyoza (6). Nothing was sent to the Company's agent.",
-  );
-  expect(send.execute).toHaveBeenCalledTimes(1);
-  // Words that aren't about a delivery, or a Company without an agent, aren't.
-  expect(demoMissing("My card is missing", tools)).toBe(false);
-  expect(demoMissing(message, restaurant())).toBe(false);
 });

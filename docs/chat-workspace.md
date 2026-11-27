@@ -61,10 +61,9 @@ What it says when it can't:
 - When the Company's own description of a tool rejects the values the demo chose: it says nothing was sent.
 - Anything else: "The demo can't prepare that change here." A model can.
 
-Four more things a message can start, when the Company offers them:
+Three more things a message can start, when the Company offers them:
 
 - **The Company's own agent.** "customer service", "support" or "talk to a person" sends the Company's agent a structured request, or asks it for a person.
-- **A missing dish.** "The pork gyoza was missing from my last delivery" asks the Company's agent for the last delivery, then reports that dish from it (`report_missing_item`); Lantern's agent proposes a refund, approved like any change. A dish the delivery didn't have gets a question back, and nothing is reported.
 - **Feedback.** "gift card", "voucher" or "feedback" sends one fixed report about a task the Company doesn't offer (see [Build a Company](learn/build-a-company.md#feedback-on-the-wire)).
 - **A Direct Conversation.** "my order never arrived" tells the Company's agent, which may ask to talk with you directly; you accept or decline above the message box (see [Conversations](learn/conversations.md)).
 

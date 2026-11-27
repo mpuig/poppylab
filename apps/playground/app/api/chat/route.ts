@@ -78,8 +78,6 @@ import {
   demoChange,
   demoChangeKind,
   demoChangeReply,
-  demoMissing,
-  demoMissingReport,
 } from "@/lib/demo-changes";
 import { demoFdxAnswer, demoFdxRead, demoFdxReply } from "@/lib/demo-fdx";
 import { demoEspiAnswer, demoEspiRead, demoEspiReply } from "@/lib/demo-espi";
@@ -725,10 +723,6 @@ async function reply(request: Request, started: Outcome) {
           })
         : status;
       text = `Protocol demo (no LLM). ${order ? `Told the Company's agent that order ${order} never arrived.` : "Asked the Company's agent for your orders first."} ${fromAgent(result)}\n\nIf the Company asks to talk with you, accept or decline with the buttons above the message box.`;
-    } else if (provider === "demo" && !change && demoMissing(asked, tools)) {
-      // A dish missing from a delivery: the Company's agent may refund it.
-      // Before words for feedback ("report") or a delivery's slots.
-      text = `Protocol demo (no LLM). ${await demoMissingReport(asked, tools.company_agent_send!, fromAgent)}`;
     } else if (provider === "demo" && (change || aside)) {
       // A change the demo can prepare comes first, whatever else the message
       // says: "for the quarterly report" in a payment is its memo, not
