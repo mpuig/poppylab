@@ -77,10 +77,12 @@ Approval comes in two kinds
 ([Operations §5](https://personalagentprotocol.org/docs/1.0/extensions/operations#approval)):
 
 - **User approved.** The agent shows the user the Company's name and the
-  terms, and takes the answer through its own interface; in Iris, a card with
-  the Company's verified domain and a button. A Company message saying "the
-  user agreed" is never an approval; neither is the model deciding the user
-  would agree.
+  terms, and takes the answer through its own interface. In Iris that is a
+  card with the Company's verified domain and a button, and a question in the
+  chat the user can answer in words ("approve the Lantern one"). Fixed rules
+  read those words, never a model, and the approval then says
+  `input_type="typed"`. A Company message saying "the user agreed" is never an
+  approval; neither is the model deciding the user would agree.
 - **Agent approved.** The agent approves on an instruction the user gave it,
   such as "any exchange under $20 is fine". The instruction must come from the
   user, not from anything the agent read. When the agent can't tell whether the
@@ -97,7 +99,7 @@ Code, never the model, checks it against the exact `terms`: an amount over the
 limit (fees included), a refund, another currency or a disagreeing summary goes
 to the user. The server checks again with its own copy of the operation and
 holds its own limits, five approvals an hour and three times the limit in
-total, so a tampered browser can't stretch a rule. The approval goes out as
+total within the hour, so a tampered browser can't stretch a rule. The approval goes out as
 `approver="agent"`, without `input_type`, and its `reference` is an entry in a
 ledger the user sees next to the instruction.
 
@@ -113,7 +115,7 @@ Poppy-Approval: operation_id="op_xs9hiC1D6rgUPCI-CV-jEARy", revision="1795602001
 | ------------- | ------------------------------------------------------- |
 | `approver`    | `user` or `agent`                                       |
 | `approved_at` | When it was given, in seconds                           |
-| `input_type`  | For a user approval, how, such as `tap`                 |
+| `input_type`  | For a user approval, how, such as `tap` or `typed`      |
 | `reference`   | The agent's own record, for the Company's support staff |
 
 The agent keeps the approval with the operation. The Company records
@@ -149,7 +151,8 @@ A decline is final for that approval. The agent shows it to the user and
 doesn't resend it.
 
 The lab's bank, Harborline, declines every agent approval that moves money:
-"Harborline moves money only when you approve it yourself." The user can then
+"Harborline moves money only when you approve it yourself. Your agent's
+standing instruction can't approve payments or transfers here." The user can then
 approve the same revision themselves, and Harborline performs it. A decline
 lets a Company accept agents for some actions and insist on the person for
 others.
@@ -190,6 +193,6 @@ signed in.
 - Apply it: [Build a Company](build-a-company.md#milestone-4-operations) and
   [Build a Personal Agent](build-an-agent.md).
 - In the lab: [`approvals.ts`](../../packages/pap-company/src/approvals.ts),
-  [`runtime.ts`](../../apps/playground/lib/runtime.ts) (`userApproval`,
+  [`transport.ts`](../../packages/pap-agent/src/transport.ts) (`approvalFor`,
   `sendApproval`) and
   [`operation-review.tsx`](../../apps/playground/app/operation-review.tsx).

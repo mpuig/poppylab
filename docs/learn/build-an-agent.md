@@ -15,9 +15,10 @@ line**, where the model stops and deterministic code takes over.
 - Keep a secret store for the root key.
 - Test against a Company. The lab's Companies accept any HTTPS `client_id`, and
   their customers are fictional ([developers](https://poppylab.dev/developers)).
-- Choose your sign-in types. This guide builds Direct Sign-In; the
+- Choose your sign-in types. This guide builds Direct Sign-In.
+  [Signing in](sign-in.md) weighs Device and Mediated Sign-In, and the
   [guides](https://personalagentprotocol.org/docs/1.0/guides#agent-choosing-sign-in)
-  cover Device and Mediated Sign-In.
+  cover each.
 
 ## The pieces
 
@@ -273,9 +274,10 @@ Get the user's account access with plain OAuth
   ([§4.4](https://personalagentprotocol.org/docs/1.0/spec#refresh-tokens)).
 - **Encrypt tokens and private keys at rest.** Iris seals them per visitor with
   AES-256-GCM. Revoke the refresh token on sign-out.
-- **Show sign-in apart from discovery.** Say what discovery proved ("Found
-  Lantern Noodle Bar · food-demo.poppylab.dev"), because users read every green
-  check as "connected".
+- **Show sign-in apart from discovery.** Say what the agent holds at each
+  Company, because users read every green check as "connected". Iris's
+  Companies bar says "Public access" until the user signs in, then "Signed in ·
+  read only" or "Signed in · can propose changes".
 
 Before the first signed-in call to an API or conversation endpoint, read the
 service's protected resource metadata: a service that names its own resource
@@ -337,7 +339,9 @@ show approvals. Then:
    Company's name and verified domain.
 3. **Take the decision in your own interface.** When the user taps Approve,
    create one approval (`approver="user"`, `input_type="tap"`, a time and a
-   reference) and store it with the operation
+   reference) and store it with the operation. If you also ask in the chat,
+   read the user's own next message by fixed rules, never a model, and record
+   a typed answer as `input_type="typed"`
    ([Operations §5](https://personalagentprotocol.org/docs/1.0/extensions/operations#approval)).
 4. **Resend the identical request** with that approval in `Poppy-Approval`. If
    the result is uncertain, resend the same approval, so the Company performs
@@ -357,8 +361,10 @@ show approvals. Then:
    error code, never its text. A Retry resends the stored approval; only Approve
    makes a new one.
 
-**The line:** neither the model nor Company content can approve; "Yes, go ahead"
-in the chat changes nothing. Check standing rules, such as "approve refunds
+**The line:** neither the model nor Company content can approve. In Iris a
+typed "yes" counts only as the user's next message after the agent's own
+question about that revision, read before any model is asked; "yes, go ahead"
+anywhere else changes nothing. Check standing rules, such as "approve refunds
 under $10", in code against the operation's `terms`, record each approval they
 make as `approver="agent"`, and send anything a rule can't settle to the user.
 After the Company declines an agent approval or answers it with new terms, leave
@@ -366,7 +372,7 @@ that operation to the user for every later revision
 ([Operations §6](https://personalagentprotocol.org/docs/1.0/extensions/operations#sending-approval)).
 
 You know it works when Lantern answers your change request with
-`403 approval_required`, nothing changes until the user taps Approve, and the
+`403 approval_required`, nothing changes until the user approves, and the
 order changes once after you resend.
 
 ## 7. The model boundary
@@ -395,17 +401,19 @@ token, code, key or Session JWT.
 
 Iris is a working Personal Agent you can read and
 [use](https://poppylab.dev/playground); its Inspector shows each step. It runs
-GPT, Claude or no model, with the same deterministic code.
+any model behind an OpenAI-compatible, Anthropic, Google Gemini or Ollama API,
+a free Workers AI model, or no model in demo mode, with the same deterministic
+code.
 
-| Piece          | Where in Iris                                                                                                                                                       |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Identity       | [`/agent/client.json`](../../apps/playground/app/agent/client.json/route.ts), `/agent/jwks.json`                                                                    |
-| Session layer  | [`runtime.ts`](../../apps/playground/lib/runtime.ts) `ensureSession`, `sessionHeaders`                                                                              |
-| Transport      | [`pap-client`](../../packages/pap-client/src/index.ts) `protocolRequest`                                                                                            |
-| Interfaces     | [`openapi.ts`](../../packages/pap-client/src/openapi.ts), [`conversations.ts`](../../apps/playground/lib/conversations.ts)                                          |
-| Account access | [`account/route.ts`](../../apps/playground/app/api/account/route.ts), [`sealed.ts`](../../apps/playground/lib/sealed.ts)                                            |
-| Approvals      | [`operation-review.tsx`](../../apps/playground/app/operation-review.tsx), `userApproval` and `sendApproval` in [`runtime.ts`](../../apps/playground/lib/runtime.ts) |
-| The model      | Any model through [`llm-adapters`](../../packages/llm-adapters)                                                                                                     |
+| Piece          | Where in Iris                                                                                                                                                                                                                                |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Identity       | [`/agent/client.json`](../../apps/playground/app/agent/client.json/route.ts), `/agent/jwks.json`                                                                                                                                             |
+| Session layer  | [`session.ts`](../../packages/pap-agent/src/session.ts) `ensureSession`, `sessionHeaders`                                                                                                                                                    |
+| Transport      | [`pap-client`](../../packages/pap-client/src/index.ts) `protocolRequest`                                                                                                                                                                     |
+| Interfaces     | [`openapi.ts`](../../packages/pap-client/src/openapi.ts), [`conversations.ts`](../../packages/pap-agent/src/conversations.ts)                                                                                                                |
+| Account access | [`account-sign-in.ts`](../../packages/pap-agent/src/account-sign-in.ts), [`sealed.ts`](../../packages/pap-agent/src/sealed.ts)                                                                                                               |
+| Approvals      | [`operation-review.tsx`](../../apps/playground/app/operation-review.tsx), [`chat-answers.ts`](../../packages/pap-agent/src/chat-answers.ts), `approvalFor` and `sendApproval` in [`transport.ts`](../../packages/pap-agent/src/transport.ts) |
+| The model      | Any model through [`llm-adapters`](../../packages/llm-adapters)                                                                                                                                                                              |
 
 ## Check your work
 

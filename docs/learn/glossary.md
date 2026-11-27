@@ -21,15 +21,17 @@ declined approval. See [One task](one-task.md#3-open-a-session-signed-out).
 
 **Approval.** A statement that one revision of an operation was approved, by the
 user or by the agent. At an API it travels in
-`Poppy-Approval`. See [Approvals](operations.md).
+`Poppy-Approval`; `input_type` says how the user gave it, such as `tap` or
+`typed`. See [Approvals](operations.md).
 
 **At most once.** A change approved once happens once, even if the agent resends
 after a lost response: the Company answers a repeat with the original result. See [Approvals](operations.md).
 
 **Browser join.** The Personal Agent's browser joins the same Session on the
 Company's website, with a cookie limited to the granted scopes
-([§6](https://personalagentprotocol.org/docs/1.0/spec#web-browsing)). Poppy Lab
-doesn't implement it. See [Poppy compared](compared.md).
+([§6](https://personalagentprotocol.org/docs/1.0/spec#web-browsing)). The
+lab's Companies offer it at `/poppy/browser-session`; Iris has no browser and
+never asks for it. See [Poppy compared](compared.md).
 
 **`client_id`.** A Personal Agent's identity: the HTTPS URL of a JSON document
 with its name, keys URL and redirect URIs. Companies fetch it instead
@@ -60,7 +62,9 @@ in the `poppy_dlg` header. See
 [One task](one-task.md#3-open-a-session-signed-out).
 
 **Device Sign-In.** Signing in with a code shown on one device and entered on
-another, for agents without a browser on hand.
+another, for agents without a browser on hand. Every lab Company but Harborline
+offers it. See
+[Signing in](sign-in.md#device-sign-in-for-an-agent-without-a-browser).
 
 **Direct Conversation.** The user talks to the Company in their own words, linked
 to the agent's conversation. The Company can ask for one; only the agent, on the user's choice, opens it. See
@@ -68,7 +72,8 @@ to the agent's conversation. The Company can ask for one; only the agent, on the
 
 **Direct Sign-In.** Signing in through the browser: the agent opens the
 Company's consent page and gets a code back. See
-[One task](one-task.md#5-ask-the-user-for-access).
+[One task](one-task.md#5-ask-the-user-for-access) and
+[Signing in](sign-in.md).
 
 **Discovery.** Finding out what a Company offers by fetching
 `/.well-known/poppy.json` from its domain. See
@@ -103,7 +108,9 @@ resource metadata. See
 Device Sign-In: the Personal Agent signs in for the user at the token endpoint
 with credentials such as an email and password
 ([extension](https://personalagentprotocol.org/docs/1.0/extensions/mediated-sign-in)).
-Poppy Lab doesn't implement it.
+The protocol plans to retire it on 17 March 2027, and none of the lab's
+Companies offers it. See
+[Signing in](sign-in.md#mediated-sign-in-and-why-the-lab-doesnt-offer-it).
 
 **Operation.** A change the Company won't perform until it's approved: an ID, a
 revision, exact terms, an optional summary and an expiry. See
@@ -124,7 +131,7 @@ sign-in parameters to the Company first, not in a URL. See
 
 **Personal Agent.** Software that acts for one person, such as an assistant app.
 It identifies itself, signs every request and asks the user before anything
-consequential. [Iris](https://poppylab.dev/playground) is Poppy Lab's.
+consequential. Poppy Lab's runs as [Iris](https://poppylab.dev/playground).
 
 **PKCE.** A check that the app finishing a sign-in is the one that started it.
 See [One task](one-task.md#5-ask-the-user-for-access).
@@ -175,7 +182,13 @@ conversations and feedback, still attributed to a Session. See
 
 **Skills.** Instructions a Company publishes for agents on how to do a task with
 its interfaces. The lab's Companies list theirs in the tasks response, and the
-playground's Inspector shows that list. Iris doesn't load a skill yet.
+playground's Inspector shows that list. Iris loads none.
+
+**Streaming.** Reading a conversation's events as server-sent events instead of
+waiting reads
+([§8.6](https://personalagentprotocol.org/docs/1.0/spec#streaming)). Every lab
+Company streams. See
+[Conversations](conversations.md#waiting-for-a-reply-or-streaming-it).
 
 **Terms.** The data in an operation that defines exactly what will happen:
 amounts, dates, items. What the user approves. See

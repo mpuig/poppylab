@@ -28,7 +28,7 @@ reports the missing dish in a conversation.
 
 ## A Company Agent doesn't have to be a model
 
-Lantern's Company Agent is under 400 lines of deterministic code: structured
+Lantern's Company Agent is about 640 lines of deterministic code: structured
 `data` in, data and a fixed sentence out. A model behind a public endpoint
 would let anyone spend the Company's money, so a Company that puts one there
 rate-limits and budgets it like any public endpoint.
@@ -98,6 +98,21 @@ HTTP/1.1 201 Created
    (still replying, read again), `handoff` (`none` or `pending`), `responder`
    (`agent` or `human`) and `closed`.
 
+## Waiting for a reply, or streaming it
+
+A read asks for the events after the saved cursor. With `wait`, the Company
+holds the read up to that many seconds until something new arrives
+([§8.5](https://personalagentprotocol.org/docs/1.0/spec#reading-events)). With
+`Accept: text/event-stream`, it answers with server-sent events instead
+([§8.6](https://personalagentprotocol.org/docs/1.0/spec#streaming)): `working`
+first, then each event with its ID as the SSE `id`, and a reconnect sends
+`Last-Event-ID` to carry on where it stopped.
+
+Every lab Company streams. Its Company Agent's replies are complete when the
+request is accepted, so no `text-delta` events come and `wait` is capped at
+zero. Iris reads one reply per turn with `wait`; a stream suits a client that
+stays open, such as an app that shows a person joining as it happens.
+
 ## Signing in without leaving the conversation
 
 A conversation can need more access than the agent has. Signed in with
@@ -152,8 +167,9 @@ approves. Lantern sends operations only to requests that declare the extension i
 
 ## The approval as a message
 
-The user approves with a button in Iris, not by typing, and Iris sends the
-approval in a message:
+The user approves in Iris, with the card's button or in words ("approve the
+refund"). Iris's own code reads those words, never the model, and records
+`input_type` as `tap` or `typed`. Iris sends the approval in a message:
 
 ```json
 {
@@ -180,7 +196,7 @@ Lantern answers with the refund (simulated: no real money moves). Its `data`
 holds the `operation_id` and `refund.amount_cents`, 800.
 
 The text "The user approved the refund." changes nothing on its own; the
-`approval` object does. Iris derives the request `id` from the revision, so if
+`approval` object does. Iris derives the request `id` from the approval, so if
 the response is lost and it resends, the Company sees the same request and
 refunds once.
 
@@ -295,5 +311,5 @@ message.
 - In the lab: the gateway's
   [`conversations.ts`](../../packages/pap-company/src/gateway/conversations.ts),
   Lantern's [`agent.ts`](../../apps/lantern/src/agent.ts), Iris's
-  [`conversations.ts`](../../apps/playground/lib/conversations.ts) and the
+  [`conversations.ts`](../../packages/pap-agent/src/conversations.ts) and the
   [design notes](../conversations.md).

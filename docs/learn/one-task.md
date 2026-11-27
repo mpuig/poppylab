@@ -7,7 +7,7 @@ noodle order to Sunday."_ This page follows that task from the first fetch to
 the changed order, one trimmed request and response to a step, each linked to
 the [specification](https://personalagentprotocol.org/docs/1.0/spec).
 
-The traffic is from 25 and 26 November 2026. The discovery documents and the
+The traffic is from 25 to 27 November 2026. The discovery documents and the
 tasks response are live; the Session JWT and the signed-in steps come from the
 same gateway code, run in-process by the lab's tests, because they need a fictional
 customer's consent. URLs are the live ones; tokens are redacted.
@@ -68,6 +68,11 @@ GET https://food-demo.poppylab.dev/.well-known/poppy.json
       "type": "openapi",
       "url": "https://food-demo.poppylab.dev/openapi.json",
       "description": "Menu, delivery slots, …"
+    },
+    {
+      "type": "mcp", // (3)
+      "url": "https://food-demo.poppylab.dev/mcp",
+      "description": "The same operations as MCP tools: …"
     }
   ],
   "agent": {
@@ -83,7 +88,7 @@ GET https://food-demo.poppylab.dev/.well-known/poppy.json
     "browser_session_endpoint": "https://food-demo.poppylab.dev/poppy/browser-session"
   },
   "tasks": { "endpoint": "https://food-demo.poppylab.dev/poppy/tasks" },
-  "extensions": { "operations": [{ "version": "3" }] } // (3)
+  "extensions": { "operations": [{ "version": "3" }] } // (4)
 }
 ```
 
@@ -94,7 +99,9 @@ GET https://food-demo.poppylab.dev/.well-known/poppy.json
    for `orders:read` alone. The third lets an agent's own browser open
    Lantern's website signed in, read only; an agent without a browser never
    asks for it.
-3. **That changes need approval.** Lantern answers a change with exact terms
+3. **Which interfaces it offers.** An OpenAPI description and an MCP server
+   with the same operations; this task uses the API.
+4. **That changes need approval.** Lantern answers a change with exact terms
    and waits for approval
    ([Operations](https://personalagentprotocol.org/docs/1.0/extensions/operations)).
 
@@ -124,6 +131,7 @@ endpoints:
   "issuer": "https://food-demo.poppylab.dev",
   "authorization_endpoint": "https://food-demo.poppylab.dev/oauth/authorize",
   "pushed_authorization_request_endpoint": "https://food-demo.poppylab.dev/oauth/par",
+  "device_authorization_endpoint": "https://food-demo.poppylab.dev/oauth/device",
   "token_endpoint": "https://food-demo.poppylab.dev/oauth/token",
   "token_endpoint_auth_methods_supported": ["private_key_jwt"],
   "token_endpoint_auth_signing_alg_values_supported": ["ES256", "PS384"],
@@ -136,6 +144,8 @@ endpoints:
 `client_id` is a URL Lantern fetches for the agent's name and public keys.
 `private_key_jwt` means the agent signs, never sharing a secret
 ([§4.1](https://personalagentprotocol.org/docs/1.0/spec#agent-identity)).
+`device_authorization_endpoint` offers [Device Sign-In](sign-in.md#device-sign-in-for-an-agent-without-a-browser) to an
+agent without a browser at hand; this task uses Direct Sign-In.
 
 ## 3. Open a Session, signed out
 
@@ -258,10 +268,11 @@ client_id=https://poppylab.dev/agent/client.json
 &redirect_uri=https://poppylab.dev/api/account/callback&prompt=consent
 ```
 
-The user opens Lantern's consent page, which says **"Connecting Iris from
-poppylab.dev"**: the name is the agent's claim, the host is what Lantern
-verified. The user signs in to Lantern and allows or refuses each permission;
-the agent never sees the password.
+The user opens Lantern's consent page, headed **"Iris wants to connect to your
+Lantern account"**, with "Iris from poppylab.dev" marked as a verified address:
+the name is the agent's claim, the host is what Lantern verified. The user
+signs in to Lantern, in the lab by choosing a fictional test customer, and
+allows or refuses each permission; the agent never sees a password.
 
 ## 6. Get a token
 
@@ -362,14 +373,15 @@ replaces it and the old approval no longer applies.
 ## 9. The user approves, the agent resends
 
 The agent shows the terms and asks the user. The model can read and explain
-them but can't approve them: in Iris, approving is a button outside the chat,
-and chat text never counts as an approval.
+them but can't approve them. In Iris the user approves with the card's button,
+or in words in the chat ("approve"), which fixed rules read from the user's own
+message; nothing the model or Lantern writes counts as an approval.
 
 The agent resends the identical request with the approval:
 
 ```http
 POST https://food-demo.poppylab.dev/api/account/orders/ord_LNB2001/changes
-Poppy-Approval: operation_id="op_P9yN9PnUo_teWd3-Femrsqg_", revision="1795599649-m-M2VJxTga9pW4gq", approver="user", approved_at=1795600000, input_type="tap"
+Poppy-Approval: operation_id="op_P9yN9PnUo_teWd3-Femrsqg_", revision="1795599649-m-M2VJxTga9pW4gq", approver="user", approved_at=1795600000, input_type="tap", reference="apr_…"
 …same headers and body…
 ```
 
@@ -405,5 +417,4 @@ disconnect the agent at any time.
   [Build a Personal Agent](build-an-agent.md): the steps for each side.
 - Code: [`packages/pap-company`](../../packages/pap-company) (the gateway),
   [`apps/lantern`](../../apps/lantern) (the business routes) and
-  [`apps/playground/lib/runtime.ts`](../../apps/playground/lib/runtime.ts) (the
-  agent).
+  [`packages/pap-agent`](../../packages/pap-agent) (the agent).

@@ -28,9 +28,10 @@ describe each for the person approving. State in `scope_hints` what it changes (
 reading from changing, and irreversible from reversible changes, so an agent
 that only looks never asks for more.
 
-This guide builds Direct Sign-In and leaves out browser join. The
-[guides](https://personalagentprotocol.org/docs/1.0/guides#companies) cover
-Device and Mediated Sign-In.
+This guide builds Direct Sign-In, with a branch for Device Sign-In, and leaves
+out browser join. [Signing in](sign-in.md) weighs the three sign-in types, and
+the [guides](https://personalagentprotocol.org/docs/1.0/guides#companies) cover
+each.
 
 ![A vertical rail of five milestones, numbered 0 to 4, each adding to the ones before it. Milestone 0, be found, is one static file with no sign-in that tells agents who you are and what exists, and a Company that only wants that can stop there. Milestone 1, foundation, makes agents identifiable, with metadata, a verified Session header and a record of each Session, and milestone 2, interfaces, offers what anyone may see, signed out, through the interfaces the Company already has. Milestone 3, sign-in, lets a user connect an agent the Company never registered, and milestone 4, operations, makes every consequential change wait for the user's approval of its exact terms.](../../apps/playground/public/learn-media/diagrams/company-milestones.svg "Five milestones, each adding to the ones before it, from being found to approving every consequential change.")
 
@@ -197,7 +198,10 @@ Offer what anyone may see, signed out, through the interfaces you already have.
   conversation endpoint
   ([§8](https://personalagentprotocol.org/docs/1.0/spec#conversations)).
 - **MCP.** If you already run an MCP server, leave it as it is and list it in
-  `poppy.json`. It takes ordinary OAuth access tokens issued for it.
+  `poppy.json`. It takes ordinary OAuth access tokens issued for it. The lab's
+  Companies serve their OpenAPI operations as MCP tools at `/mcp`, a protected
+  resource of its own; a Bearer token for it works only with a Session header
+  whose `ath` covers that token.
 
 You know it works when you connect your Company to Iris, the lab's Personal
 Agent, at [poppylab.dev/playground](https://poppylab.dev/playground), and the
@@ -208,8 +212,8 @@ Inspector lists each operation you meant to offer.
 Take a report at the address your tasks response gives in `feedback.endpoint`
 ([§9.3](https://personalagentprotocol.org/docs/1.0/spec#feedback)). It carries
 the Session header, so you know which agent and user sent it, and it needs no
-scope. Iris's keyless demo sends this report when a message mentions a gift
-card:
+scope. Iris's demo mode sends this report for its guided example "Pay for my
+order with a gift card.":
 
 ```http
 POST https://food-demo.poppylab.dev/poppy/feedback
@@ -299,7 +303,7 @@ SHA-256 of the bytes each `url` returns equals that entry's `digest`.
 
 ### The conversation endpoint
 
-- Decide whether a model sits behind it. Lantern's Company Agent is about 600
+- Decide whether a model sits behind it. Lantern's Company Agent is about 640
   lines of deterministic code. A model behind a public endpoint lets anyone
   spend your money signed out, so rate-limit and budget it.
 - Answer every request ID once. A retry to the same path with the same body gets
@@ -315,6 +319,11 @@ SHA-256 of the bytes each `url` returns equals that entry's `digest`.
   `conversation_not_found` and a closed one is `conversation_closed`, because
   the specification doesn't make Direct Conversations optional
   ([§8.10](https://personalagentprotocol.org/docs/1.0/spec#direct-conversations)).
+- Stream reads if you can. Answer a read that sends
+  `Accept: text/event-stream` with server-sent events: `working` first, each
+  event with its ID as the SSE `id`, and a resume from `Last-Event-ID`
+  ([§8.6](https://personalagentprotocol.org/docs/1.0/spec#streaming)). End a
+  stream when its token or Session ends, and cap open streams per user.
 
 You know it works when resending a `POST` with the same request `id` and body
 returns the first response, and another body answers `request_id_conflict`.
@@ -332,9 +341,9 @@ Let a user connect an agent you never registered, with OAuth on your own pages.
 - **Choose the key in one place.** A `kid` names its key. Without one, use the
   client's key only when it publishes exactly one, and refuse when it publishes
   several.
-- **Name the agent and its host on the consent page.** Show "Connecting Iris
-  from poppylab.dev": the name is the agent's claim, the host is what you
-  verified. Let the user grant scopes one by one, behind your existing login.
+- **Name the agent and its host on the consent page.** Head it "Iris wants to
+  connect to your Lantern account" and show "Iris from poppylab.dev": the name
+  is the agent's claim, the host is what you verified. Let the user grant scopes one by one, behind your existing login.
 - **Bind and refresh carefully.** Use PKCE, offer PAR, bind tokens with DPoP if
   you can, and refresh only with the key a refresh token was bound to. Look up
   the refresh token before you check the DPoP proof: an unknown one is
@@ -346,6 +355,16 @@ Let a user connect an agent you never registered, with OAuth on your own pages.
 - **Give users an off switch.** Add a "connected agents" page where a customer
   sees and disconnects each grant. Disconnecting doesn't log the customer out,
   and logging out doesn't disconnect.
+
+If you offer Device Sign-In
+([§4.3](https://personalagentprotocol.org/docs/1.0/spec#device-sign-in)), list
+a `device_authorization_endpoint` and the device grant in your issuer's
+metadata. Give codes a short life (Lantern's last ten minutes and work once),
+limit wrong entries, and put the page where the user enters the code on your
+own domain. Opening that page approves nothing; show your consent page for
+every request, with the code on it, and answer early polls with `slow_down`.
+If your accounts hold money or other high-value data, offer Direct Sign-In
+only, as Harborline does.
 
 The validator never signs anyone in: check this milestone by hand against the
 kit's `checklist.md`.
@@ -429,16 +448,16 @@ approval happens once, even if you send it twice.
 [`packages/pap-company`](../../packages/pap-company) runs each of the lab's
 Companies on Hono, on Node and Cloudflare Workers. A Company supplies its
 scopes, consent page, OpenAPI paths and business routes; the gateway does the
-protocol. [`apps/lantern`](../../apps/lantern) is one, in about 500 lines of
+protocol. [`apps/lantern`](../../apps/lantern) is one, in about 530 lines of
 business code.
 
-| Milestone  | Where                                                                                                                                                                                                                                                                                                             |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Foundation | [`discovery.ts`](../../packages/pap-company/src/gateway/discovery.ts), [`sessions.ts`](../../packages/pap-company/src/gateway/sessions.ts)                                                                                                                                                                        |
-| Interfaces | [`conversations.ts`](../../packages/pap-company/src/gateway/conversations.ts), [`feedback.ts`](../../packages/pap-company/src/gateway/feedback.ts), [`skills.ts`](../../packages/pap-company/src/gateway/skills.ts), Lantern's Company Agent [`agent.ts`](../../apps/lantern/src/agent.ts), each Company's routes |
-| Sign-in    | [`signin.ts`](../../packages/pap-company/src/gateway/signin.ts) (authorize, PAR, consent), [`tokens.ts`](../../packages/pap-company/src/gateway/tokens.ts) (token, refresh, revoke)                                                                                                                               |
-| Operations | [`approvals.ts`](../../packages/pap-company/src/approvals.ts)                                                                                                                                                                                                                                                     |
-| A Company  | [`apps/lantern/src/lantern.ts`](../../apps/lantern/src/lantern.ts)                                                                                                                                                                                                                                                |
+| Milestone  | Where                                                                                                                                                                                                                                                                                                                                                                        |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Foundation | [`discovery.ts`](../../packages/pap-company/src/gateway/discovery.ts), [`sessions.ts`](../../packages/pap-company/src/gateway/sessions.ts)                                                                                                                                                                                                                                   |
+| Interfaces | [`conversations.ts`](../../packages/pap-company/src/gateway/conversations.ts), [`feedback.ts`](../../packages/pap-company/src/gateway/feedback.ts), [`skills.ts`](../../packages/pap-company/src/gateway/skills.ts), [`mcp.ts`](../../packages/pap-company/src/gateway/mcp.ts), Lantern's Company Agent [`agent.ts`](../../apps/lantern/src/agent.ts), each Company's routes |
+| Sign-in    | [`signin.ts`](../../packages/pap-company/src/gateway/signin.ts) (authorize, PAR, consent), [`device.ts`](../../packages/pap-company/src/gateway/device.ts) (Device Sign-In), [`tokens.ts`](../../packages/pap-company/src/gateway/tokens.ts) (token, refresh, revoke)                                                                                                        |
+| Operations | [`approvals.ts`](../../packages/pap-company/src/approvals.ts)                                                                                                                                                                                                                                                                                                                |
+| A Company  | [`apps/lantern/src/lantern.ts`](../../apps/lantern/src/lantern.ts)                                                                                                                                                                                                                                                                                                           |
 
 The gateway is lab code: its state lives in memory or a Durable Object, its
 customers are fictional and nobody has reviewed it for production.

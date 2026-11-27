@@ -51,8 +51,8 @@ an OpenAPI description can't say:
 
 - **The API follows a known shape.** An agent that knows it uses a native client
   instead of reading the description. Iris's generic adapter stops at 24 tools
-  and 64 paths and doesn't follow `$ref`, and an FDX-style description exceeds
-  both.
+  and 64 paths and follows only local parameter `$ref`s, and an FDX-style
+  description exceeds both.
 - **Scopes mean the same at every bank.** They are FDX's consent data clusters
   (`fdx:ACCOUNT_BASIC`, `fdx:TRANSACTIONS`…), not names each bank invents.
 - **The user chooses accounts.** The choice holds for everything the grant
