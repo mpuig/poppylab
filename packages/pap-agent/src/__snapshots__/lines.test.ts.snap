@@ -654,10 +654,10 @@ exports[`the agent's own lines > are all in every language, as the table shows t
       "fr": "Vous connecter à Lantern Noodle Bar ? Cela se fait sur la page de Lantern Noodle Bar, en lecture seule, et je ne vois jamais votre mot de passe.",
     },
     {
-      "ca": "Per a això necessito el teu compte de Lantern Noodle Bar. Inicies sessió a la pàgina de Lantern Noodle Bar per continuar amb «my orders»? És només de lectura i mai no veig la teva contrasenya.",
-      "en": "That needs your Lantern Noodle Bar account. Sign in on Lantern Noodle Bar's own page to go on with “my orders”? It's read only, and I never see your password.",
-      "es": "Para eso necesito tu cuenta de Lantern Noodle Bar. ¿Inicias sesión en la página de Lantern Noodle Bar para seguir con «my orders»? Es solo lectura y nunca veo tu contraseña.",
-      "fr": "Pour cela, j'ai besoin de votre compte Lantern Noodle Bar. Vous vous connectez sur la page de Lantern Noodle Bar pour continuer « my orders » ? C'est en lecture seule, et je ne vois jamais votre mot de passe.",
+      "ca": "Inicies sessió a la pàgina de Lantern Noodle Bar per continuar amb «my orders»? És només de lectura i mai no veig la teva contrasenya.",
+      "en": "Sign in on Lantern Noodle Bar's own page to go on with “my orders”? It's read only, and I never see your password.",
+      "es": "¿Inicias sesión en la página de Lantern Noodle Bar para seguir con «my orders»? Es solo lectura y nunca veo tu contraseña.",
+      "fr": "Vous connecter sur la page de Lantern Noodle Bar pour continuer « my orders » ? C'est en lecture seule, et je ne vois jamais votre mot de passe.",
     },
   ],
   "signInAskSpoken": [
@@ -898,10 +898,10 @@ exports[`the agent's own lines > are all in every language, as the table shows t
       "fr": "Demander à Lantern Noodle Bar l'autorisation de faire des modifications ? La page de Lantern Noodle Bar s'ouvre à nouveau, et rien ne change tant que vous n'avez pas approuvé la modification elle-même.",
     },
     {
-      "ca": "Per a això necessito permís per fer canvis a Lantern Noodle Bar. L'hi demano per continuar amb «move it to Sunday»? Es torna a obrir la pàgina de Lantern Noodle Bar, i res no canvia fins que aprovis el canvi.",
-      "en": "That needs change permission at Lantern Noodle Bar. Ask Lantern Noodle Bar for it to go on with “move it to Sunday”? Lantern Noodle Bar's page opens again, and nothing changes until you approve the change itself.",
-      "es": "Para eso necesito permiso para hacer cambios en Lantern Noodle Bar. ¿Se lo pido para seguir con «move it to Sunday»? Se vuelve a abrir la página de Lantern Noodle Bar, y nada cambia hasta que apruebes el cambio en sí.",
-      "fr": "Pour cela, j'ai besoin de l'autorisation de faire des modifications chez Lantern Noodle Bar. Je la demande pour continuer « move it to Sunday » ? La page de Lantern Noodle Bar s'ouvre à nouveau, et rien ne change tant que vous n'avez pas approuvé la modification elle-même.",
+      "ca": "Demano a Lantern Noodle Bar permís per fer canvis i continuar amb «move it to Sunday»? Es torna a obrir la pàgina de Lantern Noodle Bar, i res no canvia fins que aprovis el canvi.",
+      "en": "Ask Lantern Noodle Bar for change permission to go on with “move it to Sunday”? Lantern Noodle Bar's page opens again, and nothing changes until you approve the change itself.",
+      "es": "¿Pido a Lantern Noodle Bar permiso para hacer cambios y seguir con «move it to Sunday»? Se vuelve a abrir la página de Lantern Noodle Bar, y nada cambia hasta que apruebes el cambio en sí.",
+      "fr": "Demander à Lantern Noodle Bar l'autorisation de faire des modifications pour continuer « move it to Sunday » ? La page de Lantern Noodle Bar s'ouvre à nouveau, et rien ne change tant que vous n'avez pas approuvé la modification elle-même.",
     },
   ],
   "writeAskSpoken": [

@@ -51,6 +51,14 @@ describe("the question to go on after a sign-in", () => {
     });
   });
 
+  it("quotes a Spanish question whole, its closing mark too", () => {
+    const run = signedIn("es");
+    run.connections[0]!.resume!.asked = "Hola, ¿cuándo llega mi pedido?";
+    expect(askToResume(run, run.connections[0]!)!.text).toBe(
+      "Ya has iniciado sesión en Juniper Market. ¿Sigo con «Hola, ¿cuándo llega mi pedido?»?",
+    );
+  });
+
   it("goes once the User signs out there: nothing waits, and it no longer shows", () => {
     const run = signedIn();
     const asked = askToResume(run, run.connections[0]!)!;

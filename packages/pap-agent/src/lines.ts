@@ -106,19 +106,19 @@ export const LINES = {
   signInAsk: line<Name & { request?: string | undefined }>({
     en: (p) =>
       p.request
-        ? `That needs your ${p.name} account. Sign in on ${p.name}'s own page to go on with ${q("en", p.request)}? It's read only, and I never see your password.`
+        ? `Sign in on ${p.name}'s own page to go on with ${q("en", p.request)}? It's read only, and I never see your password.`
         : `Sign in to ${p.name}? You do it on ${p.name}'s own page, read only, and I never see your password.`,
     es: (p) =>
       p.request
-        ? `Para eso necesito tu cuenta de ${p.name}. ¿Inicias sesión en la página de ${p.name} para seguir con ${q("es", p.request)}? Es solo lectura y nunca veo tu contraseña.`
+        ? `¿Inicias sesión en la página de ${p.name} para seguir con ${q("es", p.request)}? Es solo lectura y nunca veo tu contraseña.`
         : `¿Inicias sesión en ${p.name}? Se hace en la propia página de ${p.name}, solo lectura, y nunca veo tu contraseña.`,
     ca: (p) =>
       p.request
-        ? `Per a això necessito el teu compte de ${p.name}. Inicies sessió a la pàgina de ${p.name} per continuar amb ${q("ca", p.request)}? És només de lectura i mai no veig la teva contrasenya.`
+        ? `Inicies sessió a la pàgina de ${p.name} per continuar amb ${q("ca", p.request)}? És només de lectura i mai no veig la teva contrasenya.`
         : `Inicies sessió a ${p.name}? Es fa a la pàgina de ${p.name}, només de lectura, i mai no veig la teva contrasenya.`,
     fr: (p) =>
       p.request
-        ? `Pour cela, j'ai besoin de votre compte ${p.name}. Vous vous connectez sur la page de ${p.name} pour continuer ${q("fr", p.request)} ? C'est en lecture seule, et je ne vois jamais votre mot de passe.`
+        ? `Vous connecter sur la page de ${p.name} pour continuer ${q("fr", p.request)} ? C'est en lecture seule, et je ne vois jamais votre mot de passe.`
         : `Vous connecter à ${p.name} ? Cela se fait sur la page de ${p.name}, en lecture seule, et je ne vois jamais votre mot de passe.`,
   }),
   signInAskSpoken: line<Name & { goOn: boolean }>({
@@ -134,19 +134,19 @@ export const LINES = {
   writeAsk: line<Name & { request?: string | undefined }>({
     en: (p) =>
       p.request
-        ? `That needs change permission at ${p.name}. Ask ${p.name} for it to go on with ${q("en", p.request)}? ${p.name}'s page opens again, and nothing changes until you approve the change itself.`
+        ? `Ask ${p.name} for change permission to go on with ${q("en", p.request)}? ${p.name}'s page opens again, and nothing changes until you approve the change itself.`
         : `Ask ${p.name} for change permission? ${p.name}'s page opens again, and nothing changes until you approve the change itself.`,
     es: (p) =>
       p.request
-        ? `Para eso necesito permiso para hacer cambios en ${p.name}. ¿Se lo pido para seguir con ${q("es", p.request)}? Se vuelve a abrir la página de ${p.name}, y nada cambia hasta que apruebes el cambio en sí.`
+        ? `¿Pido a ${p.name} permiso para hacer cambios y seguir con ${q("es", p.request)}? Se vuelve a abrir la página de ${p.name}, y nada cambia hasta que apruebes el cambio en sí.`
         : `¿Pido a ${p.name} permiso para hacer cambios? Se vuelve a abrir la página de ${p.name}, y nada cambia hasta que apruebes el cambio en sí.`,
     ca: (p) =>
       p.request
-        ? `Per a això necessito permís per fer canvis a ${p.name}. L'hi demano per continuar amb ${q("ca", p.request)}? Es torna a obrir la pàgina de ${p.name}, i res no canvia fins que aprovis el canvi.`
+        ? `Demano a ${p.name} permís per fer canvis i continuar amb ${q("ca", p.request)}? Es torna a obrir la pàgina de ${p.name}, i res no canvia fins que aprovis el canvi.`
         : `Demano a ${p.name} permís per fer canvis? Es torna a obrir la pàgina de ${p.name}, i res no canvia fins que aprovis el canvi.`,
     fr: (p) =>
       p.request
-        ? `Pour cela, j'ai besoin de l'autorisation de faire des modifications chez ${p.name}. Je la demande pour continuer ${q("fr", p.request)} ? La page de ${p.name} s'ouvre à nouveau, et rien ne change tant que vous n'avez pas approuvé la modification elle-même.`
+        ? `Demander à ${p.name} l'autorisation de faire des modifications pour continuer ${q("fr", p.request)} ? La page de ${p.name} s'ouvre à nouveau, et rien ne change tant que vous n'avez pas approuvé la modification elle-même.`
         : `Demander à ${p.name} l'autorisation de faire des modifications ? La page de ${p.name} s'ouvre à nouveau, et rien ne change tant que vous n'avez pas approuvé la modification elle-même.`,
   }),
   writeAskSpoken: line<Name & { goOn: boolean }>({

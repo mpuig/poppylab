@@ -220,7 +220,7 @@ describe("Iris asks, and the User answers in words", () => {
     const orders = await say("my orders");
     expect(orders.status).toBe(200);
     expect(orders.data.question).toEqual({
-      text: "That needs your Lantern Noodle Bar account. Sign in on Lantern Noodle Bar's own page to go on with “my orders”? It's read only, and I never see your password.",
+      text: "Sign in on Lantern Noodle Bar's own page to go on with “my orders”? It's read only, and I never see your password.",
       spoken:
         "Sign in to Lantern Noodle Bar to go on? You do it on Lantern Noodle Bar's own page.",
       choices: [
@@ -292,7 +292,7 @@ describe("Iris asks, and the User answers in words", () => {
       "Add a matcha ice cream and move it to Sunday lunchtime.",
     );
     expect(asked.data.question.text).toBe(
-      "That needs change permission at Lantern Noodle Bar. Ask Lantern Noodle Bar for it to go on with “Add a matcha ice cream and move it to Sunday lunchtime”? Lantern Noodle Bar's page opens again, and nothing changes until you approve the change itself.",
+      "Ask Lantern Noodle Bar for change permission to go on with “Add a matcha ice cream and move it to Sunday lunchtime”? Lantern Noodle Bar's page opens again, and nothing changes until you approve the change itself.",
     );
     expect(asked.data.question.choices[0].answer).toEqual({
       signin: { company: food, access: "write" },

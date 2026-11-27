@@ -201,10 +201,9 @@ function askApproval(
 
 /** The User's words, quoted in a sentence of the agent's. */
 const quoted = (request: string) => {
-  const words = request
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/[.!?]+$/, "");
+  const said = request.replace(/\s+/g, " ").trim();
+  // A question or exclamation that opens with "¿" or "¡" keeps its close.
+  const words = /[¿¡]/.test(said) ? said : said.replace(/[.!?]+$/, "");
   return words.length > 120 ? `${words.slice(0, 119)}…` : words;
 };
 
