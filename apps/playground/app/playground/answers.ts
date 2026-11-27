@@ -86,7 +86,8 @@ export function turnMessages(data: ChatAnswer): Message[] {
                   ? "Demo"
                   : "Agent") as Message["role"],
                 text: data.text,
-                // Demo mode: the Company's exact answer, behind "Data".
+                // The Company's exact answer, behind "Data": the demo's one,
+                // or each one a model's tools got.
                 ...(typeof data.data === "string" ? { data: data.data } : {}),
                 steps: (data.trace ?? []).map((line) =>
                   agentStep(logEntry(line)),

@@ -31,7 +31,7 @@ Each conversation has its own address and is listed under **History**; see [chat
 
 ## Demo mode
 
-Demo mode answers without a model. Keyword rules choose one of the Company's tools, call it, and show the Company's answer as plain lines, with the exact JSON one click away under "Data". Every answer starts with "Protocol demo (no LLM)." It exists so the protocol can be watched with no key: discovery, Sessions, sign-in, proposals and approvals are the real ones.
+Demo mode answers without a model. Keyword rules choose one of the Company's tools, call it, and show the Company's answer as plain lines, with the exact JSON one click away under "Data". Every answer starts with "Protocol demo (no LLM)." With a model, "Data" under an answer lists what each tool the model called answered, in order, as `{ tool, output }` with the exact output: the model itself gets each output cut to 16,000 characters. It exists so the protocol can be watched with no key: discovery, Sessions, sign-in, proposals and approvals are the real ones.
 
 It reads at every Company and can propose one kind of change at each but Fernwick, where a plan switch needs a model. A Company is recognised by the tools it offers, never by its name.
 

@@ -618,6 +618,7 @@ async function reply(request: Request, started: Outcome) {
     let text: string;
     // Demo mode has no model to put an answer into words: it shows the
     // Company's answer as plain lines and keeps the exact JSON for "Data".
+    // A model's answer keeps what each tool it called answered.
     let raw: unknown;
     const show = (value: unknown) => {
       raw = value;
@@ -867,6 +868,23 @@ async function reply(request: Request, started: Outcome) {
       // it read with any Company's account can be in this answer and in the
       // requests it makes: both are kept as holding those accounts.
       context = run.history.slice(-10);
+      // Each tool's answer as the Company gave it, in the order the model
+      // called them, for "Data" as demo mode keeps its one answer. The model
+      // itself gets each one cut short.
+      const answered: Array<{ tool: string; output: unknown }> = [];
+      const recorded = Object.fromEntries(
+        Object.entries(tools).map(([name, tool]) => [
+          name,
+          {
+            ...tool,
+            execute: async (input?: Record<string, unknown>) => {
+              const output = await tool.execute(input);
+              answered.push({ tool: name, output });
+              return output;
+            },
+          },
+        ]),
+      );
       text = await runModel(
         provider,
         // The roles and the words, without the Company each turn was with.
@@ -874,7 +892,7 @@ async function reply(request: Request, started: Outcome) {
           ...context.map(({ role, content }) => ({ role, content })),
           { role: "user", content: asked },
         ],
-        tools,
+        recorded,
         {
           apiKey: typeof body.apiKey === "string" ? body.apiKey : undefined,
           model: typeof body.model === "string" ? body.model : undefined,
@@ -888,6 +906,7 @@ async function reply(request: Request, started: Outcome) {
           }),
         },
       );
+      if (answered.length) raw = answered;
     }
     const exact =
       raw !== undefined ? JSON.stringify(raw).slice(0, 20000) : undefined;

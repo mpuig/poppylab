@@ -188,3 +188,52 @@ describe("what a Company says, in a model's turn", () => {
     ]);
   });
 });
+
+describe("the Data under a model's answer", () => {
+  it("is what each tool the model called answered, exactly and in order, as demo mode keeps its one", async () => {
+    const run = await conversation("poppy:read");
+    const products = {
+      products: [{ id: "apples", name: "Apples", price_cents: 390 }],
+    };
+    transport.mockImplementation(async (url) => {
+      const path = new URL(url).pathname;
+      if (path === "/poppy/openapi.json") return api;
+      if (path === "/poppy/tasks")
+        return {
+          excluded_tasks: [],
+          feedback: { endpoint: `${shop}/poppy/feedback` },
+        };
+      if (path === "/poppy/feedback") return alternative;
+      return products;
+    });
+    model.mockImplementationOnce(
+      async (
+        _provider: string,
+        _turns: unknown,
+        tools: Record<string, { execute: (input?: unknown) => unknown }>,
+      ) => {
+        await tools.list_products!.execute({});
+        await tools.report_unsupported_task!.execute({
+          task: "Report a wrong item in a delivery",
+          description: "The delivery had another product than the one ordered.",
+        });
+        return "Apples are $3.90, and I reported it.";
+      },
+    );
+    const turn = await say("What do apples cost? Also my delivery was wrong.");
+    const data = [
+      { tool: "list_products", output: products },
+      {
+        tool: "report_unsupported_task",
+        output: { sent: true, untrusted_company_content: true, alternative },
+      },
+    ];
+    expect(JSON.parse(turn.answer.data)).toEqual(data);
+    // Kept with the answer, so a reload shows it too.
+    expect(JSON.parse(run.transcript!.at(-1)!.data!)).toEqual(data);
+
+    // An answer that called no tool has none.
+    model.mockResolvedValueOnce("Hello.");
+    expect(await say("Hi")).not.toHaveProperty("answer.data");
+  });
+});
