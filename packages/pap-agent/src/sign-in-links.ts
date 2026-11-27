@@ -130,7 +130,13 @@ export async function createSignInLink(
     expires,
   };
   if (
-    !(await accountBackend().put(ticketBucket(ticket), "ticket", record, null))
+    !(await accountBackend().put(
+      ticketBucket(ticket),
+      "ticket",
+      record,
+      null,
+      expires,
+    ))
   )
     throw new Error("Sign-in link conflict");
   return {

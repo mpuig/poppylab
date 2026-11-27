@@ -10,9 +10,14 @@
  * - `ceremony:<id>`: one WebAuthn challenge, taken once;
  * - `link-code:<hash>`: one link code, redeemed once.
  *
+ * The last two, and an app's sign-in link and its `state` (`sign-in-links.ts`,
+ * `sign-in-cookie.ts`), are written with their `expires`, so a store
+ * keeps them minutes, not as long as an account.
+ *
  * A channel names the store with `configureAccountStorage`; the
  * playground's is a Durable Object per bucket that outlives the visitor's
- * (`apps/playground/lib/visitor-storage.ts`). Without one, accounts are
+ * (`apps/playground/lib/visitor-storage.ts`), and one holding only
+ * one-time records goes when they do. Without one, accounts are
  * kept where conversations are.
  */
 import { randomBytes } from "node:crypto";
@@ -241,6 +246,7 @@ export async function takeOnce<T extends { expires: number; used?: true }>(
     key,
     { ...record, used: true },
     entry.version,
+    record.expires,
   );
   await b.remove(bucketName, key).catch(() => {});
   if (!won || record.expires <= Date.now()) return undefined;

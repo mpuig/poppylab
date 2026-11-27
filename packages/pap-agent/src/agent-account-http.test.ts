@@ -18,6 +18,7 @@ import { v1 } from "./api-http";
 import { connected } from "./company-fixture";
 import { channelUser, configureBackend, memoryBackend } from "./runs";
 import type { Run } from "./runtime";
+import { rememberAppSignIn } from "./sign-in-cookie";
 import { softwareAuthenticator } from "./webauthn-fixture";
 
 const site = "http://localhost:3991";
@@ -420,6 +421,28 @@ describe("a company's sign-in from a client app", () => {
     expect(kept).not.toContain(ticket);
   });
 
+  it("keeps a link and the sign-in it starts only as long as they can be used", async () => {
+    const { token, user } = await app();
+    const kept: Array<{ bucket: string; expires?: number }> = [];
+    configureBackend({
+      ...store,
+      put: (bucket, key, value, expected, expires) => {
+        kept.push({ bucket, ...(expires ? { expires } : {}) });
+        return store.put(bucket, key, value, expected, expires);
+      },
+    });
+    expect((await link(token)).status).toBe(200);
+    await rememberAppSignIn("state-1", user);
+    const oneTime = kept.filter(
+      (w) =>
+        w.bucket.startsWith("sign-in-ticket:") ||
+        w.bucket.startsWith("sign-in-state:"),
+    );
+    expect(oneTime).toHaveLength(2);
+    for (const write of oneTime)
+      expect(write.expires).toBeLessThanOrEqual(Date.now() + 5 * 60000);
+  });
+
   it("is given none for a company the conversation isn't connected to, or a conversation that isn't the account's", async () => {
     const { token } = await app();
     expect(
@@ -731,6 +754,37 @@ describe("what is kept and said", () => {
       );
     expect(refused.at(-1)).toBe(429);
     expect(refused[0]).toBe(401);
+  });
+
+  it("keeps a ceremony or a link code only as long as it can be used", async () => {
+    const cookies = visitor();
+    await create(page(cookies));
+    // Every write from here on, with the time it may be dropped.
+    const kept: Array<{ bucket: string; expires?: number }> = [];
+    configureBackend({
+      ...store,
+      put: (bucket, key, value, expected, expires) => {
+        kept.push({ bucket, ...(expires ? { expires } : {}) });
+        return store.put(bucket, key, value, expected, expires);
+      },
+    });
+    for (let i = 0; i < 5; i++) {
+      expect(
+        (await call("POST", "/accounts/options", { body: {} })).status,
+      ).toBe(200);
+      expect(
+        (await call("POST", "/sessions/options", { body: {} })).status,
+      ).toBe(200);
+    }
+    await call("POST", "/account/passkeys/options", {
+      ...page(cookies),
+      body: {},
+    });
+    await call("POST", "/account/link-codes", { ...page(cookies), body: {} });
+    const oneTime = kept.filter((w) => !w.bucket.startsWith("account:"));
+    expect(oneTime).toHaveLength(12);
+    for (const write of oneTime)
+      expect(write.expires).toBeLessThanOrEqual(Date.now() + 5 * 60000);
   });
 
   it("counts sign-ins per account, from any address", async () => {

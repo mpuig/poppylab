@@ -19,6 +19,7 @@ type VisitorObject = {
     key: string,
     value: unknown,
     expected: number | null,
+    expires?: number,
   ): Promise<boolean>;
   removeEntry(key: string): Promise<void>;
   listEntries(prefix: string): Promise<Array<[string, Versioned]>>;
@@ -52,8 +53,8 @@ function plainDurableBackend(
 ): Backend {
   return {
     get: (visitor, key) => stub(visitor).getEntry(key),
-    put: (visitor, key, value, expected) =>
-      stub(visitor).putEntry(key, value, expected),
+    put: (visitor, key, value, expected, expires) =>
+      stub(visitor).putEntry(key, value, expected, expires),
     remove: (visitor, key) => stub(visitor).removeEntry(key),
     list: (visitor, prefix) => stub(visitor).listEntries(prefix),
     count: (visitor, key, windowMs) => stub(visitor).count(key, windowMs),

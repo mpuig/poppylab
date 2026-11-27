@@ -5,6 +5,12 @@
  *
  * Agent accounts (`PoppyAccount`) are the same object with a longer idle
  * time: a passkey on someone's phone outlives a week away.
+ *
+ * Each object is deleted by its alarm, set for the last moment anything
+ * in it is still worth keeping: an idle time after a value was written,
+ * a value's own `expires` when it says when it is worth nothing (a
+ * passkey ceremony, a link code), and a counter's window. An object left
+ * with nothing in it has no alarm, so it goes at once.
  */
 import { DurableObject } from "cloudflare:workers";
 
@@ -14,24 +20,33 @@ const IDLE_MS = 8 * 86400000;
 
 export class PoppyVisitor extends DurableObject {
   protected idleMs = IDLE_MS;
-  private async touch() {
-    await this.ctx.storage.setAlarm(Date.now() + this.idleMs);
+  /** Keeps the object at least until `time`; never brings its end closer. */
+  private async keepUntil(time: number) {
+    const alarm = await this.ctx.storage.getAlarm();
+    if (alarm === null || alarm < time) await this.ctx.storage.setAlarm(time);
   }
   async getEntry(key: string) {
     return this.ctx.storage.get<Versioned>(`e:${key}`);
   }
-  async putEntry(key: string, value: unknown, expected: number | null) {
+  async putEntry(
+    key: string,
+    value: unknown,
+    expected: number | null,
+    expires?: number,
+  ) {
     const current = await this.ctx.storage.get<Versioned>(`e:${key}`);
     if ((current?.version ?? null) !== expected) return false;
     await this.ctx.storage.put(`e:${key}`, {
       value,
       version: (current?.version ?? 0) + 1,
     });
-    await this.touch();
+    await this.keepUntil(expires ?? Date.now() + this.idleMs);
     return true;
   }
   async removeEntry(key: string) {
     await this.ctx.storage.delete(`e:${key}`);
+    if (!(await this.ctx.storage.list({ limit: 1 })).size)
+      await this.ctx.storage.deleteAlarm();
   }
   async listEntries(prefix: string) {
     return [
@@ -48,7 +63,8 @@ export class PoppyVisitor extends DurableObject {
         ? { n: 1, until: now + windowMs }
         : { ...c, n: c.n + 1 };
     await this.ctx.storage.put(`c:${key}`, next);
-    await this.touch();
+    // A count is worth nothing once its window has passed.
+    await this.keepUntil(next.until);
     return next.n;
   }
   override async alarm() {
@@ -61,7 +77,8 @@ const ACCOUNT_IDLE_MS = 365 * 86400000;
 
 /**
  * One Durable Object per agent account (`account:<id>`), and one for each
- * passkey ceremony and link code under way, which are taken once.
+ * passkey ceremony, link code and app sign-in link under way, which are
+ * taken once and go when they are taken or run out, minutes on.
  */
 export class PoppyAccount extends PoppyVisitor {
   protected override idleMs = ACCOUNT_IDLE_MS;

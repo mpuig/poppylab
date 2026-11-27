@@ -48,11 +48,13 @@ const stateBucket = (state: string) =>
   `sign-in-state:${createHash("sha256").update(state).digest("base64url")}`;
 
 export async function rememberAppSignIn(state: string, user: string) {
+  const expires = Date.now() + LIFETIME * 1000;
   await accountBackend().put(
     stateBucket(state),
     "state",
-    { user, expires: Date.now() + LIFETIME * 1000 } satisfies AppSignIn,
+    { user, expires } satisfies AppSignIn,
     null,
+    expires,
   );
 }
 /** The agent user of the app's sign-in with this `state`, if it is one. */

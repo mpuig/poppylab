@@ -86,12 +86,13 @@ export function sealedBackend(
   };
   return {
     get: async (visitor, k) => open(visitor, k, await inner.get(visitor, k)),
-    put: async (visitor, k, value, expected) =>
+    put: async (visitor, k, value, expected, expires) =>
       inner.put(
         visitor,
         k,
         await seal(await keyPromise, aad(visitor, k), value),
         expected,
+        expires,
       ),
     remove: (visitor, k) => inner.remove(visitor, k),
     list: async (visitor, prefix) => {

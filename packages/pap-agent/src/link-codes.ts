@@ -50,6 +50,7 @@ export async function createLinkCode(account: AgentAccount) {
         "code",
         { account: account.id, expires } satisfies LinkCode,
         null,
+        expires,
       )
     )
       return {

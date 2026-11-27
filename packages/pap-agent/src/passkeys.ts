@@ -67,12 +67,16 @@ type Ceremony = {
 const ceremonyBucket = (id: string) => `ceremony:${id}`;
 async function begin(ceremony: Omit<Ceremony, "expires">) {
   const id = opaqueId();
+  const expires = Date.now() + CEREMONY_MS;
+  // Kept no longer than it can be answered: options anyone may ask for
+  // leave nothing behind for long.
   if (
     !(await accountBackend().put(
       ceremonyBucket(id),
       "ceremony",
-      { ...ceremony, expires: Date.now() + CEREMONY_MS },
+      { ...ceremony, expires },
       null,
+      expires,
     ))
   )
     throw new Error("Ceremony conflict");

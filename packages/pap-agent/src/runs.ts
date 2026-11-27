@@ -25,12 +25,18 @@ import { bytesOf, RUN_LIMITS, RunNotSaved } from "./run-size";
 export type Versioned<T = unknown> = { value: T; version: number };
 export interface Backend {
   get(visitor: string, key: string): Promise<Versioned | undefined>;
-  /** Writes only if the stored version is `expected` (null: absent). */
+  /**
+   * Writes only if the stored version is `expected` (null: absent).
+   * `expires` says the value is worth nothing after then (a ceremony's
+   * challenge, a link code), so a store may drop it from that time
+   * instead of keeping it as long as its bucket.
+   */
   put(
     visitor: string,
     key: string,
     value: unknown,
     expected: number | null,
+    expires?: number,
   ): Promise<boolean>;
   remove(visitor: string, key: string): Promise<void>;
   list(visitor: string, prefix: string): Promise<Array<[string, Versioned]>>;
