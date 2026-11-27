@@ -19,7 +19,8 @@ import {
   type ApiError,
   type Result,
 } from "./api";
-import { conversationEvents } from "./api-events";
+import { conversationEvents, holdStream, MAX_STREAMS } from "./api-events";
+import { overAccountBudget } from "./account-limits";
 import {
   ACCOUNT_OPERATIONS,
   accountOperation,
@@ -29,13 +30,20 @@ import {
   type AccountOperation,
   type OpenOperation,
 } from "./agent-account-http";
-import { sessionOfAccessToken } from "./api-sessions";
+import { sessionOfAccessToken, stillSignedIn } from "./api-sessions";
 import { apiSessionCaller } from "./identity";
 import { serving } from "./deployment";
 import { openApiDocument } from "./openapi";
 import { createSignInLink, openSignInLink } from "./sign-in-links";
 import { UserFacingError } from "./user-error";
-import { browserCaller, readJson, type Caller, type CookieStore } from "./web";
+import {
+  accountCookie,
+  browserCaller,
+  readJson,
+  toResponse,
+  type Caller,
+  type CookieStore,
+} from "./web";
 
 export const API_PREFIX = "/api/v1";
 
@@ -276,7 +284,7 @@ async function serve(
       case "getConversation":
         return answer(await getConversation(caller, id));
       case "conversationEvents":
-        return events(caller, id, request.signal);
+        return events(caller, id, request, cookies);
       case "startConversation": {
         const input = await body(request);
         const company = text(input.company);
@@ -370,10 +378,41 @@ const model = (value: unknown) => {
  * each change, named by its `type`, with a comment every reading so a
  * proxy keeps the stream open. It closes after five minutes or when the
  * conversation ends; the client opens it again and starts from `state`.
+ * A signed-in request's stream ends with `session.ended` within seconds
+ * of its session ending or its access token running out. Opening one is
+ * counted per source and per account, and an account holds at most
+ * `MAX_STREAMS` open at once.
  */
-async function events(caller: Caller, id: string, signal: AbortSignal) {
+async function events(
+  caller: Caller,
+  id: string,
+  request: Request,
+  cookies: CookieStore,
+) {
+  const signed = caller.account;
+  const over = await overAccountBudget("events", {
+    ip: caller.ip,
+    ...(signed ? { account: signed.id } : {}),
+  });
+  if (over) return toResponse(over);
   const first = await getConversation(caller, id);
   if (!first.ok) return error(first);
+  const held = signed ? await holdStream(signed.id) : undefined;
+  if (signed && !held)
+    return Response.json(
+      {
+        code: "too_many_streams",
+        error: `This account has ${MAX_STREAMS} event streams open already. Close one, or wait a minute and try again.`,
+      },
+      { status: 429, headers: { ...headers, "Retry-After": "60" } },
+    );
+  // What signed the request in, to ask again while the stream lasts.
+  const credential =
+    signed?.via === "cookie"
+      ? cookies.get(accountCookie())?.value
+      : bearer(request.headers.get("authorization") ?? "");
+  const stop = new AbortController();
+  request.signal.addEventListener("abort", () => stop.abort(), { once: true });
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -387,17 +426,24 @@ async function events(caller: Caller, id: string, signal: AbortSignal) {
       write("retry: 3000\n\n");
       try {
         for await (const event of conversationEvents(caller, id, {
-          signal,
+          signal: stop.signal,
           onRead: () => write(": read\n\n"),
+          ...(signed
+            ? { signedIn: () => stillSignedIn(signed.via, credential) }
+            : {}),
         }))
           write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
       } finally {
+        await held?.release();
         try {
           controller.close();
         } catch {
           // Closed already.
         }
       }
+    },
+    cancel() {
+      stop.abort();
     },
   });
   return new Response(stream, {

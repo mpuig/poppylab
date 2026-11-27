@@ -192,6 +192,7 @@ const schemas: Record<string, Schema> = {
           "company.added",
           "company.removed",
           "conversation.ended",
+          "session.ended",
         ],
       },
       state: ref("ConversationState"),
@@ -199,6 +200,12 @@ const schemas: Record<string, Schema> = {
       company: ref("CompanyRef"),
       proposal: ref("Proposal"),
       keptUntil: integer,
+      code: {
+        type: "string",
+        enum: ["invalid_token", "session_revoked"],
+        description:
+          "For `session.ended`: `invalid_token` when the access token ran out or was replaced (refresh it and open the stream again), `session_revoked` when the device was signed out.",
+      },
     },
     required: ["type"],
   },
@@ -511,7 +518,7 @@ export function openApiDocument() {
         get: {
           operationId: "conversationEvents",
           summary:
-            "Server-Sent Events: `state` first, then what changes (a sign-in finished, a proposal expired or replaced, a Company's message in a Direct Conversation). Closes after five minutes or when the conversation ends; open it again.",
+            "Server-Sent Events: `state` first, then what changes (a sign-in finished, a proposal expired or replaced, a Company's message in a Direct Conversation). Closes after five minutes or when the conversation ends; open it again. A signed-in stream ends with `session.ended` within seconds of its session ending or its access token running out. An account keeps at most ten streams open (`too_many_streams`).",
           parameters: [id],
           responses: {
             "200": {
@@ -519,6 +526,7 @@ export function openApiDocument() {
               content: { "text/event-stream": { schema: ref("AgentEvent") } },
             },
             "404": errors["404"],
+            "429": accountErrors["429"],
           },
         },
       },

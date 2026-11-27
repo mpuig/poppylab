@@ -208,6 +208,25 @@ export async function sessionOfAccessToken(token: unknown) {
   return session;
 }
 
+/**
+ * Why a credential no longer signs its request in, or undefined while it
+ * does: for a stream opened with it, which outlasts the check at its
+ * start. An app's access token that ran out or was replaced is
+ * `invalid_token` (it refreshes); a session that ended is
+ * `session_revoked`.
+ */
+export async function stillSignedIn(
+  via: "cookie" | "bearer",
+  credential: unknown,
+): Promise<"invalid_token" | "session_revoked" | undefined> {
+  if (via === "cookie")
+    return (await sessionOfCookie(credential)) ? undefined : "session_revoked";
+  if (await sessionOfAccessToken(credential)) return undefined;
+  const named = parse("at", credential);
+  const found = named && (await loadSession(named.account, named.session));
+  return found && live(found.session) ? "invalid_token" : "session_revoked";
+}
+
 /** The account a refresh token names, for its budget, before it is checked. */
 export const refreshAccount = (token: unknown) => parse("rt", token)?.account;
 

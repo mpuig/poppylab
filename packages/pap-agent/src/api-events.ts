@@ -15,6 +15,7 @@ import {
   type ConversationState,
   type Proposal,
 } from "./api";
+import { accountBackend, opaqueId } from "./account-store";
 import type { Caller } from "./web";
 
 export type AgentEvent =
@@ -42,7 +43,14 @@ export type AgentEvent =
   | { type: "proposal.updated"; proposal: Proposal }
   | { type: "company.added"; company: CompanyRef }
   | { type: "company.removed"; company: CompanyRef }
-  | { type: "conversation.ended"; keptUntil?: number };
+  | { type: "conversation.ended"; keptUntil?: number }
+  /**
+   * The stream's own sign-in ended, and the stream with it: with
+   * `invalid_token` its access token ran out or was replaced (refresh and
+   * open it again), with `session_revoked` the device was signed out.
+   */
+  | { type: "session.ended"; code: SessionEnded };
+export type SessionEnded = "invalid_token" | "session_revoked";
 export type AgentEventType = AgentEvent["type"];
 
 const ref = ({ origin, name }: CompanyRef): CompanyRef => ({ origin, name });
@@ -123,11 +131,16 @@ export function eventsBetween(
   return events;
 }
 
+/** A stream's sign-in is checked again after this many readings. */
+const CHECK_EVERY = 5;
+
 /**
  * The conversation's events, read every `every` milliseconds, from the
  * state it is in when called: first `state`, then what changes. Stops when
  * `signal` aborts, when the conversation ends, or after `lasting`
- * milliseconds; a channel opens it again from a new `state`.
+ * milliseconds; a channel opens it again from a new `state`. `signedIn`
+ * says why the request's sign-in no longer holds, if it doesn't: it is
+ * asked every few readings, and the stream ends with `session.ended`.
  */
 export async function* conversationEvents(
   caller: Caller,
@@ -138,14 +151,16 @@ export async function* conversationEvents(
     lasting?: number;
     /** After each reading, changed or not: a stream's keep-alive. */
     onRead?: () => void;
+    signedIn?: () => Promise<SessionEnded | undefined>;
   } = {},
 ): AsyncGenerator<AgentEvent> {
   const every = options.every ?? 2000;
-  const until = Date.now() + (options.lasting ?? 300000);
+  const until = Date.now() + (options.lasting ?? STREAM_MS);
   const first = await getConversation(caller, id);
   if (!first.ok) return;
   let last = first.value;
   let checked = Date.now();
+  let readings = 0;
   yield { type: "state", state: last };
   while (!options.signal?.aborted && Date.now() < until && last.active) {
     await new Promise<void>((resolve) => {
@@ -156,6 +171,13 @@ export async function* conversationEvents(
       });
     });
     if (options.signal?.aborted) return;
+    if (options.signedIn && ++readings % CHECK_EVERY === 0) {
+      const ended = await options.signedIn();
+      if (ended) {
+        yield { type: "session.ended", code: ended };
+        return;
+      }
+    }
     const next = await getConversation(caller, id);
     if (!next.ok) return;
     options.onRead?.();
@@ -168,4 +190,57 @@ export async function* conversationEvents(
     last = next.value;
     checked = now;
   }
+}
+
+// ---- Open streams ----------------------------------------------------------
+
+/** A stream lasts at most this long; a client opens it again. */
+export const STREAM_MS = 5 * 60000;
+/** An account has at most this many streams open, on all its devices. */
+export const MAX_STREAMS = 10;
+type Open = { id: string; until: number };
+
+/**
+ * Holds one of the account's streams, or answers undefined when it has
+ * `MAX_STREAMS` open already. The list is one record, changed with a
+ * compare-and-set, so two devices opening at once can't both take the
+ * last place. A stream that never said it closed (its isolate went)
+ * frees its place when its time is up.
+ */
+export async function holdStream(account: string) {
+  const bucket = `account:${account}`,
+    key = "streams";
+  const change = async (edit: (open: Open[]) => Open[] | undefined) => {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const entry = await accountBackend().get(bucket, key);
+      const now = Date.now();
+      const open = ((entry?.value as Open[] | undefined) ?? []).filter(
+        (s) => s.until > now,
+      );
+      const next = edit(open);
+      if (!next) return false;
+      if (
+        await accountBackend().put(
+          bucket,
+          key,
+          next,
+          entry?.version ?? null,
+          Math.max(now, ...next.map((s) => s.until)),
+        )
+      )
+        return true;
+    }
+    return false;
+  };
+  const id = opaqueId();
+  const held = await change((open) =>
+    open.length < MAX_STREAMS
+      ? [...open, { id, until: Date.now() + STREAM_MS + 60000 }]
+      : undefined,
+  );
+  if (!held) return undefined;
+  return {
+    release: () =>
+      change((open) => open.filter((s) => s.id !== id)).catch(() => false),
+  };
 }

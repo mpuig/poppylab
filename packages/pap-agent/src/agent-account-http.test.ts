@@ -797,6 +797,124 @@ describe("what is kept and said", () => {
   });
 });
 
+describe("a conversation's event stream", () => {
+  /** Opens the stream and keeps what it says in `text`. */
+  async function listen(
+    id: string,
+    from: { token?: string; cookies?: Jar },
+    stop = new AbortController(),
+  ) {
+    const response = await v1(
+      new Request(`${site}/api/v1/conversations/${id}/events`, {
+        headers: from.token ? { authorization: `Bearer ${from.token}` } : {},
+        signal: stop.signal,
+      }),
+      from.cookies ?? jar(),
+    );
+    const heard = { status: response.status, text: "", done: false, stop };
+    if (response.status !== 200) return heard;
+    const reader = response.body!.getReader();
+    void (async () => {
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        heard.text += new TextDecoder().decode(value);
+      }
+      heard.done = true;
+    })();
+    return heard;
+  }
+  /** Lets the stream read the conversation until it says `what`. */
+  async function until(heard: { text: string }, what: string) {
+    for (let i = 0; i < 40 && !heard.text.includes(what); i++)
+      await vi.advanceTimersByTimeAsync(1000);
+    expect(heard.text).toContain(what);
+  }
+  const fake = () =>
+    vi.useFakeTimers({
+      now: Date.now(),
+      toFake: ["Date", "setTimeout", "clearTimeout"],
+    });
+
+  it("ends an app's stream when its device is signed out, saying so", async () => {
+    fake();
+    const created = await create({});
+    const token = created.data.tokens!.accessToken as string;
+    const started = await call("POST", "/conversations", { token, body: {} });
+    const heard = await listen(started.data.id as string, { token });
+    await until(heard, "event: state");
+    await call("DELETE", "/account/sessions", { token });
+    await until(heard, "event: session.ended");
+    expect(heard.text).toContain('"code":"session_revoked"');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(heard.done).toBe(true);
+  });
+
+  it("ends an app's stream when its access token is replaced, so it refreshes", async () => {
+    fake();
+    const created = await create({});
+    const tokens = created.data.tokens!;
+    const token = tokens.accessToken as string;
+    const started = await call("POST", "/conversations", { token, body: {} });
+    const heard = await listen(started.data.id as string, { token });
+    await until(heard, "event: state");
+    await call("POST", "/sessions/refresh", {
+      body: { refreshToken: tokens.refreshToken },
+    });
+    await until(heard, "event: session.ended");
+    expect(heard.text).toContain('"code":"invalid_token"');
+  });
+
+  it("ends a browser's stream when it is signed out on another device", async () => {
+    fake();
+    const cookies = visitor();
+    const created = await create(page(cookies));
+    const started = await call("POST", "/conversations", {
+      ...page(cookies),
+      body: {},
+    });
+    const heard = await listen(started.data.id as string, { cookies });
+    await until(heard, "event: state");
+    const phone = await signIn({}, created.authenticator);
+    await call("DELETE", "/account/sessions", {
+      token: phone.data.tokens!.accessToken as string,
+    });
+    await until(heard, "event: session.ended");
+    expect(heard.text).toContain('"code":"session_revoked"');
+  });
+
+  it("holds an account to ten open streams, and counts how often they are opened", async () => {
+    const created = await create({});
+    const token = created.data.tokens!.accessToken as string;
+    const started = await call("POST", "/conversations", { token, body: {} });
+    const id = started.data.id as string;
+    const open: Array<Awaited<ReturnType<typeof listen>>> = [];
+    for (let i = 0; i < 10; i++) open.push(await listen(id, { token }));
+    expect(open.map((s) => s.status)).toEqual(Array(10).fill(200));
+    const eleventh = await listen(id, { token });
+    expect(eleventh.status).toBe(429);
+    // One closed frees its place.
+    open[0]!.stop.abort();
+    await vi.waitFor(() => expect(open[0]!.done).toBe(true));
+    const again = await listen(id, { token });
+    expect(again.status).toBe(200);
+    for (const s of [...open, again]) s.stop.abort();
+    await vi.waitFor(() =>
+      expect([...open, again].every((s) => s.done)).toBe(true),
+    );
+    // Thirty opened in a minute is the most.
+    const statuses: number[] = [];
+    for (let i = 0; i < 20; i++) {
+      const s = await listen(id, { token });
+      statuses.push(s.status);
+      s.stop.abort();
+      if (s.status === 200) await vi.waitFor(() => expect(s.done).toBe(true));
+    }
+    expect(statuses.at(-1)).toBe(429);
+    expect(statuses.filter((s) => s === 200)).toHaveLength(18);
+  });
+});
+
 describe("linking a channel with a one-time code", () => {
   it("binds the channel's user to the account once, and only for a channel this deployment knows", async () => {
     vi.useFakeTimers({ now: Date.now(), toFake: ["Date"] });

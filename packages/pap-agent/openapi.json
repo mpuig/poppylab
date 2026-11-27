@@ -638,7 +638,7 @@
     "/api/v1/conversations/{id}/events": {
       "get": {
         "operationId": "conversationEvents",
-        "summary": "Server-Sent Events: `state` first, then what changes (a sign-in finished, a proposal expired or replaced, a Company's message in a Direct Conversation). Closes after five minutes or when the conversation ends; open it again.",
+        "summary": "Server-Sent Events: `state` first, then what changes (a sign-in finished, a proposal expired or replaced, a Company's message in a Direct Conversation). Closes after five minutes or when the conversation ends; open it again. A signed-in stream ends with `session.ended` within seconds of its session ending or its access token running out. An account keeps at most ten streams open (`too_many_streams`).",
         "parameters": [
           {
             "name": "id",
@@ -663,6 +663,16 @@
           },
           "404": {
             "description": "No such conversation for this user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many attempts; wait a minute.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2344,7 +2354,8 @@
               "proposal.updated",
               "company.added",
               "company.removed",
-              "conversation.ended"
+              "conversation.ended",
+              "session.ended"
             ]
           },
           "state": {
@@ -2361,6 +2372,14 @@
           },
           "keptUntil": {
             "type": "integer"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "invalid_token",
+              "session_revoked"
+            ],
+            "description": "For `session.ended`: `invalid_token` when the access token ran out or was replaced (refresh it and open the stream again), `session_revoked` when the device was signed out."
           }
         },
         "required": [

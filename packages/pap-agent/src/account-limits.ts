@@ -1,9 +1,10 @@
 /**
  * Budgets for the account's ceremonies: creating an account, signing in
  * with a passkey, adding one, refreshing an app's tokens, redeeming a
- * link code and an app's links to a Company's sign-in. Unlike the chat's (`limits.ts`), they hold on every
- * deployment: each is a guess at a secret or a write to the store, and
- * none needs many tries.
+ * link code and an app's links to a Company's sign-in; and for opening a
+ * conversation's event stream. Unlike the chat's (`limits.ts`), they
+ * hold on every deployment: each is a guess at a secret or a write to
+ * the store, and none needs many tries.
  *
  * Each is counted per source address and, once the request names one,
  * per account, with a global ceiling. An address is hashed before it is
@@ -56,6 +57,12 @@ const budgets = {
     source: [l("acct-link:m", 20, minute)],
     account: [l("acct-link:a", 20, minute)],
     global: [l("acct-link:g", 1200, minute)],
+  },
+  /** Opening a conversation's event stream, which then reads it for minutes. */
+  events: {
+    source: [l("events:m", 30, minute)],
+    account: [l("events:a", 30, minute)],
+    global: [l("events:g", 2400, minute)],
   },
 } satisfies Record<
   string,
