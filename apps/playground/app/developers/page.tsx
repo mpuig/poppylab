@@ -83,8 +83,8 @@ const legend = [
   [
     "CV",
     "Conversations",
-    "/poppy/conversations · the Company's own agent",
-    "§8",
+    "/poppy/conversations · the Company's agent, SSE event streams (Accept: text/event-stream) and Direct Conversations",
+    "§8, §8.6, §8.10",
   ],
   [
     "OP",
@@ -94,67 +94,87 @@ const legend = [
   ],
 ] as const;
 
-const covers = [
-  [
-    "Discovery, versions and identity.",
-    "poppy.json 1.0 with supported_versions, protected-resource and authorization-server metadata, and an HTTPS client_id with metadata and JWKS.",
-    "§3, §4.1",
-  ],
-  [
-    "Sessions.",
-    "A delegated ES256 Poppy-Session header on every request, DPoP-bound access tokens, refresh with the same DPoP key, and revocation.",
-    "§5",
-  ],
-  [
-    "Direct Sign-In.",
-    "A pushed authorization request when offered, with consent on the Company's own page: read-only first, change proposals as a separate step.",
-    "§4.2",
-  ],
-  [
-    "Device Sign-In.",
-    "The agent shows a link and a short code, and the person signs in on the Company's own page on any device. Four Companies offer it; Harborline doesn't.",
-    "§4.3",
-  ],
-  [
-    "Approvals.",
-    "A change comes back as approval_required with exact terms. The Company performs it only when the same request returns with the user's approval, at most once.",
-    "Operations v3",
-  ],
-  [
-    "Agent approvals.",
-    'Under a standing instruction the person set for one Company, Iris approves within its limits with approver="agent". Harborline declines an agent approval for a payment or a transfer, with the reason.',
-    "Operations §6",
-  ],
-  [
-    "MCP.",
-    "Each Company's MCP server at /mcp offers its API's operations as tools, with its own protected resource metadata, a token requested for it alone, and the same approvals.",
-    "§7",
-  ],
-  [
-    "Browser join.",
-    "A Personal Agent's browser can join its Session on the Company's website with poppy:browser-sign-in, and sees what the token's scopes cover. A joined browser changes nothing.",
-    "§6",
-  ],
-  [
-    "Domain extensions.",
-    "Harborline serves FDX-shaped bank data (poppylab.dev/fdx v1) and Fernwick ESPI-shaped energy data (poppylab.dev/espi v1), each with its own scopes and consent.",
-    "§3.3",
-  ],
-  [
-    "Operator signatures.",
-    "Iris signs each request with HTTP Message Signatures and names its key directory in Signature-Agent.",
-    "§5.3",
-  ],
-  [
-    "Conversations.",
-    "Each Company has its own deterministic agent that takes structured requests and can ask for sign-in or propose an operation.",
-    "§8",
-  ],
-  [
-    "Skills.",
-    "Each Company publishes skills, its own notes for agents on how to do a task with its API, and the Inspector lists them; Iris loads none yet.",
-    "§9.4",
-  ],
+const coverGroups = [
+  {
+    title: "Identity and Sessions",
+    items: [
+      [
+        "Discovery, versions and identity.",
+        "poppy.json 1.0 with supported_versions, protected-resource and authorization-server metadata, and an HTTPS client_id with metadata and JWKS.",
+        "§3, §4.1",
+      ],
+      [
+        "Sessions and DPoP.",
+        "A delegated ES256 Poppy-Session header on every request, DPoP-bound access tokens, refresh with the same DPoP key, and revocation.",
+        "§5",
+      ],
+      [
+        "Operator signatures.",
+        "Iris signs each request with HTTP Message Signatures and names its key directory in Signature-Agent.",
+        "§5.3",
+      ],
+    ],
+  },
+  {
+    title: "Sign-In and Consent",
+    items: [
+      [
+        "Direct Sign-In.",
+        "A pushed authorization request when offered, with consent on the Company's own page: read-only first, change proposals as a separate step.",
+        "§4.2",
+      ],
+      [
+        "Device Sign-In.",
+        "The agent shows a link and a short code, and the person signs in on the Company's own page on any device. Four Companies offer it; Harborline doesn't.",
+        "§4.3",
+      ],
+      [
+        "Browser join.",
+        "A Personal Agent's browser can join its Session on the Company's website with poppy:browser-sign-in, seeing what the token's scopes cover. A joined browser changes nothing.",
+        "§6",
+      ],
+    ],
+  },
+  {
+    title: "Tools and Extensions",
+    items: [
+      [
+        "APIs and MCP.",
+        "Each Company serves OpenAPI 3.1 endpoints and an MCP server at /mcp with its own protected resource metadata, a per-resource token, and the same approvals.",
+        "§7",
+      ],
+      [
+        "Domain extensions.",
+        "Harborline serves FDX-shaped bank data (poppylab.dev/fdx v1) and Fernwick ESPI-shaped energy data (poppylab.dev/espi v1), each with its own scopes and consent.",
+        "§3.3",
+      ],
+      [
+        "Tasks and skills.",
+        "Each Company exposes per-Session GET /poppy/tasks (excluded tasks and feedback) and publishes skills listed in the Inspector; Iris loads none yet.",
+        "§9, §9.4",
+      ],
+    ],
+  },
+  {
+    title: "Conversations and Approvals",
+    items: [
+      [
+        "Approvals.",
+        "A change comes back as approval_required with exact server-computed terms. The Company performs it only once, when the same request returns with the user's approval.",
+        "Operations v3",
+      ],
+      [
+        "Agent approvals.",
+        'Under a standing instruction set for one Company, Iris approves within its limits with approver="agent". Harborline declines agent approvals for payments and transfers.',
+        "Operations §6",
+      ],
+      [
+        "Conversations, streaming and handoff.",
+        "Each Company's deterministic agent handles structured requests, streams live events over SSE (Last-Event-ID), proposes operations, and supports handoff and Direct Conversations.",
+        "§8, §8.6, §8.9–8.10",
+      ],
+    ],
+  },
 ] as const;
 
 export default function Developers() {
@@ -366,10 +386,10 @@ export default function Developers() {
             <h2 id="api-title">The agent&apos;s API</h2>
             <p className="aside">
               Iris has an HTTP API of its own, for a client that isn&apos;t the
-              playground&apos;s page: a phone app or a messaging channel, in the
-              same conversations. An app signs in with a passkey and holds a
-              session per device. It is <code>v1</code>, and still changing
-              until it is frozen.
+              playground&apos;s page: a phone app, a voice client or a messaging
+              channel, in the same conversations. An app signs in with a passkey
+              and holds a session per device. It is <code>v1</code>, and still
+              changing until it is frozen.
             </p>
             <a className="button ghost" href="/developers/api">
               Read the reference <ArrowRight size={18} aria-hidden="true" />
@@ -398,16 +418,26 @@ export default function Developers() {
               </dd>
             </div>
             <div>
+              <dt>Streaming</dt>
+              <dd>
+                SSE turn deltas · live conversation events · spoken text for
+                voice
+              </dd>
+            </div>
+            <div>
               <dt>Sign-in</dt>
-              <dd>Passkeys for poppylab.dev · bearer and refresh tokens</dd>
+              <dd>
+                Passkeys for poppylab.dev · rotating tokens · app Company
+                sign-in links
+              </dd>
             </div>
           </dl>
         </section>
 
-        <section className="below" aria-labelledby="covers-title">
-          <div>
+        <section className="agents" aria-labelledby="covers-title">
+          <div className="agents-intro">
             <h2 id="covers-title">What the lab implements</h2>
-            <p className="aside">
+            <p>
               Poppy Lab makes no claim of conformance, and interop findings are
               expected output. Other implementations are listed in the{" "}
               <a href={DEMOS_URL}>protocol&apos;s community demos</a>. How each
@@ -416,14 +446,21 @@ export default function Developers() {
               is on its own page.
             </p>
           </div>
-          <ul>
-            {covers.map(([title, text, spec]) => (
-              <li key={title}>
-                <strong>{title}</strong> {text}{" "}
-                <SpecRef className="spec-ref" reference={spec} />
-              </li>
+          <div className="covers-grid">
+            {coverGroups.map((group) => (
+              <div className="covers-group" key={group.title}>
+                <h3>{group.title}</h3>
+                <ul>
+                  {group.items.map(([title, text, spec]) => (
+                    <li key={title}>
+                      <strong>{title}</strong> {text}{" "}
+                      <SpecRef className="spec-ref" reference={spec} />
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ))}
-          </ul>
+          </div>
         </section>
       </main>
 
