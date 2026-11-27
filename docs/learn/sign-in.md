@@ -18,8 +18,8 @@ Each ends with the same tokens
 ([§4.7](https://personalagentprotocol.org/docs/1.0/spec#scopes)). Direct
 Sign-In is the preferred type: a Company that offers sign-in SHOULD offer it,
 and an agent SHOULD use it where it is offered
-([§4](https://personalagentprotocol.org/docs/1.0/spec#oauth)). Iris always
-uses Direct Sign-In, which
+([§4](https://personalagentprotocol.org/docs/1.0/spec#oauth)). Iris, the lab's
+Personal Agent, always uses Direct Sign-In, which
 [One task](one-task.md#5-ask-the-user-for-access) follows request by request.
 
 ## Device Sign-In, for an agent without a browser
@@ -54,7 +54,7 @@ On the Company's side, the lab's Companies run it this way:
 - **The code.** Eight letters, drawn from twenty consonants, unique among the
   requests a Company holds. It lasts ten minutes and works once.
 - **The page.** `/device` on the Company's own domain, headed "Connect an agent
-  to your Juniper Market account". It tells the user to enter a code only if
+  to your Lantern Noodle Bar account". It tells the user to enter a code only if
   they asked an agent to sign in themselves. Opening it, with or without the
   code in the link, approves nothing.
 - **The consent page.** The same page as Direct Sign-In, shown for every
