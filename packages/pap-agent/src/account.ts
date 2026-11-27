@@ -1,3 +1,4 @@
+import { agentName } from "./agent";
 import {
   browserCaller,
   json,
@@ -1054,7 +1055,7 @@ async function act(
             connection,
             op,
             "declined",
-            `The Company declined the approval Iris sent on the user's standing instruction; nothing was performed, and it's waiting for the user.${statedReason(error.declined?.reason)}`,
+            `The Company declined the approval ${agentName()} sent on the user's standing instruction; nothing was performed, and it's waiting for the user.${statedReason(error.declined?.reason)}`,
           );
           return json(
             {
@@ -1117,7 +1118,7 @@ async function act(
           // §5: when the terms come back, Iris's rule doesn't approve them.
           if (approver === "agent") op.agentSuperseded = true;
           op.result = {
-            summary: `${company ?? "The Company"} answered the retry with new terms instead of a result. That doesn't say whether the approval sent first was performed, so the new terms aren't offered for approval. Check ${company ? `${company}'s` : "the Company's"} own records to see whether the change was made, such as by asking Iris to read your account. If it wasn't, ask for the change in a new conversation to get terms you can approve.`,
+            summary: `${company ?? "The Company"} answered the retry with new terms instead of a result. That doesn't say whether the approval sent first was performed, so the new terms aren't offered for approval. Check ${company ? `${company}'s` : "the Company's"} own records to see whether the change was made, such as by asking ${agentName()} to read your account. If it wasn't, ask for the change in a new conversation to get terms you can approve.`,
           };
           return json(
             {
@@ -1208,7 +1209,7 @@ async function act(
         }
         // The new terms say what they answer. After Iris's approval the
         // card has its own note for that, so only the reason is kept.
-        const changed = `${company} returned these new terms instead of performing the ones ${approver === "agent" ? "Iris approved on your standing instruction" : "you approved"}. Nothing was performed. Approve them if you still want this, or decline.`;
+        const changed = `${company} returned these new terms instead of performing the ones ${approver === "agent" ? `${agentName()} approved on your standing instruction` : "you approved"}. Nothing was performed. Approve them if you still want this, or decline.`;
         if (approver === "agent") next.notPerformed = "new_terms";
         else notPerformed(next, "new_terms", changed);
         return json(

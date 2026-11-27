@@ -1,3 +1,4 @@
+import { agentName } from "./agent";
 import { agentStep, type AgentStep } from "./agent-steps";
 import type { Choice } from "./company-commands";
 import type { CompanyEntry, DirectAction } from "./conversations";
@@ -348,8 +349,8 @@ function withdrawnNote(
   const count = waited || ended;
   const many = count > 1;
   return `${many ? `${count} proposals` : "A proposal"} from ${from} that ${
-    waited ? "waited for your approval" : "Iris showed here"
-  } no longer ${many ? "show: they" : "shows: it"} could hold details from your ${account} account, which Iris no longer keeps. ${
+    waited ? "waited for your approval" : `${agentName()} showed here`
+  } no longer ${many ? "show: they" : "shows: it"} could hold details from your ${account} account, which ${agentName()} no longer keeps. ${
     waited
       ? `Nothing was approved. Ask ${from} for the ${many ? "changes again if you still want them" : "change again if you still want it"}.`
       : `What ${from} already performed is not undone.`
@@ -751,8 +752,8 @@ export function recordDirect(
         content: !spoke
           ? `(Direct conversation with ${company}: ${action})`
           : sent
-            ? `(The user wrote to ${company} directly, without Iris.)`
-            : `(The user tried to write to ${company} directly, without Iris; it may not have been sent.)`,
+            ? `(The user wrote to ${company} directly, without ${agentName()}.)`
+            : `(The user tried to write to ${company} directly, without ${agentName()}; it may not have been sent.)`,
       },
       { role: "assistant", content: said },
     );

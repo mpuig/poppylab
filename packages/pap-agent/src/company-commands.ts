@@ -11,6 +11,7 @@
  * words that are also said about an order ("remove Lantern"): nothing is
  * revoked or removed until the User confirms.
  */
+import { agentName } from "./agent";
 import { PapDiscoveryError } from "@poppy-lab/pap-core";
 import type { Nameable } from "./company-names";
 import type { ConnectCommand } from "./connect-command";
@@ -355,7 +356,7 @@ function removalQuestion(found: readonly Connection[], rest: string) {
     `Remove ${listed(found.map(companyName), "and")} from this conversation?`,
     ...(signedIn.length
       ? [
-          `That revokes the access you gave Iris ${one ? "there" : `at ${listed(signedIn, "and")}`}, and what Iris read with your account there no longer shows.`,
+          `That revokes the access you gave ${agentName()} ${one ? "there" : `at ${listed(signedIn, "and")}`}, and what ${agentName()} read with your account there no longer shows.`,
         ]
       : []),
     ...(waiting
@@ -366,7 +367,9 @@ function removalQuestion(found: readonly Connection[], rest: string) {
     ...(!signedIn.length && !waiting
       ? [`You can connect ${one ? "it" : "them"} again at any time.`]
       : []),
-    ...(rest ? ["Iris asks the rest of your message after that."] : []),
+    ...(rest
+      ? [`${agentName()} asks the rest of your message after that.`]
+      : []),
   ].join(" ");
 }
 
@@ -385,7 +388,7 @@ export async function connectFor(
 ): Promise<Performed> {
   const done = await connect(run, [company], rest, allowedPrivateOrigins);
   if (!done.changed || !done.at) return done;
-  const say = `This is one for ${companyName(done.at)}, so Iris connected it to this conversation. It's asked without your account until you sign in there.`;
+  const say = `This is one for ${companyName(done.at)}, so ${agentName()} connected it to this conversation. It's asked without your account until you sign in there.`;
   return { ...done, say, told: say };
 }
 
@@ -398,7 +401,7 @@ export function noRoomFor(
   company: Nameable,
   lab: readonly Nameable[],
 ): Performed {
-  const say = `This is one for ${company.name}, which this conversation isn't connected to. It works with ${MAX_CONNECTIONS} companies already, as many as it can: remove one, then ask again and Iris connects ${company.name}.`;
+  const say = `This is one for ${company.name}, which this conversation isn't connected to. It works with ${MAX_CONNECTIONS} companies already, as many as it can: remove one, then ask again and ${agentName()} connects ${company.name}.`;
   return {
     say,
     told: say,
@@ -550,12 +553,14 @@ async function remove(
     if (removal.revoked !== undefined) withAccount = true;
     notes.push(
       removal.revoked
-        ? `${name} was removed from this conversation, and the access you gave Iris there was revoked.`
+        ? `${name} was removed from this conversation, and the access you gave ${agentName()} there was revoked.`
         : `${name} was removed from this conversation.${removal.notice ? ` ${removal.notice}` : ""}`,
     );
   }
   if (withAccount)
-    notes.push("What Iris read with your account there no longer shows.");
+    notes.push(
+      `What ${agentName()} read with your account there no longer shows.`,
+    );
   if (removed)
     notes.push(
       run.connections.length

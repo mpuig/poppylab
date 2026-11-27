@@ -9,6 +9,7 @@
  * Company still answers `approval_required` and holds the change for the
  * User. When the message doesn't say enough, the demo asks instead of guessing.
  */
+import { agentName } from "./agent";
 import { HOLDING } from "./demo-text";
 
 type Tool = {
@@ -718,7 +719,7 @@ export function demoChangeReply(
  * held, and the demo's two sentences about that say what happened instead.
  *
  * `data` is the Company's exact answer, which names the operation, and
- * `approvedByIris` says whether the instruction approved that one. The
+ * `approvedByAgent` says whether the instruction approved that one. The
  * answer stays as written while the change waits for the User and after
  * they approved it themselves, and so does an answer about anything else.
  * A Company's own words are never changed: only the demo's sentences, where
@@ -727,7 +728,7 @@ export function demoChangeReply(
 export function demoChangeReplyNow(
   text: string,
   data: string | undefined,
-  approvedByIris: (operationId: string) => boolean,
+  approvedByAgent: (operationId: string) => boolean,
 ) {
   let answer: { status?: unknown; operation_id?: unknown } | null;
   try {
@@ -738,7 +739,7 @@ export function demoChangeReplyNow(
   if (
     answer?.status !== "approval_required" ||
     typeof answer.operation_id !== "string" ||
-    !approvedByIris(answer.operation_id)
+    !approvedByAgent(answer.operation_id)
   )
     return text;
   const said = text.replace(
@@ -746,7 +747,7 @@ export function demoChangeReplyNow(
     () => `${ANSWERED}The company held this change until it was approved:`,
   );
   return said.endsWith(HOLDS + MODEL)
-    ? `${said.slice(0, -(HOLDS + MODEL).length)}Iris approved this change on your standing instruction, so there is nothing for you to approve. ${MODEL}`
+    ? `${said.slice(0, -(HOLDS + MODEL).length)}${agentName()} approved this change on your standing instruction, so there is nothing for you to approve. ${MODEL}`
     : said;
 }
 

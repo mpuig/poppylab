@@ -15,6 +15,7 @@
  * answer says so in one line, and "What Iris did" shows each call's
  * arguments.
  */
+import { agentName } from "./agent";
 import { InvalidToolArguments } from "@poppy-lab/pap-client";
 import { demoChangeReply, type DemoTools } from "./demo-changes";
 
@@ -90,7 +91,7 @@ export async function demoPayBill(
     text: `Protocol demo (no LLM). ${words}`,
   });
   const needs = `Paying your ${biller.name} bill from checking reads the bill at ${biller.name} and proposes the payment at ${bank.name}, so it needs you signed in at both.`;
-  const untouched = `Iris didn't read your bill or ask ${bank.name} for anything.`;
+  const untouched = `${agentName()} didn't read your bill or ask ${bank.name} for anything.`;
   // Signed out, Iris stops before asking: the step says nothing was sent,
   // and the sign-in it waits for is under the answer.
   if (!biller.signedIn) {
@@ -175,7 +176,7 @@ export async function demoPayBill(
   if (!payee)
     return say(
       "bank",
-      `${bank.name} has no saved recipient for ${biller.name}, and Iris can't add one there. Nothing was sent to ${bank.name}.`,
+      `${bank.name} has no saved recipient for ${biller.name}, and ${agentName()} can't add one there. Nothing was sent to ${bank.name}.`,
     );
   const limit = payee.payment_limit_cents;
   if (typeof limit === "number" && amount > limit)
@@ -194,7 +195,7 @@ export async function demoPayBill(
       reference,
       idempotency_key: key(),
     },
-    because: `The demo read your latest bill at ${biller.name}, for ${covers} and due on ${day(text(due[0]!.due_date))}, then your accounts and saved recipients at ${bank.name}, and asked ${bank.name} to pay ${text(payee.name)} ${usd(amount)} from ${text(from.name)}.\n\nFrom ${biller.name}, Iris sent ${bank.name} the bill's amount, ${usd(amount)}, its reference, ${reference}, and its month, ${covers}, in the memo, and nothing else.`,
+    because: `The demo read your latest bill at ${biller.name}, for ${covers} and due on ${day(text(due[0]!.due_date))}, then your accounts and saved recipients at ${bank.name}, and asked ${bank.name} to pay ${text(payee.name)} ${usd(amount)} from ${text(from.name)}.\n\nFrom ${biller.name}, ${agentName()} sent ${bank.name} the bill's amount, ${usd(amount)}, its reference, ${reference}, and its month, ${covers}, in the memo, and nothing else.`,
   };
   try {
     return say(

@@ -26,6 +26,7 @@
  *
  * Plain data and no I/O.
  */
+import { agentName } from "./agent";
 import { namedBy, namedIn, namedPlainly, type Nameable } from "./company-names";
 
 export type ConnectCommand = {
@@ -49,9 +50,18 @@ export type ConnectCommand = {
   | { unknown: string }
 );
 
-/** Words before the request that change nothing about it. */
-const POLITE =
-  /^(?:(?:hey|hi|hello|ok|okay)[,!]?\s+)?(?:iris[,:]?\s+)?(?:please\s+|(?:can|could|would|will)\s+you\s+(?:please\s+)?|i(?:'d|’d| would)\s+like\s+(?:you\s+)?to\s+|i\s+want\s+(?:you\s+)?to\s+|let(?:'|’)?s\s+)?/i;
+/**
+ * Words before the request that change nothing about it, the agent's own
+ * name among them ("Iris, connect with Lantern").
+ */
+const polite = () => {
+  const name = agentName().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(
+    String.raw`^(?:(?:hey|hi|hello|ok|okay)[,!]?\s+)?(?:${name}[,:]?\s+)?` +
+      String.raw`(?:please\s+|(?:can|could|would|will)\s+you\s+(?:please\s+)?|i(?:'d|’d| would)\s+like\s+(?:you\s+)?to\s+|i\s+want\s+(?:you\s+)?to\s+|let(?:'|’)?s\s+)?`,
+    "i",
+  );
+};
 
 /**
  * How a request about the Companies begins. `sure`: these words are only
@@ -165,7 +175,7 @@ export function connectCommand(
   message: string,
   known: { connected: readonly Nameable[]; lab: readonly Nameable[] },
 ): ConnectCommand | undefined {
-  const text = message.trim().replace(POLITE, "");
+  const text = message.trim().replace(polite(), "");
   // A connected Company of the lab's goes by its own name, and by the
   // lab's name and words for it as well.
   const labAt = (url: string) =>

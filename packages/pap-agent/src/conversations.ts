@@ -20,6 +20,7 @@
  * model isn't involved; its tools see `direct_conversation_open` on the
  * parent until the User closes it.
  */
+import { agentName } from "./agent";
 import { createHash, randomBytes } from "node:crypto";
 import {
   ProtocolError,
@@ -201,8 +202,7 @@ export function conversationSession(connection: Connection, options: Options) {
                 conversation: { endpoint: options.endpoint, id: read.id },
               });
             } catch {
-              note =
-                "Offered an operation Iris couldn't read. Nothing was done.";
+              note = `Offered an operation ${agentName()} couldn't read. Nothing was done.`;
               result.approval = { status: "invalid", note };
             }
             if (op?.state === "uncertain") {
@@ -284,7 +284,7 @@ export function conversationSession(connection: Connection, options: Options) {
         });
         result.user_requested = {
           reason,
-          note: "The Company asked to talk with the user directly. Iris shows the user a card to accept or decline; you can't start that conversation. Tell the user what the Company asked, briefly.",
+          note: `The Company asked to talk with the user directly. ${agentName()} shows the user a card to accept or decline; you can't start that conversation. Tell the user what the Company asked, briefly.`,
         };
       } else if (e.type === "direct_opened" || e.type === "direct_closed") {
         options.trace(
@@ -386,7 +386,7 @@ export function conversationSession(connection: Connection, options: Options) {
           delete state().direct;
           return {
             error: error.code,
-            note: "That direct conversation is over, so the Company didn't take your message. Iris is back.",
+            note: `That direct conversation is over, so the Company didn't take your message. ${agentName()} is back.`,
           };
         }
         connection.conversation = { endpoint: options.endpoint, seen: [] };
@@ -408,7 +408,7 @@ export function conversationSession(connection: Connection, options: Options) {
         return {
           error: error.code,
           note: own
-            ? "Iris lost its place in the direct conversation and will read it again from the start. Your last message may not have arrived."
+            ? `${agentName()} lost its place in the direct conversation and will read it again from the start. Your last message may not have arrived.`
             : "Call company_agent_read to read the conversation again.",
         };
       }
@@ -595,7 +595,7 @@ export function conversationSession(connection: Connection, options: Options) {
           ).catch(() => ({}));
           return {
             ...out,
-            note: `A direct conversation with ${company} was already open, and Iris had lost track of it. You're back in it now. This message wasn't sent: say it again if ${company} doesn't have it yet.`,
+            note: `A direct conversation with ${company} was already open, and ${agentName()} had lost track of it. You're back in it now. This message wasn't sent: say it again if ${company} doesn't have it yet.`,
           };
         }
       }

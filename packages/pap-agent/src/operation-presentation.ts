@@ -1,3 +1,4 @@
+import { agentName } from "./agent";
 import { readable } from "./demo-text";
 
 export type ReviewOperation = {
@@ -408,7 +409,7 @@ export function waitsAgain(op: ReviewOperation, notApplied?: string | null) {
   if (op.notPerformed === "new_terms") return "Came back with new terms";
   if (op.notPerformed || op.result) return "Last approval refused";
   if (op.agentSuperseded) return "Came back with new terms";
-  if (op.agentDeclined) return "Iris’s approval declined";
+  if (op.agentDeclined) return `${agentName()}’s approval declined`;
   return notApplied ? "Standing instruction did not apply" : "";
 }
 
@@ -444,7 +445,7 @@ export function outcome(
   if (state === "succeeded") {
     const who =
       op.approvedBy?.approver === "agent"
-        ? "Approved by Iris on your standing instruction."
+        ? `Approved by ${agentName()} on your standing instruction.`
         : op.approvedBy
           ? "Approved by you."
           : "";
@@ -454,7 +455,7 @@ export function outcome(
   }
   if (state === "declined")
     return {
-      note: `You declined this, so Iris sent no approval to ${company} and nothing was done. Ask for the change again if you still want it.`,
+      note: `You declined this, so ${agentName()} sent no approval to ${company} and nothing was done. Ask for the change again if you still want it.`,
     };
   // A refusal, new terms or an ended conversation: the route's own sentence
   // says what happened. A proposal that ran out on its own clock has none,

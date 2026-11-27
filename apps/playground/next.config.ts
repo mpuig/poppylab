@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
+import { AGENT_NAME } from "./lib/agent-name";
 
 const nextConfig: NextConfig = {
+  // The agent core's sentences that the page renders name the agent too
+  // (`agentName` in @poppy-lab/pap-agent/agent).
+  env: { AGENT_NAME },
   poweredByHeader: false,
   outputFileTracingExcludes: {
     "/*": [

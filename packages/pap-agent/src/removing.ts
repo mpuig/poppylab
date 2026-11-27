@@ -3,6 +3,7 @@
  * the User asked for it: with a button of the page, or in their own words
  * in the chat. Never on a model's word or a Company's.
  */
+import { agentName } from "./agent";
 import { companyName, companyRef, originOf } from "./connections";
 import { companiesView, wordsView } from "./conversation-view";
 import { keepLines } from "./inspector-log";
@@ -30,7 +31,7 @@ const unsettledRefusal = (name: string) =>
 
 /** What to say when the Company's grant couldn't be revoked on the way out. */
 const notRevokedNotice = (name: string) =>
-  `${name} couldn't be reached, so the access you gave Iris there wasn't revoked. You can end that access on ${name}'s own website.`;
+  `${name} couldn't be reached, so the access you gave ${agentName()} there wasn't revoked. You can end that access on ${name}'s own website.`;
 
 /** How a removal went, for the route that answers it. */
 export type Removal =

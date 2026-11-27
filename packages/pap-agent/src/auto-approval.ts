@@ -1,3 +1,4 @@
+import { agentName } from "./agent";
 import type { ReviewOperation } from "./operation-presentation";
 import {
   coveredBy,
@@ -132,9 +133,9 @@ export function leftToUser(
   )
     return null;
   if (op.agentDeclined)
-    return `${company} declined the approval Iris sent on it`;
+    return `${company} declined the approval ${agentName()} sent on it`;
   if (op.agentSuperseded)
-    return `${company} answered the approval Iris sent on it with new terms`;
+    return `${company} answered the approval ${agentName()} sent on it with new terms`;
   return notCovered(op, instruction, now) ?? held ?? null;
 }
 

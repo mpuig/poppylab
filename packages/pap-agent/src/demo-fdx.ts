@@ -222,7 +222,8 @@ export function demoFdxReply(answer: unknown, show: (v: unknown) => string) {
         ? " This sign-in doesn't include the FDX-shaped data clusters: sign in again with Use FDX on."
         : "";
   const download = statements
-    ? "Download a statement as a PDF from Statements in the account row; Iris doesn't read the PDF. "
+    ? `Download a statement as a PDF from Statements in the account row; ${agentName()} doesn't read the PDF. `
     : "";
   return `Protocol demo (no LLM). Read through the FDX-shaped tools (poppylab.dev/fdx v1), with only the accounts you shared:\n\n${shown}\n\n${download}${hint ? `${hint.trim()} ` : ""}Turn Use FDX off to read through the Company's own API instead. For natural-language reasoning, select a model.`;
 }
+import { agentName } from "./agent";

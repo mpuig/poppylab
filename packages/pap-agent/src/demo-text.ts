@@ -208,12 +208,12 @@ export function notSentReply(
   const reason = notSent(value);
   if (!reason) return undefined;
   if (reason === "sign_in")
-    return `This needs your account at ${company}, and you are not signed in. Iris didn't send this request to the Company. Press “Sign in to ${company}”, then ask again.`;
+    return `This needs your account at ${company}, and you are not signed in. ${agentName()} didn't send this request to the Company. Press “Sign in to ${company}”, then ask again.`;
   const missing = (value as Json).missing;
   return Array.isArray(missing) &&
     missing.some((scope) => typeof scope === "string" && changes(scope))
-    ? `This needs the change permission, which your sign-in to ${company} doesn't include. Iris didn't send this request to the Company. Press “Request change permission”, review the Company's consent, and ask again.`
-    : `This needs a permission your sign-in to ${company} doesn't include. Iris didn't send this request to the Company. Sign out, then sign in again and keep every permission ticked on the Company's consent page.`;
+    ? `This needs the change permission, which your sign-in to ${company} doesn't include. ${agentName()} didn't send this request to the Company. Press “Request change permission”, review the Company's consent, and ask again.`
+    : `This needs a permission your sign-in to ${company} doesn't include. ${agentName()} didn't send this request to the Company. Sign out, then sign in again and keep every permission ticked on the Company's consent page.`;
 }
 
 /** How the demo words a change the Company holds for the User's approval. */
@@ -265,7 +265,7 @@ export function readable(value: unknown): string {
   // Not an answer of the Company's: Iris never asked.
   const stopped = notSent(value);
   if (stopped)
-    return `Iris didn't send this request to the Company: ${stopped === "sign_in" ? "this needs your account, and you are not signed in" : "your sign-in doesn't include a permission this needs"}.`;
+    return `${agentName()} didn't send this request to the Company: ${stopped === "sign_in" ? "this needs your account, and you are not signed in" : "your sign-in doesn't include a permission this needs"}.`;
   // A change the Company holds: its own summary says it best.
   if (value.status === "approval_required" && typeof value.summary === "string")
     return `${HOLDING}\n${value.summary}`;
@@ -282,3 +282,4 @@ export function readable(value: unknown): string {
     ? [...out.slice(0, MAX_LINES), "…more under Data."].join("\n")
     : out.join("\n");
 }
+import { agentName } from "./agent";

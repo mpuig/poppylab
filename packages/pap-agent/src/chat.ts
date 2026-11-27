@@ -1,3 +1,4 @@
+import { agentName } from "./agent";
 import { accountRecovery, accountUnavailableNotice } from "./account-recovery";
 import { accountNote } from "./account-permissions";
 import {
@@ -304,7 +305,7 @@ async function reply(
       (!answer || body.message !== undefined || direct)
     )
       throw new UserFacingError(
-        "Send a message, or the answer one of Iris's buttons carries, and not both.",
+        `Send a message, or the answer one of ${agentName()}'s buttons carries, and not both.`,
       );
     // The button of one of demo mode's scripted examples sends it as the
     // User's message. Only the demo's own words are taken so, never a
@@ -553,6 +554,7 @@ async function reply(
         offered.tools,
         {
           ...modelConfig,
+          name: agentName(),
           steps: SEVERAL_LIMITS.steps,
           // Whose each tool is and what may cross between them (§10.1),
           // then the User's account at each, as a turn with one is told.
@@ -849,7 +851,7 @@ async function reply(
           const others = run.connections.filter(
             (c) => !pair.some((p) => originOf(p) === originOf(c)),
           );
-          const say = `This takes two companies: ${pair[0]!.name}, where Iris reads your bill, and ${pair[1]!.name}, where it proposes the payment. ${listed(
+          const say = `This takes two companies: ${pair[0]!.name}, where ${agentName()} reads your bill, and ${pair[1]!.name}, where it proposes the payment. ${listed(
             absent.map((c) => c.name),
             "and",
           )} ${absent.length > 1 ? "aren't" : "isn't"} connected to this conversation yet. ${
@@ -893,7 +895,7 @@ async function reply(
           );
           if (answered) return answered;
         } else if (!run.connections.length) {
-          const say = `This conversation isn't connected to a company yet, so Iris didn't send your request to any company. Connect one first: ${listed(
+          const say = `This conversation isn't connected to a company yet, so ${agentName()} didn't send your request to any company. Connect one first: ${listed(
             lab.map((c) => c.name),
             "or",
           )} from the lab, or another company by typing its address in the address box.`;
@@ -978,11 +980,11 @@ async function reply(
       text =
         result.note ??
         {
-          accept: `You're talking with ${companyName} directly. Iris doesn't read or answer here: what you type goes to ${companyName} as your own words.`,
-          start: `You're talking with ${companyName} directly. Iris doesn't read or answer here: what you type goes to ${companyName} as your own words.`,
+          accept: `You're talking with ${companyName} directly. ${agentName()} doesn't read or answer here: what you type goes to ${companyName} as your own words.`,
+          start: `You're talking with ${companyName} directly. ${agentName()} doesn't read or answer here: what you type goes to ${companyName} as your own words.`,
           say: "",
-          decline: `Iris told ${companyName} you're not available to talk directly right now.`,
-          close: `You've left the direct conversation with ${companyName}. Iris is back.`,
+          decline: `${agentName()} told ${companyName} you're not available to talk directly right now.`,
+          close: `You've left the direct conversation with ${companyName}. ${agentName()} is back.`,
         }[direct];
       // Their words are kept for the page, never for the model. They count
       // as sent only when the Company answered and Iris has nothing to say
@@ -1092,7 +1094,7 @@ async function reply(
         const sent = (result as { sent?: unknown } | null)?.sent !== false;
         // An alternative the Company gave is shown above as its own entry.
         raw = result;
-        text = `Protocol demo (no LLM). Feedback report ${sent ? "sent" : "not sent"} to the Company (§9.3):\n\n${feedbackAnswer(result, companyName)}\n\nWith a model, Iris reports a task only after trying the Company's tools.`;
+        text = `Protocol demo (no LLM). Feedback report ${sent ? "sent" : "not sent"} to the Company (§9.3):\n\n${feedbackAnswer(result, companyName)}\n\nWith a model, ${agentName()} reports a task only after trying the Company's tools.`;
       } else if (!connection.accountToken) {
         text =
           "Protocol demo (no LLM). Sign in first: the demo reads your account to prepare this change, and nothing changes until you approve it.";
@@ -1224,6 +1226,7 @@ async function reply(
         recorded,
         {
           ...modelConfig,
+          name: agentName(),
           // Whether the User is signed in here, and with what: Company
           // content may say what a request needs, never what the User has.
           context: accountNote(companyName, {

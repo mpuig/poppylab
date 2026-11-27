@@ -1,3 +1,4 @@
+import { agentName } from "./agent";
 import { cameFrom, forPage, from, holdsAccount } from "./connections";
 import { logEntry, type ProtocolEntry } from "./protocol-log";
 import type { Connection, Run } from "./runtime";
@@ -137,7 +138,7 @@ function keepLinesWhere(run: Run, keep: (line: KeptLine) => boolean) {
 export const applyingLine = (covered: string) =>
   `Applying your standing instruction · ${covered}`;
 export const statementLine = (statementId: string, bytes: number) =>
-  `Statement ${statementId} · PDF downloaded · ${bytes} bytes · not shown to Iris`;
+  `Statement ${statementId} · PDF downloaded · ${bytes} bytes · not shown to ${agentName()}`;
 
 /**
  * The line for a change the User's standing instruction leaves to them.
