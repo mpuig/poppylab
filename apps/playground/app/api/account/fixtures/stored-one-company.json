@@ -1,0 +1,1993 @@
+{
+  "capturedAt": 1795772788666,
+  "id": "iFShAFo3stwpJGZqbrNmVlIaBvDKBqB8",
+  "visitor": "gDg_l08ilk_Wt66FG2zMkYDtTm_LLkFbr8q22CITkjg",
+  "run": {
+    "protocol": "1.0",
+    "expires": 1795774588643,
+    "calls": 2,
+    "busy": false,
+    "connections": [
+      {
+        "url": "http://harbor.localhost:4300/",
+        "user": "usr_VJqCJJsQVPG1qb8YIn33RWXrgZid-RxB",
+        "visitor": "gDg_l08ilk_Wt66FG2zMkYDtTm_LLkFbr8q22CITkjg",
+        "company": {
+          "requestedUrl": "http://harbor.localhost:4300/",
+          "discoveryUrl": "http://harbor.localhost:4300/.well-known/poppy.json",
+          "trace": [
+            {
+              "id": "input",
+              "label": "Company URL",
+              "detail": "http://harbor.localhost:4300",
+              "status": "passed"
+            },
+            {
+              "id": "poppy",
+              "label": "Discovery document · Poppy 1.0",
+              "detail": "http://harbor.localhost:4300/.well-known/poppy.json",
+              "status": "passed",
+              "durationMs": 0
+            },
+            {
+              "id": "domain",
+              "label": "Domain binding",
+              "detail": "harbor.localhost:4300",
+              "status": "passed"
+            },
+            {
+              "id": "extension",
+              "label": "Extension poppylab.dev/fdx v1",
+              "detail": "http://harbor.localhost:4300/fdx/v6",
+              "status": "passed"
+            },
+            {
+              "id": "resource",
+              "label": "Protected resource metadata",
+              "detail": "http://harbor.localhost:4300/.well-known/oauth-protected-resource",
+              "status": "passed"
+            },
+            {
+              "id": "issuer",
+              "label": "OAuth issuer",
+              "detail": "http://harbor.localhost:4300",
+              "status": "passed"
+            },
+            {
+              "id": "metadata",
+              "label": "OAuth metadata",
+              "detail": "http://harbor.localhost:4300/.well-known/oauth-authorization-server",
+              "status": "passed",
+              "durationMs": 0
+            },
+            {
+              "id": "link",
+              "label": "Two-way issuer link",
+              "detail": "harbor.localhost:4300 ↔ harbor.localhost:4300",
+              "status": "passed"
+            }
+          ],
+          "discoveredAt": "2026-11-27T09:46:28.659Z",
+          "document": {
+            "protocol_version": "1.0",
+            "organization": {
+              "name": "Harborline Bank",
+              "domain": "harbor.localhost:4300"
+            },
+            "auth": {
+              "issuer": "http://harbor.localhost:4300",
+              "scopes": {
+                "accounts:read": "See owned fictional accounts, balances, available balances and account status. Read only; includes personal financial data.",
+                "transactions:read": "See recent fictional transaction amounts, descriptions, dates, status and categories. Read only; includes personal financial data.",
+                "cards:read": "See fictional cards, last four digits, status, limits and linked accounts. Read only; includes personal financial data.",
+                "recipients:read": "See existing fictional payment recipients and masked destination details. Read only; includes personal financial data.",
+                "budgets:read": "See fictional monthly budgets, category limits and simulated spending. Read only; includes personal financial data.",
+                "cards:write": "Freeze or unfreeze a fictional card. Reversible, but every change requires separate approval. Does not include reading cards.",
+                "transactions:write": "Change a posted fictional transaction's category. Reversible, with separate approval. Does not include reading transactions.",
+                "budgets:write": "Create or update fictional budgets. Reversible, with separate approval. Does not include reading budgets.",
+                "payments:request": "Request an outgoing fictional payment to an existing recipient. Irreversible in this demo after approval; no real money moves.",
+                "transfers:request": "Request a fictional transfer between owned accounts. Treated as irreversible after approval; no real money moves.",
+                "fdx:ACCOUNT_BASIC": "FDX-shaped API: see the fictional accounts you choose at consent (type, name, masked number, status), without balances. Read only; includes personal financial data.",
+                "fdx:ACCOUNT_DETAILED": "FDX-shaped API: add current and available balances to the accounts you choose. Needs fdx:ACCOUNT_BASIC to list them. Read only; includes personal financial data.",
+                "fdx:TRANSACTIONS": "FDX-shaped API: see the transactions of the fictional accounts you choose. Read only; includes personal financial data.",
+                "fdx:STATEMENTS": "FDX-shaped API: list and download monthly PDF statements of the fictional accounts you choose, with their balances and transactions. Read only; includes personal financial data.",
+                "fdx:CUSTOMER_CONTACT": "FDX-shaped API: see the fictional customer's name and email. Read only; includes personal data.",
+                "offline_access": "Allow the Personal Agent to refresh this fictional grant while you are away, for up to 7 days. Without it, the grant ends with its first access token, after 1 hour. It does not add data or change permissions.",
+                "poppy:browser-sign-in": "Open Harborline's website in the agent's own browser, signed in to your account. The website shows what the read permissions you grant cover, and nothing can be changed there. Not needed for the API or for Harborline's own agent."
+              },
+              "scope_hints": {
+                "accounts:read": {
+                  "changes": "none",
+                  "personal_data": true
+                },
+                "transactions:read": {
+                  "changes": "none",
+                  "personal_data": true
+                },
+                "cards:read": {
+                  "changes": "none",
+                  "personal_data": true
+                },
+                "recipients:read": {
+                  "changes": "none",
+                  "personal_data": true
+                },
+                "budgets:read": {
+                  "changes": "none",
+                  "personal_data": true
+                },
+                "cards:write": {
+                  "changes": "reversible",
+                  "personal_data": true
+                },
+                "transactions:write": {
+                  "changes": "reversible",
+                  "personal_data": true
+                },
+                "budgets:write": {
+                  "changes": "reversible",
+                  "personal_data": true
+                },
+                "payments:request": {
+                  "changes": "irreversible",
+                  "personal_data": true
+                },
+                "transfers:request": {
+                  "changes": "irreversible",
+                  "personal_data": true
+                },
+                "fdx:ACCOUNT_BASIC": {
+                  "changes": "none",
+                  "personal_data": true
+                },
+                "fdx:ACCOUNT_DETAILED": {
+                  "changes": "none",
+                  "personal_data": true
+                },
+                "fdx:TRANSACTIONS": {
+                  "changes": "none",
+                  "personal_data": true
+                },
+                "fdx:STATEMENTS": {
+                  "changes": "none",
+                  "personal_data": true
+                },
+                "fdx:CUSTOMER_CONTACT": {
+                  "changes": "none",
+                  "personal_data": true
+                },
+                "offline_access": {
+                  "changes": "none",
+                  "personal_data": false
+                },
+                "poppy:browser-sign-in": {
+                  "changes": "none",
+                  "personal_data": true
+                }
+              }
+            },
+            "agent": {
+              "protocols": [
+                {
+                  "type": "poppy",
+                  "endpoint": "http://harbor.localhost:4300/poppy/conversations",
+                  "description": "Harborline's deterministic account guide: supported requests, cash position, spending summary, card status, and approval-gated card freezing. Send {\"request\":\"help\"} in data."
+                }
+              ]
+            },
+            "apis": [
+              {
+                "type": "openapi",
+                "url": "http://harbor.localhost:4300/openapi.json",
+                "description": "Fictional accounts, balances, transactions, cards, recipients, budgets, payment requests and owned-account transfers"
+              },
+              {
+                "type": "openapi",
+                "url": "http://harbor.localhost:4300/openapi/fdx.json",
+                "description": "FDX-shaped, read-only view of the same fictional accounts, balances, transactions, monthly PDF statements and customer, with a consent API. Not FDX-conformant or certified. Requests must declare the poppylab.dev/fdx extension, version 1."
+              }
+            ],
+            "web": {
+              "browser_session_endpoint": "http://harbor.localhost:4300/poppy/browser-session"
+            },
+            "tasks": {
+              "endpoint": "http://harbor.localhost:4300/poppy/tasks"
+            },
+            "extensions": {
+              "operations": [
+                {
+                  "version": "3"
+                }
+              ],
+              "poppylab.dev/fdx": [
+                {
+                  "version": "1",
+                  "fdx_version": "6.4",
+                  "base_url": "http://harbor.localhost:4300/fdx/v6",
+                  "resources": [
+                    "customer",
+                    "accounts",
+                    "transactions",
+                    "statements"
+                  ],
+                  "consent_endpoint": "http://harbor.localhost:4300/fdx/v6/consents"
+                }
+              ]
+            }
+          },
+          "metadata": {
+            "issuer": "http://harbor.localhost:4300",
+            "token_endpoint": "http://harbor.localhost:4300/oauth/token",
+            "revocation_endpoint": "http://harbor.localhost:4300/oauth/revoke",
+            "protected_resources": ["http://harbor.localhost:4300"],
+            "grant_types_supported": ["authorization_code", "refresh_token"],
+            "scopes_supported": [
+              "accounts:read",
+              "transactions:read",
+              "cards:read",
+              "recipients:read",
+              "budgets:read",
+              "cards:write",
+              "transactions:write",
+              "budgets:write",
+              "payments:request",
+              "transfers:request",
+              "fdx:ACCOUNT_BASIC",
+              "fdx:ACCOUNT_DETAILED",
+              "fdx:TRANSACTIONS",
+              "fdx:STATEMENTS",
+              "fdx:CUSTOMER_CONTACT",
+              "offline_access",
+              "poppy:browser-sign-in"
+            ],
+            "authorization_endpoint": "http://harbor.localhost:4300/oauth/authorize",
+            "pushed_authorization_request_endpoint": "http://harbor.localhost:4300/oauth/par",
+            "require_pushed_authorization_requests": false,
+            "token_endpoint_auth_signing_alg_values_supported": [
+              "ES256",
+              "PS384"
+            ],
+            "dpop_signing_alg_values_supported": ["ES256"]
+          },
+          "profile": {
+            "identifier": "http://harbor.localhost:4300",
+            "issuer": "http://harbor.localhost:4300",
+            "signIn": {
+              "direct": true,
+              "device": false
+            },
+            "pushedAuthorization": {
+              "endpoint": "http://harbor.localhost:4300/oauth/par",
+              "required": false
+            },
+            "scopes": [
+              "accounts:read",
+              "transactions:read",
+              "cards:read",
+              "recipients:read",
+              "budgets:read",
+              "cards:write",
+              "transactions:write",
+              "budgets:write",
+              "payments:request",
+              "transfers:request",
+              "fdx:ACCOUNT_BASIC",
+              "fdx:ACCOUNT_DETAILED",
+              "fdx:TRANSACTIONS",
+              "fdx:STATEMENTS",
+              "fdx:CUSTOMER_CONTACT",
+              "offline_access",
+              "poppy:browser-sign-in"
+            ],
+            "version": "1.0",
+            "scopeDescriptions": {
+              "accounts:read": "See owned fictional accounts, balances, available balances and account status. Read only; includes personal financial data.",
+              "transactions:read": "See recent fictional transaction amounts, descriptions, dates, status and categories. Read only; includes personal financial data.",
+              "cards:read": "See fictional cards, last four digits, status, limits and linked accounts. Read only; includes personal financial data.",
+              "recipients:read": "See existing fictional payment recipients and masked destination details. Read only; includes personal financial data.",
+              "budgets:read": "See fictional monthly budgets, category limits and simulated spending. Read only; includes personal financial data.",
+              "cards:write": "Freeze or unfreeze a fictional card. Reversible, but every change requires separate approval. Does not include reading cards.",
+              "transactions:write": "Change a posted fictional transaction's category. Reversible, with separate approval. Does not include reading transactions.",
+              "budgets:write": "Create or update fictional budgets. Reversible, with separate approval. Does not include reading budgets.",
+              "payments:request": "Request an outgoing fictional payment to an existing recipient. Irreversible in this demo after approval; no real money moves.",
+              "transfers:request": "Request a fictional transfer between owned accounts. Treated as irreversible after approval; no real money moves.",
+              "fdx:ACCOUNT_BASIC": "FDX-shaped API: see the fictional accounts you choose at consent (type, name, masked number, status), without balances. Read only; includes personal financial data.",
+              "fdx:ACCOUNT_DETAILED": "FDX-shaped API: add current and available balances to the accounts you choose. Needs fdx:ACCOUNT_BASIC to list them. Read only; includes personal financial data.",
+              "fdx:TRANSACTIONS": "FDX-shaped API: see the transactions of the fictional accounts you choose. Read only; includes personal financial data.",
+              "fdx:STATEMENTS": "FDX-shaped API: list and download monthly PDF statements of the fictional accounts you choose, with their balances and transactions. Read only; includes personal financial data.",
+              "fdx:CUSTOMER_CONTACT": "FDX-shaped API: see the fictional customer's name and email. Read only; includes personal data.",
+              "offline_access": "Allow the Personal Agent to refresh this fictional grant while you are away, for up to 7 days. Without it, the grant ends with its first access token, after 1 hour. It does not add data or change permissions.",
+              "poppy:browser-sign-in": "Open Harborline's website in the agent's own browser, signed in to your account. The website shows what the read permissions you grant cover, and nothing can be changed there. Not needed for the API or for Harborline's own agent."
+            },
+            "scopeHints": {
+              "accounts:read": {
+                "changes": "none",
+                "personal_data": true
+              },
+              "transactions:read": {
+                "changes": "none",
+                "personal_data": true
+              },
+              "cards:read": {
+                "changes": "none",
+                "personal_data": true
+              },
+              "recipients:read": {
+                "changes": "none",
+                "personal_data": true
+              },
+              "budgets:read": {
+                "changes": "none",
+                "personal_data": true
+              },
+              "cards:write": {
+                "changes": "reversible",
+                "personal_data": true
+              },
+              "transactions:write": {
+                "changes": "reversible",
+                "personal_data": true
+              },
+              "budgets:write": {
+                "changes": "reversible",
+                "personal_data": true
+              },
+              "payments:request": {
+                "changes": "irreversible",
+                "personal_data": true
+              },
+              "transfers:request": {
+                "changes": "irreversible",
+                "personal_data": true
+              },
+              "fdx:ACCOUNT_BASIC": {
+                "changes": "none",
+                "personal_data": true
+              },
+              "fdx:ACCOUNT_DETAILED": {
+                "changes": "none",
+                "personal_data": true
+              },
+              "fdx:TRANSACTIONS": {
+                "changes": "none",
+                "personal_data": true
+              },
+              "fdx:STATEMENTS": {
+                "changes": "none",
+                "personal_data": true
+              },
+              "fdx:CUSTOMER_CONTACT": {
+                "changes": "none",
+                "personal_data": true
+              },
+              "offline_access": {
+                "changes": "none",
+                "personal_data": false
+              },
+              "poppy:browser-sign-in": {
+                "changes": "none",
+                "personal_data": true
+              }
+            },
+            "tasksEndpoint": "http://harbor.localhost:4300/poppy/tasks",
+            "operations": true,
+            "extensions": {
+              "operations": {
+                "version": "3"
+              },
+              "poppylab.dev/fdx": {
+                "version": "1",
+                "base_url": "http://harbor.localhost:4300/fdx/v6",
+                "consent_endpoint": "http://harbor.localhost:4300/fdx/v6/consents",
+                "fdx_version": "6.4",
+                "resources": [
+                  "customer",
+                  "accounts",
+                  "transactions",
+                  "statements"
+                ]
+              }
+            }
+          }
+        },
+        "sessionId": "AyORKiik6WU-RfIW4facLtNSHkjn2Kiz",
+        "sessionKey": {
+          "privateKey": {
+            "kty": "EC",
+            "x": "4zHcELwR3sfNSoPTjJKTKWrQvMtQW2dD6mFLOiN1VKM",
+            "y": "DbJXHmNLnJ7zlnoOjT4mSJ_AzCJwonAl-9axy_rL9Dg",
+            "crv": "P-256",
+            "d": "xgSRuQ_FotmWKyEQVDvabgsTpwUP5t0kOLUiBKrjhOg"
+          },
+          "kid": "BN8sf88pPBRnjq2F3apg_qoKytiViNtrwsuKK7US5sQ",
+          "delegation": "eyJhbGciOiJFUzI1NiIsInR5cCI6InBvcHB5LWRlbGVnYXRpb24rand0Iiwia2lkIjoiVDIxTV9yTFBmaHppZ2xLdktIdWl5ZWJmZUdDRDlIbUtBcTU4S3hqczBDSSJ9.eyJjbmYiOnsiandrIjp7Imt0eSI6IkVDIiwiY3J2IjoiUC0yNTYiLCJ4IjoiNHpIY0VMd1Izc2ZOU29QVGpKS1RLV3JRdk10UVcyZEQ2bUZMT2lOMVZLTSIsInkiOiJEYkpYSG1OTG5KN3psbm9PalQ0bVNKX0F6Q0p3b25BbC05YXh5X3JMOURnIn19LCJpc3MiOiJodHRwOi8vbG9jYWxob3N0OjMwMDAvYWdlbnQvY2xpZW50Lmpzb24iLCJpYXQiOjE3OTU3NzI3NjAsImV4cCI6MTc5NTc5NDM2MCwianRpIjoidWltREZCanB6ZURlTGhEVmkzVjE2enFNd3JHaGhBQVQifQ.N44hSXREbJUdZjO_ll8owXzZemUMhAaqCX079SZJw4wB50e0PkWh6s5uADhMIhHnDV-QvApIPDb0FmGCMRws3A",
+          "expires": 1795794360000
+        },
+        "apiBase": "http://harbor.localhost:4300",
+        "offered": [
+          {
+            "name": "accounts",
+            "description": "List the fictional customer's owned checking and savings accounts with current and available balances. Read this before proposing a payment or transfer.",
+            "required": []
+          },
+          {
+            "name": "transactions",
+            "description": "List recent fictional transactions, including signed USD-cent amounts, posted/pending status, category and entity version. Positive amounts are credits; negati…",
+            "required": []
+          },
+          {
+            "name": "cards",
+            "description": "List fictional cards, their active/frozen/inactive status, linked account, last four digits, daily limit, today's simulated spend and version.",
+            "required": []
+          },
+          {
+            "name": "recipients",
+            "description": "List existing fictional payment recipients. A payment can only target an active recipient returned here and cannot create or edit a recipient. A biller's recip…",
+            "required": []
+          },
+          {
+            "name": "budgets",
+            "description": "List fictional monthly category budgets with limits, simulated spend, remaining amount and version.",
+            "required": []
+          },
+          {
+            "name": "create_budget",
+            "description": "Propose creating a fictional monthly category budget. Requires exact Operations v3 approval and a stable idempotency key. It does not reserve or move money. Pr…",
+            "required": [
+              "name",
+              "category",
+              "limit_cents",
+              "month",
+              "idempotency_key"
+            ]
+          },
+          {
+            "name": "update_budget",
+            "description": "Propose changing a fictional budget name or limit. Read budgets first and send expected_version; approval becomes stale if the budget changes. Proposal only. U…",
+            "required": ["budget_id", "expected_version"]
+          },
+          {
+            "name": "request_payment",
+            "description": "Propose one outgoing fictional payment from an owned active account to an existing active recipient. Read accounts and recipients first: each recipient has its…",
+            "required": [
+              "source_account_id",
+              "recipient_id",
+              "amount_cents",
+              "memo",
+              "idempotency_key"
+            ]
+          },
+          {
+            "name": "transfer_between_accounts",
+            "description": "Propose moving fictional funds between two different owned active accounts. Read accounts first. One transfer moves at most USD 2,500.00. Requires exact Operat…",
+            "required": [
+              "source_account_id",
+              "destination_account_id",
+              "amount_cents",
+              "idempotency_key"
+            ]
+          },
+          {
+            "name": "set_card_status",
+            "description": "Propose freezing or unfreezing an active fictional card. Read cards first and send expected_version. Inactive cards cannot be changed. Proposal only. User must…",
+            "required": ["card_id", "status", "expected_version"]
+          },
+          {
+            "name": "edit_transaction_category",
+            "description": "Propose changing the category of a posted fictional transaction. Read transactions first and send expected_version. Pending transactions cannot be recategorize…",
+            "required": ["transaction_id", "category", "expected_version"]
+          },
+          {
+            "name": "company_agent_send",
+            "description": "Talk with Harborline Bank's own agent (customer service) in one conversation that continues across turns. Send a structured request in data, such as {\"request\"…",
+            "required": []
+          },
+          {
+            "name": "company_agent_read",
+            "description": "Read new replies from Harborline Bank's agent, when it said it is still working.",
+            "required": []
+          },
+          {
+            "name": "company_agent_handoff",
+            "description": "Ask for a person at Harborline Bank in the current conversation. Only when the user asks for a person, or the Company's agent can't help. Send a short summary …",
+            "required": []
+          },
+          {
+            "name": "company_agent_cancel_handoff",
+            "description": "Withdraw a request for a person at Harborline Bank, when the user no longer needs one. The Company may still assign someone.",
+            "required": []
+          },
+          {
+            "name": "excluded_tasks",
+            "description": "List tasks this Company chose not to offer through the protocol, with any alternative. Check it before searching for a way to do an unusual task. Company conte…",
+            "required": []
+          },
+          {
+            "name": "report_unsupported_task",
+            "description": "Tell the Company about a task the User wanted that can't be done through its APIs or Company Agent, after trying them. Once per task. Describe the task, not th…",
+            "required": ["task", "description"]
+          }
+        ],
+        "publicHistory": [
+          {
+            "role": "user",
+            "content": "my account balances",
+            "company": "http://harbor.localhost:4300",
+            "accounts": []
+          },
+          {
+            "role": "assistant",
+            "content": "Protocol demo (no LLM). This needs your account at Harborline Bank, and you are not signed in. Iris didn't send this request to the Company. Press “Sign in to Harborline Bank”, then ask again.",
+            "company": "http://harbor.localhost:4300",
+            "accounts": []
+          }
+        ],
+        "consentVersion": 1,
+        "scopes": "accounts:read transactions:read cards:read recipients:read budgets:read cards:write transactions:write budgets:write payments:request transfers:request",
+        "token": "PmdvaPSx8JwXKajqhW3M0lYaI_U6E8-Z",
+        "tokenType": "DPoP",
+        "tokenExpires": 1795776388659,
+        "accountToken": "bo7_nNIVFD2ozKs8ET1q-pGuEwYVfzYF",
+        "dpop": {
+          "kty": "EC",
+          "x": "3OkC-47U9tH5G0xO28_Jy8mQLEXNh9eWSWj2jZWIP44",
+          "y": "y2tGwJlLqz4IrdF3PAQceGjMxq6Vcxfo47oB5Ryzw_w",
+          "crv": "P-256",
+          "d": "aA9ZXr4-YJtG5NJPgWEU07dAvGBCg1GSgLWheUpzgTE",
+          "kid": "zHIFkhsGMIjRgfC_FyUqKYK0jOHURiOV4L1LVwIHiW0",
+          "alg": "ES256"
+        },
+        "operations": {
+          "op_t2l5bupl5qOuLBOtdJK44AG1": {
+            "operation_id": "op_t2l5bupl5qOuLBOtdJK44AG1",
+            "revision": "1795772788-aVH5oeYEAjrJ1PIy",
+            "summary": "Transfer USD 25.00 from Operating checking to Reserve savings. New fictional balances: Operating checking USD 12820.00; Reserve savings USD 42525.00. No real money moves.",
+            "terms": {
+              "source_account_id": "acc_HLB_A100",
+              "destination_account_id": "acc_HLB_A200",
+              "amount_cents": 2500,
+              "idempotency_key": "iuZjs9aBa0p7B0VJeV17d5wnxX-DiwjI",
+              "source_name": "Operating checking",
+              "destination_name": "Reserve savings",
+              "source_version": 1,
+              "destination_version": 1,
+              "source_balance_before_cents": 1284500,
+              "source_balance_after_cents": 1282000,
+              "destination_balance_before_cents": 4250000,
+              "destination_balance_after_cents": 4252500,
+              "currency": "USD",
+              "notice": "Fictional Harborline Bank data. No real money moves; never enter real banking data or credentials."
+            },
+            "expires_at": "2026-11-27T09:56:28.665Z",
+            "state": "proposed",
+            "request": {
+              "url": "http://harbor.localhost:4300/api/account/transfers",
+              "body": {
+                "source_account_id": "acc_HLB_A100",
+                "destination_account_id": "acc_HLB_A200",
+                "amount_cents": 2500,
+                "idempotency_key": "iuZjs9aBa0p7B0VJeV17d5wnxX-DiwjI"
+              }
+            },
+            "changed": 1795772788665
+          }
+        },
+        "tasks": {
+          "sid": "AyORKiik6WU-RfIW4facLtNSHkjn2Kiz",
+          "value": {
+            "excludedTasks": [
+              {
+                "task": "Open or close a bank account",
+                "alternative": {
+                  "instructions": "Harborline only exposes the pre-seeded fictional accounts. Account opening and closure are not available through this protocol demo.",
+                  "references": [
+                    {
+                      "type": "web",
+                      "url": "http://harbor.localhost:4300/for-agents"
+                    }
+                  ]
+                }
+              },
+              {
+                "task": "Create, edit or verify a payment recipient"
+              },
+              {
+                "task": "Deposit checks, cash or cryptocurrency"
+              },
+              {
+                "task": "Dispute a transaction or chargeback"
+              },
+              {
+                "task": "Export tax documents"
+              },
+              {
+                "task": "Send a payment to a new recipient",
+                "alternative": {
+                  "instructions": "Only active recipients already returned by the recipients API may be used.",
+                  "references": [
+                    {
+                      "type": "openapi",
+                      "url": "http://harbor.localhost:4300/openapi.json",
+                      "operation_id": "recipients"
+                    },
+                    {
+                      "type": "openapi",
+                      "url": "http://harbor.localhost:4300/openapi.json",
+                      "operation_id": "request_payment"
+                    }
+                  ]
+                }
+              }
+            ],
+            "feedbackEndpoint": "http://harbor.localhost:4300/poppy/feedback",
+            "skills": [
+              {
+                "name": "pay-saved-recipient",
+                "description": "Send a payment from one of a customer's Harborline Bank accounts to a recipient they have already saved, through Harborline's API. Use it when the customer asks to pay or send money to a saved recipient. A new recipient can't be added through the protocol.",
+                "type": "skill-md",
+                "url": "http://harbor.localhost:4300/poppy/skills/pay-saved-recipient/SKILL.md",
+                "digest": "sha256:ae28eef0e7f43c01ccd20ae045fac23247701883332f0efc4a61afbf7156d8b8"
+              }
+            ]
+          }
+        },
+        "services": {
+          "http://harbor.localhost:4300": {
+            "resource": "http://harbor.localhost:4300",
+            "until": 1795776388661
+          }
+        }
+      }
+    ],
+    "history": [
+      {
+        "role": "user",
+        "content": "my account balances",
+        "company": "http://harbor.localhost:4300",
+        "accounts": []
+      },
+      {
+        "role": "assistant",
+        "content": "Protocol demo (no LLM). This needs your account at Harborline Bank, and you are not signed in. Iris didn't send this request to the Company. Press “Sign in to Harborline Bank”, then ask again.",
+        "company": "http://harbor.localhost:4300",
+        "accounts": []
+      },
+      {
+        "role": "user",
+        "content": "Transfer $25 from checking to savings.",
+        "company": "http://harbor.localhost:4300",
+        "accounts": ["http://harbor.localhost:4300"]
+      },
+      {
+        "role": "assistant",
+        "content": "Protocol demo (no LLM). The demo read your accounts and asked to transfer $25.00 from Operating checking to Reserve savings.\n\nThe company answered:\n\nThe company is holding this change until you approve it:\nTransfer USD 25.00 from Operating checking to Reserve savings. New fictional balances: Operating checking USD 12820.00; Reserve savings USD 42525.00. No real money moves.\n\nThe Company holds a change until you click Approve. For natural-language reasoning, select a model.",
+        "company": "http://harbor.localhost:4300",
+        "accounts": ["http://harbor.localhost:4300"]
+      }
+    ],
+    "visitor": "gDg_l08ilk_Wt66FG2zMkYDtTm_LLkFbr8q22CITkjg",
+    "created": 1795772788643,
+    "title": "my account balances",
+    "transcript": [
+      {
+        "role": "user",
+        "content": "my account balances",
+        "signedOut": true,
+        "company": "http://harbor.localhost:4300",
+        "accounts": []
+      },
+      {
+        "role": "assistant",
+        "content": "Protocol demo (no LLM). This needs your account at Harborline Bank, and you are not signed in. Iris didn't send this request to the Company. Press “Sign in to Harborline Bank”, then ask again.",
+        "demo": true,
+        "steps": [
+          {
+            "text": "Started a Poppy Session, signed out",
+            "how": "setup",
+            "access": null,
+            "state": "done"
+          },
+          {
+            "text": "Read /poppy/tasks",
+            "how": "API",
+            "access": "view",
+            "state": "done"
+          },
+          {
+            "text": "Company Agent conversations at http://harbor.localhost:4300/poppy/conversations",
+            "how": "setup",
+            "access": null,
+            "state": "done"
+          },
+          {
+            "text": "Found 11 API tools at the Company",
+            "how": "setup",
+            "access": null,
+            "state": "done"
+          },
+          {
+            "text": "Did not send a request to /api/account/accounts (sign-in needed)",
+            "how": "API",
+            "access": null,
+            "state": "done"
+          }
+        ],
+        "signedOut": true,
+        "company": "http://harbor.localhost:4300",
+        "accounts": []
+      },
+      {
+        "role": "user",
+        "content": "Transfer $25 from checking to savings.",
+        "company": "http://harbor.localhost:4300",
+        "accounts": ["http://harbor.localhost:4300"]
+      },
+      {
+        "role": "assistant",
+        "content": "Protocol demo (no LLM). The demo read your accounts and asked to transfer $25.00 from Operating checking to Reserve savings.\n\nThe company answered:\n\nThe company is holding this change until you approve it:\nTransfer USD 25.00 from Operating checking to Reserve savings. New fictional balances: Operating checking USD 12820.00; Reserve savings USD 42525.00. No real money moves.\n\nThe Company holds a change until you click Approve. For natural-language reasoning, select a model.",
+        "demo": true,
+        "steps": [
+          {
+            "text": "Started a Poppy Session, signed in",
+            "how": "setup",
+            "access": null,
+            "state": "done"
+          },
+          {
+            "text": "Read /poppy/tasks",
+            "how": "API",
+            "access": "view",
+            "state": "done"
+          },
+          {
+            "text": "Company Agent conversations at http://harbor.localhost:4300/poppy/conversations",
+            "how": "setup",
+            "access": null,
+            "state": "done"
+          },
+          {
+            "text": "Found 11 API tools at the Company",
+            "how": "setup",
+            "access": null,
+            "state": "done"
+          },
+          {
+            "text": "Read /api/account/accounts",
+            "how": "API",
+            "access": "view",
+            "state": "done"
+          },
+          {
+            "text": "Sent a request to /api/account/transfers",
+            "how": "API",
+            "access": "view and change",
+            "state": "done"
+          },
+          {
+            "text": "Asked for your approval; nothing was done yet",
+            "how": "API",
+            "access": "view and change",
+            "state": "waiting"
+          }
+        ],
+        "data": "{\"status\":\"approval_required\",\"operation_id\":\"op_t2l5bupl5qOuLBOtdJK44AG1\",\"summary\":\"Transfer USD 25.00 from Operating checking to Reserve savings. New fictional balances: Operating checking USD 12820.00; Reserve savings USD 42525.00. No real money moves.\",\"terms\":{\"source_account_id\":\"acc_HLB_A100\",\"destination_account_id\":\"acc_HLB_A200\",\"amount_cents\":2500,\"idempotency_key\":\"iuZjs9aBa0p7B0VJeV17d5wnxX-DiwjI\",\"source_name\":\"Operating checking\",\"destination_name\":\"Reserve savings\",\"source_version\":1,\"destination_version\":1,\"source_balance_before_cents\":1284500,\"source_balance_after_cents\":1282000,\"destination_balance_before_cents\":4250000,\"destination_balance_after_cents\":4252500,\"currency\":\"USD\",\"notice\":\"Fictional Harborline Bank data. No real money moves; never enter real banking data or credentials.\"},\"expires_at\":\"2026-11-27T09:56:28.665Z\",\"note\":\"Nothing was done. The user must approve these exact terms with the control in the chat; your words can't approve it.\"}",
+        "company": "http://harbor.localhost:4300",
+        "accounts": ["http://harbor.localhost:4300"]
+      }
+    ],
+    "log": [
+      {
+        "at": 1795772788651,
+        "text": "Poppy 1.0 Session signed out · delegated ES256 Session header · Poppy-Version 1.0 · Poppy-Extensions \"operations\";v=\"3\"",
+        "signedOut": true,
+        "company": "http://harbor.localhost:4300"
+      },
+      {
+        "at": 1795772788651,
+        "text": "GET /poppy/tasks · tasks for this Session · 6 excluded · 1 skill listed",
+        "signedOut": true,
+        "company": "http://harbor.localhost:4300"
+      },
+      {
+        "at": 1795772788651,
+        "text": "Company Agent conversations at http://harbor.localhost:4300/poppy/conversations",
+        "signedOut": true,
+        "company": "http://harbor.localhost:4300"
+      },
+      {
+        "at": 1795772788651,
+        "text": "Loaded 11 API tools; confirmation is never a model tool",
+        "signedOut": true,
+        "company": "http://harbor.localhost:4300"
+      },
+      {
+        "at": 1795772788651,
+        "text": "Not sent · GET /api/account/accounts · sign-in needed",
+        "signedOut": true,
+        "company": "http://harbor.localhost:4300"
+      },
+      {
+        "at": 1795772788659,
+        "text": "Direct Sign-In completed · PKCE + issuer validation · DPoP account Session",
+        "signedOut": true,
+        "company": "http://harbor.localhost:4300"
+      },
+      {
+        "at": 1795772788665,
+        "text": "Poppy 1.0 Session signed in · delegated ES256 Session header · Poppy-Version 1.0 · Poppy-Extensions \"operations\";v=\"3\"",
+        "company": "http://harbor.localhost:4300"
+      },
+      {
+        "at": 1795772788665,
+        "text": "GET /poppy/tasks · tasks for this Session · 6 excluded · 1 skill listed",
+        "company": "http://harbor.localhost:4300"
+      },
+      {
+        "at": 1795772788665,
+        "text": "Company Agent conversations at http://harbor.localhost:4300/poppy/conversations",
+        "company": "http://harbor.localhost:4300"
+      },
+      {
+        "at": 1795772788665,
+        "text": "Loaded 11 API tools; confirmation is never a model tool",
+        "company": "http://harbor.localhost:4300"
+      },
+      {
+        "at": 1795772788665,
+        "text": "GET /api/account/accounts · Poppy Session",
+        "company": "http://harbor.localhost:4300"
+      },
+      {
+        "at": 1795772788665,
+        "text": "POST /api/account/transfers · Poppy Session",
+        "company": "http://harbor.localhost:4300"
+      },
+      {
+        "at": 1795772788665,
+        "text": "Approval required · nothing performed",
+        "company": "http://harbor.localhost:4300"
+      }
+    ]
+  },
+  "view": {
+    "missing": false,
+    "conversation": "iFShAFo3stwpJGZqbrNmVlIaBvDKBqB8",
+    "readOnly": false,
+    "company": {
+      "requestedUrl": "http://harbor.localhost:4300/",
+      "discoveryUrl": "http://harbor.localhost:4300/.well-known/poppy.json",
+      "trace": [
+        {
+          "id": "input",
+          "label": "Company URL",
+          "detail": "http://harbor.localhost:4300",
+          "status": "passed"
+        },
+        {
+          "id": "poppy",
+          "label": "Discovery document · Poppy 1.0",
+          "detail": "http://harbor.localhost:4300/.well-known/poppy.json",
+          "status": "passed",
+          "durationMs": 0
+        },
+        {
+          "id": "domain",
+          "label": "Domain binding",
+          "detail": "harbor.localhost:4300",
+          "status": "passed"
+        },
+        {
+          "id": "extension",
+          "label": "Extension poppylab.dev/fdx v1",
+          "detail": "http://harbor.localhost:4300/fdx/v6",
+          "status": "passed"
+        },
+        {
+          "id": "resource",
+          "label": "Protected resource metadata",
+          "detail": "http://harbor.localhost:4300/.well-known/oauth-protected-resource",
+          "status": "passed"
+        },
+        {
+          "id": "issuer",
+          "label": "OAuth issuer",
+          "detail": "http://harbor.localhost:4300",
+          "status": "passed"
+        },
+        {
+          "id": "metadata",
+          "label": "OAuth metadata",
+          "detail": "http://harbor.localhost:4300/.well-known/oauth-authorization-server",
+          "status": "passed",
+          "durationMs": 0
+        },
+        {
+          "id": "link",
+          "label": "Two-way issuer link",
+          "detail": "harbor.localhost:4300 ↔ harbor.localhost:4300",
+          "status": "passed"
+        }
+      ],
+      "discoveredAt": "2026-11-27T09:46:28.659Z",
+      "document": {
+        "protocol_version": "1.0",
+        "organization": {
+          "name": "Harborline Bank",
+          "domain": "harbor.localhost:4300"
+        },
+        "auth": {
+          "issuer": "http://harbor.localhost:4300",
+          "scopes": {
+            "accounts:read": "See owned fictional accounts, balances, available balances and account status. Read only; includes personal financial data.",
+            "transactions:read": "See recent fictional transaction amounts, descriptions, dates, status and categories. Read only; includes personal financial data.",
+            "cards:read": "See fictional cards, last four digits, status, limits and linked accounts. Read only; includes personal financial data.",
+            "recipients:read": "See existing fictional payment recipients and masked destination details. Read only; includes personal financial data.",
+            "budgets:read": "See fictional monthly budgets, category limits and simulated spending. Read only; includes personal financial data.",
+            "cards:write": "Freeze or unfreeze a fictional card. Reversible, but every change requires separate approval. Does not include reading cards.",
+            "transactions:write": "Change a posted fictional transaction's category. Reversible, with separate approval. Does not include reading transactions.",
+            "budgets:write": "Create or update fictional budgets. Reversible, with separate approval. Does not include reading budgets.",
+            "payments:request": "Request an outgoing fictional payment to an existing recipient. Irreversible in this demo after approval; no real money moves.",
+            "transfers:request": "Request a fictional transfer between owned accounts. Treated as irreversible after approval; no real money moves.",
+            "fdx:ACCOUNT_BASIC": "FDX-shaped API: see the fictional accounts you choose at consent (type, name, masked number, status), without balances. Read only; includes personal financial data.",
+            "fdx:ACCOUNT_DETAILED": "FDX-shaped API: add current and available balances to the accounts you choose. Needs fdx:ACCOUNT_BASIC to list them. Read only; includes personal financial data.",
+            "fdx:TRANSACTIONS": "FDX-shaped API: see the transactions of the fictional accounts you choose. Read only; includes personal financial data.",
+            "fdx:STATEMENTS": "FDX-shaped API: list and download monthly PDF statements of the fictional accounts you choose, with their balances and transactions. Read only; includes personal financial data.",
+            "fdx:CUSTOMER_CONTACT": "FDX-shaped API: see the fictional customer's name and email. Read only; includes personal data.",
+            "offline_access": "Allow the Personal Agent to refresh this fictional grant while you are away, for up to 7 days. Without it, the grant ends with its first access token, after 1 hour. It does not add data or change permissions.",
+            "poppy:browser-sign-in": "Open Harborline's website in the agent's own browser, signed in to your account. The website shows what the read permissions you grant cover, and nothing can be changed there. Not needed for the API or for Harborline's own agent."
+          },
+          "scope_hints": {
+            "accounts:read": {
+              "changes": "none",
+              "personal_data": true
+            },
+            "transactions:read": {
+              "changes": "none",
+              "personal_data": true
+            },
+            "cards:read": {
+              "changes": "none",
+              "personal_data": true
+            },
+            "recipients:read": {
+              "changes": "none",
+              "personal_data": true
+            },
+            "budgets:read": {
+              "changes": "none",
+              "personal_data": true
+            },
+            "cards:write": {
+              "changes": "reversible",
+              "personal_data": true
+            },
+            "transactions:write": {
+              "changes": "reversible",
+              "personal_data": true
+            },
+            "budgets:write": {
+              "changes": "reversible",
+              "personal_data": true
+            },
+            "payments:request": {
+              "changes": "irreversible",
+              "personal_data": true
+            },
+            "transfers:request": {
+              "changes": "irreversible",
+              "personal_data": true
+            },
+            "fdx:ACCOUNT_BASIC": {
+              "changes": "none",
+              "personal_data": true
+            },
+            "fdx:ACCOUNT_DETAILED": {
+              "changes": "none",
+              "personal_data": true
+            },
+            "fdx:TRANSACTIONS": {
+              "changes": "none",
+              "personal_data": true
+            },
+            "fdx:STATEMENTS": {
+              "changes": "none",
+              "personal_data": true
+            },
+            "fdx:CUSTOMER_CONTACT": {
+              "changes": "none",
+              "personal_data": true
+            },
+            "offline_access": {
+              "changes": "none",
+              "personal_data": false
+            },
+            "poppy:browser-sign-in": {
+              "changes": "none",
+              "personal_data": true
+            }
+          }
+        },
+        "agent": {
+          "protocols": [
+            {
+              "type": "poppy",
+              "endpoint": "http://harbor.localhost:4300/poppy/conversations",
+              "description": "Harborline's deterministic account guide: supported requests, cash position, spending summary, card status, and approval-gated card freezing. Send {\"request\":\"help\"} in data."
+            }
+          ]
+        },
+        "apis": [
+          {
+            "type": "openapi",
+            "url": "http://harbor.localhost:4300/openapi.json",
+            "description": "Fictional accounts, balances, transactions, cards, recipients, budgets, payment requests and owned-account transfers"
+          },
+          {
+            "type": "openapi",
+            "url": "http://harbor.localhost:4300/openapi/fdx.json",
+            "description": "FDX-shaped, read-only view of the same fictional accounts, balances, transactions, monthly PDF statements and customer, with a consent API. Not FDX-conformant or certified. Requests must declare the poppylab.dev/fdx extension, version 1."
+          }
+        ],
+        "web": {
+          "browser_session_endpoint": "http://harbor.localhost:4300/poppy/browser-session"
+        },
+        "tasks": {
+          "endpoint": "http://harbor.localhost:4300/poppy/tasks"
+        },
+        "extensions": {
+          "operations": [
+            {
+              "version": "3"
+            }
+          ],
+          "poppylab.dev/fdx": [
+            {
+              "version": "1",
+              "fdx_version": "6.4",
+              "base_url": "http://harbor.localhost:4300/fdx/v6",
+              "resources": [
+                "customer",
+                "accounts",
+                "transactions",
+                "statements"
+              ],
+              "consent_endpoint": "http://harbor.localhost:4300/fdx/v6/consents"
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "issuer": "http://harbor.localhost:4300",
+        "token_endpoint": "http://harbor.localhost:4300/oauth/token",
+        "revocation_endpoint": "http://harbor.localhost:4300/oauth/revoke",
+        "protected_resources": ["http://harbor.localhost:4300"],
+        "grant_types_supported": ["authorization_code", "refresh_token"],
+        "scopes_supported": [
+          "accounts:read",
+          "transactions:read",
+          "cards:read",
+          "recipients:read",
+          "budgets:read",
+          "cards:write",
+          "transactions:write",
+          "budgets:write",
+          "payments:request",
+          "transfers:request",
+          "fdx:ACCOUNT_BASIC",
+          "fdx:ACCOUNT_DETAILED",
+          "fdx:TRANSACTIONS",
+          "fdx:STATEMENTS",
+          "fdx:CUSTOMER_CONTACT",
+          "offline_access",
+          "poppy:browser-sign-in"
+        ],
+        "authorization_endpoint": "http://harbor.localhost:4300/oauth/authorize",
+        "pushed_authorization_request_endpoint": "http://harbor.localhost:4300/oauth/par",
+        "require_pushed_authorization_requests": false,
+        "token_endpoint_auth_signing_alg_values_supported": ["ES256", "PS384"],
+        "dpop_signing_alg_values_supported": ["ES256"]
+      },
+      "profile": {
+        "identifier": "http://harbor.localhost:4300",
+        "issuer": "http://harbor.localhost:4300",
+        "signIn": {
+          "direct": true,
+          "device": false
+        },
+        "pushedAuthorization": {
+          "endpoint": "http://harbor.localhost:4300/oauth/par",
+          "required": false
+        },
+        "scopes": [
+          "accounts:read",
+          "transactions:read",
+          "cards:read",
+          "recipients:read",
+          "budgets:read",
+          "cards:write",
+          "transactions:write",
+          "budgets:write",
+          "payments:request",
+          "transfers:request",
+          "fdx:ACCOUNT_BASIC",
+          "fdx:ACCOUNT_DETAILED",
+          "fdx:TRANSACTIONS",
+          "fdx:STATEMENTS",
+          "fdx:CUSTOMER_CONTACT",
+          "offline_access",
+          "poppy:browser-sign-in"
+        ],
+        "version": "1.0",
+        "scopeDescriptions": {
+          "accounts:read": "See owned fictional accounts, balances, available balances and account status. Read only; includes personal financial data.",
+          "transactions:read": "See recent fictional transaction amounts, descriptions, dates, status and categories. Read only; includes personal financial data.",
+          "cards:read": "See fictional cards, last four digits, status, limits and linked accounts. Read only; includes personal financial data.",
+          "recipients:read": "See existing fictional payment recipients and masked destination details. Read only; includes personal financial data.",
+          "budgets:read": "See fictional monthly budgets, category limits and simulated spending. Read only; includes personal financial data.",
+          "cards:write": "Freeze or unfreeze a fictional card. Reversible, but every change requires separate approval. Does not include reading cards.",
+          "transactions:write": "Change a posted fictional transaction's category. Reversible, with separate approval. Does not include reading transactions.",
+          "budgets:write": "Create or update fictional budgets. Reversible, with separate approval. Does not include reading budgets.",
+          "payments:request": "Request an outgoing fictional payment to an existing recipient. Irreversible in this demo after approval; no real money moves.",
+          "transfers:request": "Request a fictional transfer between owned accounts. Treated as irreversible after approval; no real money moves.",
+          "fdx:ACCOUNT_BASIC": "FDX-shaped API: see the fictional accounts you choose at consent (type, name, masked number, status), without balances. Read only; includes personal financial data.",
+          "fdx:ACCOUNT_DETAILED": "FDX-shaped API: add current and available balances to the accounts you choose. Needs fdx:ACCOUNT_BASIC to list them. Read only; includes personal financial data.",
+          "fdx:TRANSACTIONS": "FDX-shaped API: see the transactions of the fictional accounts you choose. Read only; includes personal financial data.",
+          "fdx:STATEMENTS": "FDX-shaped API: list and download monthly PDF statements of the fictional accounts you choose, with their balances and transactions. Read only; includes personal financial data.",
+          "fdx:CUSTOMER_CONTACT": "FDX-shaped API: see the fictional customer's name and email. Read only; includes personal data.",
+          "offline_access": "Allow the Personal Agent to refresh this fictional grant while you are away, for up to 7 days. Without it, the grant ends with its first access token, after 1 hour. It does not add data or change permissions.",
+          "poppy:browser-sign-in": "Open Harborline's website in the agent's own browser, signed in to your account. The website shows what the read permissions you grant cover, and nothing can be changed there. Not needed for the API or for Harborline's own agent."
+        },
+        "scopeHints": {
+          "accounts:read": {
+            "changes": "none",
+            "personal_data": true
+          },
+          "transactions:read": {
+            "changes": "none",
+            "personal_data": true
+          },
+          "cards:read": {
+            "changes": "none",
+            "personal_data": true
+          },
+          "recipients:read": {
+            "changes": "none",
+            "personal_data": true
+          },
+          "budgets:read": {
+            "changes": "none",
+            "personal_data": true
+          },
+          "cards:write": {
+            "changes": "reversible",
+            "personal_data": true
+          },
+          "transactions:write": {
+            "changes": "reversible",
+            "personal_data": true
+          },
+          "budgets:write": {
+            "changes": "reversible",
+            "personal_data": true
+          },
+          "payments:request": {
+            "changes": "irreversible",
+            "personal_data": true
+          },
+          "transfers:request": {
+            "changes": "irreversible",
+            "personal_data": true
+          },
+          "fdx:ACCOUNT_BASIC": {
+            "changes": "none",
+            "personal_data": true
+          },
+          "fdx:ACCOUNT_DETAILED": {
+            "changes": "none",
+            "personal_data": true
+          },
+          "fdx:TRANSACTIONS": {
+            "changes": "none",
+            "personal_data": true
+          },
+          "fdx:STATEMENTS": {
+            "changes": "none",
+            "personal_data": true
+          },
+          "fdx:CUSTOMER_CONTACT": {
+            "changes": "none",
+            "personal_data": true
+          },
+          "offline_access": {
+            "changes": "none",
+            "personal_data": false
+          },
+          "poppy:browser-sign-in": {
+            "changes": "none",
+            "personal_data": true
+          }
+        },
+        "tasksEndpoint": "http://harbor.localhost:4300/poppy/tasks",
+        "operations": true,
+        "extensions": {
+          "operations": {
+            "version": "3"
+          },
+          "poppylab.dev/fdx": {
+            "version": "1",
+            "base_url": "http://harbor.localhost:4300/fdx/v6",
+            "consent_endpoint": "http://harbor.localhost:4300/fdx/v6/consents",
+            "fdx_version": "6.4",
+            "resources": ["customer", "accounts", "transactions", "statements"]
+          }
+        }
+      }
+    },
+    "excludedTasks": [
+      {
+        "task": "Open or close a bank account",
+        "alternative": "Harborline only exposes the pre-seeded fictional accounts. Account opening and closure are not available through this protocol demo."
+      },
+      {
+        "task": "Create, edit or verify a payment recipient"
+      },
+      {
+        "task": "Deposit checks, cash or cryptocurrency"
+      },
+      {
+        "task": "Dispute a transaction or chargeback"
+      },
+      {
+        "task": "Export tax documents"
+      },
+      {
+        "task": "Send a payment to a new recipient",
+        "alternative": "Only active recipients already returned by the recipients API may be used."
+      }
+    ],
+    "skills": [
+      {
+        "name": "pay-saved-recipient",
+        "description": "Send a payment from one of a customer's Harborline Bank accounts to a recipient they have already saved, through Harborline's API. Use it when the customer asks to pay or send money to a saved recipient. A new recipient can't be added through the protocol.",
+        "url": "http://harbor.localhost:4300/poppy/skills/pay-saved-recipient/SKILL.md",
+        "host": "harbor.localhost:4300"
+      }
+    ],
+    "url": "http://harbor.localhost:4300/",
+    "scopes": "accounts:read transactions:read cards:read recipients:read budgets:read cards:write transactions:write budgets:write payments:request transfers:request",
+    "fdx": false,
+    "espi": false,
+    "consentVersion": 1,
+    "signedIn": true,
+    "authPending": false,
+    "directConversation": {
+      "direct": false,
+      "conversation": false,
+      "invitation": null
+    },
+    "operations": [
+      {
+        "operation_id": "op_t2l5bupl5qOuLBOtdJK44AG1",
+        "revision": "1795772788-aVH5oeYEAjrJ1PIy",
+        "summary": "Transfer USD 25.00 from Operating checking to Reserve savings. New fictional balances: Operating checking USD 12820.00; Reserve savings USD 42525.00. No real money moves.",
+        "terms": {
+          "source_account_id": "acc_HLB_A100",
+          "destination_account_id": "acc_HLB_A200",
+          "amount_cents": 2500,
+          "idempotency_key": "iuZjs9aBa0p7B0VJeV17d5wnxX-DiwjI",
+          "source_name": "Operating checking",
+          "destination_name": "Reserve savings",
+          "source_version": 1,
+          "destination_version": 1,
+          "source_balance_before_cents": 1284500,
+          "source_balance_after_cents": 1282000,
+          "destination_balance_before_cents": 4250000,
+          "destination_balance_after_cents": 4252500,
+          "currency": "USD",
+          "notice": "Fictional Harborline Bank data. No real money moves; never enter real banking data or credentials."
+        },
+        "expires_at": "2026-11-27T09:56:28.665Z",
+        "state": "proposed",
+        "request": {
+          "url": "http://harbor.localhost:4300/api/account/transfers",
+          "body": {
+            "source_account_id": "acc_HLB_A100",
+            "destination_account_id": "acc_HLB_A200",
+            "amount_cents": 2500,
+            "idempotency_key": "iuZjs9aBa0p7B0VJeV17d5wnxX-DiwjI"
+          }
+        },
+        "changed": 1795772788665
+      }
+    ],
+    "history": [
+      {
+        "role": "user",
+        "content": "my account balances",
+        "signedOut": true,
+        "from": {
+          "origin": "http://harbor.localhost:4300",
+          "name": "Harborline Bank"
+        }
+      },
+      {
+        "role": "assistant",
+        "content": "Protocol demo (no LLM). This needs your account at Harborline Bank, and you are not signed in. Iris didn't send this request to the Company. Press “Sign in to Harborline Bank”, then ask again.",
+        "demo": true,
+        "steps": [
+          {
+            "text": "Started a Poppy Session, signed out",
+            "how": "setup",
+            "access": null,
+            "state": "done"
+          },
+          {
+            "text": "Read /poppy/tasks",
+            "how": "API",
+            "access": "view",
+            "state": "done"
+          },
+          {
+            "text": "Company Agent conversations at http://harbor.localhost:4300/poppy/conversations",
+            "how": "setup",
+            "access": null,
+            "state": "done"
+          },
+          {
+            "text": "Found 11 API tools at the Company",
+            "how": "setup",
+            "access": null,
+            "state": "done"
+          },
+          {
+            "text": "Did not send a request to /api/account/accounts (sign-in needed)",
+            "how": "API",
+            "access": null,
+            "state": "done"
+          }
+        ],
+        "signedOut": true,
+        "from": {
+          "origin": "http://harbor.localhost:4300",
+          "name": "Harborline Bank"
+        }
+      },
+      {
+        "role": "user",
+        "content": "Transfer $25 from checking to savings.",
+        "from": {
+          "origin": "http://harbor.localhost:4300",
+          "name": "Harborline Bank"
+        }
+      },
+      {
+        "role": "assistant",
+        "content": "Protocol demo (no LLM). The demo read your accounts and asked to transfer $25.00 from Operating checking to Reserve savings.\n\nThe company answered:\n\nThe company is holding this change until you approve it:\nTransfer USD 25.00 from Operating checking to Reserve savings. New fictional balances: Operating checking USD 12820.00; Reserve savings USD 42525.00. No real money moves.\n\nThe Company holds a change until you click Approve. For natural-language reasoning, select a model.",
+        "demo": true,
+        "steps": [
+          {
+            "text": "Started a Poppy Session, signed in",
+            "how": "setup",
+            "access": null,
+            "state": "done"
+          },
+          {
+            "text": "Read /poppy/tasks",
+            "how": "API",
+            "access": "view",
+            "state": "done"
+          },
+          {
+            "text": "Company Agent conversations at http://harbor.localhost:4300/poppy/conversations",
+            "how": "setup",
+            "access": null,
+            "state": "done"
+          },
+          {
+            "text": "Found 11 API tools at the Company",
+            "how": "setup",
+            "access": null,
+            "state": "done"
+          },
+          {
+            "text": "Read /api/account/accounts",
+            "how": "API",
+            "access": "view",
+            "state": "done"
+          },
+          {
+            "text": "Sent a request to /api/account/transfers",
+            "how": "API",
+            "access": "view and change",
+            "state": "done"
+          },
+          {
+            "text": "Asked for your approval; nothing was done yet",
+            "how": "API",
+            "access": "view and change",
+            "state": "waiting"
+          }
+        ],
+        "data": "{\"status\":\"approval_required\",\"operation_id\":\"op_t2l5bupl5qOuLBOtdJK44AG1\",\"summary\":\"Transfer USD 25.00 from Operating checking to Reserve savings. New fictional balances: Operating checking USD 12820.00; Reserve savings USD 42525.00. No real money moves.\",\"terms\":{\"source_account_id\":\"acc_HLB_A100\",\"destination_account_id\":\"acc_HLB_A200\",\"amount_cents\":2500,\"idempotency_key\":\"iuZjs9aBa0p7B0VJeV17d5wnxX-DiwjI\",\"source_name\":\"Operating checking\",\"destination_name\":\"Reserve savings\",\"source_version\":1,\"destination_version\":1,\"source_balance_before_cents\":1284500,\"source_balance_after_cents\":1282000,\"destination_balance_before_cents\":4250000,\"destination_balance_after_cents\":4252500,\"currency\":\"USD\",\"notice\":\"Fictional Harborline Bank data. No real money moves; never enter real banking data or credentials.\"},\"expires_at\":\"2026-11-27T09:56:28.665Z\",\"note\":\"Nothing was done. The user must approve these exact terms with the control in the chat; your words can't approve it.\"}",
+        "from": {
+          "origin": "http://harbor.localhost:4300",
+          "name": "Harborline Bank"
+        }
+      }
+    ],
+    "log": [
+      {
+        "at": 1795772788651,
+        "text": "Poppy 1.0 Session signed out · delegated ES256 Session header · Poppy-Version 1.0 · Poppy-Extensions \"operations\";v=\"3\"",
+        "signedOut": true,
+        "from": {
+          "origin": "http://harbor.localhost:4300",
+          "name": "Harborline Bank"
+        }
+      },
+      {
+        "at": 1795772788651,
+        "text": "GET /poppy/tasks · tasks for this Session · 6 excluded · 1 skill listed",
+        "signedOut": true,
+        "from": {
+          "origin": "http://harbor.localhost:4300",
+          "name": "Harborline Bank"
+        }
+      },
+      {
+        "at": 1795772788651,
+        "text": "Company Agent conversations at http://harbor.localhost:4300/poppy/conversations",
+        "signedOut": true,
+        "from": {
+          "origin": "http://harbor.localhost:4300",
+          "name": "Harborline Bank"
+        }
+      },
+      {
+        "at": 1795772788651,
+        "text": "Loaded 11 API tools; confirmation is never a model tool",
+        "signedOut": true,
+        "from": {
+          "origin": "http://harbor.localhost:4300",
+          "name": "Harborline Bank"
+        }
+      },
+      {
+        "at": 1795772788651,
+        "text": "Not sent · GET /api/account/accounts · sign-in needed",
+        "signedOut": true,
+        "from": {
+          "origin": "http://harbor.localhost:4300",
+          "name": "Harborline Bank"
+        }
+      },
+      {
+        "at": 1795772788659,
+        "text": "Direct Sign-In completed · PKCE + issuer validation · DPoP account Session",
+        "signedOut": true,
+        "from": {
+          "origin": "http://harbor.localhost:4300",
+          "name": "Harborline Bank"
+        }
+      },
+      {
+        "at": 1795772788665,
+        "text": "Poppy 1.0 Session signed in · delegated ES256 Session header · Poppy-Version 1.0 · Poppy-Extensions \"operations\";v=\"3\"",
+        "from": {
+          "origin": "http://harbor.localhost:4300",
+          "name": "Harborline Bank"
+        }
+      },
+      {
+        "at": 1795772788665,
+        "text": "GET /poppy/tasks · tasks for this Session · 6 excluded · 1 skill listed",
+        "from": {
+          "origin": "http://harbor.localhost:4300",
+          "name": "Harborline Bank"
+        }
+      },
+      {
+        "at": 1795772788665,
+        "text": "Company Agent conversations at http://harbor.localhost:4300/poppy/conversations",
+        "from": {
+          "origin": "http://harbor.localhost:4300",
+          "name": "Harborline Bank"
+        }
+      },
+      {
+        "at": 1795772788665,
+        "text": "Loaded 11 API tools; confirmation is never a model tool",
+        "from": {
+          "origin": "http://harbor.localhost:4300",
+          "name": "Harborline Bank"
+        }
+      },
+      {
+        "at": 1795772788665,
+        "text": "GET /api/account/accounts · Poppy Session",
+        "from": {
+          "origin": "http://harbor.localhost:4300",
+          "name": "Harborline Bank"
+        }
+      },
+      {
+        "at": 1795772788665,
+        "text": "POST /api/account/transfers · Poppy Session",
+        "from": {
+          "origin": "http://harbor.localhost:4300",
+          "name": "Harborline Bank"
+        }
+      },
+      {
+        "at": 1795772788665,
+        "text": "Approval required · nothing performed",
+        "from": {
+          "origin": "http://harbor.localhost:4300",
+          "name": "Harborline Bank"
+        }
+      }
+    ],
+    "connections": [
+      {
+        "origin": "http://harbor.localhost:4300",
+        "name": "Harborline Bank",
+        "company": {
+          "requestedUrl": "http://harbor.localhost:4300/",
+          "discoveryUrl": "http://harbor.localhost:4300/.well-known/poppy.json",
+          "trace": [
+            {
+              "id": "input",
+              "label": "Company URL",
+              "detail": "http://harbor.localhost:4300",
+              "status": "passed"
+            },
+            {
+              "id": "poppy",
+              "label": "Discovery document · Poppy 1.0",
+              "detail": "http://harbor.localhost:4300/.well-known/poppy.json",
+              "status": "passed",
+              "durationMs": 0
+            },
+            {
+              "id": "domain",
+              "label": "Domain binding",
+              "detail": "harbor.localhost:4300",
+              "status": "passed"
+            },
+            {
+              "id": "extension",
+              "label": "Extension poppylab.dev/fdx v1",
+              "detail": "http://harbor.localhost:4300/fdx/v6",
+              "status": "passed"
+            },
+            {
+              "id": "resource",
+              "label": "Protected resource metadata",
+              "detail": "http://harbor.localhost:4300/.well-known/oauth-protected-resource",
+              "status": "passed"
+            },
+            {
+              "id": "issuer",
+              "label": "OAuth issuer",
+              "detail": "http://harbor.localhost:4300",
+              "status": "passed"
+            },
+            {
+              "id": "metadata",
+              "label": "OAuth metadata",
+              "detail": "http://harbor.localhost:4300/.well-known/oauth-authorization-server",
+              "status": "passed",
+              "durationMs": 0
+            },
+            {
+              "id": "link",
+              "label": "Two-way issuer link",
+              "detail": "harbor.localhost:4300 ↔ harbor.localhost:4300",
+              "status": "passed"
+            }
+          ],
+          "discoveredAt": "2026-11-27T09:46:28.659Z",
+          "document": {
+            "protocol_version": "1.0",
+            "organization": {
+              "name": "Harborline Bank",
+              "domain": "harbor.localhost:4300"
+            },
+            "auth": {
+              "issuer": "http://harbor.localhost:4300",
+              "scopes": {
+                "accounts:read": "See owned fictional accounts, balances, available balances and account status. Read only; includes personal financial data.",
+                "transactions:read": "See recent fictional transaction amounts, descriptions, dates, status and categories. Read only; includes personal financial data.",
+                "cards:read": "See fictional cards, last four digits, status, limits and linked accounts. Read only; includes personal financial data.",
+                "recipients:read": "See existing fictional payment recipients and masked destination details. Read only; includes personal financial data.",
+                "budgets:read": "See fictional monthly budgets, category limits and simulated spending. Read only; includes personal financial data.",
+                "cards:write": "Freeze or unfreeze a fictional card. Reversible, but every change requires separate approval. Does not include reading cards.",
+                "transactions:write": "Change a posted fictional transaction's category. Reversible, with separate approval. Does not include reading transactions.",
+                "budgets:write": "Create or update fictional budgets. Reversible, with separate approval. Does not include reading budgets.",
+                "payments:request": "Request an outgoing fictional payment to an existing recipient. Irreversible in this demo after approval; no real money moves.",
+                "transfers:request": "Request a fictional transfer between owned accounts. Treated as irreversible after approval; no real money moves.",
+                "fdx:ACCOUNT_BASIC": "FDX-shaped API: see the fictional accounts you choose at consent (type, name, masked number, status), without balances. Read only; includes personal financial data.",
+                "fdx:ACCOUNT_DETAILED": "FDX-shaped API: add current and available balances to the accounts you choose. Needs fdx:ACCOUNT_BASIC to list them. Read only; includes personal financial data.",
+                "fdx:TRANSACTIONS": "FDX-shaped API: see the transactions of the fictional accounts you choose. Read only; includes personal financial data.",
+                "fdx:STATEMENTS": "FDX-shaped API: list and download monthly PDF statements of the fictional accounts you choose, with their balances and transactions. Read only; includes personal financial data.",
+                "fdx:CUSTOMER_CONTACT": "FDX-shaped API: see the fictional customer's name and email. Read only; includes personal data.",
+                "offline_access": "Allow the Personal Agent to refresh this fictional grant while you are away, for up to 7 days. Without it, the grant ends with its first access token, after 1 hour. It does not add data or change permissions.",
+                "poppy:browser-sign-in": "Open Harborline's website in the agent's own browser, signed in to your account. The website shows what the read permissions you grant cover, and nothing can be changed there. Not needed for the API or for Harborline's own agent."
+              },
+              "scope_hints": {
+                "accounts:read": {
+                  "changes": "none",
+                  "personal_data": true
+                },
+                "transactions:read": {
+                  "changes": "none",
+                  "personal_data": true
+                },
+                "cards:read": {
+                  "changes": "none",
+                  "personal_data": true
+                },
+                "recipients:read": {
+                  "changes": "none",
+                  "personal_data": true
+                },
+                "budgets:read": {
+                  "changes": "none",
+                  "personal_data": true
+                },
+                "cards:write": {
+                  "changes": "reversible",
+                  "personal_data": true
+                },
+                "transactions:write": {
+                  "changes": "reversible",
+                  "personal_data": true
+                },
+                "budgets:write": {
+                  "changes": "reversible",
+                  "personal_data": true
+                },
+                "payments:request": {
+                  "changes": "irreversible",
+                  "personal_data": true
+                },
+                "transfers:request": {
+                  "changes": "irreversible",
+                  "personal_data": true
+                },
+                "fdx:ACCOUNT_BASIC": {
+                  "changes": "none",
+                  "personal_data": true
+                },
+                "fdx:ACCOUNT_DETAILED": {
+                  "changes": "none",
+                  "personal_data": true
+                },
+                "fdx:TRANSACTIONS": {
+                  "changes": "none",
+                  "personal_data": true
+                },
+                "fdx:STATEMENTS": {
+                  "changes": "none",
+                  "personal_data": true
+                },
+                "fdx:CUSTOMER_CONTACT": {
+                  "changes": "none",
+                  "personal_data": true
+                },
+                "offline_access": {
+                  "changes": "none",
+                  "personal_data": false
+                },
+                "poppy:browser-sign-in": {
+                  "changes": "none",
+                  "personal_data": true
+                }
+              }
+            },
+            "agent": {
+              "protocols": [
+                {
+                  "type": "poppy",
+                  "endpoint": "http://harbor.localhost:4300/poppy/conversations",
+                  "description": "Harborline's deterministic account guide: supported requests, cash position, spending summary, card status, and approval-gated card freezing. Send {\"request\":\"help\"} in data."
+                }
+              ]
+            },
+            "apis": [
+              {
+                "type": "openapi",
+                "url": "http://harbor.localhost:4300/openapi.json",
+                "description": "Fictional accounts, balances, transactions, cards, recipients, budgets, payment requests and owned-account transfers"
+              },
+              {
+                "type": "openapi",
+                "url": "http://harbor.localhost:4300/openapi/fdx.json",
+                "description": "FDX-shaped, read-only view of the same fictional accounts, balances, transactions, monthly PDF statements and customer, with a consent API. Not FDX-conformant or certified. Requests must declare the poppylab.dev/fdx extension, version 1."
+              }
+            ],
+            "web": {
+              "browser_session_endpoint": "http://harbor.localhost:4300/poppy/browser-session"
+            },
+            "tasks": {
+              "endpoint": "http://harbor.localhost:4300/poppy/tasks"
+            },
+            "extensions": {
+              "operations": [
+                {
+                  "version": "3"
+                }
+              ],
+              "poppylab.dev/fdx": [
+                {
+                  "version": "1",
+                  "fdx_version": "6.4",
+                  "base_url": "http://harbor.localhost:4300/fdx/v6",
+                  "resources": [
+                    "customer",
+                    "accounts",
+                    "transactions",
+                    "statements"
+                  ],
+                  "consent_endpoint": "http://harbor.localhost:4300/fdx/v6/consents"
+                }
+              ]
+            }
+          },
+          "metadata": {
+            "issuer": "http://harbor.localhost:4300",
+            "token_endpoint": "http://harbor.localhost:4300/oauth/token",
+            "revocation_endpoint": "http://harbor.localhost:4300/oauth/revoke",
+            "protected_resources": ["http://harbor.localhost:4300"],
+            "grant_types_supported": ["authorization_code", "refresh_token"],
+            "scopes_supported": [
+              "accounts:read",
+              "transactions:read",
+              "cards:read",
+              "recipients:read",
+              "budgets:read",
+              "cards:write",
+              "transactions:write",
+              "budgets:write",
+              "payments:request",
+              "transfers:request",
+              "fdx:ACCOUNT_BASIC",
+              "fdx:ACCOUNT_DETAILED",
+              "fdx:TRANSACTIONS",
+              "fdx:STATEMENTS",
+              "fdx:CUSTOMER_CONTACT",
+              "offline_access",
+              "poppy:browser-sign-in"
+            ],
+            "authorization_endpoint": "http://harbor.localhost:4300/oauth/authorize",
+            "pushed_authorization_request_endpoint": "http://harbor.localhost:4300/oauth/par",
+            "require_pushed_authorization_requests": false,
+            "token_endpoint_auth_signing_alg_values_supported": [
+              "ES256",
+              "PS384"
+            ],
+            "dpop_signing_alg_values_supported": ["ES256"]
+          },
+          "profile": {
+            "identifier": "http://harbor.localhost:4300",
+            "issuer": "http://harbor.localhost:4300",
+            "signIn": {
+              "direct": true,
+              "device": false
+            },
+            "pushedAuthorization": {
+              "endpoint": "http://harbor.localhost:4300/oauth/par",
+              "required": false
+            },
+            "scopes": [
+              "accounts:read",
+              "transactions:read",
+              "cards:read",
+              "recipients:read",
+              "budgets:read",
+              "cards:write",
+              "transactions:write",
+              "budgets:write",
+              "payments:request",
+              "transfers:request",
+              "fdx:ACCOUNT_BASIC",
+              "fdx:ACCOUNT_DETAILED",
+              "fdx:TRANSACTIONS",
+              "fdx:STATEMENTS",
+              "fdx:CUSTOMER_CONTACT",
+              "offline_access",
+              "poppy:browser-sign-in"
+            ],
+            "version": "1.0",
+            "scopeDescriptions": {
+              "accounts:read": "See owned fictional accounts, balances, available balances and account status. Read only; includes personal financial data.",
+              "transactions:read": "See recent fictional transaction amounts, descriptions, dates, status and categories. Read only; includes personal financial data.",
+              "cards:read": "See fictional cards, last four digits, status, limits and linked accounts. Read only; includes personal financial data.",
+              "recipients:read": "See existing fictional payment recipients and masked destination details. Read only; includes personal financial data.",
+              "budgets:read": "See fictional monthly budgets, category limits and simulated spending. Read only; includes personal financial data.",
+              "cards:write": "Freeze or unfreeze a fictional card. Reversible, but every change requires separate approval. Does not include reading cards.",
+              "transactions:write": "Change a posted fictional transaction's category. Reversible, with separate approval. Does not include reading transactions.",
+              "budgets:write": "Create or update fictional budgets. Reversible, with separate approval. Does not include reading budgets.",
+              "payments:request": "Request an outgoing fictional payment to an existing recipient. Irreversible in this demo after approval; no real money moves.",
+              "transfers:request": "Request a fictional transfer between owned accounts. Treated as irreversible after approval; no real money moves.",
+              "fdx:ACCOUNT_BASIC": "FDX-shaped API: see the fictional accounts you choose at consent (type, name, masked number, status), without balances. Read only; includes personal financial data.",
+              "fdx:ACCOUNT_DETAILED": "FDX-shaped API: add current and available balances to the accounts you choose. Needs fdx:ACCOUNT_BASIC to list them. Read only; includes personal financial data.",
+              "fdx:TRANSACTIONS": "FDX-shaped API: see the transactions of the fictional accounts you choose. Read only; includes personal financial data.",
+              "fdx:STATEMENTS": "FDX-shaped API: list and download monthly PDF statements of the fictional accounts you choose, with their balances and transactions. Read only; includes personal financial data.",
+              "fdx:CUSTOMER_CONTACT": "FDX-shaped API: see the fictional customer's name and email. Read only; includes personal data.",
+              "offline_access": "Allow the Personal Agent to refresh this fictional grant while you are away, for up to 7 days. Without it, the grant ends with its first access token, after 1 hour. It does not add data or change permissions.",
+              "poppy:browser-sign-in": "Open Harborline's website in the agent's own browser, signed in to your account. The website shows what the read permissions you grant cover, and nothing can be changed there. Not needed for the API or for Harborline's own agent."
+            },
+            "scopeHints": {
+              "accounts:read": {
+                "changes": "none",
+                "personal_data": true
+              },
+              "transactions:read": {
+                "changes": "none",
+                "personal_data": true
+              },
+              "cards:read": {
+                "changes": "none",
+                "personal_data": true
+              },
+              "recipients:read": {
+                "changes": "none",
+                "personal_data": true
+              },
+              "budgets:read": {
+                "changes": "none",
+                "personal_data": true
+              },
+              "cards:write": {
+                "changes": "reversible",
+                "personal_data": true
+              },
+              "transactions:write": {
+                "changes": "reversible",
+                "personal_data": true
+              },
+              "budgets:write": {
+                "changes": "reversible",
+                "personal_data": true
+              },
+              "payments:request": {
+                "changes": "irreversible",
+                "personal_data": true
+              },
+              "transfers:request": {
+                "changes": "irreversible",
+                "personal_data": true
+              },
+              "fdx:ACCOUNT_BASIC": {
+                "changes": "none",
+                "personal_data": true
+              },
+              "fdx:ACCOUNT_DETAILED": {
+                "changes": "none",
+                "personal_data": true
+              },
+              "fdx:TRANSACTIONS": {
+                "changes": "none",
+                "personal_data": true
+              },
+              "fdx:STATEMENTS": {
+                "changes": "none",
+                "personal_data": true
+              },
+              "fdx:CUSTOMER_CONTACT": {
+                "changes": "none",
+                "personal_data": true
+              },
+              "offline_access": {
+                "changes": "none",
+                "personal_data": false
+              },
+              "poppy:browser-sign-in": {
+                "changes": "none",
+                "personal_data": true
+              }
+            },
+            "tasksEndpoint": "http://harbor.localhost:4300/poppy/tasks",
+            "operations": true,
+            "extensions": {
+              "operations": {
+                "version": "3"
+              },
+              "poppylab.dev/fdx": {
+                "version": "1",
+                "base_url": "http://harbor.localhost:4300/fdx/v6",
+                "consent_endpoint": "http://harbor.localhost:4300/fdx/v6/consents",
+                "fdx_version": "6.4",
+                "resources": [
+                  "customer",
+                  "accounts",
+                  "transactions",
+                  "statements"
+                ]
+              }
+            }
+          }
+        },
+        "excludedTasks": [
+          {
+            "task": "Open or close a bank account",
+            "alternative": "Harborline only exposes the pre-seeded fictional accounts. Account opening and closure are not available through this protocol demo."
+          },
+          {
+            "task": "Create, edit or verify a payment recipient"
+          },
+          {
+            "task": "Deposit checks, cash or cryptocurrency"
+          },
+          {
+            "task": "Dispute a transaction or chargeback"
+          },
+          {
+            "task": "Export tax documents"
+          },
+          {
+            "task": "Send a payment to a new recipient",
+            "alternative": "Only active recipients already returned by the recipients API may be used."
+          }
+        ],
+        "skills": [
+          {
+            "name": "pay-saved-recipient",
+            "description": "Send a payment from one of a customer's Harborline Bank accounts to a recipient they have already saved, through Harborline's API. Use it when the customer asks to pay or send money to a saved recipient. A new recipient can't be added through the protocol.",
+            "url": "http://harbor.localhost:4300/poppy/skills/pay-saved-recipient/SKILL.md",
+            "host": "harbor.localhost:4300"
+          }
+        ],
+        "url": "http://harbor.localhost:4300/",
+        "scopes": "accounts:read transactions:read cards:read recipients:read budgets:read cards:write transactions:write budgets:write payments:request transfers:request",
+        "fdx": false,
+        "espi": false,
+        "consentVersion": 1,
+        "signedIn": true,
+        "authPending": false,
+        "directConversation": {
+          "direct": false,
+          "conversation": false,
+          "invitation": null
+        },
+        "operations": [
+          {
+            "operation_id": "op_t2l5bupl5qOuLBOtdJK44AG1",
+            "revision": "1795772788-aVH5oeYEAjrJ1PIy",
+            "summary": "Transfer USD 25.00 from Operating checking to Reserve savings. New fictional balances: Operating checking USD 12820.00; Reserve savings USD 42525.00. No real money moves.",
+            "terms": {
+              "source_account_id": "acc_HLB_A100",
+              "destination_account_id": "acc_HLB_A200",
+              "amount_cents": 2500,
+              "idempotency_key": "iuZjs9aBa0p7B0VJeV17d5wnxX-DiwjI",
+              "source_name": "Operating checking",
+              "destination_name": "Reserve savings",
+              "source_version": 1,
+              "destination_version": 1,
+              "source_balance_before_cents": 1284500,
+              "source_balance_after_cents": 1282000,
+              "destination_balance_before_cents": 4250000,
+              "destination_balance_after_cents": 4252500,
+              "currency": "USD",
+              "notice": "Fictional Harborline Bank data. No real money moves; never enter real banking data or credentials."
+            },
+            "expires_at": "2026-11-27T09:56:28.665Z",
+            "state": "proposed",
+            "request": {
+              "url": "http://harbor.localhost:4300/api/account/transfers",
+              "body": {
+                "source_account_id": "acc_HLB_A100",
+                "destination_account_id": "acc_HLB_A200",
+                "amount_cents": 2500,
+                "idempotency_key": "iuZjs9aBa0p7B0VJeV17d5wnxX-DiwjI"
+              }
+            },
+            "changed": 1795772788665
+          }
+        ]
+      }
+    ],
+    "former": []
+  }
+}
