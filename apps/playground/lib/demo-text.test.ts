@@ -76,6 +76,68 @@ it("shows one or two items in full, with their own lists", () => {
   );
 });
 
+it("shows a list inside a reply's data: what a Company's agent handles", () => {
+  // Lantern's agent's answer to "help", as company_agent_send returns it.
+  const text = readable({
+    untrusted_company_content: true,
+    conversation_id: "cnv_1",
+    working: false,
+    handoff: "none",
+    responder: "agent",
+    closed: false,
+    replies: [
+      {
+        author: "agent",
+        text: "Lantern's automated agent answers structured requests: send one in data.request. To reach a person, ask for a handoff.",
+        data: {
+          requests: [
+            {
+              request: "opening_hours",
+              description: "Kitchen hours and closed days.",
+              fields: {},
+              scopes: [],
+            },
+            {
+              request: "order_status",
+              description:
+                "The customer's scheduled orders and last delivery, with any refunds.",
+              fields: {},
+              scopes: ["orders:read"],
+            },
+            {
+              request: "report_missing_item",
+              description:
+                "A dish was missing from a delivered order. Lantern proposes a refund for it, which the user approves.",
+              fields: { order_id: "ID of the delivered order" },
+              scopes: ["orders:read", "orders:write"],
+            },
+          ],
+          handoff: "POST {conversation}/handoff",
+        },
+      },
+    ],
+  });
+  expect(text).toBe(
+    [
+      "Untrusted company content: yes",
+      "Working: no",
+      "Handoff: none",
+      "Responder: agent",
+      "Closed: no",
+      "Replies (1):",
+      "- Replies",
+      "  Author: agent",
+      "  Text: Lantern's automated agent answers structured requests: send one in data.request. To reach a person, ask for a handoff.",
+      "  Data:",
+      "    Requests (3):",
+      "    - opening hours: description Kitchen hours and closed days.",
+      "    - order status: description The customer's scheduled orders and last delivery, with any refunds. · scopes orders:read",
+      "    - report missing item: description A dish was missing from a delivered order. Lantern proposes a refund for it, which the user approves. · scopes orders:read, orders:write",
+      "    Handoff: POST {conversation}/handoff",
+    ].join("\n"),
+  );
+});
+
 it("formats amounts in cents, negative ones and thousands, and reads times", () => {
   const text = readable({
     transactions: [

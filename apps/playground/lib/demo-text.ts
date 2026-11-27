@@ -23,6 +23,8 @@ const TITLES = [
   "title",
   "flight_number",
   "booking_reference",
+  // What a Company's agent handles: each request by its name.
+  "request",
   "description",
   "summary",
   "day",
@@ -159,10 +161,16 @@ function lines(
       if (value.length > MAX_ITEMS)
         out.push(`- …and ${value.length - MAX_ITEMS} more`);
     } else if (isObject(value)) {
-      if (depth >= 1) out.push(`${label(key)}: ${inline(value, currency)}`);
+      // A list of objects doesn't fit on one line and would be dropped there,
+      // such as the requests in a Company agent's reply.
+      const listed = Object.values(value).some(
+        (inner) => Array.isArray(inner) && inner.some(isObject),
+      );
+      if (depth >= 1 && !listed)
+        out.push(`${label(key)}: ${inline(value, currency)}`);
       else {
         const inner = lines(value, currency, depth + 1);
-        if (inner.length <= 3)
+        if (inner.length <= 3 && !listed)
           out.push(`${label(key)}: ${inline(value, currency)}`);
         else out.push(`${label(key)}:`, ...inner.map((line) => `  ${line}`));
       }
