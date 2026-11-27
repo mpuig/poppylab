@@ -110,6 +110,12 @@ export const LEARN_PAGES: readonly LearnPage[] = [
     group: "understand",
   },
   {
+    slug: "sign-in",
+    file: "sign-in.md",
+    label: "Signing in",
+    group: "understand",
+  },
+  {
     slug: "extensions",
     file: "extensions/README.md",
     label: "Domain extensions",
@@ -149,6 +155,12 @@ export const LEARN_PAGES: readonly LearnPage[] = [
     slug: "validator",
     file: "validator.md",
     label: "Validator results",
+    group: "look-up",
+  },
+  {
+    slug: "agent-api",
+    file: "agent-api.md",
+    label: "The agent's API",
     group: "look-up",
   },
   {

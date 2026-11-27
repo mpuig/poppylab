@@ -35,6 +35,7 @@ Read Learn next to the official material:
 | [Poppy compared](compared.md)                          | Poppy beside an API with OAuth, MCP, browser automation and UCP.                                                                                    |
 | [Conversations with a Company Agent](conversations.md) | A refund, agent to agent: structured data, mid-conversation sign-in, proposals, approval, asking for a person.                                      |
 | [Approvals with Operations](operations.md)             | The life of an operation: terms, who approves, how approvals travel, declines, at-most-once retries.                                                |
+| [Signing in](sign-in.md)                               | Direct, Device and Mediated Sign-In, why Harborline offers Direct only, and the lab's test sign-in pages.                                           |
 | [Domain extensions](extensions/README.md)              | How a domain's own standard rides on a Poppy extension, with [FDX for bank data](extensions/fdx.md) and [ESPI for energy data](extensions/espi.md). |
 
 ## Build
@@ -47,10 +48,11 @@ Read Learn next to the official material:
 
 ## Look up
 
-| Page                              | Covers                                                                          |
-| --------------------------------- | ------------------------------------------------------------------------------- |
-| [Validator results](validator.md) | What the official validator checks, and how it ran against the lab's companies. |
-| [Glossary](glossary.md)           | The protocol's words in plain language, each linked to where it is explained.   |
+| Page                              | Covers                                                                              |
+| --------------------------------- | ----------------------------------------------------------------------------------- |
+| [Validator results](validator.md) | What the official validator checks, and how it ran against the lab's companies.     |
+| [The agent's API](agent-api.md)   | What the lab's agent offers its own client apps, and where each part is documented. |
+| [Glossary](glossary.md)           | The protocol's words in plain language, each linked to where it is explained.       |
 
 Everything here covers version 1.0 with Operations version 3. Examples come from
 the lab's fictional companies; no real account, money, food or flight is

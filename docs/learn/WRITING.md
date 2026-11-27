@@ -21,12 +21,12 @@ Each page is exactly one kind, and its place in the navigation says which. If a
 section needs another kind, link to a page of that kind instead of including
 it.
 
-| Kind (nav group)                | The reader wants to…                      | The page                                                            | Pages today                                                       |
-| ------------------------------- | ----------------------------------------- | ------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| **Follow a process** (tutorial) | Watch one thing get done, start to finish | Walks one concrete case in order, with what the reader sees         | How it works, One task, the worked examples under extensions      |
-| **Understand** (explanation)    | Know why it is built this way             | Discusses an idea, weighs alternatives, makes connections           | Poppy compared, Conversations, Approvals, Domain extensions       |
-| **Build** (how-to guide)        | Get a real job done                       | Gives the steps to reach one goal, and nothing the steps don't need | Build a Company, Build a Personal Agent, Write a domain extension |
-| **Look up** (reference)         | Check a fact while working                | Lists the facts, in a fixed pattern, without opinion                | Glossary, Validator results                                       |
+| Kind (nav group)                | The reader wants to…                      | The page                                                            | Pages today                                                             |
+| ------------------------------- | ----------------------------------------- | ------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| **Follow a process** (tutorial) | Watch one thing get done, start to finish | Walks one concrete case in order, with what the reader sees         | How it works, One task, the worked examples under extensions            |
+| **Understand** (explanation)    | Know why it is built this way             | Discusses an idea, weighs alternatives, makes connections           | Poppy compared, Conversations, Approvals, Signing in, Domain extensions |
+| **Build** (how-to guide)        | Get a real job done                       | Gives the steps to reach one goal, and nothing the steps don't need | Build a Company, Build a Personal Agent, Write a domain extension       |
+| **Look up** (reference)         | Check a fact while working                | Lists the facts, in a fixed pattern, without opinion                | Glossary, Validator results, The agent's API                            |
 
 To classify a page, or a single section, ask two questions. Does it tell the
 reader what to do, or what is true? And is the reader studying, or working?
