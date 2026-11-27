@@ -1,30 +1,19 @@
 import type { NextConfig } from "next";
 import { AGENT_NAME } from "./lib/agent-name";
+import { analyticsToken, contentSecurityPolicy } from "./lib/analytics";
 
-// Visitors' model keys and standing instructions live in the browser's
-// storage, so the page may load code only from itself and send data only
-// to itself: the model providers are called from the server. Next writes
-// its page data as inline scripts and the home, /developers and /learn are
-// prerendered, so a per-request nonce isn't possible and inline scripts
-// stay allowed. Development adds eval, which React's dev build uses.
-const contentSecurityPolicy = [
-  "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}`,
-  "style-src 'self' 'unsafe-inline'",
-  // The stylesheets' icons are data: URLs.
-  "img-src 'self' data:",
-  "font-src 'self'",
-  "connect-src 'self'",
-  "object-src 'none'",
-  "base-uri 'none'",
-  "frame-ancestors 'none'",
-  "form-action 'self'",
-].join("; ");
+// Read once, at build time: see lib/analytics.ts.
+const analytics = analyticsToken();
+const csp = contentSecurityPolicy({
+  development: process.env.NODE_ENV === "development",
+  analytics: analytics !== undefined,
+});
 
 const nextConfig: NextConfig = {
   // The agent core's sentences that the page renders name the agent too
-  // (`agentName` in @poppy-lab/pap-agent/agent).
-  env: { AGENT_NAME },
+  // (`agentName` in @poppy-lab/pap-agent/agent). The analytics token is
+  // inlined, so every page, prerendered or not, has the build's value.
+  env: { AGENT_NAME, CF_WEB_ANALYTICS_TOKEN: analytics ?? "" },
   poweredByHeader: false,
   // Local state and secrets anywhere in the workspace, whichever app or
   // package they belong to; build-worker refuses a bundle that has any.
@@ -54,7 +43,7 @@ const nextConfig: NextConfig = {
       {
         source: "/(.*)",
         headers: [
-          { key: "Content-Security-Policy", value: contentSecurityPolicy },
+          { key: "Content-Security-Policy", value: csp },
           // The zone doesn't send it; browsers ignore it over plain HTTP.
           { key: "Strict-Transport-Security", value: "max-age=31536000" },
           { key: "X-Content-Type-Options", value: "nosniff" },

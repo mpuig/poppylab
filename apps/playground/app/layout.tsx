@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist_Mono, Hanken_Grotesk, STIX_Two_Text } from "next/font/google";
+import { BEACON_SRC } from "@/lib/analytics";
 import { SITE_NAME, SITE_URL, pageMetadata } from "@/lib/site";
 
 // Headings and the wordmark; the face of technical and scientific publishing.
@@ -37,6 +38,9 @@ export const metadata: Metadata = {
   },
 };
 
+// Inlined at build time (next.config.ts): empty unless analytics is set up.
+const analytics = process.env.CF_WEB_ANALYTICS_TOKEN;
+
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
@@ -45,7 +49,16 @@ export default function RootLayout({
       lang="en"
       className={`${serif.variable} ${sans.variable} ${mono.variable}`}
     >
-      <body>{children}</body>
+      <body>
+        {children}
+        {analytics ? (
+          <script
+            defer
+            src={BEACON_SRC}
+            data-cf-beacon={JSON.stringify({ token: analytics })}
+          />
+        ) : null}
+      </body>
     </html>
   );
 }
