@@ -237,6 +237,94 @@ describe("Harborline Bank", () => {
     expect(accounts.json().accounts[0].balance_cents).toBe(1272000);
   });
 
+  it("pays Fernwick, a saved biller, only with a bill reference in its format and within its limit", async () => {
+    const { sign, call } = await setup();
+    for (const [customer, id] of [
+      ["elena", "rcp_HLB_A503"],
+      ["robin", "rcp_HLB_J502"],
+    ] as const) {
+      const token = await sign(customer, all);
+      const listed = (
+        await call(token.access_token, "GET", "/api/account/recipients")
+      ).json().recipients;
+      expect(listed.find((r: { id: string }) => r.id === id)).toMatchObject({
+        name: "Fernwick Power & Light",
+        status: "active",
+        payment_limit_cents: 100000,
+        reference_format: {
+          pattern: "^FPL-[0-9]{4}-[0-9]{4}-[0-9]{6}$",
+          example: "FPL-2041-7731-202610",
+        },
+      });
+    }
+    const token = await sign("elena", all);
+    const bill = {
+      source_account_id: "acc_HLB_A100",
+      recipient_id: "rcp_HLB_A503",
+      amount_cents: 18378,
+      memo: "Fernwick bill for October 2026",
+      reference: "FPL-2041-7731-202610",
+      idempotency_key: "payment-fernwick-01",
+    };
+    const pay = (body: Record<string, unknown>) =>
+      call(token.access_token, "POST", "/api/account/payments", body);
+    // A biller is paid under the bill's reference, and nothing else is.
+    const { reference, ...without } = bill;
+    void reference;
+    for (const body of [
+      without,
+      { ...bill, reference: "2041-7731" },
+      {
+        ...without,
+        recipient_id: "rcp_HLB_A501",
+        reference: "FPL-2041-7731-202610",
+      },
+    ]) {
+      const refused = await pay(body);
+      expect(refused.statusCode).toBe(422);
+      expect(refused.json().error).toBe("invalid_reference");
+    }
+    expect((await pay(without)).json().reference_format).toMatchObject({
+      example: "FPL-2041-7731-202610",
+    });
+    // The recipient's limit is USD 1,000.00, well above a month's bill.
+    const over = await pay({
+      ...bill,
+      amount_cents: 100001,
+      idempotency_key: "payment-fernwick-02",
+    });
+    expect(over.json()).toEqual({
+      error: "recipient_limit_exceeded",
+      limit_cents: 100000,
+      currency: "USD",
+    });
+    const proposed = await pay(bill);
+    expect(proposed.statusCode).toBe(403);
+    const op = operation(proposed);
+    expect(op.summary).toBe(
+      "Send USD 183.78 from Operating checking to Fernwick Power & Light (account ending 2041) for “Fernwick bill for October 2026”, reference FPL-2041-7731-202610. Fee USD 0.00. Resulting fictional balance USD 12661.22. No real money moves.",
+    );
+    expect(op.terms).toMatchObject({
+      reference: "FPL-2041-7731-202610",
+      amount_cents: 18378,
+    });
+    const approved = await call(
+      token.access_token,
+      "POST",
+      "/api/account/payments",
+      bill,
+      op,
+    );
+    expect(approved.statusCode).toBe(200);
+    expect(approved.json().data.payment).toMatchObject({
+      reference: "FPL-2041-7731-202610",
+      amount_cents: 18378,
+    });
+    // Another reference under the same key is another payment.
+    const other = await pay({ ...bill, reference: "FPL-2041-7731-202609" });
+    expect(other.json().error).toBe("idempotency_conflict");
+  });
+
   it("declines an agent's approval to move money, performs nothing, and takes the customer's own (Operations v3 §6)", async () => {
     const { sign, call } = await setup();
     const token = await sign("elena", all, { allowOffline: true });

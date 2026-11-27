@@ -48,6 +48,17 @@ export type Recipient = {
   account_last4: string;
   status: "active" | "inactive";
   payment_limit_cents: number;
+  /**
+   * A biller's recipient: every payment to it quotes the reference the
+   * biller printed on the bill, in this shape, so the biller knows which
+   * account and bill it pays. Other recipients take no reference.
+   */
+  reference_format?: {
+    description: string;
+    /** A regular expression the whole reference matches. */
+    pattern: string;
+    example: string;
+  };
   version: number;
 };
 export type Budget = {
@@ -68,6 +79,20 @@ export type CustomerSeed = {
   cards: Card[];
   recipients: Recipient[];
   budgets: Budget[];
+};
+
+/**
+ * Fernwick Power & Light, the lab's fictional utility, as a biller both
+ * customers have saved. Its bills quote the account number and the month
+ * ("FPL-2041-7731-202610"); a month's bills come to a few hundred dollars
+ * at most, so a limit of USD 1,000.00 covers one and stops a mistake.
+ */
+const FERNWICK_LIMIT_CENTS = 100000;
+const FERNWICK_REFERENCE = {
+  description:
+    "Your Fernwick account number and the month of the bill, as printed on the bill",
+  pattern: "^FPL-[0-9]{4}-[0-9]{4}-[0-9]{6}$",
+  example: "FPL-2041-7731-202610",
 };
 
 export const customers: readonly CustomerSeed[] = [
@@ -168,6 +193,16 @@ export const customers: readonly CustomerSeed[] = [
         payment_limit_cents: 100000,
         version: 1,
       },
+      {
+        id: "rcp_HLB_A503",
+        name: "Fernwick Power & Light",
+        bank_label: "Fernwick utility collections (fictional)",
+        account_last4: "2041",
+        status: "active",
+        payment_limit_cents: FERNWICK_LIMIT_CENTS,
+        reference_format: FERNWICK_REFERENCE,
+        version: 1,
+      },
     ],
     budgets: [
       {
@@ -256,6 +291,16 @@ export const customers: readonly CustomerSeed[] = [
         account_last4: "3088",
         status: "active",
         payment_limit_cents: 500000,
+        version: 1,
+      },
+      {
+        id: "rcp_HLB_J502",
+        name: "Fernwick Power & Light",
+        bank_label: "Fernwick utility collections (fictional)",
+        account_last4: "2041",
+        status: "active",
+        payment_limit_cents: FERNWICK_LIMIT_CENTS,
+        reference_format: FERNWICK_REFERENCE,
         version: 1,
       },
     ],

@@ -93,12 +93,23 @@ export const meterView = (meter: Meter, now: number) => {
     })),
   };
 };
-export const billView = (meter: Meter, bill: Bill) => ({
+/** A bill is due 20 days after it closes: on the 21st of that month. */
+const DUE_AFTER = 20 * 24 * 3600;
+/**
+ * What a payment of a bill quotes, at any bank: the account number and the
+ * month the bill covers ("FPL-2041-7731-202610"). The bills of one month
+ * share it, so one payment can cover every meter's bill of that month.
+ */
+export const paymentReference = (accountNumber: string, bill: Bill) =>
+  `${accountNumber}-${bill.id.replace("-", "")}`;
+export const billView = (meter: Meter, bill: Bill, accountNumber: string) => ({
   id: bill.id,
   usage_point_id: meter.seed.id,
   meter: meter.seed.label,
   period_start: new Date(bill.start * 1000).toISOString().slice(0, 10),
   period_end: new Date(bill.end * 1000).toISOString().slice(0, 10),
+  due_date: new Date((bill.end + DUE_AFTER) * 1000).toISOString().slice(0, 10),
+  payment_reference: paymentReference(accountNumber, bill),
   plan: bill.plan,
   delivered_kwh: kwhText(bill.deliveredWh),
   ...(bill.receivedWh ? { sent_to_grid_kwh: kwhText(bill.receivedWh) } : {}),
@@ -142,7 +153,7 @@ export const accountPaths: Record<string, unknown> = {
     get: {
       operationId: "bills",
       summary:
-        "Closed monthly bills of the shared meters, newest first: period (UTC, closing on the 1st), plan, kWh delivered and sent to the grid, line items and total in whole US cents. Computed from the hourly readings.",
+        "Closed monthly bills of the shared meters, newest first: period (UTC, closing on the 1st), plan, kWh delivered and sent to the grid, line items and total in whole US cents, the due date (the 21st) and the payment reference to quote when paying at a bank (the account number and the month: one month's bills share it, so one payment can cover them). Computed from the hourly readings.",
       ...auth(["account:read"]),
       responses: { "200": response("Bills") },
     },
@@ -274,13 +285,13 @@ function mount(app: Hono, ctx: Parameters<CompanyDefinition["mount"]>[1]) {
     });
   });
   app.get("/api/account/bills", (c) => {
-    const { meters } = reachOf(c);
+    const { customer, meters } = reachOf(c);
     const now = nowSeconds();
     return c.json({
       bills: meters
         .flatMap((meter) =>
           billsFor(meter.seed, meter.history, now).map((bill) =>
-            billView(meter, bill),
+            billView(meter, bill, customer.seed.accountNumber),
           ),
         )
         .sort(

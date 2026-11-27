@@ -19,8 +19,8 @@ The package also has `dev:worker`, `build`, `test`, `typecheck` and `deploy` scr
 
 ## Fictional personas and shared state
 
-- **Elena Maren**: operating checking, reserve savings, posted transactions, one active and one inactive card, active and inactive recipients, and two budgets.
-- **Robin Ito**: everyday checking, rainy-day savings, posted and pending transactions, a frozen card, one active recipient and one budget.
+- **Elena Maren**: operating checking, reserve savings, posted transactions, one active and one inactive card, active and inactive recipients (Fernwick Power & Light among them, a biller; see [Paying a bill](#paying-a-bill)), and two budgets.
+- **Robin Ito**: everyday checking, rainy-day savings, posted and pending transactions, a frozen card, two active recipients (one of them Fernwick Power & Light) and one budget.
 
 The account portal and Poppy APIs use the same tenant state. Approved agent changes appear in the portal's next two-second refresh. Pending proposals appear only as activity and never as committed account state.
 
@@ -60,7 +60,7 @@ The FDX-shaped API has its own read-only scopes, one per data cluster (see [belo
 
 Useful reads list accounts/balances, transactions, cards, recipients and budgets. Mutations are:
 
-- request a payment from an owned account to an existing active recipient;
+- request a payment from an owned account to an existing active recipient, with the bill's reference when the recipient is a biller;
 - transfer between two owned active accounts;
 - freeze or unfreeze an active card;
 - edit a posted transaction category;
@@ -74,12 +74,28 @@ Modeled business errors include:
 
 - `insufficient_funds` (when it answers an approval of a payment or transfer proposed before the balance fell, the portal's agent activity lists the attempt as "Not applied", with the available balance and who approved it, and the proposal goes on waiting until it expires);
 - `recipient_limit_exceeded` (each recipient's `payment_limit_cents`) and `transfer_limit_exceeded` (USD 2,500.00 in one transfer; the handler and the `maximum` of the transfer's `amount_cents` in the OpenAPI description read one constant);
+- `invalid_reference` (422): a payment to a biller without its bill's reference, or with one not in its `reference_format`, which the answer repeats; or a reference sent to a recipient that takes none;
 - `recipient_inactive`, `card_inactive` and `account_inactive`;
 - `card_changed`, `transaction_changed`, `budget_changed` and Operations `account_changed`;
 - `transaction_pending`;
 - `idempotency_conflict` and safe replay of performed operations.
 
 A refusal that carries an amount says its currency: `insufficient_funds` answers `{ error, available_cents, currency }`, and `recipient_limit_exceeded` and `transfer_limit_exceeded` answer `{ error, limit_cents, currency }`. `currency` is `"USD"`, from the constant the terms of the same operation and the account views take theirs from (`CURRENCY` in `src/data.ts`), so an agent can show the number as money without guessing.
+
+## Paying a bill
+
+A biller is a saved recipient with a `reference_format`: a `description`, a `pattern` the whole reference matches and an `example`. A payment to it must carry `reference` (at most 40 characters) in that shape, so the biller knows which account and bill the money is for; a payment to any other recipient must not carry one. The reference is in the request, the terms, the summary ("… for “Fernwick bill for October 2026”, reference FPL-2041-7731-202610.") and the payment, and a key that paid one reference is never used for another.
+
+Both customers have one biller saved: **Fernwick Power & Light**, the lab's fictional utility ([Fernwick](fernwick-power.md)), as `rcp_HLB_A503` for Elena and `rcp_HLB_J502` for Robin. Its reference is the Fernwick account number and the month of the bill, as Fernwick's own API prints it in each bill's `payment_reference`:
+
+| Field                      | Value                                                         |
+| -------------------------- | ------------------------------------------------------------- |
+| `bank_label`               | Fernwick utility collections (fictional), account ending 2041 |
+| `payment_limit_cents`      | 100000 (USD 1,000.00)                                         |
+| `reference_format.pattern` | `^FPL-[0-9]{4}-[0-9]{4}-[0-9]{6}$`                            |
+| `reference_format.example` | `FPL-2041-7731-202610`                                        |
+
+A month's Fernwick bills come to a few hundred dollars at most (Elena's two meters were about USD 184 for October 2026), well inside the recipient's limit and the bank's USD 10,000.00 for one request. A payment over USD 1,000.00 is `recipient_limit_exceeded`, which is more likely a mistake than a bill. Fernwick takes no payment itself: its tasks list paying a bill as excluded, and a bill is paid at the bank. In the playground, "Pay my Fernwick bill from checking." is the demo's example across two Companies ([chat workspace](chat-workspace.md#several-companies-in-one-turn)).
 
 ## FDX-shaped API
 
@@ -154,7 +170,7 @@ pnpm scenarios banking
 
 `src/statements.test.ts` (also in both groups) covers which cycles exist (the day after closing, across a year end, at most twelve), the balance arithmetic (posted only, later postings, other accounts), and the PDF: byte-identical output, header, objects at their cross-reference offsets, stream lengths, trailer, page tree and count, the fiction notice on every page, the 100-row cut over three pages, size bounds and WinAnsi escaping.
 
-Coverage includes discovery and scope hints, consent subsets and offline access (a grant without `offline_access` refreshes only within its hour; with it, for 7 days), route-specific scope enforcement, persona reads, exact payment terms, idempotent replay/conflicts, insufficient funds and limits, stale transfers, card state, transaction categories, budget create/update, Operations extension enforcement, conversations, and portal/API state parity.
+Coverage includes discovery and scope hints, consent subsets and offline access (a grant without `offline_access` refreshes only within its hour; with it, for 7 days), route-specific scope enforcement, persona reads, exact payment terms, a biller paid only with its reference and within its limit, idempotent replay/conflicts, insufficient funds and limits, stale transfers, card state, transaction categories, budget create/update, Operations extension enforcement, conversations, and portal/API state parity.
 
 `src/account-choice.test.ts` (in `fdx` and `banking`) covers [the account choice](#the-account-choice) on Harborline's own API with Elena sharing one of her two accounts: the reads, a transfer to the unchosen account and a payment from it refused with no operation proposed, an approval through a grant that didn't choose the account, a card and a transaction of another account not found, the Company Agent's cash position, spending summary, cards and card freeze, and grants without a choice unchanged.
 

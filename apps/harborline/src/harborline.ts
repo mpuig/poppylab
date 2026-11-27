@@ -72,6 +72,8 @@ export type Payment = {
   recipient_id: string;
   amount_cents: number;
   memo: string;
+  /** The bill's reference, for a biller's recipient. */
+  reference?: string;
   created_at: string;
 };
 export type Transfer = {
@@ -176,6 +178,8 @@ const idParameter = (name: string, description: string) => ({
  */
 const MAX_AMOUNT_CENTS = 1000000,
   TRANSFER_LIMIT_CENTS = 250000;
+/** The longest bill reference a payment takes. */
+const REFERENCE_LENGTH = 40;
 /** "USD 2,500.00": an amount as the descriptions write it. */
 const grouped = (amount: number) =>
   `USD ${(amount / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })}`;
@@ -240,7 +244,7 @@ export const bankPaths: Record<string, unknown> = {
     get: {
       operationId: "recipients",
       summary:
-        "List existing fictional payment recipients. A payment can only target an active recipient returned here and cannot create or edit a recipient.",
+        "List existing fictional payment recipients. A payment can only target an active recipient returned here and cannot create or edit a recipient. A biller's recipient has a reference_format: a payment to it quotes the bill's reference in that shape.",
       ...auth(["recipients:read"]),
       responses: { "200": response("Existing recipients") },
     },
@@ -322,7 +326,7 @@ export const bankPaths: Record<string, unknown> = {
     post: {
       operationId: "request_payment",
       summary:
-        "Propose one outgoing fictional payment from an owned active account to an existing active recipient. Read accounts and recipients first: each recipient has its own limit, payment_limit_cents, and a payment above it is refused. The exact recipient, amount, memo and resulting balance require Operations v3 approval; no real money moves.",
+        "Propose one outgoing fictional payment from an owned active account to an existing active recipient. Read accounts and recipients first: each recipient has its own limit, payment_limit_cents, and a payment above it is refused. A recipient with a reference_format (a biller) needs the bill's reference, matching its pattern; any other recipient takes none. The exact recipient, amount, memo, reference and resulting balance require Operations v3 approval; no real money moves.",
       ...auth(["accounts:read", "recipients:read", "payments:request"]),
       "x-poppy-proposal": true,
       requestBody: {
@@ -343,6 +347,13 @@ export const bankPaths: Record<string, unknown> = {
                 recipient_id: { type: "string", maxLength: 80 },
                 amount_cents: cents(),
                 memo: { type: "string", minLength: 1, maxLength: 120 },
+                reference: {
+                  type: "string",
+                  minLength: 1,
+                  maxLength: REFERENCE_LENGTH,
+                  description:
+                    "The bill's reference, for a recipient with a reference_format, in the shape its pattern gives. Not taken for any other recipient.",
+                },
                 idempotency_key: idempotencySchema,
               },
               additionalProperties: false,
@@ -350,7 +361,12 @@ export const bankPaths: Record<string, unknown> = {
           },
         },
       },
-      responses: operationResponses,
+      responses: {
+        ...operationResponses,
+        "422": response(
+          `${operationResponses["422"].description}, or invalid_reference: a reference missing, not in the recipient's reference_format, or given for a recipient that takes none`,
+        ),
+      },
     },
   },
   "/api/account/transfers": {
@@ -641,6 +657,7 @@ function mount(app: Hono, ctx: Parameters<CompanyDefinition["mount"]>[1]) {
             "recipient_id",
             "amount_cents",
             "memo",
+            "reference",
             "idempotency_key",
           ].includes(key),
       )
@@ -653,15 +670,40 @@ function mount(app: Hono, ctx: Parameters<CompanyDefinition["mount"]>[1]) {
       recipient = customer.recipients.find(
         (item) => item.id === body.recipient_id,
       );
-    if (!amount || !memo || !key)
+    const reference =
+      body.reference === undefined
+        ? undefined
+        : text(body.reference, REFERENCE_LENGTH);
+    if (
+      !amount ||
+      !memo ||
+      !key ||
+      (body.reference !== undefined && !reference)
+    )
       return c.json({ error: "invalid_payment" }, 400);
     if (!source) return c.json({ error: "account_not_found" }, 404);
     if (!recipient) return c.json({ error: "recipient_not_found" }, 404);
+    // A biller is paid with the reference of the bill, which tells it what
+    // the money is for; any other recipient takes none.
+    const format = recipient.reference_format;
+    if (
+      format
+        ? !reference || !new RegExp(format.pattern).test(reference)
+        : reference !== undefined
+    )
+      return c.json(
+        {
+          error: "invalid_reference",
+          ...(format ? { reference_format: format } : {}),
+        },
+        422,
+      );
     const request = {
       source_account_id: source.id,
       recipient_id: recipient.id,
       amount_cents: amount,
       memo,
+      ...(reference ? { reference } : {}),
     };
     const id = generatedId("pay_HLB", `${customer.id}:${key}`);
     const result = (payment: Payment) => ({
@@ -713,7 +755,7 @@ function mount(app: Hono, ctx: Parameters<CompanyDefinition["mount"]>[1]) {
       key: `payment:${key}`,
       terms,
       decline: ownApprovalForMoney,
-      summary: `Send ${usd(amount)} from ${source.name} to ${recipient.name} (account ending ${recipient.account_last4}) for “${memo}”. Fee ${usd(0)}. Resulting fictional balance ${usd(source.balance_cents - amount)}. No real money moves.`,
+      summary: `Send ${usd(amount)} from ${source.name} to ${recipient.name} (account ending ${recipient.account_last4}) for “${memo}”${reference ? `, reference ${reference}` : ""}. Fee ${usd(0)}. Resulting fictional balance ${usd(source.balance_cents - amount)}. No real money moves.`,
       // A key that has paid never pays again. A paid key is answered above
       // and shouldn't get here, so this is the last line of defence. The
       // snapshot checks back up the gateway's own comparison of the terms.
@@ -735,6 +777,9 @@ function mount(app: Hono, ctx: Parameters<CompanyDefinition["mount"]>[1]) {
           recipient_id: recipient.id,
           amount_cents: Number(approved.amount_cents),
           memo: String(approved.memo),
+          ...(typeof approved.reference === "string"
+            ? { reference: approved.reference }
+            : {}),
           created_at: new Date().toISOString(),
         };
         customer.payments.push(payment);

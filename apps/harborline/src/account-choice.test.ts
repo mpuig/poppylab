@@ -72,7 +72,7 @@ describe("Harborline account choice", () => {
     // Not account-bound: the same for every grant.
     expect(
       (await read(savings, "/api/account/recipients")).recipients,
-    ).toHaveLength(2);
+    ).toHaveLength(3);
     expect((await read(savings, "/api/account/budgets")).budgets).toHaveLength(
       2,
     );

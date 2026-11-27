@@ -133,11 +133,23 @@ describe("Fernwick Power & Light", () => {
           0,
         ),
       );
+    // Each is due on the 21st of the month it closes in, and is paid at a
+    // bank under the account number and the month it covers.
+    expect(
+      bills.bills.map((b: { due_date: string; payment_reference: string }) => [
+        b.due_date,
+        b.payment_reference,
+      ]),
+    ).toEqual([
+      ["2026-11-21", "FPL-2041-7731-202610"],
+      ["2026-10-21", "FPL-2041-7731-202609"],
+    ]);
     // Robin's bill carries the solar credit.
     const robin = await h.sign("robin", ["account:read"]);
     const robinBills = (
       await h.call(robin.access_token, "GET", "/api/account/bills")
     ).json();
+    expect(robinBills.bills[0].payment_reference).toBe("FPL-2041-8806-202610");
     expect(robinBills.bills[0].lines.at(-1).note).toBe(
       "Credit for energy sent to the grid",
     );
