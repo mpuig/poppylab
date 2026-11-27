@@ -1312,7 +1312,9 @@ export const harborline: CompanyDefinition = {
   agent: {
     name: "Harborline's automated account guide",
     handoff: {
-      text: "No real banker can join this fictional demo. For protocol questions, inspect the endpoints or return to Poppy Lab.",
+      // §8.9: nobody takes the handoff, and the Company Agent says why and
+      // what the person can do now.
+      text: "No one is available to join: Harborline Bank is a fictional bank in a demo, with no bankers. You can keep talking to Harborline's automated account guide here, or leave this direct conversation and go back to your agent.",
       data: { handoff: "unavailable", fictional_company: true },
     },
   },

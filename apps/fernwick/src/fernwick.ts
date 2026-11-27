@@ -414,7 +414,9 @@ export const fernwick: CompanyDefinition = {
   agent: {
     name: "Fernwick's automated account guide",
     handoff: {
-      text: "No real customer service agent can join this fictional demo. For protocol questions, inspect the endpoints or return to Poppy Lab.",
+      // §8.9: nobody takes the handoff, and the Company Agent says why and
+      // what the person can do now.
+      text: "No one is available to join: Fernwick Power & Light is a fictional company in a demo, with no customer service staff. You can keep talking to Fernwick's automated account guide here, or leave this direct conversation and go back to your agent.",
       data: { handoff: "unavailable", fictional_company: true },
     },
   },
