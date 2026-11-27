@@ -50,6 +50,12 @@ export const LEARN_PAGES: readonly LearnPage[] = [
     parent: "how-it-works",
   },
   {
+    slug: "how-it-works/paying-a-bill-from-another-company",
+    file: "how-it-works/paying-a-bill-from-another-company.md",
+    label: "Paying a bill from another company",
+    parent: "how-it-works",
+  },
+  {
     slug: "how-it-works/changing-a-trip",
     file: "how-it-works/changing-a-trip.md",
     label: "Changing a trip",
