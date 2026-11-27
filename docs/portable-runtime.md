@@ -170,7 +170,7 @@ The same Next.js app runs with `next dev`/`next start` on Node and on Cloudflare
   - account: 20/min per visitor, 80/min per IP;
   - discovery: 20/min per visitor, 80/min per IP.
     An IPv6 address counts by its /64, as at the Companies (`addressKey` in `pap-client`). Counters are Durable Objects on Workers.
-- **Build:** `pnpm --filter @poppy-lab/playground build:worker` (`scripts/build-worker.mjs`).
+- **Build:** `pnpm --filter @poppy-lab/playground build:worker` (`scripts/build-worker.mjs`). The Checks workflow runs it on every pull request and push to main, without secrets and without deploying.
   - OpenNext copies `.env*` values into `next-env.mjs`; the first build contained the local model keys and was deleted before any deployment.
   - The script now empties that file and scans the whole bundle for every local secret-like value and the local identity. If it finds one, it deletes the artifact and fails, printing names only.
   - `NEXT_PUBLIC_JUNIPER_URL`, `NEXT_PUBLIC_LANTERN_URL`, `NEXT_PUBLIC_HARBORLINE_URL`, `NEXT_PUBLIC_NORTHWIND_URL` and `NEXT_PUBLIC_FERNWICK_URL` point the suggestions to poppylab.dev.

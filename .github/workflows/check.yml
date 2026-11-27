@@ -43,3 +43,21 @@ jobs:
             exit 1
           fi
       - run: pnpm audit --prod --audit-level high
+  # The playground's Cloudflare bundle, as deploy:worker would upload it:
+  # the OpenNext build and the secret scan. Nothing is deployed and the job
+  # has no secrets, so the scan finds no local values to look for; it still
+  # fails on any .env*, .dev.vars* or .poppy file inside the bundle.
+  worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @poppy-lab/playground build:worker
