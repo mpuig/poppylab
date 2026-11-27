@@ -200,7 +200,7 @@ describe("a turn the free model doesn't take runs in demo mode", () => {
   it("without a token, asking nothing of Turnstile or the model", async () => {
     const turn = await say("Tell me a joke.");
     expect(turn.status).toBe(200);
-    expect(turn.answer.mode).toBe("iris");
+    expect(turn.answer.mode).toBe("own");
     expect(turn.answer.before).toBe(
       `The browser check for the free model hadn't finished, ${demo}. Send it again in a moment.`,
     );
