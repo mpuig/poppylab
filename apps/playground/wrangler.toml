@@ -17,9 +17,22 @@ POPPY_PUBLIC = "true"
 # none. `build:worker` reads it, since the pages and the CSP are built with it.
 CF_WEB_ANALYTICS_TOKEN = "c7aa0ad1c74849c2ba9240588dc46e08"
 PAP_ACCOUNT_ORIGINS ="https://grocery-demo.poppylab.dev https://food-demo.poppylab.dev https://bank-demo.poppylab.dev https://airline-demo.poppylab.dev https://energy-demo.poppylab.dev"
+# The free model (packages/pap-agent/src/free-model.ts): Turnstile's public
+# site key for the poppylab.dev widget (Managed mode); the Neurons every
+# visitor's turns may use in a UTC day, well inside Workers AI's 10,000 free;
+# and a paid budget in US dollars a day, the only way past the free 10,000
+# (Workers Paid, $0.011 per 1,000 Neurons). 0 stops at the free allocation.
+TURNSTILE_SITE_KEY = "0x4AAAAAAGVrilD-gcy2z-F8"
+FREE_MODEL_DAILY_NEURONS = "7000"
+FREE_MODEL_PAID_USD_PER_DAY = "0"
 # Secrets, set with `wrangler secret put` (never in this file):
-#   POPPY_IDENTITY   the agent key pair (JSON)
-#   POPPY_STATE_KEY  32 random bytes, base64url: seals per-visitor state at rest
+#   POPPY_IDENTITY        the agent key pair (JSON)
+#   POPPY_STATE_KEY       32 random bytes, base64url: seals per-visitor state at rest
+#   TURNSTILE_SECRET_KEY  the Turnstile widget's secret; without it the free model is off
+
+# Workers AI, in this account: the free model. No key or secret.
+[ai]
+binding = "AI"
 
 [[durable_objects.bindings]]
 name = "POPPY_VISITORS"

@@ -34,8 +34,16 @@ it("lets every page load code from, and send data to, itself only", async () => 
   expect(directives["base-uri"]).toEqual(["'none'"]);
   expect(directives["frame-ancestors"]).toEqual(["'none'"]);
   expect(directives["form-action"]).toEqual(["'self'"]);
-  // Outside development, no eval.
-  expect(directives["script-src"]).toEqual(["'self'", "'unsafe-inline'"]);
+  // Outside development, no eval. Turnstile's script and its frame, for
+  // the free model, are the only others.
+  expect(directives["script-src"]).toEqual([
+    "'self'",
+    "'unsafe-inline'",
+    "https://challenges.cloudflare.com",
+  ]);
+  expect(directives["frame-src"]).toEqual([
+    "https://challenges.cloudflare.com",
+  ]);
 });
 
 it("keeps browsers on HTTPS", async () => {
@@ -62,6 +70,7 @@ describe("Cloudflare Web Analytics", () => {
     expect(directives["script-src"]).toEqual([
       "'self'",
       "'unsafe-inline'",
+      "https://challenges.cloudflare.com",
       "https://static.cloudflareinsights.com",
     ]);
     expect(directives["connect-src"]).toEqual([

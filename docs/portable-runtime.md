@@ -163,13 +163,14 @@ The same Next.js app runs with `next dev`/`next start` on Node and on Cloudflare
 - **Identity:** the `POPPY_IDENTITY` Worker secret. It was generated and piped into `wrangler secret put` without being printed or written. Node still creates `.poppy/identity.json`.
 - **Network** (`pap-client`): on Workers only public HTTPS hostnames or public IP literals are allowed, with no credentials, no `localhost`/`.local`/`.internal`/single-label names, and no redirects. `global_fetch_strictly_public` is enabled on the deployed Workers. Node still pins checked DNS answers; `node:dns` and `undici` are loaded lazily.
 - **Public mode** (`packages/pap-agent/src/deployment.ts`): `POPPY_PUBLIC=true` with an HTTPS `AGENT_PUBLIC_ORIGIN`.
-  - Chat accepts only Protocol demo, OpenAI-compatible and Anthropic, each with the visitor's own key. The server keys are used only on localhost in development.
+  - Chat accepts only Protocol demo, the free model (`free`, Workers AI through the `AI` binding, past Turnstile and its limits; see [the free model](chat-workspace.md#the-free-model)), and OpenAI-compatible and Anthropic, each with the visitor's own key. The server keys are used only on localhost in development.
   - Sign-in and proposals are allowed only for `PAP_ACCOUNT_ORIGINS` (Juniper, Lantern, Harborline, Northwind and Fernwick on poppylab.dev; Fernwick's once it is deployed) and the PAP Sandbox. `client.json` always names the public origin.
 - **Budgets** (`packages/pap-agent/src/limits.ts`, public mode):
   - chat: 8/min and 150/day per visitor, 60/min per IP (room for an office sharing one address), 600/min global;
   - account: 20/min per visitor, 80/min per IP;
   - discovery: 20/min per visitor, 80/min per IP.
     An IPv6 address counts by its /64, as at the Companies (`addressKey` in `pap-client`). Counters are Durable Objects on Workers.
+  - the free model (`packages/pap-agent/src/free-model.ts`, on every deployment): 8/hour and 20/day per visitor, 16/hour and 40/day per network address (kept as an HMAC of the address and the UTC day), and `FREE_MODEL_DAILY_NEURONS` Neurons a UTC day for everyone (7,000 by default, counted in the global Durable Object), never past Workers AI's free 10,000 unless `FREE_MODEL_PAID_USD_PER_DAY` is set (default 0). Over any of them a turn runs in demo mode and says so.
 - **Build:** `pnpm --filter @poppy-lab/playground build:worker` (`scripts/build-worker.mjs`). The Checks workflow runs it on every pull request and push to main, without secrets and without deploying.
   - OpenNext copies `.env*` values into `next-env.mjs`; the first build contained the local model keys and was deleted before any deployment.
   - The script now empties that file and scans the whole bundle for every local secret-like value and the local identity. If it finds one, it deletes the artifact and fails, printing names only.
@@ -185,7 +186,7 @@ The same Next.js app runs with `next dev`/`next start` on Node and on Cloudflare
 
 **Review fixes (3 November 2026):** per-visitor state on Workers is sealed with AES-256-GCM under the `POPPY_STATE_KEY` secret, bound to its row (`packages/pap-agent/src/sealed.ts`; records from before the key read as absent); a lost run lock merges the request's operations into the newer copy and logs `run_lock_lost`; the gateway saves only when state can change (non-GET, Session header, or an explicit mark) so website polls and discovery reads write nothing; the 16 KiB body limit is counted on the stream; no client may hold more than a fifth of the Session, token, grant or consent caps; the client-metadata cache evicts one entry instead of clearing; a turn counts only after discovery succeeds; a locked run is never evicted; only `UserFacingError` and discovery messages reach the browser; the Workers `fetchJson` bounds responses before reading.
 
-**Open before calling it robust:** no CSP on Poppy pages yet (Next inline scripts need nonces); an edge rate-limit rule per IP in front of the Companies; the replaced-refresh-token revocation after sign-in is best effort and may be cut when the Worker response ends; and no live model run in production yet (it needs a visitor's own key in the browser).
+**Open before calling it robust:** no CSP on Poppy pages yet (Next inline scripts need nonces); an edge rate-limit rule per IP in front of the Companies; the replaced-refresh-token revocation after sign-in is best effort and may be cut when the Worker response ends; and no live model run in production yet with a visitor's own key (the free model, on Workers AI, needs none).
 
 ## Hostnames
 
@@ -197,6 +198,7 @@ The demo Companies are named by what they are: `grocery-demo.poppylab.dev` (Juni
 2. Routes are set in each `wrangler.toml` (`custom_domain = true`); Wrangler creates the DNS record in the zone.
 3. Deploy the Companies with `pnpm --filter @poppy-lab/lantern run deploy`, `pnpm --filter @poppy-lab/juniper run deploy`, `pnpm --filter @poppy-lab/harborline run deploy`, and `pnpm --filter @poppy-lab/northwind run deploy`; deploy Poppy with `pnpm --filter @poppy-lab/playground build:worker` then `deploy:worker`.
 4. Optional secrets: `wrangler secret put JUNIPER_PASSWORD_HASH`, `LANTERN_PASSWORD_HASH`, `HARBORLINE_PASSWORD_HASH` or `NORTHWIND_PASSWORD_HASH` in the corresponding workspace.
+5. The free model. Poppy's `wrangler.toml` binds Workers AI (`[ai] binding = "AI"`), in the same account, with no key. It needs a Turnstile widget in the Cloudflare dashboard (Managed mode, hostname `poppylab.dev`), whose site key is the var `TURNSTILE_SITE_KEY` in `wrangler.toml` and whose secret is set with `wrangler secret put TURNSTILE_SECRET_KEY` in `apps/playground`. Until both are there the free model is off, and the page says so. `FREE_MODEL_DAILY_NEURONS` (default `"7000"`) is the day's cap for every visitor; it never passes Workers AI's free 10,000 Neurons a day unless `FREE_MODEL_PAID_USD_PER_DAY` (default `"0"`) is a paid budget, which needs Workers Paid ($0.011 per 1,000 Neurons).
 
 Lantern can go live on its own, as a public Poppy 1.0 test Company that any agent with an HTTPS `client_id` can use. Poppy still needs its own port before `poppylab.dev` hosts the playground.
 

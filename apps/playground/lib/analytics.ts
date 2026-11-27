@@ -32,14 +32,22 @@ export function analyticsToken(
  * home, /developers and /learn are prerendered, so a per-request nonce
  * isn't possible and inline scripts stay allowed. Development adds eval,
  * which React's dev build uses.
+ *
+ * Cloudflare Turnstile, which guards the free model, loads its script and
+ * its frame from `TURNSTILE_ORIGIN`. Only the playground shows the widget,
+ * but the policy is the whole site's: a page reached by a link inside the
+ * site keeps the policy of the page the visitor opened first, so a
+ * playground opened from the home page would block the widget otherwise.
  */
+export const TURNSTILE_ORIGIN = "https://challenges.cloudflare.com";
 export function contentSecurityPolicy({
   development = false,
   analytics = false,
 }: { development?: boolean; analytics?: boolean } = {}) {
   return [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-inline'${development ? " 'unsafe-eval'" : ""}${analytics ? ` ${BEACON_ORIGIN}` : ""}`,
+    `script-src 'self' 'unsafe-inline'${development ? " 'unsafe-eval'" : ""} ${TURNSTILE_ORIGIN}${analytics ? ` ${BEACON_ORIGIN}` : ""}`,
+    `frame-src ${TURNSTILE_ORIGIN}`,
     "style-src 'self' 'unsafe-inline'",
     // The stylesheets' icons are data: URLs.
     "img-src 'self' data:",

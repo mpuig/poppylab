@@ -2,11 +2,13 @@
 import { useEffect, useState, type FormEvent } from "react";
 import {
   chatModels,
+  freeModel,
   needsKey,
   initialModel,
   restoreModel,
   type ModelConfig,
 } from "@/lib/model-options";
+import { TurnstileCheck } from "./turnstile";
 const storageKey = "poppy.model.v1";
 /**
  * "Try the protocol demo" lasts for this tab. It is kept apart from the saved
@@ -29,6 +31,10 @@ function rememberDemo(chosen: boolean) {
     // Without session storage the choice lasts until the view changes.
   }
 }
+/** Whether the deployment offers the free model (`/api/model`), or why not. */
+type FreeStatus = { available: boolean; siteKey?: string; reason?: string };
+const FREE_LINE =
+  "A small free model with a daily limit: what you type is sent to Cloudflare Workers AI, and nothing here is real.";
 export function ModelSettings({
   onChange,
   disabled,
@@ -37,22 +43,30 @@ export function ModelSettings({
   disabled: boolean;
 }) {
   const [config, setConfig] = useState(initialModel),
+    // The choice the chat uses, which the form changes only when saved.
+    [applied, setApplied] = useState(initialModel),
     [open, setOpen] = useState(needsKey(initialModel.provider)),
-    [notice, setNotice] = useState("");
+    [notice, setNotice] = useState(""),
+    [free, setFree] = useState<FreeStatus>({ available: false });
   const [defaults, setDefaults] = useState<
     Record<string, { configured: boolean }>
   >({});
   useEffect(() => {
     let cancelled = false;
+    const choose = (next: ModelConfig) => {
+      setConfig(next);
+      setApplied(next);
+      onChange(next);
+    };
     void fetch("/api/model")
       .then((r) => r.json())
       .catch(() => ({ providers: {} }))
       .then((data) => {
         if (cancelled) return;
         setDefaults(data.providers ?? {});
+        setFree(data.free ?? { available: false });
         if (demoChosen()) {
-          setConfig(initialModel);
-          onChange(initialModel);
+          choose(initialModel);
           setOpen(false);
           return;
         }
@@ -61,8 +75,7 @@ export function ModelSettings({
             JSON.parse(localStorage.getItem(storageKey) ?? "null"),
           );
           if (saved) {
-            setConfig(saved);
-            onChange(saved);
+            choose(saved);
             setOpen(
               needsKey(saved.provider) &&
                 !saved.apiKey &&
@@ -78,10 +91,13 @@ export function ModelSettings({
         const entry = chatModels.find(
           (p) => data.providers?.[p.id]?.configured,
         );
-        if (entry) {
-          const next = { provider: entry.id, apiKey: "", model: entry.model };
-          setConfig(next);
-          onChange(next);
+        // A visitor with no key starts with the free model, where it runs.
+        if (entry || data.free?.available) {
+          choose(
+            entry
+              ? { provider: entry.id, apiKey: "", model: entry.model }
+              : freeModel,
+          );
           setOpen(false);
         }
       });
@@ -89,8 +105,19 @@ export function ModelSettings({
       cancelled = true;
     };
   }, [onChange]);
+  const choose = (next: ModelConfig) => {
+    setConfig(next);
+    setApplied(next);
+    onChange(next);
+  };
   const definition = chatModels.find((p) => p.id === config.provider)!;
   const server = defaults[config.provider]?.configured;
+  const freeNote = (
+    <p className="settings-note free-note">
+      {FREE_LINE}
+      {!free.available && free.reason ? ` ${free.reason}` : ""}
+    </p>
+  );
   function save(event: FormEvent) {
     event.preventDefault();
     try {
@@ -102,7 +129,7 @@ export function ModelSettings({
       );
     }
     rememberDemo(false);
-    onChange(config);
+    choose(config);
     setOpen(false);
   }
   return (
@@ -117,16 +144,22 @@ export function ModelSettings({
         <span>
           {definition.id === "demo"
             ? "Demo mode · guided examples, no key needed"
-            : `${definition.label} · ${definition.model}${definition.detail ? " · low" : ""}`}
+            : definition.id === "free"
+              ? "Free model (limited) · no key needed"
+              : `${definition.label} · ${definition.model}${definition.detail ? " · low" : ""}`}
         </span>
         <span>
           {open
             ? "Close"
-            : definition.id === "demo"
+            : !needsKey(definition.id)
               ? "Use your own model"
               : "Model settings"}
         </span>
       </button>
+      {!open && applied.provider === "free" && freeNote}
+      {applied.provider === "free" && free.available && free.siteKey && (
+        <TurnstileCheck siteKey={free.siteKey} />
+      )}
       {open && (
         <form onSubmit={save} className="model-config">
           <div>
@@ -148,7 +181,9 @@ export function ModelSettings({
                 <option value={p.id} key={p.id}>
                   {p.id === "demo"
                     ? "Protocol demo · no model, no key"
-                    : `${p.label} · ${p.model}${p.detail ? " / low" : ""}`}
+                    : p.id === "free"
+                      ? "Free model (limited) · no key"
+                      : `${p.label} · ${p.model}${p.detail ? " / low" : ""}`}
                 </option>
               ))}
             </select>
@@ -174,6 +209,8 @@ export function ModelSettings({
                 }
               />
             </div>
+          ) : config.provider === "free" ? (
+            freeNote
           ) : (
             <p className="settings-note demo-note">
               No model and no key. Simple keyword rules call the Company&apos;s
@@ -211,10 +248,13 @@ export function ModelSettings({
                   return;
                 }
                 rememberDemo(false);
-                setConfig(initialModel);
-                onChange(initialModel);
+                choose(free.available ? freeModel : initialModel);
                 setOpen(false);
-                setNotice("Saved settings removed. Back to demo mode.");
+                setNotice(
+                  free.available
+                    ? "Saved settings removed. Back to the free model."
+                    : "Saved settings removed. Back to demo mode.",
+                );
               }}
             >
               Forget saved settings
@@ -225,15 +265,8 @@ export function ModelSettings({
                 className="text-button"
                 disabled={disabled}
                 onClick={() => {
-                  const demo = chatModels.find((p) => p.id === "demo")!;
-                  const next = {
-                    provider: demo.id,
-                    apiKey: "",
-                    model: demo.model,
-                  };
                   rememberDemo(true);
-                  setConfig(next);
-                  onChange(next);
+                  choose(initialModel);
                   setOpen(false);
                 }}
               >

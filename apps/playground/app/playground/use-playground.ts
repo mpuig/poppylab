@@ -20,6 +20,7 @@ import {
 import { companyProfile } from "@poppy-lab/pap-core";
 import type { DiscoveryTraceStep } from "@poppy-lab/pap-core";
 import { initialModel, type ModelConfig } from "@/lib/model-options";
+import { turnstileToken } from "../turnstile";
 import {
   canRequestChanges,
   consentOutcome,
@@ -1177,6 +1178,11 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     setError("");
     setBarNote("");
     try {
+      // The free model's turn carries a Turnstile token of its own.
+      const turnstile =
+        modelConfig.provider === "free" && !request.direct
+          ? await turnstileToken()
+          : undefined;
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...named() },
@@ -1186,6 +1192,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
             : {}),
           ...(request.answer ? { answer: request.answer } : {}),
           ...modelConfig,
+          ...(turnstile ? { turnstile } : {}),
           ...(request.direct ? { direct: request.direct } : {}),
           ...(request.company ? { company: request.company } : {}),
           // This page shows several Companies: the User's words may connect

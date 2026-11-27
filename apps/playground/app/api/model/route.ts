@@ -1,4 +1,7 @@
+import "@/lib/agent";
 import { NextResponse } from "next/server";
+import { freeModelStatus } from "@poppy-lab/pap-agent/free-model";
+
 export function GET(request: Request) {
   const local =
     process.env.NODE_ENV === "development" &&
@@ -14,8 +17,10 @@ export function GET(request: Request) {
         ]),
       )
     : {};
+  // Whether the free model runs here, with the public Turnstile site key
+  // its widget needs, or why not.
   return NextResponse.json(
-    { providers },
+    { providers, free: freeModelStatus() },
     { headers: { "Cache-Control": "no-store" } },
   );
 }

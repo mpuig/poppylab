@@ -17,7 +17,8 @@ const analytics = Boolean(process.env.CF_WEB_ANALYTICS_TOKEN);
  * lifetimes (`runs.ts` in pap-agent), the sign-in cookie
  * (`sign-in-cookie.ts`), the per-visitor storage (`worker/visitor.ts`,
  * `lib/visitor-storage.ts`), the budgets (`limits.ts`), the model settings
- * (`model-settings.tsx`) and the Companies' copies (`tenancy.ts` in
+ * (`model-settings.tsx`), the free model (`free-model.ts`) and the
+ * Companies' copies (`tenancy.ts` in
  * pap-company). Change it when they change.
  */
 export default function Privacy() {
@@ -139,9 +140,14 @@ export default function Privacy() {
               read what you type.
             </p>
             <p>
-              A free model is coming, so the demo can use a model without a key
-              of your own. When it arrives, the text you type to it will be sent
-              to Cloudflare Workers AI to produce the reply.
+              The free model, which needs no key, runs on Cloudflare Workers AI
+              in this site&apos;s own Cloudflare account. What you type to it,
+              and what the companies answer, are sent there to produce the
+              reply. Before each message to it, Cloudflare Turnstile checks that
+              the browser is a person&apos;s, and the server counts your
+              messages to keep the daily limit: by your visitor cookie and by
+              your network address, which is kept only as a keyed hash that
+              changes every day.
             </p>
 
             <h2 id="analytics">Analytics</h2>

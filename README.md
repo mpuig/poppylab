@@ -1,6 +1,6 @@
 # Poppy Lab
 
-An independent test bench for **Personal Agent Protocol 1.0**: **Iris**, a Personal Agent you run with your own model key, and five fictional Companies it can sign in to. Everything runs on Cloudflare Workers or on Node from the same code.
+An independent test bench for **Personal Agent Protocol 1.0**: **Iris**, a Personal Agent you run with a small free model or your own model key, and five fictional Companies it can sign in to. Everything runs on Cloudflare Workers or on Node from the same code.
 
 - **https://poppylab.dev** explains the protocol and its benefits in plain language; **/learn** teaches it, from everyday processes to every request of a task; **/developers** has the endpoints, scopes and spec sections; **/playground** is Iris.
 - **https://grocery-demo.poppylab.dev** is Juniper Market, a grocery with a full customer website.
@@ -38,7 +38,7 @@ pnpm dev
 - Northwind Air: http://northwind.localhost:4400 (customer portal at `/account`)
 - Fernwick Power & Light: http://fernwick.localhost:4500 (customer portal at `/account`)
 
-The playground starts in demo mode, with no key: it runs scripted examples, the suggestions under the conversation and the messages Learn has you type, and fixed rules call the Company's tools for them. They read at every Company (including through `poppylab.dev/fdx` or `poppylab.dev/espi` when enabled), propose one kind of change at each of the first four Companies (a delivery day, an order, a transfer or payment, an upgrade or a bag), and run one two-company example ("Pay my Fernwick bill from checking.") across Fernwick and Harborline. Anything else gets an answer from Iris that offers the examples; to ask in your own words, press "Use your own model" and paste an OpenAI, Anthropic or Google key. Pick a Company, sign in as a fictional customer (Elena or Robin), ask for a change, and approve it in Needs you, above the message box. The Company website shows the same data within two seconds.
+On poppylab.dev the playground starts with a free model, with no key: a small model on Cloudflare Workers AI, behind Cloudflare Turnstile, with a limit of turns per hour and per day (see [the free model](docs/chat-workspace.md#the-free-model)). Without it, as in local development, or past its limits, it runs in demo mode, which needs no key: it runs scripted examples, the suggestions under the conversation and the messages Learn has you type, and fixed rules call the Company's tools for them. They read at every Company (including through `poppylab.dev/fdx` or `poppylab.dev/espi` when enabled), propose one kind of change at each of the first four Companies (a delivery day, an order, a transfer or payment, an upgrade or a bag), and run one two-company example ("Pay my Fernwick bill from checking.") across Fernwick and Harborline. Anything else gets an answer from Iris that offers the examples; to ask in your own words, press "Use your own model" and paste an OpenAI, Anthropic or Google key. Pick a Company, sign in as a fictional customer (Elena or Robin), ask for a change, and approve it in Needs you, above the message box. The Company website shows the same data within two seconds.
 
 To use local environment keys instead, `cp apps/playground/.env.example apps/playground/.env.local` and set `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` or `GOOGLE_GENERATIVE_AI_API_KEY` (an `OLLAMA_BASE_URL` adapter is also available internally; see `.env.example`). Keys never reach the model context, the Companies, logs or the Worker bundle (`build:worker` refuses a bundle that contains a local secret).
 
@@ -82,7 +82,7 @@ Start with **Learn**, at [poppylab.dev/learn](https://poppylab.dev/learn) or in 
 
 ## Deploy
 
-Six Cloudflare Workers, deployed with Wrangler: `pnpm --filter @poppy-lab/lantern run deploy`, `pnpm --filter @poppy-lab/juniper run deploy`, `pnpm --filter @poppy-lab/harborline run deploy`, `pnpm --filter @poppy-lab/northwind run deploy`, `pnpm --filter @poppy-lab/fernwick run deploy`, and for Poppy `pnpm --filter @poppy-lab/playground build:worker && pnpm --filter @poppy-lab/playground deploy:worker`. Poppy needs two secrets, `POPPY_IDENTITY` (the agent key pair) and `POPPY_STATE_KEY` (32 random bytes, base64url). See [portable runtime](docs/portable-runtime.md).
+Six Cloudflare Workers, deployed with Wrangler: `pnpm --filter @poppy-lab/lantern run deploy`, `pnpm --filter @poppy-lab/juniper run deploy`, `pnpm --filter @poppy-lab/harborline run deploy`, `pnpm --filter @poppy-lab/northwind run deploy`, `pnpm --filter @poppy-lab/fernwick run deploy`, and for Poppy `pnpm --filter @poppy-lab/playground build:worker && pnpm --filter @poppy-lab/playground deploy:worker`. Poppy needs three secrets, `POPPY_IDENTITY` (the agent key pair), `POPPY_STATE_KEY` (32 random bytes, base64url) and `TURNSTILE_SECRET_KEY` (the Turnstile widget's secret, for the free model), and binds Workers AI (`AI`) for the free model, capped at `FREE_MODEL_DAILY_NEURONS` a day inside the free allocation. See [portable runtime](docs/portable-runtime.md).
 
 ## License
 

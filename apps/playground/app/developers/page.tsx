@@ -217,11 +217,12 @@ export default function Developers() {
             <h2 id="iris-title">Test a Company with Iris</h2>
             <p className="aside">
               Iris is the lab&apos;s Personal Agent, at{" "}
-              <code>poppylab.dev/playground</code>. Enter any Company URL,
-              choose a model with your own key or the keyless protocol demo, and
-              open the Inspector for the discovery document, the Session and
-              every API call, each labelled with its spec section. Approval
-              cards show exact terms; the model can&apos;t press them.
+              <code>poppylab.dev/playground</code>. Enter any Company URL, use
+              the small free model, a model with your own key or the keyless
+              protocol demo, and open the Inspector for the discovery document,
+              the Session and every API call, each labelled with its spec
+              section. Approval cards show exact terms; the model can&apos;t
+              press them.
             </p>
             <a className="button ghost" href="/playground">
               Open the playground <ArrowRight size={18} aria-hidden="true" />
@@ -230,7 +231,9 @@ export default function Developers() {
           <dl className="facts">
             <div>
               <dt>Models</dt>
-              <dd>OpenAI-compatible · Anthropic · keyless demo</dd>
+              <dd>
+                Free (limited) · OpenAI-compatible · Anthropic · keyless demo
+              </dd>
             </div>
             <div>
               <dt>Your key</dt>
