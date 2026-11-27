@@ -10,7 +10,9 @@ import {
   usesDpop,
   type Connection,
 } from "./runtime";
-import { connectionForState } from "./connections";
+import { connectionForState, originOf } from "./connections";
+import { labCompanies } from "./lab-companies";
+import { APP_SIGN_IN_END, appSignIn } from "./sign-in-cookie";
 import {
   assertion,
   proof,
@@ -97,11 +99,25 @@ async function usedThisAccount(connection: Connection) {
  * one of two fixed words, which the page turns into its own fixed text. The
  * address is relative: the browser resolves it against the callback's.
  */
-const leave = (result: "done" | "failed") =>
+const leaveTab = (result: "done" | "failed") =>
   new Response(null, {
     status: 303,
     headers: {
       Location: `/playground/sign-in/${result}`,
+      "Cache-Control": "no-store",
+      "Referrer-Policy": "no-referrer",
+    },
+  });
+/**
+ * An app's sign-in (`sign-in-links.ts`) ends at the one address the app
+ * watches for, with the outcome and, for one of the lab's Companies, the
+ * lab's key for it, so the page can name it. Fixed words only.
+ */
+const leaveApp = (result: "done" | "failed", company?: string) =>
+  new Response(null, {
+    status: 303,
+    headers: {
+      Location: `${APP_SIGN_IN_END}?result=${result}${company ? `&company=${company}` : ""}`,
       "Cache-Control": "no-store",
       "Referrer-Policy": "no-referrer",
     },
@@ -118,7 +134,13 @@ export async function signInCallback(request: Request, cookies: CookieStore) {
   // Only the visitor who started this sign-in can complete it, in the
   // browser that started it: it holds this very sign-in's cookie. A
   // sign-in under way at another Company has its own, and is left alone.
-  const visitor = caller.user();
+  // An app's sign-in is its account's, which this browser has no cookie
+  // for: the agent noted whose when the app's link was opened here.
+  const app =
+    state && caller.signIns.holds(state) ? await appSignIn(state) : undefined;
+  const visitor = app ?? caller.user();
+  const leave = (result: "done" | "failed", company?: string) =>
+    app ? leaveApp(result, company) : leaveTab(result);
   const found =
     visitor && state && caller.signIns.holds(state) && serving()
       ? await runForState(visitor, state)
@@ -243,7 +265,12 @@ export async function signInCallback(request: Request, cookies: CookieStore) {
       Date.now(),
       false,
     );
-    return leave("done");
+    return leave(
+      "done",
+      labCompanies(caller.origin).find(
+        (c) => originOf(c) === originOf(connection),
+      )?.id,
+    );
   } catch {
     return leave("failed");
   } finally {

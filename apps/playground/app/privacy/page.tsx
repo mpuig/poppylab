@@ -52,8 +52,9 @@ export default function Privacy() {
               <li>
                 <strong>A sign-in cookie</strong>, <code>pap_oauth_…</code>: one
                 for each sign-in at a company, so that only the browser where
-                you pressed Sign in can finish it. It is sent only to the
-                sign-in callback and lasts at most five minutes.
+                you pressed Sign in, or the one an app opened for it, can finish
+                it. It is sent only to the sign-in callback and lasts at most
+                five minutes.
               </li>
             </ul>
             <p>

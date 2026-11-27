@@ -4,8 +4,10 @@
  * which `openapi.ts` describes. A request is the browser's, by the
  * playground's cookies, from the playground's own origin; or a client
  * app's, by `Authorization: Bearer <access token>` of the API session
- * its device signed in with (`api-sessions.ts`). The account's own
- * routes are `agent-account-http.ts`.
+ * its device signed in with (`api-sessions.ts`); or, for an app's
+ * sign-in link, the browser the app opened it in, by its ticket
+ * (`sign-in-links.ts`). The account's own routes are
+ * `agent-account-http.ts`.
  */
 import {
   answerChoice,
@@ -24,7 +26,6 @@ import {
   OPEN_OPERATIONS,
   openOperation,
   redeemOverHttp,
-  refuse,
   type AccountOperation,
   type OpenOperation,
 } from "./agent-account-http";
@@ -32,6 +33,7 @@ import { sessionOfAccessToken } from "./api-sessions";
 import { apiSessionCaller } from "./identity";
 import { serving } from "./deployment";
 import { openApiDocument } from "./openapi";
+import { createSignInLink, openSignInLink } from "./sign-in-links";
 import { UserFacingError } from "./user-error";
 import { browserCaller, readJson, type Caller, type CookieStore } from "./web";
 
@@ -67,6 +69,7 @@ export const ROUTES = [
     path: "/conversations/{id}/events",
     operation: "conversationEvents",
   },
+  { method: "GET", path: "/sign-ins/{ticket}", operation: "openSignInLink" },
   { method: "POST", path: "/accounts/options", operation: "accountOptions" },
   { method: "POST", path: "/accounts", operation: "createAccount" },
   { method: "POST", path: "/sessions/options", operation: "signInOptions" },
@@ -200,6 +203,9 @@ export async function v1(request: Request, cookies: CookieStore) {
   const authorization = request.headers.get("authorization");
   if (route.operation === "redeemLinkCode")
     return guarded(redeemOverHttp(request));
+  // Opened in an app's browser: the ticket says whose sign-in it is.
+  if (route.operation === "openSignInLink")
+    return openSignInLink(request, cookies, route.names.ticket ?? "");
   if (authorization) {
     const token = bearer(authorization);
     const session = token ? await sessionOfAccessToken(token) : undefined;
@@ -310,20 +316,23 @@ async function serve(
         );
       }
       case "startSignIn": {
-        // The Company's consent page comes back to a browser, which binds
-        // the sign-in to itself with a cookie; an app's session has none
-        // to bind it with yet.
-        if (caller.account?.via === "bearer")
-          return refuse(
-            409,
-            "sign_in_needs_browser",
-            "Sign in to a company from the playground, in a browser signed in to this account. The conversation then shows the sign-in here too.",
-          );
         const input = await body(request);
+        const access = input.access === "write" ? "write" : "read";
+        // The Company's consent page comes back to a browser, which binds
+        // the sign-in to itself with a cookie. An app's session has none,
+        // so it is given a link that starts the sign-in in the browser it
+        // opens the link in (`sign-in-links.ts`).
+        if (caller.account?.via === "bearer")
+          return answer(
+            await createSignInLink(caller, id, {
+              ...(text(input.company) ? { company: text(input.company)! } : {}),
+              access,
+            }),
+          );
         return answer(
           await startSignIn(caller, id, {
             company: text(input.company) ?? "",
-            access: input.access === "write" ? "write" : "read",
+            access,
           }),
         );
       }

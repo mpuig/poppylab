@@ -1,7 +1,7 @@
 /**
  * Budgets for the account's ceremonies: creating an account, signing in
- * with a passkey, adding one, refreshing an app's tokens and redeeming a
- * link code. Unlike the chat's (`limits.ts`), they hold on every
+ * with a passkey, adding one, refreshing an app's tokens, redeeming a
+ * link code and an app's links to a Company's sign-in. Unlike the chat's (`limits.ts`), they hold on every
  * deployment: each is a guess at a secret or a write to the store, and
  * none needs many tries.
  *
@@ -50,6 +50,12 @@ const budgets = {
     source: [l("acct-redeem:m", 10, minute)],
     account: [l("acct-redeem:a", 10, minute)],
     global: [l("acct-redeem:g", 600, minute)],
+  },
+  /** An app's sign-in link to a Company: asked for, and opened. */
+  signInLink: {
+    source: [l("acct-link:m", 20, minute)],
+    account: [l("acct-link:a", 20, minute)],
+    global: [l("acct-link:g", 1200, minute)],
   },
 } satisfies Record<
   string,

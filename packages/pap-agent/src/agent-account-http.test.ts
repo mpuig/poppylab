@@ -15,7 +15,9 @@ import {
   forgetLinkingChannels,
 } from "./agent-account-http";
 import { v1 } from "./api-http";
+import { connected } from "./company-fixture";
 import { channelUser, configureBackend, memoryBackend } from "./runs";
+import type { Run } from "./runtime";
 import { softwareAuthenticator } from "./webauthn-fixture";
 
 const site = "http://localhost:3991";
@@ -333,27 +335,162 @@ describe("in a client app", () => {
     ).toBe("invalid_token");
   });
 
-  it("can't start a company's sign-in, which comes back to a browser", async () => {
-    const created = await create({});
-    const token = created.data.tokens!.accessToken as string;
-    const started = await call("POST", "/conversations", { token, body: {} });
-    const refused = await call(
-      "POST",
-      `/conversations/${started.data.id as string}/sign-ins`,
-      { token, body: { company: "https://bank.example" } },
-    );
-    expect(refused).toMatchObject({
-      status: 409,
-      data: { code: "sign_in_needs_browser" },
-    });
-  });
-
   it("can't bring conversations: it has none of its own", async () => {
     const created = await create({});
     const token = created.data.tokens!.accessToken as string;
     expect(
       (await call("POST", "/account/claim", { token, body: {} })).data.code,
     ).toBe("browser_only");
+  });
+});
+
+describe("a company's sign-in from a client app", () => {
+  const bank = "https://bank.example";
+  const conversation = "run_app_signin_0001";
+  beforeEach(() => {
+    vi.stubEnv("PAP_ACCOUNT_ORIGINS", bank);
+  });
+  /** An app's account, with a conversation connected to the bank. */
+  async function app() {
+    const created = await create({});
+    const token = created.data.tokens!.accessToken as string;
+    const { user } = (await loadAccount(
+      (created.data.account as { id: string }).id,
+    ))!.account;
+    const connection = connected(bank, "Harborline Bank");
+    connection.visitor = user;
+    const run: Run = {
+      protocol: "1.0",
+      visitor: user,
+      expires: Date.now() + 3600000,
+      calls: 0,
+      busy: false,
+      history: [],
+      connections: [connection],
+    };
+    await store.put(user, `run:${conversation}`, run, null);
+    return { ...created, token, user };
+  }
+  const link = (token: string, body: object = { company: bank }) =>
+    call("POST", `/conversations/${conversation}/sign-ins`, { token, body });
+  /** The link opened in a browser: where it goes, and the cookies it set. */
+  async function open(
+    url: string,
+    browser: { cookies?: Jar; token?: string } = {},
+  ) {
+    const cookies = browser.cookies ?? jar();
+    const response = await v1(
+      new Request(url, {
+        headers: browser.token
+          ? { authorization: `Bearer ${browser.token}` }
+          : {},
+      }),
+      cookies,
+    );
+    return {
+      status: response.status,
+      location: response.headers.get("location"),
+      referrer: response.headers.get("referrer-policy"),
+      cookies,
+    };
+  }
+  const FAILED = "/playground/sign-in/app?result=failed";
+  const signInCookies = (cookies: Jar) =>
+    [...cookies.map.keys()].filter((name) => name.startsWith("pap_oauth_"));
+
+  it("is given a one-time link of the agent's own, kept only as a hash", async () => {
+    const { token } = await app();
+    const given = await link(token);
+    expect(given.status).toBe(200);
+    const { url, expiresAt, endUrl } = given.data as {
+      url: string;
+      expiresAt: number;
+      endUrl: string;
+    };
+    expect(url).toMatch(
+      new RegExp(`^${site}/api/v1/sign-ins/[A-Za-z0-9_-]{43}$`),
+    );
+    expect(endUrl).toBe(`${site}/playground/sign-in/app`);
+    expect(expiresAt - Date.now()).toBeGreaterThan(170000);
+    expect(expiresAt - Date.now()).toBeLessThanOrEqual(180000);
+    // Nothing stored holds the ticket itself.
+    const ticket = url.split("/").at(-1)!;
+    const kept = JSON.stringify([...store.data]);
+    expect(kept).toContain("sign-in-ticket:");
+    expect(kept).not.toContain(ticket);
+  });
+
+  it("is given none for a company the conversation isn't connected to, or a conversation that isn't the account's", async () => {
+    const { token } = await app();
+    expect(
+      await link(token, { company: "https://shop.example" }),
+    ).toMatchObject({ status: 400, data: { code: "company_not_connected" } });
+    const other = await create({});
+    expect(await link(other.data.tokens!.accessToken as string)).toMatchObject({
+      status: 404,
+      data: { code: "conversation_not_found" },
+    });
+    // Nor from another site's page, whatever it carries.
+    expect(
+      (
+        await call("POST", `/conversations/${conversation}/sign-ins`, {
+          token,
+          origin: "https://elsewhere.example",
+          body: { company: bank },
+        })
+      ).status,
+    ).toBe(403);
+  });
+
+  it("opens nothing for a ticket that is unknown, expired, already used, or another account's", async () => {
+    const { token } = await app();
+    const url = async () => (await link(token)).data.url as string;
+
+    expect(
+      await open(`${site}/api/v1/sign-ins/${"x".repeat(43)}`),
+    ).toMatchObject({ status: 303, location: FAILED, referrer: "no-referrer" });
+
+    vi.useFakeTimers({ now: Date.now(), toFake: ["Date"] });
+    const late = await url();
+    vi.setSystemTime(Date.now() + 181000);
+    const expired = await open(late);
+    expect(expired.location).toBe(FAILED);
+    expect(signInCookies(expired.cookies)).toEqual([]);
+    vi.useRealTimers();
+
+    // Opened with another account's token, or in a browser signed in to
+    // another account: refused, and spent all the same.
+    const other = await create({});
+    const forwarded = await url();
+    expect(
+      (
+        await open(forwarded, {
+          token: other.data.tokens!.accessToken as string,
+        })
+      ).location,
+    ).toBe(FAILED);
+    expect((await open(forwarded)).location).toBe(FAILED);
+    const cookies = visitor();
+    await create(page(cookies));
+    const elsewhere = await open(await url(), { cookies });
+    expect(elsewhere.location).toBe(FAILED);
+    expect(signInCookies(elsewhere.cookies)).toEqual([]);
+  });
+
+  it("opens nothing once the device that asked has signed out", async () => {
+    const { token } = await app();
+    const url = (await link(token)).data.url as string;
+    await call("POST", "/account/sign-out", { token, body: {} });
+    expect((await open(url)).location).toBe(FAILED);
+  });
+
+  it("counts the links asked for, like the account's other requests", async () => {
+    const { token } = await app();
+    for (let i = 0; i < 20; i++) expect((await link(token)).status).toBe(200);
+    expect(await link(token)).toMatchObject({
+      status: 429,
+      data: { code: "rate_limited" },
+    });
   });
 });
 

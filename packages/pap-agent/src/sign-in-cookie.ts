@@ -4,12 +4,15 @@
  * when the sign-in starts and sent only to the callback. The callback
  * completes a sign-in only for a browser that holds the cookie of that
  * very `state`, so only the visitor's own browser, in which they pressed
- * Sign in, can finish it.
+ * Sign in, can finish it; for an app's sign-in, the browser the app opened
+ * its link in (`sign-in-links.ts`).
  *
  * One cookie for each sign-in, not one for the browser: a conversation
  * can have a sign-in under way at two of its Companies, and the second
  * must not undo the first.
  */
+import { createHash } from "node:crypto";
+import { accountBackend, takeOnce } from "./account-store";
 import { secureCookies } from "./runs";
 
 /** A `state` as Iris makes them, and so the only kind a cookie is read for. */
@@ -30,3 +33,29 @@ export const signInCookieOptions = (maxAge = LIFETIME) => ({
   path: "/api/account/callback",
   maxAge,
 });
+
+/** Where an app's sign-in ends, done or not: the address the app detects. */
+export const APP_SIGN_IN_END = "/playground/sign-in/app";
+
+/**
+ * An app's sign-in (`sign-in-links.ts`) is bound to the app's browser by
+ * the same cookie, but it is the account's, which that browser has no
+ * cookie for. So the agent notes whose it is under the `state`'s hash
+ * when the sign-in starts, and the callback takes the note once.
+ */
+type AppSignIn = { user: string; expires: number; used?: true };
+const stateBucket = (state: string) =>
+  `sign-in-state:${createHash("sha256").update(state).digest("base64url")}`;
+
+export async function rememberAppSignIn(state: string, user: string) {
+  await accountBackend().put(
+    stateBucket(state),
+    "state",
+    { user, expires: Date.now() + LIFETIME * 1000 } satisfies AppSignIn,
+    null,
+  );
+}
+/** The agent user of the app's sign-in with this `state`, if it is one. */
+export async function appSignIn(state: string) {
+  return (await takeOnce<AppSignIn>(stateBucket(state), "state"))?.user;
+}

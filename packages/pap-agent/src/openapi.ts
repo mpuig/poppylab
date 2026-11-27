@@ -165,9 +165,9 @@ const schemas: Record<string, Schema> = {
     state: ref("ConversationState"),
   }),
   SignIn: object(
-    { url: string },
+    { url: string, expiresAt: integer, endUrl: string },
     ["url"],
-    "The Company's own consent page, for the User to open. The agent never sees a password.",
+    "What to open for the sign-in. The agent never sees a password. For the playground's page, `url` is the Company's own consent page. For a client app, `url` is a page of the agent's own, a link that works once, before `expiresAt` (milliseconds since 1970): open it at once in a browser of the app's own, such as ASWebAuthenticationSession. It goes on to the Company's consent page, and the browser comes back to `endUrl` with `?result=done` or `?result=failed`, which is what the app watches for. The conversation's events say how it went.",
   ),
   AgentEvent: {
     type: "object",
@@ -181,6 +181,7 @@ const schemas: Record<string, Schema> = {
           "message",
           "messages.replaced",
           "signin.completed",
+          "signin.failed",
           "access.lost",
           "signout",
           "proposal.created",
@@ -460,7 +461,7 @@ export function openApiDocument() {
         post: {
           operationId: "startSignIn",
           summary:
-            "Start a sign-in at one of the conversation's Companies; `signin.completed` follows on the events.",
+            "Start a sign-in at one of the conversation's Companies; `signin.completed` or `signin.failed` follows on the events. With an API session's token, the answer is a link of the agent's own, which starts the sign-in in the browser the app opens it in.",
           parameters: [id],
           requestBody: body(
             object(
@@ -473,10 +474,35 @@ export function openApiDocument() {
           ),
           responses: {
             "200": {
-              description: "The consent page to open.",
+              description: "What to open.",
               ...json(ref("SignIn")),
             },
             ...errors,
+            "401": accountErrors["401"],
+            "429": accountErrors["429"],
+          },
+        },
+      },
+      "/api/v1/sign-ins/{ticket}": {
+        get: {
+          operationId: "openSignInLink",
+          summary:
+            "An app's sign-in link (`SignIn.url`), opened in the app's browser: it starts the sign-in there and goes on to the Company's consent page. It works once, within three minutes, for the account, conversation, Company and access it was made for. Used, expired, of a session that ended, or opened in a browser signed in to another account, it goes to `endUrl` with `?result=failed`.",
+          parameters: [
+            {
+              name: "ticket",
+              in: "path",
+              required: true,
+              schema: string,
+              description: "The link's one-time ticket.",
+            },
+          ],
+          responses: {
+            "303": {
+              description:
+                "To the Company's consent page, or to `endUrl` with `?result=failed`.",
+              headers: { Location: { schema: string } },
+            },
           },
         },
       },

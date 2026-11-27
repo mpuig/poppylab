@@ -37,6 +37,7 @@ import {
   releaseRun,
   type Held,
 } from "./runs";
+import type { Run } from "./run-types";
 import { forgetLostAccount } from "./transcript";
 const issuer = "http://juniper.localhost:4100";
 
@@ -76,14 +77,23 @@ export async function readAccount(
   id: string | null,
   caller: Caller,
 ): Promise<Reply> {
+  return (await accountReading(id, caller)).reply;
+}
+/** `readAccount`'s answer, and the conversation it was read from. */
+export async function accountReading(
+  id: string | null,
+  caller: Caller,
+): Promise<{ reply: Reply; run?: Run }> {
   if (!serving())
-    return json(
-      { error: "Account access is disabled on this deployment." },
-      { status: 403 },
-    );
+    return {
+      reply: json(
+        { error: "Account access is disabled on this deployment." },
+        { status: 403 },
+      ),
+    };
   const visitor = caller.user();
   const run = visitor ? await readConversation(visitor, id) : undefined;
-  return json(
+  const reply = json(
     {
       // Unknown here: never started in this browser, or past its keep time.
       missing: !run,
@@ -105,6 +115,7 @@ export async function readAccount(
     },
     { headers: { "Cache-Control": "no-store" } },
   );
+  return { reply, ...(run ? { run } : {}) };
 }
 /**
  * One account action (`Action`): `read` gives its body, `conversation`

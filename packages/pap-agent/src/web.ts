@@ -145,22 +145,25 @@ export async function browserCaller(
       process.env.NODE_ENV === "development" &&
       ["localhost", "127.0.0.1"].includes(url.hostname),
     ip: request.headers.get("cf-connecting-ip"),
-    signIns: {
-      bind: (state) => {
-        const name = signInCookie(state);
-        if (name) cookies.set(name, state, signInCookieOptions());
-      },
-      holds: (state) => {
-        const name = signInCookie(state);
-        return !!name && cookies.get(name)?.value === state;
-      },
-      release: (state) => {
-        const name = signInCookie(state);
-        if (name) cookies.set(name, "", signInCookieOptions(0));
-      },
-    },
+    signIns: cookieSignIns(cookies),
   };
 }
+
+/** A sign-in bound to a browser by a cookie of its own (`sign-in-cookie.ts`). */
+export const cookieSignIns = (cookies: CookieStore): Caller["signIns"] => ({
+  bind: (state) => {
+    const name = signInCookie(state);
+    if (name) cookies.set(name, state, signInCookieOptions());
+  },
+  holds: (state) => {
+    const name = signInCookie(state);
+    return !!name && cookies.get(name)?.value === state;
+  },
+  release: (state) => {
+    const name = signInCookie(state);
+    if (name) cookies.set(name, "", signInCookieOptions(0));
+  },
+});
 
 /**
  * A JSON body of at most `limit` bytes, read within three seconds; a

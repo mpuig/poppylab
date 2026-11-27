@@ -51,6 +51,28 @@ describe("what changed between two readings of a conversation", () => {
     ).toEqual([]);
   });
 
+  it("says a sign-in under way ended without signing in, and nothing while it waits", () => {
+    const waiting = { ...company(), signingIn: true };
+    expect(eventsBetween(state(), state({ companies: [waiting] }))).toEqual([]);
+    expect(eventsBetween(state({ companies: [waiting] }), state())).toEqual([
+      { type: "signin.failed", company: bank },
+    ]);
+    // Asking for more access, signed in: the sign-in that had been there stays.
+    const more = { ...company(true, 1), signingIn: true };
+    expect(
+      eventsBetween(
+        state({ companies: [more] }),
+        state({ companies: [company(true, 1)] }),
+      ),
+    ).toEqual([{ type: "signin.failed", company: bank }]);
+    expect(
+      eventsBetween(
+        state({ companies: [more] }),
+        state({ companies: [company(true, 2)] }),
+      ),
+    ).toEqual([{ type: "signin.completed", company: bank }]);
+  });
+
   it("gives what was said since, and the whole state when it was taken back", () => {
     const said = {
       from: "company" as const,

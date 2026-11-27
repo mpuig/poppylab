@@ -25,6 +25,11 @@ export type AgentEvent =
   /** What the conversation showed was taken back: show `state` in its place. */
   | { type: "messages.replaced"; state: ConversationState }
   | { type: "signin.completed"; company: CompanyRef }
+  /**
+   * A sign-in under way ended without signing in: declined or failed at
+   * the Company, or not finished within five minutes. Nothing changed.
+   */
+  | { type: "signin.failed"; company: CompanyRef }
   /** The Company no longer takes the sign-in: the User signs in again. */
   | { type: "access.lost"; company: CompanyRef }
   | { type: "signout"; company: CompanyRef }
@@ -80,6 +85,8 @@ export function eventsBetween(
       events.push({ type: "access.lost", company: ref(c) });
     else if (!c.signedIn && prior.signedIn && !c.accessLost)
       events.push({ type: "signout", company: ref(c) });
+    else if (prior.signingIn && !c.signingIn)
+      events.push({ type: "signin.failed", company: ref(c) });
   }
   // Messages: what follows what was there before. When the start no longer
   // matches, the conversation took back what it showed.

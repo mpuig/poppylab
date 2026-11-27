@@ -9,12 +9,12 @@
  *
  * `openapi.ts` describes these as HTTP (`api-http.ts`).
  */
-import { accountAction, readAccount } from "./account";
+import { accountAction, accountReading } from "./account";
 import { chatTurn } from "./chat";
 import type { Answer, Choice } from "./company-commands";
 import type { AgentStep } from "./agent-steps";
 import { connectCompany } from "./connecting";
-import type { CompanyRef } from "./connections";
+import { originOf, type CompanyRef } from "./connections";
 import type { ConnectionView, FormerView } from "./conversation-view";
 import { localOrigins, serving } from "./deployment";
 import { overBudget } from "./limits";
@@ -25,7 +25,7 @@ import {
   readConversation as storedConversation,
   releaseRun,
 } from "./runs";
-import type { Operation } from "./runtime";
+import type { Operation, Run } from "./runtime";
 import type { Caller, Reply } from "./web";
 import { PapDiscoveryError } from "@poppy-lab/pap-core";
 
@@ -41,7 +41,7 @@ export type CompanyState = CompanyRef & {
   signedIn: boolean;
   /** The permissions granted there, as the Company names them. */
   scopes?: string;
-  /** A sign-in is under way there. */
+  /** A sign-in is under way there: started, and not back within five minutes. */
   signingIn: boolean;
   /** Goes up with each completed sign-in there. */
   consentVersion: number;
@@ -179,13 +179,21 @@ const proposalOf = (company: CompanyRef, op: Operation): Proposal => ({
   expiresAt: op.expires_at,
   ...(op.result?.summary ? { result: op.result.summary } : {}),
 });
-const companyOf = (c: ConnectionView): CompanyState => ({
+/**
+ * A sign-in waiting for its callback there, and only that. The page's
+ * `authPending` also counts a turn under way, which isn't a sign-in.
+ */
+const waitingSignIn = (run: Run, origin: string) => {
+  const auth = run.connections.find((c) => originOf(c) === origin)?.auth;
+  return !!auth && auth.expires > Date.now();
+};
+const companyOf = (c: ConnectionView, run?: Run): CompanyState => ({
   origin: c.origin,
   name: c.name,
   url: c.url ?? "",
   signedIn: c.signedIn,
   ...(c.scopes ? { scopes: c.scopes } : {}),
-  signingIn: c.authPending,
+  signingIn: run ? waitingSignIn(run, c.origin) : c.authPending,
   consentVersion: c.consentVersion,
   accessLost: !!c.recovery,
   direct: {
@@ -202,12 +210,12 @@ type View = {
   history: PageEntry[];
 };
 /** The reload's answer (`readAccount`) as a channel shows it. */
-export function stateOf(id: string, view: View): ConversationState {
+export function stateOf(id: string, view: View, run?: Run): ConversationState {
   return {
     id,
     active: !view.readOnly,
     ...(view.keptUntil ? { keptUntil: view.keptUntil } : {}),
-    companies: view.connections.map(companyOf),
+    companies: view.connections.map((c) => companyOf(c, run)),
     removed: view.former.map(({ origin, name }) => ({ origin, name })),
     messages: view.history.map(messageOf),
     proposals: [
@@ -255,11 +263,11 @@ export async function getConversation(
   caller: Caller,
   id: string,
 ): Promise<Result<ConversationState>> {
-  const reply = await readAccount(id, caller);
+  const { reply, run } = await accountReading(id, caller);
   if (reply.status !== 200) return failure(reply);
   const view = reply.body as View;
   if (view.missing) return NOT_FOUND;
-  return { ok: true, value: stateOf(id, view) };
+  return { ok: true, value: stateOf(id, view, run) };
 }
 
 /**

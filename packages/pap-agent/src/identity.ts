@@ -59,8 +59,9 @@ export function channelCaller(input: {
  * A request with an API session's access token: the account's own,
  * from whichever device. The token proves it, so it is `authentic`
  * without an Origin. A Company's sign-in comes back to a browser, which
- * an app's session has no cookie in, so none is bound here and the API
- * refuses to start one (`sign_in_needs_browser`).
+ * an app's session has no cookie in, so none is bound here: the API gives
+ * the app a link that binds it in the browser the app opens
+ * (`sign-in-links.ts`).
  */
 export function apiSessionCaller(
   request: Request,
