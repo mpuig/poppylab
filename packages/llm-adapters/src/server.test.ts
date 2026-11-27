@@ -1,7 +1,7 @@
 import { createServer } from "node:http";
 import { once } from "node:events";
 import { afterEach, expect, it, vi } from "vitest";
-import { askModel, runModel } from "./server";
+import { askModel, runModel, systemPrompt } from "./server";
 
 afterEach(() => vi.unstubAllEnvs());
 
@@ -62,15 +62,15 @@ it("executes a Company tool through an OpenAI-compatible model loop", async () =
       { context: "Account note: the user is signed in at Lantern." },
     );
     expect(result).toBe("The Company has apples.");
-    // Iris's own note for the turn follows the system prompt.
+    // The agent's own note for the turn follows the system prompt.
     const system = bodies[0]!.messages.find((m) => m.role === "system")!;
-    expect(system.content).toMatch(
-      /Answer concisely\.\n\nAccount note: the user is signed in at Lantern\.$/,
+    expect(system.content).toBe(
+      `${systemPrompt()}\n\nAccount note: the user is signed in at Lantern.`,
     );
     // In the User's language; a Company named in any language is
-    // connected with Iris's tool, and is never sent another's request.
+    // connected with the agent's tool, and is never sent another's request.
     expect(system.content).toContain(
-      "Answer in the language the user writes in.",
+      "Answer in the language the user writes in",
     );
     expect(system.content).toContain(
       "to connect, add or remove a company in this conversation, call connect_company",
