@@ -10,8 +10,7 @@
  * `account`, `password`, `decision`) and whatever each Company's
  * `selectScopes` and `selectResources` read.
  */
-const escape = (text: string) =>
-  text.replace(/[&<>"']/g, (character) => `&#${character.charCodeAt(0)};`);
+import { escapeHtml } from "./html.ts";
 
 /** A checkbox the visitor may untick. */
 export type ConsentOption = {
@@ -63,37 +62,37 @@ export type ConsentSheet = {
 };
 
 const option = (o: ConsentOption) =>
-  `<label class="sheet-option"><input type="checkbox" name="${escape(o.name)}" value="yes"${o.checked ? " checked" : ""}${o.required ? " required" : ""}><span><strong>${escape(o.title)}</strong><span>${escape(o.text)}</span></span></label>`;
+  `<label class="sheet-option"><input type="checkbox" name="${escapeHtml(o.name)}" value="yes"${o.checked ? " checked" : ""}${o.required ? " required" : ""}><span><strong>${escapeHtml(o.title)}</strong><span>${escapeHtml(o.text)}</span></span></label>`;
 
 /** The sheet, as the page's `<main>`. Every value is escaped except `beside`. */
 export function consentSheetHtml(sheet: ConsentSheet) {
-  const agent = escape(sheet.agent);
-  const kind = escape(sheet.personKind ?? "customer");
+  const agent = escapeHtml(sheet.agent);
+  const kind = escapeHtml(sheet.personKind ?? "customer");
   const chosen = (
     sheet.people.find((person) => person.id === sheet.chosen) ?? sheet.people[0]
   )?.id;
   const people = sheet.people
     .map(
       (person) =>
-        `<label class="sheet-person"><input type="radio" name="account" id="account-${escape(person.id)}" value="${escape(person.id)}"${person.id === chosen ? " checked" : ""}><span><strong>${escape(person.name)}</strong><small>${escape(person.note)}</small></span></label>`,
+        `<label class="sheet-person"><input type="radio" name="account" id="account-${escapeHtml(person.id)}" value="${escapeHtml(person.id)}"${person.id === chosen ? " checked" : ""}><span><strong>${escapeHtml(person.name)}</strong><small>${escapeHtml(person.note)}</small></span></label>`,
     )
     .join("");
   const password = sheet.passwordRequired
     ? '<div class="sheet-field"><label for="password">Demo password</label><input id="password" type="password" name="password" required autocomplete="current-password" maxlength="256" aria-describedby="password-hint"><p id="password-hint" class="sheet-note">It protects the whole demo, not each account. Don&#39;t use a password from another service.</p></div>'
     : "";
   const reads = sheet.reads.length
-    ? `<ul class="sheet-reads">${sheet.reads.map((read) => `<li>${read.title ? `<strong>${escape(read.title)}</strong>` : ""}<span>${escape(read.text)}</span></li>`).join("")}</ul>`
-    : `<p class="sheet-none">${escape(sheet.noReads ?? "Nothing of yours is read.")}</p>`;
+    ? `<ul class="sheet-reads">${sheet.reads.map((read) => `<li>${read.title ? `<strong>${escapeHtml(read.title)}</strong>` : ""}<span>${escapeHtml(read.text)}</span></li>`).join("")}</ul>`
+    : `<p class="sheet-none">${escapeHtml(sheet.noReads ?? "Nothing of yours is read.")}</p>`;
   const changes = sheet.changes.length
     ? sheet.changes.map(option).join("")
-    : `<p class="sheet-none">${escape(sheet.noChanges ?? "None. This permission is read only.")}</p>`;
+    : `<p class="sheet-none">${escapeHtml(sheet.noChanges ?? "None. This permission is read only.")}</p>`;
   const extras = (sheet.extras ?? [])
     .map(
       (extra) =>
-        `<div class="sheet-group"><h3>${escape(extra.heading)}</h3>${option(extra.option)}</div>`,
+        `<div class="sheet-group"><h3>${escapeHtml(extra.heading)}</h3>${option(extra.option)}</div>`,
     )
     .join("");
-  return `<main class="sheet"><div class="sheet-head"><h1>${agent} wants to connect to your ${escape(sheet.company)} account</h1><p class="sheet-agent"><strong>${agent}</strong><span>from ${escape(sheet.agentHost)}</span><span class="sheet-verified">address verified</span></p></div><form method="post" action="/oauth/authorize"><input type="hidden" name="nonce" value="${escape(sheet.nonce)}"><div class="sheet-cols"><fieldset class="sheet-you"><legend>Sign in as</legend>${people}<p class="sheet-note">Test ${kind}s. Choosing one doesn&#39;t verify who you are.</p>${password}${sheet.beside ?? ""}</fieldset><section class="sheet-may" aria-labelledby="sheet-may-title"><h2 id="sheet-may-title">What ${agent} may do</h2><div class="sheet-group"><h3>Read <span>without asking you again</span></h3>${reads}</div><div class="sheet-group"><h3>Propose changes <span>each one waits for your approval</span></h3>${changes}</div>${extras}</section></div><div class="sheet-foot"><p>Nothing changes when you allow. ${escape(sheet.disconnect)}</p><div class="sheet-actions"><button class="secondary" name="decision" value="decline" formnovalidate>Don&#39;t allow</button><button name="decision" value="approve">Allow</button></div></div></form><p class="sheet-fine">${escape(sheet.fine)}</p></main>`;
+  return `<main class="sheet"><div class="sheet-head"><h1>${agent} wants to connect to your ${escapeHtml(sheet.company)} account</h1><p class="sheet-agent"><strong>${agent}</strong><span>from ${escapeHtml(sheet.agentHost)}</span><span class="sheet-verified">address verified</span></p></div><form method="post" action="/oauth/authorize"><input type="hidden" name="nonce" value="${escapeHtml(sheet.nonce)}"><div class="sheet-cols"><fieldset class="sheet-you"><legend>Sign in as</legend>${people}<p class="sheet-note">Test ${kind}s. Choosing one doesn&#39;t verify who you are.</p>${password}${sheet.beside ?? ""}</fieldset><section class="sheet-may" aria-labelledby="sheet-may-title"><h2 id="sheet-may-title">What ${agent} may do</h2><div class="sheet-group"><h3>Read <span>without asking you again</span></h3>${reads}</div><div class="sheet-group"><h3>Propose changes <span>each one waits for your approval</span></h3>${changes}</div>${extras}</section></div><div class="sheet-foot"><p>Nothing changes when you allow. ${escapeHtml(sheet.disconnect)}</p><div class="sheet-actions"><button class="secondary" name="decision" value="decline" formnovalidate>Don&#39;t allow</button><button name="decision" value="approve">Allow</button></div></div></form><p class="sheet-fine">${escapeHtml(sheet.fine)}</p></main>`;
 }
 
 /**
@@ -113,7 +112,7 @@ export function consentExpiredHtml(
     how === "answered"
       ? `works for five minutes after it opens, and this one is older. Your answer arrived too late, so nothing was allowed and nothing has changed.`
       : `can be answered once, within five minutes of opening, and this one can&#39;t be shown again. Opening it again changed nothing.`;
-  return `<main class="sheet"><div class="sheet-head"><h1>This page has expired</h1></div><div class="sheet-expired"><p>A page that asks whether an agent may connect to your ${escape(company)} account ${what}</p><p>To connect the agent, go back to it and start the sign-in again.</p></div></main>`;
+  return `<main class="sheet"><div class="sheet-head"><h1>This page has expired</h1></div><div class="sheet-expired"><p>A page that asks whether an agent may connect to your ${escapeHtml(company)} account ${what}</p><p>To connect the agent, go back to it and start the sign-in again.</p></div></main>`;
 }
 
 /**
@@ -191,7 +190,7 @@ export const browserSignInHint = {
  * away from the decision.
  */
 export function labConsentBarHtml(company: string) {
-  return `<aside aria-label="About this demo" style="margin:0;padding:8px 16px;background:#171a1f;color:#e3e6ea;font:400 13px/1.45 system-ui,-apple-system,'Segoe UI',sans-serif;text-align:center;letter-spacing:0;text-transform:none"><strong style="color:#f2b705;font-weight:600">Demo</strong> · ${escape(company)} is a fictional company in Poppy&nbsp;Lab. Nothing here is real.</aside>`;
+  return `<aside aria-label="About this demo" style="margin:0;padding:8px 16px;background:#171a1f;color:#e3e6ea;font:400 13px/1.45 system-ui,-apple-system,'Segoe UI',sans-serif;text-align:center;letter-spacing:0;text-transform:none"><strong style="color:#f2b705;font-weight:600">Demo</strong> · ${escapeHtml(company)} is a fictional company in Poppy&nbsp;Lab. Nothing here is real.</aside>`;
 }
 
 /**

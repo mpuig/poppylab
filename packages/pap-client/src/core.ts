@@ -16,3 +16,5 @@ export {
   type Approval,
 } from "./protocol-error.ts";
 export { decodeProtectedHeader, type JWK } from "jose";
+// For pap-company, which takes the lab's HTML escaping from here.
+export { escapeHtml } from "@poppy-lab/pap-core";

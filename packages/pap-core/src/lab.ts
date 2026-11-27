@@ -5,6 +5,7 @@
  * Company's site speaks in that Company's own voice. Local development links
  * to the localhost addresses.
  */
+import { escapeHtml } from "./html.ts";
 import { SPEC_URL } from "./spec-links.ts";
 
 export type LabSite =
@@ -94,9 +95,6 @@ export function labSites(origin: string) {
     },
   ];
 }
-
-const escape = (t: string) =>
-  t.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 export type LabFootLink = {
   label: string;
@@ -199,15 +197,15 @@ export function labFootHtml(
     : authors;
   const link = (l: LabFootLink) => {
     if (l.site === current)
-      return `<span aria-current="page">${escape(l.label)}</span>`;
+      return `<span aria-current="page">${escapeHtml(l.label)}</span>`;
     const href = l.site === "playground" ? labPlaygroundUrl(origin) : l.href;
-    return `<a href="${escape(href)}"${l.newTab ? ' target="_blank" rel="noopener noreferrer"' : ""}>${escape(l.label)}${l.leaves ? arrow : ""}</a>`;
+    return `<a href="${escapeHtml(href)}"${l.newTab ? ' target="_blank" rel="noopener noreferrer"' : ""}>${escapeHtml(l.label)}${l.leaves ? arrow : ""}</a>`;
   };
   const groups = labFootGroups(origin).map(
     (g) =>
-      `<nav aria-labelledby="foot-${g.id}"><p id="foot-${g.id}" class="lab-foot-title">${escape(g.title)}</p>${g.links.map(link).join("")}</nav>`,
+      `<nav aria-labelledby="foot-${g.id}"><p id="foot-${g.id}" class="lab-foot-title">${escapeHtml(g.title)}</p>${g.links.map(link).join("")}</nav>`,
   );
-  return `<div class="lab-foot"><div class="lab-foot-about"><p class="lab-foot-name">${escape(about.name)}</p>${about.notice.map((p) => `<p>${p}</p>`).join("")}<p>Part of <a href="${escape(home)}">Poppy&nbsp;Lab</a>, an independent experiment that is not affiliated with or endorsed by ${escape(endorsedBy)}. “Personal Agent Protocol” and “Poppy” are their names.</p><p class="lab-foot-credit">With ${heart}<span class="lab-foot-sr">love</span> by <a href="${LAB_AUTHOR.url}" rel="noopener">${LAB_AUTHOR.handle}</a></p></div>${groups.join("")}</div>`;
+  return `<div class="lab-foot"><div class="lab-foot-about"><p class="lab-foot-name">${escapeHtml(about.name)}</p>${about.notice.map((p) => `<p>${p}</p>`).join("")}<p>Part of <a href="${escapeHtml(home)}">Poppy&nbsp;Lab</a>, an independent experiment that is not affiliated with or endorsed by ${escapeHtml(endorsedBy)}. “Personal Agent Protocol” and “Poppy” are their names.</p><p class="lab-foot-credit">With ${heart}<span class="lab-foot-sr">love</span> by <a href="${LAB_AUTHOR.url}" rel="noopener">${LAB_AUTHOR.handle}</a></p></div>${groups.join("")}</div>`;
 }
 
 /**
@@ -254,5 +252,5 @@ export function labPlaygroundUrl(origin: string) {
 export function labBarHtml(origin: string, company: string) {
   const home = labSites(origin)[0]!.url;
   const link = "color:#fff;text-underline-offset:3px;white-space:nowrap";
-  return `<aside aria-label="About this demo" style="display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:4px 20px;margin:0;padding:8px 16px;background:#171a1f;color:#e3e6ea;font:400 13px/1.45 system-ui,-apple-system,'Segoe UI',sans-serif;text-align:center;letter-spacing:0;text-transform:none"><span><strong style="color:#f2b705;font-weight:600">Demo</strong> · ${escape(company)} is a fictional company in Poppy&nbsp;Lab. Nothing here is real.</span><span style="display:inline-flex;flex-wrap:wrap;justify-content:center;gap:4px 20px"><a href="${escape(labPlaygroundUrl(origin))}" style="${link};font-weight:600">Try it with an AI agent</a><a href="${escape(home)}" style="${link}">What is this?</a></span></aside>`;
+  return `<aside aria-label="About this demo" style="display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:4px 20px;margin:0;padding:8px 16px;background:#171a1f;color:#e3e6ea;font:400 13px/1.45 system-ui,-apple-system,'Segoe UI',sans-serif;text-align:center;letter-spacing:0;text-transform:none"><span><strong style="color:#f2b705;font-weight:600">Demo</strong> · ${escapeHtml(company)} is a fictional company in Poppy&nbsp;Lab. Nothing here is real.</span><span style="display:inline-flex;flex-wrap:wrap;justify-content:center;gap:4px 20px"><a href="${escapeHtml(labPlaygroundUrl(origin))}" style="${link};font-weight:600">Try it with an AI agent</a><a href="${escapeHtml(home)}" style="${link}">What is this?</a></span></aside>`;
 }

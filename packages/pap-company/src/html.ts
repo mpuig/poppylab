@@ -1,7 +1,6 @@
 /**
- * Text for an HTML page, as every page of a Company and of its gateway
- * writes it: the five characters that could end an element or an attribute
- * become numeric references, in text and in quoted attribute values alike.
+ * Text for an HTML page: the lab's one escaper, which lives in pap-core
+ * with the lab's own pages. This package doesn't depend on pap-core, so
+ * it takes it from pap-client, which does.
  */
-export const escapeHtml = (text: string) =>
-  text.replace(/[&<>"']/g, (character) => `&#${character.charCodeAt(0)};`);
+export { escapeHtml } from "@poppy-lab/pap-client/core";

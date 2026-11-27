@@ -5,8 +5,7 @@
  * words, the picture of that change and the look belong to each Company;
  * the parts here only read the served objects and lay them out.
  */
-const escape = (text: string) =>
-  text.replace(/[&<>"']/g, (character) => `&#${character.charCodeAt(0)};`);
+import { escapeHtml } from "./html.ts";
 
 /** JSON on one line, spaced as a person would write it. */
 function inlineJson(value: unknown): string {
@@ -103,7 +102,7 @@ export function annotatedJsonHtml(
     .map(({ depth, text, folded }) => {
       const key = depth === 1 ? /^"([^"]+)":/.exec(text)?.[1] : undefined;
       const number = key === undefined ? 0 : marked.indexOf(key) + 1;
-      let html = escape(text).replace(
+      let html = escapeHtml(text).replace(
         /^(&#34;[^&]*&#34;)(:)/,
         '<span class="k">$1</span>$2',
       );
@@ -189,7 +188,7 @@ export function guideExcluded(tasks: readonly string[]) {
 
 /** A method and path with a break allowed after each slash, for a narrow label. */
 export const breakablePath = (where: string) =>
-  escape(where).replace(/\//g, "/<wbr>");
+  escapeHtml(where).replace(/\//g, "/<wbr>");
 
 export type SequenceLook = {
   /** Unique on the page; the narrow drawing adds "-narrow". */
@@ -253,11 +252,11 @@ export function approvalSequenceSvg(look: SequenceLook, narrow = false) {
         width - ground / 2 - 4,
       );
       const yours = kind === "yours";
-      return `<line x1="${x1}" y1="${y}" x2="${x2 > x1 ? x2 - 10 : x2 + 10}" y2="${y}" stroke="${yours ? look.accent : look.ink}" stroke-width="${yours ? 2.5 : 1.5}"${kind === "reply" ? ' stroke-dasharray="5 4"' : ""} marker-end="url(#${id}-${yours ? "accent" : "ink"})"/><rect x="${middle - ground / 2}" y="${y - 27}" width="${ground}" height="18" rx="2" fill="${yours ? look.accent : look.ground}"/><text class="sq-label" x="${middle}" y="${y - 14}" text-anchor="middle" fill="${yours ? accentInk : look.ink}">${escape(text)}</text>`;
+      return `<line x1="${x1}" y1="${y}" x2="${x2 > x1 ? x2 - 10 : x2 + 10}" y2="${y}" stroke="${yours ? look.accent : look.ink}" stroke-width="${yours ? 2.5 : 1.5}"${kind === "reply" ? ' stroke-dasharray="5 4"' : ""} marker-end="url(#${id}-${yours ? "accent" : "ink"})"/><rect x="${middle - ground / 2}" y="${y - 27}" width="${ground}" height="18" rx="2" fill="${yours ? look.accent : look.ground}"/><text class="sq-label" x="${middle}" y="${y - 14}" text-anchor="middle" fill="${yours ? accentInk : look.ink}">${escapeHtml(text)}</text>`;
     })
     .join("");
   const head = (x: number, label: string, own: boolean) =>
-    `<rect x="${x - box / 2}" y="8" width="${box}" height="40" rx="6" fill="${own ? look.ink : look.paper}" stroke="${look.ink}" stroke-width="1.5"/><text class="sq-head" x="${x}" y="34" text-anchor="middle" fill="${own ? look.paper : look.ink}">${escape(label)}</text>`;
+    `<rect x="${x - box / 2}" y="8" width="${box}" height="40" rx="6" fill="${own ? look.ink : look.paper}" stroke="${look.ink}" stroke-width="1.5"/><text class="sq-head" x="${x}" y="34" text-anchor="middle" fill="${own ? look.paper : look.ink}">${escapeHtml(label)}</text>`;
   const marker = (name: string, fill: string) =>
     `<marker id="${id}-${name}" viewBox="0 0 10 10" refX="1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="${fill}"/></marker>`;
   const lifelines = Object.values(at)
@@ -267,8 +266,8 @@ export function approvalSequenceSvg(look: SequenceLook, narrow = false) {
     )
     .join("");
   // Between the terms and the approval nothing has changed: the band says so across all three.
-  const held = `<rect x="${narrow ? 2 : 12}" y="216" width="${width - (narrow ? 4 : 24)}" height="30" rx="4" fill="${look.paper}" stroke="${look.accent}" stroke-width="1.5" stroke-dasharray="6 4"/><text class="sq-label" x="${width / 2}" y="235" text-anchor="middle" fill="${look.ink}">${escape(look.held)}</text>`;
-  const company = escape(look.company);
+  const held = `<rect x="${narrow ? 2 : 12}" y="216" width="${width - (narrow ? 4 : 24)}" height="30" rx="4" fill="${look.paper}" stroke="${look.accent}" stroke-width="1.5" stroke-dasharray="6 4"/><text class="sq-label" x="${width / 2}" y="235" text-anchor="middle" fill="${look.ink}">${escapeHtml(look.held)}</text>`;
+  const company = escapeHtml(look.company);
   return `<svg class="${narrow ? "narrow" : "wide"}" viewBox="0 0 ${width} 410" role="img" aria-labelledby="${id}-title ${id}-desc"><title id="${id}-title">How a change is approved</title><desc id="${id}-desc">You ask your agent for a change. Your agent sends it to ${company}, which answers with the exact terms and changes nothing. You approve. Your agent sends the same request again with your approval, and ${company} makes the change once.</desc><defs>${marker("ink", look.ink)}${marker("accent", look.accent)}</defs>${lifelines}${held}${rows}${head(at.you, "You", false)}${head(at.agent, "Your agent", false)}${head(at.company, look.company, true)}</svg>`;
 }
 

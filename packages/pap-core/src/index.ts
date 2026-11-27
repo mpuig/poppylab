@@ -694,6 +694,7 @@ export class PapDiscoveryError extends Error {
     this.trace = trace;
   }
 }
+export * from "./html.ts";
 export * from "./lab.ts";
 export * from "./how-it-works.ts";
 export * from "./consent-sheet.ts";
