@@ -30,11 +30,6 @@ export function clientFor(connection: Connection) {
 }
 let identityPromise: Promise<{ publicKey: JWK; privateKey: JWK }> | undefined;
 /**
- * The jwks_uri key: signs only delegations and client assertions (§4.1,
- * §5.2). A deployment sets `POPPY_IDENTITY` (a Worker secret); otherwise a
- * local key file is created once.
- */
-/**
  * §5.3: the Web Bot Auth operator key, derived from the identity secret so
  * a deployment needs no other secret. It is not a jwks_uri key and never
  * signs Session JWTs or assertions.
@@ -46,6 +41,11 @@ export function operatorKey() {
   ));
 }
 
+/**
+ * The jwks_uri key: signs only delegations and client assertions (§4.1,
+ * §5.2). A deployment sets `POPPY_IDENTITY` (a Worker secret); otherwise a
+ * local key file is created once.
+ */
 export function identity() {
   return (identityPromise ??= (async () => {
     if (process.env.POPPY_IDENTITY) {
