@@ -149,7 +149,9 @@ export function website(
   lab = foot(origin);
   bar = labBarHtml(origin, "Juniper Market");
   app.addHook("onSend", async (req, reply) => {
-    if (req.url === "/account" || req.url.startsWith("/site/")) {
+    // By path: `req.url` carries the query string too.
+    const path = req.url.split("?")[0]!;
+    if (path === "/account" || path.startsWith("/site/")) {
       reply.header("Cache-Control", "no-store");
       // The portal's own script and same-origin fetches.
       reply.header(

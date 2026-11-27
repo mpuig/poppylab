@@ -127,6 +127,26 @@ it("requires customer sign-in; login is browser bound and rejects cross-origin s
     await app.close();
   }
 });
+it("keeps the account page uncached and its script allowed with a query string", async () => {
+  const app = await setup();
+  try {
+    const entered = await login(app);
+    const cookie = (entered.headers["set-cookie"] as string[])
+      .find((c) => c.startsWith("juniper_web="))!
+      .split(";")[0]!;
+    const page = await app.inject({
+      url: "/account?utm_source=mail",
+      headers: { cookie },
+    });
+    expect(page.statusCode).toBe(200);
+    expect(page.headers["cache-control"]).toBe("no-store");
+    expect(page.headers["content-security-policy"]).toContain(
+      "script-src 'self'",
+    );
+  } finally {
+    await app.close();
+  }
+});
 it("accepts the login form after a restart", async () => {
   const before = await setup();
   const page = await before.inject("/site/login");
