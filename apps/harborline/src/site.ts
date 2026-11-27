@@ -12,7 +12,12 @@ import {
   labPlaygroundUrl,
   specRefHtml,
 } from "@poppy-lab/pap-core";
-import { GRANT_MS, skillRowsHtml, TOKEN_MS } from "@poppy-lab/pap-company";
+import {
+  escapeHtml,
+  GRANT_MS,
+  skillRowsHtml,
+  TOKEN_MS,
+} from "@poppy-lab/pap-company";
 import {
   accountLast4,
   customers,
@@ -22,8 +27,7 @@ import {
 import { isFdxScope, scopes, type HarborlineScope } from "./scopes.ts";
 import { skills } from "./skills.ts";
 
-export const escape = (value: string) =>
-  value.replace(/[&<>"']/g, (character) => `&#${character.charCodeAt(0)};`);
+export const escape = escapeHtml;
 /** Money as a bank statement prints it: a real minus sign before the symbol. */
 const money = (cents: number) =>
   `${cents < 0 ? "−" : ""}$${(Math.abs(cents) / 100).toLocaleString("en-US", {

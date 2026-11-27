@@ -9,6 +9,7 @@
  */
 import { createHash } from "node:crypto";
 import type { Hono } from "hono";
+import { escapeHtml } from "../html.ts";
 import type { SkillDefinition } from "./types.ts";
 
 /** The pinned proposal's schema identifier: opaque, never fetched. */
@@ -43,9 +44,6 @@ export type SkillIndex = {
  */
 const skillFile = ({ name, description, body }: SkillDefinition) =>
   `---\nname: ${name}\ndescription: ${JSON.stringify(description)}\n---\n\n${body.trim()}\n`;
-
-const escapeHtml = (text: string) =>
-  text.replace(/[&<>"']/g, (character) => `&#${character.charCodeAt(0)};`);
 
 /**
  * The same skills as table rows for a Company's page for agents: each name

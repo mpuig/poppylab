@@ -5,6 +5,7 @@
  * the one its consent pages have, so the code is entered on a page that
  * looks like the Company's own.
  */
+import { escapeHtml } from "../html.ts";
 import type { Ctx } from "./context.ts";
 
 /**
@@ -13,9 +14,6 @@ import type { Ctx } from "./context.ts";
  */
 export const CODE_LETTERS = "BCDFGHJKLMNPQRSTVWXZ";
 export const CODE_LENGTH = 8;
-
-const escapeHtml = (v: string) =>
-  v.replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`);
 
 /**
  * A code as typed, in the stored form: capitals, without the dash, spaces

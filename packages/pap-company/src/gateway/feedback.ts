@@ -9,6 +9,7 @@
  * public visitor's text is never shown to anyone else.
  */
 import type { Context, Hono } from "hono";
+import { escapeHtml } from "../html.ts";
 import type { Ctx } from "./context.ts";
 import type { Tenancy } from "./tenancy.ts";
 import type { FeedbackReport } from "./types.ts";
@@ -56,8 +57,6 @@ export function mountFeedback(app: Hono, ctx: Ctx, tenancy: Tenancy) {
   });
 }
 
-const escapeHtml = (v: string) =>
-  v.replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`);
 /** "Nov 25, 09:14 UTC": the same for every viewer. */
 export const when = (iso: string) => {
   const d = new Date(iso);

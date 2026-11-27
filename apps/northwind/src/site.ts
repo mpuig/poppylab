@@ -11,7 +11,7 @@ import {
   labPlaygroundUrl,
   specRefHtml,
 } from "@poppy-lab/pap-core";
-import { skillRowsHtml } from "@poppy-lab/pap-company";
+import { escapeHtml, skillRowsHtml } from "@poppy-lab/pap-company";
 import {
   airports,
   customers,
@@ -23,8 +23,7 @@ import {
 } from "./data.ts";
 import { skills } from "./skills.ts";
 
-export const escape = (text: string) =>
-  text.replace(/[&<>"']/g, (character) => `&#${character.charCodeAt(0)};`);
+export const escape = escapeHtml;
 const money = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 export const fontSources = {
   style: "https://fonts.googleapis.com",

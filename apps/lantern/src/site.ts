@@ -22,7 +22,7 @@ import {
   specRefHtml,
   type GuidePaths,
 } from "@poppy-lab/pap-core";
-import { skillRowsHtml } from "@poppy-lab/pap-company";
+import { escapeHtml, skillRowsHtml } from "@poppy-lab/pap-company";
 import {
   customers,
   DELIVERY_CENTS,
@@ -33,8 +33,7 @@ import {
 } from "./data.ts";
 import { skills } from "./skills.ts";
 
-export const escape = (t: string) =>
-  t.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+export const escape = escapeHtml;
 const usd = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
 /** Fonts load from Google Fonts; everything else stays on this origin. */

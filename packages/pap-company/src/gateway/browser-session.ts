@@ -26,6 +26,7 @@
 import type { Context, Hono } from "hono";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { randomId } from "@poppy-lab/pap-client/core";
+import { escapeHtml } from "../html.ts";
 import type { Ctx } from "./context.ts";
 import { sessionDestination } from "./sessions.ts";
 import {
@@ -74,9 +75,6 @@ const same = (a: string, b: string) => {
     y = Buffer.from(b);
   return x.length === y.length && timingSafeEqual(x, y);
 };
-const escapeHtml = (v: string) =>
-  v.replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`);
-
 const sessionCookie = (ctx: Ctx) => `${ctx.cookiePrefix}poppy_session`;
 
 /** A small page of the gateway's own; it loads nothing and runs nothing. */

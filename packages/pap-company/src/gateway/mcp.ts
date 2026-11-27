@@ -25,6 +25,7 @@ import {
   approvalHeader,
   tokenHash,
 } from "@poppy-lab/pap-client/core";
+import { escapeHtml } from "../html.ts";
 import type { Ctx } from "./context.ts";
 import { challengeFor, routeScopes, type Sessions } from "./sessions.ts";
 import type { Tenancy } from "./tenancy.ts";
@@ -167,9 +168,6 @@ export function mcpToolsOf(def: CompanyDefinition): McpTool[] {
   }
   return tools;
 }
-
-const escapeHtml = (text: string) =>
-  text.replace(/[&<>"']/g, (character) => `&#${character.charCodeAt(0)};`);
 
 /**
  * The MCP server's tools as table rows for a Company's page for agents:

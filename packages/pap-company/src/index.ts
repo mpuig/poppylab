@@ -4,3 +4,10 @@ export { memoryStore, restartingStore } from "./memory.ts";
 export { LOGIN_FORM_MS, loginFormToken, loginFormValid } from "./site-login.ts";
 export { splitStore, type KeyValue } from "./split-store.ts";
 export * from "./site-viewer.ts";
+export { escapeHtml } from "./html.ts";
+export * from "./portal.ts";
+export {
+  createWorkerCompany,
+  workerFetchJson,
+  type WorkerConfig,
+} from "./worker.ts";

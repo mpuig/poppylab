@@ -4,7 +4,12 @@
  * ruled rows of readings, plain numerals, a fern-green masthead and the
  * yellow of a meter seal for the one action that matters.
  */
-import { GRANT_MS, skillRowsHtml, TOKEN_MS } from "@poppy-lab/pap-company";
+import {
+  escapeHtml,
+  GRANT_MS,
+  skillRowsHtml,
+  TOKEN_MS,
+} from "@poppy-lab/pap-company";
 import {
   BROWSER_SIGN_IN,
   browserAccess,
@@ -33,8 +38,7 @@ import { ESPI, ESPI_BASE } from "./espi.ts";
 import { meterScopes, scopes, type FernwickScope } from "./scopes.ts";
 import { skills } from "./skills.ts";
 
-export const escape = (value: string) =>
-  value.replace(/[&<>"']/g, (character) => `&#${character.charCodeAt(0)};`);
+export const escape = escapeHtml;
 /** Hundred-thousandths of USD as a bill prints them. */
 export const money = (amount: number) => {
   const cents = Math.round(amount / 1000);
