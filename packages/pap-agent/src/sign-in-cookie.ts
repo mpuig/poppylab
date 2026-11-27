@@ -57,6 +57,17 @@ export async function rememberAppSignIn(state: string, user: string) {
     expires,
   );
 }
+/**
+ * The agent user of the app's sign-in with this `state`, if it is one,
+ * without consuming it.
+ */
+export async function peekAppSignIn(state: string) {
+  const entry = await accountBackend().get(stateBucket(state), "state");
+  const record = entry?.value as AppSignIn | undefined;
+  return record && !record.used && record.expires > Date.now()
+    ? record.user
+    : undefined;
+}
 /** The agent user of the app's sign-in with this `state`, if it is one. */
 export async function appSignIn(state: string) {
   return (await takeOnce<AppSignIn>(stateBucket(state), "state"))?.user;

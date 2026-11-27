@@ -26,7 +26,7 @@ import { accountBackend, loadSession, takeOnce } from "./account-store";
 import { startSignIn, type Result } from "./api";
 import { sessionOfAccessToken } from "./api-sessions";
 import { connectionNamed, originOf } from "./connections";
-import { isAccountCompany } from "./deployment";
+import { isAccountCompany, publicMode } from "./deployment";
 import { readConversation } from "./runs";
 import { APP_SIGN_IN_END, rememberAppSignIn } from "./sign-in-cookie";
 import {
@@ -36,6 +36,15 @@ import {
   type Caller,
   type CookieStore,
 } from "./web";
+
+/**
+ * In public mode the deployment's configured origin, whatever the request
+ * says; elsewhere the request's own.
+ */
+const publicOrigin = (fallback: string) =>
+  publicMode()
+    ? new URL(process.env.AGENT_PUBLIC_ORIGIN!).origin
+    : new URL(fallback).origin;
 
 /** A link works this long after it is asked for. */
 export const SIGN_IN_LINK_MS = 3 * 60000;
@@ -140,12 +149,13 @@ export async function createSignInLink(
     ))
   )
     throw new Error("Sign-in link conflict");
+  const origin = publicOrigin(caller.origin);
   return {
     ok: true,
     value: {
-      url: `${caller.origin}/api/v1/sign-ins/${ticket}`,
+      url: `${origin}/api/v1/sign-ins/${ticket}`,
       expiresAt: expires,
-      endUrl: `${caller.origin}${APP_SIGN_IN_END}`,
+      endUrl: `${origin}${APP_SIGN_IN_END}`,
     },
   };
 }
@@ -201,7 +211,7 @@ export async function openSignInLink(
     user: (() => record.user) as Caller["user"],
     // The account's own: its device asked for this ticket with its token.
     authentic: true,
-    origin: new URL(request.url).origin,
+    origin: publicOrigin(request.url),
     localDev: false,
     ip,
     signIns: {

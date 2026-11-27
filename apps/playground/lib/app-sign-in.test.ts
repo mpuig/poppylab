@@ -57,6 +57,9 @@ vi.mock("next/headers", () => ({
   }),
 }));
 import { createIdentity } from "@poppy-lab/pap-client";
+import { loadAccount } from "@poppy-lab/pap-agent/account-store";
+import { acquireRun, releaseRun } from "@poppy-lab/pap-agent/runs";
+import { peekAppSignIn } from "@poppy-lab/pap-agent/sign-in-cookie";
 import { softwareAuthenticator } from "@poppy-lab/pap-agent/webauthn-fixture";
 import * as harborline from "../../harborline/src/test-harness";
 import { GET as callback } from "../app/api/account/callback/route";
@@ -169,6 +172,7 @@ async function eventsUntil(
 
 describe("A client app signs in to Harborline from its API session", () => {
   let token = "";
+  let user = "";
   let conversation = "";
 
   beforeAll(async () => {
@@ -213,8 +217,9 @@ describe("A client app signs in to Harborline from its API session", () => {
           }),
         }),
       )
-    ).json()) as { tokens: { accessToken: string } };
+    ).json()) as { account: { id: string }; tokens: { accessToken: string } };
     token = created.tokens.accessToken;
+    user = (await loadAccount(created.account.id))!.account.user;
     const started = await api("POST", "/conversations", token, {
       company: bank,
     });
@@ -320,4 +325,62 @@ describe("A client app signs in to Harborline from its API session", () => {
       ),
     ).toBe("/playground/sign-in/failed");
   });
+
+  it("keeps the sign-in state and cookie when the conversation is busy, so a retry completes sign-in", async () => {
+    const started = await api("POST", "/conversations", token, {
+      company: bank,
+    });
+    expect(started.status).toBe(201);
+    const id = started.data.id as string;
+    const statusOf = async () =>
+      (
+        (await api("GET", `/conversations/${id}`, token)).data
+          .companies as Array<{
+          origin: string;
+          signedIn: boolean;
+          signingIn: boolean;
+        }>
+      ).find((c) => c.origin === bank)!;
+
+    const { url } = (
+      await api("POST", `/conversations/${id}/sign-ins`, token, {
+        company: bank,
+      })
+    ).data as { url: string };
+    const browser: Jar = new Map();
+    const toBank = await inBrowser(browser, GET, url);
+    const cookieName = [...browser.keys()][0]!;
+    expect(cookieName).toMatch(/^pap_oauth_/);
+    const back = await consent(toBank!, "approve");
+    const state = new URL(back).searchParams.get("state")!;
+    expect(await peekAppSignIn(state)).toBe(user);
+
+    // Another request holds the conversation lock when the callback lands.
+    const held = await acquireRun(user, id);
+    if (!held || held === "busy") throw new Error("expected to acquire run");
+    try {
+      expect(await inBrowser(browser, callback, back)).toBe(
+        `${END}?result=failed`,
+      );
+      expect(await peekAppSignIn(state)).toBe(user);
+      expect([...browser.keys()]).toEqual([cookieName]);
+      expect(await statusOf()).toMatchObject({
+        signedIn: false,
+        signingIn: true,
+      });
+    } finally {
+      await releaseRun(user, held);
+    }
+
+    // Once the lock clears, retrying the callback completes the sign-in.
+    expect(await inBrowser(browser, callback, back)).toBe(
+      `${END}?result=done&company=harborline`,
+    );
+    expect(await peekAppSignIn(state)).toBeUndefined();
+    expect([...browser.keys()]).toEqual([]);
+    expect(await statusOf()).toMatchObject({
+      signedIn: true,
+      signingIn: false,
+    });
+  }, 20000);
 });

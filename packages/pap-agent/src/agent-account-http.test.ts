@@ -433,6 +433,44 @@ describe("a company's sign-in from a client app", () => {
     expect(kept).not.toContain(ticket);
   });
 
+  it("uses AGENT_PUBLIC_ORIGIN for url and endUrl in public mode, even when caller.origin differs", async () => {
+    const { token } = await app();
+    const prevPublic = process.env.POPPY_PUBLIC;
+    const prevOrigin = process.env.AGENT_PUBLIC_ORIGIN;
+    process.env.POPPY_PUBLIC = "true";
+    process.env.AGENT_PUBLIC_ORIGIN = "https://poppylab.dev";
+    try {
+      const response = await v1(
+        new Request(
+          `https://other.example/api/v1/conversations/${conversation}/sign-ins`,
+          {
+            method: "POST",
+            headers: {
+              authorization: `Bearer ${token}`,
+              "content-type": "application/json",
+            },
+            body: JSON.stringify({ company: bank }),
+          },
+        ),
+        jar(),
+      );
+      expect(response.status).toBe(200);
+      const { url, endUrl } = (await response.json()) as {
+        url: string;
+        endUrl: string;
+      };
+      expect(url).toMatch(
+        /^https:\/\/poppylab\.dev\/api\/v1\/sign-ins\/[A-Za-z0-9_-]{43}$/,
+      );
+      expect(endUrl).toBe("https://poppylab.dev/playground/sign-in/app");
+    } finally {
+      if (prevPublic === undefined) delete process.env.POPPY_PUBLIC;
+      else process.env.POPPY_PUBLIC = prevPublic;
+      if (prevOrigin === undefined) delete process.env.AGENT_PUBLIC_ORIGIN;
+      else process.env.AGENT_PUBLIC_ORIGIN = prevOrigin;
+    }
+  });
+
   it("keeps a link and the sign-in it starts only as long as they can be used", async () => {
     const { token, user } = await app();
     const kept: Array<{ bucket: string; expires?: number }> = [];

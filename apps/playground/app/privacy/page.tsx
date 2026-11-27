@@ -122,7 +122,8 @@ export default function Privacy() {
               stored on the server only as hashes. A device&apos;s session ends
               after 30 days without use, and every session after a year. You can
               sign a device out, or every device, from Identity. An account not
-              used for a year is deleted with its conversations.
+              used for a year is deleted; its conversations follow the eight-day
+              rule above.
             </p>
 
             <h2 id="model">Your model key and the model</h2>

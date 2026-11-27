@@ -12,7 +12,7 @@ import {
 } from "./runtime";
 import { connectionForState, originOf } from "./connections";
 import { labCompanies } from "./lab-companies";
-import { APP_SIGN_IN_END, appSignIn } from "./sign-in-cookie";
+import { APP_SIGN_IN_END, appSignIn, peekAppSignIn } from "./sign-in-cookie";
 import {
   assertion,
   proof,
@@ -136,13 +136,16 @@ export async function signInCallback(request: Request, cookies: CookieStore) {
   // sign-in under way at another Company has its own, and is left alone.
   // An app's sign-in is its account's, which this browser has no cookie
   // for: the agent noted whose when the app's link was opened here.
+  const canServe = serving();
   const app =
-    state && caller.signIns.holds(state) ? await appSignIn(state) : undefined;
+    canServe && state && caller.signIns.holds(state)
+      ? await peekAppSignIn(state)
+      : undefined;
   const visitor = app ?? caller.user();
   const leave = (result: "done" | "failed", company?: string) =>
     app ? leaveApp(result, company) : leaveTab(result);
   const found =
-    visitor && state && caller.signIns.holds(state) && serving()
+    canServe && visitor && state && caller.signIns.holds(state)
       ? await runForState(visitor, state)
       : undefined;
   const held =
@@ -153,8 +156,18 @@ export async function signInCallback(request: Request, cookies: CookieStore) {
     held && held !== "busy" && state
       ? connectionForState(held.run, state)
       : undefined;
-  if (!held || held === "busy" || !visitor || !connection)
+  if (!held || held === "busy" || !visitor || !connection) {
+    if (held && held !== "busy" && visitor)
+      await releaseRun(visitor, held).catch(() => {});
     return leave("failed");
+  }
+  if (app) {
+    const consumed = await appSignIn(state!);
+    if (!consumed) {
+      await releaseRun(visitor, held).catch(() => {});
+      return leave("failed");
+    }
+  }
   const { run } = held;
   const pending = connection.auth!;
   delete connection.auth;
