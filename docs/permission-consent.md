@@ -4,6 +4,8 @@
 
 Poppy asks for the Company's read scopes when you choose **Sign in**. A read-only account can look at data but can't propose or confirm changes. The **Request change permission** control opens another consent, this time for read and write. It's only offered if the Company advertises write access; the server also checks the advertised scopes before building the authorization. No new scopes or per-service permissions are added.
 
+With a model, each turn's system prompt ends with an account note for the turn's Company (`accountNote` in `apps/playground/lib/account-permissions.ts`): whether the User is signed in, the permissions granted, and whether they include proposing changes, or the Company no longer accepts the sign-in. A Company's words such as "opening a case needs the customer signed in" say what a request needs, not whether the User is signed in, so a signed-in User is pointed to **Request change permission** and never asked to sign in.
+
 The human route accepts `access: "read"` (the default) or `access: "write"` (read plus write), not arbitrary scopes. No model tool starts this consent. A scope block tells the user which control to use, without closing their read access.
 
 Juniper accepts any non-empty subset of its two independent scopes, including write alone and the reverse order. It rejects unknown, duplicated or empty scopes. The requested scope is bound to the consent's nonce and PKCE: sending `write=yes` on a form requested for read only can't raise it. The page describes only the requested permissions; there's no write checkbox in the read-only variant. With read plus write, write can be unticked; with write alone, read isn't granted implicitly.

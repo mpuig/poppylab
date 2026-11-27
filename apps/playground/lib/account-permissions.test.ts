@@ -1,5 +1,6 @@
 import { it, expect } from "vitest";
 import {
+  accountNote,
   canChange,
   canRequestChanges,
   consentScopes,
@@ -193,4 +194,24 @@ it("asks for the ESPI-shaped scopes its tools use only with Use ESPI on, never e
       espi,
     ),
   ).toEqual([]);
+});
+
+it("tells the model a signed-in user is signed in, and that a missing permission is asked for with Request change permission", () => {
+  const note = (signedIn: boolean, granted = "", lost = false) =>
+    accountNote("Lantern", { signedIn, lost, granted, profile });
+  const readOnly = note(true, "orders:read");
+  expect(readOnly).toBe(
+    "Account note: the user is signed in at Lantern, with these permissions: orders:read. Never ask them to sign in. They don't include proposing changes: when a request needs that, tell the user this permission is missing and that they can choose Request change permission in the chat.",
+  );
+  expect(note(true, "orders:read orders:write")).toBe(
+    "Account note: the user is signed in at Lantern, with these permissions: orders:read, orders:write. Never ask them to sign in. They include proposing changes.",
+  );
+  // Only with no sign-in, or one the Company no longer takes, is signing
+  // in what the user does.
+  expect(note(false)).toContain("the user is not signed in at Lantern");
+  expect(note(true, "orders:read", true)).toContain(
+    "Lantern no longer accepts the user's sign-in",
+  );
+  for (const signedIn of [readOnly, note(true, "orders:read orders:write")])
+    expect(signedIn).not.toMatch(/sign_in_required|use the Sign in/);
 });

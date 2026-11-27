@@ -6,7 +6,8 @@
  * for the model and entries for the chat. Everything the Company says is
  * untrusted content (§10.1): bounded, never instructions.
  *
- * An `authorization` event (§8.11) becomes the usual Sign in instruction. An
+ * An `authorization` event (§8.11) becomes the usual Sign in instruction, or
+ * Request change permission when the User is signed in already. An
  * operation in `extensions.operations` (Operations v3) becomes the usual
  * approval card; approving sends a message carrying the User's approval, with
  * a request ID derived from that approval, so a retry after a lost response
@@ -243,16 +244,30 @@ export function conversationSession(connection: Connection, options: Options) {
       } else if (e.type === "authorization") {
         const scope = clip(e.scope, 512) ?? "";
         options.trace(`Conversation authorization event · scope ${scope}`);
-        result.sign_in = {
-          scope,
-          instruction: connection.accountToken
-            ? "Ask the user to choose Request change permission in the chat, then send the request again. The conversation stays open."
-            : "Ask the user to use the Sign in control in the chat, then send the request again. The conversation stays open.",
-        };
+        // §8.11: the same event whether or not the request was signed in.
+        // Signed in, what is missing is a permission, never the sign-in,
+        // whatever the Company's own words around it say.
+        const signedIn =
+          !!connection.accountToken && !connection.accountUnavailable;
+        if (signedIn)
+          result.permission_needed = {
+            scope,
+            signed_in: true,
+            instruction:
+              "The user is signed in. Tell them their sign-in doesn't include a permission this needs, and ask them to choose Request change permission in the chat, then send the request again. The conversation stays open.",
+          };
+        else
+          result.sign_in = {
+            scope,
+            instruction:
+              "Ask the user to use the Sign in control in the chat, then send the request again. The conversation stays open.",
+          };
         options.shown.push({
           author: company,
           human: false,
-          note: `Asked for sign-in (${scope}).`,
+          note: signedIn
+            ? `Asked for a permission your sign-in doesn't include (${scope}).`
+            : `Asked for sign-in (${scope}).`,
         });
       } else if (e.type === "user_requested" && !inDirect) {
         const reason = clip(e.reason, 300);

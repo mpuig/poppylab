@@ -7,9 +7,13 @@ afterEach(() => vi.unstubAllEnvs());
 
 it("executes a Company tool through an OpenAI-compatible model loop", async () => {
   let requests = 0;
+  const bodies: Array<{ messages: Array<{ role: string; content: string }> }> =
+    [];
   const execute = vi.fn(async () => ({ products: [{ name: "Apples" }] }));
   const server = createServer(async (request, response) => {
-    for await (const chunk of request) void chunk;
+    const chunks: Buffer[] = [];
+    for await (const chunk of request) chunks.push(Buffer.from(chunk));
+    bodies.push(JSON.parse(Buffer.concat(chunks).toString("utf8")));
     requests++;
     const first = requests === 1;
     response.setHeader("Content-Type", "application/json");
@@ -55,8 +59,14 @@ it("executes a Company tool through an OpenAI-compatible model loop", async () =
       "openai-compatible",
       [{ role: "user", content: "What do you sell?" }],
       { list_products: { description: "List products", execute } },
+      { context: "Account note: the user is signed in at Lantern." },
     );
     expect(result).toBe("The Company has apples.");
+    // Iris's own note for the turn follows the system prompt.
+    const system = bodies[0]!.messages.find((m) => m.role === "system")!;
+    expect(system.content).toMatch(
+      /Answer concisely\.\n\nAccount note: the user is signed in at Lantern\.$/,
+    );
     expect(execute).toHaveBeenCalledTimes(1);
     expect(requests).toBe(2);
   } finally {

@@ -215,6 +215,39 @@ describe("conversations (§8) in Iris", () => {
     expect(shown.at(-1)!.note).toBe("Asked for sign-in (orders:read).");
   });
 
+  it("tells the model a signed-in user lacks a permission, not the sign-in, whatever the Company says (§8.11)", async () => {
+    const run = { ...newRun(), accountToken: "refresh", scopes: "orders:read" };
+    const { t, shown } = tools(run, () =>
+      read([
+        said("e2", {
+          text: "That needs your account. Sign in, then send the request again.",
+          data: { error: "sign_in_required" },
+        }),
+        {
+          id: "e3",
+          type: "authorization",
+          error: "insufficient_scope",
+          scope: "orders:read orders:write",
+        },
+      ]),
+    );
+    const result = (await t.company_agent_send!.execute({
+      data: { request: "report_problem" },
+    })) as Record<string, { instruction: string; signed_in?: boolean }>;
+    expect(result).not.toHaveProperty("sign_in");
+    expect(result.permission_needed).toMatchObject({
+      scope: "orders:read orders:write",
+      signed_in: true,
+    });
+    expect(result.permission_needed!.instruction).toContain(
+      "Request change permission",
+    );
+    expect(result.permission_needed!.instruction).not.toMatch(/Sign in/);
+    expect(shown.at(-1)!.note).toBe(
+      "Asked for a permission your sign-in doesn't include (orders:read orders:write).",
+    );
+  });
+
   it("records an operation in a message for the approval card, only where proposals are allowed", async () => {
     const run = newRun();
     const reply = () =>

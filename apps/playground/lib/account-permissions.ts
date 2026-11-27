@@ -115,3 +115,33 @@ export function grantedSubset(granted: unknown, requested: string) {
     values.every((s) => requested.split(" ").includes(s))
   );
 }
+
+/**
+ * What the model is told of the User's account at the turn's Company, every
+ * turn. Without it, a model read Company content such as "opening a case
+ * needs the customer signed in" as saying the User wasn't, and asked a
+ * signed-in User to sign in.
+ */
+export function accountNote(
+  company: string,
+  account: {
+    /** Iris holds a sign-in, whether or not the Company still takes it. */
+    signedIn: boolean;
+    /** The Company no longer takes it. */
+    lost: boolean;
+    granted: string;
+    profile: CompanyProfile | undefined;
+  },
+) {
+  if (account.signedIn && account.lost)
+    return `Account note: ${company} no longer accepts the user's sign-in. Requests that need the account fail until the user signs in again with the Sign in control in the chat.`;
+  if (!account.signedIn)
+    return `Account note: the user is not signed in at ${company}. A request that needs the account answers sign_in_required; then ask the user to use the Sign in control in the chat.`;
+  const granted = account.granted.split(" ").filter(Boolean);
+  const changes = canChange(account.profile, account.granted)
+    ? "They include proposing changes."
+    : canRequestChanges(account.profile, account.granted)
+      ? "They don't include proposing changes: when a request needs that, tell the user this permission is missing and that they can choose Request change permission in the chat."
+      : "They don't include proposing changes, and this Company offers no permission for that.";
+  return `Account note: the user is signed in at ${company}${granted.length ? `, with these permissions: ${granted.join(", ")}` : ""}. Never ask them to sign in. ${changes}`;
+}

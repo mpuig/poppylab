@@ -2,6 +2,7 @@ import {
   accountRecovery,
   accountUnavailableNotice,
 } from "@/lib/account-recovery";
+import { accountNote } from "@/lib/account-permissions";
 import { NextResponse } from "next/server";
 import {
   InvalidToolArguments,
@@ -877,6 +878,14 @@ async function reply(request: Request, started: Outcome) {
         {
           apiKey: typeof body.apiKey === "string" ? body.apiKey : undefined,
           model: typeof body.model === "string" ? body.model : undefined,
+          // Whether the User is signed in here, and with what: Company
+          // content may say what a request needs, never what the User has.
+          context: accountNote(companyName, {
+            signedIn: !!connection.accountToken,
+            lost: !!connection.accountUnavailable,
+            granted: connection.scopes ?? "",
+            profile: companyProfile(connection.company!),
+          }),
         },
       );
     }
