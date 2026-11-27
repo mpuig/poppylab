@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { allow, endedConversation, type Limit } from "./runs";
 import { publicMode } from "./deployment";
+import { json } from "./web";
 
 const minute = 60000,
   day = 86400000;
@@ -36,13 +37,13 @@ const budgets = {
 
 /** 429 when over budget (public mode only), otherwise undefined. */
 export async function overBudget(
-  request: Request,
+  /** The client's address (`Caller.ip`), when the channel knows it. */
+  ip: string | null,
   visitor: string,
   kind: keyof typeof budgets,
 ) {
   if (!publicMode()) return undefined;
   const b = budgets[kind];
-  const ip = request.headers.get("cf-connecting-ip");
   const ok =
     (await allow(visitor, { visitor: b.visitor, global: b.global })) &&
     (!ip ||
@@ -51,7 +52,7 @@ export async function overBudget(
         { visitor: b.ip },
       )));
   if (ok) return undefined;
-  return Response.json(
+  return json(
     { error: "Too many requests. Wait a minute and try again." },
     {
       status: 429,
@@ -74,7 +75,7 @@ export async function conversationEnded(
 ) {
   const ended = await endedConversation(visitor, id);
   if (!ended || !id) return undefined;
-  return Response.json(
+  return json(
     {
       code: "conversation_ended",
       error:

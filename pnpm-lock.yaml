@@ -304,6 +304,9 @@ importers:
 
   packages/pap-agent:
     dependencies:
+      '@poppy-lab/llm-adapters':
+        specifier: workspace:*
+        version: link:../llm-adapters
       '@poppy-lab/pap-client':
         specifier: workspace:*
         version: link:../pap-client

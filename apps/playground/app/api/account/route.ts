@@ -1,4 +1,5 @@
 import "@/lib/agent";
+import { toResponse } from "@poppy-lab/pap-agent/web";
 import { companyProfile } from "@poppy-lab/pap-core";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
@@ -396,8 +397,12 @@ async function act(request: Request, started: { id?: string }) {
     );
   const store = await cookies();
   const visitor = visitorOf(store, true);
-  const limited = await overBudget(request, visitor, "account");
-  if (limited) return limited;
+  const limited = await overBudget(
+    request.headers.get("cf-connecting-ip"),
+    visitor,
+    "account",
+  );
+  if (limited) return toResponse(limited);
   const named = request.headers.get("x-poppy-conversation") ?? undefined;
   const current = await acquireRun(visitor, named);
   if (current === "busy")
@@ -410,7 +415,7 @@ async function act(request: Request, started: { id?: string }) {
     // One that ended is still on the page that names it: the page is told,
     // and no sign-in or approval starts in another conversation.
     const over = await conversationEnded(visitor, named);
-    if (over) return over;
+    if (over) return toResponse(over);
     let origin: string;
     try {
       const input = new URL(request.headers.get("x-pap-company") ?? issuer);

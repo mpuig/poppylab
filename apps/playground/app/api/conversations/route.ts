@@ -4,6 +4,7 @@
  * a conversation's words come from `/api/account?conversation=`.
  */
 import "@/lib/agent";
+import { toResponse } from "@poppy-lab/pap-agent/web";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import {
@@ -31,8 +32,12 @@ export async function POST(request: Request) {
       { status: 403, headers },
     );
   const visitor = visitorOf(await cookies(), true);
-  const limited = await overBudget(request, visitor, "account");
-  if (limited) return limited;
+  const limited = await overBudget(
+    request.headers.get("cf-connecting-ip"),
+    visitor,
+    "account",
+  );
+  if (limited) return toResponse(limited);
   let action: unknown;
   try {
     action = ((await request.json()) as { action?: unknown }).action;

@@ -1,4 +1,5 @@
 import "@/lib/agent";
+import { toResponse } from "@poppy-lab/pap-agent/web";
 import { discoverCompany } from "@poppy-lab/pap-client";
 import { LOCAL_COMPANY_ORIGINS, PapDiscoveryError } from "@poppy-lab/pap-core";
 import { NextResponse } from "next/server";
@@ -128,8 +129,12 @@ export async function POST(request: Request) {
   }
   const limited =
     publicMode() &&
-    (await overBudget(request, visitorOf(await cookies(), true), "discover"));
-  if (limited) return limited;
+    (await overBudget(
+      request.headers.get("cf-connecting-ip"),
+      visitorOf(await cookies(), true),
+      "discover",
+    ));
+  if (limited) return toResponse(limited);
   activeRequests += 1;
   requestsInWindow += 1;
   try {
@@ -167,7 +172,7 @@ export async function POST(request: Request) {
       // One that ended is still on the page that names it: the page is
       // told, and no new conversation starts in its place.
       const over = await conversationEnded(visitor, named);
-      if (over) return over;
+      if (over) return toResponse(over);
     }
     // §9: tasks need a Session, so Iris reads them when it connects.
     const result = await discoverCompany(url, { allowedPrivateOrigins });

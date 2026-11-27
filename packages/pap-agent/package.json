@@ -15,6 +15,7 @@
     "lint": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@poppy-lab/llm-adapters": "workspace:*",
     "@poppy-lab/pap-client": "workspace:*",
     "@poppy-lab/pap-core": "workspace:*",
     "jose": "^6.2.12"
