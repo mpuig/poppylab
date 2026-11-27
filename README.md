@@ -56,12 +56,13 @@ pnpm spec:drift
 
 ## Workspace
 
-- `apps/playground`: the Next.js agent (OpenNext on Workers or `next start`), per-visitor state in Durable Objects, the home page.
+- `apps/playground`: the Next.js web channel of the agent (OpenNext on Workers or `next start`): the page, its routes over the agent's core, `/api/v1`, per-visitor state in Durable Objects, the home page and Learn.
 - `apps/juniper`: Juniper Market, a `CompanyDefinition` with a customer portal.
 - `apps/lantern`: Lantern Noodle Bar, a second independent Company.
 - `apps/harborline`: Harborline Bank, a standalone fictional banking Company with a matching customer portal and narrow banking scopes.
 - `apps/northwind`: Northwind Air, an airline-shaped Company with differentiated scopes, stale fare/inventory revisions and a customer portal.
 - `apps/fernwick`: Fernwick Power & Light, an electricity utility with an ESPI-shaped Atom XML API next to its own, and a customer portal.
+- `packages/pap-agent`: the Personal Agent's core (conversations and their storage, connections to Companies, routing, the model turn, demo mode, approvals, sign-in) and its channel-neutral API, described in `openapi.json`; see [docs/pap-agent.md](docs/pap-agent.md).
 - `packages/pap-company`: the Hono Company gateway (discovery, sign-in with PAR, tokens, Sessions, conversations, Operations v3, tenancy) that runs all five fictional Companies.
 - `packages/pap-client`: discovery, safe transport, Session and DPoP cryptography, and the tools Iris builds from a Company's OpenAPI, MCP, FDX and ESPI descriptions.
 - `packages/pap-core`: 1.0 schemas and shared types, and the pieces the Companies' websites share (the consent sheet, the how-it-works page).

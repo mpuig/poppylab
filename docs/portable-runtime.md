@@ -112,17 +112,17 @@ Deployed: `https://noodles.poppylab.dev` (`334aa256`) and `https://juniper.poppy
 
 The same Next.js app runs with `next dev`/`next start` on Node and on Cloudflare Workers through OpenNext (`@opennextjs/cloudflare` 1.20).
 
-- **Per-visitor state** (`lib/runs.ts`): an unguessable `HttpOnly` visitor cookie (`__Host-poppy_visitor` over HTTPS, SameSite=Lax so the Company's redirect to the callback still identifies the visitor). Storage only sees its SHA-256.
+- **Per-visitor state** (`packages/pap-agent/src/runs.ts`): an unguessable `HttpOnly` visitor cookie (`__Host-poppy_visitor` over HTTPS, SameSite=Lax so the Company's redirect to the callback still identifies the visitor). Storage only sees its SHA-256.
   - Runs are keyed by visitor: at most five running per visitor, 30 minutes each. A run is one conversation, with a connection for each Company that holds that Company's tokens and keys (see [conversation continuity](chat-continuity.md#a-conversation-and-its-companies)). Ended ones stay as read-only transcripts without tokens or keys for seven days, up to 20 per visitor (see [conversation continuity](chat-continuity.md)).
   - Locking is compare-and-set on a version, with a two-minute lapse for a crashed request.
   - Backends: Node keeps memory plus the encrypted vault `visitor-runs`. Workers use one Durable Object `PoppyVisitor` per visitor (`worker/visitor.ts`), deleted by an alarm after eight idle days.
 - **User IDs:** HMAC of visitor and Company identifier, keyed from the agent identity. They are stable per visitor, unlinkable across visitors and Companies, and stored nowhere. `lib/user-identities.ts` is gone.
 - **Identity:** the `POPPY_IDENTITY` Worker secret. It was generated and piped into `wrangler secret put` without being printed or written. Node still creates `.poppy/identity.json`.
 - **Network** (`pap-client`): on Workers only public HTTPS hostnames or public IP literals are allowed, with no credentials, no `localhost`/`.local`/`.internal`/single-label names, and no redirects. `global_fetch_strictly_public` is enabled on the deployed Workers. Node still pins checked DNS answers; `node:dns` and `undici` are loaded lazily.
-- **Public mode** (`lib/deployment.ts`): `POPPY_PUBLIC=true` with an HTTPS `AGENT_PUBLIC_ORIGIN`.
+- **Public mode** (`packages/pap-agent/src/deployment.ts`): `POPPY_PUBLIC=true` with an HTTPS `AGENT_PUBLIC_ORIGIN`.
   - Chat accepts only Protocol demo, OpenAI-compatible and Anthropic, each with the visitor's own key. The server keys are used only on localhost in development.
   - Sign-in and proposals are allowed only for `PAP_ACCOUNT_ORIGINS` (Juniper, Lantern, Harborline, Northwind and Fernwick on poppylab.dev; Fernwick's once it is deployed) and the PAP Sandbox. `client.json` always names the public origin.
-- **Budgets** (`lib/limits.ts`, public mode):
+- **Budgets** (`packages/pap-agent/src/limits.ts`, public mode):
   - chat: 8/min and 150/day per visitor, 20/min per IP, 600/min global;
   - account: 20/min per visitor, 40/min per IP;
   - discovery: 20/min per visitor, 40/min per IP.
@@ -140,7 +140,7 @@ The same Next.js app runs with `next dev`/`next start` on Node and on Cloudflare
   - The 21st discovery in a minute returned 429; a cross-origin chat returned 403; a provider without a key returned 400.
 - **Consent cookies:** each consent page has its own cookie (`pap_consent_<id>`), so a second tab or reload can't break another consent. This came up in the production run.
 
-**Review fixes (3 November 2026):** per-visitor state on Workers is sealed with AES-256-GCM under the `POPPY_STATE_KEY` secret, bound to its row (`lib/sealed.ts`; records from before the key read as absent); a lost run lock merges the request's operations into the newer copy and logs `run_lock_lost`; the gateway saves only when state can change (non-GET, Session header, or an explicit mark) so website polls and discovery reads write nothing; the 16 KiB body limit is counted on the stream; no client may hold more than a fifth of the Session, token, grant or consent caps; the client-metadata cache evicts one entry instead of clearing; a turn counts only after discovery succeeds; a locked run is never evicted; only `UserFacingError` and discovery messages reach the browser; the Workers `fetchJson` bounds responses before reading.
+**Review fixes (3 November 2026):** per-visitor state on Workers is sealed with AES-256-GCM under the `POPPY_STATE_KEY` secret, bound to its row (`packages/pap-agent/src/sealed.ts`; records from before the key read as absent); a lost run lock merges the request's operations into the newer copy and logs `run_lock_lost`; the gateway saves only when state can change (non-GET, Session header, or an explicit mark) so website polls and discovery reads write nothing; the 16 KiB body limit is counted on the stream; no client may hold more than a fifth of the Session, token, grant or consent caps; the client-metadata cache evicts one entry instead of clearing; a turn counts only after discovery succeeds; a locked run is never evicted; only `UserFacingError` and discovery messages reach the browser; the Workers `fetchJson` bounds responses before reading.
 
 **Open before calling it robust:** no CSP on Poppy pages yet (Next inline scripts need nonces); an edge rate-limit rule per IP in front of the Companies; the replaced-refresh-token revocation after sign-in is best effort and may be cut when the Worker response ends; and no live model run in production yet (it needs a visitor's own key in the browser).
 
