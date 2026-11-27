@@ -12,6 +12,25 @@ export type AgentStep = {
   state: StepState;
 };
 
+const UNSENT = "Did not send a request to ";
+
+/**
+ * What a step Iris stopped before asking waits for: a sign-in or a
+ * permission; nothing, for any other step. Steps kept with a conversation
+ * before 27 November 2026 said "Did not ask for", and conversations are
+ * kept for seven days.
+ */
+export function unsentFor(step: Pick<AgentStep, "text">) {
+  if (
+    !step.text.startsWith(UNSENT) &&
+    !step.text.startsWith("Did not ask for ")
+  )
+    return undefined;
+  return step.text.includes("(sign-in needed)")
+    ? ("sign-in" as const)
+    : ("permission" as const);
+}
+
 /**
  * One readable line for a trace event: what Iris did, how, and with what
  * access. Pure, so it is tested on its own. An event it does not recognise
@@ -29,7 +48,7 @@ export function agentStep(entry: ProtocolEntry): AgentStep {
   const unsent = /^Not sent · (?:GET|POST) (\S+) · (.+)/.exec(text);
   if (unsent)
     return {
-      text: `Did not send a request to ${unsent[1]} (${unsent[2]})`,
+      text: `${UNSENT}${unsent[1]} (${unsent[2]})`,
       how: "API",
       access: null,
       state,

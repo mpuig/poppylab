@@ -6,7 +6,7 @@ import { needsYou, openLast } from "@/lib/operation-presentation";
 import { demoChangeReplyNow } from "@/lib/demo-changes";
 import { hideLinkSecrets } from "@/lib/link-display";
 import { OperationReview } from "../operation-review";
-import { AccountRow, leftOutAt } from "./account-row";
+import { AccountRow, leftOutAt, rowWaits } from "./account-row";
 import { CompanyMark, FromCompany } from "./company-mark";
 import { shownCompanies } from "./answers";
 import { labCompanies, labCompany } from "./companies";
@@ -16,7 +16,7 @@ import {
   type CompanyState,
   type Operation,
 } from "./company-state";
-import { useProposalClock } from "./guide";
+import { guideAt, useProposalClock } from "./guide";
 import type { Playground } from "./use-playground";
 
 /** A Company message's data, indented for reading (it arrives compact). */
@@ -33,7 +33,8 @@ type Held = { op: Operation; c: CompanyState; operation_id: string };
 
 /**
  * The transcript, the account controls of the Company the conversation is
- * with, approval cards and the composer.
+ * with while something there waits for the person, approval cards and the
+ * composer.
  */
 export function Conversation({
   p,
@@ -136,10 +137,16 @@ export function Conversation({
   const several = shownCompanies(companies, p.former) > 1;
   const connected = !!companies.length;
   // The Company the conversation is with: its account row closes the
-  // transcript, so a turn that needs its sign-in has the button right there.
+  // transcript while something there waits for the person, so a turn that
+  // needs its sign-in has the button right there. Otherwise its controls
+  // are in its panel in the Companies bar.
   const focus = inFocus(companies, p.lastTurn);
   const rowFor =
-    focus && offersSignIn(focus) && !p.readOnly && p.panel !== focus.origin
+    focus &&
+    offersSignIn(focus) &&
+    !p.readOnly &&
+    p.panel !== focus.origin &&
+    rowWaits(p, focus, messages, guideAt(companies, p.lastTurn, now))
       ? focus
       : undefined;
   // Requests that work here and now, for each Company: public ones signed

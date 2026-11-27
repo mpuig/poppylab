@@ -7,8 +7,10 @@ import {
   EspiAuthorization,
   type EspiAuthorizationRecord,
 } from "./espi-authorization";
+import { unsentFor } from "@/lib/agent-steps";
 import { FromCompany } from "./company-mark";
-import type { CompanyState, Operation } from "./company-state";
+import type { Message } from "./companies";
+import { mayChange, type CompanyState, type Operation } from "./company-state";
 import { extensionOf, type Playground } from "./use-playground";
 
 /** What the account row says of each domain extension's grant. */
@@ -47,6 +49,42 @@ export const leftOutAt =
       p.heldBack[`${c.origin} ${op.operation_id}:${op.revision}`],
       now,
     );
+
+/**
+ * Whether the account row of the Company the conversation is with has
+ * something for the person to press there now, which is when it closes
+ * the transcript: a sign-in under way, access lost or a grant revoked, a
+ * sign-in or permission the last turn there stopped for, or what the
+ * guide asks of that Company (sign in, or Request change permission).
+ * Otherwise its controls are in the Company's panel in the Companies bar.
+ */
+export function rowWaits(
+  p: Pick<Playground, "extensionSignIn" | "moreAccess">,
+  c: CompanyState,
+  messages: Message[],
+  guide: { company: CompanyState | undefined; step: number },
+) {
+  if (c.signingIn || p.extensionSignIn(c)) return true;
+  if (!c.signedIn && (c.recovery || c.grantRevoked)) return true;
+  // The last answer to a turn, when it was this Company's and Iris
+  // stopped before a request for want of a sign-in, until there is one,
+  // or of a permission (a new consent takes that answer away).
+  const answer = [...messages].reverse().find((m) => m.steps?.length);
+  if (
+    answer &&
+    (answer.from?.origin ?? c.origin) === c.origin &&
+    answer.steps!.some((step) => {
+      const wanted = unsentFor(step);
+      return wanted === "sign-in" ? !c.signedIn : !!wanted;
+    })
+  )
+    return true;
+  if (guide.company?.origin !== c.origin) return false;
+  return (
+    (!c.signedIn && guide.step === 1) ||
+    (c.signedIn && guide.step === 2 && !mayChange(c) && p.moreAccess(c))
+  );
+}
 
 /**
  * One Company's account controls: its access, Use FDX or Use ESPI and the
