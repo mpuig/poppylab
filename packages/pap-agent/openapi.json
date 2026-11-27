@@ -1,0 +1,1119 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Personal Agent API",
+    "version": "1.0.0",
+    "description": "Conversations with a Personal Agent and the Companies it works with over PAP 1.0: messages, quick replies, proposals and their approval, sign-in and events. Requests are the visitor's, by the playground's cookie, from its own origin; per-device API sessions come next."
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "paths": {
+    "/api/v1/openapi.json": {
+      "get": {
+        "operationId": "getOpenApi",
+        "summary": "This document.",
+        "responses": {
+          "200": {
+            "description": "OpenAPI 3.1.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/conversations": {
+      "post": {
+        "operationId": "startConversation",
+        "summary": "Start a conversation, with no Company or with the one at `company`, connected signed out.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "company": {
+                    "type": "string"
+                  }
+                },
+                "required": []
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new conversation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationState"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Refused before anything was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not from the playground's own origin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such conversation for this user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Another request holds the conversation, or a Company can't be added.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The conversation has ended and is read-only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Discovery of the Company failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/conversations/{id}": {
+      "get": {
+        "operationId": "getConversation",
+        "summary": "The conversation as it is now: its Companies, what was said, and every proposal.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The conversation."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The conversation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationState"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such conversation for this user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/conversations/{id}/messages": {
+      "post": {
+        "operationId": "sendMessage",
+        "summary": "The User's message. `company` is the Company the User chose for it; without it the agent works out which, or asks with choices.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The conversation."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "text": {
+                    "type": "string"
+                  },
+                  "company": {
+                    "type": "string"
+                  },
+                  "model": {
+                    "$ref": "#/components/schemas/ModelChoice"
+                  }
+                },
+                "required": [
+                  "text"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "What the turn added, and the conversation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TurnResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Refused before anything was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not from the playground's own origin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such conversation for this user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Another request holds the conversation, or a Company can't be added.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The conversation has ended and is read-only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/conversations/{id}/answers": {
+      "post": {
+        "operationId": "answerChoice",
+        "summary": "The answer one of the agent's choices carries, in place of a message.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The conversation."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "answer": {
+                    "$ref": "#/components/schemas/Answer"
+                  },
+                  "model": {
+                    "$ref": "#/components/schemas/ModelChoice"
+                  }
+                },
+                "required": [
+                  "answer"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "What the turn added, and the conversation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TurnResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Refused before anything was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not from the playground's own origin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such conversation for this user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Another request holds the conversation, or a Company can't be added.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The conversation has ended and is read-only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/conversations/{id}/proposals/{proposal}/decision": {
+      "post": {
+        "operationId": "decideProposal",
+        "summary": "Approve or decline a proposal, found by its Company and its ID. An approval covers exactly `revision`.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The conversation."
+          },
+          {
+            "name": "proposal",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "company": {
+                    "type": "string"
+                  },
+                  "revision": {
+                    "type": "string"
+                  },
+                  "decision": {
+                    "type": "string",
+                    "enum": [
+                      "approve",
+                      "decline"
+                    ]
+                  }
+                },
+                "required": [
+                  "company",
+                  "revision",
+                  "decision"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The proposal as it is now, and the conversation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Decision"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Refused before anything was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not from the playground's own origin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such conversation for this user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Another request holds the conversation, or a Company can't be added.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The conversation has ended and is read-only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/conversations/{id}/sign-ins": {
+      "post": {
+        "operationId": "startSignIn",
+        "summary": "Start a sign-in at one of the conversation's Companies; `signin.completed` follows on the events.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The conversation."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "company": {
+                    "type": "string"
+                  },
+                  "access": {
+                    "type": "string",
+                    "enum": [
+                      "read",
+                      "write"
+                    ]
+                  }
+                },
+                "required": [
+                  "company"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The consent page to open.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignIn"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Refused before anything was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not from the playground's own origin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such conversation for this user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Another request holds the conversation, or a Company can't be added.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The conversation has ended and is read-only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/conversations/{id}/events": {
+      "get": {
+        "operationId": "conversationEvents",
+        "summary": "Server-Sent Events: `state` first, then what changes (a sign-in finished, a proposal expired or replaced, a Company's message in a Direct Conversation). Closes after five minutes or when the conversation ends; open it again.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The conversation."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "An event stream; each `data` is an AgentEvent.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentEvent"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such conversation for this user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CompanyRef": {
+        "type": "object",
+        "properties": {
+          "origin": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "origin",
+          "name"
+        ],
+        "description": "A Company, named by its origin; `name` is to show."
+      },
+      "Answer": {
+        "description": "What a choice carries, in place of a message. Exactly one member; Companies are named by origin and nothing here is read as words.",
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "company": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "company"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "connect": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "connect"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "remove": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "remove"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "keep": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "keep"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "message"
+            ]
+          }
+        ]
+      },
+      "Choice": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "answer": {
+            "$ref": "#/components/schemas/Answer"
+          }
+        },
+        "required": [
+          "label",
+          "answer"
+        ],
+        "description": "A quick reply. Show `label`; send `answer` to `answers`, never the label as a message."
+      },
+      "AgentStep": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "how": {
+            "type": "string",
+            "enum": [
+              "API",
+              "Company's agent",
+              "sign-in",
+              "setup"
+            ]
+          },
+          "access": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "view",
+              "view and change",
+              null
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "done",
+              "failed",
+              "waiting"
+            ]
+          },
+          "company": {
+            "type": "string"
+          },
+          "args": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "how",
+          "access",
+          "state"
+        ]
+      },
+      "AgentMessage": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "enum": [
+              "user",
+              "agent",
+              "company"
+            ]
+          },
+          "text": {
+            "type": "string"
+          },
+          "company": {
+            "$ref": "#/components/schemas/CompanyRef"
+          },
+          "using": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CompanyRef"
+            }
+          },
+          "author": {
+            "type": "string"
+          },
+          "direct": {
+            "type": "boolean"
+          },
+          "choices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Choice"
+            }
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentStep"
+            }
+          },
+          "data": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "from",
+          "text"
+        ],
+        "description": "Something said. `agent` without `company` is the agent's own voice about the conversation; `company` is a Company's own words, to show as theirs."
+      },
+      "CompanyState": {
+        "type": "object",
+        "properties": {
+          "origin": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "signedIn": {
+            "type": "boolean"
+          },
+          "scopes": {
+            "type": "string"
+          },
+          "signingIn": {
+            "type": "boolean"
+          },
+          "consentVersion": {
+            "type": "integer"
+          },
+          "accessLost": {
+            "type": "boolean"
+          },
+          "direct": {
+            "type": "object",
+            "properties": {
+              "open": {
+                "type": "boolean"
+              },
+              "invitation": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "open",
+              "invitation"
+            ]
+          }
+        },
+        "required": [
+          "origin",
+          "name",
+          "url",
+          "signedIn",
+          "signingIn",
+          "consentVersion",
+          "accessLost",
+          "direct"
+        ]
+      },
+      "Proposal": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "company": {
+            "$ref": "#/components/schemas/CompanyRef"
+          },
+          "revision": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "terms": {
+            "type": "object"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "proposed",
+              "succeeded",
+              "declined",
+              "refused",
+              "expired",
+              "superseded",
+              "uncertain"
+            ]
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "company",
+          "revision",
+          "terms",
+          "state",
+          "expiresAt"
+        ],
+        "description": "A change a Company holds for the User's approval, with its exact terms. Nothing is performed until it is approved."
+      },
+      "ConversationState": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "keptUntil": {
+            "type": "integer"
+          },
+          "companies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CompanyState"
+            }
+          },
+          "removed": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CompanyRef"
+            }
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentMessage"
+            }
+          },
+          "proposals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Proposal"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "active",
+          "companies",
+          "removed",
+          "messages",
+          "proposals"
+        ]
+      },
+      "TurnResult": {
+        "type": "object",
+        "properties": {
+          "conversation": {
+            "type": "string"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentMessage"
+            }
+          },
+          "replaced": {
+            "type": "boolean"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ConversationState"
+          }
+        },
+        "required": [
+          "conversation",
+          "messages",
+          "replaced",
+          "state"
+        ]
+      },
+      "ModelChoice": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": [
+              "demo",
+              "openai-compatible",
+              "anthropic"
+            ]
+          },
+          "apiKey": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider"
+        ],
+        "description": "The model a turn is asked of, with the User's own key; demo mode, which runs scripted examples only, when left out."
+      },
+      "Decision": {
+        "type": "object",
+        "properties": {
+          "proposal": {
+            "$ref": "#/components/schemas/Proposal"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ConversationState"
+          }
+        },
+        "required": [
+          "proposal",
+          "state"
+        ]
+      },
+      "SignIn": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "description": "The Company's own consent page, for the User to open. The agent never sees a password."
+      },
+      "AgentEvent": {
+        "type": "object",
+        "description": "An event of the stream; its `type` is also the SSE event name. `state` comes first.",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "state",
+              "message",
+              "messages.replaced",
+              "signin.completed",
+              "access.lost",
+              "signout",
+              "proposal.created",
+              "proposal.expired",
+              "proposal.replaced",
+              "proposal.updated",
+              "company.added",
+              "company.removed",
+              "conversation.ended"
+            ]
+          },
+          "state": {
+            "$ref": "#/components/schemas/ConversationState"
+          },
+          "message": {
+            "$ref": "#/components/schemas/AgentMessage"
+          },
+          "company": {
+            "$ref": "#/components/schemas/CompanyRef"
+          },
+          "proposal": {
+            "$ref": "#/components/schemas/Proposal"
+          },
+          "keptUntil": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "description": "`error` is written for the User and can be shown as it is."
+      }
+    }
+  }
+}

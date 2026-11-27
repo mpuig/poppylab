@@ -13,3 +13,6 @@ apps/fernwick/src/site/app-script.ts
 
 # Served byte for byte for the official validator (see its README)
 apps/playground/public/validator-agent/
+
+# Written by its test from src/openapi.ts, byte for byte
+packages/pap-agent/openapi.json
