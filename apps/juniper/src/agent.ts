@@ -13,6 +13,7 @@ import type {
   TurnResult,
 } from "@poppy-lab/pap-company";
 import { faqs } from "./customer-services.js";
+import { TOPIC_GUIDE } from "./service-openapi.js";
 
 export const PHONE = "+1 555-0117";
 export const PHONE_HOURS = "Monday to Saturday, 8am–7pm";
@@ -36,7 +37,7 @@ export const agentRequests = [
     description:
       "Something went wrong with an order, a delivery or a bill. Juniper proposes a support case, which the user approves; a person reviews refunds.",
     fields: {
-      topic: TOPICS.join(" | "),
+      topic: `${TOPICS.join(" | ")}. ${TOPIC_GUIDE}`,
       subject: "Short subject, up to 120 characters",
       message: "What happened, up to 2000 characters",
       order_id: "Optional: the order it is about",

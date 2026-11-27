@@ -1,6 +1,7 @@
 import { it, expect, vi } from "vitest";
 import { openApiTools } from "@poppy-lab/pap-client";
-import { servicePaths } from "./service-openapi.js";
+import { agentRequests } from "./agent.js";
+import { servicePaths, TOPIC_GUIDE } from "./service-openapi.js";
 it("advertises service reads and proposal-only support tools with declared permissions", async () => {
   const request = vi
     .fn<(...args: unknown[]) => Promise<unknown>>()
@@ -60,4 +61,32 @@ it("advertises service reads and proposal-only support tools with declared permi
       ),
     ),
   ).toHaveLength(5);
+});
+
+it("says what each support case topic covers, to the agent's model and at Juniper's agent", () => {
+  const tools = openApiTools(
+    { paths: servicePaths },
+    "http://juniper.localhost:4100/openapi.json",
+    {
+      allowProposals: true,
+      blockedPaths: [],
+      trace: vi.fn(),
+      request: vi.fn(),
+    },
+  );
+  const topic = (
+    tools.propose_support_case!.schema.properties as Record<
+      string,
+      { enum?: string[]; description?: string }
+    >
+  ).topic!;
+  expect(topic.enum).toEqual(["delivery", "billing", "profile", "other"]);
+  // A wrong item is a delivery's, even when a refund is wanted.
+  expect(topic.description).toBe(TOPIC_GUIDE);
+  expect(TOPIC_GUIDE).toMatch(/^delivery: [^.]*wrong[^.]*refund/);
+  expect(TOPIC_GUIDE.length).toBeLessThanOrEqual(300);
+  const report = agentRequests.find((r) => r.request === "report_problem")!;
+  expect(report.fields.topic).toBe(
+    `delivery | billing | profile | other. ${TOPIC_GUIDE}`,
+  );
 });

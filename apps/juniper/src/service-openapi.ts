@@ -1,3 +1,10 @@
+/**
+ * What each support case topic covers, for an agent choosing one, here and
+ * at Juniper's agent. With only the four names, a model filed a wrong item
+ * in a delivery under billing, for the refund.
+ */
+export const TOPIC_GUIDE =
+  "delivery: an order or what arrived, such as a missing, wrong or damaged item or a late delivery, also when a refund is wanted. billing: an invoice or an amount charged. profile: contact details or the address. other: anything else.";
 const read = (
   operationId: string,
   summary: string,
@@ -95,6 +102,7 @@ export const servicePaths = {
       topic: {
         type: "string",
         enum: ["delivery", "billing", "profile", "other"],
+        description: TOPIC_GUIDE,
       },
       message: { type: "string", minLength: 1, maxLength: 1000 },
       order_id: { type: "string", minLength: 1, maxLength: 100 },

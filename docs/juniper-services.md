@@ -28,6 +28,8 @@ Poppy API reads require a DPoP Session; account routes additionally require the 
 | `POST /site/cases`                  | Separate browser session + exact Origin; explicit website submission                     |
 | `POST /site/cases/:id/messages`     | Same browser boundary; explicit follow-up/reopen                                         |
 
+A case proposal's `topic` says what each of its four values covers (`TOPIC_GUIDE` in `apps/juniper/src/service-openapi.ts`), and so does `report_problem` at Juniper's agent: an order or what arrived, a wrong item included, is `delivery` even when a refund is wanted; `billing` is an invoice or an amount charged.
+
 The original seven service tools plus the profile proposal tool join the existing eleven (19 total). Website mutation routes are not advertised as model tools. Shared existing Operations routes enforce ownership, revision, expiry, explicit approval, current-state preconditions and idempotent confirmation. Repeated identical pending case-creation proposals reuse the original operation and case ID; succeeded/declined/expired proposals are not silently reused as a new case request. Unknown operation kinds fail closed rather than falling through to checkout.
 
 No new scope silently expands a grant: this milestone still uses `poppy:read/write`. Fine-grained service scopes and reconsent remain planned.
