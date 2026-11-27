@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { rssFeed } from "./feeds";
+import { publicPages, robots, rssFeed, sitemap } from "./feeds";
+import { LEARN_PAGES } from "./learn";
 import { readPost } from "./posts";
 
 const posts = [
@@ -73,5 +74,40 @@ describe("RSS feed", () => {
     expect(wellFormed(feed)).toBe(true);
     expect(feed).not.toContain("<item>");
     expect(feed).toContain("<link>https://poppylab.dev/posts</link>");
+  });
+});
+
+describe("sitemap", () => {
+  it("lists every public page, every Learn page and the posts that are originals", () => {
+    const map = sitemap(posts);
+    expect(wellFormed(map)).toBe(true);
+    const locs = [...map.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+    for (const path of [
+      "/",
+      "/playground",
+      "/developers",
+      "/learn",
+      "/posts",
+      "/about",
+      "/privacy",
+    ])
+      expect(locs).toContain(new URL(path, "https://poppylab.dev").toString());
+    for (const page of LEARN_PAGES.filter((p) => p.slug))
+      expect(locs).toContain(`https://poppylab.dev/learn/${page.slug}`);
+    expect(map).toContain(
+      "<url><loc>https://poppylab.dev/posts/first</loc><lastmod>2026-12-01</lastmod></url>",
+    );
+    expect(locs).not.toContain("https://poppylab.dev/posts/second");
+    expect(locs.every((loc) => !loc!.includes("/api/"))).toBe(true);
+    expect(new Set(locs).size).toBe(locs.length);
+    expect(publicPages([]).length).toBe(LEARN_PAGES.length + 6);
+  });
+});
+
+describe("robots.txt", () => {
+  it("lets crawlers read the pages, not the API, and names the sitemap", () => {
+    expect(robots()).toBe(
+      "User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: https://poppylab.dev/sitemap.xml\n",
+    );
   });
 });
