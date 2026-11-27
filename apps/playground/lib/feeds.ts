@@ -59,6 +59,8 @@ export function publicPages(posts: readonly Post[]) {
     { path: "/" },
     { path: "/playground" },
     { path: "/developers" },
+    { path: "/developers/api" },
+    { path: "/developers/native-client" },
     ...LEARN_PAGES.map((p) => ({
       path: p.slug ? `/learn/${p.slug}` : "/learn",
     })),

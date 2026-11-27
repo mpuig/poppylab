@@ -1,0 +1,167 @@
+/* The agent's API: its reference and the native-client guide. A Learn
+   article with a rail; the tokens and the Learn styles are in site.css and
+   learn.css. Operations, members and events are ruled lists: an ink rule
+   opens each one and hairlines divide its rows. */
+
+/* Tables of members and code take the article's width; prose keeps its
+   measure inside them. */
+.learn-article.api-article {
+  max-width: 780px;
+}
+
+/* An operation or a type: a hairline above, its anchor clear of the bar. */
+.site .learn-body .api-op {
+  margin-top: 40px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+  scroll-margin-top: 88px;
+}
+.site .learn-body .api-op > * + * {
+  margin-top: 12px;
+}
+.site .learn-body h2 + .api-op,
+.site .learn-body h2 + p + .api-op {
+  margin-top: 28px;
+}
+.site .learn-body .api-op h3 {
+  margin-top: 0;
+  color: var(--ink);
+  font-size: 17px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.site .learn-body .api-op h3 code {
+  background: none;
+  padding: 0;
+  font-size: 15px;
+}
+/* The method, as the code on Learn colours it. */
+.api-method {
+  color: var(--green);
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 600;
+}
+.api-group {
+  display: block;
+}
+.site .learn-body .api-group > * + * {
+  margin-top: 18px;
+}
+.site .learn-body .api-group > h2 {
+  scroll-margin-top: 88px;
+}
+
+/* A muted line: the operation's ID, what it needs; under an example, where
+   it is in the reference. */
+.site .learn-body .api-meta {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.site .learn-body .api-meta code,
+.site .learn-body .api-type code {
+  background: none;
+  padding: 0;
+}
+.site .learn-body .api-meta a {
+  color: inherit;
+  text-decoration-color: var(--line-strong);
+}
+.site .learn-body .api-meta a:hover {
+  color: var(--ink);
+}
+
+/* The small title over a list: Parameters, Request body, Answers. */
+.site .learn-body .api-label {
+  margin-top: 22px;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+.site .learn-body .api-note {
+  color: var(--ink-soft);
+  font-size: 15px;
+}
+
+/* Members, answers, events and codes. */
+.site .learn-body .api-fields {
+  margin: 8px 0 0;
+  border-top: 1px solid var(--ink);
+}
+.site .learn-body .api-label + .api-fields,
+.site .learn-body .api-label + .api-note {
+  margin-top: 8px;
+}
+.api-fields > div {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  scroll-margin-top: 88px;
+}
+.api-fields dt {
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.5;
+}
+.site .learn-body .api-fields :not(pre) > code {
+  background: none;
+  padding: 0;
+}
+.api-fields dt .api-name {
+  font-size: 14px;
+  font-weight: 500;
+}
+.api-type {
+  color: var(--muted);
+  font-size: 14px;
+}
+.site .learn-body .api-type a {
+  color: var(--green);
+}
+.api-fields dd {
+  margin: 4px 0 0;
+  color: var(--ink-soft);
+  font-size: 15px;
+  line-height: 1.55;
+}
+.site .learn-body .api-fields dd > * + * {
+  margin-top: 8px;
+}
+/* An object written in place: its members, set in under the one they
+   belong to, on a hairline rather than a second ink rule. */
+.site .learn-body .api-fields .api-fields {
+  margin-top: 8px;
+  padding-left: 16px;
+  border-top: 0;
+  border-left: 1px solid var(--line);
+}
+.api-fields .api-fields > div {
+  padding: 6px 0;
+  border-bottom: 0;
+}
+.site .learn-body .api-fields .api-note {
+  font-size: 14px;
+}
+
+/* An example: the request, its answer, and where the operation is. */
+.site .learn-body .api-example {
+  margin-top: 16px;
+}
+.site .learn-body .api-example > * + * {
+  margin-top: 8px;
+}
+
+/* Below 960px the bar takes a second row for its links, so an anchor
+   stops further down to clear it. */
+@media (max-width: 960px) {
+  .site .learn-body h2,
+  .site .learn-body .api-op,
+  .api-fields > div {
+    scroll-margin-top: 124px;
+  }
+}
+@media (max-width: 520px) {
+  .site .learn-body .api-fields .api-fields {
+    padding-left: 12px;
+  }
+}

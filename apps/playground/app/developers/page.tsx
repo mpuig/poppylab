@@ -361,6 +361,49 @@ export default function Developers() {
           </div>
         </section>
 
+        <section className="below" aria-labelledby="api-title">
+          <div>
+            <h2 id="api-title">The agent&apos;s API</h2>
+            <p className="aside">
+              Iris has an HTTP API of its own, for a client that isn&apos;t the
+              playground&apos;s page: a phone app or a messaging channel, in the
+              same conversations. An app signs in with a passkey and holds a
+              session per device. It is <code>v1</code>, and still changing
+              until it is frozen.
+            </p>
+            <a className="button ghost" href="/developers/api">
+              Read the reference <ArrowRight size={18} aria-hidden="true" />
+            </a>
+          </div>
+          <dl className="facts">
+            <div>
+              <dt>Reference</dt>
+              <dd>
+                <a href="/developers/api">/developers/api</a>
+              </dd>
+            </div>
+            <div>
+              <dt>Guide</dt>
+              <dd>
+                <a href="/developers/native-client">
+                  /developers/native-client
+                </a>
+              </dd>
+            </div>
+            <div>
+              <dt>Document</dt>
+              <dd>
+                <a href="/api/v1/openapi.json">/api/v1/openapi.json</a> ·
+                OpenAPI 3.1
+              </dd>
+            </div>
+            <div>
+              <dt>Sign-in</dt>
+              <dd>Passkeys for poppylab.dev · bearer and refresh tokens</dd>
+            </div>
+          </dl>
+        </section>
+
         <section className="below" aria-labelledby="covers-title">
           <div>
             <h2 id="covers-title">What the lab implements</h2>

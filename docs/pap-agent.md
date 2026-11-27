@@ -50,7 +50,7 @@ Each answers `{ ok: true, value }` or `{ ok: false, status, code?, error }`, whe
 
 ## Over HTTP: `/api/v1`
 
-The playground serves the API at `/api/v1` (`app/api/v1/[...path]/route.ts`, which hands each request to `v1` in `api-http.ts`). [`openapi.json`](../packages/pap-agent/openapi.json) describes it for a client app, and `/api/v1/openapi.json` serves the same document; both come from `openapi.ts`, and a test holds every route to it and checks real answers against its schemas, member by member.
+The playground serves the API at `/api/v1` (`app/api/v1/[...path]/route.ts`, which hands each request to `v1` in `api-http.ts`). [`openapi.json`](../packages/pap-agent/openapi.json) describes it for a client app, and `/api/v1/openapi.json` serves the same document; both come from `openapi.ts`, and a test holds every route to it and checks real answers against its schemas, member by member. [poppylab.dev/developers/api](https://poppylab.dev/developers/api) shows the same document to a person, built from it at build time (`apps/playground/lib/api-reference.ts`), so an operation or a type added to `openapi.ts` is on the page at the next deploy; [/developers/native-client](https://poppylab.dev/developers/native-client) is the guide below as a page, with requests and answers a test holds to the document's schemas.
 
 | Method and path                                                 | Body                                                      | Answers                                           |
 | --------------------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------- |
@@ -132,6 +132,8 @@ The app opens the link at once on the device that asked, so the sign-in doesn't 
 **Left for later.** A device registers for push on its own session (`ApiSession.push`, `PushDevice`: the APNs token, environment and topic), planned as `PUT /api/v1/account/sessions/{id}/push`, so it goes when the session does. A step-up for an approval asks the account's passkey again and checks it against the session's `verified` time.
 
 ### A native client (an iPhone app)
+
+The same steps, with a request and an answer for each, are on [poppylab.dev/developers/native-client](https://poppylab.dev/developers/native-client) (`apps/playground/app/developers/native-client/page.tsx`); a change here belongs there too.
 
 An app on iOS creates and uses passkeys for `poppylab.dev` with `ASAuthorizationPlatformPublicKeyCredentialProvider(relyingPartyIdentifier: "poppylab.dev")`, and the API does the rest:
 

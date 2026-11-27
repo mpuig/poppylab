@@ -86,6 +86,8 @@ describe("sitemap", () => {
       "/",
       "/playground",
       "/developers",
+      "/developers/api",
+      "/developers/native-client",
       "/learn",
       "/posts",
       "/about",
@@ -100,7 +102,7 @@ describe("sitemap", () => {
     expect(locs).not.toContain("https://poppylab.dev/posts/second");
     expect(locs.every((loc) => !loc!.includes("/api/"))).toBe(true);
     expect(new Set(locs).size).toBe(locs.length);
-    expect(publicPages([]).length).toBe(LEARN_PAGES.length + 6);
+    expect(publicPages([]).length).toBe(LEARN_PAGES.length + 8);
   });
 });
 

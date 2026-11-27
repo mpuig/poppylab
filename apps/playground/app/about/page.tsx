@@ -64,10 +64,10 @@ export default function About() {
                 companies.
               </li>
               <li>
-                <a href="/api/v1/openapi.json">The agent API</a>. Iris&apos;s
+                <a href="/developers/api">The agent&apos;s API</a>. Iris&apos;s
                 own HTTP API, described in OpenAPI: conversations, messages,
-                approvals and events. Today it answers the playground&apos;s
-                page in your browser; access for other clients comes next.
+                approvals and events, for a client such as a phone app that
+                signs in with a passkey.
               </li>
             </ul>
 
