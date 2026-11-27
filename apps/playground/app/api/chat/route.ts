@@ -749,7 +749,7 @@ async function reply(request: Request, started: Outcome) {
       } else if (aside === "agent") {
         // The demo's way into a conversation (§8): ask what the Company's
         // agent handles, or ask for a person (which needs a conversation first).
-        const person = /talk to|speak to|a person|human|someone/.test(lowered);
+        const person = /talk to|someone/.test(lowered);
         const results: unknown[] = [];
         if (!person || !connection.conversation?.id)
           results.push(
@@ -814,9 +814,7 @@ async function reply(request: Request, started: Outcome) {
                     ? "my_deliveries"
                     : /deliver|ship|saturday|tuesday|thursday/.test(message)
                       ? "delivery_info"
-                      : /hour|return|refund|open|policy/.test(message)
-                        ? "store_policies"
-                        : "list_products";
+                      : "list_products";
       // Another Company's tools: never guess arguments for unknown schemas,
       // and never talk to the Company's agent unless asked (above).
       const fallback = tools[selected]
