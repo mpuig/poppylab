@@ -124,7 +124,11 @@ it("publishes 1.0 OAuth metadata and no longer accepts the JWT-bearer Session gr
     expect(metadata).toMatchObject({
       issuer: origin,
       protected_resources: [origin],
-      grant_types_supported: ["authorization_code", "refresh_token"],
+      grant_types_supported: [
+        "authorization_code",
+        "urn:ietf:params:oauth:grant-type:device_code",
+        "refresh_token",
+      ],
       scopes_supported: ["poppy:read", "poppy:write", "poppy:browser-sign-in"],
     });
     expect(metadata).not.toHaveProperty("poppy_domains");

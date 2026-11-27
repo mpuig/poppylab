@@ -197,7 +197,9 @@ export function labConsentBarHtml(company: string) {
 /**
  * The sheet's layout. A Company adds its faces and colours, and sets
  * `--sheet-rule` (hairlines) and `--sheet-accent` (the chosen person and
- * the ticks).
+ * the ticks). It also lays out what the gateway shows for Device Sign-In in
+ * the Company's frame (`sheet-entry`, `sheet-device`): the page where the
+ * code is entered, and the notice above a consent page's form.
  */
 export const consentSheetCss = `.sheet{width:min(1040px,100% - 2*clamp(18px,4vw,48px));margin-inline:auto;padding:clamp(32px,5vw,60px) 0 clamp(40px,6vw,72px)}
 .sheet-head{margin-bottom:clamp(22px,3.5vw,36px)}
@@ -231,5 +233,15 @@ export const consentSheetCss = `.sheet{width:min(1040px,100% - 2*clamp(18px,4vw,
 .sheet-fine{margin:28px 0 0;max-width:84ch}
 .sheet-expired{padding-top:clamp(20px,3vw,30px);border-top:1px solid var(--sheet-rule)}
 .sheet-expired p{margin:0 0 12px;max-width:65ch}
+.sheet-lead{margin:0;max-width:60ch}
+.sheet-device{margin:0 0 clamp(20px,3vw,30px);padding:16px 18px;border:1px solid var(--sheet-accent)}
+.sheet-device p{margin:0;max-width:72ch}
+.sheet-device p+p{margin-top:8px}
+.sheet-code{letter-spacing:.08em;white-space:nowrap}
+.sheet-entry{max-width:34rem;padding-top:clamp(20px,3vw,30px);border-top:1px solid var(--sheet-rule)}
+.sheet-entry .sheet-field{margin-top:0}
+.sheet-entry .sheet-field input{font-size:20px;letter-spacing:.12em;text-transform:uppercase}
+.sheet-entry .sheet-actions{margin:22px 0 0}
+.sheet-error{margin:0 0 20px;padding:12px 16px;border:1px solid currentColor}
 @media(max-width:760px){.sheet-cols{grid-template-columns:minmax(0,1fr)}.sheet-actions{width:100%}.sheet-actions button{flex:1}}
 `;

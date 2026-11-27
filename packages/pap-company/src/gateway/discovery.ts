@@ -4,7 +4,9 @@
  */
 import type { Hono } from "hono";
 import type { Ctx } from "./context.ts";
+import { DEVICE_ENDPOINT } from "./device.ts";
 import { mountSkills } from "./skills.ts";
+import { DEVICE_GRANT } from "./types.ts";
 
 export function mountDiscovery(app: Hono, ctx: Ctx) {
   const { def, origin, both } = ctx;
@@ -32,10 +34,16 @@ export function mountDiscovery(app: Hono, ctx: Ctx) {
         // RFC 9126: offered, not required (§4.2).
         pushed_authorization_request_endpoint: `${origin}/oauth/par`,
         require_pushed_authorization_requests: false,
+        // §4.3, RFC 8628: Device Sign-In, on the same consent page.
+        device_authorization_endpoint: `${origin}${DEVICE_ENDPOINT}`,
         token_endpoint: `${origin}/oauth/token`,
         revocation_endpoint: `${origin}/oauth/revoke`,
         protected_resources: [origin],
-        grant_types_supported: ["authorization_code", "refresh_token"],
+        grant_types_supported: [
+          "authorization_code",
+          DEVICE_GRANT,
+          "refresh_token",
+        ],
         response_types_supported: ["code"],
         code_challenge_methods_supported: ["S256"],
         token_endpoint_auth_methods_supported: ["private_key_jwt"],

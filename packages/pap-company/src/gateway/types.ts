@@ -116,6 +116,8 @@ export type GatewayState = {
   codes?: Record<string, Code>;
   /** RFC 9126 pushed authorization requests by `request_uri` hash. */
   pushed?: Record<string, Pushed>;
+  /** Device Sign-In requests (RFC 8628) by `device_code` hash. */
+  devices?: Record<string, DeviceRequest>;
   /** Browser → the agent user's tenant it approved consent for. */
   links?: Record<string, { tenant: string; used: number }>;
   /**
@@ -140,6 +142,42 @@ export type Consent = {
   expires: number;
   /** RFC 9449 §10: the code is bound to this DPoP key (from PAR). */
   dpop?: string;
+  /**
+   * Device Sign-In (§4.3): the request this page answers, by `device_code`
+   * hash. Its answer goes to that request, not to a redirect, so
+   * `redirect`, `state` and `challenge` are empty.
+   */
+  device?: string;
+};
+/**
+ * A Device Sign-In request (§4.3, RFC 8628), from the device authorization
+ * endpoint until its tokens are issued or it ends.
+ */
+export type DeviceRequest = {
+  client: string;
+  /** The agent's `client_name` when the code was entered, for its pages. */
+  name?: string;
+  /** The scopes requested, in the Company's order. */
+  scopes: string;
+  /** The `user_code` as entered, without the dash: eight letters. */
+  userCode: string;
+  expires: number;
+  /** Seconds a poll waits; each `slow_down` adds 5 (RFC 8628 §3.5). */
+  interval: number;
+  /** When the last poll came. */
+  polled?: number;
+  /** The DPoP key its tokens are bound to: the request's, or the first poll's. */
+  dpop?: string;
+  /** The consent page open for it: the newest one a browser opened. */
+  consent?: string;
+  /** The consent page's answer. */
+  approved?: {
+    account: string;
+    scopes: string;
+    browser?: string;
+    resources?: string[];
+  };
+  declined?: boolean;
 };
 /** An authorization request pushed by an authenticated client (RFC 9126). */
 export type Pushed = {
@@ -701,5 +739,7 @@ export const BROWSER_SESSION_PATH = "/poppy/browser-session";
  * what the token's other scopes cover and takes no change from it.
  */
 export const BROWSER_SIGN_IN = "poppy:browser-sign-in";
+/** RFC 8628: the grant type of Device Sign-In (§3.2, §4.3). */
+export const DEVICE_GRANT = "urn:ietf:params:oauth:grant-type:device_code";
 export const hash = (value: string) =>
   createHash("sha256").update(value).digest("base64url");

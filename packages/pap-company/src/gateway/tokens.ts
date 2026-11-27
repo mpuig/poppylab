@@ -1,5 +1,6 @@
 /**
- * The token endpoint (§4.4, §4.7) and revocation (§4.6, RFC 7009). Client
+ * The token endpoint (§4.4, §4.7), for Direct Sign-In's codes, Device
+ * Sign-In's polls (§4.3) and refreshes, and revocation (§4.6, RFC 7009). Client
  * assertions may be ES256 or PS384 and last up to 5 minutes (§4.1); refresh
  * tokens are bound to the DPoP key they were issued with (§4.4). A grant
  * keeps the scopes and resources of its consent through every refresh, and
@@ -13,15 +14,25 @@ import {
 } from "@poppy-lab/pap-client/core";
 import { assertionKey, type Ctx } from "./context.ts";
 import {
+  DEVICE_GRANT,
   GRANT_MS,
   hash,
   isChallenge,
   ObjectMap,
   TOKEN_MS,
   type Code,
+  type DeviceRequest,
   type Grant,
   viewOf,
 } from "./types.ts";
+
+/** What a consent page approved: a code's, or a device request's (§4.3). */
+type Approved = {
+  account: string;
+  scopes: string;
+  browser?: string;
+  resources?: string[];
+};
 
 /** Token response fields `tokenFields` can't replace (RFC 6749 §5.1, §5.2). */
 const STANDARD = new Set([
@@ -37,6 +48,7 @@ const STANDARD = new Set([
 
 export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
   const { def, origin, state, replay } = ctx;
+  const devices = new ObjectMap<DeviceRequest>((state.devices ??= {}));
   /** The Company's own fields for a grant's token response, string-valued. */
   const extra = (grant: Grant) =>
     Object.fromEntries(
@@ -45,6 +57,14 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
       ),
     );
   app.post("/oauth/token", async (c) => {
+    /** A poll's answer while no tokens are issued (RFC 8628 §3.5). */
+    const polled = (
+      error:
+        | "authorization_pending"
+        | "slow_down"
+        | "access_denied"
+        | "expired_token",
+    ) => c.json({ error }, 400, { "Cache-Control": "no-store" });
     let fallback = "invalid_client";
     try {
       const now = Date.now();
@@ -54,7 +74,7 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
         if (g.expires < now) delete state.grants[id];
       const body = (await c.req.parseBody()) as Record<string, string>;
       if (
-        !["authorization_code", "refresh_token"].includes(
+        !["authorization_code", "refresh_token", DEVICE_GRANT].includes(
           body.grant_type ?? "",
         ) ||
         body.client_assertion_type !==
@@ -103,6 +123,8 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
         grantKey: string,
         grant: Grant,
         scopes: string;
+      /** What a consent page approved, for a new grant. */
+      let approved: Approved | undefined;
       if (body.grant_type === "authorization_code") {
         const code = codes.get(tokenHash(body.code ?? ""));
         codes.delete(tokenHash(body.code ?? ""));
@@ -117,30 +139,56 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
           (code.dpop !== undefined && code.dpop !== binding)
         )
           throw new Error("invalid_grant");
+        approved = code;
+      } else if (body.grant_type === DEVICE_GRANT) {
+        // §4.3, RFC 8628 §3.5: each poll says where the request stands.
+        const key = tokenHash(body.device_code ?? "");
+        const device = devices.get(key);
+        if (!device || device.client !== id) throw new Error("invalid_grant");
+        if (device.declined) return polled("access_denied");
+        if (device.expires < now) return polled("expired_token");
+        // Bound to one key from the first poll on, if not from the start.
+        device.dpop ??= binding;
+        if (device.dpop !== binding) throw new Error("invalid_grant");
+        if (!device.approved) {
+          // A second of grace, for polls that a slow network bunches up.
+          const early =
+            device.polled !== undefined &&
+            now - device.polled < device.interval * 1000 - 1000;
+          device.polled = now;
+          if (!early) return polled("authorization_pending");
+          device.interval += 5;
+          return polled("slow_down");
+        }
+        // Its tokens are issued once.
+        devices.delete(key);
+        approved = device.approved;
+      }
+      if (approved) {
         if (ctx.overShare(Object.values(state.grants), id, 1000))
           throw new Error("rate_limited");
         // The Company's lifetime for what was granted, else GRANT_MS.
         const lifetime = def.grantLifetime
-          ? def.grantLifetime(code.scopes.split(" ").filter(Boolean))
+          ? def.grantLifetime(approved.scopes.split(" ").filter(Boolean))
           : GRANT_MS;
         if (!Number.isFinite(lifetime) || lifetime <= 0)
           throw new Error("invalid_grant");
         refreshToken = randomId();
         grantKey = tokenHash(refreshToken);
         grant = {
-          account: code.account,
+          account: approved.account,
           id: randomId(),
           client: id,
           // What the consent page called the agent, for the website's list.
           name: info.name,
-          scopes: code.scopes,
+          scopes: approved.scopes,
           created: now,
           expires: now + lifetime,
-          ...(code.browser ? { browser: code.browser } : {}),
+          ...(approved.browser ? { browser: approved.browser } : {}),
           // §4.4: refreshed only with the DPoP key it was issued with.
           dpop: binding,
           // The consent's resources; a refresh keeps this grant, and them.
-          ...(code.resources ? { resources: [...code.resources] } : {}),
+          ...(approved.resources ? { resources: [...approved.resources] } : {}),
         };
         state.grants[grantKey] = grant;
         scopes = grant.scopes;

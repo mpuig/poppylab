@@ -3,7 +3,8 @@
  * not required), the consent page and the one-time code. The consent page
  * always lists every requested scope, so `prompt=consent` needs nothing more
  * (§4.2, §10.8). The Company chooses which scopes, and which resources such
- * as accounts, an approval grants.
+ * as accounts, an approval grants. Device Sign-In (§4.3, `device.ts`) shows
+ * the same consent page, whose answer then goes to the device request.
  */
 import type { Context, Hono } from "hono";
 import { scryptSync, timingSafeEqual } from "node:crypto";
@@ -12,13 +13,15 @@ import {
   tokenHash,
   verifyAssertion,
 } from "@poppy-lab/pap-client/core";
-import { assertionKey, type Ctx } from "./context.ts";
+import { assertionKey, type ClientInfo, type Ctx } from "./context.ts";
+import { answeredPage, deviceNotice } from "./device-pages.ts";
 import {
   BROWSER_SIGN_IN,
   isChallenge,
   ObjectMap,
   type Code,
   type Consent,
+  type DeviceRequest,
   type Grant,
   type Pushed,
 } from "./types.ts";
@@ -34,6 +37,7 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
   const pending = new ObjectMap<Consent>((state.consents ??= {}));
   const codes = new ObjectMap<Code>((state.codes ??= {}));
   const pushed = new ObjectMap<Pushed>((state.pushed ??= {}));
+  const devices = new ObjectMap<DeviceRequest>((state.devices ??= {}));
   let failures = 0,
     windowStart = Date.now();
   /** Whether that consent page is still open: not answered, not expired. */
@@ -42,15 +46,25 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
   /** What a consent page may load: its own styles and the Company's faces. */
   const styles = `default-src 'none'; style-src 'unsafe-inline'${def.fontSources ? ` ${def.fontSources.style}; font-src ${def.fontSources.font}` : ""}`;
 
-  /** The authorization request's checks, for a query or a pushed request. */
-  async function check(q: Record<string, string | undefined>) {
-    const requested = typeof q.scope === "string" ? q.scope.split(" ") : [];
+  /**
+   * A sign-in request's `scope` in the Company's order, or `undefined` when
+   * it is missing, or names a scope the Company lacks or one twice (§4.7).
+   */
+  const scopesOf = (scope: unknown) => {
+    const requested = typeof scope === "string" ? scope.split(" ") : [];
     if (
       !requested.length ||
       requested.some((s) => !both.includes(s)) ||
       new Set(requested).size !== requested.length
     )
-      return { error: "invalid_scope" } as const;
+      return undefined;
+    return both.filter((s) => requested.includes(s)).join(" ");
+  };
+
+  /** The authorization request's checks, for a query or a pushed request. */
+  async function check(q: Record<string, string | undefined>) {
+    const scopes = scopesOf(q.scope);
+    if (!scopes) return { error: "invalid_scope" } as const;
     if (
       q.response_type !== "code" ||
       q.code_challenge_method !== "S256" ||
@@ -71,7 +85,7 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
       return { error: "invalid_request" } as const;
     return {
       info,
-      scopes: both.filter((s) => requested.includes(s)).join(" "),
+      scopes,
       client: q.client_id,
       redirect: q.redirect_uri,
       state: q.state!,
@@ -246,13 +260,7 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
       if (consentCookie(c, nonce) !== nonce)
         return c.json({ error: "invalid_request_uri" }, 400);
     } else {
-      for (const [id, p] of pending)
-        if (p.expires < Date.now()) pending.delete(id);
-      if (ctx.overShare(pending.values(), client, 500))
-        return c.json({ error: "rate_limited" }, 429);
-      ctx.markDirty(c.req.raw);
-      nonce = randomId();
-      pending.set(nonce, {
+      nonce = open(c, {
         client,
         redirect,
         state,
@@ -261,34 +269,102 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
         expires: Date.now() + 300000,
         ...(from?.dpop ? { dpop: from.dpop } : {}),
       });
+      if (!nonce) return c.json({ error: "rate_limited" }, 429);
       // Used from here on: this is the only consent page it will make.
       if (from) from.consent = nonce;
-      // Isolated deployments remember which browser approved (website link).
-      if (isolated && !ctx.browserOf(c))
-        c.header("Set-Cookie", ctx.browserCookie(randomId()), { append: true });
-      // One cookie per consent page, so another tab can't replace it.
-      c.header(
-        "Set-Cookie",
-        `${cookiePrefix}pap_consent_${nonce.slice(0, 12)}=${nonce}; HttpOnly; SameSite=Lax; Path=/${secure ? "; Secure" : ""}; Max-Age=300`,
-        { append: true },
-      );
     }
+    return render(c, nonce, info, client, scopes, new URL(redirect).origin);
+  }
+
+  /**
+   * A new consent page for this browser: its nonce, and the cookies that
+   * tie it to the browser. `undefined` when the client has too many open.
+   */
+  function open(c: Context, consent: Consent) {
+    for (const [id, p] of pending)
+      if (p.expires < Date.now()) pending.delete(id);
+    if (ctx.overShare(pending.values(), consent.client, 500)) return undefined;
+    ctx.markDirty(c.req.raw);
+    const nonce = randomId();
+    pending.set(nonce, consent);
+    // Isolated deployments remember which browser approved (website link).
+    if (isolated && !ctx.browserOf(c))
+      c.header("Set-Cookie", ctx.browserCookie(randomId()), { append: true });
+    // One cookie per consent page, so another tab can't replace it.
+    c.header(
+      "Set-Cookie",
+      `${cookiePrefix}pap_consent_${nonce.slice(0, 12)}=${nonce}; HttpOnly; SameSite=Lax; Path=/${secure ? "; Secure" : ""}; Max-Age=300`,
+      { append: true },
+    );
+    return nonce;
+  }
+
+  /**
+   * The Company's consent page. `target` is where Direct Sign-In's form
+   * leads, the redirect's origin; `notice` goes above the form.
+   */
+  function render(
+    c: Context,
+    nonce: string,
+    info: ClientInfo,
+    client: string,
+    scopes: string,
+    target?: string,
+    notice?: string,
+  ) {
     const account = allowedBefore(c, client);
-    return c.html(
-      def.consent({
-        nonce,
-        passwordRequired: !!deploy.passwordHash,
-        scopes,
-        client: info.name,
-        clientHost: new URL(client).host,
-        ...(account ? { account } : {}),
-      }),
-      200,
-      {
-        "Cache-Control": "no-store",
-        "Content-Security-Policy": `${styles}; form-action 'self' ${new URL(redirect).origin}; frame-ancestors 'none'; base-uri 'none'`,
-        "Referrer-Policy": "same-origin",
-      },
+    let html = def.consent({
+      nonce,
+      passwordRequired: !!deploy.passwordHash,
+      scopes,
+      client: info.name,
+      clientHost: new URL(client).host,
+      ...(account ? { account } : {}),
+    });
+    if (notice)
+      html = html.includes("<form")
+        ? html.replace("<form", () => `${notice}<form`)
+        : notice + html;
+    return c.html(html, 200, {
+      "Cache-Control": "no-store",
+      "Content-Security-Policy": `${styles}; form-action 'self'${target ? ` ${target}` : ""}; frame-ancestors 'none'; base-uri 'none'`,
+      "Referrer-Policy": "same-origin",
+    });
+  }
+
+  /**
+   * Device Sign-In (§4.3): the consent page for a request whose code this
+   * browser entered. A request has one page open at a time, the newest:
+   * a person who moves to another browser gets the page there, and the
+   * page they left can no longer answer.
+   */
+  function deviceConsent(
+    c: Context,
+    key: string,
+    device: DeviceRequest,
+    info: ClientInfo,
+  ) {
+    if (device.consent) pending.delete(device.consent);
+    delete device.consent;
+    const nonce = open(c, {
+      client: device.client,
+      redirect: "",
+      state: "",
+      scopes: device.scopes,
+      challenge: "",
+      expires: Math.min(Date.now() + 300000, device.expires),
+      device: key,
+    });
+    if (!nonce) return c.json({ error: "rate_limited" }, 429);
+    device.consent = nonce;
+    return render(
+      c,
+      nonce,
+      info,
+      device.client,
+      device.scopes,
+      undefined,
+      deviceNotice(ctx, device.userCode, info.name),
     );
   }
   app.post("/oauth/authorize", async (c) => {
@@ -391,6 +467,43 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
       return c.json({ error: "invalid_request" }, 400);
     const resources = chosen as string[] | undefined;
     pending.delete(nonce);
+    if (p.device) {
+      // Device Sign-In (§4.3): the answer waits for the agent's next poll,
+      // and this browser is told what it did. A request that ended, or whose
+      // code was since entered in another browser, takes no answer here.
+      const device = devices.get(p.device);
+      if (
+        !device ||
+        device.consent !== nonce ||
+        device.expires < Date.now() ||
+        device.approved ||
+        device.declined
+      )
+        return ranOut(c, "answered", "invalid_request");
+      delete device.consent;
+      const browser = ctx.browserOf(c);
+      if (body.decision === "approve")
+        device.approved = {
+          account: selected!.id,
+          scopes,
+          ...(browser ? { browser } : {}),
+          ...(resources ? { resources: [...resources] } : {}),
+        };
+      else device.declined = true;
+      return c.html(
+        answeredPage(
+          ctx,
+          device.name ?? new URL(device.client).host,
+          !!device.approved,
+        ),
+        200,
+        {
+          "Cache-Control": "no-store",
+          "Content-Security-Policy": `${styles}; form-action 'none'; frame-ancestors 'none'; base-uri 'none'`,
+          "Referrer-Policy": "same-origin",
+        },
+      );
+    }
     const redirect = new URL(p.redirect);
     redirect.searchParams.set("state", p.state);
     redirect.searchParams.set("iss", origin);
@@ -416,5 +529,6 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
     } else redirect.searchParams.set("error", "access_denied");
     return c.redirect(redirect.toString(), 302);
   });
-  return { codes };
+  return { codes, scopesOf, deviceConsent, styles };
 }
+export type SignIn = ReturnType<typeof mountSignIn>;

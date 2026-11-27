@@ -224,5 +224,16 @@ export async function setup(
       ...(method !== "GET" ? { body: JSON.stringify(options.body ?? {}) } : {}),
     });
   };
-  return { app, store, metadata, credentials, form, post, token, signIn, call };
+  return {
+    app,
+    store,
+    metadata,
+    credentials,
+    form,
+    post,
+    token,
+    signIn,
+    call,
+    dpop,
+  };
 }

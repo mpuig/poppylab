@@ -54,7 +54,12 @@ const CODE = /^bc_([A-Za-z0-9_-]{32}\.[0-9a-z]{8,9})\.([A-Za-z0-9_-]{22})$/;
 /** Cookies of one request that are looked at for a website login. */
 const MAX_COOKIES = 30;
 /** OAuth endpoints an agent calls itself, with its own credentials. */
-const AGENT_ENDPOINTS = ["/oauth/token", "/oauth/par", "/oauth/revoke"];
+const AGENT_ENDPOINTS = [
+  "/oauth/token",
+  "/oauth/par",
+  "/oauth/device",
+  "/oauth/revoke",
+];
 
 const cookies = (c: Context) =>
   (c.req.header("cookie") ?? "").split(/;\s*/).flatMap((pair) => {
@@ -147,8 +152,9 @@ export function browserJoin(ctx: Ctx, c: Context): BrowserJoin | undefined {
  * request that isn't a read. What stays open is what a browser's cookie
  * opens nothing at: the join's own form, the Session destinations, which
  * take a verified Session header and no cookie, and the OAuth endpoints an
- * agent calls with its own credentials. The consent page is not among
- * them: a joined browser can't allow its own agent. A browser the agent
+ * agent calls with its own credentials. The consent page and the page that
+ * takes a Device Sign-In's code are not among them: a joined browser can't
+ * allow its own agent. A browser the agent
  * drives without joining it is a visitor like any other, which the lab's
  * password-free consent can't tell from the customer (docs/poppy-1.0.md).
  */

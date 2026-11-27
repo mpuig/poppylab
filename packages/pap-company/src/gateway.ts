@@ -2,7 +2,8 @@
  * A PAP 1.0 Company gateway on Hono and Web APIs, so the same code runs in
  * Node and in Cloudflare Workers (`nodejs_compat`). It provides discovery
  * metadata (RFC 8414/9728), Direct Sign-In (PKCE S256, private_key_jwt),
- * DPoP-bound access tokens, refresh and revocation (RFC 7009), verification
+ * Device Sign-In (RFC 8628) on the same consent page, DPoP-bound access
+ * tokens, refresh and revocation (RFC 7009), verification
  * of the delegated `Poppy-Session` header, one account per Session, and the
  * Operations v3 extension. Each Company supplies its scopes, consent page,
  * test customers, OpenAPI contract and business routes.
@@ -18,7 +19,7 @@
  * Company website can show next to the agent.
  *
  * The sections live under `gateway/`: `context` (shared state and helpers),
- * `persistence`, `discovery`, `signin`, `tokens`, `sessions`, `tenancy`,
+ * `persistence`, `discovery`, `signin`, `device` (§4.3), `tokens`, `sessions`, `tenancy`,
  * `conversations` (§8, when the Company defines an `agent`), `feedback`
  * (§9.3), `skills` (§9.4, when the Company publishes any) and
  * `browser-session` (§6).
@@ -31,6 +32,7 @@ import { createContext } from "./gateway/context.ts";
 import { mountPersistence } from "./gateway/persistence.ts";
 import { mountDiscovery } from "./gateway/discovery.ts";
 import { mountSignIn } from "./gateway/signin.ts";
+import { mountDevice } from "./gateway/device.ts";
 import { mountTokens } from "./gateway/tokens.ts";
 import { mountSessions } from "./gateway/sessions.ts";
 import { createTenancy } from "./gateway/tenancy.ts";
@@ -59,8 +61,9 @@ export function createCompany(def: CompanyDefinition, deploy: Deployment) {
   // Before every route a browser could post to, the consent page included.
   mountBrowserGuard(app, ctx);
   mountDiscovery(app, ctx);
-  const { codes } = mountSignIn(app, ctx);
-  mountTokens(app, ctx, codes);
+  const signIn = mountSignIn(app, ctx);
+  mountDevice(app, ctx, signIn);
+  mountTokens(app, ctx, signIn.codes);
   const tenancy = createTenancy(ctx);
   mountSessions(app, ctx, tenancy);
   mountConversations(app, ctx, tenancy);
