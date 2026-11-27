@@ -7,7 +7,8 @@ makes the change after Elena has read the exact terms and approved them, and
 at no point does Iris hold her password or decide for her.
 
 This page follows that request screen by screen, on Iris's side and on
-Lantern's. Every screenshot is from the live lab, taken on 26 November 2026.
+Lantern's. Every screenshot is from the live lab at
+[poppylab.dev](https://poppylab.dev), taken on 26 and 27 November 2026.
 
 ## Who does what
 
@@ -55,9 +56,10 @@ it decided that the menu and the delivery slots are public. Iris has no access
 to her account yet, and the green button under the answer is how she would
 give it.
 
-The lab runs here in demo mode, without an AI model, so the answer is the
-company's data set out as plain lines. With a model connected Iris would
-answer in sentences. The requests to Lantern are the same either way.
+The lab runs here in demo mode, which answers its guided examples without an
+AI model, so the answer is the company's data set out as plain lines. With a
+model connected Iris would answer in sentences. The requests to Lantern are
+the same either way.
 
 <details>
 <summary>What travelled</summary>
@@ -113,7 +115,8 @@ Lantern: one order for Friday evening, 37 dollars.
 
 The line under the answer states what Iris may do at this point: read-only
 access. To change anything Elena has to give a second, separate permission,
-which is what the Request change permission button asks for.
+which is what the Request change permission button asks for. After that
+consent, Iris asks whether to go on with any request that waited for it.
 
 <details>
 <summary>What travelled</summary>
@@ -157,12 +160,18 @@ which dish and which slot she means, and asks Lantern for that change.
 
 Lantern does not make it. It answers that the change needs the customer's
 approval and sends back the terms it would apply. Iris shows them in a panel
-called Needs you.
+called Needs you, and asks in the conversation, in its own words from the
+terms: the new total is 43 dollars, 6 dollars more, the terms expire in ten
+minutes, approve it?
 
 <details>
 <summary>What travelled</summary>
 
 ```text
+Started a Poppy Session, signed in
+Read /poppy/tasks
+Company Agent conversations at https://food-demo.poppylab.dev/poppy/conversations
+Found 5 API tools at the Company
 Read /api/menu
 Read /api/account/orders
 Read /api/delivery-slots
@@ -220,15 +229,16 @@ in step 7, and they stay on Elena's screen until she decides.
 
 ![The proposal is now a finished entry in the conversation. It reads Completed, with Lantern's confirmation that the order was changed and the line Approved by you](../../../apps/playground/public/learn-media/how-it-works/changing-an-order/09-approved.webp "Lantern made the change when the approval arrived, and said so.")
 
-Elena presses Approve. Iris sends Lantern the same request again, this time
-with her approval attached. Lantern checks that the approval matches the
+Elena presses Approve, or answers "yes" to Iris's question. Iris sends
+Lantern the same request again, this time with her approval attached. Lantern checks that the approval matches the
 terms it offered, makes the change and confirms it: the order is now for
 Sunday and costs 43 dollars. The proposal stays in the conversation as a
 finished entry, with Lantern's confirmation and the line "Approved by you."
 
-The approval is something Elena gives by pressing the button. A sentence in
-the conversation cannot stand in for it, whether Elena writes it or the model
-does.
+The approval is something only Elena gives: the button, or her own answer
+to the question Iris asked about these terms. Iris reads that answer by fixed
+words, before any model sees the message. Nothing a model or the company
+writes can stand in for it.
 
 <details>
 <summary>What travelled</summary>
