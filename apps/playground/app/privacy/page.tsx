@@ -104,12 +104,23 @@ export default function Privacy() {
 
             <h2 id="accounts">Agent accounts and passkeys</h2>
             <p>
-              Agent accounts are coming: an account you sign in to with a
-              passkey, so your conversations can follow you to another device or
-              app. A passkey&apos;s private key stays on your device; the
-              account keeps only its public key, the devices you added and the
-              visitors linked to it. This section will be confirmed when
-              accounts are released.
+              You can use the playground without an account. If you create one,
+              you sign in to it with a passkey, and your conversations and
+              connected companies follow you to every device you sign in on.
+              There is no email or password, and nothing about you is asked for:
+              the account is a random ID, an optional name you choose, its
+              passkeys and its devices. A passkey&apos;s private key stays on
+              your device; the account keeps only its public key, when it was
+              added and last used, and the device&apos;s description.
+            </p>
+            <p>
+              On this browser, a signed-in account is a cookie,{" "}
+              <code>__Host-poppy_account</code>, that lasts 30 days from its
+              last use. An app signed in to the account gets tokens instead,
+              stored on the server only as hashes. A device&apos;s session ends
+              after 30 days without use, and every session after a year. You can
+              sign a device out, or every device, from Identity. An account not
+              used for a year is deleted with its conversations.
             </p>
 
             <h2 id="model">Your model key and the model</h2>
