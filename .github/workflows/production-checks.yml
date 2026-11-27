@@ -1,5 +1,7 @@
 # What a visitor to poppylab.dev sees, checked every hour and on demand
-# (scripts/smoke/production.ts). A failed run is GitHub's notification.
+# (scripts/smoke/production.ts), signed out and signed in at one Company.
+# It declines its proposal and signs out: nothing is approved. A failed run
+# is GitHub's notification.
 # Deploys are made with Wrangler from a workstation, not from a push, so a
 # push to main says nothing about production: there is no push trigger.
 # Run it by hand after a deploy (`gh workflow run production-checks.yml`).
