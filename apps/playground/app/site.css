@@ -1732,6 +1732,14 @@ body:has(.site) {
 .site .reading-lead + .reading-meta {
   margin: -12px 0 28px;
 }
+/* The not-found and error pages: their actions, then a note. */
+.reading .actions + .note {
+  margin-top: 20px;
+}
+.site button.button {
+  font-family: inherit;
+  cursor: pointer;
+}
 .reading-learn a {
   color: var(--green);
   text-decoration-color: var(--green-light);

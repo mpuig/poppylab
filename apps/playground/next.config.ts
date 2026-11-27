@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import { AGENT_NAME } from "./lib/agent-name";
 import { analyticsToken, contentSecurityPolicy } from "./lib/analytics";
+import { postFiles } from "./lib/post-files";
 
 // Read once, at build time: see lib/analytics.ts.
 const analytics = analyticsToken();
@@ -12,8 +13,15 @@ const csp = contentSecurityPolicy({
 const nextConfig: NextConfig = {
   // The agent core's sentences that the page renders name the agent too
   // (`agentName` in @poppy-lab/pap-agent/agent). The analytics token is
-  // inlined, so every page, prerendered or not, has the build's value.
-  env: { AGENT_NAME, CF_WEB_ANALYTICS_TOKEN: analytics ?? "" },
+  // inlined, so every page, prerendered or not, has the build's value. So is
+  // the number of posts, which the site's header and footer read, the
+  // error page's in the browser too (`app/site-chrome.tsx`); `next dev`
+  // counts them when it starts.
+  env: {
+    AGENT_NAME,
+    CF_WEB_ANALYTICS_TOKEN: analytics ?? "",
+    POPPY_POSTS: String(postFiles().length),
+  },
   poweredByHeader: false,
   // Local state and secrets anywhere in the workspace, whichever app or
   // package they belong to; build-worker refuses a bundle that has any.

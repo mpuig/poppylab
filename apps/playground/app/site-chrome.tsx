@@ -6,7 +6,6 @@ import {
   labFootGroups,
   type LabFootGroup,
 } from "@poppy-lab/pap-core";
-import { loadPosts } from "@/lib/posts";
 import { SITE_NAME } from "@/lib/site";
 import { BarNav } from "./bar-nav";
 import { specLink } from "./spec-ref";
@@ -133,8 +132,12 @@ export const companies = [
   },
 ] as const;
 
-/** Posts has a link only once there is a post to read. */
-const hasPosts = () => loadPosts().length > 0;
+/**
+ * Posts has a link only once there is a post to read. The count is the
+ * build's (next.config.ts), so this file reads no files and the error
+ * page can show the same header and footer in the browser.
+ */
+const hasPosts = () => Number(process.env.POPPY_POSTS ?? 0) > 0;
 
 export function SiteBar({
   current,

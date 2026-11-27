@@ -5,18 +5,16 @@
  * `YYYY-MM-DD-slug.md` directly in that folder, with front matter; nothing
  * else is read, so a draft kept anywhere else is never published.
  */
-import { lstatSync, readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { renderMarkdown } from "./learn";
+import { POSTS_DIR, POST_FILE as FILE, postFiles } from "./post-files";
 import { absolute } from "./site";
 
-/** The folder the site publishes, from the playground's working directory. */
-export const POSTS_DIR = path.join(process.cwd(), "content", "posts");
+export { POSTS_DIR };
 
 /** Where the posts folder sits under `docs/learn`, for its relative links. */
 const FROM_LEARN = "../../apps/playground/content/posts";
-
-const FILE = /^(\d{4}-\d{2}-\d{2})-([a-z0-9]+(?:-[a-z0-9]+)*)\.md$/;
 
 export type Post = {
   slug: string;
@@ -110,18 +108,8 @@ export function readPost(file: string, source: string): Post {
  * file elsewhere and any other name are left out.
  */
 export function loadPosts(dir = POSTS_DIR): Post[] {
-  // Read only while the pages are built, so the server bundle needn't
-  // carry the folder: the comments keep the build from tracing it.
-  const file = (name: string) => path.join(/*turbopackIgnore: true*/ dir, name);
-  let names: string[];
-  try {
-    names = readdirSync(/*turbopackIgnore: true*/ dir);
-  } catch {
-    return [];
-  }
-  const posts = names
-    .filter((name) => FILE.test(name) && lstatSync(file(name)).isFile())
-    .map((name) => readPost(name, readFileSync(file(name), "utf8")))
+  const posts = postFiles(dir)
+    .map((file) => readPost(path.basename(file), readFileSync(file, "utf8")))
     .sort(
       (a, b) => a.date.localeCompare(b.date) || a.slug.localeCompare(b.slug),
     );
