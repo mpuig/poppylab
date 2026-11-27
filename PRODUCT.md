@@ -8,11 +8,11 @@ web
 
 ## Stack
 
-Delegated: a TypeScript monorepo using pnpm. Next.js (OpenNext on Cloudflare Workers, or Node) for the playground at poppylab.dev, backed by a channel-neutral Personal Agent core (`@poppy-lab/pap-agent`, whose agent is called Iris); a Hono Company gateway (`@poppy-lab/pap-company`) that runs five fictional Companies on Workers with Durable Objects or on Node; provider-neutral LLM adapters. Public visitors are isolated: one Durable Object per visitor for the agent, sealed at rest, and one copy of each Company's fictional customers per agent user.
+Delegated: a TypeScript monorepo using pnpm. Next.js (OpenNext on Cloudflare Workers, or Node) for the playground at poppylab.dev, backed by a channel-neutral Personal Agent core (`@poppy-lab/pap-agent`, whose agent is called Iris) exposing `/api/v1` (OpenAPI 3.1, Server-Sent Events, and passkey-backed agent accounts); a Hono Company gateway (`@poppy-lab/pap-company`) that runs five fictional Companies on Workers with Durable Objects or on Node; provider-neutral LLM adapters including Cloudflare Workers AI (`AI` binding) for the built-in free model. Public visitors are isolated: one Durable Object per visitor (`PoppyVisitor`) and per passkey account (`PoppyAccount`), sealed at rest, and one copy of each Company's fictional customers per agent user.
 
 ## Users
 
-The public home (`/`) is written for business readers and curious end users who have never heard of the protocol: it explains what Personal Agent Protocol is, why it exists and what companies and customers get from it, then sends them to the live demo. Protocol implementers and developers evaluating Poppy are served by `/developers`, the playground and its Inspector. They need to inspect discovery, identity, Session, authorization, and interaction behavior while using a familiar chat workflow.
+The public home (`/`), `/learn`, and `/posts` serve business readers, product leads, and curious end users: they explain what Personal Agent Protocol is, walk through real protocol exchanges step by step, and send visitors straight to the live demo. Protocol implementers and client builders are served by `/developers` (including `/developers/api` and `/developers/native-client`), `/playground`, and its Inspector, where they inspect discovery, identity, Sessions, authorization, approvals, and channel API behavior.
 
 ## Product Purpose
 
@@ -30,12 +30,13 @@ Developers use the product locally while implementing or evaluating Poppy Compan
 
 - Target Personal Agent Protocol 1.0 only, with the Operations extension version 3. Later 1.x versions promise not to break 1.0; earlier versions are not supported.
 - Accept a Company URL and validate `/.well-known/poppy.json` plus OAuth issuer metadata.
-- Support provider-neutral LLM integration, beginning with OpenAI-compatible, Anthropic, Google, and local/Ollama adapters.
+- Support provider-neutral LLM integration: a built-in Cloudflare Workers AI free model gated by Turnstile and per-visitor, per-network, and daily Neuron budgets, a keyless deterministic demo mode, and bring-your-own-key adapters (OpenAI-compatible, Anthropic, Google, and local/Ollama).
 - Keep credentials, private keys, Session Tokens, Account Tokens, one-time codes, OAuth state, and DPoP material out of model context and user-visible traces.
 - Prevent SSRF, unsafe redirects, private-network access, prompt-injection crossover, and unapproved consequential actions.
 - Clearly distinguish Poppy-capable Companies from ordinary websites; generic browser automation is not Poppy.
 - All five fictional Companies expose OpenAPI, Streamable HTTP MCP, Poppy conversations, read-only browser Session joining, Direct Sign-In (plus Device Sign-In at four of them), scopes, and Operations v3 approval-gated changes.
-- The initial implementation may be an experimental MVP, but security boundaries should be architectural rather than deferred UI warnings.
+- Expose a channel-neutral HTTP API (`/api/v1`) documented in OpenAPI 3.1 with SSE updates, passkey-backed multi-device accounts, rotating bearer/refresh tokens, and single-use Company sign-in links for native apps.
+- Keep security boundaries architectural rather than deferred UI warnings.
 
 ## Brand Commitments
 

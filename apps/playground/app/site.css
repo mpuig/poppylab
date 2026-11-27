@@ -931,7 +931,13 @@ body:has(.site) {
   color: color-mix(in srgb, var(--paper) 80%, var(--brand));
 }
 .case-multi .case-head {
-  background: linear-gradient(115deg, #2c5a41 0%, #1d2f4a 100%);
+  background: var(--ink);
+}
+.case-multi .sector {
+  color: var(--on-ink-muted);
+}
+.case-multi:hover {
+  border-color: var(--ink);
 }
 .case > :not(.case-head) {
   margin-inline: 24px;
