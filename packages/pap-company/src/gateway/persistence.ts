@@ -7,16 +7,33 @@ import { bodyLimit } from "hono/body-limit";
 import type { Ctx } from "./context.ts";
 import { MCP_PATH, type Changes } from "./types.ts";
 
-const securityHeaders = (formTargets: string[]) => ({
+const securityHeaders = (formTargets: string[], https: boolean) => ({
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",
   "Referrer-Policy": "no-referrer",
   "Content-Security-Policy":
     `default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'self' ${formTargets.join(" ")}`.trim(),
+  // A year, as the playground sends. Without includeSubDomains or preload:
+  // a Company answers for its own host only, and a preload is slow to undo.
+  ...(https ? { "Strict-Transport-Security": "max-age=31536000" } : {}),
 });
+
+/**
+ * Only a public HTTPS origin asks browsers to remember HTTPS: a localhost
+ * one is a developer's, which their browser would then refuse over HTTP.
+ */
+const keepsHttps = (origin: string) => {
+  const { protocol, hostname } = new URL(origin);
+  return (
+    protocol === "https:" &&
+    hostname !== "localhost" &&
+    !hostname.endsWith(".localhost")
+  );
+};
 
 export function mountPersistence(app: Hono, ctx: Ctx) {
   const { state, store, replay, flags, deploy } = ctx;
+  const https = keepsHttps(deploy.origin);
   // Counted on the stream, so a chunked body can't skip the limit. First,
   // because it may replace c.req.raw, which later middleware keys on.
   app.use(
@@ -85,7 +102,9 @@ export function mountPersistence(app: Hono, ctx: Ctx) {
     const formTargets = new Set<string>();
     for (const client of deploy.httpClients ?? [])
       formTargets.add(new URL(client).origin);
-    for (const [k, v] of Object.entries(securityHeaders([...formTargets])))
+    for (const [k, v] of Object.entries(
+      securityHeaders([...formTargets], https),
+    ))
       if (!c.res.headers.has(k)) c.res.headers.set(k, v);
     if (c.res.status === 429 && !c.res.headers.has("Retry-After"))
       c.res.headers.set("Retry-After", "60");

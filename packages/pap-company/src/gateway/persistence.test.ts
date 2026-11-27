@@ -111,3 +111,16 @@ it("answers 503 from a failed save on, until a restart", async () => {
   expect(later.status).toBe(503);
   expect(later.headers.get("retry-after")).toBe("60");
 });
+
+it("keeps browsers on HTTPS at an HTTPS origin, and only there", async () => {
+  const hsts = async (deploy: { origin?: string }, path = discovery) =>
+    (await (await setup(deploy)).app.request(path)).headers.get(
+      "strict-transport-security",
+    );
+  // Every answer, an error too; no subdomains, no preload list.
+  expect(await hsts({})).toBe("max-age=31536000");
+  expect(await hsts({}, "/nowhere")).toBe("max-age=31536000");
+  expect(await hsts({ origin: "http://juniper.localhost:4100" })).toBeNull();
+  expect(await hsts({ origin: "https://localhost:8443" })).toBeNull();
+  expect(await hsts({ origin: "https://shop.localhost" })).toBeNull();
+});
