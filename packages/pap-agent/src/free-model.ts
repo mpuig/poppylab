@@ -136,16 +136,16 @@ export async function neuronsToday(now = Date.now()) {
   return typeof entry?.value === "number" ? entry.value : 0;
 }
 
-/** Adds what a turn used to the day's count, compare-and-set. */
-export async function addNeurons(neurons: number, now = Date.now()) {
-  if (!(neurons > 0)) return;
+/** Adjusts the day's count by `delta`, clamping at 0, compare-and-set. */
+async function adjustNeurons(delta: number, now = Date.now()) {
+  if (!Number.isFinite(delta) || delta === 0) return;
   const key = neuronsKey(today(now));
   for (let tries = 0; tries < 8; tries++) {
     const entry = await storage().get("global", key);
     const used = typeof entry?.value === "number" ? entry.value : 0;
-    if (
-      await storage().put("global", key, used + neurons, entry?.version ?? null)
-    ) {
+    const next = Math.max(0, used + delta);
+    if (!entry && next === 0) return;
+    if (await storage().put("global", key, next, entry?.version ?? null)) {
       // The first count of a day lets the day before's go.
       if (!entry)
         await storage()
@@ -156,16 +156,57 @@ export async function addNeurons(neurons: number, now = Date.now()) {
   }
 }
 
+/** Adds what a turn used to the day's count, compare-and-set. */
+export async function addNeurons(neurons: number, now = Date.now()) {
+  if (!(neurons > 0)) return;
+  await adjustNeurons(neurons, now);
+}
+
+/**
+ * Reserves `reserve` Neurons under `cap` before a turn runs, compare-and-set.
+ * Fails closed if the cap is reached or contention exhausts retries.
+ */
+async function reserveNeurons(
+  reserve: number,
+  cap: number,
+  now = Date.now(),
+): Promise<boolean> {
+  const key = neuronsKey(today(now));
+  for (let tries = 0; tries < 8; tries++) {
+    const entry = await storage().get("global", key);
+    const used = typeof entry?.value === "number" ? entry.value : 0;
+    if (used + reserve > cap) return false;
+    if (
+      await storage().put("global", key, used + reserve, entry?.version ?? null)
+    ) {
+      // The first count of a day lets the day before's go.
+      if (!entry)
+        await storage()
+          .remove("global", neuronsKey(today(now - day)))
+          .catch(() => {});
+      return true;
+    }
+  }
+  return false;
+}
+
 /**
  * Whether Turnstile vouches for this token: once (Cloudflare answers a
  * token it has seen with `timeout-or-duplicate`), for this site's host and
  * the chat's action.
  */
-async function verified(token: string, origin: string, secret: string) {
+async function verified(
+  token: string,
+  origin: string,
+  secret: string,
+  ip?: string | null,
+) {
   try {
+    const body = new URLSearchParams({ secret, response: token });
+    if (ip) body.set("remoteip", ip);
     const response = await fetch(SITEVERIFY, {
       method: "POST",
-      body: new URLSearchParams({ secret, response: token }),
+      body,
       signal: AbortSignal.timeout(5000),
     });
     const result = (await response.json()) as {
@@ -231,15 +272,15 @@ export async function admitFreeTurn(
         ? `The free model runs only on the deployed site, ${demo}.`
         : `The free model is off on this deployment, ${demo}.`,
     };
-  if ((await neuronsToday(now)) + TURN_RESERVE > dailyNeurons())
-    return {
-      notice: `The free model has used today's allowance for everyone, ${demo}. It starts again at midnight UTC, or you can use your own model.`,
-    };
+  const cap = dailyNeurons();
+  const capNotice = `The free model has used today's allowance for everyone, ${demo}. It starts again at midnight UTC, or you can use your own model.`;
+  if ((await neuronsToday(now)) + TURN_RESERVE > cap)
+    return { notice: capNotice };
   if (!token)
     return {
       notice: `The browser check for the free model hadn't finished, ${demo}. Send it again in a moment.`,
     };
-  if (!(await verified(token, caller.origin, secret)))
+  if (!(await verified(token, caller.origin, secret, caller.ip)))
     return {
       notice: `Cloudflare's browser check didn't pass, ${demo}. Send it again in a moment.`,
     };
@@ -266,14 +307,21 @@ export async function admitFreeTurn(
         notice: `Visitors on your network have used the free model's turns for now, ${demo}. Try again later, or use your own model.`,
       };
   }
+  if (!(await reserveNeurons(TURN_RESERVE, cap, now)))
+    return { notice: capNotice };
   let used = 0;
+  let settled = false;
   return {
     workersAi: {
       binding: ai,
       onUsage: (neurons) => {
-        used += neurons;
+        if (Number.isFinite(neurons) && neurons > 0) used += neurons;
       },
     },
-    settle: () => addNeurons(used, now),
+    settle: async () => {
+      if (settled) return;
+      settled = true;
+      await adjustNeurons(used - TURN_RESERVE, now);
+    },
   };
 }

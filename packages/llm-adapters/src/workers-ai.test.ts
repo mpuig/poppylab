@@ -128,6 +128,63 @@ describe("Workers AI through its binding", () => {
     expect(String((broken as Error).message)).not.toContain("internal detail");
   });
 
+  it("estimates fallback Neurons when Workers AI omits or zeros usage.neurons", async () => {
+    const responses: Array<Record<string, unknown>> = [
+      {
+        choices: [
+          {
+            index: 0,
+            message: { role: "assistant", content: "from tokens" },
+            finish_reason: "stop",
+          },
+        ],
+        usage: { prompt_tokens: 450, completion_tokens: 60 },
+      },
+      {
+        choices: [
+          {
+            index: 0,
+            message: { role: "assistant", content: "small tokens" },
+            finish_reason: "stop",
+          },
+        ],
+        usage: { prompt_tokens: 50, completion_tokens: 10, neurons: 0 },
+      },
+      {
+        choices: [
+          {
+            index: 0,
+            message: { role: "assistant", content: "no usage" },
+            finish_reason: "stop",
+          },
+        ],
+      },
+      {
+        choices: [
+          {
+            index: 0,
+            message: { role: "assistant", content: "negative neurons" },
+            finish_reason: "stop",
+          },
+        ],
+        usage: { prompt_tokens: 300, completion_tokens: 5, neurons: -10 },
+      },
+    ];
+    let index = 0;
+    const binding = {
+      run: vi.fn(async () => responses[index++]!),
+    };
+    const onUsage = vi.fn();
+    for (let i = 0; i < responses.length; i++) {
+      await askModel(
+        "workers-ai",
+        { system: "s", prompt: "p" },
+        { workersAi: { binding, onUsage } },
+      );
+    }
+    expect(onUsage.mock.calls).toEqual([[51], [20], [20], [31]]);
+  });
+
   it("is refused without a binding", async () => {
     await expect(
       askModel("workers-ai", { system: "s", prompt: "p" }),

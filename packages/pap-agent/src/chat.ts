@@ -14,7 +14,7 @@ import {
   type HeldTurn,
   type TurnScope,
 } from "./chat-turn";
-import { answerLabel } from "./company-commands";
+import { answerLabel, answers } from "./company-commands";
 import {
   companyRef,
   connectionAt,
@@ -170,21 +170,6 @@ async function reply(
     visitor = caller.user(true);
     const limited = await overBudget(caller.ip, visitor, "chat");
     if (limited) return limited;
-    // The free model past its checks and limits, or demo mode with
-    // Iris's line about why, shown before the answer. A Direct
-    // Conversation asks no model.
-    let provider = request.provider;
-    let modelConfig: HeldTurn["modelConfig"] = request.modelConfig;
-    if (provider === "free" && !direct) {
-      const admitted = await admitFreeTurn(caller, visitor, request.turnstile);
-      if ("notice" in admitted) {
-        provider = "demo";
-        scope.did.before = admitted.notice;
-      } else {
-        free = admitted;
-        modelConfig = { ...modelConfig, workersAi: admitted.workersAi };
-      }
-    }
     const named = input.conversation;
     const current = await acquireRun(visitor, named);
     if (current === "busy")
@@ -260,6 +245,32 @@ async function reply(
       throw new UserFacingError(
         "This run reached its 20-turn limit. Connect again to start another run.",
       );
+    // The free model past its checks and limits, or demo mode with Iris's
+    // line about why, shown before the answer. Checked only after the
+    // conversation's cheap pre-flight guards and only when the request
+    // needs a model (never for Direct Conversations or buttons that don't
+    // continue to a model turn), so rejected/non-model requests don't burn
+    // a Turnstile token or free-model quota.
+    let provider = request.provider;
+    let modelConfig: HeldTurn["modelConfig"] = request.modelConfig;
+    const needsModel =
+      !direct &&
+      (!pressed ||
+        ("company" in pressed && !!run.waiting) ||
+        ("remove" in pressed &&
+          !!run.removing &&
+          answers(run.removing, pressed.remove) &&
+          !!run.removing.rest));
+    if (provider === "free" && needsModel) {
+      const admitted = await admitFreeTurn(caller, visitor, request.turnstile);
+      if ("notice" in admitted) {
+        provider = "demo";
+        scope.did.before = admitted.notice;
+      } else {
+        free = admitted;
+        modelConfig = { ...modelConfig, workersAi: admitted.workersAi };
+      }
+    }
     const turn: HeldTurn = {
       scope,
       conversation: run,

@@ -98,7 +98,7 @@ const siteverify = vi.fn(async (_url: string, init?: RequestInit) => {
 
 let count = 0;
 let id = "";
-async function conversation() {
+async function conversation(overrides: Partial<Run> = {}) {
   const run: Run = {
     protocol: "1.0",
     visitor: "",
@@ -107,6 +107,7 @@ async function conversation() {
     busy: false,
     history: [],
     connections: [connected(shop, "Juniper Market")],
+    ...overrides,
   };
   id = `run_free_model_${String(++count).padStart(4, "0")}`;
   await seedRun("f".repeat(43), id, run);
@@ -136,7 +137,7 @@ const say = async (message: string, turnstile?: string) => {
 };
 
 // Two hours apart, so the hourly limits start again for each test.
-let now = Date.UTC(2026, 10, 27, 0, 0);
+let now = Date.UTC(2026, 11, 1, 0, 0);
 beforeEach(async () => {
   vi.useFakeTimers({ toFake: ["Date"], now: (now += 2 * 3600000 + 1) });
   vi.stubEnv("TURNSTILE_SITE_KEY", "site-key");
@@ -191,6 +192,27 @@ describe("a free-model turn", () => {
     expect(String(siteverify.mock.calls[0]![1]!.body)).toContain(
       "secret=secret-key",
     );
+  });
+
+  it("rejects pre-flight failures with 400 without verifying Turnstile, calling the model, or spending quota", async () => {
+    await conversation({ busy: true, busyUntil: Date.now() + 60_000 });
+    const busy = await say("What do you sell?", "good");
+    expect(busy.status).toBe(400);
+
+    await conversation({ calls: 20 });
+    const limited = await say("What do you sell?", "good");
+    expect(limited.status).toBe(400);
+
+    expect(siteverify).not.toHaveBeenCalled();
+    expect(binding.run).not.toHaveBeenCalled();
+
+    // The visitor still has their entire hourly free-model quota.
+    await conversation();
+    for (let turn = 0; turn < FREE_LIMITS.visitor.hour; turn++) {
+      const ok = await say("What do you sell?", "good");
+      expect(ok.status).toBe(200);
+      expect(ok.answer.mode).toBe("free");
+    }
   });
 });
 

@@ -28,13 +28,14 @@ import console from "node:console";
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const out = path.join(root, ".open-next");
-// The Web Analytics token is public and lives in wrangler.toml's vars, but
-// the pages and the Content-Security-Policy are fixed at build time, so the
-// build reads it from there (lib/analytics.ts).
+// The Web Analytics token and Turnstile site key are public and live in
+// wrangler.toml's vars, but the pages and the Content-Security-Policy are
+// fixed at build time, so the build reads them from there (lib/analytics.ts).
+const wrangler = readFileSync(path.join(root, "wrangler.toml"), "utf8");
 const analytics =
-  /^\s*CF_WEB_ANALYTICS_TOKEN\s*=\s*"([^"]*)"/m.exec(
-    readFileSync(path.join(root, "wrangler.toml"), "utf8"),
-  )?.[1] ?? "";
+  /^\s*CF_WEB_ANALYTICS_TOKEN\s*=\s*"([^"]*)"/m.exec(wrangler)?.[1] ?? "";
+const turnstile =
+  /^\s*TURNSTILE_SITE_KEY\s*=\s*"([^"]*)"/m.exec(wrangler)?.[1] ?? "";
 const built = spawnSync("pnpm", ["exec", "opennextjs-cloudflare", "build"], {
   cwd: root,
   stdio: "inherit",
@@ -46,6 +47,7 @@ const built = spawnSync("pnpm", ["exec", "opennextjs-cloudflare", "build"], {
     NEXT_PUBLIC_NORTHWIND_URL: "https://airline-demo.poppylab.dev",
     NEXT_PUBLIC_FERNWICK_URL: "https://energy-demo.poppylab.dev",
     CF_WEB_ANALYTICS_TOKEN: analytics,
+    TURNSTILE_SITE_KEY: turnstile,
   },
 });
 if (built.status !== 0) process.exit(built.status ?? 1);

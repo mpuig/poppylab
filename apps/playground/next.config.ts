@@ -8,6 +8,7 @@ const analytics = analyticsToken();
 const csp = contentSecurityPolicy({
   development: process.env.NODE_ENV === "development",
   analytics: analytics !== undefined,
+  turnstile: Boolean(process.env.TURNSTILE_SITE_KEY),
 });
 
 const nextConfig: NextConfig = {

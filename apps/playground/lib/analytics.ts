@@ -43,11 +43,16 @@ export const TURNSTILE_ORIGIN = "https://challenges.cloudflare.com";
 export function contentSecurityPolicy({
   development = false,
   analytics = false,
-}: { development?: boolean; analytics?: boolean } = {}) {
+  turnstile = false,
+}: {
+  development?: boolean;
+  analytics?: boolean;
+  turnstile?: boolean;
+} = {}) {
   return [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-inline'${development ? " 'unsafe-eval'" : ""} ${TURNSTILE_ORIGIN}${analytics ? ` ${BEACON_ORIGIN}` : ""}`,
-    `frame-src ${TURNSTILE_ORIGIN}`,
+    `script-src 'self' 'unsafe-inline'${development ? " 'unsafe-eval'" : ""}${turnstile ? ` ${TURNSTILE_ORIGIN}` : ""}${analytics ? ` ${BEACON_ORIGIN}` : ""}`,
+    ...(turnstile ? [`frame-src ${TURNSTILE_ORIGIN}`] : []),
     "style-src 'self' 'unsafe-inline'",
     // The stylesheets' icons are data: URLs.
     "img-src 'self' data:",

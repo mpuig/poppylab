@@ -29,6 +29,21 @@ type ModelConfig = {
 
 /** The Workers AI model used when none is named. */
 export const WORKERS_AI_MODEL = "@cf/google/gemma-4-26b-a4b-it";
+/** Conservative floor when Workers AI omits `usage.neurons`. */
+const FALLBACK_MIN_NEURONS = 20;
+
+function fallbackNeurons(usage?: {
+  prompt_tokens?: unknown;
+  completion_tokens?: unknown;
+}): number {
+  const positive = (value: unknown) =>
+    typeof value === "number" && Number.isFinite(value) && value > 0
+      ? value
+      : 0;
+  const tokens =
+    positive(usage?.prompt_tokens) + positive(usage?.completion_tokens);
+  return Math.max(FALLBACK_MIN_NEURONS, Math.ceil(tokens / 10));
+}
 
 /**
  * A `fetch` for the OpenAI-compatible provider that hands each request to
@@ -74,8 +89,20 @@ function workersAiFetch(
         : 502;
       return Response.json({ error: { message: "Workers AI" } }, { status });
     }
-    const usage = raw?.usage as { neurons?: unknown } | undefined;
-    if (typeof usage?.neurons === "number") ai.onUsage?.(usage.neurons);
+    const usage = raw?.usage as
+      | {
+          neurons?: unknown;
+          prompt_tokens?: unknown;
+          completion_tokens?: unknown;
+        }
+      | undefined;
+    const neurons =
+      typeof usage?.neurons === "number" &&
+      Number.isFinite(usage.neurons) &&
+      usage.neurons > 0
+        ? usage.neurons
+        : fallbackNeurons(usage);
+    ai.onUsage?.(neurons);
     return Response.json({
       id: "workers-ai",
       object: "chat.completion",

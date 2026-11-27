@@ -45,8 +45,19 @@ let widget: string | undefined;
 let token: string | undefined;
 let waiting: Array<(token: string | undefined) => void> = [];
 function settle(value: string | undefined) {
-  for (const resolve of waiting) resolve(value);
-  waiting = [];
+  if (value === undefined) {
+    const all = waiting;
+    waiting = [];
+    for (const resolve of all) resolve(undefined);
+    return;
+  }
+  const next = waiting.shift();
+  if (next) {
+    next(value);
+    if (widget) api()?.reset(widget);
+  } else {
+    token = value;
+  }
 }
 
 /**
@@ -56,15 +67,24 @@ function settle(value: string | undefined) {
  */
 export async function turnstileToken(): Promise<string | undefined> {
   if (!widget) return undefined;
-  const taken =
-    token ??
-    (await new Promise<string | undefined>((resolve) => {
-      waiting.push(resolve);
-      setTimeout(() => resolve(undefined), 8000);
-    }));
-  token = undefined;
-  if (widget) api()?.reset(widget);
-  return taken;
+  if (token) {
+    const taken = token;
+    token = undefined;
+    if (widget) api()?.reset(widget);
+    return taken;
+  }
+  return new Promise<string | undefined>((resolve) => {
+    const finish = (value: string | undefined) => {
+      clearTimeout(timer);
+      resolve(value);
+    };
+    const timer = setTimeout(() => {
+      const i = waiting.indexOf(finish);
+      if (i !== -1) waiting.splice(i, 1);
+      resolve(undefined);
+    }, 8000);
+    waiting.push(finish);
+  });
 }
 
 export function TurnstileCheck({ siteKey }: { siteKey: string }) {
@@ -81,7 +101,6 @@ export function TurnstileCheck({ siteKey }: { siteKey: string }) {
           appearance: "interaction-only",
           size: "flexible",
           callback: (value: string) => {
-            token = value;
             settle(value);
           },
           "expired-callback": () => {

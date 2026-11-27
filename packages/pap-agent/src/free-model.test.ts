@@ -56,8 +56,11 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const admit = (visitor = "visitor-a", token = "token", from = caller) =>
-  admitFreeTurn(from, visitor, token, Date.now());
+const admit = (
+  visitor = "visitor-a",
+  token = "token",
+  from: { ip: string | null; origin: string } = caller,
+) => admitFreeTurn(from, visitor, token, Date.now());
 const notice = async (...args: Parameters<typeof admit>) => {
   const admitted = await admit(...args);
   return "notice" in admitted ? admitted.notice : undefined;
@@ -86,8 +89,19 @@ describe("what the free model needs", () => {
     );
     expect(body.get("secret")).toBe("secret-key");
     expect(body.get("response")).toBe("token");
-    // Nothing of the visitor's address goes with it.
-    expect([...body.keys()]).toEqual(["secret", "response"]);
+    expect(body.get("remoteip")).toBe(caller.ip);
+    expect([...body.keys()]).toEqual(["secret", "response", "remoteip"]);
+    // Without a client IP, remoteip is omitted.
+    expect(
+      await notice("visitor-no-ip", "token", {
+        ip: null,
+        origin: caller.origin,
+      }),
+    ).toBeUndefined();
+    const noIpBody = new URLSearchParams(
+      String(siteverify.mock.calls[1]![1]!.body),
+    );
+    expect([...noIpBody.keys()]).toEqual(["secret", "response"]);
     for (const refused of [
       { ...passes, hostname: "evil.example" },
       { ...passes, action: "login" },
@@ -182,6 +196,100 @@ describe("the limits", () => {
     vi.setSystemTime(midnight);
     expect(await neuronsToday()).toBe(0);
     expect(await notice("visitor-b")).toBeUndefined();
+  });
+
+  it("reserves Neurons on admission and reconciles actual usage on settle", async () => {
+    const first = await admit("visitor-r1");
+    if ("notice" in first) throw new Error(first.notice);
+    // TURN_RESERVE (200) is already counted while the turn is in flight.
+    expect(await neuronsToday()).toBe(200);
+    first.workersAi.onUsage(60);
+    await first.settle();
+    expect(await neuronsToday()).toBe(60);
+    // Calling settle again is a no-op.
+    await first.settle();
+    expect(await neuronsToday()).toBe(60);
+
+    // Zero usage releases the full reservation.
+    const unused = await admit("visitor-r2");
+    if ("notice" in unused) throw new Error(unused.notice);
+    expect(await neuronsToday()).toBe(260);
+    await unused.settle();
+    expect(await neuronsToday()).toBe(60);
+
+    // Usage exceeding TURN_RESERVE adds the excess.
+    const heavy = await admit("visitor-r3");
+    if ("notice" in heavy) throw new Error(heavy.notice);
+    heavy.workersAi.onUsage(250);
+    await heavy.settle();
+    expect(await neuronsToday()).toBe(310);
+
+    // Clamps at 0 if the stored value was reset before settle.
+    const clamped = await admit("visitor-r4");
+    if ("notice" in clamped) throw new Error(clamped.notice);
+    configureBackend(memoryBackend());
+    await clamped.settle();
+    expect(await neuronsToday()).toBe(0);
+  });
+
+  it("does not reserve Neurons when Turnstile or visitor/network checks reject", async () => {
+    answer = { success: false };
+    expect(await notice("visitor-fail")).toMatch(/didn't pass/);
+    expect(await neuronsToday()).toBe(0);
+
+    answer = passes;
+    for (let i = 0; i < FREE_LIMITS.visitor.hour; i++) {
+      const admitted = await admit("visitor-limit");
+      if ("notice" in admitted) throw new Error(admitted.notice);
+      await admitted.settle();
+    }
+    expect(await neuronsToday()).toBe(0);
+    expect(await notice("visitor-limit")).toMatch(/for this hour/);
+    expect(await neuronsToday()).toBe(0);
+  });
+
+  it("admits at most the daily cap under concurrent requests (no TOCTOU overshoot)", async () => {
+    vi.stubEnv("FREE_MODEL_DAILY_NEURONS", "350");
+    const base = memoryBackend();
+    configureBackend({
+      ...base,
+      get: async (bucket, key) => {
+        const result = await base.get(bucket, key);
+        // Yield so concurrent callers observe the same pre-reserve value.
+        await Promise.resolve();
+        return result;
+      },
+    });
+    const results = await Promise.all([
+      admit("visitor-c1", "token", { ...caller, ip: "198.51.100.1" }),
+      admit("visitor-c2", "token", { ...caller, ip: "198.51.100.2" }),
+      admit("visitor-c3", "token", { ...caller, ip: "198.51.100.3" }),
+    ]);
+    const admitted = results.filter((r) => !("notice" in r));
+    const denied = results.filter((r) => "notice" in r);
+    expect(admitted).toHaveLength(1);
+    expect(denied).toHaveLength(2);
+    for (const d of denied)
+      expect(d.notice).toMatch(
+        /^The free model has used today's allowance for everyone/,
+      );
+    expect(await neuronsToday()).toBe(200);
+  });
+
+  it("fails closed when reservation CAS contention exhausts retries", async () => {
+    const base = memoryBackend();
+    configureBackend({
+      ...base,
+      put: async (bucket, key, value, expected) => {
+        if (bucket === "global" && key.startsWith("free-model:neurons:"))
+          return false;
+        return base.put(bucket, key, value, expected);
+      },
+    });
+    expect(await notice("visitor-contended")).toMatch(
+      /^The free model has used today's allowance for everyone/,
+    );
+    expect(await neuronsToday()).toBe(0);
   });
 
   it("caps the day inside the free allocation unless a paid budget is set", () => {
