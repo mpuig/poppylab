@@ -227,7 +227,7 @@ it("says on a closed entry why nothing was done and what to do next", () => {
   expect(
     entry({ state: "declined", result: { summary: "Declined." } }),
   ).toContain(
-    "You declined this, and nothing was sent to Lantern Noodle Bar. Ask for the change again if you still want it.",
+    "You declined this, so Iris sent no approval to Lantern Noodle Bar and nothing was done. Ask for the change again if you still want it.",
   );
   const reason =
     "Lantern Noodle Bar declined this approval and did nothing. Its reason: The kitchen has closed.";

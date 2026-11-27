@@ -50,7 +50,7 @@ const read = async (tool: Tool, key: string) => {
   if (error) throw new Unread(error);
   return list(value, key);
 };
-/** Says why nothing was sent, from an error code that is safe to show. */
+/** Says why a request wasn't sent, from an error code that is safe to show. */
 const unsent = (error: string) =>
   error === "insufficient_scope"
     ? "your access to this Company doesn't include the permission it needs"
@@ -429,7 +429,7 @@ const overLimit = (tool: Tool | undefined, amount: number) => {
   const most = limit(tool, "amount_cents", "maximum");
   return most !== undefined && amount > most
     ? {
-        say: `${usd(amount)} is more than this bank takes in one request: ${usd(most)} at most. Nothing was sent; ask for a smaller amount.`,
+        say: `${usd(amount)} is more than this bank takes in one request: ${usd(most)} at most. The demo didn't ask the bank for it; ask for a smaller amount.`,
       }
     : undefined;
 };
@@ -520,7 +520,7 @@ async function moneyChange(
       : accounts.find((account) => account !== from && outright(account));
     if (other)
       return {
-        say: `Which account should pay, ${text(from.name)} or ${text(other.name)}? The message mentions ${text(other.name)} only in what the payment is for, and the demo doesn't guess. Nothing was sent; say it again with “from ${text(from.name)}” or “from ${text(other.name)}”.`,
+        say: `Which account should pay, ${text(from.name)} or ${text(other.name)}? The message mentions ${text(other.name)} only in what the payment is for, and the demo doesn't guess. It didn't ask the bank for the payment; say it again with “from ${text(from.name)}” or “from ${text(other.name)}”.`,
       };
     const over = overLimit(tools.request_payment, amount);
     if (over) return over;
@@ -679,7 +679,7 @@ export async function demoChange(
   } catch (error) {
     if (!(error instanceof Unread)) throw error;
     return {
-      say: `The demo couldn't read your account to prepare this change: ${unsent(error.message)}. Nothing was sent to the Company. Sign in again and keep every permission ticked on the Company's consent page.`,
+      say: `The demo couldn't read your account to prepare this change: ${unsent(error.message)}. It didn't ask the Company for the change. Sign in again and keep every permission ticked on the Company's consent page.`,
     };
   }
 }
@@ -704,7 +704,7 @@ export function demoChangeReply(
 ) {
   const error = refusal(result);
   if (error)
-    return `The demo read your account and prepared this change, but nothing was sent to the Company: ${unsent(error)}.${error === "insufficient_scope" ? " Press “Request change permission”, review the Company's consent, and ask again." : ""}`;
+    return `The demo read your account and prepared this change, but didn't send it to the Company: ${unsent(error)}.${error === "insufficient_scope" ? " Press “Request change permission”, review the Company's consent, and ask again." : ""}`;
   const held =
     (result as { status?: unknown } | null)?.status !== "outcome_unknown";
   return `${plan.because}\n\n${ANSWERED}${show(result)}\n\n${held ? HOLDS : ""}${MODEL}`;

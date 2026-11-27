@@ -454,7 +454,7 @@ export function outcome(
   }
   if (state === "declined")
     return {
-      note: `You declined this, and nothing was sent to ${company}. Ask for the change again if you still want it.`,
+      note: `You declined this, so Iris sent no approval to ${company} and nothing was done. Ask for the change again if you still want it.`,
     };
   // A refusal, new terms or an ended conversation: the route's own sentence
   // says what happened. A proposal that ran out on its own clock has none,

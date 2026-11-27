@@ -440,7 +440,7 @@ it("pays from the account the message names, not one a word of it resembles", as
     "Pay Morrow Workshop $120 for the rainy-day savings talk",
   ])
     expect(await demoChange(message, robin(), key), message).toEqual({
-      say: "Which account should pay, Everyday checking or Rainy day savings? The message mentions Rainy day savings only in what the payment is for, and the demo doesn't guess. Nothing was sent; say it again with “from Everyday checking” or “from Rainy day savings”.",
+      say: "Which account should pay, Everyday checking or Rainy day savings? The message mentions Rainy day savings only in what the payment is for, and the demo doesn't guess. It didn't ask the bank for the payment; say it again with “from Everyday checking” or “from Rainy day savings”.",
     });
   expect(
     await source(
@@ -480,7 +480,7 @@ it("keeps a payment or transfer within what the bank's tools take", async () => 
     "Send Beacon Studio $20,000 for the retainer",
   ])
     expect(await demoChange(message, tools, key)).toEqual({
-      say: "$20000.00 is more than this bank takes in one request: $10000.00 at most. Nothing was sent; ask for a smaller amount.",
+      say: "$20000.00 is more than this bank takes in one request: $10000.00 at most. The demo didn't ask the bank for it; ask for a smaller amount.",
     });
   expect(
     await demoChange("Transfer $10,000 from checking to savings", tools, key),
@@ -614,7 +614,7 @@ it("says so when the account can't be read, instead of planning from nothing", a
   ] as const) {
     tools[name] = tool({ error: "insufficient_scope" });
     expect(await demoChange(message, tools, key)).toMatchObject({
-      say: expect.stringContaining("Nothing was sent to the Company"),
+      say: expect.stringContaining("It didn't ask the Company for the change."),
     });
   }
 });
@@ -637,7 +637,7 @@ it("never says a change is held for approval when it wasn't sent", () => {
   );
   // Nothing of the Company's to show, in lines or as data.
   expect(show).not.toHaveBeenCalled();
-  expect(refused).toContain("nothing was sent to the Company");
+  expect(refused).toContain("didn't send it to the Company");
   expect(refused).toContain("Request change permission");
   expect(refused).not.toContain("asked to transfer");
   expect(refused).not.toContain("until you click Approve");

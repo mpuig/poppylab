@@ -29,7 +29,7 @@ export function agentStep(entry: ProtocolEntry): AgentStep {
   const unsent = /^Not sent · (?:GET|POST) (\S+) · (.+)/.exec(text);
   if (unsent)
     return {
-      text: `Did not ask for ${unsent[1]} (${unsent[2]}); nothing was sent`,
+      text: `Did not send a request to ${unsent[1]} (${unsent[2]})`,
       how: "API",
       access: null,
       state,

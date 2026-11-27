@@ -108,7 +108,7 @@ const hintFor = (...operations: GuideOperation[]) =>
 it("tells apart how the last proposal ended, and says what to do", () => {
   // The visitor's own choice isn't a failure.
   expect(hintFor(proposal("declined"))).toBe(
-    "You declined the last proposal, so nothing was sent to Juniper Market. Ask for the change again if you still want it.",
+    "You declined the last proposal, so Iris sent no approval to Juniper Market and nothing was done. Ask for the change again if you still want it.",
   );
   expect(hintFor(proposal("expired"))).toBe(
     "The last proposal expired before it was approved, so nothing was performed. Ask for the change again to get fresh terms.",
@@ -166,7 +166,7 @@ it("speaks about the proposal something happened to last, not the last in the li
   const done = proposal("succeeded", { changed: 1000 });
   // (a) A decline after an earlier change went through.
   const declined =
-    "You declined the last proposal, so nothing was sent to Juniper Market. Ask for the change again if you still want it.";
+    "You declined the last proposal, so Iris sent no approval to Juniper Market and nothing was done. Ask for the change again if you still want it.";
   expect(hintFor(done, proposal("declined", { changed: 2000 }))).toBe(declined);
   // The list keeps the order the proposals came in; the decline is still
   // the news when the declined proposal came first.

@@ -164,10 +164,10 @@ it("never says the company answered when Iris stopped before asking", () => {
     instruction: "Ask the user to use the Sign in control in the chat.",
   };
   expect(readable(signedOut)).toBe(
-    "Iris did not ask the Company: this needs your account, and you are not signed in. Nothing was sent.",
+    "Iris didn't send this request to the Company: this needs your account, and you are not signed in.",
   );
   expect(notSentReply(signedOut, "Juniper Market", changes)).toBe(
-    "This needs your account at Juniper Market, and you are not signed in. Iris did not ask: nothing was sent to the Company. Press “Sign in to Juniper Market”, then ask again.",
+    "This needs your account at Juniper Market, and you are not signed in. Iris didn't send this request to the Company. Press “Sign in to Juniper Market”, then ask again.",
   );
   const readOnly = {
     error: "insufficient_scope",
@@ -176,10 +176,10 @@ it("never says the company answered when Iris stopped before asking", () => {
     instruction: "Ask the user to choose Request change permission.",
   };
   expect(readable(readOnly)).toBe(
-    "Iris did not ask the Company: your sign-in doesn't include a permission this needs. Nothing was sent.",
+    "Iris didn't send this request to the Company: your sign-in doesn't include a permission this needs.",
   );
   expect(notSentReply(readOnly, "Juniper Market", changes)).toBe(
-    "This needs the change permission, which your sign-in to Juniper Market doesn't include. Iris did not ask: nothing was sent to the Company. Press “Request change permission”, review the Company's consent, and ask again.",
+    "This needs the change permission, which your sign-in to Juniper Market doesn't include. Iris didn't send this request to the Company. Press “Request change permission”, review the Company's consent, and ask again.",
   );
   // A read permission left unticked at consent: no change permission helps.
   expect(
@@ -189,7 +189,7 @@ it("never says the company answered when Iris stopped before asking", () => {
       changes,
     ),
   ).toBe(
-    "This needs a permission your sign-in to Harborline Bank doesn't include. Iris did not ask: nothing was sent to the Company. Sign out, then sign in again and keep every permission ticked on the Company's consent page.",
+    "This needs a permission your sign-in to Harborline Bank doesn't include. Iris didn't send this request to the Company. Sign out, then sign in again and keep every permission ticked on the Company's consent page.",
   );
   // The words are for the customer: never the model's instruction.
   for (const answer of [signedOut, readOnly])

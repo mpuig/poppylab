@@ -58,7 +58,7 @@ What it says when it can't:
 
 - Signed out: "Sign in first: the demo reads your account to prepare this change, and nothing changes until you approve it."
 - Signed in without change permission: it says your access doesn't include the permission the change needs.
-- When the Company's own description of a tool rejects the values the demo chose: it says nothing was sent.
+- When the Company's own description of a tool rejects the values the demo chose: it says the demo didn't send the request.
 - Anything else: "The demo can't prepare that change here." A model can.
 
 Three more things a message can start, when the Company offers them:
@@ -200,8 +200,9 @@ in the page; the server's approval endpoint is the one it always was.
   it read or sent, how (API, the Company's own agent, sign-in or setup) and
   with what access (view, or view and change). A request Iris stops before
   asking, because you are signed out or your sign-in lacks a permission, is
-  listed as not asked ("Did not ask for /api/account/orders (sign-in needed);
-  nothing was sent"), and the log has "Not sent" in place of the request.
+  listed as not sent ("Did not send a request to /api/account/orders (sign-in
+  needed)"), and the log has "Not sent" in place of the request. The other
+  steps of that turn, such as the setup, did reach the Company.
 - **The log.** The inspector lists the session's events with a time, their spec
   section, the method and address without its query, and an outcome read from
   the event's own words. Times are when the page received each event, and one

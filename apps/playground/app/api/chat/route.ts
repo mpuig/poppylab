@@ -544,7 +544,7 @@ async function reply(request: Request, started: Outcome) {
         connection = done.at;
       }
       if (!connection && !run.connections.length) {
-        const say = `This conversation isn't connected to a company yet, so nothing was sent. Connect one first: ${listed(
+        const say = `This conversation isn't connected to a company yet, so Iris didn't send your request to any company. Connect one first: ${listed(
           lab.map((c) => c.name),
           "or",
         )} from the lab, or another company by typing its address in the address box.`;
@@ -733,10 +733,10 @@ async function reply(request: Request, started: Outcome) {
           text = `Protocol demo (no LLM). ${demoChangeReply(plan, result, show)}`;
         } catch (error) {
           // The demo chose the arguments; when the Company's description
-          // of the tool rejects them, nothing was sent. Say that, not
+          // of the tool rejects them, the request wasn't sent. Say that, not
           // "check the Company is running".
           if (!(error instanceof InvalidToolArguments)) throw error;
-          text = `Protocol demo (no LLM). The demo prepared a request for ${plan.call} that this Company's description of the tool doesn't accept, so nothing was sent. Ask for it in other words or with other values, or select a model.`;
+          text = `Protocol demo (no LLM). The demo prepared a request for ${plan.call} that this Company's description of the tool doesn't accept, so the demo didn't send it. Ask for it in other words or with other values, or select a model.`;
         }
       } else if (aside === "agent") {
         // The demo's way into a conversation (§8): ask what the Company's
@@ -954,7 +954,7 @@ async function reply(request: Request, started: Outcome) {
       return NextResponse.json(
         {
           error:
-            "This needs your account at the Company. Use Sign in in the chat if the Company offers it; nothing was sent on your behalf.",
+            "This needs your account at the Company, which didn't take the request without it. Use Sign in in the chat if the Company offers it, then ask again.",
           code: "sign_in_required",
           next: "signin",
           stage,

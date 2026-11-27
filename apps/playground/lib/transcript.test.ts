@@ -122,7 +122,8 @@ describe("what a Direct Conversation leaves behind (§8.10)", () => {
 
   it("tells the model what Iris answered, without the User's words", () => {
     const r = run();
-    const over = "That direct conversation is over, so nothing was sent.";
+    const over =
+      "That direct conversation is over, so the Company didn't take your message.";
     recordDirect(r, company, "say", secret, over, false);
 
     expect(forModel(r)).not.toContain("4417");
@@ -132,7 +133,7 @@ describe("what a Direct Conversation leaves behind (§8.10)", () => {
   it("doesn't say the User wrote to the Company when their words may not have been sent", () => {
     const notes = {
       start: `A direct conversation with ${company} was already open, and Iris had lost track of it. You're back in it now. This message wasn't sent: say it again if ${company} doesn't have it yet.`,
-      say: "This direct conversation needs you signed in, so nothing was sent. Use the Sign in control in the chat, then try again.",
+      say: "This direct conversation needs you signed in, so the Company didn't take your message. Use the Sign in control in the chat, then try again.",
     } as const;
     for (const action of ["start", "say"] as const) {
       const r = run();

@@ -896,7 +896,7 @@ export async function papRequest(
         }
       }
       throw new UserFacingError(
-        "This Company no longer serves a protocol version Poppy Lab implements (1.x). Nothing was sent again.",
+        "This Company no longer serves a protocol version Poppy Lab implements (1.x). The request wasn't sent again.",
       );
     }
     markAccountFailure(connection, error);

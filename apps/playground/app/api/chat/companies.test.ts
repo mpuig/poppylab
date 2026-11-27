@@ -392,7 +392,7 @@ describe("a conversation with no Company", () => {
     const turn = await say("What's on the menu?");
     expect(turn.status).toBe(200);
     expect(turn.answer).toMatchObject({
-      text: "This conversation isn't connected to a company yet, so nothing was sent. Connect one first: Juniper Market, Lantern Noodle Bar, Harborline Bank, Northwind Air or Fernwick Power & Light from the lab, or another company by typing its address in the address box.",
+      text: "This conversation isn't connected to a company yet, so Iris didn't send your request to any company. Connect one first: Juniper Market, Lantern Noodle Bar, Harborline Bank, Northwind Air or Fernwick Power & Light from the lab, or another company by typing its address in the address box.",
       mode: "iris",
       signedIn: false,
       operations: [],
