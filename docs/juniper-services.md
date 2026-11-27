@@ -1,6 +1,6 @@
 # Juniper service foundation
 
-First vertical slice of the approved [testbed plan](history/juniper-testbed-plan.md), not complete Poppy conformance.
+Juniper's first vertical slice, not complete Poppy conformance.
 
 ## Working customer journey
 

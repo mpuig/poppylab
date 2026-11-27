@@ -12,8 +12,7 @@ fictional companies, is the working example that makes each idea concrete.
 
 Learn is not a diary of how the lab was built. A page never says what went
 wrong while building, what was fixed, what a test found or what the authors
-wish they had known. Those stories belong in an article or in
-[`docs/history`](../history). What a page may say is how something behaves:
+wish they had known. Those stories belong in an article. What a page may say is how something behaves:
 "Harborline declines every agent approval that moves money."
 
 ## Four kinds of page

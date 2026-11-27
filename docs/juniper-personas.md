@@ -2,7 +2,7 @@
 
 ## Known protocol deviation
 
-The [coverage matrix, A08](coverage.md) now includes the corrected Session rule: exchange and refresh reject `account_mismatch`, including after revocation and signed-out renewal. Poppy prepares a new candidate Session for explicit consent and replaces its old context only after success. Integration tests keep different personas in distinct Sessions. See [protocol corrections](history/protocol-corrections.md) for evidence and migration limits; this is not a full conformance claim.
+The [coverage matrix, A08](coverage.md) now includes the corrected Session rule: exchange and refresh reject `account_mismatch`, including after revocation and signed-out renewal. Poppy prepares a new candidate Session for explicit consent and replaces its old context only after success. Integration tests keep different personas in distinct Sessions. This is not a full conformance claim.
 
 ## Try it
 

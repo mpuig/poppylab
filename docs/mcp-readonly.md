@@ -25,7 +25,7 @@ Limits: 4 pages, 100 tools inspected, 24 exposed, schemas 4 levels deep, 512 KB 
 
 ## Current authorization limit
 
-MCP Companies are limited to **signed-out reads** with the local policy. There's no signed-in MCP and no write tools; the proposal allowlist isn't widened. (An earlier read-only consent integration for Ample was removed with the move to 0.3; see [Ample, historical](history/ample-readonly.md).)
+MCP Companies are limited to **signed-out reads** with the local policy. There's no signed-in MCP and no write tools; the proposal allowlist isn't widened.
 
 The resource metadata is looked up at the well-known location derived from the endpoint; arbitrary URLs from challenges aren't followed. The MCP endpoint must be on the same origin as the issuer; delegating MCP to another host isn't supported.
 

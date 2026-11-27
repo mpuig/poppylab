@@ -34,12 +34,3 @@ code and change with it.
 | [The agent's core](pap-agent.md)                                                                                                                                                         | The Personal Agent as a package: its API, storage and identity interfaces, how a channel plugs in                                              |
 | [Chat workspace](chat-workspace.md), [chat continuity](chat-continuity.md), [permissions and recovery](permission-consent.md), [OpenAPI tools](openapi-tools.md), [MCP](mcp-readonly.md) | Iris's interface and how it uses each kind of interface                                                                                        |
 | [MCP at the Companies](mcp-company.md)                                                                                                                                                   | The MCP server the gateway runs at every Company: its tools, tokens and checks                                                                 |
-
-## History: for the record
-
-[`history/`](history) keeps notes written for earlier drafts of the protocol
-(0.1 to 0.3) and for features the lab has since removed, such as the PAP
-Sandbox integration and the identity relay. They explain past decisions (including archived implementation plans from `plan/`); don't
-use them as a description of current behaviour. [`history/pitfalls.md`](history/pitfalls.md)
-is the odd one out: the bugs the lab hit and fixed while it was built, kept as
-source material for write-ups rather than as documentation.
