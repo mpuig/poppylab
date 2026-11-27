@@ -1,89 +1,166 @@
 # Poppy Lab
 
-An independent test bench for **Personal Agent Protocol 1.0**: **Iris**, a Personal Agent you run with a small free model or your own model key, and five fictional Companies it can sign in to. Everything runs on Cloudflare Workers or on Node from the same code.
+**An open-source test bench for [Personal Agent Protocol 1.0](https://personalagentprotocol.org)** — featuring **Iris**, a Personal Agent you can run with a free built-in model or your own LLM key, and five independent fictional Companies it can discover, sign in to, and transact with.
 
-- **https://poppylab.dev** explains the protocol and its benefits in plain language; **/learn** teaches it, from everyday processes to every request of a task; **/developers** has the endpoints, scopes and spec sections; **/playground** is Iris.
-- **https://grocery-demo.poppylab.dev** is Juniper Market, a grocery with a full customer website.
-- **https://food-demo.poppylab.dev** is Lantern Noodle Bar, a noodle bar with scheduled orders, whose agent refunds a missing dish once you approve.
-- **https://bank-demo.poppylab.dev** is Harborline Bank, a fully fictional bank with accounts, transactions, cards, recipients, budgets, payments and transfers, plus a read-only FDX-shaped API (not FDX-conformant or certified) behind the `poppylab.dev/fdx` extension.
-- **https://airline-demo.poppylab.dev** is Northwind Air, a fictional airline with flight search, trips, loyalty and approval-gated booking changes.
-- **https://energy-demo.poppylab.dev** is Fernwick Power & Light, a fictional electricity utility with hourly meter readings, monthly bills and an approval-gated rate plan switch, plus a read-only ESPI-shaped API (modelled on NAESB REQ.21 ESPI, not certified) behind the `poppylab.dev/espi` extension.
+[![CI](https://github.com/mpuig/poppylab/actions/workflows/check.yml/badge.svg)](https://github.com/mpuig/poppylab/actions/workflows/check.yml)
+[![Spec Drift](https://github.com/mpuig/poppylab/actions/workflows/spec-drift.yml/badge.svg)](https://github.com/mpuig/poppylab/actions/workflows/spec-drift.yml)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Live Demo](https://img.shields.io/badge/demo-poppylab.dev-0d5c4a.svg)](https://poppylab.dev/playground)
 
-Nothing is sold, charged, shipped or transferred. Harborline moves no real money; Northwind sells or changes no real ticket; Fernwick supplies and bills no electricity. No real banking, passenger, payment or account credentials should be entered anywhere in the demo. Poppy Lab is not affiliated with or endorsed by the protocol's authors; "Personal Agent Protocol" and "Poppy" are their names. It makes no claim of conformance: the draft changes often (`pnpm spec:drift` reports when the published text differs from the pinned copy in `spec/`). On 26 November 2026 all five Companies ran the official validator from the protocol's Company implementation kit with no failures ([results](docs/learn/validator.md)); passing it is not a certification.
+**[Live Playground](https://poppylab.dev/playground)** · **[Learn the Protocol](https://poppylab.dev/learn)** · **[Developer Guide](https://poppylab.dev/developers)** · **[Agent API Reference](https://poppylab.dev/developers/api)** · **[Validator Results](docs/learn/validator.md)**
 
-## What it does
+<p align="center">
+  <img src="apps/playground/public/posts/what-is-poppy-lab/harborline-approval.webp" alt="Poppy Lab approval card showing a simulated $500 transfer at Harborline Bank waiting for explicit user approval" width="560" />
+</p>
 
-- **Discovery, versions and identity (§3, §4.1):** `poppy.json` 1.0 with `supported_versions`, extensions declared per request, protected-resource and authorization-server metadata, an HTTPS `client_id` with metadata and JWKS (ES256 or PS384 accepted).
-- **Sessions (§5):** a delegated ES256 `Poppy-Session` header and `Poppy-Version: 1.0` on every request, `session_ended` for a second account, DPoP-bound access tokens, refresh only with the same DPoP key, and revocation.
-- **Direct Sign-In (§4.2)** through a pushed authorization request when offered, with `prompt=consent`, on the Company's own consent page: read-only first, with a separate step to add change proposals.
-- **Operations v3:** a change comes back as `approval_required` with its exact terms; the Company performs it only when the agent resends the same request with the user's approval in `Poppy-Approval` (who approved, when, and a reference), at most once. The model reads and proposes; only the user's click approves.
-- **Conversations (§8):** each Company has its own agent. It's deterministic, takes structured requests in `data` and answers with data, so the only model is yours. It asks for sign-in with an authorization event, proposes a refund or a support case as an Operations v3 operation inside a message, and answers a handoff with a (fictional) phone number. See [conversations](docs/conversations.md).
-- **Several Companies in one conversation:** up to three, each with its own sign-in, Session, grant and proposals. Each message goes to one of them, and Iris asks which when it can't tell. Companies are added and removed at any moment, by name in a message or from the Companies bar; removing a signed-in one revokes its grant first.
-- **Companies you can inspect:** OpenAPI tools, excluded tasks read per Session from the tasks endpoint (§9), an Inspector that labels every step with its spec section and copies a trace for interop reports.
-- **Public and isolated:** every visitor gets their own agent state (sealed at rest) and their own copy of each Company's fictional customers; rate limits per visitor, IP and globally.
+> [!NOTE]
+> **Independent & fictional.** Poppy Lab is an independent project and is not affiliated with or endorsed by the Personal Agent Protocol authors ("Personal Agent Protocol" and "Poppy" are their names). All five Companies are fictional: nothing is sold, charged, shipped, or transferred. Never enter real banking, payment, passenger, or account credentials anywhere in the demo.
 
-## Run it locally
+---
 
-Requires Node.js 22.18+ and pnpm 11.
+## Live Demo & Five Fictional Companies
+
+Try Iris immediately at **[poppylab.dev/playground](https://poppylab.dev/playground)** — no account or API key required — or inspect any of the five standalone Companies directly:
+
+| Company                    | Live site                                                      | Local dev                         | What it demonstrates                                                      | Domain extension                                               |
+| -------------------------- | -------------------------------------------------------------- | --------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| **Juniper Market**         | [grocery-demo.poppylab.dev](https://grocery-demo.poppylab.dev) | `http://juniper.localhost:4100`   | Grocery orders, recurring delivery changes, full customer portal          | —                                                              |
+| **Lantern Noodle Bar**     | [food-demo.poppylab.dev](https://food-demo.poppylab.dev)       | `http://noodles.localhost:4200`   | Scheduled orders, Company-agent refund proposals (`§8`)                   | —                                                              |
+| **Harborline Bank**        | [bank-demo.poppylab.dev](https://bank-demo.poppylab.dev)       | `http://harbor.localhost:4300`    | Accounts, transfers, bill payments, narrow banking scopes                 | `poppylab.dev/fdx` (read-only FDX-shaped, uncertified)         |
+| **Northwind Air**          | [airline-demo.poppylab.dev](https://airline-demo.poppylab.dev) | `http://northwind.localhost:4400` | Flight search, loyalty, approval-gated upgrades & stale-revision handling | —                                                              |
+| **Fernwick Power & Light** | [energy-demo.poppylab.dev](https://energy-demo.poppylab.dev)   | `http://fernwick.localhost:4500`  | Hourly meter readings, bills, rate-plan switches, cross-company bill pay  | `poppylab.dev/espi` (read-only NAESB ESPI-shaped, uncertified) |
+
+Also live on **[poppylab.dev](https://poppylab.dev)**:
+
+- **[/](https://poppylab.dev)** — Plain-language introduction to Personal Agent Protocol and its benefits.
+- **[/learn](https://poppylab.dev/learn)** — Interactive walkthroughs, request-by-request traces, protocol comparisons, and implementation guides.
+- **[/developers](https://poppylab.dev/developers)** — Endpoints, scopes, OpenAPI spec ([`/api/v1/openapi.json`](packages/pap-agent/openapi.json)), and native-client guide.
+- **[/playground](https://poppylab.dev/playground)** — Iris with live protocol Inspector and multi-company chat.
+
+---
+
+## What Poppy Lab Implements
+
+Built against **Personal Agent Protocol 1.0** and **Operations v3** (the same codebase runs on Cloudflare Workers and Node.js):
+
+- **Discovery, Identity & Versions (`§3`, `§4.1`):** `/.well-known/poppy.json` 1.0 with `supported_versions`, per-request extension negotiation, OAuth protected-resource & authorization-server metadata, and HTTPS `client_id` metadata + JWKS (`ES256` / `PS384`).
+- **Sessions & DPoP (`§5`):** Delegated `ES256` `Poppy-Session` and `Poppy-Version: 1.0` headers on every request, `session_ended` handling, DPoP-bound access tokens, sender-constrained refresh, and revocation.
+- **Direct & Device Sign-In (`§4.2`, `§4.3`):** Pushed Authorization Requests (PAR) with `prompt=consent` on each Company's own consent page — read-only first, with step-up consent to propose changes — plus device-code sign-in where offered.
+- **Browser Session Joining & Tools (`§6`, `§7`, `§9`):** Read-only browser session joining, OpenAPI tools, Streamable HTTP MCP tools, and per-session excluded tasks (`§9`).
+- **Operations v3 Approvals:** State-changing actions return `approval_required` with authoritative server-computed terms and a revision token. Changes execute at most once only after the user approves via `Poppy-Approval` (or under an explicit standing instruction limit).
+- **Company-Agent Conversations (`§8`):** Each Company runs a deterministic agent that exchanges structured `data`, requests sign-in via authorization events, raises Operations v3 proposals inside messages, and supports human handoff (`§8.9`) and Direct Conversations (`§8.10`). See [docs/conversations.md](docs/conversations.md).
+- **Multi-Company Conversations:** Connect up to three Companies in one conversation (for example, _"Pay my Fernwick bill from checking"_ across Fernwick and Harborline), each with isolated Sessions, grants, and proposals.
+- **Channel-Neutral Agent API (`/api/v1`):** OpenAPI 3.1 HTTP API with Server-Sent Events (`/events`), passkey-backed multi-device agent accounts, rotating app tokens, and one-time Company sign-in links for native clients.
+- **Inspector & Validator:** Every step in the playground Inspector maps to its spec section and exports a sanitized interop trace. On 26 November 2026, all five Companies passed the official Company implementation kit validator with zero failures ([results](docs/learn/validator.md); passing is not a certification).
+
+---
+
+## Quick Start
+
+### Prerequisites
+
+- **Node.js** `>= 22.18`
+- **pnpm** `>= 11`
+
+### Run locally
 
 ```sh
 pnpm install
 pnpm dev
 ```
 
-- Playground: http://localhost:3000/playground
-- Juniper Market: http://juniper.localhost:4100 (customer site at `/account`)
-- Lantern Noodle Bar: http://noodles.localhost:4200 (customer site at `/account`)
-- Harborline Bank: http://harbor.localhost:4300 (customer portal at `/account`)
-- Northwind Air: http://northwind.localhost:4400 (customer portal at `/account`)
-- Fernwick Power & Light: http://fernwick.localhost:4500 (customer portal at `/account`)
+Open **[http://localhost:3000/playground](http://localhost:3000/playground)** and pick any Company (sign in as fictional test customers **Elena** or **Robin**; changes appear on the Company's `/account` portal within two seconds).
 
-On poppylab.dev the playground starts with a free model, with no key: a small model on Cloudflare Workers AI, behind Cloudflare Turnstile, with a limit of turns per hour and per day (see [the free model](docs/chat-workspace.md#the-free-model)). Without it, as in local development, or past its limits, it runs in demo mode, which needs no key: it runs scripted examples, the suggestions under the conversation and the messages Learn has you type, and fixed rules call the Company's tools for them. They read at every Company (including through `poppylab.dev/fdx` or `poppylab.dev/espi` when enabled), propose one kind of change at each of the first four Companies (a delivery day, an order, a transfer or payment, an upgrade or a bag), and run one two-company example ("Pay my Fernwick bill from checking.") across Fernwick and Harborline. Anything else gets an answer from Iris that offers the examples; to ask in your own words, press "Use your own model" and paste an OpenAI, Anthropic or Google key. Pick a Company, sign in as a fictional customer (Elena or Robin), ask for a change, and approve it in Needs you, above the message box. The Company website shows the same data within two seconds.
+### Model modes
 
-To use local environment keys instead, `cp apps/playground/.env.example apps/playground/.env.local` and set `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` or `GOOGLE_GENERATIVE_AI_API_KEY` (an `OLLAMA_BASE_URL` adapter is also available internally; see `.env.example`). Keys never reach the model context, the Companies, logs or the Worker bundle (`build:worker` refuses a bundle that contains a local secret).
+| Mode               | Where it runs        | Key required? | Behavior                                                                                                                                                                                                                               |
+| ------------------ | -------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Free model**     | `poppylab.dev`       | No            | Built-in Cloudflare Workers AI model behind Cloudflare Turnstile, subject to per-visitor, per-network, and daily Neuron caps ([details](docs/chat-workspace.md#the-free-model)).                                                       |
+| **Demo mode**      | Local dev & fallback | No            | Deterministic rules execute scripted tasks across all five Companies (including FDX/ESPI reads, approval-gated changes, and the Fernwick + Harborline two-company bill payment).                                                       |
+| **Your own model** | Anywhere             | Yes           | Paste an OpenAI, Anthropic, or Google key in **Model settings**, or copy `apps/playground/.env.example` to `apps/playground/.env.local` (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`, or `OLLAMA_BASE_URL`). |
 
-## Checks
+---
 
-```sh
-pnpm lint
-pnpm format:check
-pnpm learn:diagrams:check
-pnpm typecheck
-pnpm test
-pnpm scenarios
-pnpm build
-pnpm spec:drift
-```
-
-## Workspace
+## Workspace Architecture
 
 ```text
-apps/playground  → pap-agent   → pap-client / llm-adapters → pap-core
-apps/{5 sites}   → pap-company → pap-client                → pap-core
+apps/playground  ──▶ pap-agent   ──▶ pap-client / llm-adapters ──▶ pap-core
+apps/{5 sites}   ──▶ pap-company ──▶ pap-client                ──▶ pap-core
 ```
 
-- `apps/playground`: the Next.js web channel of the agent (OpenNext on Workers or `next start`): the page, its routes over the agent's core, `/api/v1`, per-visitor state in Durable Objects, the home page and Learn.
-- `apps/juniper`: Juniper Market, a `CompanyDefinition` with a customer portal.
-- `apps/lantern`: Lantern Noodle Bar, a second independent Company.
-- `apps/harborline`: Harborline Bank, a standalone fictional banking Company with a matching customer portal and narrow banking scopes.
-- `apps/northwind`: Northwind Air, an airline-shaped Company with differentiated scopes, stale fare/inventory revisions and a customer portal.
-- `apps/fernwick`: Fernwick Power & Light, an electricity utility with an ESPI-shaped Atom XML API next to its own, and a customer portal.
-- `packages/pap-agent`: the Personal Agent's core (conversations and their storage, connections to Companies, routing, the model turn, demo mode, approvals, sign-in) and its channel-neutral API, described in `openapi.json`; see [docs/pap-agent.md](docs/pap-agent.md).
-- `packages/pap-company`: the Hono Company gateway (discovery, sign-in with PAR, tokens, Sessions, conversations, Operations v3, tenancy) that runs all five fictional Companies.
-- `packages/pap-client`: discovery, safe transport, Session and DPoP cryptography, and the tools Iris builds from a Company's OpenAPI, MCP, FDX and ESPI descriptions.
-- `packages/pap-core`: 1.0 schemas and shared types, and the pieces the Companies' websites share (the consent sheet, the how-it-works page).
-- `packages/llm-adapters`: provider-neutral model execution.
+| Path                                             | Description                                                                                                                                                                                              |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`apps/playground`](apps/playground)             | Next.js web channel (OpenNext on Cloudflare Workers or Node): home page, `/learn`, `/developers`, `/playground`, `/api/v1`, and Durable Object visitor/account storage.                                  |
+| [`apps/juniper`](apps/juniper)                   | Juniper Market — grocery Company and customer portal.                                                                                                                                                    |
+| [`apps/lantern`](apps/lantern)                   | Lantern Noodle Bar — restaurant Company with refund proposals.                                                                                                                                           |
+| [`apps/harborline`](apps/harborline)             | Harborline Bank — fictional banking Company with narrow scopes and `poppylab.dev/fdx`.                                                                                                                   |
+| [`apps/northwind`](apps/northwind)               | Northwind Air — airline Company with booking changes and stale-revision handling.                                                                                                                        |
+| [`apps/fernwick`](apps/fernwick)                 | Fernwick Power & Light — electricity utility with `poppylab.dev/espi` Atom XML readings.                                                                                                                 |
+| [`packages/pap-agent`](packages/pap-agent)       | Personal Agent core (conversations, routing, approvals, passkey accounts, SSE) and OpenAPI 3.1 contract ([`openapi.json`](packages/pap-agent/openapi.json)). See [docs/pap-agent.md](docs/pap-agent.md). |
+| [`packages/pap-company`](packages/pap-company)   | Hono Company gateway (discovery, PAR sign-in, DPoP tokens, Sessions, conversations, Operations v3, per-visitor tenancy) powering all five Companies.                                                     |
+| [`packages/pap-client`](packages/pap-client)     | Discovery, SSRF-safe transport, Session/DPoP cryptography, and tool builders for OpenAPI, MCP, FDX, and ESPI.                                                                                            |
+| [`packages/pap-core`](packages/pap-core)         | Personal Agent Protocol 1.0 schemas, shared types, spec anchor links, and shared Company UI components.                                                                                                  |
+| [`packages/llm-adapters`](packages/llm-adapters) | Provider-neutral model adapter (Workers AI, OpenAI-compatible, Anthropic, Google, Ollama).                                                                                                               |
 
-## Documentation
+---
 
-Start with **Learn**, at [poppylab.dev/learn](https://poppylab.dev/learn) or in [`docs/learn`](docs/learn/README.md): how everyday processes work one screen at a time, one task request by request, Poppy compared with an API, MCP, browser automation and UCP, conversations, approvals, domain extensions (FDX, ESPI), how to build a Company, a Personal Agent or an extension, the official validator's results and a glossary. The site pages are built from the same Markdown.
+## Verification & Scripts
 
-[`docs/`](docs/README.md) also holds the design notes for contributors ([Poppy 1.0](docs/poppy-1.0.md), the [coverage matrix](docs/coverage.md), the [portable runtime](docs/portable-runtime.md), one note per Company) and, in [`docs/history`](docs/history), notes from earlier drafts. `DESIGN.md` records the visual systems; `PRODUCT.md` the product context.
+```sh
+pnpm lint                  # ESLint across apps, packages, and scripts
+pnpm format:check          # Prettier formatting check
+pnpm typecheck             # TypeScript checks across all workspaces + smoke scripts
+pnpm test                  # Vitest unit & integration test suites
+pnpm scenarios             # End-to-end multi-company protocol scenarios
+pnpm learn:diagrams:check  # Verify generated Learn & Post SVG diagrams are up to date
+pnpm spec:drift            # Check pinned spec/1.0/ against personalagentprotocol.org
+pnpm build                 # Build all apps and packages
+```
 
-## Deploy
+---
 
-Six Cloudflare Workers, deployed with Wrangler: `pnpm --filter @poppy-lab/lantern run deploy`, `pnpm --filter @poppy-lab/juniper run deploy`, `pnpm --filter @poppy-lab/harborline run deploy`, `pnpm --filter @poppy-lab/northwind run deploy`, `pnpm --filter @poppy-lab/fernwick run deploy`, and for Poppy `pnpm --filter @poppy-lab/playground build:worker && pnpm --filter @poppy-lab/playground deploy:worker`. Poppy needs three secrets, `POPPY_IDENTITY` (the agent key pair), `POPPY_STATE_KEY` (32 random bytes, base64url) and `TURNSTILE_SECRET_KEY` (the Turnstile widget's secret, for the free model), and binds Workers AI (`AI`) for the free model, capped at `FREE_MODEL_DAILY_NEURONS` a day inside the free allocation. See [portable runtime](docs/portable-runtime.md).
+## Security & Isolation
+
+- **Secrets stay below the model:** API keys, OAuth tokens, DPoP keys, Session tokens, and one-time codes never enter model prompts, Company requests, logs, or Worker bundles (`build:worker` fails if a local secret leaks into the bundle).
+- **Per-visitor & per-tenant isolation:** On Workers, each visitor's state lives in its own Durable Object sealed at rest (`POPPY_STATE_KEY`), and each Company isolates fictional customer state per agent user with per-visitor, per-IP, and global rate limits.
+- **Strict transport guards:** Outbound Company fetches enforce SSRF protections, redirect checks, and `global_fetch_strictly_public` on Workers.
+- See **[poppylab.dev/privacy](https://poppylab.dev/privacy)** for full data-retention details.
+
+---
+
+## Deployment (Cloudflare Workers)
+
+Poppy Lab deploys as six Cloudflare Workers via Wrangler (see [docs/portable-runtime.md](docs/portable-runtime.md)):
+
+```sh
+# Deploy the five fictional Companies
+for app in juniper lantern harborline northwind fernwick; do
+  pnpm --filter "@poppy-lab/$app" run deploy
+done
+
+# Build and deploy Poppy Lab (playground + /api/v1)
+pnpm --filter @poppy-lab/playground build:worker
+pnpm --filter @poppy-lab/playground deploy:worker
+```
+
+Required Wrangler secrets on `apps/playground`:
+
+- `POPPY_IDENTITY` — JSON agent signing key pair.
+- `POPPY_STATE_KEY` — 32 random bytes (base64url) sealing per-visitor and account Durable Object state at rest.
+- `TURNSTILE_SECRET_KEY` — Cloudflare Turnstile secret guarding the Workers AI (`AI` binding) free model (capped by `FREE_MODEL_DAILY_NEURONS`).
+
+---
+
+## Documentation & Contributing
+
+- **Learn guides:** [`docs/learn/`](docs/learn/README.md) (rendered directly to [poppylab.dev/learn](https://poppylab.dev/learn)).
+- **Architecture & design notes:** [`docs/`](docs/README.md), [`docs/poppy-1.0.md`](docs/poppy-1.0.md), [`docs/coverage.md`](docs/coverage.md), [`DESIGN.md`](DESIGN.md), and [`PRODUCT.md`](PRODUCT.md).
+- **Contributions:** Issues and pull requests are welcome. Please run `pnpm lint`, `pnpm format:check`, `pnpm typecheck`, and `pnpm test` before opening a PR.
+
+---
 
 ## License
 
-Apache License 2.0; see [LICENSE](LICENSE) and [NOTICE](NOTICE). The copies of the Personal Agent Protocol 1.0 documents in `spec/1.0/` belong to the protocol authors and are published by them under the same license.
+Licensed under the **Apache License 2.0** — see [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+The pinned Personal Agent Protocol 1.0 specification files under [`spec/1.0/`](spec/1.0/) belong to the protocol authors and are distributed under the same license.
