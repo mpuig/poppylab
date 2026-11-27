@@ -141,7 +141,9 @@ export function ownAnswer(
       text,
       ...(scope.did.before ? { before: scope.did.before } : {}),
       trace: scope.trace,
-      mode: "iris",
+      // The agent's own words, under no name of its own: the page reads
+      // `"iris"`, what it was before, the same until 31 January 2027.
+      mode: "own",
       ...(choices.length ? { choices } : {}),
       ...turnState(conversation.connections[0]),
       company: [],

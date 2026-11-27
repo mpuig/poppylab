@@ -23,7 +23,7 @@ describe("what a chat answer adds to the conversation", () => {
       ],
     });
     expect(messages.map((m) => [m.role, m.from?.name])).toEqual([
-      ["Iris", undefined],
+      ["Own", undefined],
       ["Company", "Lantern"],
       ["Demo", "Lantern"],
     ]);
@@ -37,15 +37,30 @@ describe("what a chat answer adds to the conversation", () => {
     ];
     const [message] = turnMessages({
       text: "Which company is this for?",
-      mode: "iris",
+      mode: "own",
       choices,
       trace: ["Discovery"],
     });
     expect(message).toEqual({
-      role: "Iris",
+      role: "Own",
       text: "Which company is this for?",
       choices,
     });
+  });
+
+  it("reads the agent's own answer the same under its old name, from a server before the rename", () => {
+    const answer = {
+      text: "Connected to Harborline Bank.",
+      before: "This is one for Harborline Bank.",
+      choices: [{ label: "Lantern", answer: { company: lantern.origin } }],
+      trace: ["Discovery"],
+    };
+    expect(turnMessages({ ...answer, mode: "iris" })).toEqual(
+      turnMessages({ ...answer, mode: "own" }),
+    );
+    expect(
+      turnMessages({ ...answer, mode: "iris" }).map((m) => m.role),
+    ).toEqual(["Own", "Own"]);
   });
 
   it("names every Company a turn with several used, with the steps the server made at each", () => {

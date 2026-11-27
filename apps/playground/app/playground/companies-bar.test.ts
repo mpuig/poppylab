@@ -154,7 +154,7 @@ describe("a conversation with several Companies", () => {
       from: { origin: lantern, name: "Lantern Noodle Bar" },
     },
     {
-      role: "Iris",
+      role: "Own",
       text: "Which company is this for?",
       choices: [
         { label: "Lantern Noodle Bar", answer: { company: lantern } },

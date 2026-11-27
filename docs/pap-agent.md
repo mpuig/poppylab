@@ -153,7 +153,7 @@ The playground does all of this for its own page through the page's contract, an
 
 **The agent's name** is configuration, never the core's. `configureAgent({ name: "Iris" })` is what the playground passes (`lib/agent.ts`); the model's system prompt and every sentence the agent says in its own voice use it ("Iris connected it to this conversation", "Approved by Iris on your standing instruction"). A page that renders the core's sentences in the browser can't count on that call having run in each bundle, so a build may also give `AGENT_NAME`, which the bundler writes into the code: the playground's `next.config.ts` does. With neither, the agent is called "Agent".
 
-Some names on the page's wire still say Iris, and change only with the page, in one coordinated step: a chat answer's `mode: "iris"` for the agent's own words (to become `"agent"`), and the page's message role `"Iris"` (`app/playground/companies.ts`, to become `"Own"`).
+No name on the wire says the agent's name. A chat answer's `mode` for the agent's own words is `"own"`, and the page's message role for them is `"Own"` (`app/playground/companies.ts`): the same word, which says whose words they are, as `ownAnswer` and `own` in the code do, where `"agent"` would also fit an answer to a turn with a Company (`from: "agent"` in the API). They were `"iris"` and `"Iris"`. The page still reads `mode: "iris"` the same until 31 January 2027, for an answer from a Worker rolled back to before the rename; the role was only ever the page's own state, and no stored conversation holds either (`apps/playground/app/api/account/stored.test.ts`), so nothing stored is translated. `/api/v1` never carried them.
 
 ## Two modes
 

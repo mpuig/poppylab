@@ -143,7 +143,7 @@ describe("a button that picks a Company", () => {
     const asked = await request("What are your products?");
     expect(asked.answer).toMatchObject({
       text: "Is this for Disconnect from Harborline Bank or Harborline Bank? Nothing in your message says which.",
-      mode: "iris",
+      mode: "own",
       choices: [
         {
           label: "Disconnect from Harborline Bank",
@@ -222,7 +222,7 @@ describe("a button that picks a Company", () => {
     const again = await say("Harborline");
     expect(again.answer).toMatchObject({
       text: "Which one is this for: Harborline Trust or Harborline Bank?",
-      mode: "iris",
+      mode: "own",
       choices: [
         { label: "Harborline Trust", answer: { company: other } },
         { label: "Harborline Bank", answer: { company: bank } },
@@ -252,7 +252,7 @@ describe("a button that picks a Company", () => {
     expect(stale.status).toBe(200);
     expect(stale.answer).toMatchObject({
       text: "No request is waiting for a company to be chosen. Type your request again.",
-      mode: "iris",
+      mode: "own",
     });
     expect(stale.answer).not.toHaveProperty("from");
     await request("What are your products?");

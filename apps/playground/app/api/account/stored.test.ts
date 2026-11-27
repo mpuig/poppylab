@@ -31,6 +31,7 @@ import {
   seedRun,
 } from "@poppy-lab/pap-agent/runs";
 import type { Run } from "@poppy-lab/pap-agent/runtime";
+import { historyToMessages } from "../../playground/companies";
 import { POST as chat } from "../chat/route";
 import { GET as list } from "../conversations/route";
 import { GET, POST } from "./route";
@@ -91,6 +92,40 @@ describe.each([
     expect(visitor).toBe(fixture.visitor);
   };
 
+  it("stores no value that names the agent, and reads into the page's messages with none", async () => {
+    // Its sentences name the agent ("Iris didn't send this request"), as
+    // what it said; no member is a name the page reads as a kind of
+    // message, so nothing stored needs translating after the rename to
+    // `mode: "own"` and the role `Own`.
+    const named: string[] = [];
+    const walk = (value: unknown, at: string) => {
+      if (typeof value === "string") {
+        if (/^iris$/i.test(value)) named.push(at);
+      } else if (value && typeof value === "object")
+        for (const [key, inner] of Object.entries(value))
+          walk(inner, `${at}.${key}`);
+    };
+    walk(fixture.run, "run");
+    walk(fixture.view, "view");
+    expect(named).toEqual([]);
+    expect(JSON.stringify(fixture)).not.toMatch(
+      /\\?"(mode|role)\\?"\s*:\s*\\?"iris/i,
+    );
+    await seed();
+    const roles = historyToMessages(
+      (await reload(fixture.id)).history as Parameters<
+        typeof historyToMessages
+      >[0],
+    ).map((m) => m.role);
+    expect(roles.length).toBeGreaterThan(0);
+    expect(
+      roles.filter(
+        (role) =>
+          !["You", "Agent", "Demo", "Error", "Company", "Own"].includes(role),
+      ),
+    ).toEqual([]);
+  });
+
   it("loads as it did: a reload is answered the same", async () => {
     await seed();
     expect(await reload(fixture.id)).toEqual(fixture.view);
@@ -130,7 +165,7 @@ describe.each([
     });
     expect(turn.status).toBe(200);
     expect(turn.headers.get("X-Poppy-Conversation")).toBe(fixture.id);
-    expect(await turn.json()).toMatchObject({ mode: "iris" });
+    expect(await turn.json()).toMatchObject({ mode: "own" });
     // Saved in the shape it was read in, and read again.
     const after = await reload(fixture.id);
     const connections = after.connections as Array<{

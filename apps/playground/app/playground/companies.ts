@@ -94,11 +94,12 @@ export type CompanyRef = { origin: string; name: string };
 export type Choice = { label: string; answer: Record<string, unknown> };
 export type Message = {
   /**
-   * `Iris` is Iris's own words about the conversation (connecting or
+   * `Own` is the agent's own words about the conversation (connecting or
    * removing a Company, asking which one a request is for), from no
-   * Company; `Agent` and `Demo` answer a turn with a Company.
+   * Company; `Agent` and `Demo` answer a turn with a Company. No role
+   * carries the agent's name, which is configuration.
    */
-  role: "You" | "Agent" | "Demo" | "Error" | "Company" | "Iris";
+  role: "You" | "Agent" | "Demo" | "Error" | "Company" | "Own";
   text: string;
   /** The Company the answer, the content or the failed turn came from. */
   from?: CompanyRef;

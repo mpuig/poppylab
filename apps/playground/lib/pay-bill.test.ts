@@ -237,7 +237,7 @@ describe("Pay my Fernwick bill from checking, in demo mode", () => {
     const turn = await say();
     expect(turn.status).toBe(200);
     expect(turn.data).toMatchObject({
-      mode: "iris",
+      mode: "own",
       text: "This takes two companies: Fernwick Power & Light, where Iris reads your bill, and Harborline Bank, where it proposes the payment. Fernwick Power & Light isn't connected to this conversation yet. Connect it, sign in at both and ask again. Nothing was sent to any company.",
       choices: [
         { label: "Fernwick Power & Light", answer: { connect: power } },

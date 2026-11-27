@@ -272,7 +272,7 @@ export function Conversation({
               {several && message.role === "Company" && message.from && (
                 <CompanyMark origin={message.from.origin} />
               )}
-              {message.role === "Agent" || message.role === "Iris"
+              {message.role === "Agent" || message.role === "Own"
                 ? "Iris"
                 : message.role === "Demo"
                   ? "Protocol demo"
@@ -286,7 +286,7 @@ export function Conversation({
               {several &&
                 message.from &&
                 message.role !== "Company" &&
-                message.role !== "Iris" &&
+                message.role !== "Own" &&
                 // A turn that used several Companies names each of them.
                 (message.using?.length ? message.using : [message.from]).map(
                   (c) => <FromCompany key={c.origin} from={c} />,

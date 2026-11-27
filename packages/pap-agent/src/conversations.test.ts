@@ -464,7 +464,7 @@ describe("conversations (§8) in Iris", () => {
       revision: "1793800000-abc",
       approver: "agent" as const,
       approved_at: 1793800090,
-      reference: "apr_iris",
+      reference: "apr_agent",
     };
     // The Company, as §8.3 has it: an ID it accepted is good for that body only.
     const accepted = new Map<string, string>();

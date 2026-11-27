@@ -79,6 +79,13 @@ export type ChatAnswer = {
 };
 
 /**
+ * The `mode` of the agent's own answer before it was `"own"`, from a
+ * server that still says it (a Worker rolled back, a reply in flight
+ * during a deploy). Read the same until 31 January 2027, then removed.
+ */
+const OLD_OWN_MODE = "iris";
+
+/**
  * What a turn adds to the conversation after the User's line: Iris's own
  * line from before it asked a Company (`before`), what the Company's own
  * agent said, and the answer. Iris's own words come from no Company and
@@ -87,9 +94,10 @@ export type ChatAnswer = {
  */
 export function turnMessages(data: ChatAnswer): Message[] {
   const from = data.from ? { from: data.from } : {};
-  const own = data.mode === "iris";
+  // "iris" is what a server before the rename called it (`OLD_OWN_MODE`).
+  const own = data.mode === "own" || data.mode === OLD_OWN_MODE;
   return [
-    ...(data.before ? [{ role: "Iris" as const, text: data.before }] : []),
+    ...(data.before ? [{ role: "Own" as const, text: data.before }] : []),
     ...(data.company ?? []).map((entry): Message => ({
       role: "Company",
       author: entry.author,
@@ -104,7 +112,7 @@ export function turnMessages(data: ChatAnswer): Message[] {
       ? [
           own
             ? {
-                role: "Iris" as const,
+                role: "Own" as const,
                 text: data.text,
                 ...(data.choices?.length ? { choices: data.choices } : {}),
               }

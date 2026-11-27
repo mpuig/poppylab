@@ -1225,9 +1225,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
         }
         setMessages((old) => [
           ...old,
-          ...(data.before
-            ? [{ role: "Iris" as const, text: data.before }]
-            : []),
+          ...(data.before ? [{ role: "Own" as const, text: data.before }] : []),
           {
             role: "Error",
             text:

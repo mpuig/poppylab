@@ -168,7 +168,7 @@ describe("“connect with <Company>”, typed in the chat", () => {
     const text = `Connected to Lantern Noodle Bar. It describes what it offers as ${offers("Lantern Noodle Bar")}. You can ask it something now. Signing in is offered when a request needs your account there.`;
     expect(turn.answer).toMatchObject({
       text,
-      mode: "iris",
+      mode: "own",
       company: [],
       trace: [
         "Connected to Lantern Noodle Bar · discovery read at /.well-known/poppy.json",
@@ -392,7 +392,7 @@ describe("“connect with <Company>”, typed in the chat", () => {
       companies: undefined,
       ...modelled,
     });
-    expect(typed.answer.mode).not.toBe("iris");
+    expect(typed.answer.mode).not.toBe("own");
     expect(typed.answer).not.toHaveProperty("before");
     expect(typed.answer.from).toEqual(juniper);
     expect(run.connections).toHaveLength(1);
@@ -430,7 +430,7 @@ describe("“disconnect from <Company>”, typed in the chat", () => {
       "Remove Juniper Market from this conversation? That revokes the access you gave Iris there, and what Iris read with your account there no longer shows.";
     expect(asked.answer).toMatchObject({
       text: question,
-      mode: "iris",
+      mode: "own",
       trace: [],
       choices: [
         { label: "Remove Juniper Market", answer: { remove: [shop] } },
@@ -453,7 +453,7 @@ describe("“disconnect from <Company>”, typed in the chat", () => {
       "Juniper Market was removed from this conversation, and the access you gave Iris there was revoked. What Iris read with your account there no longer shows. You can connect it again at any time.";
     expect(turn.answer).toMatchObject({
       text,
-      mode: "iris",
+      mode: "own",
       trace: [
         "Account grant revoked · Juniper Market removed from the conversation",
       ],
@@ -516,7 +516,7 @@ describe("“disconnect from <Company>”, typed in the chat", () => {
       before:
         "Juniper Market was removed from this conversation. You can connect it again at any time.",
       text: "Is this for Lantern Noodle Bar or Harborline Bank? Nothing in your message says which.",
-      mode: "iris",
+      mode: "own",
     });
     expect(turn.answer).not.toHaveProperty("from");
     expect(turn.answer.connections).toHaveLength(2);
@@ -661,7 +661,7 @@ describe("removing a Company on words that could also be about an order", () => 
       const asked = await say(message);
       expect(asked.answer).toMatchObject({
         text: question,
-        mode: "iris",
+        mode: "own",
         choices,
       });
       expect(asked.answer).not.toHaveProperty("from");
@@ -673,7 +673,7 @@ describe("removing a Company on words that could also be about an order", () => 
       );
       // The button removes it, by the Company's origin.
       const turn = await press(asked.answer.choices[0]);
-      expect(turn.answer).toMatchObject({ text: removed, mode: "iris" });
+      expect(turn.answer).toMatchObject({ text: removed, mode: "own" });
       expect(run.connections.map((c) => c.url)).toEqual([shop]);
       expect(sent().map((request) => request.url)).toEqual([
         `${food}/oauth/revoke`,
@@ -709,7 +709,7 @@ describe("removing a Company on words that could also be about an order", () => 
       "Lantern Noodle Bar stays connected. Nothing was removed or revoked.";
     const asked = await say("remove Lantern");
     const turn = await press(asked.answer.choices[1]);
-    expect(turn.answer).toMatchObject({ text: kept, mode: "iris" });
+    expect(turn.answer).toMatchObject({ text: kept, mode: "own" });
     expect(turn.answer).not.toHaveProperty("choices");
     expect(shown(run).slice(-2)).toEqual([
       ["user", "Keep Lantern Noodle Bar", food],
@@ -778,7 +778,7 @@ describe("removing a Company on words that could also be about an order", () => 
     );
     expect(asked.answer).toMatchObject({
       text: "Remove Juniper Market from this conversation? That revokes the access you gave Iris there, and what Iris read with your account there no longer shows. A proposal that waits for your approval is dropped with it. Iris asks the rest of your message after that.",
-      mode: "iris",
+      mode: "own",
     });
     expect(asked.answer).not.toHaveProperty("from");
     expect(transport).not.toHaveBeenCalled();
@@ -848,7 +848,7 @@ describe("which Company a message is for", () => {
       const guided = demoGuidedReply(["harborline", "lantern"]);
       expect(turn.answer).toMatchObject({
         text: guided.text,
-        mode: "iris",
+        mode: "own",
         choices: guided.choices.map((c) => ({
           label: c.label,
           answer: { message: c.message },
@@ -943,7 +943,7 @@ describe("which Company a message is for", () => {
       const turn = await say(upgrade);
       expect(turn.answer).toMatchObject({
         text: "This is one for Northwind Air, which this conversation isn't connected to. It works with 3 companies already, as many as it can: remove one, then ask again and Iris connects Northwind Air.",
-        mode: "iris",
+        mode: "own",
         choices: [
           { label: "Remove Juniper Market", answer: { remove: [shop] } },
           { label: "Remove Lantern Noodle Bar", answer: { remove: [food] } },
@@ -1017,7 +1017,7 @@ describe("which Company a message is for", () => {
       const asked = await say("what's my latest delivery", key);
       expect(asked.answer).toMatchObject({
         text: "Is this for Juniper Market or Lantern Noodle Bar? Nothing in your message says which.",
-        mode: "iris",
+        mode: "own",
         choices: [
           { label: "Juniper Market", answer: { company: shop } },
           { label: "Lantern Noodle Bar", answer: { company: food } },
