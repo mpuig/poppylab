@@ -32,8 +32,10 @@ export const LAB_AUTHOR = {
  *
  * Each word says what kind of company it is, never what it sells: "remove
  * the noodles" and "add flights" are what a person says to a Company
- * about an order, and Iris reads these words only after "connect with",
- * "connect to" and "disconnect from".
+ * about an order, and Iris reads these words as a command only after
+ * "connect with", "connect to" and "disconnect from". Elsewhere they only
+ * tell which Company a request is for, when no model says ("my bank
+ * account").
  */
 export function labSites(origin: string) {
   const local = /(^|\.)localhost$/.test(new URL(origin).hostname);

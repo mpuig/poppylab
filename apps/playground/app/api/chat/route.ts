@@ -25,6 +25,7 @@ import {
   companyRef,
   connectionAt,
   connectionNamed,
+  MAX_CONNECTIONS,
   newConnection,
   originOf,
 } from "@/lib/connections";
@@ -34,8 +35,10 @@ import {
   answers,
   choice,
   companiesAt,
+  connectFor,
   keepCompanies,
   listed,
+  noRoomFor,
   performCommand,
   readAnswer,
   typedAnswer,
@@ -74,6 +77,7 @@ import {
   notSentReply,
   readable,
 } from "@/lib/demo-text";
+import { demoExampleFor, demoGuidedReply } from "@/lib/demo-examples";
 import {
   demoAside,
   demoChange,
@@ -86,7 +90,11 @@ import { UserFacingError } from "@/lib/user-error";
 import { refusalFacts } from "@/lib/protocol-log";
 import { companyProfile, PapDiscoveryError } from "@poppy-lab/pap-core";
 import { localOrigins, publicMode, serving } from "@/lib/deployment";
-import { runModel, ModelRequestError } from "@poppy-lab/llm-adapters/server";
+import {
+  askModel,
+  runModel,
+  ModelRequestError,
+} from "@poppy-lab/llm-adapters/server";
 
 export const runtime = "nodejs";
 
@@ -263,15 +271,35 @@ async function reply(request: Request, started: Outcome) {
       (typeof value === "string" && value.length <= 2048);
     // A button's answer comes in place of a message, never with one, and
     // never as one of the User's own Direct Conversation actions.
-    const pressed = readAnswer(body.answer);
+    const answer = readAnswer(body.answer);
     if (
       body.answer !== undefined &&
-      (!pressed || body.message !== undefined || direct)
+      (!answer || body.message !== undefined || direct)
     )
       throw new UserFacingError(
         "Send a message, or the answer one of Iris's buttons carries, and not both.",
       );
-    const written = typeof body.message === "string" ? body.message : "";
+    // The button of one of demo mode's scripted examples sends it as the
+    // User's message. Only the demo's own words are taken so, never a
+    // Company's: anything else is refused.
+    if (
+      answer &&
+      "message" in answer &&
+      !demoExampleFor(answer.message) &&
+      !demoGuidedReply(
+        labCompanies(new URL(request.url).origin).map((c) => c.id),
+      ).choices.some((c) => c.message === answer.message)
+    )
+      throw new UserFacingError(
+        "That button is for an example the demo doesn't have. Type your request instead.",
+      );
+    const pressed = answer && !("message" in answer) ? answer : undefined;
+    const written =
+      answer && "message" in answer
+        ? answer.message
+        : typeof body.message === "string"
+          ? body.message
+          : "";
     if (
       !address(body.url) ||
       !address(body.company) ||
@@ -349,6 +377,11 @@ async function reply(request: Request, started: Outcome) {
               body.url === undefined ? [] : [newConnection({}, body.url)],
           };
     const lab = labCompanies(new URL(request.url).origin);
+    const provider = typeof body.provider === "string" ? body.provider : "demo";
+    const modelConfig = {
+      apiKey: typeof body.apiKey === "string" ? body.apiKey : undefined,
+      model: typeof body.model === "string" ? body.model : undefined,
+    };
     // What follows is refused before a conversation is started, so a
     // refusal leaves none behind.
     const refuse = (refusal: object) => {
@@ -521,42 +554,32 @@ async function reply(request: Request, started: Outcome) {
               lab,
             })
           : undefined;
-      if (command) {
-        stage = "connect";
-        const done = await performCommand(
-          run,
-          command,
-          lab,
-          localOrigins,
-          confirmed,
-        );
-        if (done.ask) run.removing = done.ask;
+      // What Iris did about the Companies, said as its own line. When the
+      // message asks for something else as well, the turn carries on with
+      // that, and the line is shown first.
+      const performed = (done: Performed) => {
+        if (done.ask) conversation.removing = done.ask;
         trace.push(...done.trace);
         Object.assign(did, {
           changed: done.changed,
           ...(done.left ? { left: done.left } : {}),
           kept: trace.length,
         });
-        recordOwn(run, done.about, message, done.say, done.told);
-        run.history = run.history.slice(-10);
+        recordOwn(conversation, done.about, message, done.say, done.told);
+        conversation.history = conversation.history.slice(-10);
         if (!done.rest) return own(done.say, done.choices);
-        // The message asks for something else: carry on with that.
         did.before = done.say;
         asked = done.rest;
         typed = null;
         connection = done.at;
-      }
-      if (!connection && !run.connections.length) {
-        const say = `This conversation isn't connected to a company yet, so nothing was sent. Connect one first: ${listed(
-          lab.map((c) => c.name),
-          "or",
-        )} from the lab, or another company by typing its address in the address box.`;
-        recordOwn(run, undefined, asked, say, say, typed !== null);
-        run.history = run.history.slice(-10);
-        return own(
-          say,
-          lab.map((c) => choice(conversation, { connect: originOf(c) }, lab)),
+        return undefined;
+      };
+      if (command) {
+        stage = "connect";
+        const answered = performed(
+          await performCommand(run, command, lab, localOrigins, confirmed),
         );
+        if (answered) return answered;
       }
       // A Company's name, typed in answer to Iris asking which one.
       const answered =
@@ -586,17 +609,75 @@ async function reply(request: Request, started: Outcome) {
           ),
         );
       } else if (!connection) {
-        const route = await turnConnection(
-          run,
-          asked,
-          // The Company the page had chosen may be the one just removed.
-          hint !== undefined && connectionAt(run, hint) ? hint : undefined,
-        );
-        if ("ask" in route) {
+        // The Company the page had chosen may be the one just removed.
+        const chose =
+          hint !== undefined && connectionAt(run, hint) ? hint : undefined;
+        // Demo mode runs its scripted examples and nothing else: a message
+        // that is none, for no Company the User chose, is answered by Iris
+        // with the examples to try, and nothing is sent.
+        const example =
+          provider === "demo" && chose === undefined
+            ? demoExampleFor(asked)
+            : undefined;
+        if (provider === "demo" && chose === undefined && !example) {
+          const guided = demoGuidedReply(
+            run.connections.flatMap((c) => {
+              const listed = lab.find((l) => originOf(l) === originOf(c));
+              return listed ? [listed.id] : [];
+            }),
+          );
+          recordOwn(run, undefined, asked, guided.text, false, typed !== null);
+          run.history = run.history.slice(-10);
+          return own(
+            guided.text,
+            guided.choices.map((c) => ({
+              label: c.label,
+              answer: { message: c.message },
+            })),
+          );
+        }
+        const route = await turnConnection(run, asked, chose, {
+          // Only a page that shows several Companies can show another.
+          ...(body.companies === true ? { lab } : {}),
+          ...(example ? { example: example.company } : {}),
+          ...(provider !== "demo"
+            ? {
+                ask: (question) => askModel(provider, question, modelConfig),
+              }
+            : {}),
+        });
+        if ("connect" in route) {
+          // A request clearly for one of the lab's Companies, which isn't
+          // connected: Iris connects it, as "connect with" it does, and
+          // asks the request there. At as many Companies as a conversation
+          // works with, it says so and offers to remove one.
+          stage = "connect";
+          const answered = performed(
+            run.connections.length >= MAX_CONNECTIONS
+              ? noRoomFor(run, route.connect, lab)
+              : await connectFor(run, route.connect, asked, localOrigins),
+          );
+          if (answered) return answered;
+        } else if (!run.connections.length) {
+          const say = `This conversation isn't connected to a company yet, so nothing was sent. Connect one first: ${listed(
+            lab.map((c) => c.name),
+            "or",
+          )} from the lab, or another company by typing its address in the address box.`;
+          recordOwn(run, undefined, asked, say, say, typed !== null);
+          run.history = run.history.slice(-10);
+          return own(
+            say,
+            lab.map((c) => choice(conversation, { connect: originOf(c) }, lab)),
+          );
+        } else if ("ask" in route) {
           // Nothing is sent to any Company. The request waits for the
           // answer, which a button or the User's own words can give.
           const names = route.ask.map(nameOf);
-          const say = `Which company is this for? This conversation is connected to ${listed(names, "and")}.`;
+          const say = `Is this for ${listed(names, "or")}? ${
+            route.why === "none"
+              ? "Nothing in your message says which."
+              : `${names.length > 2 ? "Each of them" : "Both"} could have what you asked about.`
+          }`;
           run.waiting = asked;
           recordOwn(run, undefined, asked, say, false, typed !== null);
           return own(
@@ -605,8 +686,7 @@ async function reply(request: Request, started: Outcome) {
               choice(conversation, { company: originOf(c) }, lab),
             ),
           );
-        }
-        connection = route.connection;
+        } else connection = route.connection;
       }
     }
     if (!connection) throw new Error("No connection for the turn");
@@ -619,7 +699,6 @@ async function reply(request: Request, started: Outcome) {
     connection.offered = offeredTools(tools);
     // A turn counts once the Company answered; a failed discovery is free.
     run.calls++;
-    const provider = typeof body.provider === "string" ? body.provider : "demo";
     let text: string;
     // Demo mode has no model to put an answer into words: it shows the
     // Company's answer as plain lines and keeps the exact JSON for "Data".
@@ -905,8 +984,7 @@ async function reply(request: Request, started: Outcome) {
         ],
         recorded,
         {
-          apiKey: typeof body.apiKey === "string" ? body.apiKey : undefined,
-          model: typeof body.model === "string" ? body.model : undefined,
+          ...modelConfig,
           // Whether the User is signed in here, and with what: Company
           // content may say what a request needs, never what the User has.
           context: accountNote(companyName, {

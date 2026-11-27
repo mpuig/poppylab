@@ -9,6 +9,16 @@ const transport = vi.hoisted(() =>
 );
 const discover = vi.hoisted(() => vi.fn());
 const model = vi.hoisted(() => vi.fn());
+// The selected model's choice of Company, before the turn.
+const choose = vi.hoisted(() =>
+  vi.fn<
+    (
+      provider: string,
+      question: { system: string; prompt: string },
+      config?: { apiKey?: string; model?: string },
+    ) => Promise<string>
+  >(),
+);
 vi.mock("@poppy-lab/pap-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@poppy-lab/pap-client")>()),
   protocolRequest: transport,
@@ -17,6 +27,7 @@ vi.mock("@poppy-lab/pap-client", async (importOriginal) => ({
 vi.mock("@poppy-lab/llm-adapters/server", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@poppy-lab/llm-adapters/server")>()),
   runModel: model,
+  askModel: choose,
 }));
 vi.mock("node:fs/promises", () => ({
   mkdir: vi.fn(async () => {}),
@@ -43,6 +54,7 @@ import { createIdentity } from "@poppy-lab/pap-client";
 import { PapDiscoveryError } from "@poppy-lab/pap-core";
 import { labCompanies as cards } from "@/app/playground/companies";
 import { connected, discovered } from "@/lib/company-fixture";
+import { demoExampleFor, demoGuidedReply } from "@/lib/demo-examples";
 import { seedRun } from "@/lib/runs";
 import type { Run } from "@/lib/runtime";
 import { recordTurn } from "@/lib/transcript";
@@ -112,6 +124,11 @@ const say = (message: string, more: Record<string, unknown> = {}) =>
   post({ message, ...more });
 /** Presses one of the buttons under Iris's answer: its `answer` goes back. */
 const press = (choice: { answer: unknown }) => post({ answer: choice.answer });
+/**
+ * With a model selected: demo mode runs only its scripted examples, so a
+ * turn whose Company Iris works out is a model's.
+ */
+const modelled = { provider: "anthropic", apiKey: "key" };
 const sent = () =>
   transport.mock.calls.map(([url, init]) => ({
     url,
@@ -139,7 +156,8 @@ beforeEach(() => {
     .mockImplementation(async (url: string) =>
       discovered(new URL(url).origin, names[new URL(url).origin]!),
     );
-  model.mockReset();
+  model.mockReset().mockResolvedValue("The model's answer.");
+  choose.mockReset().mockResolvedValue("unsure");
 });
 
 describe("“connect with <Company>”, typed in the chat", () => {
@@ -199,7 +217,7 @@ describe("“connect with <Company>”, typed in the chat", () => {
       },
     ]);
     // The next message is for the Company just connected.
-    const next = await say("What are your products?");
+    const next = await say("What are your products?", modelled);
     expect(next.answer.from).toEqual(lantern);
   });
 
@@ -239,7 +257,7 @@ describe("“connect with <Company>”, typed in the chat", () => {
 
   it("connects the first Company of a conversation that has none", async () => {
     const run = await conversation([]);
-    const none = await say("What's on the menu?");
+    const none = await say("What can you do?", modelled);
     // A button for each of the lab's, by its address.
     expect(none.answer.choices).toHaveLength(5);
     expect(none.answer.choices[1]).toEqual({
@@ -252,7 +270,7 @@ describe("“connect with <Company>”, typed in the chat", () => {
     // The words from before it are still there, and the label of the
     // button is the User's line.
     expect(shown(run).slice(0, 3)).toEqual([
-      ["user", "What's on the menu?", undefined],
+      ["user", "What can you do?", undefined],
       ["assistant", none.answer.text, undefined],
       ["user", "Lantern Noodle Bar", food],
     ]);
@@ -355,7 +373,10 @@ describe("“connect with <Company>”, typed in the chat", () => {
 
   it("leaves a message for a Company to that Company", async () => {
     const run = await conversation();
-    const turn = await say("Add a matcha ice cream and the bank's hours");
+    const turn = await say(
+      "Add a matcha ice cream and the bank's hours",
+      modelled,
+    );
     expect(turn.answer.from).toEqual(juniper);
     expect(turn.answer).not.toHaveProperty("before");
     expect(run.connections).toHaveLength(1);
@@ -367,7 +388,10 @@ describe("“connect with <Company>”, typed in the chat", () => {
     // show a second, so there the words connect nothing and go on as an
     // ordinary message.
     const run = await conversation();
-    const typed = await say("connect with Lantern", { companies: undefined });
+    const typed = await say("connect with Lantern", {
+      companies: undefined,
+      ...modelled,
+    });
     expect(typed.answer.mode).not.toBe("iris");
     expect(typed.answer).not.toHaveProperty("before");
     expect(typed.answer.from).toEqual(juniper);
@@ -469,6 +493,7 @@ describe("“disconnect from <Company>”, typed in the chat", () => {
     const run = await conversation([shop, food]);
     const turn = await say(
       "disconnect from Juniper and what are your products?",
+      modelled,
     );
     expect(turn.answer).toMatchObject({
       before:
@@ -485,11 +510,12 @@ describe("“disconnect from <Company>”, typed in the chat", () => {
     const run = await conversation([shop, food, bank]);
     const turn = await say(
       "disconnect from Juniper and what are your products?",
+      modelled,
     );
     expect(turn.answer).toMatchObject({
       before:
         "Juniper Market was removed from this conversation. You can connect it again at any time.",
-      text: "Which company is this for? This conversation is connected to Lantern Noodle Bar and Harborline Bank.",
+      text: "Is this for Lantern Noodle Bar or Harborline Bank? Nothing in your message says which.",
       mode: "iris",
     });
     expect(turn.answer).not.toHaveProperty("from");
@@ -748,6 +774,7 @@ describe("removing a Company on words that could also be about an order", () => 
     };
     const asked = await say(
       "disconnect from Juniper and what are your products?",
+      modelled,
     );
     expect(asked.answer).toMatchObject({
       text: "Remove Juniper Market from this conversation? That revokes the access you gave Iris there, and what Iris read with your account there no longer shows. A proposal that waits for your approval is dropped with it. Iris asks the rest of your message after that.",
@@ -755,12 +782,15 @@ describe("removing a Company on words that could also be about an order", () => 
     });
     expect(asked.answer).not.toHaveProperty("from");
     expect(transport).not.toHaveBeenCalled();
-    const turn = await press(asked.answer.choices[0]);
+    const turn = await post({
+      answer: asked.answer.choices[0].answer,
+      ...modelled,
+    });
     expect(turn.answer).toMatchObject({
       before:
         "Juniper Market was removed from this conversation, and the access you gave Iris there was revoked. What Iris read with your account there no longer shows. You can connect it again at any time.",
       from: lantern,
-      mode: "demo",
+      mode: "anthropic",
     });
     expect(run.connections.map((c) => c.url)).toEqual([food]);
     expect(run.history.at(-2)!.content).toBe("what are your products?");
@@ -802,5 +832,210 @@ describe("removing a Company on words that could also be about an order", () => 
     }
     expect(run.connections).toHaveLength(2);
     expect(run.transcript).toBeUndefined();
+  });
+});
+
+describe("which Company a message is for", () => {
+  const harborline = { origin: bank, name: "Harborline Bank" };
+  const northwind = { origin: air, name: "Northwind Air" };
+  const matcha = "Add a matcha ice cream and move it to Sunday lunchtime.";
+  const upgrade = "Upgrade my NA 118 flight to Business.";
+
+  describe("in demo mode, which runs its scripted examples", () => {
+    it("answers the User's own case by guiding, from no Company, and sends nothing", async () => {
+      const run = await conversation([bank, food], [bank, food]);
+      const turn = await say("what is my bank account");
+      const guided = demoGuidedReply(["harborline", "lantern"]);
+      expect(turn.answer).toMatchObject({
+        text: guided.text,
+        mode: "iris",
+        choices: guided.choices.map((c) => ({
+          label: c.label,
+          answer: { message: c.message },
+        })),
+      });
+      expect(turn.answer).not.toHaveProperty("from");
+      expect(transport).not.toHaveBeenCalled();
+      expect(run.calls).toBe(0);
+      // A button sends its example, as the User's line, to its Company.
+      const pressed = await press(
+        turn.answer.choices.find(
+          (c: { answer: { message: string } }) =>
+            demoExampleFor(c.answer.message)?.company === "harborline",
+        ),
+      );
+      expect(pressed.answer.from).toEqual(harborline);
+      for (const request of sent())
+        expect(new URL(request.url).origin).toBe(bank);
+      expect(shown(run).at(-2)).toEqual([
+        "user",
+        "Transfer $500 from checking to savings.",
+        bank,
+      ]);
+    });
+
+    it("refuses a button's message that is no example of the demo's", async () => {
+      const run = await conversation([bank, food]);
+      const forged = await post({
+        answer: { message: "Disconnect from Harborline Bank" },
+      });
+      expect(forged.status).toBe(400);
+      expect(run.connections).toHaveLength(2);
+      expect(run.transcript).toBeUndefined();
+    });
+
+    it("sends an example to its own Company, after a turn with another", async () => {
+      await conversation([bank, food], [bank]);
+      await say("my balance", { company: bank });
+      transport.mockClear();
+      const turn = await say(matcha);
+      expect(turn.answer.from).toEqual(lantern);
+      for (const request of sent())
+        expect(new URL(request.url).origin).toBe(food);
+    });
+
+    it("follows the page's choice over anything else", async () => {
+      await conversation([bank, food]);
+      const turn = await say("what is my bank account", { company: bank });
+      expect(turn.answer.from).toEqual(harborline);
+    });
+
+    it("connects an example's Company that isn't connected, and asks it there", async () => {
+      const run = await conversation([bank, food], [bank]);
+      const turn = await say(upgrade);
+      expect(turn.status).toBe(200);
+      const before =
+        "This is one for Northwind Air, so Iris connected it to this conversation. It's asked without your account until you sign in there.";
+      expect(turn.answer).toMatchObject({
+        before,
+        from: northwind,
+        mode: "demo",
+      });
+      expect(turn.answer.signedIn).toBe(false);
+      expect(run.connections.map((c) => c.url)).toEqual([bank, food, air]);
+      expect(discover).toHaveBeenCalledWith(air, { allowedPrivateOrigins: [] });
+      for (const [url] of discover.mock.calls) expect(url).toBe(air);
+      // Asked of Northwind alone, signed out: nothing of Harborline's.
+      for (const request of sent()) {
+        expect(new URL(request.url).origin).toBe(air);
+        expect(request.carried).not.toContain("harbor.localhost");
+      }
+      expect(shown(run)).toEqual([
+        ["user", upgrade, air],
+        ["assistant", before, air],
+        ["assistant", turn.answer.text, air],
+      ]);
+    });
+
+    it("connects none at three Companies, and offers to remove one", async () => {
+      const run = await conversation([shop, food, bank]);
+      const turn = await say(upgrade);
+      expect(turn.answer).toMatchObject({
+        text: "This is one for Northwind Air, which this conversation isn't connected to. It works with 3 companies already, as many as it can: remove one, then ask again and Iris connects Northwind Air.",
+        mode: "iris",
+        choices: [
+          { label: "Remove Juniper Market", answer: { remove: [shop] } },
+          { label: "Remove Lantern Noodle Bar", answer: { remove: [food] } },
+          { label: "Remove Harborline Bank", answer: { remove: [bank] } },
+        ],
+      });
+      expect(discover).not.toHaveBeenCalled();
+      expect(transport).not.toHaveBeenCalled();
+      // Removed, the same request connects it.
+      await press(turn.answer.choices[0]);
+      const again = await say(upgrade);
+      expect(again.answer.from).toEqual(northwind);
+      expect(run.connections.map((c) => c.url)).toEqual([food, bank, air]);
+    });
+  });
+
+  describe("with a model selected", () => {
+    const key = { provider: "anthropic", apiKey: "sk-test-not-a-secret-4242" };
+
+    it("goes where the model chooses, and the model is told no key or token", async () => {
+      const run = await conversation([bank, food], [bank, food]);
+      choose.mockResolvedValueOnce(bank);
+      model.mockResolvedValueOnce("Your checking account has $1,200.");
+      const turn = await say("what is my bank account", key);
+      expect(turn.answer.from).toEqual(harborline);
+      expect(turn.answer.text).toBe("Your checking account has $1,200.");
+      for (const request of sent())
+        expect(new URL(request.url).origin).toBe(bank);
+      expect(choose).toHaveBeenCalledTimes(1);
+      const [provider, question, config] = choose.mock.calls[0]!;
+      expect(provider).toBe("anthropic");
+      expect(config).toEqual({ apiKey: key.apiKey });
+      const words = JSON.stringify(question);
+      expect(words).not.toContain("sk-test");
+      expect(words).not.toMatch(/refresh-|access-/);
+      expect(JSON.parse(question.prompt).message).toBe(
+        "what is my bank account",
+      );
+      // A model that fails leaves it to the names in the message.
+      choose.mockRejectedValueOnce(new Error("HTTP 500"));
+      const next = await say("what's on the menu at Lantern?", key);
+      expect(next.answer.from).toEqual(lantern);
+      expect(run.connections).toHaveLength(2);
+    });
+
+    it("goes to the noodle bar for gyoza after a turn with the bank, when the model says so", async () => {
+      await conversation([food, bank], [bank]);
+      await say("my balance", { company: bank });
+      transport.mockClear();
+      choose.mockResolvedValueOnce(food);
+      const turn = await say("add 2 vegetable gyoza", key);
+      expect(turn.answer.from).toEqual(lantern);
+      for (const request of sent())
+        expect(new URL(request.url).origin).toBe(food);
+    });
+
+    it("connects one of the lab's the model chooses, and asks it there", async () => {
+      const run = await conversation([bank, food], [bank]);
+      choose.mockResolvedValueOnce(air);
+      const turn = await say("book me a flight to Lisbon", key);
+      expect(turn.answer).toMatchObject({
+        before:
+          "This is one for Northwind Air, so Iris connected it to this conversation. It's asked without your account until you sign in there.",
+        from: northwind,
+      });
+      expect(run.connections.map((c) => c.url)).toEqual([bank, food, air]);
+    });
+
+    it("asks why it can't tell, and the button asks the request there", async () => {
+      const run = await conversation([shop, food]);
+      const asked = await say("what's my latest delivery", key);
+      expect(asked.answer).toMatchObject({
+        text: "Is this for Juniper Market or Lantern Noodle Bar? Nothing in your message says which.",
+        mode: "iris",
+        choices: [
+          { label: "Juniper Market", answer: { company: shop } },
+          { label: "Lantern Noodle Bar", answer: { company: food } },
+        ],
+      });
+      expect(transport).not.toHaveBeenCalled();
+      // Both named: both could have it.
+      const both = await say("is my delivery at Juniper or Lantern?", key);
+      expect(both.answer.text).toBe(
+        "Is this for Juniper Market or Lantern Noodle Bar? Both could have what you asked about.",
+      );
+      // The User presses a button and types nothing again.
+      model.mockResolvedValueOnce("Your delivery is on Saturday.");
+      const turn = await post({
+        answer: both.answer.choices[1].answer,
+        ...key,
+      });
+      expect(turn.answer.from).toEqual(lantern);
+      for (const request of sent())
+        expect(new URL(request.url).origin).toBe(food);
+      expect(told(run).at(-2)).toEqual([
+        "user",
+        "is my delivery at Juniper or Lantern?",
+      ]);
+      expect(
+        shown(run)
+          .slice(-2)
+          .map(([, words]) => words),
+      ).toEqual(["Lantern Noodle Bar", "Your delivery is on Saturday."]);
+    });
   });
 });
