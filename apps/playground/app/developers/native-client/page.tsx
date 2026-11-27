@@ -65,10 +65,14 @@ export default function NativeClient() {
               <code>webcredentials:poppylab.dev</code>, and the site must serve{" "}
               <code>/.well-known/apple-app-site-association</code> listing the
               app as <code>{"<Team ID>.<bundle ID>"}</code>. poppylab.dev serves
-              no such file yet; it will list an app once that app&apos;s ID is
-              given. Until it does, an iPhone app can&apos;t make or use a
-              passkey for poppylab.dev, and the requests below are the same for
-              any app it lists.
+              it for the apps set in the site&apos;s configuration (
+              <code>APPLE_APP_IDS</code>); another app has to be added there
+              before it can make or use a passkey for poppylab.dev. The requests
+              below are the same for any app it lists. While you develop, add{" "}
+              <code>?mode=developer</code> to the entitlement (
+              <code>webcredentials:poppylab.dev?mode=developer</code>) and turn
+              on Associated Domains Development on the device, so iOS reads the
+              file from the site rather than Apple&apos;s cache.
             </p>
             <p>
               The relying party is <code>poppylab.dev</code>. The clientDataJSON

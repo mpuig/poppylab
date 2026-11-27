@@ -16,6 +16,9 @@ POPPY_PUBLIC = "true"
 # Cloudflare Web Analytics (no cookies): the site's public token, empty for
 # none. `build:worker` reads it, since the pages and the CSP are built with it.
 CF_WEB_ANALYTICS_TOKEN = "c7aa0ad1c74849c2ba9240588dc46e08"
+# Apps that may use poppylab.dev's passkeys (apple-app-site-association):
+# TEAMID.bundle.id, separated by spaces.
+APPLE_APP_IDS = "B763SLJC72.dev.poppylab.app"
 PAP_ACCOUNT_ORIGINS ="https://grocery-demo.poppylab.dev https://food-demo.poppylab.dev https://bank-demo.poppylab.dev https://airline-demo.poppylab.dev https://energy-demo.poppylab.dev"
 # The free model (packages/pap-agent/src/free-model.ts): Turnstile's public
 # site key for the poppylab.dev widget (Managed mode); the Neurons every
