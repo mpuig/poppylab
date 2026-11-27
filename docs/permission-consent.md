@@ -2,7 +2,7 @@
 
 ## Read first
 
-Poppy asks for the Company's read scopes when you choose **Sign in**. A read-only account can look at data but can't propose or confirm changes. The **Request change permission** control opens another consent, this time for read and write. It's only offered if the Company advertises write access; the server also checks the advertised scopes before building the authorization. No new scopes or per-service permissions are added.
+Poppy asks for the Company's read scopes when you choose **Sign in**, or answer "yes" when Iris asks you to sign in in the chat. A read-only account can look at data but can't propose or confirm changes. The **Request change permission** control opens another consent, this time for read and write. It's only offered if the Company advertises write access; the server also checks the advertised scopes before building the authorization. No new scopes or per-service permissions are added.
 
 With a model, each turn's system prompt ends with an account note for the turn's Company (`accountNote` in `packages/pap-agent/src/account-permissions.ts`): whether the User is signed in, the permissions granted, and whether they include proposing changes, or the Company no longer accepts the sign-in. A Company's words such as "opening a case needs the customer signed in" say what a request needs, not whether the User is signed in, so a signed-in User is pointed to **Request change permission** and never asked to sign in.
 
