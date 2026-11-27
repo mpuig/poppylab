@@ -214,6 +214,9 @@
    shows at a time, and the bar that moves between them stays in reach. */
 .learn-steps {
   margin-top: 28px;
+  /* Brought to the top by Next or Previous, it stops under the site's bar:
+     at the window's top, its own bar covered the new step's title. */
+  scroll-margin-top: 64px;
 }
 .learn-steps-bar {
   position: sticky;
