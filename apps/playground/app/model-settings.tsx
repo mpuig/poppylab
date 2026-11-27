@@ -116,7 +116,7 @@ export function ModelSettings({
       >
         <span>
           {definition.id === "demo"
-            ? "Demo mode · no AI model or key needed"
+            ? "Demo mode · guided examples, no key needed"
             : `${definition.label} · ${definition.model}${definition.detail ? " · low" : ""}`}
         </span>
         <span>
