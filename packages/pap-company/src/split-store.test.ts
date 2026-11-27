@@ -1,12 +1,25 @@
 /**
- * Visitor tenants in the split store, as a restarted Durable Object would
- * load them: one that went idle and started again is still stored, whichever
- * request's save ends last, and an evicted one is deleted.
+ * The split store, as a restarted Durable Object would load it: visitor
+ * tenants (one that went idle and started again is still stored, whichever
+ * request's save ends last, and an evicted one is deleted), and the
+ * protocol state, whose rows each fit one value with every cap full.
  */
 import { afterEach, expect, it, vi } from "vitest";
+import { ReplayCache } from "@poppy-lab/pap-client/core";
+import { MAX_CLIENT_ID } from "./gateway/context.ts";
 import { setup } from "./gateway/test-company.ts";
-import type { CompanyDefinition, Deployment } from "./gateway/types.ts";
-import { splitStore, type KeyValue } from "./split-store.ts";
+import {
+  emptyState,
+  type CompanyDefinition,
+  type Deployment,
+  type GatewayState,
+} from "./gateway/types.ts";
+import {
+  MAX_VALUE_BYTES,
+  splitStore,
+  valueBytes,
+  type KeyValue,
+} from "./split-store.ts";
 
 type Held = { wait?: () => Promise<void> };
 /** Holds the next caller of `target.wait`: `reached` once it waits, until `release`. */
@@ -38,6 +51,9 @@ function storage() {
     },
     async put(entries) {
       await kv.wait?.();
+      // As Cloudflare does, a value over its bound fails the whole write.
+      for (const v of Object.values(entries))
+        if (valueBytes(v) > MAX_VALUE_BYTES) throw new Error("value too large");
       for (const [k, v] of Object.entries(entries))
         data.set(k, structuredClone(v));
     },
@@ -46,7 +62,7 @@ function storage() {
       return keys.length;
     },
   };
-  return kv;
+  return Object.assign(kv, { data });
 }
 
 /**
@@ -192,4 +208,183 @@ it("keeps an eviction for the next save when the save that had it fails", async 
   put.release();
   expect((await failing).status).toBe(503);
   expect(await x.stored()).toEqual([2]);
+});
+
+/**
+ * The protocol state with every cap full, each record as large as a client
+ * can make it: the longest client_id, User ID, Agent ID, `state` and
+ * client name, and a replay cache filled by many clients.
+ */
+function worstCase(): GatewayState {
+  const now = Date.now();
+  const key = (i: number) => String(i).padStart(43, "k");
+  const client = (i: number) =>
+    `https://${"c".repeat(MAX_CLIENT_ID - 24)}/${String(i).padStart(10, "0")}.json`;
+  const long = (n: number, i: number) => `${i}`.padEnd(n, "u");
+  const name = "é".repeat(80);
+  const scopes = "things:read things:write poppy:browser-sign-in";
+  const resources = ["acct-checking-0001", "acct-savings-0002"];
+  const many = <T>(n: number, record: (i: number) => T) =>
+    Object.fromEntries(
+      Array.from({ length: n }, (_, i) => [key(i), record(i)]),
+    );
+  const replay = new ReplayCache();
+  for (let i = 0; i < 10000; i++)
+    replay.accept(
+      `session:${client(i % 5)}:${key(i)}`,
+      now / 1000 + 60,
+      client(i % 5),
+    );
+  return {
+    ...emptyState(),
+    sessions: many(2000, (i) => ({
+      client: client(i),
+      user: long(256, i),
+      agent: long(256, i),
+      expires: now,
+      account: "elena",
+    })),
+    tokens: many(2000, (i) => ({
+      client: client(i),
+      binding: key(i),
+      expires: now,
+      accountId: "elena",
+      scopes,
+      grant: key(i),
+      resource: "https://company.test/mcp",
+    })),
+    grants: many(1000, (i) => ({
+      account: "elena",
+      holder: key(i),
+      browser: key(i),
+      id: key(i).slice(0, 32),
+      client: client(i),
+      name,
+      scopes,
+      expires: now,
+      dpop: key(i),
+      resources,
+    })),
+    replays: replay.snapshot(),
+    consents: many(500, (i) => ({
+      client: client(i),
+      redirect: client(i),
+      state: long(100, i),
+      scopes,
+      challenge: key(i),
+      expires: now,
+      dpop: key(i),
+    })),
+    codes: many(500, (i) => ({
+      client: client(i),
+      redirect: client(i),
+      challenge: key(i),
+      scopes,
+      account: "elena",
+      expires: now,
+      browser: key(i),
+      dpop: key(i),
+      resources,
+    })),
+    pushed: many(500, (i) => ({
+      client: client(i),
+      params: {
+        response_type: "code",
+        client_id: client(i),
+        redirect_uri: client(i),
+        scope: scopes,
+        state: long(100, i),
+        code_challenge: key(i),
+        code_challenge_method: "S256",
+        resource: "https://company.test/mcp",
+      },
+      expires: now,
+      dpop: key(i),
+      consent: key(i),
+    })),
+    devices: many(500, (i) => ({
+      client: client(i),
+      name,
+      scopes,
+      userCode: "BCDFGHJK",
+      expires: now,
+      interval: 5,
+      polled: now,
+      dpop: key(i),
+      consent: key(i),
+      approved: { account: "elena", scopes, browser: key(i), resources },
+    })),
+    links: many(2000, (i) => ({ tenant: key(i), used: now })),
+    joins: many(1000, (i) => ({
+      expires: now,
+      client: client(i),
+      holder: key(i),
+      session: key(i),
+      account: "elena",
+      scopes,
+      grant: key(i),
+    })),
+    browsers: many(1000, (i) => ({
+      client: client(i),
+      holder: key(i),
+      session: key(i),
+      expires: now,
+      account: "elena",
+      scopes,
+      grant: key(i),
+    })),
+    joinKey: key(0),
+  };
+}
+
+it("saves the protocol state with every cap full, each row well within one value", async () => {
+  const kv = storage();
+  const store = await splitStore(kv);
+  Object.assign(store.value, worstCase());
+  // Several times what one value holds, all together.
+  expect(valueBytes(store.value)).toBeGreaterThan(3 * MAX_VALUE_BYTES);
+  await store.save({ tenants: [], removed: [] });
+  for (const [key, value] of kv.data)
+    expect(valueBytes(value), key).toBeLessThan(0.9 * MAX_VALUE_BYTES);
+  const restarted = await splitStore(kv);
+  expect(restarted.value).toEqual({ ...store.value, tenants: {} });
+});
+
+it("writes nothing when one value would be too large, and fails the save", async () => {
+  const kv = storage();
+  const store = await splitStore(kv);
+  store.value.sessions.s1 = { client: "c", user: "u", expires: 1 };
+  await store.save({ tenants: [], removed: [] });
+  store.value.sessions.s2 = { client: "c", user: "u", expires: 2 };
+  // A Company's own field in `state`, past what a value holds.
+  (store.value as Record<string, unknown>).notes = "n".repeat(MAX_VALUE_BYTES);
+  const error = vi.spyOn(console, "error").mockImplementation(() => {});
+  await expect(store.save({ tenants: [], removed: [] })).rejects.toThrow(
+    "state is",
+  );
+  expect(error).toHaveBeenCalledWith(
+    "state_value_too_large",
+    "state",
+    expect.any(Number),
+  );
+  error.mockRestore();
+  expect(Object.keys((await splitStore(kv)).value.sessions)).toEqual(["s1"]);
+});
+
+it("reads a state saved in one row, and moves its collections to their own", async () => {
+  const kv = storage();
+  const old = {
+    ...emptyState(),
+    sessions: { s1: { client: "c", user: "u", expires: 1 } },
+    replays: [["session:c:1", 1]],
+    joinKey: "k",
+  };
+  await kv.put({ state: old });
+  const store = await splitStore(kv);
+  expect(store.value.sessions).toEqual(old.sessions);
+  expect(store.value.joinKey).toBe("k");
+  await store.save({ tenants: [], removed: [] });
+  expect(kv.data.get("state")).not.toHaveProperty("sessions");
+  expect(kv.data.get("state:sessions")).toEqual(old.sessions);
+  expect((await splitStore(kv)).value.sessions).toEqual(old.sessions);
 });

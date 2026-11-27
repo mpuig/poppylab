@@ -25,6 +25,9 @@ import {
   type RequestSession,
 } from "./types.ts";
 
+/** The longest `client_id` taken, in characters. */
+export const MAX_CLIENT_ID = 200;
+
 export type ClientInfo = {
   keys: JWK[];
   redirects: string[];
@@ -272,6 +275,9 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
   async function client(id: string): Promise<ClientInfo> {
     const cached = clients.get(id);
     if (cached && cached.until > Date.now()) return cached;
+    // Every Session, token, grant and sign-in keeps it, so its length is
+    // bounded for the protocol state to fit its rows (`split-store.ts`).
+    if (id.length > MAX_CLIENT_ID) throw new Error("invalid_client");
     let url: URL;
     try {
       url = new URL(id);

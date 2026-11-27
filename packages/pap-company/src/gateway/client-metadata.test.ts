@@ -117,6 +117,17 @@ it("takes an http client's own origin when the deployment allows that client", a
   );
 });
 
+it("refuses a client_id longer than the protocol state keeps", async () => {
+  const at = (length: number) =>
+    `https://agent.test/${"c".repeat(length - 24)}.json`;
+  const fits = await agent(["https://agent.test/callback"], { id: at(200) });
+  expect(await fits.opens("https://agent.test/callback")).toBe(200);
+  const long = await agent(["https://agent.test/callback"], { id: at(201) });
+  expect(await long.opens("https://agent.test/callback")).toBe(
+    "invalid_client",
+  );
+});
+
 it("refuses a client whose jwks_uri isn't a URL or carries credentials", async () => {
   for (const jwks of ["not a url", "https://user:pass@agent.test/jwks.json"]) {
     const x = await agent(["https://agent.test/callback"], { jwks });
