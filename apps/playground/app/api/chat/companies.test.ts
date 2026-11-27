@@ -423,7 +423,7 @@ describe("a conversation with no Company", () => {
 
   it("keeps Iris's buttons with its question for a reload, until something follows it", async () => {
     const run = await conversation([], []);
-    const asked = await say("What's on the menu?");
+    const asked = await say("what is my bank account");
     expect(asked.answer.choices).toHaveLength(5);
     // A reload, or History, shows the question with its buttons.
     expect(historyToMessages(shownTranscript(run)).at(-1)).toEqual({

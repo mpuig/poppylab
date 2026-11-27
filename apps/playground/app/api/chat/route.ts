@@ -78,7 +78,7 @@ import {
   notSentReply,
   readable,
 } from "@/lib/demo-text";
-import { demoExampleFor, demoGuidedReply } from "@/lib/demo-examples";
+import { demoExamplesFor, demoGuidedReply } from "@/lib/demo-examples";
 import {
   demoAside,
   demoChange,
@@ -286,7 +286,7 @@ async function reply(request: Request, started: Outcome) {
     if (
       answer &&
       "message" in answer &&
-      !demoExampleFor(answer.message) &&
+      !demoExamplesFor(answer.message).length &&
       !demoGuidedReply(
         labCompanies(new URL(request.url).origin).map((c) => c.id),
       ).choices.some((c) => c.message === answer.message)
@@ -618,17 +618,29 @@ async function reply(request: Request, started: Outcome) {
         // Demo mode runs its scripted examples and nothing else: a message
         // that is none, for no Company the User chose, is answered by Iris
         // with the examples to try, and nothing is sent.
-        const example =
+        const keys = run.connections.flatMap((c) => {
+          const listed = lab.find((l) => originOf(l) === originOf(c));
+          return listed ? [listed.id] : [];
+        });
+        const examples =
           provider === "demo" && chose === undefined
-            ? demoExampleFor(asked)
-            : undefined;
-        if (provider === "demo" && chose === undefined && !example) {
-          const guided = demoGuidedReply(
-            run.connections.flatMap((c) => {
-              const listed = lab.find((l) => originOf(l) === originOf(c));
-              return listed ? [listed.id] : [];
-            }),
-          );
+            ? demoExamplesFor(asked)
+            : [];
+        // The same words can be an example at several Companies ("my
+        // orders"): the connected one is meant. With several connected,
+        // the example names none and the turn is worked out as any other;
+        // with none, the first is connected.
+        const connected = examples.filter((e) =>
+          keys.some((key) => key === e.company),
+        );
+        const example =
+          connected.length === 1
+            ? connected[0]
+            : connected.length
+              ? undefined
+              : examples[0];
+        if (provider === "demo" && chose === undefined && !examples.length) {
+          const guided = demoGuidedReply(keys);
           recordOwn(run, undefined, asked, guided.text, false, typed !== null);
           run.history = run.history.slice(-10);
           return own(

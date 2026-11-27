@@ -364,7 +364,7 @@ describe("One conversation with Lantern and Harborline, end to end", () => {
     // for no Company the User chose, is answered by Iris, from none.
     from = net.seen.length;
     const next = await post(chat, "/api/chat", {
-      message: "my account balances",
+      message: "what is my bank account",
       provider: "demo",
       companies: true,
     });

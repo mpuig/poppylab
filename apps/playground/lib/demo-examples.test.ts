@@ -5,6 +5,7 @@ import { labCompanies } from "@/app/playground/companies";
 import {
   DEMO_EXAMPLES,
   demoExampleFor,
+  demoExamplesFor,
   demoGuidedReply,
 } from "./demo-examples";
 
@@ -78,9 +79,29 @@ it("answers anything else with the examples of the Companies connected", () => {
       message: "Upgrade my flight to Business.",
     },
   ]);
-  // With none connected, every lab Company's.
-  const all = demoGuidedReply([]).choices.map((choice) => choice.message);
-  for (const c of labCompanies) expect(all).toContain(c.account[0]);
-  for (const { message } of demoGuidedReply([]).choices)
-    expect(demoExampleFor(message)).toBeDefined();
+  // With none connected, one of each lab Company's, so the list stays short.
+  const all = demoGuidedReply([]).choices.map(
+    ({ message }) => demoExampleFor(message)?.company,
+  );
+  expect(all).toEqual([
+    "juniper",
+    "lantern",
+    "harborline",
+    "northwind",
+    "fernwick",
+  ]);
+});
+
+it("tells apart the Companies the same words are an example for", () => {
+  expect(demoExamplesFor("my orders").map((e) => e.company)).toEqual([
+    "juniper",
+    "lantern",
+  ]);
+  expect(demoExamplesFor("Transfer $500 from checking to savings")).toEqual([
+    {
+      company: "harborline",
+      text: "Transfer $500 from checking to savings.",
+    },
+  ]);
+  expect(demoExamplesFor("what is my bank account")).toEqual([]);
 });

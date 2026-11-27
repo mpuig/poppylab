@@ -54,7 +54,7 @@ import { createIdentity } from "@poppy-lab/pap-client";
 import { PapDiscoveryError } from "@poppy-lab/pap-core";
 import { labCompanies as cards } from "@/app/playground/companies";
 import { connected, discovered } from "@/lib/company-fixture";
-import { demoExampleFor, demoGuidedReply } from "@/lib/demo-examples";
+import { demoGuidedReply } from "@/lib/demo-examples";
 import { seedRun } from "@/lib/runs";
 import type { Run } from "@/lib/runtime";
 import { recordTurn } from "@/lib/transcript";
@@ -861,7 +861,7 @@ describe("which Company a message is for", () => {
       const pressed = await press(
         turn.answer.choices.find(
           (c: { answer: { message: string } }) =>
-            demoExampleFor(c.answer.message)?.company === "harborline",
+            c.answer.message === "Transfer $500 from checking to savings.",
         ),
       );
       expect(pressed.answer.from).toEqual(harborline);
@@ -890,6 +890,17 @@ describe("which Company a message is for", () => {
       transport.mockClear();
       const turn = await say(matcha);
       expect(turn.answer.from).toEqual(lantern);
+      for (const request of sent())
+        expect(new URL(request.url).origin).toBe(food);
+    });
+
+    it("sends words that are an example at several Companies to the connected one", async () => {
+      const run = await conversation([bank, food]);
+      // "my orders" is an example at Juniper and at Lantern; only Lantern
+      // is connected, so Juniper is not connected for it.
+      const turn = await say("my orders");
+      expect(turn.answer.from).toEqual(lantern);
+      expect(run.connections.map((c) => c.url)).toEqual([bank, food]);
       for (const request of sent())
         expect(new URL(request.url).origin).toBe(food);
     });

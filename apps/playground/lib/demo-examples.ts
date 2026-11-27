@@ -116,35 +116,49 @@ const folded = (message: string) =>
     .replace(/^'+|'+$/g, "")
     .trim();
 
-const byText = new Map<string, DemoExample>();
+const byText = new Map<string, DemoExample[]>();
 for (const example of DEMO_EXAMPLES) {
   const key = folded(example.text);
-  // The first of two Companies with the same words ("my orders") stands.
-  if (!byText.has(key)) byText.set(key, example);
+  const same = byText.get(key) ?? [];
+  if (!same.some((e) => e.company === example.company)) same.push(example);
+  byText.set(key, same);
 }
 
 /** The example a message is, matched after folding case, spaces, quotes and end punctuation; undefined when it is none. */
 export function demoExampleFor(message: string): DemoExample | undefined {
-  return byText.get(folded(message));
+  return byText.get(folded(message))?.[0];
+}
+
+/**
+ * Every Company a message is an example for, in the table's order: the
+ * same words ("my orders") can be an example at several.
+ */
+export function demoExamplesFor(message: string): DemoExample[] {
+  return [...(byText.get(folded(message)) ?? [])];
 }
 
 /**
  * Iris's own answer, in demo mode, to a message that is no example: one
  * plain line saying demo mode runs these examples and a model can be asked
  * anything, and as choices the suggested examples of the given Companies
- * (all lab Companies when none is connected). Each choice sends its
- * `message` as the User's words, as a suggestion does.
+ * (with none connected, the first suggestion of each lab Company, so the
+ * list stays short). Each choice sends its `message` as the User's words,
+ * as a suggestion does.
  */
 export function demoGuidedReply(companies: string[]): {
   text: string;
   choices: { label: string; message: string }[];
 } {
-  const keys = companies.length
-    ? companies
-    : [...new Set(SUGGESTED.map((example) => example.company))];
-  const choices = SUGGESTED.filter((example) =>
-    keys.includes(example.company),
-  ).map((example) => ({ label: example.text, message: example.text }));
+  const offered = companies.length
+    ? SUGGESTED.filter((example) => companies.includes(example.company))
+    : SUGGESTED.filter(
+        (example, i) =>
+          SUGGESTED.findIndex((e) => e.company === example.company) === i,
+      );
+  const choices = offered.map((example) => ({
+    label: example.text,
+    message: example.text,
+  }));
   return {
     text: "Demo mode runs the examples below, without a model. To ask anything in your own words, press “Use your own model”.",
     choices,
