@@ -114,7 +114,7 @@ export async function chat(request: Request, cookies: CookieStore) {
       read: () => readJson(request, 6000),
       conversation: request.headers.get("x-poppy-conversation") ?? undefined,
     },
-    browserCaller(request, cookies),
+    await browserCaller(request, cookies),
   );
   const response = toResponse(turn);
   if (turn.conversation)

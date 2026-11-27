@@ -205,6 +205,83 @@ const schemas: Record<string, Schema> = {
     ["error"],
     "`error` is written for the User and can be shown as it is.",
   ),
+  Passkey: object(
+    {
+      id: string,
+      name: string,
+      created: integer,
+      lastUsed: integer,
+      synced: boolean,
+    },
+    ["id", "name", "created", "synced"],
+    "One of the account's passkeys. `name` is the device it was added on, in that device's words; `synced` says a password manager keeps it on the person's other devices too. Its key is never shown.",
+  ),
+  Account: object(
+    {
+      id: string,
+      label: string,
+      created: integer,
+      passkeys: array(ref("Passkey")),
+      channels: array(object({ channel: string, linked: integer })),
+      session: string,
+      unclaimed: integer,
+    },
+    ["id", "created", "passkeys", "channels", "session"],
+    "An agent account: an opaque ID, its passkeys and the label the person chose, and nothing else about them. `session` is the session of this request; `unclaimed`, for a browser only, counts its own conversations from before it signed in.",
+  ),
+  SessionTokens: object(
+    {
+      session: string,
+      accessToken: string,
+      accessTokenExpiresAt: integer,
+      refreshToken: string,
+      refreshTokenExpiresAt: integer,
+    },
+    undefined,
+    "A client app's tokens. Send the access token as `Authorization: Bearer`; it lasts about 15 minutes. Exchange the refresh token at `/api/v1/sessions/refresh` for new ones: each works once, and one used twice ends the session. Keep both in the device's keychain, never in a URL or a log. Times are milliseconds since 1970.",
+  ),
+  SignedIn: object(
+    { account: ref("Account"), tokens: ref("SessionTokens") },
+    ["account"],
+    "The account, signed in on this device. A browser is given a cookie and no `tokens`; a client app, which sends no `Origin`, is given `tokens`.",
+  ),
+  CreationOptions: object(
+    { ceremony: string, options: { type: "object" } },
+    undefined,
+    "WebAuthn options for `navigator.credentials.create` (PublicKeyCredentialCreationOptionsJSON), and the ceremony to answer them with within five minutes, once.",
+  ),
+  RequestOptions: object(
+    { ceremony: string, options: { type: "object" } },
+    undefined,
+    "WebAuthn options for `navigator.credentials.get` (PublicKeyCredentialRequestOptionsJSON) with no username: any of this site's passkeys answers. Answer within five minutes, once.",
+  ),
+  PasskeyAnswer: object(
+    {
+      ceremony: string,
+      credential: { type: "object" },
+      device: string,
+    },
+    ["ceremony", "credential"],
+    'The authenticator\'s answer (RegistrationResponseJSON or AuthenticationResponseJSON) to the ceremony\'s options. `device` names this device in its own words, such as "iPhone" or "Chrome on macOS".',
+  ),
+  Session: object(
+    {
+      id: string,
+      kind: { type: "string", enum: ["browser", "app"] },
+      device: string,
+      created: integer,
+      lastUsed: integer,
+      expires: integer,
+      current: boolean,
+    },
+    undefined,
+    "A device signed in to the account. `current` is the one this request is made with.",
+  ),
+  LinkCode: object(
+    { code: string, expiresAt: integer },
+    undefined,
+    "A one-time code to type into a channel, which links it to the account. It works once, for five minutes.",
+  ),
 };
 
 const json = (schema: Schema) => ({
@@ -233,6 +310,23 @@ const errors = {
     ...json(ref("Error")),
   },
 };
+const accountErrors = {
+  "400": errors["400"],
+  "401": {
+    description:
+      "Not signed in, or the access token has expired or was revoked.",
+    ...json(ref("Error")),
+  },
+  "403": errors["403"],
+  "429": {
+    description: "Too many attempts; wait a minute.",
+    ...json(ref("Error")),
+  },
+};
+const ok = (description: string, schema: Schema, status = "200") => ({
+  [status]: { description, ...json(schema) },
+});
+const counted = object({ revoked: integer });
 const id = {
   name: "id",
   in: "path",
@@ -249,7 +343,7 @@ export function openApiDocument() {
       title: "Personal Agent API",
       version: "1.0.0",
       description:
-        "Conversations with a Personal Agent and the Companies it works with over PAP 1.0: messages, quick replies, proposals and their approval, sign-in and events. Requests are the visitor's, by the playground's cookie, from its own origin; per-device API sessions come next.",
+        "Conversations with a Personal Agent and the Companies it works with over PAP 1.0: messages, quick replies, proposals and their approval, sign-in and events; and the agent account, with its passkeys and the session of each device. A browser's requests are the playground's own, by its cookies, from its origin. A client app sends no Origin: it creates an account or signs in with a passkey, then sends `Authorization: Bearer <access token>`.",
     },
     servers: [{ url: "/" }],
     paths: {
@@ -401,7 +495,263 @@ export function openApiDocument() {
           },
         },
       },
+      ...accountPaths(),
     },
-    components: { schemas },
+    components: {
+      schemas,
+      securitySchemes: {
+        apiSession: {
+          type: "http",
+          scheme: "bearer",
+          description:
+            "An API session's access token (`SessionTokens`). A browser on the playground's own origin uses its cookie instead.",
+        },
+      },
+    },
+  };
+}
+
+const answerBody = body(ref("PasskeyAnswer"));
+const bearer = [{ apiSession: [] }];
+const passkeyId = {
+  name: "passkey",
+  in: "path",
+  required: true,
+  schema: string,
+  description: "The passkey's `id`.",
+};
+const sessionId = {
+  name: "session",
+  in: "path",
+  required: true,
+  schema: string,
+  description: "The session's `id`.",
+};
+
+/** The agent account's routes (`agent-account-http.ts`). */
+function accountPaths() {
+  return {
+    "/api/v1/accounts/options": {
+      post: {
+        operationId: "accountOptions",
+        summary:
+          "Start creating an account: WebAuthn options for a new passkey (discoverable, with user verification, no attestation). `label` is an optional name for the account, the person's own choice.",
+        requestBody: body(object({ label: string }, [])),
+        responses: {
+          ...ok("The options and the ceremony.", ref("CreationOptions")),
+          ...accountErrors,
+        },
+      },
+    },
+    "/api/v1/accounts": {
+      post: {
+        operationId: "createAccount",
+        summary:
+          "Create the account with the new passkey, and sign this device in.",
+        requestBody: answerBody,
+        responses: {
+          ...ok("The new account, signed in.", ref("SignedIn"), "201"),
+          ...accountErrors,
+        },
+      },
+    },
+    "/api/v1/sessions/options": {
+      post: {
+        operationId: "signInOptions",
+        summary: "Start signing in with a passkey: WebAuthn options.",
+        requestBody: body(object({}, [])),
+        responses: {
+          ...ok("The options and the ceremony.", ref("RequestOptions")),
+          ...accountErrors,
+        },
+      },
+    },
+    "/api/v1/sessions": {
+      post: {
+        operationId: "signIn",
+        summary:
+          "Sign this device in with the passkey's answer: a new session for it.",
+        requestBody: answerBody,
+        responses: {
+          ...ok("The account, signed in.", ref("SignedIn"), "201"),
+          ...accountErrors,
+        },
+      },
+    },
+    "/api/v1/sessions/refresh": {
+      post: {
+        operationId: "refreshSession",
+        summary:
+          "New tokens for a client app, in exchange for its refresh token, which stops working. A refresh token used twice ends the whole session (`session_revoked`).",
+        requestBody: body(object({ refreshToken: string })),
+        responses: {
+          ...ok("The new tokens.", ref("SessionTokens")),
+          ...accountErrors,
+        },
+      },
+    },
+    "/api/v1/account": {
+      get: {
+        operationId: "getAccount",
+        summary: "The account this device is signed in to.",
+        security: bearer,
+        responses: {
+          ...ok("The account.", ref("Account")),
+          "401": accountErrors["401"],
+        },
+      },
+    },
+    "/api/v1/account/passkeys/options": {
+      post: {
+        operationId: "passkeyOptions",
+        summary: "Start adding a passkey to the account: WebAuthn options.",
+        security: bearer,
+        requestBody: body(object({}, [])),
+        responses: {
+          ...ok("The options and the ceremony.", ref("CreationOptions")),
+          "409": {
+            description: "The account has as many passkeys as it can keep.",
+            ...json(ref("Error")),
+          },
+          ...accountErrors,
+        },
+      },
+    },
+    "/api/v1/account/passkeys": {
+      post: {
+        operationId: "addPasskey",
+        summary: "Add the new passkey to the account.",
+        security: bearer,
+        requestBody: answerBody,
+        responses: {
+          ...ok(
+            "The passkey, and the account.",
+            object({ passkey: ref("Passkey"), account: ref("Account") }),
+            "201",
+          ),
+          "409": {
+            description: "The passkey is on the account already.",
+            ...json(ref("Error")),
+          },
+          ...accountErrors,
+        },
+      },
+    },
+    "/api/v1/account/passkeys/{passkey}": {
+      delete: {
+        operationId: "removePasskey",
+        summary:
+          "Remove a passkey. The account keeps at least one (`last_passkey`).",
+        security: bearer,
+        parameters: [passkeyId],
+        responses: {
+          ...ok("The account.", ref("Account")),
+          "404": {
+            description: "No such passkey on this account.",
+            ...json(ref("Error")),
+          },
+          "409": {
+            description: "It is the account's last passkey.",
+            ...json(ref("Error")),
+          },
+          ...accountErrors,
+        },
+      },
+    },
+    "/api/v1/account/sessions": {
+      get: {
+        operationId: "listSessions",
+        summary: "The devices signed in to the account, most recent first.",
+        security: bearer,
+        responses: {
+          ...ok("The sessions.", object({ sessions: array(ref("Session")) })),
+          "401": accountErrors["401"],
+        },
+      },
+      delete: {
+        operationId: "revokeAllSessions",
+        summary: "Sign out every device, this one too.",
+        security: bearer,
+        responses: {
+          ...ok("How many were signed out.", counted),
+          ...accountErrors,
+        },
+      },
+    },
+    "/api/v1/account/sessions/{session}": {
+      delete: {
+        operationId: "revokeSession",
+        summary: "Sign one device out. The others stay signed in.",
+        security: bearer,
+        parameters: [sessionId],
+        responses: {
+          ...ok("It was signed out.", counted),
+          "404": {
+            description: "No such device signed in to this account.",
+            ...json(ref("Error")),
+          },
+          ...accountErrors,
+        },
+      },
+    },
+    "/api/v1/account/sign-out": {
+      post: {
+        operationId: "signOut",
+        summary:
+          "Sign this device out. The account's other devices stay signed in.",
+        security: bearer,
+        requestBody: body(object({}, [])),
+        responses: { ...ok("Signed out.", counted), ...accountErrors },
+      },
+    },
+    "/api/v1/account/claim": {
+      post: {
+        operationId: "claimConversations",
+        summary:
+          "A browser only: bring its own conversations, from before it signed in, into the account, so they open on every device signed in to it. Nothing is moved without this request.",
+        requestBody: body(object({}, [])),
+        responses: {
+          ...ok(
+            "How many were moved, how many were busy and stayed, and the account.",
+            object({
+              moved: integer,
+              skipped: integer,
+              account: ref("Account"),
+            }),
+          ),
+          ...accountErrors,
+        },
+      },
+    },
+    "/api/v1/account/link-codes": {
+      post: {
+        operationId: "createLinkCode",
+        summary:
+          "A one-time code that links a channel, such as a messaging app, to the account when it is typed there.",
+        security: bearer,
+        requestBody: body(object({}, [])),
+        responses: {
+          ...ok("The code.", ref("LinkCode"), "201"),
+          ...accountErrors,
+        },
+      },
+    },
+    "/api/v1/link-codes/redeem": {
+      post: {
+        operationId: "redeemLinkCode",
+        summary:
+          "For a channel this deployment knows, which proves itself in its own way: redeem a code once, linking the channel's user to the code's account.",
+        requestBody: body(
+          object({ channel: string, user: string, code: string }),
+        ),
+        responses: {
+          ...ok(
+            "Linked.",
+            object({ account: string, linked: { type: "boolean" } }),
+          ),
+          ...accountErrors,
+        },
+      },
+    },
   };
 }

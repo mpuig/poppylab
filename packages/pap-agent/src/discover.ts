@@ -1,4 +1,10 @@
-import { readJson, setCookie, toResponse, type CookieStore } from "./web";
+import {
+  browserUser,
+  readJson,
+  setCookie,
+  toResponse,
+  type CookieStore,
+} from "./web";
 import { discoverCompany } from "@poppy-lab/pap-client";
 import { LOCAL_COMPANY_ORIGINS, PapDiscoveryError } from "@poppy-lab/pap-core";
 import {
@@ -6,7 +12,6 @@ import {
   createRun,
   pendingSignIns,
   releaseRun,
-  visitorOf,
   type Held,
 } from "./runs";
 import { signInCookie, signInCookieOptions } from "./sign-in-cookie";
@@ -107,7 +112,7 @@ export async function discover(
     publicMode() &&
     (await overBudget(
       request.headers.get("cf-connecting-ip"),
-      visitorOf(await jar(), true),
+      await browserUser(await jar(), true),
       "discover",
     ));
   if (limited) return toResponse(limited);
@@ -137,7 +142,7 @@ export async function discover(
     // One that names none, or one unknown here, starts a conversation.
     const named = request.headers.get("x-poppy-conversation");
     if (named) {
-      const visitor = visitorOf(await jar(), true);
+      const visitor = await browserUser(await jar(), true);
       const held = await acquireRun(visitor, named);
       if (held === "busy")
         return json(
@@ -155,7 +160,7 @@ export async function discover(
     const response = json(result);
     // Connecting starts a conversation; its ID becomes the page's address.
     try {
-      const visitor = visitorOf(await jar(), true);
+      const visitor = await browserUser(await jar(), true);
       // A sign-in started before, in a conversation the page no longer
       // shows, doesn't complete behind the new one: its cookie goes.
       for (const state of await pendingSignIns(visitor)) {

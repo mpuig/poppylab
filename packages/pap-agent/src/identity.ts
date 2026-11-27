@@ -3,22 +3,35 @@
  * kept under an agent user (`Caller.user`); a channel says which one a
  * request is for.
  *
- * - The playground's page: the visitor, by its cookie (`browserCaller`).
+ * - The playground's page: the visitor, by its cookie (`browserCaller`),
+ *   or the agent account the browser is signed in to.
+ * - A client app (the iPhone app): the agent account its device signed
+ *   in to with a passkey, by the API session's bearer token
+ *   (`apiSessionCaller`).
  * - A channel with users of its own (a messaging bot, a harness): its
  *   user's ID, mapped to an agent user the first time it is seen
- *   (`channelCaller`, `channelUser`).
+ *   (`channelCaller`, `channelUser`), and to an account's once the person
+ *   redeems a link code there (`link-codes.ts`).
  *
- * What comes next has its place here and is not built yet: an agent
- * account a person signs in to with a passkey, which a visitor and any
- * channel's users can be linked to, and an API session for each device
- * of a client app, which a request presents instead of a cookie. They are
- * described below so the API's shape leaves room for them.
+ * An agent account (`account-store.ts`) is an opaque ID, its passkeys
+ * and an optional label: no email, no password, nothing else about the
+ * person. Its conversations follow it to every device signed in to it.
  */
+import type { ApiSession } from "./account-store";
 import { channelUser } from "./runs";
 import type { Caller } from "./web";
 
 export { browserCaller } from "./web";
 export { channelUser };
+export type {
+  AgentAccount,
+  ApiSession,
+  Passkey,
+  PushDevice,
+} from "./account-store";
+export { createLinkCode, redeemLinkCode } from "./link-codes";
+export { configureAccountStorage } from "./account-store";
+export { configureLinkingChannel } from "./agent-account-http";
 
 /**
  * A request from a channel that knows its own user: `user` is the agent
@@ -43,25 +56,27 @@ export function channelCaller(input: {
 }
 
 /**
- * Not built yet. An agent account: the person behind any number of
- * visitors and channel users, who signs in with a passkey. Each passkey is
- * a WebAuthn credential; the account keeps only its public key.
+ * A request with an API session's access token: the account's own,
+ * from whichever device. The token proves it, so it is `authentic`
+ * without an Origin. A Company's sign-in comes back to a browser, which
+ * an app's session has no cookie in, so none is bound here and the API
+ * refuses to start one (`sign_in_needs_browser`).
  */
-export type AgentAccount = {
-  id: string;
-  passkeys: Array<{ credentialId: string; publicKey: string; added: number }>;
-  /** The agent users linked to it: a visitor, a channel's user. */
-  linked: Array<{ via: "visitor" | "channel"; user: string }>;
-};
-
-/**
- * Not built yet. A session of one device of a client app (the mobile
- * app), started with the account's passkey and presented as a bearer
- * token on `/api/v1`. It can be listed and ended one device at a time.
- */
-export type ApiSession = {
-  id: string;
-  account: string;
-  device: { name: string; added: number };
-  expires: number;
-};
+export function apiSessionCaller(
+  request: Request,
+  session: ApiSession,
+): Caller {
+  return {
+    user: (() => session.user) as Caller["user"],
+    authentic: true,
+    origin: new URL(request.url).origin,
+    localDev: false,
+    ip: request.headers.get("cf-connecting-ip"),
+    signIns: {
+      bind: () => {},
+      holds: () => false,
+      release: () => {},
+    },
+    account: { id: session.account, session: session.id, via: "bearer" },
+  };
+}

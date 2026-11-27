@@ -6,7 +6,8 @@
  * helpers do it for the Fetch API's `Request` and `Response`, which the
  * playground's routes, a Worker and Node all have.
  */
-import { visitorOf } from "./runs";
+import { BROWSER_MS, sessionOfCookie } from "./api-sessions";
+import { secureCookies, visitorOf } from "./runs";
 import { signInCookie, signInCookieOptions } from "./sign-in-cookie";
 import { UserFacingError } from "./user-error";
 
@@ -55,8 +56,10 @@ export type CookieStore = {
  * visitor cookie (`visitorOf`). `create` makes one when the channel has
  * none for this person yet; without it, undefined means a stranger.
  * `authentic` says the channel trusts the request is the user's own (a
- * same-origin browser request; later, an API session), and `origin` is
- * where the agent is served, which says where the lab's Companies are.
+ * same-origin browser request, an API session's bearer token), and
+ * `origin` is where the agent is served, which says where the lab's
+ * Companies are. A request signed in to an agent account is the
+ * account's: `user` is the account's agent user, on every device.
  */
 export type Caller = {
   user(create: true): string;
@@ -77,13 +80,65 @@ export type Caller = {
     holds(state: string): boolean;
     release(state: string): void;
   };
+  /**
+   * The agent account the request is signed in to (`api-sessions.ts`):
+   * by the browser's cookie, or by an app's bearer token.
+   */
+  account?: { id: string; session: string; via: "cookie" | "bearer" };
 };
 
+/** The cookie that holds a browser's session of an agent account. */
+export const accountCookie = () =>
+  secureCookies() ? "__Host-poppy_account" : "poppy_account";
+export const accountCookieOptions = (maxAge = BROWSER_MS / 1000) => ({
+  httpOnly: true,
+  secure: secureCookies(),
+  sameSite: "lax" as const,
+  path: "/",
+  maxAge,
+});
+/**
+ * The agent account this browser is signed in to, if its cookie still
+ * names a session; one that ended (signed out on another device, say)
+ * takes its cookie with it.
+ */
+export async function browserAccount(cookies: CookieStore) {
+  const value = cookies.get(accountCookie())?.value;
+  if (!value) return undefined;
+  const session = await sessionOfCookie(value);
+  if (!session) cookies.set(accountCookie(), "", accountCookieOptions(0));
+  return session;
+}
+/**
+ * Whom a browser's requests are for: the account it is signed in to, or
+ * else its visitor (made when `create` and there is none).
+ */
+export async function browserUser(
+  cookies: CookieStore,
+  create: true,
+): Promise<string>;
+export async function browserUser(
+  cookies: CookieStore,
+  create?: boolean,
+): Promise<string | undefined>;
+export async function browserUser(cookies: CookieStore, create = false) {
+  return (await browserAccount(cookies))?.user ?? visitorOf(cookies, create);
+}
+
 /** A browser request to the playground's own routes, as a `Caller`. */
-export function browserCaller(request: Request, cookies: CookieStore): Caller {
+export async function browserCaller(
+  request: Request,
+  cookies: CookieStore,
+): Promise<Caller> {
   const url = new URL(request.url);
+  const session = await browserAccount(cookies);
   return {
-    user: ((create?: boolean) => visitorOf(cookies, create)) as Caller["user"],
+    user: (session
+      ? () => session.user
+      : (create?: boolean) => visitorOf(cookies, create)) as Caller["user"],
+    ...(session
+      ? { account: { id: session.account, session: session.id, via: "cookie" } }
+      : {}),
     authentic: request.headers.get("origin") === url.origin,
     origin: url.origin,
     localDev:

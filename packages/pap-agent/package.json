@@ -18,6 +18,7 @@
     "@poppy-lab/llm-adapters": "workspace:*",
     "@poppy-lab/pap-client": "workspace:*",
     "@poppy-lab/pap-core": "workspace:*",
+    "@simplewebauthn/server": "14.1.0",
     "jose": "^6.2.12"
   },
   "devDependencies": {

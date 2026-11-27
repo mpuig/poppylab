@@ -112,7 +112,7 @@ const leave = (result: "done" | "failed") =>
  * after its consent page (§4.2), with the code or the refusal.
  */
 export async function signInCallback(request: Request, cookies: CookieStore) {
-  const caller = browserCaller(request, cookies);
+  const caller = await browserCaller(request, cookies);
   const url = new URL(request.url);
   const state = url.searchParams.get("state");
   // Only the visitor who started this sign-in can complete it, in the

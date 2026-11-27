@@ -3,6 +3,8 @@
  * per visitor (and per budget bucket, `worker/visitor.ts`), every value
  * sealed with the POPPY_STATE_KEY secret before it leaves the isolate. The
  * agent's core defines the store (`Backend`); this is the playground's.
+ * Agent accounts are kept the same way in objects of their own
+ * (`accountStorage`), which outlive a visitor's.
  */
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import type { Backend, Versioned } from "@poppy-lab/pap-agent/runs";
@@ -25,11 +27,11 @@ type Namespace = {
   get(id: unknown): VisitorObject;
 };
 
-export function visitorStorage(): Backend {
-  const env = () => getCloudflareContext().env as Record<string, unknown>;
-  const stub = (visitor: string) => {
-    const ns = env().POPPY_VISITORS as Namespace;
-    return ns.get(ns.idFromName(visitor));
+const env = () => getCloudflareContext().env as Record<string, unknown>;
+function durableStorage(binding: string): Backend {
+  const stub = (bucket: string) => {
+    const ns = env()[binding] as Namespace;
+    return ns.get(ns.idFromName(bucket));
   };
   const key = importStateKey(
     typeof env().POPPY_STATE_KEY === "string"
@@ -39,6 +41,8 @@ export function visitorStorage(): Backend {
   key.catch(() => {});
   return sealedBackend(plainDurableBackend(stub), key);
 }
+export const visitorStorage = () => durableStorage("POPPY_VISITORS");
+export const accountStorage = () => durableStorage("POPPY_ACCOUNTS");
 function plainDurableBackend(
   stub: (visitor: string) => VisitorObject,
 ): Backend {

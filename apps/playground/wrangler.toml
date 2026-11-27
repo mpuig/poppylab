@@ -22,6 +22,16 @@ PAP_ACCOUNT_ORIGINS = "https://grocery-demo.poppylab.dev https://food-demo.poppy
 name = "POPPY_VISITORS"
 class_name = "PoppyVisitor"
 
+# Agent accounts: their passkeys and each device's session, kept a year
+# from their last use (worker/visitor.ts).
+[[durable_objects.bindings]]
+name = "POPPY_ACCOUNTS"
+class_name = "PoppyAccount"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["PoppyVisitor"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["PoppyAccount"]

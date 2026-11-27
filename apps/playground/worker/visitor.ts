@@ -2,6 +2,9 @@
  * One Durable Object per visitor (named by the visitor cookie's hash), plus
  * `global` and `ip:<hash>` objects for budgets. Each method runs atomically:
  * Durable Object storage calls don't let other requests interleave.
+ *
+ * Agent accounts (`PoppyAccount`) are the same object with a longer idle
+ * time: a passkey on someone's phone outlives a week away.
  */
 import { DurableObject } from "cloudflare:workers";
 
@@ -10,8 +13,9 @@ type Versioned = { value: unknown; version: number };
 const IDLE_MS = 8 * 86400000;
 
 export class PoppyVisitor extends DurableObject {
+  protected idleMs = IDLE_MS;
   private async touch() {
-    await this.ctx.storage.setAlarm(Date.now() + IDLE_MS);
+    await this.ctx.storage.setAlarm(Date.now() + this.idleMs);
   }
   async getEntry(key: string) {
     return this.ctx.storage.get<Versioned>(`e:${key}`);
@@ -50,4 +54,15 @@ export class PoppyVisitor extends DurableObject {
   override async alarm() {
     await this.ctx.storage.deleteAll();
   }
+}
+
+/** An account no device has used for a year goes, passkeys and sessions. */
+const ACCOUNT_IDLE_MS = 365 * 86400000;
+
+/**
+ * One Durable Object per agent account (`account:<id>`), and one for each
+ * passkey ceremony and link code under way, which are taken once.
+ */
+export class PoppyAccount extends PoppyVisitor {
+  protected override idleMs = ACCOUNT_IDLE_MS;
 }

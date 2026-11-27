@@ -8,6 +8,7 @@ import {
   listConversations,
   loadRun,
   memoryBackend,
+  moveConversations,
   readConversation,
   releaseRun,
   resetDemo,
@@ -579,4 +580,29 @@ it("keeps a conversation of the usual size, three Companies and all", async () =
     );
   expect(bytesOf(held.run)).toBeLessThan(RUN_LIMITS.connect);
   expect(await releaseRun("v", held)).toBe(true);
+});
+
+it("moves a visitor's conversations to an account as they are, and leaves one another request holds", async () => {
+  configureBackend(memoryBackend());
+  const visitor = "visitor-a",
+    account = "account-user";
+  const one = await createRun(visitor, "https://shop.example");
+  one.run.title = "Move my delivery";
+  await releaseRun(visitor, one);
+  const busy = await createRun(visitor);
+  busy.run.title = "Still answering";
+  // `busy` stays locked, as a turn under way holds it.
+  expect(await moveConversations(visitor, account)).toEqual({
+    moved: 1,
+    skipped: 1,
+  });
+  const moved = await readConversation(account, one.id);
+  expect(moved).toMatchObject({ title: "Move my delivery", busy: false });
+  expect(moved!.connections[0]!.url).toBe("https://shop.example");
+  // The User ID the Company knows comes from the visitor it began with.
+  expect(moved!.connections[0]!.visitor).toBe(visitor);
+  expect(await readConversation(visitor, one.id)).toBeUndefined();
+  expect((await listConversations(visitor)).map((c) => c.id)).toEqual([
+    busy.id,
+  ]);
 });

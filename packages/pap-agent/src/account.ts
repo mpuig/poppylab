@@ -130,7 +130,7 @@ export async function accountView(request: Request, cookies: CookieStore) {
   return toResponse(
     await readAccount(
       new URL(request.url).searchParams.get("conversation"),
-      browserCaller(request, cookies),
+      await browserCaller(request, cookies),
     ),
   );
 }
@@ -142,7 +142,7 @@ export async function account(request: Request, cookies: CookieStore) {
       conversation: request.headers.get("x-poppy-conversation") ?? undefined,
       shown: request.headers.get("x-pap-company"),
     },
-    browserCaller(request, cookies),
+    await browserCaller(request, cookies),
   );
   const response = toResponse(done);
   if (done.conversation)

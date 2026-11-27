@@ -242,6 +242,8 @@ function backend(): Backend {
           ? unconfigured()
           : nodeBackend());
 }
+/** The store as configured: for what the core keeps beside conversations. */
+export const storage = () => backend();
 /** A Worker has no file system for the vault: its store has to be named. */
 function unconfigured(): never {
   throw new Error(
@@ -708,10 +710,13 @@ export async function pendingSignIns(visitor: string) {
  * record of its own so that a later step can point it at another agent
  * user, when a person links the channel to their account.
  */
+const channelKey = (channel: string, id: string) => ({
+  bucket: `channel:${channel}`,
+  key: `user:${createHash("sha256").update(id).digest("base64url")}`,
+});
 export async function channelUser(channel: string, id: string) {
   const b = backend();
-  const bucket = `channel:${channel}`;
-  const key = `user:${createHash("sha256").update(id).digest("base64url")}`;
+  const { bucket, key } = channelKey(channel, id);
   for (let attempt = 0; attempt < 3; attempt++) {
     const linked = (await b.get(bucket, key))?.value as
       { user?: string } | undefined;
@@ -723,6 +728,77 @@ export async function channelUser(channel: string, id: string) {
       return user;
   }
   throw new Error("Channel user conflict");
+}
+
+/**
+ * Points a channel's user at another agent user: an account's, once the
+ * person redeemed a link code there (`link-codes.ts`). From then on the
+ * channel's requests are the account's; what it said before stays under
+ * the agent user it had.
+ */
+export async function linkChannelUser(
+  channel: string,
+  id: string,
+  user: string,
+  account: string,
+) {
+  const b = backend();
+  const { bucket, key } = channelKey(channel, id);
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const current = await b.get(bucket, key);
+    if (
+      await b.put(
+        bucket,
+        key,
+        { user, account, linked: Date.now() },
+        current?.version ?? null,
+      )
+    )
+      return;
+  }
+  throw new Error("Channel user conflict");
+}
+
+// ---- Moving conversations --------------------------------------------------
+/**
+ * Moves one agent user's conversations to another: a visitor's into the
+ * account they signed in to, when they ask for it. Each keeps its ID, its
+ * words and its Companies, with the User ID each Company knows; one that
+ * another request holds right now stays where it is and is counted. Over
+ * the cap, the oldest ended ones go as the next list is read.
+ */
+export async function moveConversations(from: string, to: string) {
+  const b = backend();
+  let moved = 0,
+    skipped = 0;
+  for (const { id } of await sweep(from)) {
+    const held = await acquireStored(from, id);
+    if (!held) {
+      skipped++;
+      continue;
+    }
+    const { busyUntil, ...rest } = held.run;
+    void busyUntil;
+    const run = { ...rest, busy: false };
+    if (await b.put(to, `run:${id}`, run, null)) {
+      await b.remove(from, `run:${id}`);
+      moved++;
+    } else {
+      await unlockStored(from, held);
+      skipped++;
+    }
+  }
+  return { moved, skipped };
+}
+/** A conversation locked for the move, running or ended. */
+async function acquireStored(visitor: string, id: string) {
+  const entry = await backend().get(visitor, `run:${id}`);
+  const run = readRun(entry?.value);
+  if (!entry || !run || locked(run)) return undefined;
+  const next = { ...run, busy: true, busyUntil: Date.now() + BUSY_MS };
+  if (!(await backend().put(visitor, `run:${id}`, next, entry.version)))
+    return undefined;
+  return { id, run: next, version: entry.version + 1 } satisfies Held;
 }
 
 // ---- Rate limits -----------------------------------------------------------

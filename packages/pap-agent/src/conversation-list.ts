@@ -1,12 +1,19 @@
 /**
- * The visitor's conversations: a list for the Conversations view, and the
- * one action that starts the demo over. Only names and times leave here;
+ * The visitor's conversations, or the agent account's when the browser is
+ * signed in to one: a list for the Conversations view, and the one action
+ * that starts the demo over. Only names and times leave here;
  * a conversation's words come from `/api/account?conversation=`.
  */
 import { serving } from "./deployment";
-import { listConversations, resetDemo, visitorOf } from "./runs";
+import { listConversations, resetDemo } from "./runs";
 import { overBudget } from "./limits";
-import { browserCaller, readJson, toResponse, type CookieStore } from "./web";
+import {
+  browserCaller,
+  browserUser,
+  readJson,
+  toResponse,
+  type CookieStore,
+} from "./web";
 
 const headers = { "Cache-Control": "no-store" };
 const disabled = () =>
@@ -18,7 +25,7 @@ const disabled = () =>
 /** `GET /api/conversations`. */
 export async function conversationList(cookies: CookieStore) {
   if (!serving()) return disabled();
-  const visitor = visitorOf(cookies);
+  const visitor = await browserUser(cookies);
   return Response.json(
     { conversations: visitor ? await listConversations(visitor) : [] },
     { headers },
@@ -31,7 +38,7 @@ export async function conversationAction(
   cookies: CookieStore,
 ) {
   if (!serving()) return disabled();
-  const caller = browserCaller(request, cookies);
+  const caller = await browserCaller(request, cookies);
   if (!caller.authentic)
     return Response.json(
       { error: "Same-origin requests required" },

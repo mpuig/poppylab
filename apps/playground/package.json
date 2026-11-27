@@ -20,6 +20,7 @@
     "@poppy-lab/pap-agent": "workspace:*",
     "@poppy-lab/pap-client": "workspace:*",
     "@poppy-lab/pap-core": "workspace:*",
+    "@simplewebauthn/browser": "14.0.0",
     "jose": "^6.2.12",
     "lucide-react": "^0.468.0",
     "marked": "^18.3.0",
