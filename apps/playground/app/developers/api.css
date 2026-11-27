@@ -35,12 +35,72 @@
   padding: 0;
   font-size: 15px;
 }
-/* The method, as the code on Learn colours it. */
+/* The method pill, coloured by HTTP verb for quick scanning. */
 .api-method {
-  color: var(--green);
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: var(--green-wash);
+  color: var(--green-deep);
   font-family: var(--mono);
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
+  letter-spacing: 0.02em;
+  vertical-align: 1px;
+}
+[data-method="POST"] .api-method {
+  background: #edf1f6;
+  color: #1d3557;
+}
+[data-method="DELETE"] .api-method {
+  background: #fbeeed;
+  color: #9b2c2c;
+}
+.site .learn-body .api-summary {
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 1.45;
+}
+.site .learn-body .api-desc {
+  color: var(--ink-soft);
+  font-size: 15px;
+  line-height: 1.6;
+}
+.api-req {
+  font-size: 12px;
+  font-weight: 600;
+  color: #9b5a00;
+  letter-spacing: 0.01em;
+}
+.api-opt {
+  font-size: 12px;
+  color: var(--muted);
+}
+.api-answers [data-status="2"] dt .api-name {
+  color: var(--green-deep);
+}
+.api-answers [data-status="3"] dt .api-name {
+  color: #1d3557;
+}
+.api-answers [data-status="4"] dt .api-name {
+  color: #9b2c2c;
+}
+.site .learn-body .api-ex-toggle {
+  margin-top: 18px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px 14px;
+  background: var(--tint);
+}
+.site .learn-body .api-ex-toggle summary {
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.site .learn-body .api-ex-toggle[open] summary {
+  margin-bottom: 10px;
 }
 .api-group {
   display: block;

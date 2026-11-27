@@ -1,16 +1,26 @@
 import type { Metadata } from "next";
+import { EXAMPLES, type ApiExample } from "@/lib/api-examples";
 import {
   ERROR_CODES,
   apiReference,
   eventAnchor,
   fields,
   typeParts,
+  type ApiDocument,
   type Body,
   type Operation,
 } from "@/lib/api-reference";
+import { codeBlock } from "@/lib/learn-code";
 import { SITE_NAME, pageMetadata } from "@/lib/site";
 import { SiteBar, SiteFoot } from "../../site-chrome";
-import { ApiNav, FieldList, Inline, SchemaView, TypeText } from "../api-parts";
+import {
+  ApiNav,
+  FieldList,
+  Inline,
+  SchemaView,
+  TypeText,
+  exampleText,
+} from "../api-parts";
 import "../../site.css";
 import "../../learn/learn.css";
 import "../api.css";
@@ -24,6 +34,13 @@ export const metadata: Metadata = pageMetadata({
 });
 
 const DOCUMENT = "/api/v1/openapi.json";
+
+/** First schema-verified example per operation, shown inline in the reference. */
+const EXAMPLE_BY_OP = new Map<string, ApiExample>();
+for (const example of Object.values(EXAMPLES)) {
+  if (!EXAMPLE_BY_OP.has(example.operation))
+    EXAMPLE_BY_OP.set(example.operation, example);
+}
 
 /** Whether a body's members are written in place, to list under it. */
 const inPlace = (body: Body) => !!body.schema.oneOf || !!fields(body.schema);
@@ -50,11 +67,19 @@ function BodyType({ body }: { body: Body }) {
 }
 
 /** One operation: its method and path, what it does, what it takes and answers. */
-function OperationView({ op }: { op: Operation }) {
+function OperationView({
+  op,
+  document,
+}: {
+  op: Operation;
+  document: ApiDocument;
+}) {
   const body = op.body;
+  const example = EXAMPLE_BY_OP.get(op.id);
+  const rendered = example ? exampleText(document, example) : undefined;
   return (
     <section className="api-op" id={op.id} aria-labelledby={`${op.id}-title`}>
-      <h3 id={`${op.id}-title`}>
+      <h3 id={`${op.id}-title`} data-method={op.method}>
         <span className="api-method">{op.method}</span> <code>{op.path}</code>
       </h3>
       <p className="api-meta">
@@ -63,18 +88,18 @@ function OperationView({ op }: { op: Operation }) {
         </a>
         {op.security.map((name) => (
           <span key={name}>
-            {" · needs "}
+            {" · "}
             <a href="#authentication">
               <code>{name}</code>
             </a>
           </span>
         ))}
       </p>
-      <p>
+      <p className="api-summary">
         <Inline text={op.summary} />
       </p>
       {op.description && (
-        <p>
+        <p className="api-desc">
           <Inline text={op.description} />
         </p>
       )}
@@ -87,7 +112,7 @@ function OperationView({ op }: { op: Operation }) {
               required: !!p.required,
               type: [
                 ...(p.schema ? typeParts(p.schema) : []),
-                { text: `${p.schema ? ", " : ""}in the ${p.in}` },
+                { text: `${p.schema ? ", " : ""}${p.in}` },
               ],
               ...(p.description ? { description: p.description } : {}),
             }))}
@@ -105,10 +130,10 @@ function OperationView({ op }: { op: Operation }) {
           {inPlace(body) && <SchemaView schema={body.schema} />}
         </>
       )}
-      <p className="api-label">Answers</p>
+      <p className="api-label">Responses</p>
       <dl className="api-fields api-answers">
         {op.answers.map((answer) => (
-          <div key={answer.status}>
+          <div key={answer.status} data-status={answer.status[0]}>
             <dt>
               <code className="api-name">{answer.status}</code>{" "}
               <span className="api-type">
@@ -132,6 +157,25 @@ function OperationView({ op }: { op: Operation }) {
           </div>
         ))}
       </dl>
+      {rendered && (
+        <details className="api-ex-toggle">
+          <summary>Example request &amp; response</summary>
+          <div className="api-example">
+            <div
+              dangerouslySetInnerHTML={{
+                __html: codeBlock(rendered.request, "http"),
+              }}
+            />
+            {rendered.answer && (
+              <div
+                dangerouslySetInnerHTML={{
+                  __html: codeBlock(rendered.answer, "http"),
+                }}
+              />
+            )}
+          </div>
+        </details>
+      )}
     </section>
   );
 }
@@ -299,7 +343,7 @@ export default function ApiReference() {
                   </p>
                 )}
                 {group.operations.map((op) => (
-                  <OperationView key={op.id} op={op} />
+                  <OperationView key={op.id} op={op} document={document} />
                 ))}
                 {group.id === "events" && (
                   <section

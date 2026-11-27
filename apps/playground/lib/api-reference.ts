@@ -395,63 +395,63 @@ export function mismatches(
 export const EVENT_NOTES = {
   state: {
     carries: ["state"],
-    text: "The conversation as it is when the stream opens. Everything after it is a change to this.",
+    text: "Initial snapshot emitted when the stream opens. Every subsequent event describes a delta from this state.",
   },
   message: {
     carries: ["message"],
-    text: "Something new was said, by the User, the agent or a Company.",
+    text: "A new message appended by the user, agent, or Company.",
   },
   "messages.replaced": {
     carries: ["state"],
-    text: "The conversation took back what it showed before, for instance when a Company stopped taking the sign-in or was removed. Show the messages of `state` in place of the old ones.",
+    text: "Earlier messages were withdrawn (for example, after losing access or disconnecting a Company). Replace your local transcript with `state.messages`.",
   },
   "signin.completed": {
     carries: ["company"],
-    text: "The person signed in at the Company, in the browser it was opened in.",
+    text: "The user completed OAuth consent at the Company.",
   },
   "signin.failed": {
     carries: ["company"],
-    text: "A sign-in under way ended without signing in: declined or failed at the Company, or not finished within five minutes. Nothing changed.",
+    text: "A pending Company sign-in was declined, failed, or expired after 5 minutes. No grant changed.",
   },
   "access.lost": {
     carries: ["company"],
-    text: "The Company no longer takes the sign-in. The person signs in again.",
+    text: "The Company rejected or revoked the stored grant. Prompt the user to sign in again.",
   },
   signout: {
     carries: ["company"],
-    text: "The person signed out of the Company in this conversation.",
+    text: "The user signed out of the Company in this conversation.",
   },
   "proposal.created": {
     carries: ["proposal"],
-    text: "A Company holds a new change for the person's approval.",
+    text: "A Company returned a new Operations v3 proposal awaiting user approval.",
   },
   "proposal.expired": {
     carries: ["proposal"],
-    text: "Its terms ran out before it was approved. Nothing was done.",
+    text: "The proposal passed `expiresAt` without approval. Nothing was executed.",
   },
   "proposal.replaced": {
     carries: ["proposal"],
-    text: "The Company answered the approval with other terms, which wait for the person now.",
+    text: "The Company returned a fresh `revision` with updated terms that require new approval.",
   },
   "proposal.updated": {
     carries: ["proposal"],
-    text: "It ended otherwise: performed, declined, refused or uncertain.",
+    text: "The proposal moved to a terminal state (`succeeded`, `declined`, `refused`, or `uncertain`).",
   },
   "company.added": {
     carries: ["company"],
-    text: "A Company joined the conversation.",
+    text: "A Company was connected to the conversation.",
   },
   "company.removed": {
     carries: ["company"],
-    text: "A Company left the conversation.",
+    text: "A Company was disconnected from the conversation.",
   },
   "conversation.ended": {
     carries: ["keptUntil"],
-    text: "The conversation has ended and is read-only, kept until `keptUntil` when there is one. The stream closes.",
+    text: "The conversation is now read-only and will be purged at `keptUntil`. The stream closes.",
   },
   "session.ended": {
     carries: ["code"],
-    text: "The stream's own sign-in ended, and the stream with it. With `invalid_token` refresh the access token and open the stream again; with `session_revoked` sign in again.",
+    text: "The caller's session is no longer valid and the stream closed. On `invalid_token`, refresh the access token and reconnect; on `session_revoked`, sign in again.",
   },
 } satisfies Record<AgentEventType, { carries: string[]; text: string }>;
 
@@ -476,47 +476,43 @@ export const ERROR_CODES = [
   [
     "invalid_token",
     "401",
-    "The access token ran out, was replaced or isn't one. Refresh it, then send the request again.",
+    "Access token expired, rotated, or invalid. Call `POST /api/v1/sessions/refresh` and retry.",
   ],
   [
     "session_revoked",
     "401",
-    "The device's session has ended: signed out, a passkey removed, or a refresh token used twice. Sign in again with a passkey.",
+    "Device session ended (signed out, passkey removed, or refresh token reused). Sign in again with a passkey.",
   ],
-  [
-    "not_signed_in",
-    "401",
-    "The request needs an account and carries no session.",
-  ],
+  ["not_signed_in", "401", "Endpoint requires an authenticated agent account."],
   [
     "passkey_not_verified",
     "400",
-    "The passkey's answer proved no account. The answer is the same whatever the reason, so it never says whether an account or a passkey exists.",
+    "WebAuthn verification failed. Returned uniformly whether the account or passkey exists.",
   ],
   [
     "ceremony_expired",
     "400",
-    "The options were answered after five minutes, or a second time. Ask for new ones.",
+    "WebAuthn ceremony expired (5-minute TTL) or was already consumed. Request fresh options.",
   ],
   [
     "rate_limited",
     "429",
-    "Too many tries. Wait as many seconds as `Retry-After` says.",
+    "Rate limit exceeded. Wait the number of seconds given in the `Retry-After` header.",
   ],
   [
     "too_many_streams",
     "429",
-    "The account already has ten event streams open on its devices.",
+    "Open SSE stream limit reached (10 concurrent streams per signed-in account, or 4 per anonymous visitor).",
   ],
   [
     "last_passkey",
     "409",
-    "An account keeps at least one passkey, so its last one can't be removed.",
+    "Cannot delete the only remaining passkey on an account.",
   ],
   [
     "company_not_connected",
     "400",
-    "The conversation has no Company at that origin.",
+    "The conversation does not have a Company connected at that origin.",
   ],
   ["conversation_ended", "410", "The conversation has ended and is read-only."],
 ] as const;

@@ -3,36 +3,60 @@
   "info": {
     "title": "Personal Agent API",
     "version": "1.0.0",
-    "description": "Conversations with a Personal Agent and the Companies it works with over PAP 1.0: messages, quick replies, proposals and their approval, sign-in and events; and the agent account, with its passkeys and the session of each device. A browser's requests are the playground's own, by its cookies, from its origin. A client app sends no Origin: it creates an account or signs in with a passkey, then sends `Authorization: Bearer <access token>`."
+    "description": "HTTP API for building clients on top of the Personal Agent over Personal Agent Protocol (Poppy 1.0): multi-company conversations, quick replies, Operations v3 approval workflows, Company OAuth sign-in, real-time SSE events, and passkey-backed multi-device accounts. Browser clients authenticate via same-origin cookies; native apps send no `Origin` header and authenticate with `Authorization: Bearer <accessToken>`."
   },
   "servers": [
     {
       "url": "/"
     }
   ],
-  "paths": {
-    "/api/v1/openapi.json": {
-      "get": {
-        "operationId": "getOpenApi",
-        "summary": "This document.",
-        "responses": {
-          "200": {
-            "description": "OpenAPI 3.1.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          }
-        }
-      }
+  "tags": [
+    {
+      "name": "Conversations",
+      "description": "Create and interact with conversations across up to three connected Companies. Each turn returns newly added messages alongside the updated `ConversationState`."
     },
+    {
+      "name": "Company sign-ins",
+      "description": "Authenticate a user directly on a Company's own consent page without exposing credentials to the agent. Final outcomes arrive over the SSE event stream."
+    },
+    {
+      "name": "Events",
+      "description": "Real-time Server-Sent Events stream delivering sign-in outcomes, proposal updates, cross-device activity, and Direct Conversation messages."
+    },
+    {
+      "name": "Accounts",
+      "description": "Create passwordless, passkey-backed agent accounts and inspect or claim conversations across devices."
+    },
+    {
+      "name": "Sessions",
+      "description": "Authenticate devices with discoverable WebAuthn passkeys and rotate short-lived bearer and refresh tokens."
+    },
+    {
+      "name": "Passkeys",
+      "description": "Register additional WebAuthn passkeys on an account or remove compromised ones (ending every session they started)."
+    },
+    {
+      "name": "Devices",
+      "description": "List active browser and app sessions (up to 25 per account) and revoke one or all devices."
+    },
+    {
+      "name": "Channels",
+      "description": "Link external messaging channels to an account using short-lived, single-use codes."
+    },
+    {
+      "name": "Schema",
+      "description": "Machine-readable OpenAPI 3.1 contract for `/api/v1`."
+    }
+  ],
+  "paths": {
     "/api/v1/conversations": {
       "post": {
+        "tags": [
+          "Conversations"
+        ],
         "operationId": "startConversation",
-        "summary": "Start a conversation, with no Company or with the one at `company`, connected signed out.",
+        "summary": "Start a conversation",
+        "description": "Creates an empty conversation, or connects an initial Company signed out when `company` is provided.",
         "requestBody": {
           "required": true,
           "content": {
@@ -41,7 +65,8 @@
                 "type": "object",
                 "properties": {
                   "company": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Optional Company origin URL to discover and connect immediately."
                   }
                 },
                 "required": []
@@ -51,7 +76,7 @@
         },
         "responses": {
           "201": {
-            "description": "The new conversation.",
+            "description": "Conversation created.",
             "content": {
               "application/json": {
                 "schema": {
@@ -61,7 +86,7 @@
             }
           },
           "400": {
-            "description": "Refused before anything was sent.",
+            "description": "Invalid request payload or precondition failed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -71,7 +96,7 @@
             }
           },
           "403": {
-            "description": "Not from the playground's own origin.",
+            "description": "Cross-origin browser request rejected.",
             "content": {
               "application/json": {
                 "schema": {
@@ -81,7 +106,7 @@
             }
           },
           "404": {
-            "description": "No such conversation for this user.",
+            "description": "Conversation not found for this caller.",
             "content": {
               "application/json": {
                 "schema": {
@@ -91,7 +116,7 @@
             }
           },
           "409": {
-            "description": "Another request holds the conversation, or a Company can't be added.",
+            "description": "Conversation is busy with another request, or the Company cannot be added.",
             "content": {
               "application/json": {
                 "schema": {
@@ -101,7 +126,7 @@
             }
           },
           "410": {
-            "description": "The conversation has ended and is read-only.",
+            "description": "Conversation has ended and is now read-only.",
             "content": {
               "application/json": {
                 "schema": {
@@ -111,7 +136,7 @@
             }
           },
           "422": {
-            "description": "Discovery of the Company failed.",
+            "description": "Company discovery failed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -125,8 +150,12 @@
     },
     "/api/v1/conversations/{id}": {
       "get": {
+        "tags": [
+          "Conversations"
+        ],
         "operationId": "getConversation",
-        "summary": "The conversation as it is now: its Companies, what was said, and every proposal.",
+        "summary": "Retrieve a conversation",
+        "description": "Returns the current `ConversationState`, including connected Companies, transcript messages, and all proposals.",
         "parameters": [
           {
             "name": "id",
@@ -135,12 +164,12 @@
             "schema": {
               "type": "string"
             },
-            "description": "The conversation."
+            "description": "Conversation ID."
           }
         ],
         "responses": {
           "200": {
-            "description": "The conversation.",
+            "description": "Current conversation state.",
             "content": {
               "application/json": {
                 "schema": {
@@ -150,7 +179,7 @@
             }
           },
           "404": {
-            "description": "No such conversation for this user.",
+            "description": "Conversation not found for this caller.",
             "content": {
               "application/json": {
                 "schema": {
@@ -164,8 +193,12 @@
     },
     "/api/v1/conversations/{id}/messages": {
       "post": {
+        "tags": [
+          "Conversations"
+        ],
         "operationId": "sendMessage",
-        "summary": "The User's message. `company` is the Company the User chose for it; without it the agent works out which, or asks with choices.",
+        "summary": "Send a message",
+        "description": "Submits a user message and runs one agent turn. If `company` is omitted in a multi-company conversation, the agent routes automatically or replies with disambiguation `choices`.",
         "parameters": [
           {
             "name": "id",
@@ -174,7 +207,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The conversation."
+            "description": "Conversation ID."
           }
         ],
         "requestBody": {
@@ -185,13 +218,16 @@
                 "type": "object",
                 "properties": {
                   "text": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "User message text."
                   },
                   "company": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Optional target Company origin URL to scope this turn."
                   },
                   "model": {
-                    "$ref": "#/components/schemas/ModelChoice"
+                    "$ref": "#/components/schemas/ModelChoice",
+                    "description": "Model configuration for this turn. Defaults to `demo`."
                   }
                 },
                 "required": [
@@ -203,7 +239,7 @@
         },
         "responses": {
           "200": {
-            "description": "What the turn added, and the conversation.",
+            "description": "Turn completed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -213,7 +249,7 @@
             }
           },
           "400": {
-            "description": "Refused before anything was sent.",
+            "description": "Invalid request payload or precondition failed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -223,7 +259,7 @@
             }
           },
           "403": {
-            "description": "Not from the playground's own origin.",
+            "description": "Cross-origin browser request rejected.",
             "content": {
               "application/json": {
                 "schema": {
@@ -233,7 +269,7 @@
             }
           },
           "404": {
-            "description": "No such conversation for this user.",
+            "description": "Conversation not found for this caller.",
             "content": {
               "application/json": {
                 "schema": {
@@ -243,7 +279,7 @@
             }
           },
           "409": {
-            "description": "Another request holds the conversation, or a Company can't be added.",
+            "description": "Conversation is busy with another request, or the Company cannot be added.",
             "content": {
               "application/json": {
                 "schema": {
@@ -253,7 +289,7 @@
             }
           },
           "410": {
-            "description": "The conversation has ended and is read-only.",
+            "description": "Conversation has ended and is now read-only.",
             "content": {
               "application/json": {
                 "schema": {
@@ -267,8 +303,12 @@
     },
     "/api/v1/conversations/{id}/answers": {
       "post": {
+        "tags": [
+          "Conversations"
+        ],
         "operationId": "answerChoice",
-        "summary": "The answer one of the agent's choices carries, in place of a message.",
+        "summary": "Submit a quick-reply answer",
+        "description": "Submits the structured `answer` payload from a previous message's `Choice` without free-text parsing.",
         "parameters": [
           {
             "name": "id",
@@ -277,7 +317,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The conversation."
+            "description": "Conversation ID."
           }
         ],
         "requestBody": {
@@ -288,10 +328,12 @@
                 "type": "object",
                 "properties": {
                   "answer": {
-                    "$ref": "#/components/schemas/Answer"
+                    "$ref": "#/components/schemas/Answer",
+                    "description": "Exact `answer` object from a `Choice`."
                   },
                   "model": {
-                    "$ref": "#/components/schemas/ModelChoice"
+                    "$ref": "#/components/schemas/ModelChoice",
+                    "description": "Model configuration if the choice triggers a turn."
                   }
                 },
                 "required": [
@@ -303,7 +345,7 @@
         },
         "responses": {
           "200": {
-            "description": "What the turn added, and the conversation.",
+            "description": "Answer applied.",
             "content": {
               "application/json": {
                 "schema": {
@@ -313,7 +355,7 @@
             }
           },
           "400": {
-            "description": "Refused before anything was sent.",
+            "description": "Invalid request payload or precondition failed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -323,7 +365,7 @@
             }
           },
           "403": {
-            "description": "Not from the playground's own origin.",
+            "description": "Cross-origin browser request rejected.",
             "content": {
               "application/json": {
                 "schema": {
@@ -333,7 +375,7 @@
             }
           },
           "404": {
-            "description": "No such conversation for this user.",
+            "description": "Conversation not found for this caller.",
             "content": {
               "application/json": {
                 "schema": {
@@ -343,7 +385,7 @@
             }
           },
           "409": {
-            "description": "Another request holds the conversation, or a Company can't be added.",
+            "description": "Conversation is busy with another request, or the Company cannot be added.",
             "content": {
               "application/json": {
                 "schema": {
@@ -353,7 +395,7 @@
             }
           },
           "410": {
-            "description": "The conversation has ended and is read-only.",
+            "description": "Conversation has ended and is now read-only.",
             "content": {
               "application/json": {
                 "schema": {
@@ -367,8 +409,12 @@
     },
     "/api/v1/conversations/{id}/proposals/{proposal}/decision": {
       "post": {
+        "tags": [
+          "Conversations"
+        ],
         "operationId": "decideProposal",
-        "summary": "Approve or decline a proposal, found by its Company and its ID. An approval covers exactly `revision`.",
+        "summary": "Approve or decline a proposal",
+        "description": "Approves or declines a pending Operations v3 proposal. Approvals bind strictly to `revision` and execute at most once; if the Company's terms changed, the proposal transitions to `superseded`.",
         "parameters": [
           {
             "name": "id",
@@ -377,7 +423,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The conversation."
+            "description": "Conversation ID."
           },
           {
             "name": "proposal",
@@ -385,7 +431,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Proposal (operation) ID."
           }
         ],
         "requestBody": {
@@ -396,17 +443,20 @@
                 "type": "object",
                 "properties": {
                   "company": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Origin URL of the Company holding the proposal."
                   },
                   "revision": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Exact `revision` token from the proposal shown to the user."
                   },
                   "decision": {
                     "type": "string",
                     "enum": [
                       "approve",
                       "decline"
-                    ]
+                    ],
+                    "description": "User decision (`approve` or `decline`)."
                   }
                 },
                 "required": [
@@ -420,7 +470,7 @@
         },
         "responses": {
           "200": {
-            "description": "The proposal as it is now, and the conversation.",
+            "description": "Decision recorded.",
             "content": {
               "application/json": {
                 "schema": {
@@ -430,7 +480,7 @@
             }
           },
           "400": {
-            "description": "Refused before anything was sent.",
+            "description": "Invalid request payload or precondition failed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -440,7 +490,7 @@
             }
           },
           "403": {
-            "description": "Not from the playground's own origin.",
+            "description": "Cross-origin browser request rejected.",
             "content": {
               "application/json": {
                 "schema": {
@@ -450,7 +500,7 @@
             }
           },
           "404": {
-            "description": "No such conversation for this user.",
+            "description": "Conversation not found for this caller.",
             "content": {
               "application/json": {
                 "schema": {
@@ -460,7 +510,7 @@
             }
           },
           "409": {
-            "description": "Another request holds the conversation, or a Company can't be added.",
+            "description": "Conversation is busy with another request, or the Company cannot be added.",
             "content": {
               "application/json": {
                 "schema": {
@@ -470,7 +520,7 @@
             }
           },
           "410": {
-            "description": "The conversation has ended and is read-only.",
+            "description": "Conversation has ended and is now read-only.",
             "content": {
               "application/json": {
                 "schema": {
@@ -484,8 +534,12 @@
     },
     "/api/v1/conversations/{id}/sign-ins": {
       "post": {
+        "tags": [
+          "Company sign-ins"
+        ],
         "operationId": "startSignIn",
-        "summary": "Start a sign-in at one of the conversation's Companies; `signin.completed` or `signin.failed` follows on the events. With an API session's token, the answer is a link of the agent's own, which starts the sign-in in the browser the app opens it in.",
+        "summary": "Start a Company sign-in",
+        "description": "Initiates Direct Sign-In (§4.2) at a connected Company. Browser callers receive the Company's consent URL; bearer-authenticated apps receive a single-use agent link (`SignIn.url`) to open in an in-app browser session. Completion emits `signin.completed` or `signin.failed` on the event stream.",
         "parameters": [
           {
             "name": "id",
@@ -494,7 +548,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The conversation."
+            "description": "Conversation ID."
           }
         ],
         "requestBody": {
@@ -505,14 +559,16 @@
                 "type": "object",
                 "properties": {
                   "company": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Origin URL of the connected Company."
                   },
                   "access": {
                     "type": "string",
                     "enum": [
                       "read",
                       "write"
-                    ]
+                    ],
+                    "description": "Permission tier to request (`read` default, or `write` to propose changes)."
                   }
                 },
                 "required": [
@@ -524,7 +580,7 @@
         },
         "responses": {
           "200": {
-            "description": "What to open.",
+            "description": "Sign-in launch details.",
             "content": {
               "application/json": {
                 "schema": {
@@ -534,7 +590,7 @@
             }
           },
           "400": {
-            "description": "Refused before anything was sent.",
+            "description": "Invalid request payload or precondition failed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -544,7 +600,7 @@
             }
           },
           "401": {
-            "description": "Not signed in, or the access token has expired or was revoked.",
+            "description": "Authentication required, or the access token has expired or been revoked.",
             "content": {
               "application/json": {
                 "schema": {
@@ -554,7 +610,7 @@
             }
           },
           "403": {
-            "description": "Not from the playground's own origin.",
+            "description": "Cross-origin browser request rejected.",
             "content": {
               "application/json": {
                 "schema": {
@@ -564,7 +620,7 @@
             }
           },
           "404": {
-            "description": "No such conversation for this user.",
+            "description": "Conversation not found for this caller.",
             "content": {
               "application/json": {
                 "schema": {
@@ -574,7 +630,7 @@
             }
           },
           "409": {
-            "description": "Another request holds the conversation, or a Company can't be added.",
+            "description": "Conversation is busy with another request, or the Company cannot be added.",
             "content": {
               "application/json": {
                 "schema": {
@@ -584,7 +640,7 @@
             }
           },
           "410": {
-            "description": "The conversation has ended and is read-only.",
+            "description": "Conversation has ended and is now read-only.",
             "content": {
               "application/json": {
                 "schema": {
@@ -594,7 +650,15 @@
             }
           },
           "429": {
-            "description": "Too many attempts; wait as long as `Retry-After` says.",
+            "description": "Rate limit exceeded. Retry after the `Retry-After` delay.",
+            "headers": {
+              "Retry-After": {
+                "description": "Number of seconds to wait before retrying.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -608,8 +672,12 @@
     },
     "/api/v1/sign-ins/{ticket}": {
       "get": {
+        "tags": [
+          "Company sign-ins"
+        ],
         "operationId": "openSignInLink",
-        "summary": "An app's sign-in link (`SignIn.url`), opened in the app's browser: it starts the sign-in there and goes on to the Company's consent page. It works once, within three minutes, for the account, conversation, Company and access it was made for. Used, expired, of a session that ended, or opened in a browser signed in to another account, it goes to `endUrl` with `?result=failed`.",
+        "summary": "Open an app sign-in link",
+        "description": "Opened by a native app's browser (`SignIn.url`). Consumes the one-time 3-minute ticket, binds the OAuth state to that browser via cookie, and redirects to the Company's consent page. Expired, reused, revoked-session, or mismatched-account tickets redirect to `endUrl?result=failed`.",
         "parameters": [
           {
             "name": "ticket",
@@ -618,14 +686,15 @@
             "schema": {
               "type": "string"
             },
-            "description": "The link's one-time ticket."
+            "description": "One-time ticket from `SignIn.url`."
           }
         ],
         "responses": {
           "303": {
-            "description": "To the Company's consent page, or to `endUrl` with `?result=failed`.",
+            "description": "Redirects to the Company's consent page, or to `endUrl?result=failed`.",
             "headers": {
               "Location": {
+                "description": "Redirect destination URL.",
                 "schema": {
                   "type": "string"
                 }
@@ -637,8 +706,12 @@
     },
     "/api/v1/conversations/{id}/events": {
       "get": {
+        "tags": [
+          "Events"
+        ],
         "operationId": "conversationEvents",
-        "summary": "Server-Sent Events: `state` first, then what changes (a sign-in finished, a proposal expired or replaced, a Company's message in a Direct Conversation). Closes after five minutes or when the conversation ends; open it again. A signed-in stream ends with `session.ended` within seconds of its session ending or its access token running out. An account keeps at most ten streams open (`too_many_streams`).",
+        "summary": "Stream conversation events",
+        "description": "Opens a Server-Sent Events stream starting with `state`, followed by incremental changes polled every 2 seconds. Closes automatically after 5 minutes or when the conversation ends; reconnect and resync from `state`. Signed-in streams emit `session.ended` if the session or access token becomes invalid. Concurrency is capped at 10 open streams per account (4 per anonymous visitor, `too_many_streams`).",
         "parameters": [
           {
             "name": "id",
@@ -647,12 +720,12 @@
             "schema": {
               "type": "string"
             },
-            "description": "The conversation."
+            "description": "Conversation ID."
           }
         ],
         "responses": {
           "200": {
-            "description": "An event stream; each `data` is an AgentEvent.",
+            "description": "SSE stream (`text/event-stream`); each `data` payload is an `AgentEvent`.",
             "content": {
               "text/event-stream": {
                 "schema": {
@@ -662,7 +735,7 @@
             }
           },
           "404": {
-            "description": "No such conversation for this user.",
+            "description": "Conversation not found for this caller.",
             "content": {
               "application/json": {
                 "schema": {
@@ -672,7 +745,15 @@
             }
           },
           "429": {
-            "description": "Too many attempts; wait as long as `Retry-After` says.",
+            "description": "Rate limit exceeded. Retry after the `Retry-After` delay.",
+            "headers": {
+              "Retry-After": {
+                "description": "Number of seconds to wait before retrying.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -686,8 +767,12 @@
     },
     "/api/v1/accounts/options": {
       "post": {
+        "tags": [
+          "Accounts"
+        ],
         "operationId": "accountOptions",
-        "summary": "Start creating an account: WebAuthn options for a new passkey (discoverable, with user verification, no attestation). `label` is an optional name for the account, the person's own choice.",
+        "summary": "Create registration options",
+        "description": "Starts passkey account creation. Returns WebAuthn options (discoverable, user verification required, no attestation) and a single-use ceremony ID valid for 5 minutes.",
         "requestBody": {
           "required": true,
           "content": {
@@ -696,7 +781,8 @@
                 "type": "object",
                 "properties": {
                   "label": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Optional user-chosen display label for the account."
                   }
                 },
                 "required": []
@@ -706,7 +792,7 @@
         },
         "responses": {
           "200": {
-            "description": "The options and the ceremony.",
+            "description": "WebAuthn creation options and ceremony ID.",
             "content": {
               "application/json": {
                 "schema": {
@@ -716,7 +802,7 @@
             }
           },
           "400": {
-            "description": "Refused before anything was sent.",
+            "description": "Invalid request payload or precondition failed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -726,7 +812,7 @@
             }
           },
           "401": {
-            "description": "Not signed in, or the access token has expired or was revoked.",
+            "description": "Authentication required, or the access token has expired or been revoked.",
             "content": {
               "application/json": {
                 "schema": {
@@ -736,7 +822,7 @@
             }
           },
           "403": {
-            "description": "Not from the playground's own origin.",
+            "description": "Cross-origin browser request rejected.",
             "content": {
               "application/json": {
                 "schema": {
@@ -746,7 +832,15 @@
             }
           },
           "429": {
-            "description": "Too many attempts; wait as long as `Retry-After` says.",
+            "description": "Rate limit exceeded. Retry after the `Retry-After` delay.",
+            "headers": {
+              "Retry-After": {
+                "description": "Number of seconds to wait before retrying.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -760,8 +854,12 @@
     },
     "/api/v1/accounts": {
       "post": {
+        "tags": [
+          "Accounts"
+        ],
         "operationId": "createAccount",
-        "summary": "Create the account with the new passkey, and sign this device in.",
+        "summary": "Create an account",
+        "description": "Verifies the passkey registration response, creates the account, and starts a signed-in session for the calling device.",
         "requestBody": {
           "required": true,
           "content": {
@@ -774,7 +872,7 @@
         },
         "responses": {
           "201": {
-            "description": "The new account, signed in.",
+            "description": "Account created and signed in.",
             "content": {
               "application/json": {
                 "schema": {
@@ -784,7 +882,7 @@
             }
           },
           "400": {
-            "description": "Refused before anything was sent.",
+            "description": "Invalid request payload or precondition failed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -794,7 +892,7 @@
             }
           },
           "401": {
-            "description": "Not signed in, or the access token has expired or was revoked.",
+            "description": "Authentication required, or the access token has expired or been revoked.",
             "content": {
               "application/json": {
                 "schema": {
@@ -804,7 +902,7 @@
             }
           },
           "403": {
-            "description": "Not from the playground's own origin.",
+            "description": "Cross-origin browser request rejected.",
             "content": {
               "application/json": {
                 "schema": {
@@ -814,221 +912,15 @@
             }
           },
           "429": {
-            "description": "Too many attempts; wait as long as `Retry-After` says.",
-            "content": {
-              "application/json": {
+            "description": "Rate limit exceeded. Retry after the `Retry-After` delay.",
+            "headers": {
+              "Retry-After": {
+                "description": "Number of seconds to wait before retrying.",
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "type": "string"
                 }
               }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/sessions/options": {
-      "post": {
-        "operationId": "signInOptions",
-        "summary": "Start signing in with a passkey: WebAuthn options.",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {},
-                "required": []
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "The options and the ceremony.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestOptions"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Refused before anything was sent.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Not signed in, or the access token has expired or was revoked.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Not from the playground's own origin.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Too many attempts; wait as long as `Retry-After` says.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/sessions": {
-      "post": {
-        "operationId": "signIn",
-        "summary": "Sign this device in with the passkey's answer: a new session for it.",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PasskeyAnswer"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "The account, signed in.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SignedIn"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Refused before anything was sent.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Not signed in, or the access token has expired or was revoked.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Not from the playground's own origin.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Too many attempts; wait as long as `Retry-After` says.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/sessions/refresh": {
-      "post": {
-        "operationId": "refreshSession",
-        "summary": "New tokens for a client app, in exchange for its refresh token, which stops working. A refresh token used twice ends the whole session (`session_revoked`).",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "refreshToken": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "refreshToken"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "The new tokens.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SessionTokens"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Refused before anything was sent.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Not signed in, or the access token has expired or was revoked.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Not from the playground's own origin.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Too many attempts; wait as long as `Retry-After` says.",
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -1042,8 +934,12 @@
     },
     "/api/v1/account": {
       "get": {
+        "tags": [
+          "Accounts"
+        ],
         "operationId": "getAccount",
-        "summary": "The account this device is signed in to.",
+        "summary": "Retrieve the current account",
+        "description": "Returns the account, passkeys, linked channels, and current session ID for the authenticated device.",
         "security": [
           {
             "apiSession": []
@@ -1051,7 +947,7 @@
         ],
         "responses": {
           "200": {
-            "description": "The account.",
+            "description": "Authenticated account.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1061,7 +957,359 @@
             }
           },
           "401": {
-            "description": "Not signed in, or the access token has expired or was revoked.",
+            "description": "Authentication required, or the access token has expired or been revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/account/claim": {
+      "post": {
+        "tags": [
+          "Accounts"
+        ],
+        "operationId": "claimConversations",
+        "summary": "Claim browser conversations",
+        "description": "Browser-only. Moves anonymous pre-sign-in conversations from the visitor cookie into the signed-in account so they sync across devices. Busy conversations stay behind and are counted in `skipped`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {},
+                "required": []
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Migration counts and updated account.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "moved": {
+                      "type": "integer",
+                      "description": "Number of conversations moved into the account."
+                    },
+                    "skipped": {
+                      "type": "integer",
+                      "description": "Number of busy conversations left unclaimed."
+                    },
+                    "account": {
+                      "$ref": "#/components/schemas/Account",
+                      "description": "Updated account state."
+                    }
+                  },
+                  "required": [
+                    "moved",
+                    "skipped",
+                    "account"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request payload or precondition failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required, or the access token has expired or been revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Cross-origin browser request rejected.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Retry after the `Retry-After` delay.",
+            "headers": {
+              "Retry-After": {
+                "description": "Number of seconds to wait before retrying.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/options": {
+      "post": {
+        "tags": [
+          "Sessions"
+        ],
+        "operationId": "signInOptions",
+        "summary": "Create sign-in options",
+        "description": "Starts usernameless passkey sign-in. Returns WebAuthn request options and a single-use ceremony ID valid for 5 minutes.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {},
+                "required": []
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "WebAuthn request options and ceremony ID.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestOptions"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request payload or precondition failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required, or the access token has expired or been revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Cross-origin browser request rejected.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Retry after the `Retry-After` delay.",
+            "headers": {
+              "Retry-After": {
+                "description": "Number of seconds to wait before retrying.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions": {
+      "post": {
+        "tags": [
+          "Sessions"
+        ],
+        "operationId": "signIn",
+        "summary": "Sign in with a passkey",
+        "description": "Verifies a passkey assertion and starts a new device session. Returns `SessionTokens` to native apps or sets an `HttpOnly` cookie for browsers.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasskeyAnswer"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignedIn"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request payload or precondition failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required, or the access token has expired or been revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Cross-origin browser request rejected.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Retry after the `Retry-After` delay.",
+            "headers": {
+              "Retry-After": {
+                "description": "Number of seconds to wait before retrying.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/refresh": {
+      "post": {
+        "tags": [
+          "Sessions"
+        ],
+        "operationId": "refreshSession",
+        "summary": "Refresh session tokens",
+        "description": "Exchanges a native app's refresh token for a fresh access and refresh token pair. Each refresh token is single-use; replaying a spent token revokes the entire session (`session_revoked`).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "refreshToken": {
+                    "type": "string",
+                    "description": "Current refresh token from `SessionTokens`."
+                  }
+                },
+                "required": [
+                  "refreshToken"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Rotated token pair.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionTokens"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request payload or precondition failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required, or the access token has expired or been revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Cross-origin browser request rejected.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Retry after the `Retry-After` delay.",
+            "headers": {
+              "Retry-After": {
+                "description": "Number of seconds to wait before retrying.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -1075,8 +1323,12 @@
     },
     "/api/v1/account/passkeys/options": {
       "post": {
+        "tags": [
+          "Passkeys"
+        ],
         "operationId": "passkeyOptions",
-        "summary": "Start adding a passkey to the account: WebAuthn options.",
+        "summary": "Create passkey options",
+        "description": "Starts adding a new passkey to the authenticated account. Accounts hold up to 10 passkeys.",
         "security": [
           {
             "apiSession": []
@@ -1096,7 +1348,7 @@
         },
         "responses": {
           "200": {
-            "description": "The options and the ceremony.",
+            "description": "WebAuthn creation options and ceremony ID.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1106,7 +1358,7 @@
             }
           },
           "400": {
-            "description": "Refused before anything was sent.",
+            "description": "Invalid request payload or precondition failed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1116,7 +1368,7 @@
             }
           },
           "401": {
-            "description": "Not signed in, or the access token has expired or was revoked.",
+            "description": "Authentication required, or the access token has expired or been revoked.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1126,7 +1378,7 @@
             }
           },
           "403": {
-            "description": "Not from the playground's own origin.",
+            "description": "Cross-origin browser request rejected.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1136,7 +1388,7 @@
             }
           },
           "409": {
-            "description": "The account has as many passkeys as it can keep.",
+            "description": "Account already holds the maximum number of passkeys.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1146,7 +1398,15 @@
             }
           },
           "429": {
-            "description": "Too many attempts; wait as long as `Retry-After` says.",
+            "description": "Rate limit exceeded. Retry after the `Retry-After` delay.",
+            "headers": {
+              "Retry-After": {
+                "description": "Number of seconds to wait before retrying.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -1160,8 +1420,12 @@
     },
     "/api/v1/account/passkeys": {
       "post": {
+        "tags": [
+          "Passkeys"
+        ],
         "operationId": "addPasskey",
-        "summary": "Add the new passkey to the account.",
+        "summary": "Add a passkey",
+        "description": "Verifies the WebAuthn registration response and attaches the new passkey to the account.",
         "security": [
           {
             "apiSession": []
@@ -1179,17 +1443,19 @@
         },
         "responses": {
           "201": {
-            "description": "The passkey, and the account.",
+            "description": "Passkey registered.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
                     "passkey": {
-                      "$ref": "#/components/schemas/Passkey"
+                      "$ref": "#/components/schemas/Passkey",
+                      "description": "Newly added passkey."
                     },
                     "account": {
-                      "$ref": "#/components/schemas/Account"
+                      "$ref": "#/components/schemas/Account",
+                      "description": "Updated account state."
                     }
                   },
                   "required": [
@@ -1201,7 +1467,7 @@
             }
           },
           "400": {
-            "description": "Refused before anything was sent.",
+            "description": "Invalid request payload or precondition failed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1211,7 +1477,7 @@
             }
           },
           "401": {
-            "description": "Not signed in, or the access token has expired or was revoked.",
+            "description": "Authentication required, or the access token has expired or been revoked.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1221,7 +1487,7 @@
             }
           },
           "403": {
-            "description": "Not from the playground's own origin.",
+            "description": "Cross-origin browser request rejected.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1231,7 +1497,7 @@
             }
           },
           "409": {
-            "description": "The passkey is on the account already.",
+            "description": "Passkey is already registered on this account.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1241,7 +1507,15 @@
             }
           },
           "429": {
-            "description": "Too many attempts; wait as long as `Retry-After` says.",
+            "description": "Rate limit exceeded. Retry after the `Retry-After` delay.",
+            "headers": {
+              "Retry-After": {
+                "description": "Number of seconds to wait before retrying.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -1255,8 +1529,12 @@
     },
     "/api/v1/account/passkeys/{passkey}": {
       "delete": {
+        "tags": [
+          "Passkeys"
+        ],
         "operationId": "removePasskey",
-        "summary": "Remove a passkey, and end every session it started, this one too when it began with it. The account keeps at least one (`last_passkey`).",
+        "summary": "Remove a passkey",
+        "description": "Deletes a passkey and immediately revokes every session started with it (including the current one). Fails with `409 last_passkey` if it is the account's only remaining passkey.",
         "security": [
           {
             "apiSession": []
@@ -1270,12 +1548,12 @@
             "schema": {
               "type": "string"
             },
-            "description": "The passkey's `id`."
+            "description": "Passkey ID from `Account.passkeys`."
           }
         ],
         "responses": {
           "200": {
-            "description": "The account.",
+            "description": "Passkey removed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1285,7 +1563,7 @@
             }
           },
           "400": {
-            "description": "Refused before anything was sent.",
+            "description": "Invalid request payload or precondition failed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1295,7 +1573,7 @@
             }
           },
           "401": {
-            "description": "Not signed in, or the access token has expired or was revoked.",
+            "description": "Authentication required, or the access token has expired or been revoked.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1305,7 +1583,7 @@
             }
           },
           "403": {
-            "description": "Not from the playground's own origin.",
+            "description": "Cross-origin browser request rejected.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1315,7 +1593,7 @@
             }
           },
           "404": {
-            "description": "No such passkey on this account.",
+            "description": "Passkey not found on this account.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1325,7 +1603,7 @@
             }
           },
           "409": {
-            "description": "It is the account's last passkey.",
+            "description": "Cannot remove the account's last remaining passkey.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1335,7 +1613,15 @@
             }
           },
           "429": {
-            "description": "Too many attempts; wait as long as `Retry-After` says.",
+            "description": "Rate limit exceeded. Retry after the `Retry-After` delay.",
+            "headers": {
+              "Retry-After": {
+                "description": "Number of seconds to wait before retrying.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -1349,8 +1635,12 @@
     },
     "/api/v1/account/sessions": {
       "get": {
+        "tags": [
+          "Devices"
+        ],
         "operationId": "listSessions",
-        "summary": "The devices signed in to the account, most recent first. An account keeps at most 25: signing in on another device ends the one used least recently.",
+        "summary": "List active sessions",
+        "description": "Returns all active device sessions ordered by most recently used. Accounts keep up to 25 sessions; signing in on a 26th device evicts the least recently used session.",
         "security": [
           {
             "apiSession": []
@@ -1358,7 +1648,7 @@
         ],
         "responses": {
           "200": {
-            "description": "The sessions.",
+            "description": "Active device sessions.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1368,7 +1658,8 @@
                       "type": "array",
                       "items": {
                         "$ref": "#/components/schemas/Session"
-                      }
+                      },
+                      "description": "Active sessions, newest first."
                     }
                   },
                   "required": [
@@ -1379,7 +1670,7 @@
             }
           },
           "401": {
-            "description": "Not signed in, or the access token has expired or was revoked.",
+            "description": "Authentication required, or the access token has expired or been revoked.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1391,8 +1682,12 @@
         }
       },
       "delete": {
+        "tags": [
+          "Devices"
+        ],
         "operationId": "revokeAllSessions",
-        "summary": "Sign out every device, this one too.",
+        "summary": "Revoke all sessions",
+        "description": "Signs out every device on the account, including the device making this request.",
         "security": [
           {
             "apiSession": []
@@ -1400,14 +1695,15 @@
         ],
         "responses": {
           "200": {
-            "description": "How many were signed out.",
+            "description": "All sessions revoked.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
                     "revoked": {
-                      "type": "integer"
+                      "type": "integer",
+                      "description": "Number of sessions revoked."
                     }
                   },
                   "required": [
@@ -1418,7 +1714,7 @@
             }
           },
           "400": {
-            "description": "Refused before anything was sent.",
+            "description": "Invalid request payload or precondition failed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1428,7 +1724,7 @@
             }
           },
           "401": {
-            "description": "Not signed in, or the access token has expired or was revoked.",
+            "description": "Authentication required, or the access token has expired or been revoked.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1438,7 +1734,7 @@
             }
           },
           "403": {
-            "description": "Not from the playground's own origin.",
+            "description": "Cross-origin browser request rejected.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1448,7 +1744,15 @@
             }
           },
           "429": {
-            "description": "Too many attempts; wait as long as `Retry-After` says.",
+            "description": "Rate limit exceeded. Retry after the `Retry-After` delay.",
+            "headers": {
+              "Retry-After": {
+                "description": "Number of seconds to wait before retrying.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -1462,8 +1766,12 @@
     },
     "/api/v1/account/sessions/{session}": {
       "delete": {
+        "tags": [
+          "Devices"
+        ],
         "operationId": "revokeSession",
-        "summary": "Sign one device out. The others stay signed in.",
+        "summary": "Revoke a session",
+        "description": "Signs out a single device session without affecting other signed-in devices.",
         "security": [
           {
             "apiSession": []
@@ -1477,19 +1785,20 @@
             "schema": {
               "type": "string"
             },
-            "description": "The session's `id`."
+            "description": "Device session ID from `GET /api/v1/account/sessions`."
           }
         ],
         "responses": {
           "200": {
-            "description": "It was signed out.",
+            "description": "Session revoked.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
                     "revoked": {
-                      "type": "integer"
+                      "type": "integer",
+                      "description": "Number of sessions revoked."
                     }
                   },
                   "required": [
@@ -1500,7 +1809,7 @@
             }
           },
           "400": {
-            "description": "Refused before anything was sent.",
+            "description": "Invalid request payload or precondition failed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1510,7 +1819,7 @@
             }
           },
           "401": {
-            "description": "Not signed in, or the access token has expired or was revoked.",
+            "description": "Authentication required, or the access token has expired or been revoked.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1520,7 +1829,7 @@
             }
           },
           "403": {
-            "description": "Not from the playground's own origin.",
+            "description": "Cross-origin browser request rejected.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1530,7 +1839,7 @@
             }
           },
           "404": {
-            "description": "No such device signed in to this account.",
+            "description": "Session not found on this account.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1540,7 +1849,15 @@
             }
           },
           "429": {
-            "description": "Too many attempts; wait as long as `Retry-After` says.",
+            "description": "Rate limit exceeded. Retry after the `Retry-After` delay.",
+            "headers": {
+              "Retry-After": {
+                "description": "Number of seconds to wait before retrying.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -1554,8 +1871,12 @@
     },
     "/api/v1/account/sign-out": {
       "post": {
+        "tags": [
+          "Devices"
+        ],
         "operationId": "signOut",
-        "summary": "Sign this device out. The account's other devices stay signed in.",
+        "summary": "Sign out the current device",
+        "description": "Revokes the calling device's session (and clears the browser cookie) while leaving other devices signed in.",
         "security": [
           {
             "apiSession": []
@@ -1575,14 +1896,15 @@
         },
         "responses": {
           "200": {
-            "description": "Signed out.",
+            "description": "Current device signed out.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
                     "revoked": {
-                      "type": "integer"
+                      "type": "integer",
+                      "description": "Number of sessions revoked."
                     }
                   },
                   "required": [
@@ -1593,7 +1915,7 @@
             }
           },
           "400": {
-            "description": "Refused before anything was sent.",
+            "description": "Invalid request payload or precondition failed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1603,7 +1925,7 @@
             }
           },
           "401": {
-            "description": "Not signed in, or the access token has expired or was revoked.",
+            "description": "Authentication required, or the access token has expired or been revoked.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1613,7 +1935,7 @@
             }
           },
           "403": {
-            "description": "Not from the playground's own origin.",
+            "description": "Cross-origin browser request rejected.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1623,93 +1945,15 @@
             }
           },
           "429": {
-            "description": "Too many attempts; wait as long as `Retry-After` says.",
-            "content": {
-              "application/json": {
+            "description": "Rate limit exceeded. Retry after the `Retry-After` delay.",
+            "headers": {
+              "Retry-After": {
+                "description": "Number of seconds to wait before retrying.",
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "type": "string"
                 }
               }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/account/claim": {
-      "post": {
-        "operationId": "claimConversations",
-        "summary": "A browser only: bring its own conversations, from before it signed in, into the account, so they open on every device signed in to it. Nothing is moved without this request.",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {},
-                "required": []
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "How many were moved, how many were busy and stayed, and the account.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "moved": {
-                      "type": "integer"
-                    },
-                    "skipped": {
-                      "type": "integer"
-                    },
-                    "account": {
-                      "$ref": "#/components/schemas/Account"
-                    }
-                  },
-                  "required": [
-                    "moved",
-                    "skipped",
-                    "account"
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Refused before anything was sent.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Not signed in, or the access token has expired or was revoked.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Not from the playground's own origin.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Too many attempts; wait as long as `Retry-After` says.",
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -1723,8 +1967,12 @@
     },
     "/api/v1/account/link-codes": {
       "post": {
+        "tags": [
+          "Channels"
+        ],
         "operationId": "createLinkCode",
-        "summary": "A one-time code that links a channel, such as a messaging app, to the account when it is typed there.",
+        "summary": "Create a channel link code",
+        "description": "Issues an 8-character single-use code valid for 5 minutes. Entering it in a supported channel links that channel user to this account.",
         "security": [
           {
             "apiSession": []
@@ -1744,7 +1992,7 @@
         },
         "responses": {
           "201": {
-            "description": "The code.",
+            "description": "Link code created.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1754,7 +2002,7 @@
             }
           },
           "400": {
-            "description": "Refused before anything was sent.",
+            "description": "Invalid request payload or precondition failed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1764,7 +2012,7 @@
             }
           },
           "401": {
-            "description": "Not signed in, or the access token has expired or was revoked.",
+            "description": "Authentication required, or the access token has expired or been revoked.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1774,7 +2022,7 @@
             }
           },
           "403": {
-            "description": "Not from the playground's own origin.",
+            "description": "Cross-origin browser request rejected.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1784,7 +2032,15 @@
             }
           },
           "429": {
-            "description": "Too many attempts; wait as long as `Retry-After` says.",
+            "description": "Rate limit exceeded. Retry after the `Retry-After` delay.",
+            "headers": {
+              "Retry-After": {
+                "description": "Number of seconds to wait before retrying.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -1798,8 +2054,12 @@
     },
     "/api/v1/link-codes/redeem": {
       "post": {
+        "tags": [
+          "Channels"
+        ],
         "operationId": "redeemLinkCode",
-        "summary": "For a channel this deployment knows, which proves itself in its own way: redeem a code once, linking the channel's user to the code's account.",
+        "summary": "Redeem a channel link code",
+        "description": "Called by a configured external channel backend (using its channel authentication) to redeem a user's one-time code and link the channel user ID to the account.",
         "requestBody": {
           "required": true,
           "content": {
@@ -1808,13 +2068,16 @@
                 "type": "object",
                 "properties": {
                   "channel": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Configured external channel identifier."
                   },
                   "user": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "User identifier within that channel."
                   },
                   "code": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "8-character one-time link code provided by the user."
                   }
                 },
                 "required": [
@@ -1828,17 +2091,19 @@
         },
         "responses": {
           "200": {
-            "description": "Linked.",
+            "description": "Channel linked.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
                     "account": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "Linked agent account ID."
                     },
                     "linked": {
-                      "type": "boolean"
+                      "type": "boolean",
+                      "description": "Always `true` on success."
                     }
                   },
                   "required": [
@@ -1850,7 +2115,7 @@
             }
           },
           "400": {
-            "description": "Refused before anything was sent.",
+            "description": "Invalid request payload or precondition failed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1860,7 +2125,7 @@
             }
           },
           "401": {
-            "description": "Not signed in, or the access token has expired or was revoked.",
+            "description": "Authentication required, or the access token has expired or been revoked.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1870,7 +2135,7 @@
             }
           },
           "403": {
-            "description": "Not from the playground's own origin.",
+            "description": "Cross-origin browser request rejected.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1880,11 +2145,41 @@
             }
           },
           "429": {
-            "description": "Too many attempts; wait as long as `Retry-After` says.",
+            "description": "Rate limit exceeded. Retry after the `Retry-After` delay.",
+            "headers": {
+              "Retry-After": {
+                "description": "Number of seconds to wait before retrying.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/openapi.json": {
+      "get": {
+        "tags": [
+          "Schema"
+        ],
+        "operationId": "getOpenApi",
+        "summary": "Retrieve the OpenAPI schema",
+        "description": "Returns this OpenAPI 3.1.0 specification as JSON.",
+        "responses": {
+          "200": {
+            "description": "OpenAPI 3.1.0 document.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
                 }
               }
             }
@@ -1899,29 +2194,34 @@
         "type": "object",
         "properties": {
           "origin": {
-            "type": "string"
+            "type": "string",
+            "description": "Company origin URL, such as `https://food-demo.poppylab.dev`."
           },
           "name": {
-            "type": "string"
+            "type": "string",
+            "description": "Human-readable company name for display."
           }
         },
         "required": [
           "origin",
           "name"
         ],
-        "description": "A Company, named by its origin; `name` is to show."
+        "description": "Identifies a Company by its origin and display name."
       },
       "ProposalRef": {
         "type": "object",
         "properties": {
           "company": {
-            "type": "string"
+            "type": "string",
+            "description": "Origin URL of the Company holding the proposal."
           },
           "proposal": {
-            "type": "string"
+            "type": "string",
+            "description": "Unique proposal ID issued by the Company."
           },
           "revision": {
-            "type": "string"
+            "type": "string",
+            "description": "Exact revision token shown to the user for approval."
           }
         },
         "required": [
@@ -1929,16 +2229,17 @@
           "proposal",
           "revision"
         ],
-        "description": "One proposal at its exact revision: the Company's origin, the proposal's ID and the revision the question named."
+        "description": "References a specific proposal at an exact revision. Approvals bind strictly to `revision`."
       },
       "Answer": {
-        "description": "What a choice carries, in place of a message. Exactly one member; Companies are named by origin and nothing here is read as words. `approve` and `decline` decide the proposal the agent asked about, at that revision only. `signin` is for the client to carry out: open the sign-in with `POST …/sign-ins` for that Company and access (sent to `answers`, it is answered with the same choice). `signout` signs out there, `resume` goes on with the request that waited for the sign-in there, and `invitation` accepts or declines the Company's invitation to talk directly.",
+        "description": "Structured payload carried by a quick-reply `Choice`. Must contain exactly one member; Companies are referenced by origin and values are never parsed as free text. `approve` and `decline` decide a proposal at its exact revision; `signin` tells the client to call `POST /api/v1/conversations/{id}/sign-ins`; `signout` signs out of that Company; `resume` retries the request that waited for sign-in; `invitation` accepts or declines a Direct Conversation.",
         "oneOf": [
           {
             "type": "object",
             "properties": {
               "company": {
-                "type": "string"
+                "type": "string",
+                "description": "Selects an already-connected Company by origin."
               }
             },
             "required": [
@@ -1949,7 +2250,8 @@
             "type": "object",
             "properties": {
               "connect": {
-                "type": "string"
+                "type": "string",
+                "description": "Connects a new Company by origin URL."
               }
             },
             "required": [
@@ -1963,7 +2265,8 @@
                 "type": "array",
                 "items": {
                   "type": "string"
-                }
+                },
+                "description": "Disconnects the listed Company origins."
               }
             },
             "required": [
@@ -1977,7 +2280,8 @@
                 "type": "array",
                 "items": {
                   "type": "string"
-                }
+                },
+                "description": "Keeps only the listed Company origins when replacing a full conversation."
               }
             },
             "required": [
@@ -1988,7 +2292,8 @@
             "type": "object",
             "properties": {
               "message": {
-                "type": "string"
+                "type": "string",
+                "description": "Sends a scripted prompt text as the user's turn."
               }
             },
             "required": [
@@ -1999,7 +2304,8 @@
             "type": "object",
             "properties": {
               "approve": {
-                "$ref": "#/components/schemas/ProposalRef"
+                "$ref": "#/components/schemas/ProposalRef",
+                "description": "Approves the referenced proposal."
               }
             },
             "required": [
@@ -2010,7 +2316,8 @@
             "type": "object",
             "properties": {
               "decline": {
-                "$ref": "#/components/schemas/ProposalRef"
+                "$ref": "#/components/schemas/ProposalRef",
+                "description": "Declines the referenced proposal."
               }
             },
             "required": [
@@ -2024,20 +2331,23 @@
                 "type": "object",
                 "properties": {
                   "company": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Origin URL of the Company to sign in to."
                   },
                   "access": {
                     "type": "string",
                     "enum": [
                       "read",
                       "write"
-                    ]
+                    ],
+                    "description": "Permission level to request (`read` or `write`)."
                   }
                 },
                 "required": [
                   "company",
                   "access"
-                ]
+                ],
+                "description": "Prompts the client to start a Company sign-in flow."
               }
             },
             "required": [
@@ -2048,7 +2358,8 @@
             "type": "object",
             "properties": {
               "signout": {
-                "type": "string"
+                "type": "string",
+                "description": "Origin URL of the Company to sign out from."
               }
             },
             "required": [
@@ -2059,7 +2370,8 @@
             "type": "object",
             "properties": {
               "resume": {
-                "type": "string"
+                "type": "string",
+                "description": "Origin URL of the Company whose pending request should resume after sign-in."
               }
             },
             "required": [
@@ -2073,16 +2385,19 @@
                 "type": "object",
                 "properties": {
                   "company": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Origin URL of the Company that sent the invitation."
                   },
                   "accept": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "description": "`true` to open a Direct Conversation; `false` to decline."
                   }
                 },
                 "required": [
                   "company",
                   "accept"
-                ]
+                ],
+                "description": "Responds to a Company's invitation to speak directly with the user."
               }
             },
             "required": [
@@ -2095,23 +2410,26 @@
         "type": "object",
         "properties": {
           "label": {
-            "type": "string"
+            "type": "string",
+            "description": "Short button label to display to the user."
           },
           "answer": {
-            "$ref": "#/components/schemas/Answer"
+            "$ref": "#/components/schemas/Answer",
+            "description": "Structured payload to submit to `POST /api/v1/conversations/{id}/answers` when chosen."
           }
         },
         "required": [
           "label",
           "answer"
         ],
-        "description": "A quick reply. Show `label`; send `answer` to `answers`, never the label as a message. The User can answer the same question in words instead, as a message."
+        "description": "A quick-reply button attached to an agent message. Render `label` and submit `answer` verbatim; users may also reply in free text."
       },
       "AgentStep": {
         "type": "object",
         "properties": {
           "text": {
-            "type": "string"
+            "type": "string",
+            "description": "Plain-language summary of what the agent did."
           },
           "how": {
             "type": "string",
@@ -2120,7 +2438,8 @@
               "Company's agent",
               "sign-in",
               "setup"
-            ]
+            ],
+            "description": "Channel or phase used for this step."
           },
           "access": {
             "type": [
@@ -2131,7 +2450,8 @@
               "view",
               "view and change",
               null
-            ]
+            ],
+            "description": "Access level used for this step, or `null` for signed-out calls."
           },
           "state": {
             "type": "string",
@@ -2139,13 +2459,16 @@
               "done",
               "failed",
               "waiting"
-            ]
+            ],
+            "description": "Outcome of this step."
           },
           "company": {
-            "type": "string"
+            "type": "string",
+            "description": "Origin URL of the Company involved, when applicable."
           },
           "args": {
-            "type": "string"
+            "type": "string",
+            "description": "Sanitized JSON summary of arguments sent to the Company."
           }
         },
         "required": [
@@ -2153,7 +2476,8 @@
           "how",
           "access",
           "state"
-        ]
+        ],
+        "description": "One protocol action taken during a turn, shown in the activity trace."
       },
       "AgentMessage": {
         "type": "object",
@@ -2164,102 +2488,123 @@
               "user",
               "agent",
               "company"
-            ]
+            ],
+            "description": "Speaker role. `agent` without `company` is the agent's own system voice; `company` is untrusted Company content."
           },
           "text": {
-            "type": "string"
+            "type": "string",
+            "description": "Message body in plain text or light Markdown."
           },
           "spoken": {
             "type": "string",
-            "description": "On the agent's messages: the same in one or two short sentences to read aloud, with no markdown or identifier and amounts as they are said. Made by fixed rules from the same words or facts, never by a model."
+            "description": "Voice-ready version of `text` (one or two short sentences, no Markdown or IDs, spoken currency). Generated deterministically, never by a model."
           },
           "company": {
-            "$ref": "#/components/schemas/CompanyRef"
+            "$ref": "#/components/schemas/CompanyRef",
+            "description": "Company this message is from or about."
           },
           "using": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/CompanyRef"
-            }
+            },
+            "description": "Companies consulted while producing this reply."
           },
           "author": {
-            "type": "string"
+            "type": "string",
+            "description": "Company-provided author label, such as a support agent."
           },
           "direct": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "`true` when sent inside a Direct Conversation (§8.10)."
           },
           "choices": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/Choice"
-            }
+            },
+            "description": "Quick-reply actions for the user."
           },
           "links": {
             "type": "array",
             "items": {
               "type": "string"
-            }
+            },
+            "description": "Safe HTTPS links surfaced by the turn."
           },
           "steps": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/AgentStep"
-            }
+            },
+            "description": "Protocol steps executed during this turn."
           },
           "data": {
-            "type": "string"
+            "type": "string",
+            "description": "Pretty-printed structured payload attached to a message."
           }
         },
         "required": [
           "from",
           "text"
         ],
-        "description": "Something said. `agent` without `company` is the agent's own voice about the conversation; `company` is a Company's own words, to show as theirs."
+        "description": "A single message in the conversation transcript."
       },
       "CompanyState": {
         "type": "object",
         "properties": {
           "origin": {
-            "type": "string"
+            "type": "string",
+            "description": "Company origin URL."
           },
           "name": {
-            "type": "string"
+            "type": "string",
+            "description": "Company display name."
           },
           "url": {
-            "type": "string"
+            "type": "string",
+            "description": "Company homepage URL."
           },
           "signedIn": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "`true` when the user has an active OAuth grant."
           },
           "scopes": {
-            "type": "string"
+            "type": "string",
+            "description": "Space-separated OAuth scopes currently granted."
           },
           "signingIn": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "`true` while a sign-in flow is in progress."
           },
           "consentVersion": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Monotonic counter incremented each time consent is granted or upgraded."
           },
           "accessLost": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "`true` when the Company revoked or rejected the stored grant."
           },
           "direct": {
             "type": "object",
             "properties": {
               "open": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "`true` while a Direct Conversation is active."
               },
               "invitation": {
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "description": "Reason text for a pending Direct Conversation invitation, or `null`."
               }
             },
             "required": [
               "open",
               "invitation"
-            ]
+            ],
+            "description": "Direct Conversation status for this Company."
           }
         },
         "required": [
@@ -2271,25 +2616,31 @@
           "consentVersion",
           "accessLost",
           "direct"
-        ]
+        ],
+        "description": "Connection, authentication, and Direct Conversation state for one Company."
       },
       "Proposal": {
         "type": "object",
         "properties": {
           "id": {
-            "type": "string"
+            "type": "string",
+            "description": "Operation ID issued by the Company."
           },
           "company": {
-            "$ref": "#/components/schemas/CompanyRef"
+            "$ref": "#/components/schemas/CompanyRef",
+            "description": "Company holding the pending change."
           },
           "revision": {
-            "type": "string"
+            "type": "string",
+            "description": "Exact revision token required when approving. Changes if terms shift."
           },
           "summary": {
-            "type": "string"
+            "type": "string",
+            "description": "Company-authored plain-text summary of the change."
           },
           "terms": {
-            "type": "object"
+            "type": "object",
+            "description": "Authoritative structured terms computed by the Company (amounts, dates, balances)."
           },
           "state": {
             "type": "string",
@@ -2301,17 +2652,20 @@
               "expired",
               "superseded",
               "uncertain"
-            ]
+            ],
+            "description": "Current lifecycle state of the operation."
           },
           "expiresAt": {
-            "type": "string"
+            "type": "string",
+            "description": "ISO 8601 timestamp after which the proposal cannot be approved."
           },
           "result": {
-            "type": "string"
+            "type": "string",
+            "description": "Outcome message or refusal reason once resolved."
           },
           "spoken": {
             "type": "string",
-            "description": "What it is, to read aloud, in the agent's words from its terms: the Company, what it wants and how much. Never the Company's summary."
+            "description": "Agent-generated spoken description derived from `terms` (never the Company's summary)."
           }
         },
         "required": [
@@ -2323,43 +2677,50 @@
           "expiresAt",
           "spoken"
         ],
-        "description": "A change a Company holds for the User's approval, with its exact terms. Nothing is performed until it is approved."
+        "description": "A state-changing operation held by a Company for explicit user approval (Operations v3). Nothing executes until approved."
       },
       "ConversationState": {
         "type": "object",
         "properties": {
           "id": {
-            "type": "string"
+            "type": "string",
+            "description": "Unique conversation identifier."
           },
           "active": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "`true` while open; `false` once ended and read-only."
           },
           "keptUntil": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Unix timestamp (ms) when an ended conversation is purged from storage."
           },
           "companies": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/CompanyState"
-            }
+            },
+            "description": "Currently connected Companies (up to 3)."
           },
           "removed": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/CompanyRef"
-            }
+            },
+            "description": "Companies previously disconnected from this conversation."
           },
           "messages": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/AgentMessage"
-            }
+            },
+            "description": "Ordered conversation transcript."
           },
           "proposals": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/Proposal"
-            }
+            },
+            "description": "All proposals raised in this conversation."
           }
         },
         "required": [
@@ -2369,25 +2730,30 @@
           "removed",
           "messages",
           "proposals"
-        ]
+        ],
+        "description": "Complete snapshot of a conversation, its connected Companies, transcript, and proposals."
       },
       "TurnResult": {
         "type": "object",
         "properties": {
           "conversation": {
-            "type": "string"
+            "type": "string",
+            "description": "Conversation ID."
           },
           "messages": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/AgentMessage"
-            }
+            },
+            "description": "Messages added during this turn (or the full list when `replaced` is `true`)."
           },
           "replaced": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "`true` when earlier messages were withdrawn (for example after losing access or disconnecting a Company)."
           },
           "state": {
-            "$ref": "#/components/schemas/ConversationState"
+            "$ref": "#/components/schemas/ConversationState",
+            "description": "Full updated conversation state."
           }
         },
         "required": [
@@ -2395,7 +2761,8 @@
           "messages",
           "replaced",
           "state"
-        ]
+        ],
+        "description": "Result of a completed message or quick-reply turn."
       },
       "ModelChoice": {
         "type": "object",
@@ -2407,59 +2774,69 @@
               "free",
               "openai-compatible",
               "anthropic"
-            ]
+            ],
+            "description": "Model backend: `demo` (scripted examples, no LLM), `free` (deployment's Workers AI model), or bring-your-own-key (`openai-compatible`, `anthropic`)."
           },
           "apiKey": {
-            "type": "string"
+            "type": "string",
+            "description": "Provider API key for `openai-compatible` or `anthropic`. Sent per request and never stored."
           },
           "model": {
-            "type": "string"
+            "type": "string",
+            "description": "Optional model identifier for bring-your-own-key providers."
           },
           "turnstile": {
-            "type": "string"
+            "type": "string",
+            "description": "Single-use Cloudflare Turnstile token required for `free` turns. Missing, invalid, or over-quota turns fall back to `demo` with an explanatory note."
           }
         },
         "required": [
           "provider"
         ],
-        "description": "The model a turn is asked of, with the User's own key; demo mode, which runs scripted examples only, when left out. `free` is the deployment's own small model, with no key: each turn needs a Turnstile token (`turnstile`) for the deployment's site key, and one without a good token, or past the free model's limits, runs in demo mode with a line that says why."
+        "description": "Selects which model handles a turn. Defaults to `demo` when omitted."
       },
       "Decision": {
         "type": "object",
         "properties": {
           "proposal": {
-            "$ref": "#/components/schemas/Proposal"
+            "$ref": "#/components/schemas/Proposal",
+            "description": "Updated proposal after applying the decision."
           },
           "state": {
-            "$ref": "#/components/schemas/ConversationState"
+            "$ref": "#/components/schemas/ConversationState",
+            "description": "Full updated conversation state."
           }
         },
         "required": [
           "proposal",
           "state"
-        ]
+        ],
+        "description": "Outcome of approving or declining a proposal."
       },
       "SignIn": {
         "type": "object",
         "properties": {
           "url": {
-            "type": "string"
+            "type": "string",
+            "description": "URL to open for consent. For browsers: the Company's consent page. For apps: a single-use agent link to open in `ASWebAuthenticationSession` (or equivalent)."
           },
           "expiresAt": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Unix timestamp (ms) when an app sign-in link expires (3 minutes)."
           },
           "endUrl": {
-            "type": "string"
+            "type": "string",
+            "description": "Fixed callback completion URL an app watches for (`?result=done` or `?result=failed`)."
           }
         },
         "required": [
           "url"
         ],
-        "description": "What to open for the sign-in. The agent never sees a password. For the playground's page, `url` is the Company's own consent page. For a client app, `url` is a page of the agent's own, a link that works once, before `expiresAt` (milliseconds since 1970): open it at once in a browser of the app's own, such as ASWebAuthenticationSession. It goes on to the Company's consent page, and the browser comes back to `endUrl` with `?result=done` or `?result=failed`, which is what the app watches for. The conversation's events say how it went."
+        "description": "Details for launching a Company OAuth sign-in flow. The agent never sees the user's password; final status arrives on the SSE event stream."
       },
       "AgentEvent": {
         "type": "object",
-        "description": "An event of the stream; its `type` is also the SSE event name. `state` comes first.",
+        "description": "One Server-Sent Event payload. `type` matches the SSE `event:` field; the initial event is always `state`.",
         "properties": {
           "type": {
             "type": "string",
@@ -2479,22 +2856,28 @@
               "company.removed",
               "conversation.ended",
               "session.ended"
-            ]
+            ],
+            "description": "Event type and SSE event name."
           },
           "state": {
-            "$ref": "#/components/schemas/ConversationState"
+            "$ref": "#/components/schemas/ConversationState",
+            "description": "Present on `state` and `messages.replaced`."
           },
           "message": {
-            "$ref": "#/components/schemas/AgentMessage"
+            "$ref": "#/components/schemas/AgentMessage",
+            "description": "Present on `message`."
           },
           "company": {
-            "$ref": "#/components/schemas/CompanyRef"
+            "$ref": "#/components/schemas/CompanyRef",
+            "description": "Present on `signin.*`, `access.lost`, `signout`, and `company.*`."
           },
           "proposal": {
-            "$ref": "#/components/schemas/Proposal"
+            "$ref": "#/components/schemas/Proposal",
+            "description": "Present on `proposal.*`."
           },
           "keptUntil": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Unix timestamp (ms) until an ended conversation is purged. Present on `conversation.ended`."
           },
           "code": {
             "type": "string",
@@ -2502,7 +2885,7 @@
               "invalid_token",
               "session_revoked"
             ],
-            "description": "For `session.ended`: `invalid_token` when the access token ran out or was replaced (refresh it and open the stream again), `session_revoked` when the device was signed out."
+            "description": "Present on `session.ended`: `invalid_token` means refresh the access token and reconnect; `session_revoked` means sign in again."
           }
         },
         "required": [
@@ -2513,34 +2896,41 @@
         "type": "object",
         "properties": {
           "code": {
-            "type": "string"
+            "type": "string",
+            "description": "Stable machine-readable error code for programmatic handling."
           },
           "error": {
-            "type": "string"
+            "type": "string",
+            "description": "Plain-language error message safe to show to the user."
           }
         },
         "required": [
           "error"
         ],
-        "description": "`error` is written for the User and can be shown as it is."
+        "description": "Standard error envelope returned on 4xx and 5xx responses."
       },
       "Passkey": {
         "type": "object",
         "properties": {
           "id": {
-            "type": "string"
+            "type": "string",
+            "description": "Unique passkey identifier within the account."
           },
           "name": {
-            "type": "string"
+            "type": "string",
+            "description": "Device description captured when the passkey was registered."
           },
           "created": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Unix timestamp (ms) when the passkey was added."
           },
           "lastUsed": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Unix timestamp (ms) when the passkey was last used to sign in."
           },
           "synced": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "`true` when the authenticator reports multi-device passkey backup."
           }
         },
         "required": [
@@ -2549,25 +2939,29 @@
           "created",
           "synced"
         ],
-        "description": "One of the account's passkeys. `name` is the device it was added on, in that device's words; `synced` says a password manager keeps it on the person's other devices too. Its key is never shown."
+        "description": "Metadata for a WebAuthn passkey registered on an account. Public keys are never returned."
       },
       "Account": {
         "type": "object",
         "properties": {
           "id": {
-            "type": "string"
+            "type": "string",
+            "description": "Opaque account identifier."
           },
           "label": {
-            "type": "string"
+            "type": "string",
+            "description": "Optional user-chosen label for the account."
           },
           "created": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Unix timestamp (ms) when the account was created."
           },
           "passkeys": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/Passkey"
-            }
+            },
+            "description": "Passkeys registered on this account."
           },
           "channels": {
             "type": "array",
@@ -2575,23 +2969,28 @@
               "type": "object",
               "properties": {
                 "channel": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Linked external channel name."
                 },
                 "linked": {
-                  "type": "integer"
+                  "type": "integer",
+                  "description": "Unix timestamp (ms) when the channel was linked."
                 }
               },
               "required": [
                 "channel",
                 "linked"
               ]
-            }
+            },
+            "description": "External channels linked via one-time link codes."
           },
           "session": {
-            "type": "string"
+            "type": "string",
+            "description": "Session ID authenticating the current request."
           },
           "unclaimed": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Browser-only count of anonymous pre-sign-in conversations available to claim."
           }
         },
         "required": [
@@ -2601,25 +3000,30 @@
           "channels",
           "session"
         ],
-        "description": "An agent account: an opaque ID, its passkeys and the label the person chose, and nothing else about them. `session` is the session of this request; `unclaimed`, for a browser only, counts its own conversations from before it signed in."
+        "description": "An anonymous passkey-backed agent account. Holds no email or password."
       },
       "SessionTokens": {
         "type": "object",
         "properties": {
           "session": {
-            "type": "string"
+            "type": "string",
+            "description": "Device session identifier."
           },
           "accessToken": {
-            "type": "string"
+            "type": "string",
+            "description": "Short-lived bearer token (~15 min). Send in `Authorization: Bearer <token>`."
           },
           "accessTokenExpiresAt": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Unix timestamp (ms) when `accessToken` expires."
           },
           "refreshToken": {
-            "type": "string"
+            "type": "string",
+            "description": "Single-use rotating refresh token. Reusing a spent token revokes the entire session."
           },
           "refreshTokenExpiresAt": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Unix timestamp (ms) when `refreshToken` expires."
           }
         },
         "required": [
@@ -2629,101 +3033,117 @@
           "refreshToken",
           "refreshTokenExpiresAt"
         ],
-        "description": "A client app's tokens. Send the access token as `Authorization: Bearer`; it lasts about 15 minutes. Exchange the refresh token at `/api/v1/sessions/refresh` for new ones: each works once, and one used twice ends the session. Keep both in the device's keychain, never in a URL or a log. Times are milliseconds since 1970."
+        "description": "Bearer and rotating refresh tokens issued to native client apps. Store in the OS keychain; never log or place in URLs."
       },
       "SignedIn": {
         "type": "object",
         "properties": {
           "account": {
-            "$ref": "#/components/schemas/Account"
+            "$ref": "#/components/schemas/Account",
+            "description": "The authenticated account."
           },
           "tokens": {
-            "$ref": "#/components/schemas/SessionTokens"
+            "$ref": "#/components/schemas/SessionTokens",
+            "description": "Returned only to native apps (requests without an `Origin` header); browsers receive an `HttpOnly` cookie."
           }
         },
         "required": [
           "account"
         ],
-        "description": "The account, signed in on this device. A browser is given a cookie and no `tokens`; a client app, which sends no `Origin`, is given `tokens`."
+        "description": "Returned after creating an account or signing in with a passkey."
       },
       "CreationOptions": {
         "type": "object",
         "properties": {
           "ceremony": {
-            "type": "string"
+            "type": "string",
+            "description": "Opaque single-use ceremony ID to echo back within 5 minutes."
           },
           "options": {
-            "type": "object"
+            "type": "object",
+            "description": "WebAuthn `PublicKeyCredentialCreationOptionsJSON` for `navigator.credentials.create`."
           }
         },
         "required": [
           "ceremony",
           "options"
         ],
-        "description": "WebAuthn options for `navigator.credentials.create` (PublicKeyCredentialCreationOptionsJSON), and the ceremony to answer them with within five minutes, once."
+        "description": "Challenge and WebAuthn creation options for registering a new passkey."
       },
       "RequestOptions": {
         "type": "object",
         "properties": {
           "ceremony": {
-            "type": "string"
+            "type": "string",
+            "description": "Opaque single-use ceremony ID to echo back within 5 minutes."
           },
           "options": {
-            "type": "object"
+            "type": "object",
+            "description": "Discoverable WebAuthn `PublicKeyCredentialRequestOptionsJSON` for `navigator.credentials.get`."
           }
         },
         "required": [
           "ceremony",
           "options"
         ],
-        "description": "WebAuthn options for `navigator.credentials.get` (PublicKeyCredentialRequestOptionsJSON) with no username: any of this site's passkeys answers. Answer within five minutes, once."
+        "description": "Challenge and WebAuthn request options for usernameless passkey sign-in."
       },
       "PasskeyAnswer": {
         "type": "object",
         "properties": {
           "ceremony": {
-            "type": "string"
+            "type": "string",
+            "description": "Ceremony ID received from the corresponding `/options` call."
           },
           "credential": {
-            "type": "object"
+            "type": "object",
+            "description": "Authenticator response (`RegistrationResponseJSON` or `AuthenticationResponseJSON`)."
           },
           "device": {
-            "type": "string"
+            "type": "string",
+            "description": "Optional device label shown in the sessions list (e.g. \"iPhone\" or \"Chrome on macOS\")."
           }
         },
         "required": [
           "ceremony",
           "credential"
         ],
-        "description": "The authenticator's answer (RegistrationResponseJSON or AuthenticationResponseJSON) to the ceremony's options. `device` names this device in its own words, such as \"iPhone\" or \"Chrome on macOS\"."
+        "description": "Completes a passkey registration or sign-in ceremony."
       },
       "Session": {
         "type": "object",
         "properties": {
           "id": {
-            "type": "string"
+            "type": "string",
+            "description": "Unique device session identifier."
           },
           "kind": {
             "type": "string",
             "enum": [
               "browser",
               "app"
-            ]
+            ],
+            "description": "`browser` (cookie-backed) or `app` (token-backed)."
           },
           "device": {
-            "type": "string"
+            "type": "string",
+            "description": "Device description recorded at sign-in."
           },
           "created": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Unix timestamp (ms) when the session started."
           },
           "lastUsed": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Unix timestamp (ms) of the last authenticated request."
           },
           "expires": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Unix timestamp (ms) when the session expires."
           },
           "current": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "`true` for the session authenticating this request."
           }
         },
         "required": [
@@ -2735,30 +3155,32 @@
           "expires",
           "current"
         ],
-        "description": "A device signed in to the account. `current` is the one this request is made with."
+        "description": "An active device session signed in to an account."
       },
       "LinkCode": {
         "type": "object",
         "properties": {
           "code": {
-            "type": "string"
+            "type": "string",
+            "description": "Formatted 8-character one-time code to enter in the channel."
           },
           "expiresAt": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Unix timestamp (ms) when the code expires (5 minutes)."
           }
         },
         "required": [
           "code",
           "expiresAt"
         ],
-        "description": "A one-time code to type into a channel, which links it to the account. It works once, for five minutes."
+        "description": "Single-use code linking an external messaging channel to an account."
       }
     },
     "securitySchemes": {
       "apiSession": {
         "type": "http",
         "scheme": "bearer",
-        "description": "An API session's access token (`SessionTokens`). A browser on the playground's own origin uses its cookie instead."
+        "description": "Short-lived access token from `SessionTokens` (`Authorization: Bearer <accessToken>`). Browser clients on the playground's origin authenticate with `HttpOnly` cookies instead."
       }
     }
   }

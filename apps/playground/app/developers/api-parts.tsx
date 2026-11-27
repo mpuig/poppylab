@@ -131,8 +131,12 @@ export function FieldList({
             <code className="api-name">{field.name}</code>{" "}
             <span className="api-type">
               <TypeText parts={field.type} base={base} />
-              {field.required ? "" : ", optional"}
-            </span>
+            </span>{" "}
+            {field.required ? (
+              <span className="api-req">required</span>
+            ) : (
+              <span className="api-opt">optional</span>
+            )}
           </dt>
           {(field.description || field.fields) && (
             <dd>
