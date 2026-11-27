@@ -7,10 +7,11 @@
  *
  * Each is counted per source address and, once the request names one,
  * per account, with a global ceiling. An address is hashed before it is
- * a key. IPv6 clients are counted per address for now; once the helper
- * that groups them by /64 is on main (`limits.ts`), these should use it.
+ * a key. An IPv6 address counts by its /64 (`addressKey`), as in
+ * `limits.ts` and at the Companies.
  */
 import { createHash } from "node:crypto";
+import { addressKey } from "@poppy-lab/pap-client";
 import { allow, type Limit } from "./runs";
 import { json, type Reply } from "./web";
 
@@ -71,7 +72,10 @@ export async function overAccountBudget(
   const b = budgets[kind];
   const ok =
     (await allow("global", { visitor: b.global })) &&
-    (!who.ip || (await allow(`ip:${hashed(who.ip)}`, { visitor: b.source }))) &&
+    (!who.ip ||
+      (await allow(`ip:${hashed(addressKey(who.ip))}`, {
+        visitor: b.source,
+      }))) &&
     (!who.account ||
       !b.account.length ||
       (await allow(`acct-budget:${hashed(who.account)}`, {
