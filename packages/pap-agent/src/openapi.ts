@@ -328,7 +328,7 @@ const accountErrors = {
   },
   "403": errors["403"],
   "429": {
-    description: "Too many attempts; wait a minute.",
+    description: "Too many attempts; wait as long as `Retry-After` says.",
     ...json(ref("Error")),
   },
 };

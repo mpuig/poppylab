@@ -818,6 +818,32 @@ describe("what is kept and said", () => {
       expect(write.expires).toBeLessThanOrEqual(Date.now() + 5 * 60000);
   });
 
+  it("starts five new accounts an hour per source and sixty an hour in all", async () => {
+    onWorkers();
+    const options = (ip: string) =>
+      call("POST", "/accounts/options", { body: {}, ip });
+    for (let i = 0; i < 5; i++)
+      expect((await options("203.0.113.1")).status).toBe(200);
+    const refused = await options("203.0.113.1");
+    expect(refused.status).toBe(429);
+    expect(refused.headers.get("retry-after")).toBe("3600");
+    expect(refused.data.error).toBe(
+      "Too many attempts. Wait an hour and try again.",
+    );
+    // Refused tries spend nothing of what everyone shares.
+    for (let i = 0; i < 20; i++) await options("203.0.113.1");
+    for (let n = 2; n <= 12; n++)
+      for (let i = 0; i < 5; i++)
+        expect((await options(`203.0.113.${n}`)).status).toBe(200);
+    expect((await options("203.0.113.99")).status).toBe(429);
+    // Answering options is counted apart, per minute.
+    const answer = await call("POST", "/accounts", {
+      body: { ceremony: "x", credential: {} },
+      ip: "203.0.113.1",
+    });
+    expect(answer.data.code).toBe("ceremony_expired");
+  });
+
   it("counts tries at an account per address, so naming it doesn't lock its owner out", async () => {
     onWorkers();
     const created = await create({});

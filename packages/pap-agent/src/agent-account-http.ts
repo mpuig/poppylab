@@ -48,6 +48,7 @@ import {
   readJson,
   type Caller,
   type CookieStore,
+  type Reply,
 } from "./web";
 
 const headers = { "Cache-Control": "no-store" };
@@ -56,8 +57,11 @@ const answer = (body: unknown, status = 200) =>
 export const refuse = (status: number, code: string, error: string) =>
   answer({ code, error }, status);
 const refused = (r: Refusal) => refuse(r.status, r.code, r.error);
-const fromReply = (reply: { status: number; body: unknown }) =>
-  Response.json(reply.body, { status: reply.status, headers });
+const fromReply = (reply: Reply) =>
+  Response.json(reply.body, {
+    status: reply.status,
+    headers: { ...headers, ...reply.headers },
+  });
 
 /** A passkey as its owner sees it: never its key. */
 export type PasskeyView = {
@@ -215,7 +219,7 @@ export async function openOperation(
       return answer(await createOptions(rp, { label: input.label }));
     }
     case "createAccount": {
-      const over = await budget("create", request);
+      const over = await budget("createAnswer", request);
       if (over) return over;
       const input = await body(request);
       const device = deviceLabel(input.device);

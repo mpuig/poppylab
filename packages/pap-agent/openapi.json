@@ -594,7 +594,7 @@
             }
           },
           "429": {
-            "description": "Too many attempts; wait a minute.",
+            "description": "Too many attempts; wait as long as `Retry-After` says.",
             "content": {
               "application/json": {
                 "schema": {
@@ -672,7 +672,7 @@
             }
           },
           "429": {
-            "description": "Too many attempts; wait a minute.",
+            "description": "Too many attempts; wait as long as `Retry-After` says.",
             "content": {
               "application/json": {
                 "schema": {
@@ -746,7 +746,7 @@
             }
           },
           "429": {
-            "description": "Too many attempts; wait a minute.",
+            "description": "Too many attempts; wait as long as `Retry-After` says.",
             "content": {
               "application/json": {
                 "schema": {
@@ -814,7 +814,7 @@
             }
           },
           "429": {
-            "description": "Too many attempts; wait a minute.",
+            "description": "Too many attempts; wait as long as `Retry-After` says.",
             "content": {
               "application/json": {
                 "schema": {
@@ -884,7 +884,7 @@
             }
           },
           "429": {
-            "description": "Too many attempts; wait a minute.",
+            "description": "Too many attempts; wait as long as `Retry-After` says.",
             "content": {
               "application/json": {
                 "schema": {
@@ -952,7 +952,7 @@
             }
           },
           "429": {
-            "description": "Too many attempts; wait a minute.",
+            "description": "Too many attempts; wait as long as `Retry-After` says.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1028,7 +1028,7 @@
             }
           },
           "429": {
-            "description": "Too many attempts; wait a minute.",
+            "description": "Too many attempts; wait as long as `Retry-After` says.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1146,7 +1146,7 @@
             }
           },
           "429": {
-            "description": "Too many attempts; wait a minute.",
+            "description": "Too many attempts; wait as long as `Retry-After` says.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1241,7 +1241,7 @@
             }
           },
           "429": {
-            "description": "Too many attempts; wait a minute.",
+            "description": "Too many attempts; wait as long as `Retry-After` says.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1335,7 +1335,7 @@
             }
           },
           "429": {
-            "description": "Too many attempts; wait a minute.",
+            "description": "Too many attempts; wait as long as `Retry-After` says.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1448,7 +1448,7 @@
             }
           },
           "429": {
-            "description": "Too many attempts; wait a minute.",
+            "description": "Too many attempts; wait as long as `Retry-After` says.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1540,7 +1540,7 @@
             }
           },
           "429": {
-            "description": "Too many attempts; wait a minute.",
+            "description": "Too many attempts; wait as long as `Retry-After` says.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1623,7 +1623,7 @@
             }
           },
           "429": {
-            "description": "Too many attempts; wait a minute.",
+            "description": "Too many attempts; wait as long as `Retry-After` says.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1709,7 +1709,7 @@
             }
           },
           "429": {
-            "description": "Too many attempts; wait a minute.",
+            "description": "Too many attempts; wait as long as `Retry-After` says.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1784,7 +1784,7 @@
             }
           },
           "429": {
-            "description": "Too many attempts; wait a minute.",
+            "description": "Too many attempts; wait as long as `Retry-After` says.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1880,7 +1880,7 @@
             }
           },
           "429": {
-            "description": "Too many attempts; wait a minute.",
+            "description": "Too many attempts; wait as long as `Retry-After` says.",
             "content": {
               "application/json": {
                 "schema": {

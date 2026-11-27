@@ -16,7 +16,7 @@
  */
 import { createHash } from "node:crypto";
 import { addressKey } from "@poppy-lab/pap-client";
-import { allow, type Limit } from "./runs";
+import { storage, type Limit } from "./runs";
 import { json, type Reply } from "./web";
 
 const minute = 60000,
@@ -27,11 +27,21 @@ const l = (name: string, limit: number, windowMs: number): Limit => ({
   windowMs,
 });
 const budgets = {
-  /** Options and verification of a new account. */
+  /**
+   * Options for a new account. With no attestation a script can answer
+   * them as well as a phone, so few: each answer needs options of its
+   * own, which are taken once.
+   */
   create: {
-    source: [l("acct-create:m", 10, minute), l("acct-create:h", 40, hour)],
+    source: [l("acct-create:h", 5, hour)],
     account: [],
-    global: [l("acct-create:g", 600, minute)],
+    global: [l("acct-create:g", 60, hour)],
+  },
+  /** The answer to a new account's options, tried once each. */
+  createAnswer: {
+    source: [l("acct-answer:m", 10, minute)],
+    account: [],
+    global: [l("acct-answer:g", 600, minute)],
   },
   /** Options and verification of a sign-in. */
   signIn: {
@@ -76,41 +86,57 @@ export type AccountBudget = keyof typeof budgets;
 const hashed = (text: string) =>
   createHash("sha256").update(text).digest("base64url");
 
+/** The first of `limits` this request goes over in `bucket`, if any. */
+async function over(bucket: string, limits: Limit[]) {
+  for (const limit of limits)
+    if (
+      (await storage().count(bucket, limit.name, limit.windowMs)) > limit.limit
+    )
+      return limit;
+  return undefined;
+}
+
 /**
  * 429 when this request is over its budget, otherwise undefined.
  * `account` is the account it names, when it names one; for a link code,
- * the channel's user.
+ * the channel's user. The source is counted first, so tries a source was
+ * refused don't spend the global ceiling everyone shares.
  */
 export async function overAccountBudget(
   kind: AccountBudget,
   who: { ip: string | null; account?: string; claimed?: boolean },
 ): Promise<Reply | undefined> {
   const b = budgets[kind];
-  const ok =
-    (await allow("global", { visitor: b.global })) &&
-    (!who.ip ||
-      (await allow(`ip:${hashed(addressKey(who.ip))}`, {
-        visitor: b.source,
-      }))) &&
-    (!who.account ||
-      !b.account.length ||
-      (await allow(
-        `acct-budget:${hashed(
-          who.claimed
-            ? `${who.ip ? addressKey(who.ip) : ""}\n${who.account}`
-            : who.account,
-        )}`,
-        { visitor: b.account },
-      )));
-  if (ok) return undefined;
+  const refused =
+    (who.ip
+      ? await over(`ip:${hashed(addressKey(who.ip))}`, b.source)
+      : undefined) ??
+    (who.account && b.account.length
+      ? await over(
+          `acct-budget:${hashed(
+            who.claimed
+              ? `${who.ip ? addressKey(who.ip) : ""}\n${who.account}`
+              : who.account,
+          )}`,
+          b.account,
+        )
+      : undefined) ??
+    (await over("global", b.global));
+  if (!refused) return undefined;
+  const hourly = refused.windowMs >= hour;
   return json(
     {
       code: "rate_limited",
-      error: "Too many attempts. Wait a minute and try again.",
+      error: hourly
+        ? "Too many attempts. Wait an hour and try again."
+        : "Too many attempts. Wait a minute and try again.",
     },
     {
       status: 429,
-      headers: { "Retry-After": "60", "Cache-Control": "no-store" },
+      headers: {
+        "Retry-After": String(Math.ceil(refused.windowMs / 1000)),
+        "Cache-Control": "no-store",
+      },
     },
   );
 }
