@@ -121,7 +121,7 @@ export const companies = [
       "An electricity utility with hourly meter readings, monthly bills and two rate plans.",
     ask: "How much electricity did my EV use last week?",
     shows:
-      "Iris reads a week of hourly readings from the meter you shared and adds them up. Nothing changes.",
+      "With Use ESPI on, Iris reads a week of hourly readings from the meter you shared and adds them up. Nothing changes.",
     approves: "What you allow",
     change: [
       { what: "Meters shared", before: "", after: "EV charger only" },
