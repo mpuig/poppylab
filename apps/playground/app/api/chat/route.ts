@@ -90,6 +90,7 @@ import {
   readable,
 } from "@/lib/demo-text";
 import { demoExamplesFor, demoGuidedReply } from "@/lib/demo-examples";
+import { demoPayBill } from "@/lib/demo-pay-bill";
 import {
   demoAside,
   demoChange,
@@ -512,6 +513,29 @@ async function reply(request: Request, started: Outcome) {
           failure = { connection: c, error };
         }),
       );
+      if (provider === "demo") {
+        // Demo mode's one example across two Companies: the bill at the
+        // first, its payment at the second (`demo-pay-bill.ts`). The answer
+        // is about the one where something waits for the User, a sign-in
+        // under the answer, or else where the task ended.
+        const signedIn = (part: Part) =>
+          !!part.connection.accountToken && !part.connection.accountUnavailable;
+        const [biller, bank] = parts as [Part, Part];
+        const done = await demoPayBill(
+          {
+            tools: tools[0]!,
+            name: biller.ref.name,
+            signedIn: signedIn(biller),
+          },
+          { tools: tools[1]!, name: bank.ref.name, signedIn: signedIn(bank) },
+          randomId,
+          readable,
+        );
+        const end = done.at === "biller" ? biller : bank;
+        connection = end.connection;
+        knewLost = end.knewLost;
+        return severalAnswer(end.connection, done.text, calls, true);
+      }
       stage = "provider";
       context = conversation.history.slice(-10);
       const offered = modelTools(parts, tools);
@@ -803,6 +827,46 @@ async function reply(request: Request, started: Outcome) {
               label: c.label,
               answer: { message: c.message },
             })),
+          );
+        }
+        // An example across two Companies needs both in the conversation.
+        // Iris connects neither by itself: it says what is missing, with a
+        // button for each to connect, or to make room for it.
+        const pair = example?.with
+          ? [example.with, example.company].map((id) =>
+              lab.find((c) => c.id === id)!,
+            )
+          : undefined;
+        if (pair?.every(Boolean)) {
+          const absent = pair.filter((c) => !connectionAt(conversation, c.url));
+          if (!absent.length)
+            return await severalTurn(
+              pair.map((c) => connectionAt(conversation, c.url)!),
+              connectionAt(conversation, pair[1]!.url)!,
+            );
+          const room = MAX_CONNECTIONS - run.connections.length;
+          const others = run.connections.filter(
+            (c) => !pair.some((p) => originOf(p) === originOf(c)),
+          );
+          const say = `This takes two companies: ${pair[0]!.name}, where Iris reads your bill, and ${pair[1]!.name}, where it proposes the payment. ${listed(
+            absent.map((c) => c.name),
+            "and",
+          )} ${absent.length > 1 ? "aren't" : "isn't"} connected to this conversation yet. ${
+            absent.length > room
+              ? `It already has ${run.connections.length} companies, so remove ${absent.length - room > 1 ? `${absent.length - room} of them` : "one"} first, then connect ${absent.length > 1 ? "them" : "it"}, sign in at both and ask again.`
+              : `Connect ${absent.length > 1 ? "them" : "it"}, sign in at both and ask again.`
+          } Nothing was sent to any company.`;
+          recordOwn(run, undefined, asked, say, false, typed !== null);
+          run.history = run.history.slice(-10);
+          return own(
+            say,
+            absent.length > room
+              ? others.map((c) =>
+                  choice(conversation, { remove: [originOf(c)] }, lab),
+                )
+              : absent.map((c) =>
+                  choice(conversation, { connect: originOf(c) }, lab),
+                ),
           );
         }
         const route = await turnConnection(run, asked, chose, {

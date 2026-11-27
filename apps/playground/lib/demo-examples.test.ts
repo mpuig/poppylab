@@ -105,3 +105,20 @@ it("tells apart the Companies the same words are an example for", () => {
   ]);
   expect(demoExamplesFor("what is my bank account")).toEqual([]);
 });
+
+it("has one example across two Companies, offered when both are connected", () => {
+  expect(demoExampleFor("pay my fernwick bill from checking")).toEqual({
+    company: "harborline",
+    with: "fernwick",
+    text: "Pay my Fernwick bill from checking.",
+  });
+  const offered = (keys: string[]) =>
+    demoGuidedReply(keys).choices.map((c) => c.message);
+  expect(offered(["harborline", "fernwick"])).toContain(
+    "Pay my Fernwick bill from checking.",
+  );
+  expect(offered(["harborline"])).not.toContain(
+    "Pay my Fernwick bill from checking.",
+  );
+  expect(offered([])).not.toContain("Pay my Fernwick bill from checking.");
+});

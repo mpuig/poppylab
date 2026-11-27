@@ -14,6 +14,11 @@ import { labCompanies } from "@/app/playground/companies";
 export type DemoExample = {
   /** The lab Company's key, as `labSites` names it ("juniper", "lantern"…). */
   company: string;
+  /**
+   * For an example across two Companies: the other one's key, which the
+   * task uses first (it reads there, then acts at `company`).
+   */
+  with?: string;
   /** The message, as the chip or the Learn page writes it. */
   text: string;
 };
@@ -95,6 +100,13 @@ const WRITTEN: readonly DemoExample[] = [
   { company: "northwind", text: "add 3 bags to NA 402" },
   { company: "northwind", text: "Add a bag to my flight on 18 May" },
   { company: "northwind", text: "upgrade NA 999" },
+  // Paying a bill from another company: read at Fernwick, paid at
+  // Harborline (`demo-pay-bill.ts`).
+  {
+    company: "harborline",
+    with: "fernwick",
+    text: "Pay my Fernwick bill from checking.",
+  },
 ];
 
 export const DEMO_EXAMPLES: readonly DemoExample[] = [...SUGGESTED, ...WRITTEN];
@@ -155,7 +167,14 @@ export function demoGuidedReply(companies: string[]): {
         (example, i) =>
           SUGGESTED.findIndex((e) => e.company === example.company) === i,
       );
-  const choices = offered.map((example) => ({
+  // An example across two Companies, when both are in the conversation.
+  const across = WRITTEN.filter(
+    (example) =>
+      example.with &&
+      companies.includes(example.with) &&
+      companies.includes(example.company),
+  );
+  const choices = [...offered, ...across].map((example) => ({
     label: example.text,
     message: example.text,
   }));
