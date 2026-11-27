@@ -2412,3 +2412,163 @@ footer .lab-links a:hover {
   margin-right: 8px;
   vertical-align: 2px;
 }
+
+/*
+ * The agent account, at the top of the Identity view: ruled like the
+ * Identity and History lists, with the playground's own buttons and
+ * inputs. Nothing here is boxed; the section heads carry the ink rule.
+ */
+.account-panel {
+  margin-bottom: 48px;
+}
+.account-panel h2,
+.identity-panel h2 {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--ink);
+  font-size: 18px;
+  font-weight: 600;
+}
+.identity-panel dl {
+  border-top: 0;
+}
+.account-panel > p {
+  margin: 14px 0 0;
+  max-width: 68ch;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+.account-panel > p.quiet {
+  color: var(--muted);
+}
+.account-panel h3 {
+  margin-top: 32px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+}
+.account-label {
+  display: grid;
+  gap: 8px;
+  max-width: 360px;
+  margin-top: 22px;
+}
+.account-label span {
+  font-size: 13px;
+  font-weight: 600;
+}
+.account-label input {
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  font-size: 14px;
+}
+.account-label input:focus {
+  border-color: var(--ink);
+}
+.account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  margin-top: 16px;
+  font-size: 14px;
+}
+.account-actions .quiet {
+  flex: 1 1 240px;
+}
+.account-facts {
+  margin: 0;
+}
+.account-facts > div {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 16px;
+  align-items: center;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+}
+.account-facts dt {
+  color: var(--muted);
+}
+.account-facts dd {
+  margin: 0;
+}
+.account-device {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+.account-bring {
+  display: grid;
+  gap: 14px;
+  justify-items: start;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.account-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.account-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 20px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+.account-list li > span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 260px;
+}
+.account-list strong {
+  font-size: 15px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.account-list li > span > span {
+  font-size: 14px;
+  color: var(--muted);
+}
+.account-list .account-current {
+  font-weight: 400;
+  color: var(--muted);
+}
+.account-panel .account-status {
+  margin: 12px 0 0;
+  min-height: 1.6em;
+  font-size: 14px;
+  color: var(--success);
+}
+@media (max-width: 640px) {
+  .account-facts > div {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+}
+/* The header's Account entry, beside the four tabs while there is room. */
+.narrow-only {
+  display: none;
+}
+@media (max-width: 520px) {
+  .nav-item.account-entry,
+  .wide-only {
+    display: none;
+  }
+  .narrow-only {
+    display: inline;
+  }
+}

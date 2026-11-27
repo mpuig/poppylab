@@ -3,7 +3,8 @@ import { ArrowUpRight } from "lucide-react";
 /** The public metadata a Company uses to verify this agent. */
 export function IdentityPanel() {
   return (
-    <section className="identity-panel">
+    <section className="identity-panel" aria-labelledby="agent-identity">
+      <h2 id="agent-identity">Iris’s identity</h2>
       <dl>
         <div>
           <dt>Agent</dt>

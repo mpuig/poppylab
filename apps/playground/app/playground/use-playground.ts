@@ -1287,11 +1287,26 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
   const removeMessage = (index: number) =>
     setMessages((old) => old.filter((_, i) => i !== index));
 
+  /**
+   * The browser signed in to an account, out of one, or brought its
+   * conversations into one: the conversation the address names is read
+   * again, as the account or the visitor now sees it.
+   */
+  function reloadConversation() {
+    const id = conversationInAddress();
+    if (!id) return;
+    current.current = id;
+    setConversation(id);
+    setMissing(false);
+    void restore(id).catch(() => {});
+  }
+
   return {
     conversation,
     readOnly: !!ended,
     keptUntil: ended?.keptUntil,
     missing,
+    reloadConversation,
     /** The demo was reset under this page: its conversation has ended. */
     markEnded: () => {
       if (current.current) setEnded({});
