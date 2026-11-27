@@ -7,7 +7,7 @@ import {
   openLast,
 } from "@poppy-lab/pap-agent/operation-presentation";
 import { demoChangeReplyNow } from "@poppy-lab/pap-agent/demo-changes";
-import { hideLinkSecrets } from "@/lib/link-display";
+import { hideLinkSecrets } from "@poppy-lab/pap-agent/link-display";
 import { OperationReview } from "../operation-review";
 import { AccountRow, leftOutAt, rowWaits } from "./account-row";
 import { CompanyMark, FromCompany } from "./company-mark";

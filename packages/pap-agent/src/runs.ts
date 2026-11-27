@@ -700,6 +700,31 @@ export async function pendingSignIns(visitor: string) {
   return states;
 }
 
+// ---- Channel users ---------------------------------------------------------
+/**
+ * The agent user a channel's own user is (a Telegram chat, a device), made
+ * the first time the channel names them: a random key, kept under
+ * `user:<SHA-256 of their ID>` in the channel's own bucket. The link is a
+ * record of its own so that a later step can point it at another agent
+ * user, when a person links the channel to their account.
+ */
+export async function channelUser(channel: string, id: string) {
+  const b = backend();
+  const bucket = `channel:${channel}`;
+  const key = `user:${createHash("sha256").update(id).digest("base64url")}`;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const linked = (await b.get(bucket, key))?.value as
+      { user?: string } | undefined;
+    if (typeof linked?.user === "string") return linked.user;
+    const user = createHash("sha256")
+      .update(randomBytes(32))
+      .digest("base64url");
+    if (await b.put(bucket, key, { user, linked: Date.now() }, null))
+      return user;
+  }
+  throw new Error("Channel user conflict");
+}
+
 // ---- Rate limits -----------------------------------------------------------
 export type Limit = { name: string; limit: number; windowMs: number };
 /** True when within every limit (per visitor, and the global budget). */
