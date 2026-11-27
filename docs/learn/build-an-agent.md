@@ -189,6 +189,8 @@ things once per Session:
 request and the answers. Before you send a report:
 
 - Send a task once per Session, and never one the Company lists as excluded.
+- Send a report only to the Company the User's task was asked of: never one
+  about another company, and never about connecting or choosing companies.
 - Offer no report tool when the tasks response names an endpoint outside the
   Company's domain: a signed-in report carries the token and the Session header
   ([§9.3](https://personalagentprotocol.org/docs/1.0/spec#feedback)).
