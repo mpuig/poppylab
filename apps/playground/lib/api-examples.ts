@@ -56,6 +56,8 @@ const proposal = {
   },
   state: "proposed",
   expiresAt: "2026-11-27T09:56:28.685Z",
+  spoken:
+    "Lantern Noodle Bar wants to change your order, for a new total of 43 dollars, 6 more.",
 };
 
 const tokens = {
@@ -215,6 +217,8 @@ export const EXAMPLES = {
         {
           from: "agent",
           text: "Demo mode runs the examples below, without a model. To ask anything in your own words, press “Use your own model”.",
+          spoken:
+            "Demo mode runs the examples below, without a model. To ask anything in your own words, press “Use your own model”.",
           choices: [
             {
               label: "What’s on the menu?",
