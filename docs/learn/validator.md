@@ -10,28 +10,27 @@ This page lists Poppy Lab's results and notes for running the validator, not the
 checks. [Build a Company](build-a-company.md) says at which
 milestones to run it.
 
-## Results, 26 November 2026
+## Results, 27 November 2026
 
 Five Companies (version 1.0, Operations version 3) ran against the kit
-published on 25 November 2026.
-Harborline and Fernwick have no signed-out `GET` for `--probe`, so they ran
-without one:
+downloaded on 26 November 2026. Northwind ran with `--probe` set to its
+`/api/travel-information?topic=baggage`; the other four ran without one:
 
 | Company                                                    | Pass | Fail | Warn | Skipped |
 | ---------------------------------------------------------- | ---- | ---- | ---- | ------- |
-| [Lantern Noodle Bar](https://food-demo.poppylab.dev)       | 120  | 0    | 0    | 13      |
-| [Juniper Market](https://grocery-demo.poppylab.dev)        | 121  | 0    | 0    | 12      |
-| [Harborline Bank](https://bank-demo.poppylab.dev)          | 120  | 0    | 0    | 13      |
-| [Northwind Air](https://airline-demo.poppylab.dev)         | 120  | 0    | 0    | 13      |
-| [Fernwick Power & Light](https://energy-demo.poppylab.dev) | 120  | 0    | 0    | 13      |
+| [Lantern Noodle Bar](https://food-demo.poppylab.dev)       | 126  | 0    | 0    | 7       |
+| [Juniper Market](https://grocery-demo.poppylab.dev)        | 127  | 0    | 0    | 6       |
+| [Harborline Bank](https://bank-demo.poppylab.dev)          | 125  | 0    | 0    | 8       |
+| [Northwind Air](https://airline-demo.poppylab.dev)         | 126  | 0    | 0    | 7       |
+| [Fernwick Power & Light](https://energy-demo.poppylab.dev) | 126  | 0    | 0    | 7       |
 
-Skipped checks cover parts these Companies lack: MCP (4), several protocol
-versions (2), Device and Mediated Sign-In (3), a second domain under the same
-issuer (2) and streaming (1). One more depends
-on the report. Juniper answers the validator's feedback report with an
+Skipped checks cover parts these Companies lack: several protocol versions
+(2), a second domain under the same issuer (2) and Mediated Sign-In (2). At
+Harborline one more skips: it offers Direct Sign-In only, so it has no device
+authorization endpoint. Juniper answers the validator's feedback report with an
 alternative, opening a support case through its API, and that alternative is
-checked. The other four answer a plain `202`, so no alternative is checked
-there.
+checked. The other four answer a plain `202`, so their alternative check
+skips. The MCP and conversation-streaming checks run and pass at all five.
 
 The validator never signs anyone in; the kit's `checklist.md` covers most of
 sign-in by hand. Its extension checks see only a run declaring no extensions,
