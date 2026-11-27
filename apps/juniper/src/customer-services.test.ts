@@ -8,10 +8,10 @@ async function setup(state: Commerce = { customers: {}, records: {} }) {
   const app = testApp();
   const c = operations(
     app,
-    (req) => ({
+    (c) => ({
       client: "agent",
       user: "u",
-      account: String(req.headers["x-test-account"] ?? "elena"),
+      account: c.req.header("x-test-account") ?? "elena",
       expires: Date.now() + 60000,
     }),
     state,

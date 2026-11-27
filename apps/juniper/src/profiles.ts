@@ -1,6 +1,7 @@
-import type { Req, Router } from "./router.js";
+import type { Context, Hono } from "hono";
 import type { Session } from "@poppy-lab/pap-company";
 import type { Propose } from "./customer-services.js";
+import { body } from "./request.js";
 export type Profile = { name: string; email: string; address: string };
 export type ProfileCustomer = { profile?: Profile; profile_version?: number };
 export function profileState(c: ProfileCustomer) {
@@ -57,8 +58,8 @@ function validate(data: unknown): { version: number } & Profile {
   };
 }
 export function profiles(
-  app: Router,
-  sessionFor: (r: Req) => Session,
+  app: Hono,
+  sessionFor: (ctx: Context) => Session,
   customer: (s: Session) => ProfileCustomer,
   propose: Propose,
 ) {
@@ -68,13 +69,13 @@ export function profiles(
     if (version !== before.profile_version) throw new ProfileConflict();
     return { ...before, after };
   }
-  app.post("/api/account/profile-proposal", async (req, reply) => {
+  app.post("/api/account/profile-proposal", async (ctx) => {
+    const data = await body(ctx);
     try {
-      const s = sessionFor(req),
-        v = checked(s, req.body);
+      const s = sessionFor(ctx),
+        v = checked(s, data);
       return propose(
-        req,
-        reply,
+        ctx,
         s,
         {
           kind: "profile_change",
@@ -85,12 +86,15 @@ export function profiles(
         `Change the fictional profile (version ${v.profile_version}): name “${v.profile.name}” → “${v.after.name}”; email “${v.profile.email}” → “${v.after.email}”; address “${v.profile.address}” → “${v.after.address}”. Only future purchases use it; existing orders don't change. Needs your approval.`,
       );
     } catch (e) {
-      return reply.code(e instanceof ProfileConflict ? 409 : 400).send({
-        error:
-          e instanceof ProfileConflict
-            ? "profile_changed"
-            : "invalid_fictional_profile",
-      });
+      return ctx.json(
+        {
+          error:
+            e instanceof ProfileConflict
+              ? "profile_changed"
+              : "invalid_fictional_profile",
+        },
+        e instanceof ProfileConflict ? 409 : 400,
+      );
     }
   });
   return {

@@ -1,4 +1,4 @@
-import type { Req, Router } from "./router.js";
+import type { Context, Hono } from "hono";
 import { siteScript } from "./site/app-script.js";
 import {
   consentWords,
@@ -31,6 +31,7 @@ import { faqs } from "./customer-services.js";
 import type { operations } from "./operations.js";
 import { ShoppingConflict } from "./shopping-edits.js";
 import { persona, personaSelect } from "./personas.js";
+import { body } from "./request.js";
 export type WebSession = { expires: number; account?: string };
 /**
  * What an agent's own browser, joined to its Session (§6), sees only with
@@ -54,8 +55,8 @@ export type WebSessions = Iterable<[string, WebSession]> & {
   set(key: string, value: WebSession): unknown;
   delete(key: string): boolean;
 };
-const cookie = (req: Req, name: string) =>
-  String(req.headers.cookie ?? "")
+const cookie = (c: Context, name: string) =>
+  (c.req.header("cookie") ?? "")
     .split(/;\s*/)
     .find((v) => v.startsWith(name + "="))
     ?.slice(name.length + 1) ?? "";
@@ -124,21 +125,21 @@ export function publicPage(
  * count kept there starts again when the cookie is cleared. Without a
  * source every attempt counts as one source.
  */
-export function loginLimit(sourceOf: (req: Req) => string = () => "") {
+export function loginLimit(sourceOf: (c: Context) => string = () => "") {
   const wrong = new Map<string, { count: number; start: number }>();
   let everyone = { count: 0, start: Date.now() };
   return {
-    blocked(req: Req) {
+    blocked(c: Context) {
       const now = Date.now();
       if (now - everyone.start > 60000) everyone = { count: 0, start: now };
-      const source = sourceOf(req),
+      const source = sourceOf(c),
         mine = wrong.get(source);
       if (mine && now - mine.start > 60000) wrong.delete(source);
       return everyone.count >= 200 || (wrong.get(source)?.count ?? 0) >= 10;
     },
-    failed(req: Req) {
+    failed(c: Context) {
       everyone.count++;
-      const source = sourceOf(req),
+      const source = sourceOf(c),
         mine = wrong.get(source);
       if (mine) mine.count++;
       else {
@@ -150,7 +151,7 @@ export function loginLimit(sourceOf: (req: Req) => string = () => "") {
   };
 }
 export function website(
-  app: Router,
+  app: Hono,
   origin: string,
   view: (s: Session) => object,
   sessions: WebSessions = new Map<string, WebSession>(),
@@ -164,7 +165,7 @@ export function website(
   /** This visitor's §9.3 reports, for the account page. */
   feedback: () => readonly FeedbackReport[] = () => [],
   /** The browser join a request belongs to (§6), as the gateway tells it. */
-  browser: (req: Req) => BrowserJoin | undefined = () => undefined,
+  browser: (c: Context) => BrowserJoin | undefined = () => undefined,
   /** Wrong passwords, shared by every visitor's copy of the website. */
   logins = loginLimit(),
 ) {
@@ -182,37 +183,39 @@ export function website(
       script,
       account,
     );
-  app.addHook("onSend", async (req, reply) => {
-    // By path: `req.url` carries the query string too.
-    const path = req.url.split("?")[0]!;
-    if (path === "/account" || path.startsWith("/site/")) {
-      reply.header("Cache-Control", "no-store");
+  // The account area's headers, on whatever its routes answer. Before the
+  // routes, so it wraps them; on every path, because a middleware on its
+  // own path would list as one more route (`writingRoutes`).
+  app.use("*", async (c, next) => {
+    await next();
+    if (c.req.path === "/account" || c.req.path.startsWith("/site/")) {
+      c.header("Cache-Control", "no-store");
       // The portal's own script and same-origin fetches.
-      reply.header(
+      c.header(
         "Content-Security-Policy",
         "default-src 'none'; style-src 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
       );
-      reply.header("Referrer-Policy", "same-origin");
+      c.header("Referrer-Policy", "same-origin");
     }
   });
-  const active = (req: Req) => {
-    const record = sessions.get(tokenHash(cookie(req, "juniper_web")));
+  const active = (c: Context) => {
+    const record = sessions.get(tokenHash(cookie(c, "juniper_web")));
     return (
       portal &&
       !!record &&
       record.expires > Date.now() &&
       !!persona(record.account ?? "elena") &&
-      (req.method !== "POST" ||
-        req.headers["x-juniper-account"] === (record.account ?? "elena"))
+      (c.req.method !== "POST" ||
+        c.req.header("x-juniper-account") === (record.account ?? "elena"))
     );
   };
   /** Who a read is for: a join's account first, then the browser's login. */
-  const viewer = (req: Req) => {
+  const viewer = (c: Context) => {
     if (!portal) return undefined;
-    const record = sessions.get(tokenHash(cookie(req, "juniper_web")));
+    const record = sessions.get(tokenHash(cookie(c, "juniper_web")));
     const account = record?.account ?? "elena";
     return siteViewer(
-      browser(req),
+      browser(c),
       record && record.expires > Date.now() && persona(account)
         ? { account }
         : undefined,
@@ -227,249 +230,229 @@ export function website(
   });
   const setCookie = (name: string, value: string, maxAge: number) =>
     `${name}=${value}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${maxAge}${origin.startsWith("https:") ? "; Secure" : ""}`;
-  app.get("/site/login", async (req, reply) => {
-    if (!portal) return reply.code(403).send({ error: "local_demo_only" });
+  app.get("/site/login", (c) => {
+    if (!portal) return c.json({ error: "local_demo_only" }, 403);
     // An agent's browser gets no login form: its sign-in is the agent's.
-    const join = browser(req);
-    if (join?.account) return reply.redirect("/account");
+    const join = browser(c);
+    if (join?.account) return c.redirect("/account", 302);
     if (join)
-      return reply
-        .header("Cache-Control", "no-store")
-        .type("text/html")
-        .send(
-          page(
-            "Not signed in",
-            `<div class="login"><h1>This browser isn't signed in.</h1><p class="intro">${escapeHtml(AGENT_BROWSER_LOGIN)}</p></div>`,
-          ),
-        );
+      return c.html(
+        page(
+          "Not signed in",
+          `<div class="login"><h1>This browser isn't signed in.</h1><p class="intro">${escapeHtml(AGENT_BROWSER_LOGIN)}</p></div>`,
+        ),
+        200,
+        { "Cache-Control": "no-store" },
+      );
     // In a cookie and in the form: the two must arrive equal (site-login.ts).
     const token = loginFormToken();
-    reply
-      .header("Cache-Control", "no-store")
-      .header(
-        "Set-Cookie",
-        setCookie("juniper_login", token, LOGIN_FORM_MS / 1000),
-      );
-    return reply
-      .type("text/html")
-      .send(
-        page(
-          "Sign in",
-          `<div class="login"><h1>Welcome to Juniper.</h1><p class="intro">Sign in to see your shopping, deliveries, billing and profile, or to open a support case. Your agent in Poppy Lab sees the same data.</p><form method="post" action="/site/login"><input type="hidden" name="login_token" value="${token}">${personaSelect}${process.env.JUNIPER_PASSWORD_HASH ? '<label for="password">Demo environment password</label><input id="password" type="password" name="password" autocomplete="current-password" required maxlength="256">' : '<p class="notice">Choose a fictional account. This does not verify real identities. The optional password protects the whole environment.</p>'}<button type="submit">Sign in to the selected account</button></form><p class="notice">Don't enter credentials from other services. You approve your agent's proposals in Poppy Lab. You can open support cases directly on this website.</p></div>`,
-        ),
-      );
+    return c.html(
+      page(
+        "Sign in",
+        `<div class="login"><h1>Welcome to Juniper.</h1><p class="intro">Sign in to see your shopping, deliveries, billing and profile, or to open a support case. Your agent in Poppy Lab sees the same data.</p><form method="post" action="/site/login"><input type="hidden" name="login_token" value="${token}">${personaSelect}${process.env.JUNIPER_PASSWORD_HASH ? '<label for="password">Demo environment password</label><input id="password" type="password" name="password" autocomplete="current-password" required maxlength="256">' : '<p class="notice">Choose a fictional account. This does not verify real identities. The optional password protects the whole environment.</p>'}<button type="submit">Sign in to the selected account</button></form><p class="notice">Don't enter credentials from other services. You approve your agent's proposals in Poppy Lab. You can open support cases directly on this website.</p></div>`,
+      ),
+      200,
+      {
+        "Cache-Control": "no-store",
+        "Set-Cookie": setCookie("juniper_login", token, LOGIN_FORM_MS / 1000),
+      },
+    );
   });
-  app.post<{
-    Body: { password?: string; account?: string; login_token?: string };
-  }>("/site/login", async (req, reply) => {
-    if (!portal) return reply.code(403).send({ error: "local_demo_only" });
+  app.post("/site/login", async (c) => {
+    if (!portal) return c.json({ error: "local_demo_only" }, 403);
+    const form = (await body(c)) as
+      { password?: string; account?: string; login_token?: string } | undefined;
     if (
-      req.headers.origin !== origin ||
-      !loginFormValid(cookie(req, "juniper_login"), req.body?.login_token)
+      c.req.header("origin") !== origin ||
+      !loginFormValid(cookie(c, "juniper_login"), form?.login_token)
     )
-      return reply
-        .code(403)
-        .type("text/html")
-        .send(
-          page(
-            "Sign in again",
-            `<div class="login"><h1>This sign-in page has expired.</h1><p class="intro">A sign-in page works for five minutes after it opens, and this one is older. You aren't signed in, and nothing has changed.</p><p><a href="/site/login">Open the sign-in page again</a></p></div>`,
-          ),
-        );
-    if (logins.blocked(req))
-      return reply.code(429).send("Too many attempts. Wait a minute.");
+      return c.html(
+        page(
+          "Sign in again",
+          `<div class="login"><h1>This sign-in page has expired.</h1><p class="intro">A sign-in page works for five minutes after it opens, and this one is older. You aren't signed in, and nothing has changed.</p><p><a href="/site/login">Open the sign-in page again</a></p></div>`,
+        ),
+        403,
+      );
+    if (logins.blocked(c))
+      return c.text("Too many attempts. Wait a minute.", 429);
     const configured = process.env.JUNIPER_PASSWORD_HASH;
     if (configured) {
       if (!/^[a-f0-9]{32}:[a-f0-9]{128}$/.test(configured))
         throw new Error("Invalid password configuration");
       const [salt, expected] = configured.split(":");
       const actual = scryptSync(
-        String(req.body?.password ?? "").slice(0, 256),
+        String(form?.password ?? "").slice(0, 256),
         salt!,
         64,
       );
       if (!timingSafeEqual(actual, Buffer.from(expected!, "hex"))) {
-        logins.failed(req);
-        return reply.code(401).send("Wrong password. Go back to /site/login.");
+        logins.failed(c);
+        return c.text("Wrong password. Go back to /site/login.", 401);
       }
     }
-    const selected = persona(req.body?.account ?? "elena");
-    if (!selected) return reply.code(400).send({ error: "invalid_account" });
-    sessions.delete(tokenHash(cookie(req, "juniper_web")));
+    const selected = persona(form?.account ?? "elena");
+    if (!selected) return c.json({ error: "invalid_account" }, 400);
+    sessions.delete(tokenHash(cookie(c, "juniper_web")));
     for (const [id, s] of sessions)
       if (s.expires < Date.now()) sessions.delete(id);
-    if (sessions.size >= 1000)
-      return reply.code(429).send("Too many sessions.");
+    if (sessions.size >= 1000) return c.text("Too many sessions.", 429);
     const token = randomId();
     sessions.set(tokenHash(token), {
       expires: Date.now() + 1800000,
       account: selected.id,
     });
-    return reply
-      .header("Cache-Control", "no-store")
-      .header("Set-Cookie", [
-        setCookie("juniper_web", token, 1800),
-        setCookie("juniper_login", "", 0),
-      ])
-      .redirect("/account");
+    c.header("Cache-Control", "no-store");
+    c.header("Set-Cookie", setCookie("juniper_web", token, 1800), {
+      append: true,
+    });
+    c.header("Set-Cookie", setCookie("juniper_login", "", 0), { append: true });
+    return c.redirect("/account", 302);
   });
-  app.post("/site/logout", async (req, reply) => {
-    if (req.headers.origin !== origin)
-      return reply.code(403).send({ error: "same_origin_required" });
-    sessions.delete(tokenHash(cookie(req, "juniper_web")));
-    return reply
-      .header("Set-Cookie", setCookie("juniper_web", "", 0))
-      .header("Cache-Control", "no-store")
-      .send({ ok: true });
+  app.post("/site/logout", (c) => {
+    if (c.req.header("origin") !== origin)
+      return c.json({ error: "same_origin_required" }, 403);
+    sessions.delete(tokenHash(cookie(c, "juniper_web")));
+    return c.json({ ok: true }, 200, {
+      "Set-Cookie": setCookie("juniper_web", "", 0),
+      "Cache-Control": "no-store",
+    });
   });
-  const browserSession = (req: Req): Session => ({
+  const browserSession = (c: Context): Session => ({
     client: "juniper-website",
-    user:
-      sessions.get(tokenHash(cookie(req, "juniper_web")))!.account ?? "elena",
+    user: sessions.get(tokenHash(cookie(c, "juniper_web")))!.account ?? "elena",
     account:
-      sessions.get(tokenHash(cookie(req, "juniper_web")))!.account ?? "elena",
+      sessions.get(tokenHash(cookie(c, "juniper_web")))!.account ?? "elena",
     expires: Date.now() + 60000,
   });
-  app.get("/help", async (_req, reply) =>
-    reply
-      .type("text/html")
-      .send(
-        page(
-          "Help",
-          `<h1>How can we help?</h1><p class="intro">Answers about this fictional shop. To check an order or open a support case, sign in to your account.</p>${faqs.map((f) => `<section><h2>${f.question}</h2><p>${f.answer}</p></section>`).join("")}<p><a href="/account">Sign in to my account</a></p>`,
-        ),
+  app.get("/help", (c) =>
+    c.html(
+      page(
+        "Help",
+        `<h1>How can we help?</h1><p class="intro">Answers about this fictional shop. To check an order or open a support case, sign in to your account.</p>${faqs.map((f) => `<section><h2>${f.question}</h2><p>${f.answer}</p></section>`).join("")}<p><a href="/account">Sign in to my account</a></p>`,
       ),
+    ),
   );
-  app.post("/site/cases", async (req, reply) => {
-    if (!active(req) || req.headers.origin !== origin)
-      return reply
-        .code(403)
-        .send({ error: "customer_session_and_origin_required" });
-    if (!services)
-      return reply.code(503).send({ error: "service_unavailable" });
+  app.post("/site/cases", async (c) => {
+    if (!active(c) || c.req.header("origin") !== origin)
+      return c.json({ error: "customer_session_and_origin_required" }, 403);
+    if (!services) return c.json({ error: "service_unavailable" }, 503);
+    const data = await body(c);
     try {
-      return reply
-        .code(201)
-        .send({ case: services.create(browserSession(req), req.body) });
+      return c.json({ case: services.create(browserSession(c), data) }, 201);
     } catch {
-      return reply.code(400).send({
-        error:
-          "Check the subject, topic, message and order. Use fictional details only.",
-      });
+      return c.json(
+        {
+          error:
+            "Check the subject, topic, message and order. Use fictional details only.",
+        },
+        400,
+      );
     }
   });
-  app.post<{ Params: { id: string }; Body: { message?: unknown } }>(
-    "/site/cases/:id/messages",
-    async (req, reply) => {
-      if (!active(req) || req.headers.origin !== origin)
-        return reply
-          .code(403)
-          .send({ error: "customer_session_and_origin_required" });
-      if (!services)
-        return reply.code(503).send({ error: "service_unavailable" });
-      try {
-        if (!req.body || Object.keys(req.body).some((k) => k !== "message"))
-          throw Error();
-        return {
-          case: services.reply(
-            browserSession(req),
-            req.params.id,
-            req.body.message,
-          ),
-        };
-      } catch {
-        return reply.code(400).send({
+  app.post("/site/cases/:id/messages", async (c) => {
+    if (!active(c) || c.req.header("origin") !== origin)
+      return c.json({ error: "customer_session_and_origin_required" }, 403);
+    if (!services) return c.json({ error: "service_unavailable" }, 503);
+    const b = (await body(c)) as { message?: unknown } | null | undefined;
+    try {
+      if (!b || Object.keys(b).some((k) => k !== "message")) throw Error();
+      return c.json({
+        case: services.reply(browserSession(c), c.req.param("id"), b.message),
+      });
+    } catch {
+      return c.json(
+        {
           error:
             "The message couldn't be recorded. Check the case reference and the text length.",
-        });
-      }
-    },
-  );
-  for (const target of ["basket", "delivery"] as const)
-    app.post("/site/" + target, async (req, reply) => {
-      if (!active(req) || req.headers.origin !== origin)
-        return reply
-          .code(403)
-          .send({ error: "customer_session_and_origin_required" });
-      if (!services)
-        return reply.code(503).send({ error: "service_unavailable" });
-      try {
-        return target === "basket"
-          ? services.updateBasket(browserSession(req), req.body)
-          : services.updateDelivery(browserSession(req), req.body);
-      } catch (e) {
-        return reply.code(e instanceof ShoppingConflict ? 409 : 400).send({
-          error:
-            e instanceof ShoppingConflict
-              ? "shopping_changed"
-              : "invalid_shopping",
-        });
-      }
-    });
-  app.post("/site/profile", async (req, reply) => {
-    if (!active(req) || req.headers.origin !== origin)
-      return reply
-        .code(403)
-        .send({ error: "customer_session_and_origin_required" });
-    if (!services)
-      return reply.code(503).send({ error: "service_unavailable" });
-    try {
-      const b = req.body;
-      if (!b || typeof b !== "object" || Array.isArray(b)) throw Error();
-      const data = b as Record<string, unknown>;
-      return services.updateProfile(browserSession(req), {
-        ...data,
-        version:
-          typeof data.version === "string"
-            ? Number(data.version)
-            : data.version,
-      });
-    } catch (e) {
-      return reply.code(e instanceof ProfileConflict ? 409 : 400).send({
-        error:
-          e instanceof ProfileConflict
-            ? "profile_changed"
-            : "invalid_fictional_profile",
-      });
+        },
+        400,
+      );
     }
   });
-  app.get("/site/access", async (req, reply) => {
-    const seen = viewer(req);
-    if (!seen) return reply.code(401).send({ error: "sign_in_required" });
-    // The connected agents are the customer's own to see.
-    if (seen.agent)
-      return reply.code(403).send({ error: "customers_own_browser_only" });
-    return { grants: access?.list(seen.account) ?? [] };
+  for (const target of ["basket", "delivery"] as const)
+    app.post("/site/" + target, async (c) => {
+      if (!active(c) || c.req.header("origin") !== origin)
+        return c.json({ error: "customer_session_and_origin_required" }, 403);
+      if (!services) return c.json({ error: "service_unavailable" }, 503);
+      const data = await body(c);
+      try {
+        return c.json(
+          target === "basket"
+            ? services.updateBasket(browserSession(c), data)
+            : services.updateDelivery(browserSession(c), data),
+        );
+      } catch (e) {
+        return c.json(
+          {
+            error:
+              e instanceof ShoppingConflict
+                ? "shopping_changed"
+                : "invalid_shopping",
+          },
+          e instanceof ShoppingConflict ? 409 : 400,
+        );
+      }
+    });
+  app.post("/site/profile", async (c) => {
+    if (!active(c) || c.req.header("origin") !== origin)
+      return c.json({ error: "customer_session_and_origin_required" }, 403);
+    if (!services) return c.json({ error: "service_unavailable" }, 503);
+    const b = await body(c);
+    try {
+      if (!b || typeof b !== "object" || Array.isArray(b)) throw Error();
+      const data = b as Record<string, unknown>;
+      return c.json(
+        services.updateProfile(browserSession(c), {
+          ...data,
+          version:
+            typeof data.version === "string"
+              ? Number(data.version)
+              : data.version,
+        }),
+      );
+    } catch (e) {
+      return c.json(
+        {
+          error:
+            e instanceof ProfileConflict
+              ? "profile_changed"
+              : "invalid_fictional_profile",
+        },
+        e instanceof ProfileConflict ? 409 : 400,
+      );
+    }
   });
-  app.post<{ Params: { id: string } }>(
-    "/site/access/:id/revoke",
-    async (req, reply) => {
-      if (!active(req) || req.headers.origin !== origin)
-        return reply
-          .code(403)
-          .send({ error: "customer_session_and_origin_required" });
-      if (!access?.revoke(browserSession(req).account!, req.params.id))
-        return reply.code(404).send({ error: "grant_not_found" });
-      return { revoked: true };
-    },
-  );
-  app.get("/site/state", async (req, reply) => {
-    reply.header("Cache-Control", "no-store");
-    const seen = viewer(req);
-    if (!seen) return reply.code(401).send({ error: "sign_in_required" });
+  app.get("/site/access", (c) => {
+    const seen = viewer(c);
+    if (!seen) return c.json({ error: "sign_in_required" }, 401);
+    // The connected agents are the customer's own to see.
+    if (seen.agent) return c.json({ error: "customers_own_browser_only" }, 403);
+    return c.json({ grants: access?.list(seen.account) ?? [] });
+  });
+  app.post("/site/access/:id/revoke", (c) => {
+    if (!active(c) || c.req.header("origin") !== origin)
+      return c.json({ error: "customer_session_and_origin_required" }, 403);
+    if (!access?.revoke(browserSession(c).account!, c.req.param("id")))
+      return c.json({ error: "grant_not_found" }, 404);
+    return c.json({ revoked: true });
+  });
+  app.get("/site/state", (c) => {
+    c.header("Cache-Control", "no-store");
+    const seen = viewer(c);
+    if (!seen) return c.json({ error: "sign_in_required" }, 401);
     // An agent's browser without the scope that reads the account gets who
     // it is signed in as, and nothing of the account.
     if (!viewerSees(seen, "poppy:read"))
-      return {
+      return c.json({
         account_id: seen.account,
         customer: persona(seen.account)?.name ?? seen.account,
         ...agentBrowserState(seen, PARTS),
-      };
+      });
     // The connected agents come with the account, so the page's own
     // two-second read keeps their list current, in the consent page's
     // words. They and what they asked for are the customer's own to see,
     // not an agent's browser's.
-    return {
+    return c.json({
       ...view(reading(seen)),
       ...(seen.agent ? { activity: [] } : {}),
       agents: seen.agent
@@ -479,12 +462,12 @@ export function website(
             permissions: consentWords(permissions(grant.scopes)),
           })),
       ...agentBrowserState(seen, PARTS),
-    };
+    });
   });
-  app.get("/account", async (req, reply) => {
-    reply.header("Cache-Control", "no-store");
-    const seen = viewer(req);
-    if (!seen) return reply.redirect("/site/login");
+  app.get("/account", (c) => {
+    c.header("Cache-Control", "no-store");
+    const seen = viewer(c);
+    if (!seen) return c.redirect("/site/login", 302);
     // An agent's browser is told whose it is, and gets no control: no
     // switch of customer, no log out, no editor and no form.
     const about = seen.readOnly
@@ -495,32 +478,28 @@ export function website(
     // Without the scope that reads the account there is nothing to draw,
     // so the page goes without its script.
     if (!viewerSees(seen, "poppy:read"))
-      return reply
-        .type("text/html")
-        .send(
-          page(
-            "Your account",
-            `<h1>Your account.</h1><p id="current-account" class="notice">Signed in as ${escapeHtml(persona(seen.account)?.name ?? seen.account)}, a test customer</p>${about}`,
-          ),
-        );
+      return c.html(
+        page(
+          "Your account",
+          `<h1>Your account.</h1><p id="current-account" class="notice">Signed in as ${escapeHtml(persona(seen.account)?.name ?? seen.account)}, a test customer</p>${about}`,
+        ),
+      );
     const editor = (target: "basket" | "delivery") =>
       seen.readOnly ? "" : shoppingEditor(target);
     const own = seen.agent
       ? ""
       : `<section id="agent-access"><h2>Connected agents</h2><p class="notice">Disconnecting an agent ends its access to your account. It doesn't log you out of the website or delete orders. Logging out of the website doesn't disconnect an agent.</p><div id="access-list"></div><p id="access-status" role="status"></p></section>${feedbackSection(feedback(), { notice: "notice", example: "paying with a gift card" })}<section id="activity"><details><summary><h2>Your agent's activity</h2></summary><p class="notice">A pending proposal doesn't change your data. Approve or decline it in Poppy Lab.</p><div id="activity-list"></div></details></section>`;
-    return reply
-      .type("text/html")
-      .send(
-        page(
-          "Your account",
-          `<h1>Your account, up to date.</h1><p class="intro">Shopping, deliveries and customer service, with the same data your agent reads. Pending proposals don't change your account.</p><p id="current-account" class="notice"></p>${about}<nav aria-label="Your account services"><a href="#basket">Shopping</a><a href="#delivery">Deliveries</a><a href="#orders">Orders</a><a href="#billing">Billing</a><a href="#support">Help and support</a><a href="#profile">Profile</a>${seen.agent ? "" : '<a href="#agent-access">Connected agents</a><a href="#activity">Activity</a>'}</nav><div class="live-row"><p id="status" class="live" role="status">Loading your account…</p><div><button id="refresh" class="secondary" type="button">Refresh now</button>${seen.readOnly ? "" : ' <button id="logout" class="secondary" type="button">Log out</button>'}</div></div><div id="content" aria-busy="true"><div class="columns"><section id="basket"><h2>Your basket</h2><div id="basket-items"></div><div id="basket-total"></div>${editor("basket")}</section><section id="delivery"><h2>Recurring delivery</h2><p id="day" class="day"></p><div id="delivery-items"></div><div id="delivery-total"></div>${editor("delivery")}</section></div><section id="orders"><h2>Your orders</h2><div id="order-list"></div></section><section id="billing"><h2>Billing</h2><p class="notice">Documents generated from your simulated orders. They are not tax receipts and prove no real payment.</p><div id="invoice-list"></div></section><section id="support"><h2>Help and support</h2><p class="intro">Read the frequent answers or send a request. Support in this demo replies automatically; no person is on duty.</p><p><a href="/help">See frequent questions</a></p><div class="columns"><div><h3>Your requests</h3><div id="case-list"></div></div>${seen.readOnly ? "" : `<div><h3>Open a support case</h3><form id="case-form" method="post" action="/site/cases"><label for="case-topic">Topic</label><select id="case-topic" name="topic"><option value="delivery">Deliveries</option><option value="billing">Billing</option><option value="profile">Profile</option><option value="other">Something else</option></select><label for="case-subject">Subject</label><input id="case-subject" name="subject" required maxlength="120"><label for="case-order">Order reference (optional)</label><select id="case-order" name="order_id"><option value="">No related order</option></select><label for="case-message">What happened?</label><textarea id="case-message" name="message" required maxlength="2000" rows="5"></textarea><p class="notice">Sending creates a fictional request. It doesn't change orders, deliveries or amounts. Don't include real personal or bank details.</p><button type="submit">Send request</button></form><form id="reply-form" method="post" action="/site/cases" hidden><h3 id="reply-title">Reply to a support case</h3><input id="reply-id" type="hidden"><label for="reply-message">Add information</label><textarea id="reply-message" required maxlength="2000" rows="4"></textarea><p class="notice">Sending a follow-up reopens the case and invalidates any earlier proposal to close it.</p><button type="submit">Send follow-up</button></form><p id="support-status" role="status"></p></div>`}</div></section><section id="profile"><h2>Your profile</h2><p class="notice">Fictional details for future purchases. Changing them doesn't alter existing orders or verify a real identity.</p><div class="columns"><div><dl id="profile-data"></dl>${seen.readOnly ? "" : '<button id="edit-profile" type="button" class="secondary" disabled>Edit profile</button>'}</div>${seen.readOnly ? "" : `<form id="profile-form" method="post" action="/site/profile" hidden><input id="profile-version" name="version" type="hidden"><label for="profile-name">Fictional name</label><input id="profile-name" name="name" required maxlength="80" autocomplete="off"><label for="profile-email">Test email</label><input id="profile-email" name="email" type="email" required maxlength="120" pattern=".+[.]invalid" aria-describedby="profile-hint" autocomplete="off"><label for="profile-address">Fictional address for future purchases</label><input id="profile-address" name="address" required maxlength="240" autocomplete="off"><p id="profile-hint" class="notice">Use fictional details only and an email ending in .invalid. No email is sent. Saving invalidates earlier profile and checkout proposals.</p><button type="submit">Save profile</button> <button id="cancel-profile" type="button" class="secondary">Cancel</button></form>`}</div><p id="profile-status" role="status"></p></section>${own}</div>`,
-          true,
-          seen.account,
-        ),
-      );
+    return c.html(
+      page(
+        "Your account",
+        `<h1>Your account, up to date.</h1><p class="intro">Shopping, deliveries and customer service, with the same data your agent reads. Pending proposals don't change your account.</p><p id="current-account" class="notice"></p>${about}<nav aria-label="Your account services"><a href="#basket">Shopping</a><a href="#delivery">Deliveries</a><a href="#orders">Orders</a><a href="#billing">Billing</a><a href="#support">Help and support</a><a href="#profile">Profile</a>${seen.agent ? "" : '<a href="#agent-access">Connected agents</a><a href="#activity">Activity</a>'}</nav><div class="live-row"><p id="status" class="live" role="status">Loading your account…</p><div><button id="refresh" class="secondary" type="button">Refresh now</button>${seen.readOnly ? "" : ' <button id="logout" class="secondary" type="button">Log out</button>'}</div></div><div id="content" aria-busy="true"><div class="columns"><section id="basket"><h2>Your basket</h2><div id="basket-items"></div><div id="basket-total"></div>${editor("basket")}</section><section id="delivery"><h2>Recurring delivery</h2><p id="day" class="day"></p><div id="delivery-items"></div><div id="delivery-total"></div>${editor("delivery")}</section></div><section id="orders"><h2>Your orders</h2><div id="order-list"></div></section><section id="billing"><h2>Billing</h2><p class="notice">Documents generated from your simulated orders. They are not tax receipts and prove no real payment.</p><div id="invoice-list"></div></section><section id="support"><h2>Help and support</h2><p class="intro">Read the frequent answers or send a request. Support in this demo replies automatically; no person is on duty.</p><p><a href="/help">See frequent questions</a></p><div class="columns"><div><h3>Your requests</h3><div id="case-list"></div></div>${seen.readOnly ? "" : `<div><h3>Open a support case</h3><form id="case-form" method="post" action="/site/cases"><label for="case-topic">Topic</label><select id="case-topic" name="topic"><option value="delivery">Deliveries</option><option value="billing">Billing</option><option value="profile">Profile</option><option value="other">Something else</option></select><label for="case-subject">Subject</label><input id="case-subject" name="subject" required maxlength="120"><label for="case-order">Order reference (optional)</label><select id="case-order" name="order_id"><option value="">No related order</option></select><label for="case-message">What happened?</label><textarea id="case-message" name="message" required maxlength="2000" rows="5"></textarea><p class="notice">Sending creates a fictional request. It doesn't change orders, deliveries or amounts. Don't include real personal or bank details.</p><button type="submit">Send request</button></form><form id="reply-form" method="post" action="/site/cases" hidden><h3 id="reply-title">Reply to a support case</h3><input id="reply-id" type="hidden"><label for="reply-message">Add information</label><textarea id="reply-message" required maxlength="2000" rows="4"></textarea><p class="notice">Sending a follow-up reopens the case and invalidates any earlier proposal to close it.</p><button type="submit">Send follow-up</button></form><p id="support-status" role="status"></p></div>`}</div></section><section id="profile"><h2>Your profile</h2><p class="notice">Fictional details for future purchases. Changing them doesn't alter existing orders or verify a real identity.</p><div class="columns"><div><dl id="profile-data"></dl>${seen.readOnly ? "" : '<button id="edit-profile" type="button" class="secondary" disabled>Edit profile</button>'}</div>${seen.readOnly ? "" : `<form id="profile-form" method="post" action="/site/profile" hidden><input id="profile-version" name="version" type="hidden"><label for="profile-name">Fictional name</label><input id="profile-name" name="name" required maxlength="80" autocomplete="off"><label for="profile-email">Test email</label><input id="profile-email" name="email" type="email" required maxlength="120" pattern=".+[.]invalid" aria-describedby="profile-hint" autocomplete="off"><label for="profile-address">Fictional address for future purchases</label><input id="profile-address" name="address" required maxlength="240" autocomplete="off"><p id="profile-hint" class="notice">Use fictional details only and an email ending in .invalid. No email is sent. Saving invalidates earlier profile and checkout proposals.</p><button type="submit">Save profile</button> <button id="cancel-profile" type="button" class="secondary">Cancel</button></form>`}</div><p id="profile-status" role="status"></p></section>${own}</div>`,
+        true,
+        seen.account,
+      ),
+    );
   });
-  app.get("/site/app.js", async (_req, reply) =>
-    reply.type("text/javascript").send(clientScript),
+  app.get("/site/app.js", (c) =>
+    c.body(clientScript, 200, { "Content-Type": "text/javascript" }),
   );
 }
 function shoppingEditor(target: "basket" | "delivery") {

@@ -11,7 +11,6 @@ import {
   type GatewayState,
   type Store,
 } from "@poppy-lab/pap-company";
-import { router } from "./router.js";
 import { juniperCompany } from "./juniper.js";
 
 export type Injected = {
@@ -105,10 +104,13 @@ function lifecycle(
   };
 }
 
-/** Business modules alone: a Router plus inject. */
+/** Business modules alone: a Hono app plus inject. */
 export function testApp() {
   const hono = new Hono();
-  return { ...router(hono), ...lifecycle((r) => hono.fetch(r)), hono };
+  return Object.assign(
+    hono,
+    lifecycle((r) => hono.fetch(r)),
+  );
 }
 
 /** The full Juniper Company (gateway included) for protocol tests. */

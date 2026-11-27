@@ -57,7 +57,7 @@ The gateway (`packages/pap-company/src/gateway.ts`) is a 50-line composition of 
 
 **Juniper Market** is migrated too (`apps/juniper`). Fastify is gone from the repository.
 
-- `src/juniper.ts` is its `CompanyDefinition`. The business modules (shopping, customer services, profiles, shopping edits, website/portal, Operations v3) are unchanged. They are written against `src/router.ts`, a small `(req, reply)` facade over Hono.
+- `src/juniper.ts` is its `CompanyDefinition`. The business modules (shopping, customer services, profiles, shopping edits, website/portal, Operations v3) register their routes on Hono directly, like the other Companies. `src/request.ts` reads a request's JSON or form body by its content type.
 - `src/node.ts` (vault `juniper`, `protocolRequest`) and `src/worker.ts` (Durable Object `JuniperCompany`) are the entry points. `wrangler.toml` targets `grocery-demo.poppylab.dev`.
 - The gateway gained what Juniper needed: optional RFC 9449 DPoP nonces (`deploy.dpopNonces`; the token endpoint challenges before the client assertion or grant is consumed, the API answers 401 `use_dpop_nonce`), grant listing/revocation for the website, and a 16 KiB body limit.
 - The browser portal (`/site/*`, `/account`) only runs on the local origin. On Workers it answers 403 `local_demo_only`: all visitors would share the same fictional personas, so it waits for per-visitor isolation.

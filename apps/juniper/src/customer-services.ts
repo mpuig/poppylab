@@ -1,7 +1,8 @@
-import type { Reply, Req, Router } from "./router.js";
+import type { Context, Hono } from "hono";
 import { randomId } from "@poppy-lab/pap-client";
 import type { Session } from "@poppy-lab/pap-company";
 import { profiles, profileState, type ProfileCustomer } from "./profiles.js";
+import { body } from "./request.js";
 export const faqs = [
   {
     topic: "delivery",
@@ -60,12 +61,11 @@ export type ServiceCustomer = ProfileCustomer & {
 };
 /** Operations v3 gate: refuses with the operation, or performs an approved one. */
 export type Propose = (
-  req: Req,
-  reply: Reply,
+  ctx: Context,
   s: Session,
   terms: Record<string, unknown>,
   summary: string,
-) => Reply | Response;
+) => Response;
 const object = (v: unknown): v is Record<string, unknown> =>
   !!v && typeof v === "object" && !Array.isArray(v);
 function input(value: unknown) {
@@ -95,8 +95,8 @@ function input(value: unknown) {
   };
 }
 export function customerServices(
-  app: Router,
-  sessionFor: (r: Req) => Session,
+  app: Hono,
+  sessionFor: (ctx: Context) => Session,
   customer: (s: Session) => ServiceCustomer,
   propose: Propose,
 ) {
@@ -142,63 +142,68 @@ export function customerServices(
   };
   const find = (s: Session, id: string) =>
     prepare(customer(s)).cases!.find((c) => c.id === id);
-  app.get("/api/faq", async () => ({ faqs }));
-  app.get("/api/account/profile", async (req) => ({
-    ...profileState(customer(sessionFor(req))),
-    fictional: true,
-  }));
-  app.get("/api/account/invoices", async (req) => ({
-    invoices: view(sessionFor(req)).invoices,
-    fictional: true,
-  }));
-  app.get("/api/account/cases", async (req) => ({
-    cases: prepare(customer(sessionFor(req)))
-      .cases!.slice(-20)
-      .reverse()
-      .map(({ messages, ...c }) => ({ ...c, message_count: messages.length })),
-  }));
-  app.get<{ Params: { id: string } }>(
-    "/api/account/cases/:id",
-    async (req, reply) =>
-      find(sessionFor(req), req.params.id) ??
-      reply.code(404).send({ error: "case_not_found" }),
+  app.get("/api/faq", (ctx) => ctx.json({ faqs }));
+  app.get("/api/account/profile", (ctx) =>
+    ctx.json({
+      ...profileState(customer(sessionFor(ctx))),
+      fictional: true,
+    }),
   );
-  app.post("/api/account/case-proposal", async (req, reply) => {
+  app.get("/api/account/invoices", (ctx) =>
+    ctx.json({
+      invoices: view(sessionFor(ctx)).invoices,
+      fictional: true,
+    }),
+  );
+  app.get("/api/account/cases", (ctx) =>
+    ctx.json({
+      cases: prepare(customer(sessionFor(ctx)))
+        .cases!.slice(-20)
+        .reverse()
+        .map(({ messages, ...c }) => ({
+          ...c,
+          message_count: messages.length,
+        })),
+    }),
+  );
+  app.get("/api/account/cases/:id", (ctx) => {
+    const found = find(sessionFor(ctx), ctx.req.param("id"));
+    return found ? ctx.json(found) : ctx.json({ error: "case_not_found" }, 404);
+  });
+  app.post("/api/account/case-proposal", async (ctx) => {
+    const data = await body(ctx);
     try {
-      const s = sessionFor(req),
-        v = validate(customer(s), req.body);
+      const s = sessionFor(ctx),
+        v = validate(customer(s), data);
       const terms = {
         kind: "support_case",
         case_id: `case_${randomId()}`,
         ...v,
       };
       return propose(
-        req,
-        reply,
+        ctx,
         s,
         terms,
         `Open a fictional ${v.topic} support case: “${v.subject}”. Message: “${v.message}”. ${v.order_id ? `Order ${v.order_id}.` : ""} It only creates a request and an automatic test reply; no order, delivery or amount changes.`,
       );
     } catch {
-      return reply.code(400).send({ error: "invalid_case_or_order" });
+      return ctx.json({ error: "invalid_case_or_order" }, 400);
     }
   });
-  app.post("/api/account/case-resolution", async (req, reply) => {
-    const b = req.body;
+  app.post("/api/account/case-resolution", async (ctx) => {
+    const b = await body(ctx);
     if (
       !object(b) ||
       Object.keys(b).some((k) => k !== "case_id") ||
       typeof b.case_id !== "string"
     )
-      return reply.code(400).send({ error: "invalid_case" });
-    const s = sessionFor(req),
+      return ctx.json({ error: "invalid_case" }, 400);
+    const s = sessionFor(ctx),
       c = find(s, b.case_id);
-    if (!c) return reply.code(404).send({ error: "case_not_found" });
-    if (c.status !== "open")
-      return reply.code(409).send({ error: "case_not_open" });
+    if (!c) return ctx.json({ error: "case_not_found" }, 404);
+    if (c.status !== "open") return ctx.json({ error: "case_not_open" }, 409);
     return propose(
-      req,
-      reply,
+      ctx,
       s,
       {
         kind: "support_resolution",

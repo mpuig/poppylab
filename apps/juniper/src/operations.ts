@@ -1,4 +1,4 @@
-import type { Req, Router } from "./router.js";
+import type { Context, Hono } from "hono";
 import { createHash } from "node:crypto";
 import { randomId } from "@poppy-lab/pap-client";
 import {
@@ -10,7 +10,6 @@ import {
   type ActivityItem,
   type OperationRecord,
 } from "@poppy-lab/pap-company";
-import type { Reply } from "./router.js";
 import type { Session } from "@poppy-lab/pap-company";
 import { profileState } from "./profiles.js";
 import { persona } from "./personas.js";
@@ -21,6 +20,7 @@ import {
   validQuantity,
 } from "./shopping-edits.js";
 import { customerServices, type ServiceCustomer } from "./customer-services.js";
+import { body } from "./request.js";
 export const catalogue = [
   {
     id: "oranges",
@@ -87,10 +87,10 @@ const unchanged: Record<string, string> = {
     "Your account had changed when this was approved, so the proposal changed nothing.",
 };
 /** Operations v3 from the gateway; standalone (tests) builds its own. */
-export type Approve = (req: Req, action: Action) => Response;
+export type Approve = (ctx: Context, action: Action) => Response;
 export function operations(
-  app: Router,
-  sessionFor: (request: Req) => Session,
+  app: Hono,
+  sessionFor: (ctx: Context) => Session,
   state: Commerce = { customers: {}, records: {} },
   gateway?: Approve,
   /** With the gateway: its record of an account's agent activity. */
@@ -141,8 +141,8 @@ export function operations(
       version: c.version,
     };
   };
-  const owner = (req: Req) => {
-    const s = sessionFor(req);
+  const owner = (ctx: Context) => {
+    const s = sessionFor(ctx);
     return { client: s.client, user: s.user, account: account(s) };
   };
   let approve = gateway;
@@ -151,59 +151,64 @@ export function operations(
     const engine = approvals(state.records, {
       finished: (entry) => keepActivity((state.activity ??= []), entry),
     });
-    app.addHook("preHandler", (req, reply) => {
-      if (req.method !== "POST" || !req.url.startsWith("/api/account/")) return;
-      const first = engine.replay(owner(req), req.headers["poppy-approval"]);
-      if (first) return reply.code(200).send(first);
+    app.use("*", async (ctx, next) => {
+      if (
+        ctx.req.method === "POST" &&
+        ctx.req.path.startsWith("/api/account/")
+      ) {
+        const first = engine.replay(
+          owner(ctx),
+          ctx.req.header("poppy-approval"),
+        );
+        if (first) return ctx.json(first, 200);
+      }
+      await next();
     });
-    approve = (req, action) => {
+    approve = (ctx, action) => {
       const outcome = engine.gate(
-        owner(req),
-        req.headers["poppy-approval"],
+        owner(ctx),
+        ctx.req.header("poppy-approval"),
         action,
       );
       return Response.json(outcome.body, { status: outcome.status });
     };
   }
   const services = customerServices(app, sessionFor, customer, gate);
-  app.get("/api/account/deliveries", async (req) => ({
-    customer: profileState(customer(sessionFor(req))).profile.name,
-    deliveries: [
-      {
-        id: "delivery_001",
-        day: customer(sessionFor(req)).day,
-        items: catalogue
-          .filter((p) => customer(sessionFor(req)).deliveryItems[p.id])
-          .map((p) => p.name),
-        line_items: basket({
-          ...customer(sessionFor(req)),
-          basket: customer(sessionFor(req)).deliveryItems,
-        }).items,
-        total_cents: basket({
-          ...customer(sessionFor(req)),
-          basket: customer(sessionFor(req)).deliveryItems,
-        }).total_cents,
-        currency: "USD",
-        version: customer(sessionFor(req)).deliveryVersion,
-        note: "Fictional recurring delivery; no real shipment.",
-      },
-    ],
-  }));
-  app.get("/api/account/basket", async (req) =>
-    basket(customer(sessionFor(req))),
+  app.get("/api/account/deliveries", (ctx) => {
+    const c = customer(sessionFor(ctx)),
+      recurring = basket({ ...c, basket: c.deliveryItems });
+    return ctx.json({
+      customer: profileState(c).profile.name,
+      deliveries: [
+        {
+          id: "delivery_001",
+          day: c.day,
+          items: catalogue
+            .filter((p) => c.deliveryItems[p.id])
+            .map((p) => p.name),
+          line_items: recurring.items,
+          total_cents: recurring.total_cents,
+          currency: "USD",
+          version: c.deliveryVersion,
+          note: "Fictional recurring delivery; no real shipment.",
+        },
+      ],
+    });
+  });
+  app.get("/api/account/basket", (ctx) =>
+    ctx.json(basket(customer(sessionFor(ctx)))),
   );
-  app.get("/api/account/orders", async (req) => ({
-    orders: customer(sessionFor(req)).orders,
-  }));
-  app.get<{ Params: { id: string } }>(
-    "/api/account/orders/:id",
-    async (req, reply) => {
-      const order = customer(sessionFor(req)).orders.find(
-        (o) => o.id === req.params.id,
-      );
-      return order ?? reply.code(404).send({ error: "order_not_found" });
-    },
+  app.get("/api/account/orders", (ctx) =>
+    ctx.json({ orders: customer(sessionFor(ctx)).orders }),
   );
+  app.get("/api/account/orders/:id", (ctx) => {
+    const order = customer(sessionFor(ctx)).orders.find(
+      (o) => o.id === ctx.req.param("id"),
+    );
+    return order
+      ? ctx.json(order)
+      : ctx.json({ error: "order_not_found" }, 404);
+  });
   const comparable = (t: Record<string, unknown>) =>
     JSON.stringify(
       Object.fromEntries(
@@ -233,14 +238,12 @@ export function operations(
   }
   /** Juniper's proposals, through the shared Operations v3 gate. */
   function gate(
-    req: Req,
-    reply: Reply,
+    ctx: Context,
     s: Session,
     terms: Record<string, unknown>,
     summary: string,
   ) {
-    void reply;
-    return approve!(req, {
+    return approve!(ctx, {
       key: actionKey(customer(s), terms),
       terms,
       summary,
@@ -253,96 +256,88 @@ export function operations(
         ) && services.stale(s, t),
     });
   }
-  app.post<{ Body: { day?: string } }>(
-    "/api/account/delivery-change",
-    async (req, reply) => {
-      const to = req.body?.day;
-      if (!validDay(to)) return reply.code(400).send({ error: "invalid_day" });
-      const s = sessionFor(req),
-        c = customer(s);
-      return gate(
-        req,
-        reply,
-        s,
-        {
-          kind: "delivery",
-          delivery_id: "delivery_001",
-          from: c.day,
-          delivery_version: c.deliveryVersion,
-          to,
-          fee_cents: 0,
-          currency: "USD",
-        },
-        `Move ${profileState(c).profile.name}’s fictional delivery delivery_001 from ${c.day} to ${to}, recurring weekly. No charge (USD 0.00). No real shipment is affected.`,
-      );
-    },
-  );
-  app.post<{ Body: { product_id?: string; quantity?: number } }>(
-    "/api/account/delivery-items-change",
-    async (req, reply) => {
-      const s = sessionFor(req),
-        c = customer(s),
-        p = catalogue.find((p) => p.id === req.body?.product_id),
-        quantity = req.body?.quantity;
-      if (!p || !validQuantity(quantity, p.stock))
-        return reply.code(400).send({ error: "invalid_quantity_or_product" });
-      const nextItems = { ...c.deliveryItems, [p.id]: quantity! };
-      const next = basket({ ...c, basket: nextItems });
-      return gate(
-        req,
-        reply,
-        s,
-        {
-          kind: "delivery_items",
-          delivery_id: "delivery_001",
-          product_id: p.id,
-          product_name: p.name,
-          from_quantity: c.deliveryItems[p.id] ?? 0,
-          quantity,
-          unit: p.unit,
-          unit_price_cents: p.price,
-          delivery_version: c.deliveryVersion,
-          delivery_day: c.day,
-          frequency: "weekly",
-          next_items: next.items,
-          subtotal_cents: next.subtotal_cents,
-          delivery_fee_cents: next.delivery_fee_cents,
-          tax_cents: 0,
-          total_cents: next.total_cents,
-          currency: "USD",
-        },
-        `${quantity === 0 ? "Remove" : `Set quantity to ${quantity} for`} ${p.name} in ${profileState(c).profile.name}’s fictional recurring delivery delivery_001 (${c.day}, weekly). New items: ${next.items.map((i) => `${i.quantity} × ${i.name} (${i.unit}), USD ${(i.line_total_cents / 100).toFixed(2)}`).join("; ") || "none"}. New weekly subtotal USD ${(next.subtotal_cents / 100).toFixed(2)}, delivery USD ${(next.delivery_fee_cents / 100).toFixed(2)}, tax USD 0.00, total USD ${(next.total_cents / 100).toFixed(2)}. No items means no shipment. This does not change the shopping basket or existing orders. No real payment or shipment.`,
-      );
-    },
-  );
-  app.post<{ Body: { product_id?: string; quantity?: number } }>(
-    "/api/account/basket-change",
-    async (req, reply) => {
-      const s = sessionFor(req),
-        c = customer(s),
-        p = catalogue.find((p) => p.id === req.body?.product_id),
-        quantity = req.body?.quantity;
-      if (!p || !validQuantity(quantity, p.stock))
-        return reply.code(400).send({ error: "invalid_quantity_or_product" });
-      return gate(
-        req,
-        reply,
-        s,
-        {
-          kind: "basket",
-          product_id: p.id,
-          product_name: p.name,
-          from_quantity: c.basket[p.id] ?? 0,
-          unit: p.unit,
-          quantity,
-          unit_price_cents: p.price,
-          currency: "USD",
-          basket_version: c.version,
-        },
-        `Set ${p.name} to ${quantity} ${p.unit}(s) in ${profileState(c).profile.name}’s fictional basket at USD ${(p.price / 100).toFixed(2)} per ${p.unit}. Quantity zero removes it. No payment or order is placed.`,
-      );
-    },
-  );
+  app.post("/api/account/delivery-change", async (ctx) => {
+    const to = ((await body(ctx)) as { day?: string } | undefined)?.day;
+    if (!validDay(to)) return ctx.json({ error: "invalid_day" }, 400);
+    const s = sessionFor(ctx),
+      c = customer(s);
+    return gate(
+      ctx,
+      s,
+      {
+        kind: "delivery",
+        delivery_id: "delivery_001",
+        from: c.day,
+        delivery_version: c.deliveryVersion,
+        to,
+        fee_cents: 0,
+        currency: "USD",
+      },
+      `Move ${profileState(c).profile.name}’s fictional delivery delivery_001 from ${c.day} to ${to}, recurring weekly. No charge (USD 0.00). No real shipment is affected.`,
+    );
+  });
+  app.post("/api/account/delivery-items-change", async (ctx) => {
+    const b = (await body(ctx)) as
+        { product_id?: string; quantity?: number } | undefined,
+      s = sessionFor(ctx),
+      c = customer(s),
+      p = catalogue.find((p) => p.id === b?.product_id),
+      quantity = b?.quantity;
+    if (!p || !validQuantity(quantity, p.stock))
+      return ctx.json({ error: "invalid_quantity_or_product" }, 400);
+    const nextItems = { ...c.deliveryItems, [p.id]: quantity! };
+    const next = basket({ ...c, basket: nextItems });
+    return gate(
+      ctx,
+      s,
+      {
+        kind: "delivery_items",
+        delivery_id: "delivery_001",
+        product_id: p.id,
+        product_name: p.name,
+        from_quantity: c.deliveryItems[p.id] ?? 0,
+        quantity,
+        unit: p.unit,
+        unit_price_cents: p.price,
+        delivery_version: c.deliveryVersion,
+        delivery_day: c.day,
+        frequency: "weekly",
+        next_items: next.items,
+        subtotal_cents: next.subtotal_cents,
+        delivery_fee_cents: next.delivery_fee_cents,
+        tax_cents: 0,
+        total_cents: next.total_cents,
+        currency: "USD",
+      },
+      `${quantity === 0 ? "Remove" : `Set quantity to ${quantity} for`} ${p.name} in ${profileState(c).profile.name}’s fictional recurring delivery delivery_001 (${c.day}, weekly). New items: ${next.items.map((i) => `${i.quantity} × ${i.name} (${i.unit}), USD ${(i.line_total_cents / 100).toFixed(2)}`).join("; ") || "none"}. New weekly subtotal USD ${(next.subtotal_cents / 100).toFixed(2)}, delivery USD ${(next.delivery_fee_cents / 100).toFixed(2)}, tax USD 0.00, total USD ${(next.total_cents / 100).toFixed(2)}. No items means no shipment. This does not change the shopping basket or existing orders. No real payment or shipment.`,
+    );
+  });
+  app.post("/api/account/basket-change", async (ctx) => {
+    const b = (await body(ctx)) as
+        { product_id?: string; quantity?: number } | undefined,
+      s = sessionFor(ctx),
+      c = customer(s),
+      p = catalogue.find((p) => p.id === b?.product_id),
+      quantity = b?.quantity;
+    if (!p || !validQuantity(quantity, p.stock))
+      return ctx.json({ error: "invalid_quantity_or_product" }, 400);
+    return gate(
+      ctx,
+      s,
+      {
+        kind: "basket",
+        product_id: p.id,
+        product_name: p.name,
+        from_quantity: c.basket[p.id] ?? 0,
+        unit: p.unit,
+        quantity,
+        unit_price_cents: p.price,
+        currency: "USD",
+        basket_version: c.version,
+      },
+      `Set ${p.name} to ${quantity} ${p.unit}(s) in ${profileState(c).profile.name}’s fictional basket at USD ${(p.price / 100).toFixed(2)} per ${p.unit}. Quantity zero removes it. No payment or order is placed.`,
+    );
+  });
   function checkoutQuote(c: Customer, day: string) {
     const b = basket(c);
     const terms = {
@@ -359,22 +354,17 @@ export function operations(
     const summary = `Place a fictional order for ${terms.recipient}: ${b.items.map((p) => `${p.quantity} × ${p.name} (${p.unit}), USD ${(p.line_total_cents / 100).toFixed(2)}`).join("; ")}. Subtotal USD ${(b.subtotal_cents / 100).toFixed(2)}, delivery USD ${(b.delivery_fee_cents / 100).toFixed(2)}, tax USD 0.00, total USD ${(b.total_cents / 100).toFixed(2)}. Deliver ${day} to “${terms.destination}”. Simulation only: no real payment or shipment. The basket will be cleared.`;
     return { terms, summary };
   }
-  app.post<{ Body: { day?: string } }>(
-    "/api/account/checkout",
-    async (req, reply) => {
-      const s = sessionFor(req),
-        c = customer(s),
-        b = basket(c),
-        day = req.body?.day ?? c.day;
-      if (!b.items.length)
-        return reply.code(400).send({ error: "empty_basket" });
-      if (!validDay(day)) return reply.code(400).send({ error: "invalid_day" });
-      if (c.orders.length >= 1000)
-        return reply.code(429).send({ error: "order_limit" });
-      const { terms, summary } = checkoutQuote(c, day);
-      return gate(req, reply, s, terms, summary);
-    },
-  );
+  app.post("/api/account/checkout", async (ctx) => {
+    const s = sessionFor(ctx),
+      c = customer(s),
+      b = basket(c),
+      day = ((await body(ctx)) as { day?: string } | undefined)?.day ?? c.day;
+    if (!b.items.length) return ctx.json({ error: "empty_basket" }, 400);
+    if (!validDay(day)) return ctx.json({ error: "invalid_day" }, 400);
+    if (c.orders.length >= 1000) return ctx.json({ error: "order_limit" }, 429);
+    const { terms, summary } = checkoutQuote(c, day);
+    return gate(ctx, s, terms, summary);
+  });
   /** Performs approved terms; responds as the request would without operations. */
   function perform(s: Session, t: Record<string, unknown>) {
     const c = customer(s);

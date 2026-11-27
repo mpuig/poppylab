@@ -20,7 +20,6 @@ import { consentExpiredPage, consentPage } from "./consent-page.js";
 import { persona, personas } from "./personas.js";
 import { forAgentsPage, homePage } from "./home.js";
 import { howItWorksPage, type AgentGuide } from "./how-it-works.js";
-import { router } from "./router.js";
 import { juniperAgent, PHONE, PHONE_HOURS } from "./agent.js";
 import { skills } from "./skills.js";
 
@@ -111,9 +110,7 @@ export function juniperCompany(options: {
 }): CompanyDefinition {
   // Outside `mount`, which runs once for each visitor's copy.
   const logins = loginLimit(
-    options.workers
-      ? (req) => req.headers["cf-connecting-ip"] ?? ""
-      : undefined,
+    options.workers ? (c) => c.req.header("cf-connecting-ip") ?? "" : undefined,
   );
   /** What "How it works" shows, read from this definition and the seed data. */
   const guide = (publicOrigin: string): AgentGuide => {
@@ -276,21 +273,20 @@ export function juniperCompany(options: {
         howItWorksPage(publicOrigin, guide(publicOrigin)),
     },
     mount(app, ctx) {
-      const r = router(app);
       const business = ctx.state as {
         commerce?: Commerce;
         webSessions?: Record<string, WebSession>;
       };
       business.commerce ??= { customers: {}, records: {} };
       const commerce = operations(
-        r,
-        (req) => ctx.sessionFor(req.ctx),
+        app,
+        ctx.sessionFor,
         business.commerce,
-        (req, action) => ctx.gate(req.ctx, action),
+        ctx.gate,
         ctx.activity,
       );
       website(
-        r,
+        app,
         ctx.origin,
         commerce.view,
         // Read from the state each time: the gateway moves a browser's
@@ -300,21 +296,25 @@ export function juniperCompany(options: {
         ctx.grants,
         options.portal,
         ctx.feedback,
-        (req) => ctx.browser(req.ctx),
+        ctx.browser,
         logins,
       );
-      r.get("/api/products", async () => ({
-        currency: "USD",
-        products: products.map((p) => ({
-          ...p,
-          image: `${ctx.origin}/img/${p.id}.webp`,
-        })),
-      }));
-      r.get("/api/delivery", async () => delivery);
-      r.get("/api/policies", async () => ({
-        ...policies,
-        note: "Read-only demo: purchases and account changes are not available.",
-      }));
+      app.get("/api/products", (c) =>
+        c.json({
+          currency: "USD",
+          products: products.map((p) => ({
+            ...p,
+            image: `${ctx.origin}/img/${p.id}.webp`,
+          })),
+        }),
+      );
+      app.get("/api/delivery", (c) => c.json(delivery));
+      app.get("/api/policies", (c) =>
+        c.json({
+          ...policies,
+          note: "Read-only demo: purchases and account changes are not available.",
+        }),
+      );
       ctx.converse(juniperAgent(commerce, { ...policies, delivery }));
     },
   };
