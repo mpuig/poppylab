@@ -33,10 +33,11 @@ export const connect = (url: string) =>
  * The five fictional Companies. The home shows the plain-language fields and
  * `change`, the exact change the visitor would approve (from each Company's
  * own data), and `brand`, the leading colour of that Company's own website;
- * `/developers` adds the host, scopes and agent-facing page. Fernwick's
- * `change` has no estimate: the utility prices the last closed bill on both
- * plans (`estimate()` in `apps/fernwick/src/plans.ts`), so the figure moves
- * every month, and this page is built once.
+ * `/developers` adds the host, its own API's scopes and agent-facing page.
+ * Each `ask` is one the keyless protocol demo runs (`DEMO_SUGGESTIONS` in
+ * pap-agent's `demo-examples.ts`). Fernwick's plan change isn't one, so its
+ * card asks for a read, and `approves` names what the visitor allows at
+ * sign-in instead of a change.
  */
 export const companies = [
   {
@@ -99,7 +100,8 @@ export const companies = [
     url: northwind,
     blurb:
       "An airline with flight search, trips, loyalty points, seats, bags and upgrades.",
-    ask: "Upgrade my NA 118 flight to Business.",
+    // No flight number, so it works for either test customer.
+    ask: "Upgrade my flight to Business.",
     shows:
       "You see the exact upgrade price and approve it yourself. It is applied once.",
     change: [
@@ -116,12 +118,13 @@ export const companies = [
     url: fernwick,
     blurb:
       "An electricity utility with hourly meter readings, monthly bills and two rate plans.",
-    ask: "Switch my EV charger to the flat rate.",
+    ask: "How much electricity did my EV use last week?",
     shows:
-      "The approval prices your last bill on both plans. Nothing changes before the next bill cycle.",
+      "With Use ESPI on, Iris reads a week of hourly readings from the meter you shared and adds them up. Nothing changes.",
+    approves: "What you allow",
     change: [
-      { what: "EV charger", before: "Time of use", after: "Flat rate" },
-      { what: "Starts", before: "", after: "1st of next month" },
+      { what: "Meters shared", before: "", after: "EV charger only" },
+      { what: "Access", before: "", after: "Read only" },
     ],
     scopes:
       "account:read · plan:write · espi:usage · espi:summary · espi:customer",

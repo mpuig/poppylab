@@ -51,7 +51,7 @@ const never = [
   ],
   [
     "Approve its own request.",
-    "The model can read and propose. A change is approved only when you click, and nothing typed in the chat counts as approval.",
+    "The model can read and propose. A change is approved only when you click, or under a limit you set beforehand, and nothing typed in the chat counts as approval.",
   ],
   [
     "Be talked into it.",
@@ -127,7 +127,14 @@ export default function Home() {
               <a className="button" href="/playground">
                 Try the live demo <ArrowRight size={18} aria-hidden="true" />
               </a>
+              <a className="button ghost" href="/learn">
+                Learn how it works
+              </a>
             </div>
+            <p className="note">
+              You don&apos;t need an account or a model key: you sign in as one
+              of the companies&apos; test customers.
+            </p>
           </div>
           <SequenceFigure />
         </section>
@@ -261,8 +268,9 @@ export default function Home() {
               <div className="step-text">
                 <h3>Changes wait for your approval</h3>
                 <p>
-                  The agent proposes exact terms. The company holds the change
-                  until you approve it, then performs it once.
+                  The agent asks for the change. The company answers with the
+                  exact terms and holds the change until you approve it, then
+                  performs it once.
                 </p>
               </div>
               <div
@@ -346,7 +354,7 @@ export default function Home() {
                 <p className="ask">“{c.ask}”</p>
                 <div className="change">
                   <p className="change-head">
-                    What you approve
+                    {"approves" in c ? c.approves : "What you approve"}
                     <span className="waiting">Waiting for you</span>
                   </p>
                   <dl>
@@ -372,6 +380,13 @@ export default function Home() {
               </article>
             ))}
           </div>
+          <p className="aside">
+            One request can use two companies, and each learns only its part.
+            Connect Fernwick and Harborline and ask “Pay my Fernwick bill from
+            checking.” Iris reads the bill at Fernwick, then asks Harborline to
+            pay it with the amount and the bill&apos;s reference. Fernwick never
+            learns where you bank, and Harborline never sees your meter.
+          </p>
           <p className="note">
             The companies are fictional: nothing is charged, shipped or
             transferred. Each visitor gets a private copy of the test customers,
@@ -431,7 +446,7 @@ export default function Home() {
             </table>
             <figcaption>
               Who does what inside Iris. The model never holds a credential, and
-              only you can approve.
+              only you, or a limit you set beforehand, can approve a change.
             </figcaption>
           </figure>
         </section>
