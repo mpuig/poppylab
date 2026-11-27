@@ -32,7 +32,7 @@ import {
   setFdx,
   type Connection,
 } from "./runtime";
-import { UserFacingError } from "./user-error";
+import { UserFacingError } from "@poppy-lab/pap-agent/user-error";
 
 const origin = "https://bank.example";
 const fdxEntry = {

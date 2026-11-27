@@ -41,6 +41,7 @@ const nextConfig: NextConfig = {
     ];
   },
   transpilePackages: [
+    "@poppy-lab/pap-agent",
     "@poppy-lab/pap-core",
     "@poppy-lab/pap-client",
     "@poppy-lab/llm-adapters",

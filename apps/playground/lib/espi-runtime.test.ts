@@ -33,7 +33,7 @@ import {
   setExtension,
   type Connection,
 } from "./runtime";
-import { UserFacingError } from "./user-error";
+import { UserFacingError } from "@poppy-lab/pap-agent/user-error";
 
 const origin = "https://energy.example";
 const RE = `${origin}/espi/1_1/resource`;

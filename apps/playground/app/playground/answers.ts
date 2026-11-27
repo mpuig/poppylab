@@ -3,8 +3,11 @@
  * with the Company it came from. Plain data, so a turn with several
  * Companies can be checked without a page.
  */
-import { agentStep, type AgentStep } from "@/lib/agent-steps";
-import { logEntry, type ProtocolEntry } from "@/lib/protocol-log";
+import { agentStep, type AgentStep } from "@poppy-lab/pap-agent/agent-steps";
+import {
+  logEntry,
+  type ProtocolEntry,
+} from "@poppy-lab/pap-agent/protocol-log";
 import type { Choice, CompanyRef, Message } from "./companies";
 
 /** An Inspector line, and the Company the request was for. */

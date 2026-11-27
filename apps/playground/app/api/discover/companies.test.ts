@@ -19,7 +19,7 @@ vi.mock("next/headers", () => ({
 }));
 import { PapDiscoveryError } from "@poppy-lab/pap-core";
 import { connected, discovered } from "@/lib/company-fixture";
-import { bytesOf, RUN_LIMITS } from "@/lib/run-size";
+import { bytesOf, RUN_LIMITS } from "@poppy-lab/pap-agent/run-size";
 import {
   configureBackend,
   memoryBackend,

@@ -5,7 +5,7 @@ import {
   LOG_LIMITS,
   shownLines,
 } from "./inspector-log";
-import { logEntry } from "./protocol-log";
+import { logEntry } from "@poppy-lab/pap-agent/protocol-log";
 import { onlyConnection as at } from "./connections";
 import type { Connection, Run } from "./runtime";
 import { keepSignedOutTranscript } from "./transcript";

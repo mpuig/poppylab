@@ -14,8 +14,8 @@ import { signInCookie, signInCookieOptions } from "@/lib/sign-in-cookie";
 import { connectionAt } from "@/lib/connections";
 import { connectCompany } from "@/lib/connecting";
 import { conversationEnded, overBudget } from "@/lib/limits";
-import { notSaved } from "@/lib/run-size";
-import { publicMode } from "@/lib/deployment";
+import { notSaved } from "@poppy-lab/pap-agent/run-size";
+import { publicMode } from "@poppy-lab/pap-agent/deployment";
 
 export const runtime = "nodejs";
 

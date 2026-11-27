@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { labCompanies as cards } from "../app/playground/companies";
-import type { Nameable } from "./company-names";
-import { connectCommand } from "./connect-command";
+import type { Nameable } from "@poppy-lab/pap-agent/company-names";
+import { connectCommand } from "@poppy-lab/pap-agent/connect-command";
 import { labCompanies, nameable } from "./lab-companies";
 
 const lab: Nameable[] = labCompanies("http://localhost:3000");

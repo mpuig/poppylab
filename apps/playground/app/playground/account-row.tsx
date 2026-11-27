@@ -1,5 +1,5 @@
 "use client";
-import { leftToUser } from "@/lib/auto-approval";
+import { leftToUser } from "@poppy-lab/pap-agent/auto-approval";
 import { StandingInstruction } from "./standing-instruction";
 import { FdxConsent, type FdxConsentRecord } from "./fdx-consent";
 import { FdxStatements } from "./fdx-statements";
@@ -7,7 +7,7 @@ import {
   EspiAuthorization,
   type EspiAuthorizationRecord,
 } from "./espi-authorization";
-import { unsentFor } from "@/lib/agent-steps";
+import { unsentFor } from "@poppy-lab/pap-agent/agent-steps";
 import { FromCompany } from "./company-mark";
 import type { Message } from "./companies";
 import { mayChange, type CompanyState, type Operation } from "./company-state";

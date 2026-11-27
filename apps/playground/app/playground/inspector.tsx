@@ -5,9 +5,16 @@ import type {
   DiscoveredCompany,
   DiscoveryTraceStep,
 } from "@poppy-lab/pap-core";
-import { discoverySection, traceReport } from "@/lib/spec-sections";
+import {
+  discoverySection,
+  traceReport,
+} from "@poppy-lab/pap-agent/spec-sections";
 import { SpecRef } from "../spec-ref";
-import { clock, outcomeLabel, traceFileName } from "@/lib/protocol-log";
+import {
+  clock,
+  outcomeLabel,
+  traceFileName,
+} from "@poppy-lab/pap-agent/protocol-log";
 import { CompanyProfileView } from "../company-profile";
 import type { PageLine } from "./answers";
 import type { CompanyRef } from "./companies";

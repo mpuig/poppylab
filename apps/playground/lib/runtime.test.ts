@@ -39,7 +39,10 @@ import {
   type Operation,
   type Connection,
 } from "./runtime";
-import { accountRecovery, accountUnavailableNotice } from "./account-recovery";
+import {
+  accountRecovery,
+  accountUnavailableNotice,
+} from "@poppy-lab/pap-agent/account-recovery";
 
 function example(host = "food", signedIn = true): Connection {
   const origin = `https://${host}.papsandbox.com`;

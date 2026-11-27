@@ -7,8 +7,7 @@
  * Each example still runs through the demo's rules (`demo-changes.ts`, the
  * chat route): this list decides only which messages reach them.
  */
-import { labSites } from "@poppy-lab/pap-core";
-import { labCompanies } from "@/app/playground/companies";
+import type { LabSite } from "@poppy-lab/pap-core";
 
 /** One scripted message demo mode runs, and the lab Company it is for. */
 export type DemoExample = {
@@ -23,19 +22,69 @@ export type DemoExample = {
   text: string;
 };
 
-/** The lab's key for one of the playground's Companies, by its name. */
-const keyOf = (name: string) =>
-  labSites("http://localhost:3000").find((site) => site.label === name)?.id ??
-  name;
+/**
+ * The requests a channel suggests trying at each lab Company, by the lab's
+ * key for it: `open` needs no account, `account` reads one, `ask` changes
+ * it. Every phrase was checked against the demo's rules, and `demoChange`
+ * says the rules can prepare that Company's change (`demo-changes.ts`).
+ */
+export const DEMO_SUGGESTIONS = {
+  juniper: {
+    open: ["What are your products?", "When do you deliver?"],
+    account: ["my deliveries", "my orders"],
+    ask: "Move my recurring delivery to Saturday.",
+    demoChange: true,
+  },
+  lantern: {
+    open: ["What’s on the menu?", "Which delivery slots are there?"],
+    account: ["my orders"],
+    ask: "Add a matcha ice cream and move it to Sunday lunchtime.",
+    demoChange: true,
+  },
+  harborline: {
+    open: [],
+    account: ["my account balances", "my recent transactions"],
+    ask: "Transfer $500 from checking to savings.",
+    demoChange: true,
+  },
+  northwind: {
+    open: [],
+    account: ["my upcoming trips"],
+    // No flight number: Elena's offer is on NA 118 and Robin's on NA 274,
+    // and the agent doesn't know which of them signed in.
+    ask: "Upgrade my flight to Business.",
+    demoChange: true,
+  },
+  fernwick: {
+    open: [],
+    // The first reads through the ESPI-shaped tools: with Use ESPI on in
+    // demo mode (`demo-espi.ts`), or with a model.
+    account: ["How much electricity did my EV use last week?", "my bills"],
+    ask: "Switch my EV charger to the flat rate.",
+    demoChange: false,
+  },
+} as const satisfies Partial<
+  Record<
+    LabSite,
+    {
+      open: readonly string[];
+      account: readonly string[];
+      ask: string;
+      demoChange: boolean;
+    }
+  >
+>;
 
 /**
  * The suggestions demo mode shows for each Company, in the order it shows
  * them: public requests, account requests, and the change where the demo
  * can propose it.
  */
-const SUGGESTED: readonly DemoExample[] = labCompanies.flatMap((c) =>
+const SUGGESTED: readonly DemoExample[] = Object.entries(
+  DEMO_SUGGESTIONS,
+).flatMap(([company, c]) =>
   [...c.open, ...c.account, ...(c.demoChange ? [c.ask] : [])].map((text) => ({
-    company: keyOf(c.name),
+    company,
     text,
   })),
 );

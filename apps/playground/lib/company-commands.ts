@@ -12,8 +12,8 @@
  * revoked or removed until the User confirms.
  */
 import { PapDiscoveryError } from "@poppy-lab/pap-core";
-import type { Nameable } from "./company-names";
-import type { ConnectCommand } from "./connect-command";
+import type { Nameable } from "@poppy-lab/pap-agent/company-names";
+import type { ConnectCommand } from "@poppy-lab/pap-agent/connect-command";
 import { connectCompany } from "./connecting";
 import {
   companyName,

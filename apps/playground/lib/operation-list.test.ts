@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { needsYou } from "./operation-presentation";
+import { needsYou } from "@poppy-lab/pap-agent/operation-presentation";
 import { withOperations } from "./operation-list";
 
 const later = new Date(Date.now() + 60000).toISOString();

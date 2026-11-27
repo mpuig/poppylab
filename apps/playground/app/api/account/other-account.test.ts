@@ -37,8 +37,8 @@ vi.mock("next/headers", () => ({
     set: vi.fn(),
   }),
 }));
-vi.mock("@/lib/deployment", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/deployment")>()),
+vi.mock("@poppy-lab/pap-agent/deployment", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@poppy-lab/pap-agent/deployment")>()),
   serving: () => true,
   publicMode: () => false,
   isAccountCompany: () => true,

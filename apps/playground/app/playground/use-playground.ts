@@ -24,15 +24,15 @@ import {
   canRequestChanges,
   consentOutcome,
   missingExtensionScopes,
-} from "@/lib/account-permissions";
-import { domainExtension } from "@/lib/domain-extension";
+} from "@poppy-lab/pap-agent/account-permissions";
+import { domainExtension } from "@poppy-lab/pap-agent/domain-extension";
 import { applyingLine, LOG_LIMITS, statementLine } from "@/lib/inspector-log";
 import {
   nextAutoApproval,
   usesAllowance,
   type Allowance,
   type ApprovalAnswer,
-} from "@/lib/auto-approval";
+} from "@poppy-lab/pap-agent/auto-approval";
 import { withOperations } from "@/lib/operation-list";
 import {
   loadApprovals,
@@ -40,7 +40,7 @@ import {
   recordApproval,
   saveInstruction,
   type Instruction,
-} from "@/lib/standing-instructions";
+} from "@poppy-lab/pap-agent/standing-instructions";
 import {
   exampleUrl,
   historyToMessages,

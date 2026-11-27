@@ -1,23 +1,23 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { labCompanies } from "@/app/playground/companies";
 import {
   DEMO_EXAMPLES,
+  DEMO_SUGGESTIONS,
   demoExampleFor,
   demoExamplesFor,
   demoGuidedReply,
 } from "./demo-examples";
 
 it("has every suggestion demo mode shows, for its Company", () => {
-  for (const c of labCompanies)
+  for (const [company, c] of Object.entries(DEMO_SUGGESTIONS))
     for (const text of [
       ...c.open,
       ...c.account,
       ...(c.demoChange ? [c.ask] : []),
     ])
       expect(DEMO_EXAMPLES).toContainEqual({
-        company: expect.any(String),
+        company,
         text,
       });
   expect(demoExampleFor("Upgrade my flight to Business.")).toEqual({

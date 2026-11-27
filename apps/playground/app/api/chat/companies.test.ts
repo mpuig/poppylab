@@ -36,8 +36,8 @@ vi.mock("next/headers", () => ({
     set: vi.fn(),
   }),
 }));
-vi.mock("@/lib/deployment", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/deployment")>()),
+vi.mock("@poppy-lab/pap-agent/deployment", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@poppy-lab/pap-agent/deployment")>()),
   serving: () => true,
   publicMode: () => false,
   isAccountCompany: () => true,
@@ -47,7 +47,7 @@ import { createIdentity, ProtocolError } from "@poppy-lab/pap-client";
 import { connected, discovered } from "@/lib/company-fixture";
 import { forgetCompany, shownTranscript } from "@/lib/transcript";
 import { historyToMessages } from "@/app/playground/companies";
-import { RUN_LIMITS } from "@/lib/run-size";
+import { RUN_LIMITS } from "@poppy-lab/pap-agent/run-size";
 import {
   listConversations,
   readConversation,

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { allow, endedConversation, type Limit } from "./runs";
-import { publicMode } from "./deployment";
+import { publicMode } from "@poppy-lab/pap-agent/deployment";
 
 const minute = 60000,
   day = 86400000;

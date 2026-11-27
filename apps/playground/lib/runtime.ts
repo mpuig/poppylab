@@ -35,13 +35,17 @@ import {
   onWorkers,
   type RetryState,
 } from "@poppy-lab/pap-client";
-import { espiUri, keepTokenFields, tokenResponse } from "./token-response";
+import {
+  espiUri,
+  keepTokenFields,
+  tokenResponse,
+} from "@poppy-lab/pap-agent/token-response";
 export { tokenResponse };
 import {
   DOMAIN_EXTENSIONS,
   extensionsOn,
   type DomainExtension,
-} from "./domain-extension";
+} from "@poppy-lab/pap-agent/domain-extension";
 import { outcomeUnknown, recordOperation } from "./operation-store";
 import {
   approveInConversation,
@@ -53,10 +57,14 @@ import {
   type ConversationState,
 } from "./conversations";
 export { recordOperation };
-import { isSandbox } from "./company-policy";
-import { refusedLine } from "./protocol-log";
-import { UserFacingError } from "./user-error";
-import { isAccountCompany, localOrigins, proposalsAllowed } from "./deployment";
+import { isSandbox } from "@poppy-lab/pap-agent/company-policy";
+import { refusedLine } from "@poppy-lab/pap-agent/protocol-log";
+import { UserFacingError } from "@poppy-lab/pap-agent/user-error";
+import {
+  isAccountCompany,
+  localOrigins,
+  proposalsAllowed,
+} from "@poppy-lab/pap-agent/deployment";
 export { localOrigins };
 import type { JWK } from "jose";
 import {

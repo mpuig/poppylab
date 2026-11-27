@@ -1,4 +1,7 @@
-import { needsYou, type ReviewOperation } from "./operation-presentation";
+import {
+  needsYou,
+  type ReviewOperation,
+} from "@poppy-lab/pap-agent/operation-presentation";
 
 /**
  * The four moves of a first run, and where the visitor is among them. The

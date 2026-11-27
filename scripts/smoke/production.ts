@@ -20,7 +20,7 @@ import { appendFileSync } from "node:fs";
 import { labSites } from "../../packages/pap-core/src/index.ts";
 import { discoverCompany } from "../../packages/pap-client/src/index.ts";
 import { labCompanies } from "../../apps/playground/app/playground/companies.ts";
-import { demoGuidedReply } from "../../apps/playground/lib/demo-examples.ts";
+import { demoGuidedReply } from "../../packages/pap-agent/src/demo-examples.ts";
 
 /** A request slower than this fails its check; one slower than `WARN_MS` is reported. */
 const FAIL_MS = 20_000;

@@ -20,7 +20,11 @@ import {
   newConnection,
   originOf,
 } from "./connections";
-import { bytesOf, RUN_LIMITS, RunNotSaved } from "./run-size";
+import {
+  bytesOf,
+  RUN_LIMITS,
+  RunNotSaved,
+} from "@poppy-lab/pap-agent/run-size";
 import { importStateKey, sealedBackend } from "./sealed";
 
 export type Versioned<T = unknown> = { value: T; version: number };

@@ -15,7 +15,7 @@ import {
   visitorOf,
   type Backend,
 } from "./runs";
-import { bytesOf, RUN_LIMITS } from "./run-size";
+import { bytesOf, RUN_LIMITS } from "@poppy-lab/pap-agent/run-size";
 import { addConnection, connectionAt, onlyConnection } from "./connections";
 import { recordTurn, removeConnection } from "./transcript";
 

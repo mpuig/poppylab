@@ -2,8 +2,11 @@
 import { inlineText } from "./inline-text";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { ArrowUp, LoaderCircle } from "lucide-react";
-import { needsYou, openLast } from "@/lib/operation-presentation";
-import { demoChangeReplyNow } from "@/lib/demo-changes";
+import {
+  needsYou,
+  openLast,
+} from "@poppy-lab/pap-agent/operation-presentation";
+import { demoChangeReplyNow } from "@poppy-lab/pap-agent/demo-changes";
 import { hideLinkSecrets } from "@/lib/link-display";
 import { OperationReview } from "../operation-review";
 import { AccountRow, leftOutAt, rowWaits } from "./account-row";

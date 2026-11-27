@@ -86,7 +86,7 @@ vi.mock("node:fs/promises", () => ({
     throw Object.assign(new Error("fixture"), { code: "ENOENT" });
   }),
 }));
-vi.mock("@/lib/deployment", () => ({
+vi.mock("@poppy-lab/pap-agent/deployment", () => ({
   serving: () => process.env.NODE_ENV === "development",
   publicMode: () => false,
   isAccountCompany: (origin: string) =>

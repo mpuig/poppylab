@@ -1,6 +1,6 @@
 import { operatorDirectoryResponse } from "@poppy-lab/pap-client";
 import { agentOrigin, operatorKey } from "@/lib/runtime";
-import { publicMode } from "@/lib/deployment";
+import { publicMode } from "@poppy-lab/pap-agent/deployment";
 export const dynamic = "force-dynamic";
 /**
  * §5.3, Web Bot Auth §5.5: the operator key directory that Iris's

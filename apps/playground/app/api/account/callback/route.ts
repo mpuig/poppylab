@@ -18,8 +18,11 @@ import {
   protocolRequest,
   ProtocolError,
 } from "@poppy-lab/pap-client";
-import { keepTokenFields, tokenResponse } from "../../../../lib/token-response";
-import { serving } from "@/lib/deployment";
+import {
+  keepTokenFields,
+  tokenResponse,
+} from "@poppy-lab/pap-agent/token-response";
+import { serving } from "@poppy-lab/pap-agent/deployment";
 import { acquireRun, releaseRun, runForState, visitorOf } from "@/lib/runs";
 import { signInCookie, signInCookieOptions } from "@/lib/sign-in-cookie";
 import { backToPublic, keepPublicHistory } from "@/lib/transcript";

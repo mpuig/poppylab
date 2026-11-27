@@ -4,11 +4,11 @@ import {
   formatLimit,
   parseLimit,
   type Instruction,
-} from "@/lib/standing-instructions";
+} from "@poppy-lab/pap-agent/standing-instructions";
 import {
   declinedReason,
   type ReviewOperation,
-} from "@/lib/operation-presentation";
+} from "@poppy-lab/pap-agent/operation-presentation";
 
 /**
  * One rule the User can write for this Company: approve exchanges up to an

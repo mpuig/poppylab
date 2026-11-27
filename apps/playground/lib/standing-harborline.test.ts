@@ -72,9 +72,12 @@ import { POST as act } from "../app/api/account/route";
 import { GET as callback } from "../app/api/account/callback/route";
 import { POST as chat } from "../app/api/chat/route";
 import { OperationReview } from "../app/operation-review";
-import { leftToUser, nextAutoApproval } from "./auto-approval";
-import { demoChangeReplyNow } from "./demo-changes";
-import type { ReviewOperation } from "./operation-presentation";
+import {
+  leftToUser,
+  nextAutoApproval,
+} from "@poppy-lab/pap-agent/auto-approval";
+import { demoChangeReplyNow } from "@poppy-lab/pap-agent/demo-changes";
+import type { ReviewOperation } from "@poppy-lab/pap-agent/operation-presentation";
 
 const agent = "http://localhost:3000";
 let conversation: string;

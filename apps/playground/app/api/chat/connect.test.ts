@@ -43,8 +43,8 @@ vi.mock("next/headers", () => ({
     set: vi.fn(),
   }),
 }));
-vi.mock("@/lib/deployment", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/deployment")>()),
+vi.mock("@poppy-lab/pap-agent/deployment", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@poppy-lab/pap-agent/deployment")>()),
   serving: () => true,
   publicMode: () => false,
   isAccountCompany: () => true,
@@ -54,7 +54,7 @@ import { createIdentity } from "@poppy-lab/pap-client";
 import { PapDiscoveryError } from "@poppy-lab/pap-core";
 import { labCompanies as cards } from "@/app/playground/companies";
 import { connected, discovered } from "@/lib/company-fixture";
-import { demoGuidedReply } from "@/lib/demo-examples";
+import { demoGuidedReply } from "@poppy-lab/pap-agent/demo-examples";
 import { seedRun } from "@/lib/runs";
 import type { Run } from "@/lib/runtime";
 import { recordTurn } from "@/lib/transcript";

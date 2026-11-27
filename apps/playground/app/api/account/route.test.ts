@@ -103,7 +103,7 @@ vi.mock("next/headers", () => ({
     set: vi.fn(),
   }),
 }));
-vi.mock("@/lib/deployment", () => ({
+vi.mock("@poppy-lab/pap-agent/deployment", () => ({
   serving: () => process.env.NODE_ENV === "development",
   publicMode: () => false,
   isAccountCompany: (origin: string) =>
@@ -169,7 +169,10 @@ vi.mock("@/lib/runtime", async () => ({
 import { POST, GET } from "./route";
 import { recordOperation } from "../../../lib/operation-store";
 import { listConversations, seedRun } from "@/lib/runs";
-import { nextAutoApproval, usesAllowance } from "@/lib/auto-approval";
+import {
+  nextAutoApproval,
+  usesAllowance,
+} from "@poppy-lab/pap-agent/auto-approval";
 import { createIdentity, ProtocolError } from "@poppy-lab/pap-client";
 function request(body: unknown, origin = "http://localhost:3000") {
   return new Request("http://localhost:3000/api/account", {

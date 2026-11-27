@@ -1,15 +1,15 @@
 import {
   accountRecovery,
   accountUnavailableNotice,
-} from "@/lib/account-recovery";
-import { accountNote } from "@/lib/account-permissions";
+} from "@poppy-lab/pap-agent/account-recovery";
+import { accountNote } from "@poppy-lab/pap-agent/account-permissions";
 import { NextResponse } from "next/server";
 import {
   InvalidToolArguments,
   ProtocolError,
   randomId,
 } from "@poppy-lab/pap-client";
-import { shoppingTarget } from "@/lib/shopping-context";
+import { shoppingTarget } from "@poppy-lab/pap-agent/shopping-context";
 import { cookies } from "next/headers";
 import {
   connect,
@@ -29,7 +29,7 @@ import {
   newConnection,
   originOf,
 } from "@/lib/connections";
-import { answeredWith } from "@/lib/company-names";
+import { answeredWith } from "@poppy-lab/pap-agent/company-names";
 import {
   answerLabel,
   answers,
@@ -46,7 +46,10 @@ import {
   type Choice,
   type Performed,
 } from "@/lib/company-commands";
-import { connectCommand, type ConnectCommand } from "@/lib/connect-command";
+import {
+  connectCommand,
+  type ConnectCommand,
+} from "@poppy-lab/pap-agent/connect-command";
 import { companiesView, lostAccess } from "@/lib/conversation-view";
 import { labCompanies, nameable } from "@/lib/lab-companies";
 import { directConnection, offeredTools, turnConnection } from "@/lib/routing";
@@ -81,28 +84,43 @@ import {
   type Held,
 } from "@/lib/runs";
 import { conversationEnded, overBudget } from "@/lib/limits";
-import { notSaved } from "@/lib/run-size";
-import { pickDemoTool } from "@/lib/demo-tool";
+import { notSaved } from "@poppy-lab/pap-agent/run-size";
+import { pickDemoTool } from "@poppy-lab/pap-agent/demo-tool";
 import {
   agentAnswer,
   feedbackAnswer,
   notSentReply,
   readable,
-} from "@/lib/demo-text";
-import { demoExamplesFor, demoGuidedReply } from "@/lib/demo-examples";
-import { demoPayBill } from "@/lib/demo-pay-bill";
+} from "@poppy-lab/pap-agent/demo-text";
+import {
+  demoExamplesFor,
+  demoGuidedReply,
+} from "@poppy-lab/pap-agent/demo-examples";
+import { demoPayBill } from "@poppy-lab/pap-agent/demo-pay-bill";
 import {
   demoAside,
   demoChange,
   demoChangeKind,
   demoChangeReply,
-} from "@/lib/demo-changes";
-import { demoFdxAnswer, demoFdxRead, demoFdxReply } from "@/lib/demo-fdx";
-import { demoEspiAnswer, demoEspiRead, demoEspiReply } from "@/lib/demo-espi";
-import { UserFacingError } from "@/lib/user-error";
-import { refusalFacts } from "@/lib/protocol-log";
+} from "@poppy-lab/pap-agent/demo-changes";
+import {
+  demoFdxAnswer,
+  demoFdxRead,
+  demoFdxReply,
+} from "@poppy-lab/pap-agent/demo-fdx";
+import {
+  demoEspiAnswer,
+  demoEspiRead,
+  demoEspiReply,
+} from "@poppy-lab/pap-agent/demo-espi";
+import { UserFacingError } from "@poppy-lab/pap-agent/user-error";
+import { refusalFacts } from "@poppy-lab/pap-agent/protocol-log";
 import { companyProfile, PapDiscoveryError } from "@poppy-lab/pap-core";
-import { localOrigins, publicMode, serving } from "@/lib/deployment";
+import {
+  localOrigins,
+  publicMode,
+  serving,
+} from "@poppy-lab/pap-agent/deployment";
 import {
   askModel,
   runModel,

@@ -1,4 +1,4 @@
-import { agentStep, type AgentStep } from "./agent-steps";
+import { agentStep, type AgentStep } from "@poppy-lab/pap-agent/agent-steps";
 import type { Choice } from "./company-commands";
 import type { CompanyEntry, DirectAction } from "./conversations";
 import {
@@ -14,7 +14,7 @@ import {
 } from "./connections";
 import { dropLines, keepSignedOutLines } from "./inspector-log";
 import { operationAccounts } from "./operation-store";
-import { logEntry } from "./protocol-log";
+import { logEntry } from "@poppy-lab/pap-agent/protocol-log";
 import type { Connection, Operation, Run, Turn } from "./runtime";
 
 /**

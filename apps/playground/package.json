@@ -17,6 +17,7 @@
   "dependencies": {
     "@opennextjs/cloudflare": "^1.20.18",
     "@poppy-lab/llm-adapters": "workspace:*",
+    "@poppy-lab/pap-agent": "workspace:*",
     "@poppy-lab/pap-client": "workspace:*",
     "@poppy-lab/pap-core": "workspace:*",
     "jose": "^6.2.12",

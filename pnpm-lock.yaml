@@ -227,6 +227,9 @@ importers:
       '@poppy-lab/llm-adapters':
         specifier: workspace:*
         version: link:../../packages/llm-adapters
+      '@poppy-lab/pap-agent':
+        specifier: workspace:*
+        version: link:../../packages/pap-agent
       '@poppy-lab/pap-client':
         specifier: workspace:*
         version: link:../../packages/pap-client
@@ -292,6 +295,25 @@ importers:
         specifier: ^7.0.143
         version: 7.0.143(zod@4.6.7)
     devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.0.18
+        version: 4.1.12(@types/node@24.19.2)(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(terser@5.46.0)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/pap-agent:
+    dependencies:
+      '@poppy-lab/pap-client':
+        specifier: workspace:*
+        version: link:../pap-client
+      '@poppy-lab/pap-core':
+        specifier: workspace:*
+        version: link:../pap-core
+    devDependencies:
+      '@types/node':
+        specifier: ^24.10.0
+        version: 24.19.2
       typescript:
         specifier: ^5.9.3
         version: 5.9.3

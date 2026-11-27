@@ -9,7 +9,7 @@ import {
   nextExpiry,
   type GuideOperation,
 } from "@/lib/guide";
-import { needsYou } from "@/lib/operation-presentation";
+import { needsYou } from "@poppy-lab/pap-agent/operation-presentation";
 import { labCompany } from "./companies";
 import {
   inFocus,

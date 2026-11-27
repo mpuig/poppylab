@@ -23,16 +23,16 @@ vi.mock("next/headers", () => ({
     set: vi.fn(),
   }),
 }));
-vi.mock("@/lib/deployment", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/deployment")>()),
+vi.mock("@poppy-lab/pap-agent/deployment", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@poppy-lab/pap-agent/deployment")>()),
   serving: () => true,
   publicMode: () => false,
   isAccountCompany: () => true,
   proposalsAllowed: () => true,
 }));
 import { createIdentity, ProtocolError } from "@poppy-lab/pap-client";
-import { agentStep } from "@/lib/agent-steps";
-import { logEntry } from "@/lib/protocol-log";
+import { agentStep } from "@poppy-lab/pap-agent/agent-steps";
+import { logEntry } from "@poppy-lab/pap-agent/protocol-log";
 import { listConversations, seedRun } from "@/lib/runs";
 import type { Connection, Run } from "@/lib/runtime";
 import { onlyConnection as at } from "@/lib/connections";

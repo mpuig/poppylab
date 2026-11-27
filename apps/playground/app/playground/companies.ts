@@ -1,6 +1,7 @@
 import { isLocalCompany } from "@poppy-lab/pap-core";
-import type { AgentStep } from "@/lib/agent-steps";
-import { isSandbox } from "@/lib/company-policy";
+import type { AgentStep } from "@poppy-lab/pap-agent/agent-steps";
+import { isSandbox } from "@poppy-lab/pap-agent/company-policy";
+import { DEMO_SUGGESTIONS } from "@poppy-lab/pap-agent/demo-examples";
 import type { TranscriptEntry } from "@/lib/transcript";
 
 // Inlined at build time: local Companies in development, poppylab.dev when deployed.
@@ -24,10 +25,9 @@ export const accountCompany = (origin: string) =>
 
 /**
  * The lab's five Companies, for the cards a new conversation starts from and
- * the requests the chat suggests. `open` needs no account, `account` reads
- * one, `ask` changes it. Demo mode (no model) answers with keyword rules:
- * every phrase here was checked against them, and `demoChange` says the
- * rules can prepare that Company's change (see `lib/demo-changes.ts`).
+ * the requests the chat suggests, which are the agent core's
+ * (`DEMO_SUGGESTIONS`: `open` needs no account, `account` reads one, `ask`
+ * changes it, and `demoChange` says demo mode can prepare that change).
  * `brand` is the leading colour of the Company's own website, as on the
  * home's cards (`site-chrome.tsx`): the mark that tells its messages, its
  * proposals and its lines apart from another Company's.
@@ -39,10 +39,7 @@ export const labCompanies = [
     name: "Juniper Market",
     brand: "#17342b",
     people: "Elena or Robin",
-    open: ["What are your products?", "When do you deliver?"],
-    account: ["my deliveries", "my orders"],
-    ask: "Move my recurring delivery to Saturday.",
-    demoChange: true,
+    ...DEMO_SUGGESTIONS.juniper,
   },
   {
     url: lanternUrl,
@@ -50,10 +47,7 @@ export const labCompanies = [
     name: "Lantern Noodle Bar",
     brand: "#c62f1e",
     people: "Elena or Robin",
-    open: ["What’s on the menu?", "Which delivery slots are there?"],
-    account: ["my orders"],
-    ask: "Add a matcha ice cream and move it to Sunday lunchtime.",
-    demoChange: true,
+    ...DEMO_SUGGESTIONS.lantern,
   },
   {
     url: harborlineUrl,
@@ -61,10 +55,7 @@ export const labCompanies = [
     name: "Harborline Bank",
     brand: "#073b5c",
     people: "Elena or Robin",
-    open: [],
-    account: ["my account balances", "my recent transactions"],
-    ask: "Transfer $500 from checking to savings.",
-    demoChange: true,
+    ...DEMO_SUGGESTIONS.harborline,
   },
   {
     url: northwindUrl,
@@ -72,12 +63,7 @@ export const labCompanies = [
     name: "Northwind Air",
     brand: "#1d6882",
     people: "Elena or Robin",
-    open: [],
-    account: ["my upcoming trips"],
-    // No flight number: Elena's offer is on NA 118 and Robin's on NA 274,
-    // and the page doesn't know which of them signed in.
-    ask: "Upgrade my flight to Business.",
-    demoChange: true,
+    ...DEMO_SUGGESTIONS.northwind,
   },
   {
     url: fernwickUrl,
@@ -85,12 +71,7 @@ export const labCompanies = [
     name: "Fernwick Power & Light",
     brand: "#2c5a41",
     people: "Elena or Robin",
-    open: [],
-    // The first reads through the ESPI-shaped tools: with Use ESPI on in
-    // demo mode (`lib/demo-espi.ts`), or with a model.
-    account: ["How much electricity did my EV use last week?", "my bills"],
-    ask: "Switch my EV charger to the flat rate.",
-    demoChange: false,
+    ...DEMO_SUGGESTIONS.fernwick,
   },
 ] as const;
 export const labCompany = (url: string | undefined) => {

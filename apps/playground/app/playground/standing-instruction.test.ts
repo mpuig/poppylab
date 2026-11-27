@@ -1,8 +1,8 @@
 import { expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { leftToUser } from "@/lib/auto-approval";
-import type { ReviewOperation } from "@/lib/operation-presentation";
+import { leftToUser } from "@poppy-lab/pap-agent/auto-approval";
+import type { ReviewOperation } from "@poppy-lab/pap-agent/operation-presentation";
 import { StandingInstruction } from "./standing-instruction";
 
 const instruction = { maxCents: 5000, currency: "USD" };

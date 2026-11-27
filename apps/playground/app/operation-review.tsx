@@ -14,7 +14,7 @@ import {
   termValue,
   waitsAgain,
   type ReviewOperation,
-} from "../lib/operation-presentation";
+} from "@poppy-lab/pap-agent/operation-presentation";
 /** The amounts of Juniper's and Lantern's terms, as their cards name them. */
 const moneyRows = [
   ["subtotal_cents", "Products"],

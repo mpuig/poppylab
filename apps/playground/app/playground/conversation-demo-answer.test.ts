@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { ReviewOperation } from "@/lib/operation-presentation";
+import type { ReviewOperation } from "@poppy-lab/pap-agent/operation-presentation";
 import { Conversation } from "./conversation";
 import { companyFromView } from "./company-state";
 import type { Playground } from "./use-playground";

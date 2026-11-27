@@ -38,14 +38,17 @@ import {
   operationAccounts,
 } from "@/lib/operation-store";
 import { removeCompany } from "@/lib/removing";
-import { extensionByKey, extensionsOn } from "@/lib/domain-extension";
-import { fdxStatementsByAccount } from "@/lib/demo-fdx";
+import {
+  extensionByKey,
+  extensionsOn,
+} from "@poppy-lab/pap-agent/domain-extension";
+import { fdxStatementsByAccount } from "@poppy-lab/pap-agent/demo-fdx";
 import {
   forgetCompany,
   forgetLostAccount,
   recordOutcome,
 } from "@/lib/transcript";
-import { refusalFacts } from "@/lib/protocol-log";
+import { refusalFacts } from "@poppy-lab/pap-agent/protocol-log";
 import {
   applyingLine,
   keepLines,
@@ -55,15 +58,18 @@ import {
 import {
   accountRecovery,
   accountUnavailableNotice,
-} from "../../../lib/account-recovery";
-import { canChange, consentScopes } from "../../../lib/account-permissions";
+} from "@poppy-lab/pap-agent/account-recovery";
+import {
+  canChange,
+  consentScopes,
+} from "@poppy-lab/pap-agent/account-permissions";
 import {
   randomId,
   createIdentity,
   ProtocolError,
   validFdxId,
 } from "@poppy-lab/pap-client";
-import { isAccountCompany, serving } from "@/lib/deployment";
+import { isAccountCompany, serving } from "@poppy-lab/pap-agent/deployment";
 import {
   acquireRun,
   createRun,
@@ -78,13 +84,13 @@ import {
   coveredBy,
   notCovered,
   parseInstruction,
-} from "@/lib/standing-instructions";
+} from "@poppy-lab/pap-agent/standing-instructions";
 import {
   allowanceReason,
   BUDGET_FACTOR,
   MAX_PER_HOUR,
-} from "@/lib/auto-approval";
-import { statedReason } from "@/lib/operation-presentation";
+} from "@poppy-lab/pap-agent/auto-approval";
+import { statedReason } from "@poppy-lab/pap-agent/operation-presentation";
 export const runtime = "nodejs";
 const issuer = "http://juniper.localhost:4100";
 

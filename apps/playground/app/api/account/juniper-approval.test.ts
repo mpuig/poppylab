@@ -51,7 +51,7 @@ vi.mock("next/headers", () => ({
     set: vi.fn(),
   }),
 }));
-vi.mock("@/lib/deployment", () => ({
+vi.mock("@poppy-lab/pap-agent/deployment", () => ({
   serving: () => process.env.NODE_ENV === "development",
   publicMode: () => false,
   isAccountCompany: (origin: string) =>

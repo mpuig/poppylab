@@ -1,5 +1,5 @@
 import { expect, it, vi } from "vitest";
-import { nextAutoApproval } from "./auto-approval";
+import { nextAutoApproval } from "@poppy-lab/pap-agent/auto-approval";
 import { outcomeUnknown, recordOperation } from "./operation-store";
 import type { Operation } from "./runtime";
 
