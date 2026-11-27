@@ -290,8 +290,11 @@ async function fetchJsonSafely(
         }
         const sse =
           options.mcp &&
-          response.headers.get("content-type")?.split(";")[0]?.trim() ===
-            "text/event-stream";
+          response.headers
+            .get("content-type")
+            ?.split(";")[0]
+            ?.trim()
+            .toLowerCase() === "text/event-stream";
         if (
           options.mcp &&
           response.ok &&
@@ -306,8 +309,11 @@ async function fetchJsonSafely(
           options.stream &&
           reader &&
           response.ok &&
-          response.headers.get("content-type")?.split(";")[0]?.trim() ===
-            "text/event-stream"
+          response.headers
+            .get("content-type")
+            ?.split(";")[0]
+            ?.trim()
+            .toLowerCase() === "text/event-stream"
         )
           try {
             return {
@@ -1024,20 +1030,34 @@ export async function streamConversationEvents(
           return { streamed: true, lastEventId, ended: "timeout" };
         throw error;
       }
-      if (chunk.done) return { streamed: true, lastEventId, ended: "closed" };
+      const deliver = async (events: ReturnType<typeof parser.push>) => {
+        for (const sse of events) {
+          const item = streamItem(sse.event, sse.data, sse.id);
+          if (!item) continue;
+          if ((await onItem(item)) === false) {
+            if (item.type === "event") lastEventId = item.event.id;
+            return false;
+          }
+          if (item.type === "event") lastEventId = item.event.id;
+        }
+        return true;
+      };
+      if (chunk.done) {
+        const tail = decoder.decode();
+        if (tail && !(await deliver(parser.push(tail))))
+          return { streamed: true, lastEventId, ended: "stopped" };
+        if (!(await deliver(parser.end())))
+          return { streamed: true, lastEventId, ended: "stopped" };
+        return { streamed: true, lastEventId, ended: "closed" };
+      }
       size += chunk.value.byteLength;
       if (size > maxBytes) throw new Error("Stream is too large");
-      for (const sse of parser.push(
-        decoder.decode(chunk.value, { stream: true }),
-      )) {
-        const item = streamItem(sse.event, sse.data, sse.id);
-        if (!item) continue;
-        if ((await onItem(item)) === false) {
-          if (item.type === "event") lastEventId = item.event.id;
-          return { streamed: true, lastEventId, ended: "stopped" };
-        }
-        if (item.type === "event") lastEventId = item.event.id;
-      }
+      if (
+        !(await deliver(
+          parser.push(decoder.decode(chunk.value, { stream: true })),
+        ))
+      )
+        return { streamed: true, lastEventId, ended: "stopped" };
     }
   };
   const send = async (init: RequestInit) => {

@@ -405,3 +405,56 @@ it("pap-client reads a local Company's stream over HTTP, and resumes from the la
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 });
+
+it("releases a stream slot immediately when the request signal aborts", async () => {
+  const x = await lab();
+  const controllers: AbortController[] = [];
+  const openWith = async (signal?: AbortSignal) =>
+    x.app.request(
+      new Request(`${origin}${x.events}`, {
+        headers: {
+          "Poppy-Version": "1.0",
+          "Poppy-Session": await signSessionHeader({
+            key: x.sessionKey,
+            clientId: client,
+            audience: origin,
+            sessionId: x.sessionId,
+            userId: "usr_test",
+            method: "GET",
+            url: `${origin}${x.events}`,
+          }),
+          Accept: "text/event-stream",
+        },
+        ...(signal ? { signal } : {}),
+      }),
+    );
+
+  for (let i = 0; i < 4; i++) {
+    const controller = new AbortController();
+    controllers.push(controller);
+    expect((await openWith(controller.signal)).status).toBe(200);
+  }
+  expect((await openWith()).status).toBe(429);
+
+  // Aborting one request frees its slot immediately without waiting for cancel().
+  controllers[0]!.abort();
+  const reopened = await openWith();
+  expect(reopened.status).toBe(200);
+  await reopened.body?.cancel();
+  for (const c of controllers.slice(1)) c.abort();
+});
+
+it("sweeps expired unread streams cleanly without breaking new streams", async () => {
+  const x = await lab({ streamMs: 40 });
+  for (let i = 0; i < 4; i++) {
+    const res = await x.call(x.events, { headers: STREAM });
+    expect(res.status).toBe(200);
+    // Deliberately never read or cancel the body.
+  }
+  await sleep(60);
+  const fresh = await x.call(x.events, { headers: STREAM });
+  expect(fresh.status).toBe(200);
+  const s = listen(fresh);
+  expect((await s.read(1)).length).toBeGreaterThanOrEqual(1);
+  await s.cancel();
+});

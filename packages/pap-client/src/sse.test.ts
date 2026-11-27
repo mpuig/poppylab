@@ -142,3 +142,43 @@ it("stops when asked, times out, and returns JSON or the error of a Company that
   expect(error).toBeInstanceOf(ProtocolError);
   expect(error).toMatchObject({ status: 410, code: "cursor_expired" });
 });
+
+it("counts empty data lines and unknown field names toward maxEvent", () => {
+  const emptyData = sseParser(32);
+  expect(() => emptyData.push("data:\n".repeat(10))).toThrow(/too large/);
+
+  const unknownField = sseParser(32);
+  expect(() =>
+    unknownField.push(`${"x".repeat(20)}\n${"y".repeat(20)}\n`),
+  ).toThrow(/too large/);
+});
+
+it("flushes a trailing CR-terminated event on end()", () => {
+  const p = sseParser();
+  expect(p.push("event: event\rdata: hi\r\r")).toEqual([]);
+  expect(p.end()).toEqual([
+    { event: "event", data: "hi", id: undefined, lastEventId: "" },
+  ]);
+});
+
+it("accepts case-insensitive Content-Type and flushes a trailing CR at EOF", async () => {
+  const origin = await endpoint((_req, res) => {
+    res.writeHead(200, { "Content-Type": "Text/Event-Stream; charset=utf-8" });
+    res.end('event: working\rdata: {"working":false}\r\r');
+  });
+  const items: ConversationStreamItem[] = [];
+  const result = await streamConversationEvents(
+    `${origin}/events`,
+    {},
+    (item) => {
+      items.push(item);
+    },
+    { allowedPrivateOrigins: [origin] },
+  );
+  expect(result).toEqual({
+    streamed: true,
+    lastEventId: undefined,
+    ended: "closed",
+  });
+  expect(items).toEqual([{ type: "working", working: false }]);
+});

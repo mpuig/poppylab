@@ -197,7 +197,12 @@ export function mountConversations(app: Hono, ctx: Ctx, tenancy: Tenancy) {
   }
 
   /** §8.6: the open streams, and what wakes each when its conversation changes. */
-  const streams = new Set<{ client: string; holder: string; until: number }>();
+  const streams = new Set<{
+    client: string;
+    holder: string;
+    until: number;
+    end: () => void;
+  }>();
   const listeners = new Map<string, Set<() => void>>();
   const streamMs = ctx.deploy.streamMs ?? 60000;
 
@@ -305,7 +310,15 @@ export function mountConversations(app: Hono, ctx: Ctx, tenancy: Tenancy) {
     const now = Date.now();
     const holder = ctx.holderOf(who.client, who.user);
     // A stream whose response was never read has no cancel to let it go.
-    for (const s of streams) if (s.until < now) streams.delete(s);
+    for (const s of [...streams]) if (s.until < now) s.end();
+    if (c.req.raw.signal?.aborted)
+      return new Response(null, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/event-stream; charset=utf-8",
+          "Cache-Control": "no-store",
+        },
+      });
     const mine = [...streams].filter((s) => s.holder === holder);
     if (
       mine.length >= STREAMS_PER_USER ||
@@ -316,8 +329,11 @@ export function mountConversations(app: Hono, ctx: Ctx, tenancy: Tenancy) {
           (s) => s.until,
         ),
       );
+      const retry = Number.isFinite(soonest)
+        ? Math.max(1, Math.ceil((soonest - now) / 1000))
+        : 60;
       throw new Refusal(429, "rate_limited", {
-        "Retry-After": String(Math.max(1, Math.ceil((soonest - now) / 1000))),
+        "Retry-After": String(retry),
       });
     }
     const key = ctx.tenantKeys.get(c.req.raw) ?? SHARED_TENANT;
@@ -348,22 +364,26 @@ export function mountConversations(app: Hono, ctx: Ctx, tenancy: Tenancy) {
       }
       return true;
     };
-    const slot = { client: who.client, holder, until };
-    streams.add(slot);
     let wake: (() => void) | undefined;
     const notify = () => wake?.();
     const woken = listeners.get(conv.id) ?? new Set();
     listeners.set(conv.id, woken);
     woken.add(notify);
     let over = false;
+    const signal = c.req.raw.signal;
     const end = () => {
+      if (over) return;
       over = true;
+      signal?.removeEventListener("abort", end);
       streams.delete(slot);
       woken.delete(notify);
       if (!woken.size && listeners.get(conv.id) === woken)
         listeners.delete(conv.id);
       notify();
     };
+    const slot = { client: who.client, holder, until, end };
+    streams.add(slot);
+    signal?.addEventListener("abort", end, { once: true });
     let working: boolean | undefined;
     /** What to send now: "" for nothing yet, null when the stream ends. */
     const next = (): string | null => {

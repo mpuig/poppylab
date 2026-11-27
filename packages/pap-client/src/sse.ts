@@ -41,12 +41,12 @@ export function sseParser(maxEvent = 262144) {
       return;
     }
     if (text.startsWith(":")) return;
+    held += text.length + 1;
+    if (held > maxEvent) throw new Error("Stream event is too large");
     const colon = text.indexOf(":");
     const name = colon < 0 ? text : text.slice(0, colon);
     let value = colon < 0 ? "" : text.slice(colon + 1);
     if (value.startsWith(" ")) value = value.slice(1);
-    held += value.length;
-    if (held > maxEvent) throw new Error("Stream event is too large");
     if (name === "data") data.push(value);
     else if (name === "event") event = value;
     else if (name === "id" && !value.includes("\0")) lastEventId = id = value;
@@ -69,6 +69,15 @@ export function sseParser(maxEvent = 262144) {
       pending = pending.slice(start);
       if (pending.length > maxEvent)
         throw new Error("Stream event is too large");
+      return out;
+    },
+    /** Flushes any trailing CR-terminated line when the stream reaches EOF. */
+    end(): SseEvent[] {
+      const out: SseEvent[] = [];
+      if (pending.endsWith("\r")) {
+        line(pending.slice(0, -1), out);
+        pending = "";
+      }
       return out;
     },
   };
