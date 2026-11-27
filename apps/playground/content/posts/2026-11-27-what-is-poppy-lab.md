@@ -14,13 +14,13 @@ So I spent the last couple of months building [Poppy Lab](https://poppylab.dev) 
 
 ## Starting with a bank transfer
 
-The easiest place to start is Harborline Bank (`bank-demo.poppylab.dev`). In the playground you can pick the keyless protocol demo mode (or plug in your own OpenAI, Anthropic, or Google key) and try "Transfer $500 from checking to savings."
+The easiest place to start is Harborline Bank ([bank-demo.poppylab.dev](https://bank-demo.poppylab.dev)). In the playground you can pick the keyless protocol demo mode (or plug in your own OpenAI, Anthropic, or Google key) and try "Transfer $500 from checking to savings."
 
 The fictional customer is Elena Maren (the other test customer is Robin Ito). On Harborline's books, Elena holds $12,845 in Operating checking and $42,500 in Reserve savings. Iris, the playground's personal agent, starts with nothing except Harborline's domain name: no Harborline plugin, no saved password.
 
-Iris fetches `/.well-known/poppy.json` (spec §3), learns Harborline's endpoints, OAuth server, and scopes, and opens Harborline's own sign-in and consent page (spec §4.2). You sign in as Elena on Harborline's domain, choose what Iris may do, and return to the playground. Iris receives a short-lived, DPoP key-bound access token (spec §4.5) that ordinary code keeps out of the model's context (spec §10.2).
+Iris fetches `/.well-known/poppy.json` ([spec §3](https://personalagentprotocol.org/docs/1.0/spec#discovery)), learns Harborline's endpoints, OAuth server, and scopes, and opens Harborline's own sign-in and consent page ([spec §4.2](https://personalagentprotocol.org/docs/1.0/spec#direct-sign-in)). You sign in as Elena on Harborline's domain, choose what Iris may do, and return to the playground. Iris receives a short-lived, DPoP key-bound access token ([spec §4.5](https://personalagentprotocol.org/docs/1.0/spec#access-tokens)) that ordinary code keeps out of the model's context ([spec §10.2](https://personalagentprotocol.org/docs/1.0/spec#secrets)).
 
-Iris then reads Elena's balances. Once you also allow it to propose changes (a second, separate consent), it requests the $500 transfer. Harborline does not move the money. It replies with `approval_required` and an operation listing the exact terms: source account, destination account, amount, and resulting balances (Operations v3, §4). Iris renders an approval card. Nothing happens until Elena clicks approve, at which point Iris resends the request with her approval and Harborline executes the transfer once (Operations v3, §7).
+Iris then reads Elena's balances. Once you also allow it to propose changes (a second, separate consent), it requests the $500 transfer. Harborline does not move the money. It replies with `approval_required` and an operation listing the exact terms: source account, destination account, amount, and resulting balances ([Operations v3, §4](https://personalagentprotocol.org/docs/1.0/extensions/operations#approval-required)). Iris renders an approval card. Nothing happens until Elena clicks approve, at which point Iris resends the request with her approval and Harborline executes the transfer once ([Operations v3, §7](https://personalagentprotocol.org/docs/1.0/extensions/operations#at-most-once)).
 
 ![The playground's approval card for Harborline Bank: amount $500.00, the bank's own description of the transfer, the source and destination balances before and after, the terms revision it covers, and the Approve $500.00 and Decline buttons. Fictional data.](../../public/posts/what-is-poppy-lab/harborline-approval.webp)
 
@@ -30,11 +30,11 @@ Watching that once tends to shift the conversation for product and digital teams
 
 Because PAP 1.0 is so new, a single toy store demo hides too much of what the protocol can actually do. Moving a grocery delivery day is reversible and low risk; moving money out of a checking account, upgrading a flight, or reading hourly electricity meters each exercise different parts of the spec. I built five fictional companies on the same portable gateway code, each on its own domain, to showcase different use cases and features side by side:
 
-- **Juniper Market** (`grocery-demo.poppylab.dev`), a grocery shop with a basket, recurring weekly delivery, orders, and support cases.
-- **Lantern Noodle Bar** (`food-demo.poppylab.dev`), a restaurant with scheduled deliveries and a deterministic support agent that handles missing-item refunds.
-- **Harborline Bank** (`bank-demo.poppylab.dev`), with accounts, cards, saved recipients, and read-only FDX-shaped banking endpoints.
-- **Northwind Air** (`airline-demo.poppylab.dev`), with bookings, seat selection, and paid cabin upgrades.
-- **Fernwick Power & Light** (`energy-demo.poppylab.dev`), an electricity utility with hourly meters, rate plans, bills, and an ESPI-shaped Atom XML feed.
+- **Juniper Market** ([grocery-demo.poppylab.dev](https://grocery-demo.poppylab.dev)), a grocery shop with a basket, recurring weekly delivery, orders, and support cases.
+- **Lantern Noodle Bar** ([food-demo.poppylab.dev](https://food-demo.poppylab.dev)), a restaurant with scheduled deliveries and a deterministic support agent that handles missing-item refunds.
+- **Harborline Bank** ([bank-demo.poppylab.dev](https://bank-demo.poppylab.dev)), with accounts, cards, saved recipients, and read-only FDX-shaped banking endpoints.
+- **Northwind Air** ([airline-demo.poppylab.dev](https://airline-demo.poppylab.dev)), with bookings, seat selection, and paid cabin upgrades.
+- **Fernwick Power & Light** ([energy-demo.poppylab.dev](https://energy-demo.poppylab.dev)), an electricity utility with hourly meters, rate plans, bills, and an ESPI-shaped Atom XML feed.
 
 Each company also has its own customer website. If you keep Juniper or Harborline open in a second tab while you approve a change in Iris, the website updates a couple of seconds later and records which agent made the change. Everything is fictional, nothing is charged or shipped, and each visitor gets an isolated copy of the state.
 
@@ -53,7 +53,5 @@ Two honest answers. First, personal agents are already reaching company websites
 Poppy Lab is not a production blueprint, and a list of design partners is not proof of finished rollouts. The five companies here are small sandboxes with fictional data, no real settlement, and no fraud engine. I built it because the best way to understand a new protocol is to implement both ends of it and let people try it.
 
 If you want guided walkthroughs, start at [Learn](https://poppylab.dev/learn). If you just want to see a transfer happen, open [the playground](https://poppylab.dev/playground) and run one keyless request against Harborline or Lantern.
-
-Next up: **What is Poppy?**, walking through one real task from discovery to approval to see the four things the protocol actually settles.
 
 _Poppy Lab is a personal project; views are my own._
