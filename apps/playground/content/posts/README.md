@@ -44,3 +44,5 @@ Markdown. Edit the figure, never the SVG.
 
 The posts form one series in date order: each ends with links to the
 previous and the next.
+
+The page adds "Poppy Lab is a personal project; views are my own." under every post, so a post doesn't write it.

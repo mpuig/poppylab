@@ -55,5 +55,3 @@ Two honest answers. First, personal agents are already reaching company websites
 Poppy Lab is not a production blueprint, and a list of design partners is not proof of finished rollouts. The five companies here are small sandboxes with fictional data, no real settlement, and no fraud engine. I built it because the best way to understand a new protocol is to implement both ends of it and let people try it.
 
 If you want guided walkthroughs, start at [Learn](https://poppylab.dev/learn). If you just want to see a transfer happen, open [the playground](https://poppylab.dev/playground) and run one keyless request against Harborline or Lantern.
-
-_Poppy Lab is a personal project; views are my own._
