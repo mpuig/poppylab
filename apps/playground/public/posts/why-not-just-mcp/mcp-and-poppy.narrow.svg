@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 822" font-family="'Hanken Grotesk','Helvetica Neue',Arial,sans-serif">
+  <line x1="1" y1="1" x2="359" y2="1" stroke="#c9ced5" stroke-width="1"/>
+  <text x="1" y="25" font-size="15" font-weight="600" fill="#171a1f">The tools</text>
+  <text x="1" y="45" font-size="13" font-weight="600" fill="#5b626c">MCP alone</text>
+  <text x="1" y="63" font-size="14" font-weight="400" fill="#5b626c">an MCP server at a URL</text>
+  <rect x="1" y="75" width="358" height="88" rx="8" fill="#eaf3f0" stroke="#0d5c4a" stroke-width="1"/>
+  <text x="13" y="95" font-size="13" font-weight="600" fill="#0d5c4a">MCP with Poppy</text>
+  <text x="13" y="113" font-size="14" font-weight="400" fill="#171a1f">the same MCP server, listed in poppy.json;</text>
+  <text x="13" y="131" font-size="14" font-weight="400" fill="#171a1f">all five Poppy Lab companies serve one at</text>
+  <text x="13" y="149" font-size="14" font-weight="400" fill="#171a1f">/mcp</text>
+  <line x1="1" y1="179" x2="359" y2="179" stroke="#e3e6ea" stroke-width="1"/>
+  <text x="1" y="203" font-size="15" font-weight="600" fill="#171a1f">Finding it</text>
+  <text x="1" y="223" font-size="13" font-weight="600" fill="#5b626c">MCP alone</text>
+  <text x="1" y="241" font-size="14" font-weight="400" fill="#5b626c">someone pastes the server's URL into a config</text>
+  <rect x="1" y="253" width="358" height="70" rx="8" fill="#eaf3f0" stroke="#0d5c4a" stroke-width="1"/>
+  <text x="13" y="273" font-size="13" font-weight="600" fill="#0d5c4a">MCP with Poppy</text>
+  <text x="13" y="291" font-size="14" font-weight="400" fill="#171a1f">found from the company's domain, beside its</text>
+  <text x="13" y="309" font-size="14" font-weight="400" fill="#171a1f">OpenAPI, conversation and website entries</text>
+  <line x1="1" y1="339" x2="359" y2="339" stroke="#e3e6ea" stroke-width="1"/>
+  <text x="1" y="363" font-size="15" font-weight="600" fill="#171a1f">Before sign-in</text>
+  <text x="1" y="383" font-size="13" font-weight="600" fill="#5b626c">MCP alone</text>
+  <text x="1" y="401" font-size="14" font-weight="400" fill="#5b626c">no standard signed-out identity</text>
+  <rect x="1" y="413" width="358" height="70" rx="8" fill="#eaf3f0" stroke="#0d5c4a" stroke-width="1"/>
+  <text x="13" y="433" font-size="13" font-weight="600" fill="#0d5c4a">MCP with Poppy</text>
+  <text x="13" y="451" font-size="14" font-weight="400" fill="#171a1f">a Session header names the agent and a User</text>
+  <text x="13" y="469" font-size="14" font-weight="400" fill="#171a1f">ID for this company only</text>
+  <line x1="1" y1="499" x2="359" y2="499" stroke="#e3e6ea" stroke-width="1"/>
+  <text x="1" y="523" font-size="15" font-weight="600" fill="#171a1f">Across channels</text>
+  <text x="1" y="543" font-size="13" font-weight="600" fill="#5b626c">MCP alone</text>
+  <text x="1" y="561" font-size="14" font-weight="400" fill="#5b626c">a tool call stands alone</text>
+  <rect x="1" y="573" width="358" height="70" rx="8" fill="#eaf3f0" stroke="#0d5c4a" stroke-width="1"/>
+  <text x="13" y="593" font-size="13" font-weight="600" fill="#0d5c4a">MCP with Poppy</text>
+  <text x="13" y="611" font-size="14" font-weight="400" fill="#171a1f">one Session ID across the API, MCP,</text>
+  <text x="13" y="629" font-size="14" font-weight="400" fill="#171a1f">conversations and a joined browser</text>
+  <line x1="1" y1="659" x2="359" y2="659" stroke="#e3e6ea" stroke-width="1"/>
+  <text x="1" y="683" font-size="15" font-weight="600" fill="#171a1f">Approving a change</text>
+  <text x="1" y="703" font-size="13" font-weight="600" fill="#5b626c">MCP alone</text>
+  <text x="1" y="721" font-size="14" font-weight="400" fill="#5b626c">a local “Allow tool?” prompt the server never</text>
+  <text x="1" y="739" font-size="14" font-weight="400" fill="#5b626c">sees</text>
+  <rect x="1" y="751" width="358" height="70" rx="8" fill="#eaf3f0" stroke="#0d5c4a" stroke-width="1"/>
+  <text x="13" y="771" font-size="13" font-weight="600" fill="#0d5c4a">MCP with Poppy</text>
+  <text x="13" y="789" font-size="14" font-weight="400" fill="#171a1f">the company writes the terms and a</text>
+  <text x="13" y="807" font-size="14" font-weight="400" fill="#171a1f">revision, and runs the change at most once</text>
+</svg>

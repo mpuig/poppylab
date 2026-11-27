@@ -12,7 +12,7 @@ import {
   rect,
   svg,
   text,
-  textWidth,
+  wrap,
 } from "../draw.mjs";
 
 /**
@@ -68,21 +68,6 @@ const LOOK = {
   extension: { fill: PAPER, stroke: GREEN, rule: GREEN_LIGHT, head: GREEN },
   bank: { fill: TINT, stroke: INK, rule: LINE_STRONG, head: INK },
 };
-
-/** Greedy wrap by the generous width estimate, so a line never runs long. */
-function wrap(string, size, weight, max) {
-  const out = [];
-  let current = "";
-  for (const word of string.split(" ")) {
-    const next = current ? `${current} ${word}` : word;
-    if (current && textWidth(next, size, weight) > max) {
-      out.push(current);
-      current = word;
-    } else current = next;
-  }
-  out.push(current);
-  return out;
-}
 
 /**
  * A zone: a titled panel whose rows are a name over a muted line, divided by

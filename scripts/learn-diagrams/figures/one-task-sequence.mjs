@@ -1,4 +1,4 @@
-import { PAPER, msg, pair, rect, sequence, textWidth } from "../draw.mjs";
+import { groundGuards, msg, pair, sequence } from "../draw.mjs";
 
 /**
  * One task, request by request (docs/learn/one-task.md): the nine steps in the
@@ -34,15 +34,6 @@ const FOUR_PARTIES = {
       message.from === "user" || message.to === "user" ? "start" : "end",
   },
 };
-
-/** The muted guard text gets a paper ground, so a lifeline does not run through it. */
-function finish(svg) {
-  return svg.replace(
-    /<text x="28" y="([\d.]+)" font-size="(\d+)" fill="#5b626c">([^<]*)<\/text>/g,
-    (whole, y, size, label) =>
-      `${rect({ x: 24, y: Number(y) - Number(size), w: textWidth(label, Number(size)) + 8, h: Number(size) + 6, fill: PAPER, stroke: null })}\n  ${whole}`,
-  );
-}
 
 const spec = {
   parties: {
@@ -126,5 +117,5 @@ export default {
   alt: "The nine requests of one task, in order. Without an access token, the Personal Agent reads what the Company offers, finds its authorization server, opens a Session on the Company's tasks and reads public data. It then asks the authorization server for access, and the user signs in and allows each permission on the Company's own page, after which the agent gets a token. With the access token, the agent reads the order and proposes the change, and the Company answers approval_required with the terms. The user approves, the agent sends the same request with the approval, and the Company makes the change.",
   caption:
     "The nine requests of one task: six without an access token, then three with one, and the two moments the user decides.",
-  draw: (variant) => finish(sequence(spec, variant)),
+  draw: (variant) => groundGuards(sequence(spec, variant)),
 };

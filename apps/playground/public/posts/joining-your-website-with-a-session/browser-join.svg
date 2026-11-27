@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 517" font-family="'Hanken Grotesk','Helvetica Neue',Arial,sans-serif">
+  <line x1="96" y1="48" x2="96" y2="513" stroke="#c9ced5" stroke-width="1.2"/>
+  <line x1="360" y1="48" x2="360" y2="513" stroke="#c9ced5" stroke-width="1.2"/>
+  <line x1="624" y1="48" x2="624" y2="513" stroke="#c9ced5" stroke-width="1.2"/>
+  <rect x="12" y="0.6" width="168" height="46.8" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="96" y="29.25" text-anchor="middle" font-size="16" font-weight="600" fill="#171a1f">Agent's browser</text>
+  <rect x="276" y="0.6" width="168" height="46.8" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="360" y="29.25" text-anchor="middle" font-size="16" font-weight="600" fill="#171a1f">Personal Agent</text>
+  <rect x="540" y="0.6" width="168" height="46.8" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="624" y="29.25" text-anchor="middle" font-size="16" font-weight="600" fill="#171a1f">Company</text>
+  <line x1="96" y1="99" x2="616" y2="99" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M624 99L616 94.5L616 103.5Z" fill="#0d5c4a"/>
+  <rect x="263.9" y="66" width="192.2" height="29" rx="4" fill="#ffffff"/>
+  <text x="360" y="87" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">1 · Load the join page</text>
+  <line x1="624" y1="158" x2="104" y2="158" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M96 158L104 153.5L104 162.5Z" fill="#0d5c4a"/>
+  <rect x="110" y="125" width="500" height="29" rx="4" fill="#ffffff"/>
+  <text x="360" y="146" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">2 · A single-use code, and a __Host- cookie for this browser</text>
+  <line x1="96" y1="217" x2="352" y2="217" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M360 217L352 212.5L352 221.5Z" fill="#0d5c4a"/>
+  <rect x="79.25" y="184" width="297.5" height="29" rx="4" fill="#ffffff"/>
+  <text x="228" y="205" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">3 · The agent's code reads the code</text>
+  <line x1="360" y1="295" x2="616" y2="295" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M624 295L616 290.5L616 299.5Z" fill="#0d5c4a"/>
+  <rect x="282.5" y="243" width="419" height="48" rx="4" fill="#ffffff"/>
+  <text x="492" y="264" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">4 · Authorize the code, with the Session header</text>
+  <text x="492" y="283" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">and, signed in, a token with poppy:browser-sign-in</text>
+  <line x1="624" y1="354" x2="368" y2="354" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M360 354L368 349.5L368 358.5Z" fill="#0d5c4a"/>
+  <rect x="339.2" y="321" width="305.6" height="29" rx="4" fill="#ffffff"/>
+  <text x="492" y="342" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">5 · 204: authorized for this Session</text>
+  <line x1="96" y1="413" x2="616" y2="413" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M624 413L616 408.5L616 417.5Z" fill="#0d5c4a"/>
+  <rect x="276.05" y="380" width="167.9" height="29" rx="4" fill="#ffffff"/>
+  <text x="360" y="401" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">6 · Submit the code</text>
+  <rect x="24" y="434.5" width="559.88" height="20" rx="6" fill="#ffffff"/>
+  <text x="28" y="448.5" font-size="14" fill="#5b626c">The code matches this browser's cookie, is authorized, and was never used</text>
+  <line x1="624" y1="495" x2="104" y2="495" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M96 495L104 490.5L104 499.5Z" fill="#0d5c4a"/>
+  <rect x="134.3" y="462" width="451.4" height="29" rx="4" fill="#ffffff"/>
+  <text x="360" y="483" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">7 · The company's Session cookie, with the same scopes</text>
+</svg>

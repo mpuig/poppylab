@@ -35,5 +35,12 @@ to a file in the repository goes to GitHub, and `/playground` stays as it
 is. An image belongs under `apps/playground/public/`, linked by its relative
 path (`../../public/posts/name.png`).
 
+A drawn figure is set into the page as Learn's are. It is one file in
+`scripts/learn-diagrams/posts/slug/`, drawn into `public/posts/slug/` with
+`pnpm learn:diagrams`; `pnpm learn:diagrams --markdown NAME` prints the line
+that embeds it, with its alt text and caption. Every post's figure is drawn
+and committed before the post is, so publishing a post takes only its
+Markdown. Edit the figure, never the SVG.
+
 The posts form one series in date order: each ends with links to the
 previous and the next.

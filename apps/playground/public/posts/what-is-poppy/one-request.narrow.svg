@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 592.8" font-family="'Hanken Grotesk','Helvetica Neue',Arial,sans-serif">
+  <rect x="1" y="1" width="358" height="74" rx="8" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="15" y="22" font-size="13" font-weight="400" fill="#5b626c">Iris to Lantern, with the approval</text>
+  <text x="15" y="43" font-size="14" font-weight="600" fill="#171a1f">POST /api/account/orders/</text>
+  <text x="15" y="61" font-size="14" font-weight="600" fill="#171a1f">ord_LNB2001/changes</text>
+  <text x="15" y="105" font-size="14" font-weight="600" fill="#171a1f">Poppy-Session: iss</text>
+  <path d="M25 113L25 127" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M25 135L20.5 127L29.5 127Z" fill="#0d5c4a"/>
+  <rect x="1" y="135" width="358" height="52.2" rx="6" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="13" y="158.2" font-size="14" font-weight="600" fill="#171a1f">Who the agent is</text>
+  <text x="13" y="176.2" font-size="13" font-weight="400" fill="#5b626c">Iris, known by its client_id URL</text>
+  <text x="15" y="217.2" font-size="14" font-weight="600" fill="#171a1f">Authorization: DPoP</text>
+  <path d="M25 225.2L25 239.2" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M25 247.2L20.5 239.2L29.5 239.2Z" fill="#0d5c4a"/>
+  <rect x="1" y="247.2" width="358" height="69.2" rx="6" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="13" y="270.4" font-size="14" font-weight="600" fill="#171a1f">Which customer, and what they allowed</text>
+  <text x="13" y="288.4" font-size="13" font-weight="400" fill="#5b626c">a token for Robin's account, with the scopes</text>
+  <text x="13" y="305.4" font-size="13" font-weight="400" fill="#5b626c">Robin allowed on Lantern's page</text>
+  <text x="15" y="346.4" font-size="14" font-weight="600" fill="#171a1f">Poppy-Session: sid, sub</text>
+  <path d="M25 354.4L25 368.4" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M25 376.4L20.5 368.4L29.5 368.4Z" fill="#0d5c4a"/>
+  <rect x="1" y="376.4" width="358" height="86.2" rx="6" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="13" y="399.6" font-size="14" font-weight="600" fill="#171a1f">One Session across channels</text>
+  <text x="13" y="417.6" font-size="13" font-weight="400" fill="#5b626c">the same Session ID on the API, MCP, a</text>
+  <text x="13" y="434.6" font-size="13" font-weight="400" fill="#5b626c">conversation or the website, and a User ID only</text>
+  <text x="13" y="451.6" font-size="13" font-weight="400" fill="#5b626c">Lantern sees</text>
+  <text x="15" y="492.6" font-size="14" font-weight="600" fill="#171a1f">Poppy-Approval</text>
+  <path d="M25 500.6L25 514.6" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M25 522.6L20.5 514.6L29.5 514.6Z" fill="#0d5c4a"/>
+  <rect x="1" y="522.6" width="358" height="69.2" rx="6" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="13" y="545.8" font-size="14" font-weight="600" fill="#171a1f">What the customer agreed to</text>
+  <text x="13" y="563.8" font-size="13" font-weight="400" fill="#5b626c">this revision of Lantern's exact terms,</text>
+  <text x="13" y="580.8" font-size="13" font-weight="400" fill="#5b626c">approved by Robin</text>
+  <circle cx="347" cy="534.6" r="4" fill="#f2b705"/>
+</svg>

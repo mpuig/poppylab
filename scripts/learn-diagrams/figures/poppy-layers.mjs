@@ -7,6 +7,7 @@ import {
   MUTED,
   TINT,
   arrow,
+  centred,
   dot,
   node,
   rect,
@@ -28,21 +29,6 @@ const SETTLES = [
   ["When a person", "has to say yes"],
 ];
 const INTERFACES = ["OpenAPI", "MCP", "Support chat", "Website"];
-
-/** Lines of text centred on (cx, cy). */
-function centred(lines, { cx, cy, size, lineHeight, weight, fill = INK }) {
-  const top = cy - ((lines.length - 1) * lineHeight) / 2 + size * 0.35;
-  return lines.map((string, i) =>
-    text(string, {
-      x: cx,
-      y: top + i * lineHeight,
-      size,
-      weight,
-      fill,
-      anchor: "middle",
-    }),
-  );
-}
 
 /** A cell of a layer: a labelled box, outlined in the layer's colour. */
 function cell({ x, y, w, h, lines, stroke, size, lineHeight, weight }) {

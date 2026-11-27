@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 576" font-family="'Hanken Grotesk','Helvetica Neue',Arial,sans-serif">
+  <line x1="56" y1="44" x2="56" y2="572" stroke="#c9ced5" stroke-width="1.2"/>
+  <line x1="180" y1="44" x2="180" y2="572" stroke="#c9ced5" stroke-width="1.2"/>
+  <line x1="304" y1="44" x2="304" y2="572" stroke="#c9ced5" stroke-width="1.2"/>
+  <rect x="6" y="0.6" width="100" height="42.8" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="56" y="26.9" text-anchor="middle" font-size="15" font-weight="600" fill="#171a1f">Browser</text>
+  <rect x="130" y="0.6" width="100" height="42.8" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="180" y="26.9" text-anchor="middle" font-size="15" font-weight="600" fill="#171a1f">Agent</text>
+  <rect x="254" y="0.6" width="100" height="42.8" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="304" y="26.9" text-anchor="middle" font-size="15" font-weight="600" fill="#171a1f">Company</text>
+  <line x1="56" y1="94" x2="296" y2="94" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M304 94L296 89.5L296 98.5Z" fill="#0d5c4a"/>
+  <rect x="5" y="62" width="180.32" height="28" rx="4" fill="#ffffff"/>
+  <text x="12" y="82" text-anchor="start" font-size="14" font-weight="500" fill="#171a1f">1 · Load the join page</text>
+  <line x1="304" y1="170" x2="64" y2="170" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M56 170L64 165.5L64 174.5Z" fill="#0d5c4a"/>
+  <rect x="5" y="120" width="180.32" height="46" rx="4" fill="#ffffff"/>
+  <text x="12" y="140" text-anchor="start" font-size="14" font-weight="500" fill="#171a1f">2 · A single-use code,</text>
+  <text x="12" y="158" text-anchor="start" font-size="14" font-weight="500" fill="#171a1f">and a __Host- cookie</text>
+  <line x1="56" y1="246" x2="172" y2="246" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M180 246L172 241.5L172 250.5Z" fill="#0d5c4a"/>
+  <rect x="5" y="196" width="150.08" height="46" rx="4" fill="#ffffff"/>
+  <text x="12" y="216" text-anchor="start" font-size="14" font-weight="500" fill="#171a1f">3 · Its code reads</text>
+  <text x="12" y="234" text-anchor="start" font-size="14" font-weight="500" fill="#171a1f">the code</text>
+  <line x1="180" y1="340" x2="296" y2="340" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M304 340L296 335.5L296 344.5Z" fill="#0d5c4a"/>
+  <rect x="144.44" y="272" width="210.56" height="64" rx="4" fill="#ffffff"/>
+  <text x="348" y="292" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">4 · Authorize it, with the</text>
+  <text x="348" y="310" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">Session header and, signed</text>
+  <text x="348" y="328" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">in, the token</text>
+  <line x1="304" y1="398" x2="188" y2="398" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M180 398L188 393.5L188 402.5Z" fill="#0d5c4a"/>
+  <rect x="197.36" y="366" width="157.64" height="28" rx="4" fill="#ffffff"/>
+  <text x="348" y="386" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">5 · 204, authorized</text>
+  <line x1="56" y1="456" x2="296" y2="456" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M304 456L296 451.5L296 460.5Z" fill="#0d5c4a"/>
+  <rect x="5" y="424" width="157.64" height="28" rx="4" fill="#ffffff"/>
+  <text x="12" y="444" text-anchor="start" font-size="14" font-weight="500" fill="#171a1f">6 · Submit the code</text>
+  <rect x="24" y="477.6" width="274.76" height="19" rx="6" fill="#ffffff"/>
+  <text x="28" y="490.6" font-size="13" fill="#5b626c">Matches the cookie, authorized, unused</text>
+  <line x1="304" y1="554" x2="64" y2="554" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M56 554L64 549.5L64 558.5Z" fill="#0d5c4a"/>
+  <rect x="5" y="504" width="187.88" height="46" rx="4" fill="#ffffff"/>
+  <text x="12" y="524" text-anchor="start" font-size="14" font-weight="500" fill="#171a1f">7 · The Session cookie,</text>
+  <text x="12" y="542" text-anchor="start" font-size="14" font-weight="500" fill="#171a1f">with the same scopes</text>
+</svg>

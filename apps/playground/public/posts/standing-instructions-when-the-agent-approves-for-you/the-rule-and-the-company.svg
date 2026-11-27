@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 674" font-family="'Hanken Grotesk','Helvetica Neue',Arial,sans-serif">
+  <rect x="160" y="1" width="400" height="58" rx="6" fill="#171a1f" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="174" y="27" font-size="15" font-weight="600" fill="#ffffff">Elena's standing instruction, kept in Iris</text>
+  <text x="174" y="46" font-size="14" font-weight="400" fill="#c4c9d0">approve changes up to $50 without asking</text>
+  <path d="M360 59L360 67Q360 75 352 75L33 75Q25 75 25 83L25 107" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M25 115L20.5 107L29.5 107Z" fill="#0d5c4a"/>
+  <text x="37" y="103" font-size="15" font-weight="600" fill="#171a1f">At Lantern</text>
+  <rect x="1" y="115" width="344" height="58" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="15" y="141" font-size="15" font-weight="600" fill="#171a1f">Lantern's terms</text>
+  <text x="15" y="160" font-size="14" font-weight="400" fill="#5b626c">the $37 order becomes $43: $6 more</text>
+  <path d="M25 173L25 189" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M25 197L20.5 189L29.5 189Z" fill="#0d5c4a"/>
+  <rect x="1" y="197" width="344" height="76" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="15" y="223" font-size="15" font-weight="600" fill="#171a1f">Iris's code checks the rule</text>
+  <text x="15" y="242" font-size="14" font-weight="400" fill="#5b626c">$6 is within $50, so it approves:</text>
+  <text x="15" y="260" font-size="14" font-weight="400" fill="#5b626c">approver agent</text>
+  <path d="M25 273L25 289" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M25 297L20.5 289L29.5 289Z" fill="#0d5c4a"/>
+  <rect x="1" y="297" width="344" height="76" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="15" y="323" font-size="15" font-weight="600" fill="#171a1f">Lantern makes the change</text>
+  <text x="15" y="342" font-size="14" font-weight="400" fill="#5b626c">and records it as approved by your agent,</text>
+  <text x="15" y="360" font-size="14" font-weight="400" fill="#5b626c">on a standing instruction you gave it</text>
+  <path d="M360 59L360 67Q360 75 368 75L391 75Q399 75 399 83L399 107" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M399 115L394.5 107L403.5 107Z" fill="#0d5c4a"/>
+  <text x="411" y="103" font-size="15" font-weight="600" fill="#171a1f">At Harborline</text>
+  <rect x="375" y="115" width="344" height="58" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="389" y="141" font-size="15" font-weight="600" fill="#171a1f">Harborline's terms</text>
+  <text x="389" y="160" font-size="14" font-weight="400" fill="#5b626c">$25 from checking to savings</text>
+  <path d="M399 173L399 189" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M399 197L394.5 189L403.5 189Z" fill="#0d5c4a"/>
+  <rect x="375" y="197" width="344" height="76" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="389" y="223" font-size="15" font-weight="600" fill="#171a1f">Iris's code checks the rule</text>
+  <text x="389" y="242" font-size="14" font-weight="400" fill="#5b626c">it compares the $25 change, not the</text>
+  <text x="389" y="260" font-size="14" font-weight="400" fill="#5b626c">balances: approver agent</text>
+  <path d="M399 273L399 289" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M399 297L394.5 289L403.5 289Z" fill="#0d5c4a"/>
+  <rect x="375" y="297" width="344" height="76" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="389" y="323" font-size="15" font-weight="600" fill="#171a1f">Harborline declines</text>
+  <text x="389" y="342" font-size="14" font-weight="400" fill="#5b626c">403 approval_declined: money moves only</text>
+  <text x="389" y="360" font-size="14" font-weight="400" fill="#5b626c">when the customer approves</text>
+  <path d="M399 373L399 389" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M399 397L394.5 389L403.5 389Z" fill="#0d5c4a"/>
+  <rect x="375" y="397" width="344" height="76" rx="6" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <text x="389" y="423" font-size="15" font-weight="600" fill="#171a1f">Waiting for Elena</text>
+  <text x="389" y="442" font-size="14" font-weight="400" fill="#3a4049">with Harborline's reason; Iris doesn't</text>
+  <text x="389" y="460" font-size="14" font-weight="400" fill="#3a4049">try the rule again</text>
+  <path d="M399 473L399 489" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M399 497L394.5 489L403.5 489Z" fill="#0d5c4a"/>
+  <rect x="375" y="497" width="344" height="76" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="389" y="523" font-size="15" font-weight="600" fill="#171a1f">Harborline moves the $25</text>
+  <text x="389" y="542" font-size="14" font-weight="400" fill="#5b626c">once Elena approves herself: approver</text>
+  <text x="389" y="560" font-size="14" font-weight="400" fill="#5b626c">user. Its site logs both.</text>
+  <rect x="1" y="597" width="718" height="76" rx="6" fill="none" stroke="#c9ced5" stroke-width="1" stroke-dasharray="5 4"/>
+  <text x="15" y="623" font-size="15" font-weight="600" fill="#171a1f">Outside the rule, Iris asks Elena from the start</text>
+  <text x="15" y="642" font-size="14" font-weight="400" fill="#5b626c">more than $50, a refund, past its hourly cap of five changes or $150, or terms it can't</text>
+  <text x="15" y="660" font-size="14" font-weight="400" fill="#5b626c">read</text>
+</svg>

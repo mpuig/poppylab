@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 936.2000000000002" font-family="'Hanken Grotesk','Helvetica Neue',Arial,sans-serif">
+  <rect x="1" y="1" width="358" height="314" rx="8" fill="#eaf3f0" stroke="#0d5c4a" stroke-width="1"/>
+  <text x="17" y="27" font-size="15" font-weight="600" fill="#0d5c4a">Built in Iris and all five companies</text>
+  <rect x="17" y="41" width="83.18" height="30" rx="4" fill="#ffffff" stroke="#0d5c4a" stroke-width="1"/>
+  <text x="58.59" y="60.55" text-anchor="middle" font-size="13" font-weight="500" fill="#171a1f">Discovery</text>
+  <rect x="108.18" y="41" width="118.28" height="30" rx="4" fill="#ffffff" stroke="#0d5c4a" stroke-width="1"/>
+  <text x="167.32" y="60.55" text-anchor="middle" font-size="13" font-weight="500" fill="#171a1f">Agent identity</text>
+  <rect x="17" y="79" width="118.28" height="30" rx="4" fill="#ffffff" stroke="#0d5c4a" stroke-width="1"/>
+  <text x="76.14" y="98.55" text-anchor="middle" font-size="13" font-weight="500" fill="#171a1f">Direct Sign-In</text>
+  <rect x="143.28" y="79" width="97.22" height="30" rx="4" fill="#ffffff" stroke="#0d5c4a" stroke-width="1"/>
+  <text x="191.89" y="98.55" text-anchor="middle" font-size="13" font-weight="500" fill="#171a1f">DPoP tokens</text>
+  <rect x="248.5" y="79" width="90.2" height="30" rx="4" fill="#ffffff" stroke="#0d5c4a" stroke-width="1"/>
+  <text x="293.6" y="98.55" text-anchor="middle" font-size="13" font-weight="500" fill="#171a1f">Revocation</text>
+  <rect x="17" y="117" width="76.16" height="30" rx="4" fill="#ffffff" stroke="#0d5c4a" stroke-width="1"/>
+  <text x="55.08" y="136.55" text-anchor="middle" font-size="13" font-weight="500" fill="#171a1f">Sessions</text>
+  <rect x="101.16" y="117" width="69.14" height="30" rx="4" fill="#ffffff" stroke="#0d5c4a" stroke-width="1"/>
+  <text x="135.73" y="136.55" text-anchor="middle" font-size="13" font-weight="500" fill="#171a1f">OpenAPI</text>
+  <rect x="178.3" y="117" width="41.06" height="30" rx="4" fill="#ffffff" stroke="#0d5c4a" stroke-width="1"/>
+  <text x="198.83" y="136.55" text-anchor="middle" font-size="13" font-weight="500" fill="#171a1f">MCP</text>
+  <rect x="227.36" y="117" width="111.26" height="30" rx="4" fill="#ffffff" stroke="#0d5c4a" stroke-width="1"/>
+  <text x="282.99" y="136.55" text-anchor="middle" font-size="13" font-weight="500" fill="#171a1f">Conversations</text>
+  <rect x="17" y="155" width="69.14" height="30" rx="4" fill="#ffffff" stroke="#0d5c4a" stroke-width="1"/>
+  <text x="51.57" y="174.55" text-anchor="middle" font-size="13" font-weight="500" fill="#171a1f">Handoff</text>
+  <rect x="94.14" y="155" width="160.4" height="30" rx="4" fill="#ffffff" stroke="#0d5c4a" stroke-width="1"/>
+  <text x="174.34" y="174.55" text-anchor="middle" font-size="13" font-weight="500" fill="#171a1f">Direct Conversations</text>
+  <rect x="17" y="193" width="146.36" height="30" rx="4" fill="#ffffff" stroke="#0d5c4a" stroke-width="1"/>
+  <text x="90.18" y="212.55" text-anchor="middle" font-size="13" font-weight="500" fill="#171a1f">Tasks and feedback</text>
+  <rect x="171.36" y="193" width="111.26" height="30" rx="4" fill="#ffffff" stroke="#0d5c4a" stroke-width="1"/>
+  <text x="226.99" y="212.55" text-anchor="middle" font-size="13" font-weight="500" fill="#171a1f">Operations v3</text>
+  <rect x="17" y="231" width="167.42" height="30" rx="4" fill="#ffffff" stroke="#0d5c4a" stroke-width="1"/>
+  <text x="100.71" y="250.55" text-anchor="middle" font-size="13" font-weight="500" fill="#171a1f">Standing instructions</text>
+  <rect x="17" y="269" width="181.46" height="30" rx="4" fill="#ffffff" stroke="#0d5c4a" stroke-width="1"/>
+  <text x="107.73" y="288.55" text-anchor="middle" font-size="13" font-weight="500" fill="#171a1f">FDX and ESPI extensions</text>
+  <rect x="1" y="327" width="358" height="283.6" rx="8" fill="none" stroke="#0d5c4a" stroke-width="1"/>
+  <text x="17" y="353" font-size="15" font-weight="600" fill="#171a1f">Built on the companies' side</text>
+  <rect x="17" y="367" width="326" height="69.2" rx="6" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="29" y="390.2" font-size="14" font-weight="600" fill="#171a1f">Browser join</text>
+  <text x="29" y="408.2" font-size="13" font-weight="400" fill="#5b626c">on all five websites; Iris drives no</text>
+  <text x="29" y="425.2" font-size="13" font-weight="400" fill="#5b626c">browser</text>
+  <rect x="17" y="446.2" width="326" height="69.2" rx="6" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="29" y="469.4" font-size="14" font-weight="600" fill="#171a1f">Skills</text>
+  <text x="29" y="487.4" font-size="13" font-weight="400" fill="#5b626c">published by all five; Iris lists them</text>
+  <text x="29" y="504.4" font-size="13" font-weight="400" fill="#5b626c">without loading them</text>
+  <rect x="17" y="525.4" width="326" height="69.2" rx="6" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="29" y="548.6" font-size="14" font-weight="600" fill="#171a1f">Device Sign-In</text>
+  <text x="29" y="566.6" font-size="13" font-weight="400" fill="#5b626c">at all but Harborline; the playground uses</text>
+  <text x="29" y="583.6" font-size="13" font-weight="400" fill="#5b626c">Direct Sign-In</text>
+  <rect x="1" y="622.6" width="358" height="232.6" rx="8" fill="none" stroke="#c9ced5" stroke-width="1" stroke-dasharray="5 4"/>
+  <text x="17" y="648.6" font-size="15" font-weight="600" fill="#171a1f">Left out on both sides</text>
+  <rect x="17" y="662.6" width="326" height="52.2" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="29" y="685.8" font-size="14" font-weight="600" fill="#171a1f">Mediated Sign-In</text>
+  <text x="29" y="703.8" font-size="13" font-weight="400" fill="#5b626c">retires on 17 March 2027</text>
+  <rect x="17" y="724.8" width="326" height="52.2" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="29" y="748" font-size="14" font-weight="600" fill="#171a1f">Operations on website forms</text>
+  <text x="29" y="766" font-size="13" font-weight="400" fill="#5b626c">joined browsers only read</text>
+  <rect x="17" y="787" width="326" height="52.2" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="29" y="810.2" font-size="14" font-weight="600" fill="#171a1f">Several protocol versions</text>
+  <text x="29" y="828.2" font-size="13" font-weight="400" fill="#5b626c">the companies serve 1.0 only</text>
+  <text x="1" y="879.2" font-size="13" font-weight="400" fill="#5b626c">Checked on the live companies by the official</text>
+  <text x="1" y="896.2" font-size="13" font-weight="400" fill="#5b626c">implementation kit's validator, and by the lab's</text>
+  <text x="1" y="913.2" font-size="13" font-weight="400" fill="#5b626c">own suites where it doesn't reach, such as consent</text>
+  <text x="1" y="930.2" font-size="13" font-weight="400" fill="#5b626c">pages and the extensions.</text>
+</svg>

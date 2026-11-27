@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 519.5999999999999" font-family="'Hanken Grotesk','Helvetica Neue',Arial,sans-serif">
+  <rect x="1" y="1" width="358" height="39" rx="6" fill="#171a1f" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="15" y="27" font-size="15" font-weight="600" fill="#ffffff">Elena</text>
+  <path d="M25 40L25 124" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M25 132L20.5 124L29.5 124Z" fill="#0d5c4a"/>
+  <text x="37" y="66" font-size="13" font-weight="400" fill="#5b626c">“Pay my Fernwick</text>
+  <text x="37" y="85" font-size="13" font-weight="400" fill="#5b626c">bill from checking.”</text>
+  <path d="M205 40L205 124" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M205 132L200.5 124L209.5 124Z" fill="#0d5c4a"/>
+  <rect x="215" y="72" width="129.76" height="28" rx="4" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <text x="279.88" y="90.9" text-anchor="middle" font-size="14" font-weight="600" fill="#171a1f">Elena approves</text>
+  <rect x="1" y="132" width="358" height="39" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="15" y="158" font-size="15" font-weight="600" fill="#171a1f">Iris</text>
+  <path d="M25 247L25 179" fill="none" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M25 171L29.5 179L20.5 179Z" fill="#0d5c4a"/>
+  <text x="37" y="193" font-size="13" font-weight="500" fill="#171a1f">total due</text>
+  <text x="37" y="210" font-size="13" font-weight="500" fill="#171a1f">billing month</text>
+  <text x="37" y="227" font-size="13" font-weight="500" fill="#171a1f">reference</text>
+  <path d="M211 171L211 239" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M211 247L206.5 239L215.5 239Z" fill="#0d5c4a"/>
+  <text x="223" y="193" font-size="13" font-weight="500" fill="#171a1f">amount</text>
+  <text x="223" y="210" font-size="13" font-weight="500" fill="#171a1f">reference</text>
+  <text x="223" y="227" font-size="13" font-weight="500" fill="#171a1f">month in the memo</text>
+  <rect x="1" y="247" width="172" height="70.2" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="13" y="270.2" font-size="14" font-weight="600" fill="#171a1f">Fernwick Power &amp;</text>
+  <text x="13" y="288.2" font-size="14" font-weight="600" fill="#171a1f">Light</text>
+  <text x="13" y="306.2" font-size="13" font-weight="400" fill="#5b626c">reads the bill</text>
+  <rect x="187" y="247" width="172" height="70" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="199" y="270.2" font-size="14" font-weight="600" fill="#171a1f">Harborline Bank</text>
+  <text x="199" y="288.2" font-size="13" font-weight="400" fill="#5b626c">pays it, once</text>
+  <text x="199" y="305.2" font-size="13" font-weight="400" fill="#5b626c">approved</text>
+  <rect x="1" y="333.2" width="172" height="104" rx="6" fill="none" stroke="#c9ced5" stroke-width="1" stroke-dasharray="5 4"/>
+  <text x="13" y="356.4" font-size="14" font-weight="600" fill="#171a1f">Stays at Fernwick</text>
+  <text x="13" y="374.4" font-size="13" font-weight="400" fill="#5b626c">Elena's meters and</text>
+  <text x="13" y="391.4" font-size="13" font-weight="400" fill="#5b626c">readings, rate plan</text>
+  <text x="13" y="408.4" font-size="13" font-weight="400" fill="#5b626c">and address</text>
+  <rect x="187" y="333.2" width="172" height="104.2" rx="6" fill="none" stroke="#c9ced5" stroke-width="1" stroke-dasharray="5 4"/>
+  <text x="199" y="356.4" font-size="14" font-weight="600" fill="#171a1f">Stays at</text>
+  <text x="199" y="374.4" font-size="14" font-weight="600" fill="#171a1f">Harborline</text>
+  <text x="199" y="392.4" font-size="13" font-weight="400" fill="#5b626c">where Elena banks,</text>
+  <text x="199" y="409.4" font-size="13" font-weight="400" fill="#5b626c">her accounts and</text>
+  <text x="199" y="426.4" font-size="13" font-weight="400" fill="#5b626c">balances</text>
+  <rect x="1" y="449.4" width="358" height="69.2" rx="6" fill="none" stroke="#c9ced5" stroke-width="1" stroke-dasharray="5 4"/>
+  <text x="13" y="472.6" font-size="14" font-weight="600" fill="#171a1f">Kept apart by Iris</text>
+  <text x="13" y="490.6" font-size="13" font-weight="400" fill="#5b626c">a different User ID, Session, token and key at</text>
+  <text x="13" y="507.6" font-size="13" font-weight="400" fill="#5b626c">each</text>
+</svg>

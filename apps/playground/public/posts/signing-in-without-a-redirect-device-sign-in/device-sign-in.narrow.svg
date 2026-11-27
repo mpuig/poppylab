@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 626" font-family="'Hanken Grotesk','Helvetica Neue',Arial,sans-serif">
+  <line x1="56" y1="44" x2="56" y2="622" stroke="#c9ced5" stroke-width="1.2"/>
+  <line x1="180" y1="44" x2="180" y2="622" stroke="#c9ced5" stroke-width="1.2"/>
+  <line x1="304" y1="44" x2="304" y2="622" stroke="#c9ced5" stroke-width="1.2"/>
+  <rect x="6" y="0.6" width="100" height="42.8" rx="6" fill="#171a1f" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="56" y="26.9" text-anchor="middle" font-size="15" font-weight="600" fill="#ffffff">Robin</text>
+  <rect x="130" y="0.6" width="100" height="42.8" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="180" y="26.9" text-anchor="middle" font-size="15" font-weight="600" fill="#171a1f">Agent</text>
+  <rect x="254" y="0.6" width="100" height="42.8" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="304" y="26.9" text-anchor="middle" font-size="15" font-weight="600" fill="#171a1f">Lantern</text>
+  <line x1="180" y1="94" x2="296" y2="94" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M304 94L296 89.5L296 98.5Z" fill="#0d5c4a"/>
+  <rect x="204.92" y="62" width="150.08" height="28" rx="4" fill="#ffffff"/>
+  <text x="348" y="82" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">1 · Ask for a code</text>
+  <line x1="304" y1="170" x2="188" y2="170" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M180 170L188 165.5L188 174.5Z" fill="#0d5c4a"/>
+  <rect x="136.88" y="120" width="218.12" height="46" rx="4" fill="#ffffff"/>
+  <text x="348" y="140" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">2 · device_code, user_code,</text>
+  <text x="348" y="158" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">verification_uri</text>
+  <rect x="24" y="191.6" width="253.7" height="19" rx="6" fill="#ffffff"/>
+  <text x="28" y="204.6" font-size="13" fill="#5b626c">Link host checked; device_code kept</text>
+  <line x1="180" y1="268" x2="64" y2="268" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M56 268L64 263.5L64 272.5Z" fill="#0d5c4a"/>
+  <rect x="5" y="218" width="180.32" height="46" rx="4" fill="#ffffff"/>
+  <text x="12" y="238" text-anchor="start" font-size="14" font-weight="500" fill="#171a1f">3 · Lantern's name and</text>
+  <text x="12" y="256" text-anchor="start" font-size="14" font-weight="500" fill="#171a1f">domain, link and code</text>
+  <rect x="12" y="296" width="336" height="46" rx="8" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <circle cx="32" cy="319" r="4" fill="#f2b705"/>
+  <text x="46" y="323.9" font-size="14" font-weight="600" fill="#171a1f">Waiting for Robin</text>
+  <line x1="56" y1="410" x2="296" y2="410" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M304 410L296 405.5L296 414.5Z" fill="#0d5c4a"/>
+  <rect x="5" y="360" width="150.08" height="46" rx="4" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <text x="12" y="380" text-anchor="start" font-size="14" font-weight="600" fill="#171a1f">4 · Signs in at</text>
+  <text x="12" y="398" text-anchor="start" font-size="14" font-weight="600" fill="#171a1f">Lantern and allows</text>
+  <line x1="180" y1="468" x2="296" y2="468" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M304 468L296 463.5L296 472.5Z" fill="#0d5c4a"/>
+  <rect x="152" y="436" width="203" height="28" rx="4" fill="#ffffff"/>
+  <text x="348" y="456" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">5 · Poll with device_code</text>
+  <line x1="304" y1="544" x2="188" y2="544" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M180 544L188 539.5L188 548.5Z" fill="#0d5c4a"/>
+  <rect x="144.44" y="494" width="210.56" height="46" rx="4" fill="#ffffff"/>
+  <text x="348" y="514" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">6 · The tokens, to whoever</text>
+  <text x="348" y="532" text-anchor="end" font-size="14" font-weight="500" fill="#171a1f">holds device_code</text>
+  <line x1="12" y1="574" x2="348" y2="574" stroke="#e3e6ea" stroke-width="1"/>
+  <rect x="24" y="581.6" width="267.74" height="19" rx="6" fill="#ffffff"/>
+  <text x="28" y="594.6" font-size="13" fill="#5b626c">Nothing ties who allows to who asked,</text>
+  <rect x="24" y="603.6" width="288.8" height="19" rx="6" fill="#ffffff"/>
+  <text x="28" y="616.6" font-size="13" fill="#5b626c">so Harborline offers Direct Sign-In only</text>
+</svg>

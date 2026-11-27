@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 432" font-family="'Hanken Grotesk','Helvetica Neue',Arial,sans-serif">
+  <text x="1" y="18" font-size="15" font-weight="600" fill="#171a1f">Harborline Bank</text>
+  <rect x="1" y="32" width="230" height="176" rx="6" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="15" y="58" font-size="15" font-weight="600" fill="#171a1f">poppylab.dev/fdx v1</text>
+  <text x="15" y="77" font-size="14" font-weight="400" fill="#5b626c">FDX consent clusters as</text>
+  <text x="15" y="95" font-size="14" font-weight="400" fill="#5b626c">scopes, such as</text>
+  <text x="15" y="113" font-size="14" font-weight="400" fill="#5b626c">fdx:TRANSACTIONS</text>
+  <text x="15" y="136" font-size="14" font-weight="400" fill="#5b626c">accounts chosen at</text>
+  <text x="15" y="154" font-size="14" font-weight="400" fill="#5b626c">consent, with a consent_id</text>
+  <text x="15" y="172" font-size="14" font-weight="400" fill="#5b626c">tied to the grant</text>
+  <text x="15" y="195" font-size="14" font-weight="400" fill="#5b626c">JSON at /fdx/v6</text>
+  <path d="M116 208L116 228" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M116 236L111.5 228L120.5 228Z" fill="#0d5c4a"/>
+  <text x="245" y="18" font-size="15" font-weight="600" fill="#171a1f">Fernwick Power &amp; Light</text>
+  <rect x="245" y="32" width="230" height="176" rx="6" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="259" y="58" font-size="15" font-weight="600" fill="#171a1f">poppylab.dev/espi v1</text>
+  <text x="259" y="77" font-size="14" font-weight="400" fill="#5b626c">espi:usage, espi:summary</text>
+  <text x="259" y="95" font-size="14" font-weight="400" fill="#5b626c">and espi:customer as</text>
+  <text x="259" y="113" font-size="14" font-weight="400" fill="#5b626c">scopes</text>
+  <text x="259" y="136" font-size="14" font-weight="400" fill="#5b626c">meters chosen at consent</text>
+  <text x="259" y="159" font-size="14" font-weight="400" fill="#5b626c">Atom XML, with no OpenAPI</text>
+  <text x="259" y="177" font-size="14" font-weight="400" fill="#5b626c">file</text>
+  <path d="M360 208L360 228" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M360 236L355.5 228L364.5 228Z" fill="#0d5c4a"/>
+  <text x="489" y="18" font-size="15" font-weight="600" fill="#171a1f">Lantern Noodle Bar</text>
+  <rect x="489" y="32" width="230" height="176" rx="6" fill="none" stroke="#c9ced5" stroke-width="1" stroke-dasharray="5 4"/>
+  <text x="503" y="58" font-size="15" font-weight="600" fill="#171a1f">No extension</text>
+  <text x="503" y="77" font-size="14" font-weight="400" fill="#5b626c">its menu and orders need</text>
+  <text x="503" y="95" font-size="14" font-weight="400" fill="#5b626c">no shared standard:</text>
+  <text x="503" y="113" font-size="14" font-weight="400" fill="#5b626c">OpenAPI and MCP describe</text>
+  <text x="503" y="131" font-size="14" font-weight="400" fill="#5b626c">them</text>
+  <path d="M604 208L604 228" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M604 236L599.5 228L608.5 228Z" fill="#0d5c4a"/>
+  <rect x="1" y="236" width="718" height="104" rx="8" fill="#eaf3f0" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="17" y="263" font-size="16" font-weight="600" fill="#0d5c4a">Poppy's core, the same at every company</text>
+  <rect x="17" y="280" width="164" height="44" rx="6" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="99" y="307.25" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">Discovery</text>
+  <rect x="191" y="280" width="164" height="44" rx="6" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="273" y="307.25" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">Identity</text>
+  <rect x="365" y="280" width="164" height="44" rx="6" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="447" y="307.25" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">OAuth consent</text>
+  <rect x="539" y="280" width="164" height="44" rx="6" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="621" y="307.25" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">Sessions</text>
+  <text x="1" y="366" font-size="14" font-weight="400" fill="#5b626c">An agent declares an extension in Poppy-Extensions on every request; without it, 403</text>
+  <text x="1" y="384" font-size="14" font-weight="400" fill="#5b626c">extension_required.</text>
+  <text x="1" y="406" font-size="14" font-weight="400" fill="#5b626c">Both extensions only read. Moving money and switching plans stay behind Operations v3</text>
+  <text x="1" y="424" font-size="14" font-weight="400" fill="#5b626c">approvals.</text>
+</svg>

@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 576" font-family="'Hanken Grotesk','Helvetica Neue',Arial,sans-serif">
+  <rect x="200" y="1" width="320" height="76" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="214" y="27" font-size="15" font-weight="600" fill="#171a1f">Iris checks what Lantern offers</text>
+  <text x="214" y="46" font-size="14" font-weight="400" fill="#5b626c">its APIs, and /poppy/tasks, read at</text>
+  <text x="214" y="64" font-size="14" font-weight="400" fill="#5b626c">the start of every Session</text>
+  <path d="M360 77L360 93Q360 101 352 101L123 101Q115 101 115 109L115 117" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M115 125L110.5 117L119.5 117Z" fill="#0d5c4a"/>
+  <rect x="1" y="125" width="228" height="94" rx="6" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="15" y="151" font-size="15" font-weight="600" fill="#171a1f">Offered</text>
+  <text x="15" y="170" font-size="14" font-weight="400" fill="#5b626c">an API does it, such as</text>
+  <text x="15" y="188" font-size="14" font-weight="400" fill="#5b626c">moving an order to another</text>
+  <text x="15" y="206" font-size="14" font-weight="400" fill="#5b626c">slot</text>
+  <path d="M25 219L25 235" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M25 243L20.5 235L29.5 235Z" fill="#0d5c4a"/>
+  <rect x="1" y="243" width="228" height="95" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="15" y="269" font-size="15" font-weight="600" fill="#171a1f">Iris does it</text>
+  <text x="15" y="288" font-size="14" font-weight="400" fill="#5b626c">with an approval when it</text>
+  <text x="15" y="306" font-size="14" font-weight="400" fill="#5b626c">changes something</text>
+  <path d="M360 77L360 101Q360 101 NaN NaNLNaN NaNQ360 101 360 101L360 117" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M360 125L355.5 117L364.5 117Z" fill="#0d5c4a"/>
+  <rect x="246" y="125" width="228" height="94" rx="6" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="260" y="151" font-size="15" font-weight="600" fill="#171a1f">Excluded on purpose</text>
+  <text x="260" y="170" font-size="14" font-weight="400" fill="#5b626c">listed in /poppy/tasks,</text>
+  <text x="260" y="188" font-size="14" font-weight="400" fill="#5b626c">such as cancelling an</text>
+  <text x="260" y="206" font-size="14" font-weight="400" fill="#5b626c">order</text>
+  <path d="M270 219L270 235" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M270 243L265.5 235L274.5 235Z" fill="#0d5c4a"/>
+  <rect x="246" y="243" width="228" height="95" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="260" y="269" font-size="15" font-weight="600" fill="#171a1f">Iris says so</text>
+  <text x="260" y="288" font-size="14" font-weight="400" fill="#5b626c">and offers Lantern's</text>
+  <text x="260" y="306" font-size="14" font-weight="400" fill="#5b626c">alternative: move the</text>
+  <text x="260" y="324" font-size="14" font-weight="400" fill="#5b626c">order instead</text>
+  <path d="M360 77L360 93Q360 101 368 101L597 101Q605 101 605 109L605 117" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M605 125L600.5 117L609.5 117Z" fill="#0d5c4a"/>
+  <rect x="491" y="125" width="228" height="94" rx="6" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="505" y="151" font-size="15" font-weight="600" fill="#171a1f">Neither</text>
+  <text x="505" y="170" font-size="14" font-weight="400" fill="#5b626c">such as paying with a gift</text>
+  <text x="505" y="188" font-size="14" font-weight="400" fill="#5b626c">card</text>
+  <path d="M515 219L515 235" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M515 243L510.5 235L519.5 235Z" fill="#0d5c4a"/>
+  <rect x="491" y="243" width="228" height="95" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="505" y="269" font-size="15" font-weight="600" fill="#171a1f">Iris tells Elena, and</text>
+  <text x="505" y="288" font-size="15" font-weight="600" fill="#171a1f">reports it once</text>
+  <text x="505" y="307" font-size="14" font-weight="400" fill="#5b626c">to /poppy/feedback: the</text>
+  <text x="505" y="325" font-size="14" font-weight="400" fill="#5b626c">task, never her details</text>
+  <path d="M515 338L515 354" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M515 362L510.5 354L519.5 354Z" fill="#0d5c4a"/>
+  <rect x="491" y="362" width="228" height="94" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="505" y="388" font-size="15" font-weight="600" fill="#171a1f">Lantern answers</text>
+  <text x="505" y="407" font-size="14" font-weight="400" fill="#5b626c">with an alternative, gift</text>
+  <text x="505" y="425" font-size="14" font-weight="400" fill="#5b626c">cards by phone, or 202</text>
+  <text x="505" y="443" font-size="14" font-weight="400" fill="#5b626c">Accepted</text>
+  <path d="M515 456L515 472" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M515 480L510.5 472L519.5 472Z" fill="#0d5c4a"/>
+  <rect x="491" y="480" width="228" height="95" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="505" y="506" font-size="15" font-weight="600" fill="#171a1f">Under Feedback from</text>
+  <text x="505" y="525" font-size="15" font-weight="600" fill="#171a1f">agents</text>
+  <text x="505" y="544" font-size="14" font-weight="400" fill="#5b626c">the report as sent, with</text>
+  <text x="505" y="562" font-size="14" font-weight="400" fill="#5b626c">the agent and the time</text>
+</svg>

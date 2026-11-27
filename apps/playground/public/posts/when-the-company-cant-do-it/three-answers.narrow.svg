@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 750.8000000000002" font-family="'Hanken Grotesk','Helvetica Neue',Arial,sans-serif">
+  <rect x="1" y="1" width="358" height="69.2" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="13" y="24.2" font-size="14" font-weight="600" fill="#171a1f">Iris checks what Lantern offers</text>
+  <text x="13" y="42.2" font-size="13" font-weight="400" fill="#5b626c">its APIs, and /poppy/tasks, read at the start</text>
+  <text x="13" y="59.2" font-size="13" font-weight="400" fill="#5b626c">of every Session</text>
+  <rect x="29" y="90.2" width="330" height="69.2" rx="6" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="41" y="113.4" font-size="14" font-weight="600" fill="#171a1f">Offered</text>
+  <text x="41" y="131.4" font-size="13" font-weight="400" fill="#5b626c">an API does it, such as moving an order to</text>
+  <text x="41" y="148.4" font-size="13" font-weight="400" fill="#5b626c">another slot</text>
+  <path d="M53 159.4L53 171.4" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M53 179.4L48.5 171.4L57.5 171.4Z" fill="#0d5c4a"/>
+  <rect x="29" y="179.4" width="330" height="52.2" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="41" y="202.6" font-size="14" font-weight="600" fill="#171a1f">Iris does it</text>
+  <text x="41" y="220.6" font-size="13" font-weight="400" fill="#5b626c">with an approval when it changes something</text>
+  <rect x="29" y="251.6" width="330" height="69.2" rx="6" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="41" y="274.8" font-size="14" font-weight="600" fill="#171a1f">Excluded on purpose</text>
+  <text x="41" y="292.8" font-size="13" font-weight="400" fill="#5b626c">listed in /poppy/tasks, such as cancelling</text>
+  <text x="41" y="309.8" font-size="13" font-weight="400" fill="#5b626c">an order</text>
+  <path d="M53 320.8L53 332.8" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M53 340.8L48.5 332.8L57.5 332.8Z" fill="#0d5c4a"/>
+  <rect x="29" y="340.8" width="330" height="69.2" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="41" y="364" font-size="14" font-weight="600" fill="#171a1f">Iris says so</text>
+  <text x="41" y="382" font-size="13" font-weight="400" fill="#5b626c">and offers Lantern's alternative: move the</text>
+  <text x="41" y="399" font-size="13" font-weight="400" fill="#5b626c">order instead</text>
+  <rect x="29" y="430" width="330" height="52.2" rx="6" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="41" y="453.2" font-size="14" font-weight="600" fill="#171a1f">Neither</text>
+  <text x="41" y="471.2" font-size="13" font-weight="400" fill="#5b626c">such as paying with a gift card</text>
+  <path d="M53 482.2L53 494.2" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M53 502.2L48.5 494.2L57.5 494.2Z" fill="#0d5c4a"/>
+  <rect x="29" y="502.2" width="330" height="69.2" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="41" y="525.4" font-size="14" font-weight="600" fill="#171a1f">Iris tells Elena, and reports it once</text>
+  <text x="41" y="543.4" font-size="13" font-weight="400" fill="#5b626c">to /poppy/feedback: the task, never her</text>
+  <text x="41" y="560.4" font-size="13" font-weight="400" fill="#5b626c">details</text>
+  <path d="M53 571.4L53 583.4" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M53 591.4L48.5 583.4L57.5 583.4Z" fill="#0d5c4a"/>
+  <rect x="29" y="591.4" width="330" height="69.2" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="41" y="614.6" font-size="14" font-weight="600" fill="#171a1f">Lantern answers</text>
+  <text x="41" y="632.6" font-size="13" font-weight="400" fill="#5b626c">with an alternative, gift cards by phone,</text>
+  <text x="41" y="649.6" font-size="13" font-weight="400" fill="#5b626c">or 202 Accepted</text>
+  <path d="M53 660.6L53 672.6" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M53 680.6L48.5 672.6L57.5 672.6Z" fill="#0d5c4a"/>
+  <rect x="29" y="680.6" width="330" height="69.2" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="41" y="703.8" font-size="14" font-weight="600" fill="#171a1f">Under Feedback from agents</text>
+  <text x="41" y="721.8" font-size="13" font-weight="400" fill="#5b626c">the report as sent, with the agent and the</text>
+  <text x="41" y="738.8" font-size="13" font-weight="400" fill="#5b626c">time</text>
+  <path d="M13 70.2L13 120.8Q13 124.8 17 124.8L21 124.8" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M29 124.8L21 129.3L21 120.3Z" fill="#0d5c4a"/>
+  <path d="M13 70.2L13 282.2Q13 286.2 17 286.2L21 286.2" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M29 286.2L21 290.7L21 281.7Z" fill="#0d5c4a"/>
+  <path d="M13 70.2L13 452.1Q13 456.1 17 456.1L21 456.1" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M29 456.1L21 460.6L21 451.6Z" fill="#0d5c4a"/>
+</svg>

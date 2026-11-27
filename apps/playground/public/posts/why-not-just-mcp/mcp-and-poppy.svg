@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 464" font-family="'Hanken Grotesk','Helvetica Neue',Arial,sans-serif">
+  <rect x="443" y="1" width="276" height="462" rx="8" fill="#eaf3f0" stroke="#0d5c4a" stroke-width="1"/>
+  <text x="167" y="28" font-size="16" font-weight="600" fill="#5b626c">MCP alone</text>
+  <text x="459" y="28" font-size="16" font-weight="600" fill="#0d5c4a">MCP with Poppy</text>
+  <line x1="1" y1="44" x2="427" y2="44" stroke="#c9ced5" stroke-width="1"/>
+  <line x1="459" y1="44" x2="703" y2="44" stroke="#9cc7bb" stroke-width="1"/>
+  <text x="1" y="69.25" font-size="15" font-weight="600" fill="#171a1f">The tools</text>
+  <text x="167" y="69.25" font-size="15" font-weight="400" fill="#5b626c">an MCP server at a URL</text>
+  <text x="459" y="69.25" font-size="15" font-weight="400" fill="#171a1f">the same MCP server, listed in</text>
+  <text x="459" y="88.25" font-size="15" font-weight="400" fill="#171a1f">poppy.json; all five Poppy Lab</text>
+  <text x="459" y="107.25" font-size="15" font-weight="400" fill="#171a1f">companies serve one at /mcp</text>
+  <line x1="1" y1="123" x2="427" y2="123" stroke="#e3e6ea" stroke-width="1"/>
+  <line x1="459" y1="123" x2="703" y2="123" stroke="#9cc7bb" stroke-width="1"/>
+  <text x="1" y="148.25" font-size="15" font-weight="600" fill="#171a1f">Finding it</text>
+  <text x="167" y="148.25" font-size="15" font-weight="400" fill="#5b626c">someone pastes the server's URL</text>
+  <text x="167" y="167.25" font-size="15" font-weight="400" fill="#5b626c">into a config</text>
+  <text x="459" y="148.25" font-size="15" font-weight="400" fill="#171a1f">found from the company's</text>
+  <text x="459" y="167.25" font-size="15" font-weight="400" fill="#171a1f">domain, beside its OpenAPI,</text>
+  <text x="459" y="186.25" font-size="15" font-weight="400" fill="#171a1f">conversation and website</text>
+  <text x="459" y="205.25" font-size="15" font-weight="400" fill="#171a1f">entries</text>
+  <line x1="1" y1="221" x2="427" y2="221" stroke="#e3e6ea" stroke-width="1"/>
+  <line x1="459" y1="221" x2="703" y2="221" stroke="#9cc7bb" stroke-width="1"/>
+  <text x="1" y="246.25" font-size="15" font-weight="600" fill="#171a1f">Before sign-in</text>
+  <text x="167" y="246.25" font-size="15" font-weight="400" fill="#5b626c">no standard signed-out identity</text>
+  <text x="459" y="246.25" font-size="15" font-weight="400" fill="#171a1f">a Session header names the</text>
+  <text x="459" y="265.25" font-size="15" font-weight="400" fill="#171a1f">agent and a User ID for this</text>
+  <text x="459" y="284.25" font-size="15" font-weight="400" fill="#171a1f">company only</text>
+  <line x1="1" y1="300" x2="427" y2="300" stroke="#e3e6ea" stroke-width="1"/>
+  <line x1="459" y1="300" x2="703" y2="300" stroke="#9cc7bb" stroke-width="1"/>
+  <text x="1" y="325.25" font-size="15" font-weight="600" fill="#171a1f">Across channels</text>
+  <text x="167" y="325.25" font-size="15" font-weight="400" fill="#5b626c">a tool call stands alone</text>
+  <text x="459" y="325.25" font-size="15" font-weight="400" fill="#171a1f">one Session ID across the API,</text>
+  <text x="459" y="344.25" font-size="15" font-weight="400" fill="#171a1f">MCP, conversations and a</text>
+  <text x="459" y="363.25" font-size="15" font-weight="400" fill="#171a1f">joined browser</text>
+  <line x1="1" y1="379" x2="427" y2="379" stroke="#e3e6ea" stroke-width="1"/>
+  <line x1="459" y1="379" x2="703" y2="379" stroke="#9cc7bb" stroke-width="1"/>
+  <text x="1" y="404.25" font-size="15" font-weight="600" fill="#171a1f">Approving a</text>
+  <text x="1" y="423.25" font-size="15" font-weight="600" fill="#171a1f">change</text>
+  <text x="167" y="404.25" font-size="15" font-weight="400" fill="#5b626c">a local “Allow tool?” prompt</text>
+  <text x="167" y="423.25" font-size="15" font-weight="400" fill="#5b626c">the server never sees</text>
+  <text x="459" y="404.25" font-size="15" font-weight="400" fill="#171a1f">the company writes the terms</text>
+  <text x="459" y="423.25" font-size="15" font-weight="400" fill="#171a1f">and a revision, and runs the</text>
+  <text x="459" y="442.25" font-size="15" font-weight="400" fill="#171a1f">change at most once</text>
+</svg>

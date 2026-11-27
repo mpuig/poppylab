@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 361" font-family="'Hanken Grotesk','Helvetica Neue',Arial,sans-serif">
+  <text x="1" y="18" font-size="15" font-weight="600" fill="#171a1f">Written with coding agents</text>
+  <text x="461" y="18" font-size="15" font-weight="600" fill="#171a1f">Checks from outside</text>
+  <rect x="1" y="32" width="400" height="328" rx="8" fill="none" stroke="#c9ced5" stroke-width="1" stroke-dasharray="5 4"/>
+  <rect x="25" y="52" width="352" height="58" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="39" y="78" font-size="15" font-weight="600" fill="#171a1f">pap-client</text>
+  <text x="39" y="97" font-size="14" font-weight="400" fill="#5b626c">the agent's side</text>
+  <rect x="25" y="282" width="352" height="58" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="39" y="308" font-size="15" font-weight="600" fill="#171a1f">pap-company</text>
+  <text x="39" y="327" font-size="14" font-weight="400" fill="#5b626c">the companies' side</text>
+  <path d="M69 118L69 274" fill="none" stroke="#5b626c" stroke-width="1.5"/>
+  <path d="M69 282L64.5 274L73.5 274Z" fill="#5b626c"/>
+  <path d="M69 110L73.5 118L64.5 118Z" fill="#5b626c"/>
+  <text x="85" y="183" font-size="14" font-weight="400" fill="#5b626c">tests written with both</text>
+  <text x="85" y="201" font-size="14" font-weight="400" fill="#5b626c">can agree on the</text>
+  <text x="85" y="219" font-size="14" font-weight="400" fill="#5b626c">same mistake</text>
+  <path d="M461 79L409 79" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M401 79L409 74.5L409 83.5Z" fill="#0d5c4a"/>
+  <rect x="461" y="32" width="258" height="94" rx="6" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="475" y="58" font-size="15" font-weight="600" fill="#171a1f">The official validator</text>
+  <text x="475" y="77" font-size="14" font-weight="400" fill="#5b626c">a test agent someone else</text>
+  <text x="475" y="95" font-size="14" font-weight="400" fill="#5b626c">wrote, run against the five</text>
+  <text x="475" y="113" font-size="14" font-weight="400" fill="#5b626c">live companies</text>
+  <path d="M461 187L409 187" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M401 187L409 182.5L409 191.5Z" fill="#0d5c4a"/>
+  <rect x="461" y="140" width="258" height="94" rx="6" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="475" y="166" font-size="15" font-weight="600" fill="#171a1f">The spec, pinned</text>
+  <text x="475" y="185" font-size="14" font-weight="400" fill="#5b626c">spec/1.0 in the repository,</text>
+  <text x="475" y="203" font-size="14" font-weight="400" fill="#5b626c">with pnpm spec:drift against</text>
+  <text x="475" y="221" font-size="14" font-weight="400" fill="#5b626c">the published text</text>
+  <path d="M461 304L409 304" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M401 304L409 299.5L409 308.5Z" fill="#0d5c4a"/>
+  <rect x="461" y="248" width="258" height="112" rx="6" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="475" y="274" font-size="15" font-weight="600" fill="#171a1f">Security rules in code</text>
+  <text x="475" y="293" font-size="14" font-weight="400" fill="#5b626c">a strict XML parser, pinned</text>
+  <text x="475" y="311" font-size="14" font-weight="400" fill="#5b626c">DNS, and a build that refuses</text>
+  <text x="475" y="329" font-size="14" font-weight="400" fill="#5b626c">a bundle holding a local</text>
+  <text x="475" y="347" font-size="14" font-weight="400" fill="#5b626c">secret</text>
+</svg>

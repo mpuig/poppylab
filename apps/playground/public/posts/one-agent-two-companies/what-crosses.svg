@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 352" font-family="'Hanken Grotesk','Helvetica Neue',Arial,sans-serif">
+  <path d="M330 40L330 115" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M330 123L325.5 115L334.5 115Z" fill="#0d5c4a"/>
+  <text x="318" y="76" text-anchor="end" font-size="14" font-weight="400" fill="#5b626c">“Pay my Fernwick bill from checking.”</text>
+  <path d="M390 40L390 115" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M390 123L385.5 115L394.5 115Z" fill="#0d5c4a"/>
+  <rect x="402" y="58" width="223.84" height="28" rx="4" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <text x="513.92" y="76.9" text-anchor="middle" font-size="14" font-weight="600" fill="#171a1f">Elena approves the payment</text>
+  <path d="M161 142.5L292 142.5" fill="none" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M300 142.5L292 147L292 138Z" fill="#0d5c4a"/>
+  <path d="M420 142.5L551 142.5" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M559 142.5L551 147L551 138Z" fill="#0d5c4a"/>
+  <text x="176" y="166.5" font-size="14" font-weight="500" fill="#171a1f">total due</text>
+  <text x="176" y="184.5" font-size="14" font-weight="500" fill="#171a1f">billing month</text>
+  <text x="176" y="202.5" font-size="14" font-weight="500" fill="#171a1f">reference</text>
+  <text x="435" y="166.5" font-size="14" font-weight="500" fill="#171a1f">amount</text>
+  <text x="435" y="184.5" font-size="14" font-weight="500" fill="#171a1f">reference</text>
+  <text x="435" y="202.5" font-size="14" font-weight="500" fill="#171a1f">month in the memo</text>
+  <rect x="290" y="1" width="140" height="39" rx="6" fill="#171a1f" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="304" y="27" font-size="15" font-weight="600" fill="#ffffff">Elena</text>
+  <rect x="1" y="104" width="160" height="77" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="15" y="130" font-size="15" font-weight="600" fill="#171a1f">Fernwick Power</text>
+  <text x="15" y="149" font-size="15" font-weight="600" fill="#171a1f">&amp; Light</text>
+  <text x="15" y="168" font-size="14" font-weight="400" fill="#5b626c">reads the bill</text>
+  <rect x="300" y="123" width="120" height="39" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="314" y="149" font-size="15" font-weight="600" fill="#171a1f">Iris</text>
+  <rect x="559" y="104.5" width="160" height="76" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="573" y="130.5" font-size="15" font-weight="600" fill="#171a1f">Harborline Bank</text>
+  <text x="573" y="149.5" font-size="14" font-weight="400" fill="#5b626c">pays it, once</text>
+  <text x="573" y="167.5" font-size="14" font-weight="400" fill="#5b626c">approved</text>
+  <rect x="1" y="257" width="224" height="94" rx="6" fill="none" stroke="#c9ced5" stroke-width="1" stroke-dasharray="5 4"/>
+  <text x="15" y="283" font-size="15" font-weight="600" fill="#171a1f">Stays at Fernwick</text>
+  <text x="15" y="302" font-size="14" font-weight="400" fill="#5b626c">Elena's meters and</text>
+  <text x="15" y="320" font-size="14" font-weight="400" fill="#5b626c">readings, rate plan and</text>
+  <text x="15" y="338" font-size="14" font-weight="400" fill="#5b626c">address</text>
+  <rect x="248" y="257" width="224" height="94" rx="6" fill="none" stroke="#c9ced5" stroke-width="1" stroke-dasharray="5 4"/>
+  <text x="262" y="283" font-size="15" font-weight="600" fill="#171a1f">Kept apart by Iris</text>
+  <text x="262" y="302" font-size="14" font-weight="400" fill="#5b626c">a different User ID,</text>
+  <text x="262" y="320" font-size="14" font-weight="400" fill="#5b626c">Session, token and key at</text>
+  <text x="262" y="338" font-size="14" font-weight="400" fill="#5b626c">each</text>
+  <rect x="495" y="257" width="224" height="94" rx="6" fill="none" stroke="#c9ced5" stroke-width="1" stroke-dasharray="5 4"/>
+  <text x="509" y="283" font-size="15" font-weight="600" fill="#171a1f">Stays at Harborline</text>
+  <text x="509" y="302" font-size="14" font-weight="400" fill="#5b626c">where Elena banks, her</text>
+  <text x="509" y="320" font-size="14" font-weight="400" fill="#5b626c">accounts and balances</text>
+</svg>

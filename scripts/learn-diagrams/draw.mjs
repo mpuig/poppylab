@@ -281,7 +281,8 @@ export const msg = (from, to, lines, extra = {}) => ({
  * A sequence figure: parties across the top, each with a lifeline, and the
  * rows beneath in the order they happen.
  *
- *   spec.parties  { id: { kind: "you" | "agent" | "company", label: pair } }
+ *   spec.parties  { id: { kind: "you" | "agent" | "company" | "plain", label:
+ *                 pair } }
  *   spec.layout   { wide, narrow } as THREE_PARTIES: width, font, x by party
  *                 id, head [w, h], edge, and anchor(message) -> "mid" |
  *                 "start" | "end"
@@ -341,7 +342,7 @@ export function sequence(spec, variant) {
 
   for (const [name, x] of Object.entries(at)) {
     const { kind, label } = spec.parties[name];
-    const fill = { you: INK, agent: PAPER, company: TINT }[kind];
+    const fill = { you: INK, agent: PAPER, company: TINT, plain: PAPER }[kind];
     out.push(
       `<rect x="${n(x - headW / 2)}" y="0.6" width="${headW}" height="${n(headH - 1.2)}" rx="6" fill="${fill}" stroke="${INK}" stroke-width="1.2"/>`,
       `<text x="${x}" y="${n(headH / 2 + fs * 0.35)}" text-anchor="middle" font-size="${fs + 1}" font-weight="600" fill="${kind === "you" ? PAPER : INK}">${esc(pick(label))}</text>`,
@@ -410,4 +411,342 @@ export function sequence(spec, variant) {
   }
 
   return svg(W, H, out);
+}
+
+/**
+ * A sequence's muted guard text gets a paper ground, so a lifeline does not
+ * run through it.
+ */
+export function groundGuards(drawing) {
+  return drawing.replace(
+    /<text x="28" y="([\d.]+)" font-size="(\d+)" fill="#5b626c">([^<]*)<\/text>/g,
+    (whole, y, size, label) =>
+      `${rect({ x: 24, y: Number(y) - Number(size), w: textWidth(label, Number(size)) + 8, h: Number(size) + 6, fill: PAPER, stroke: null })}\n  ${whole}`,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Text that wraps, and the boxes built from it.
+
+/** Greedy wrap by the generous width estimate, so a line never runs long. */
+export function wrap(string, size, weight, max) {
+  const out = [];
+  let current = "";
+  for (const word of string.split(" ")) {
+    const next = current ? `${current} ${word}` : word;
+    if (current && textWidth(next, size, weight) > max) {
+      out.push(current);
+      current = word;
+    } else current = next;
+  }
+  out.push(current);
+  return out;
+}
+
+/** Lines of text centred on (cx, cy). */
+export function centred(
+  strings,
+  { cx, cy, size, lineHeight, weight, fill = INK },
+) {
+  const top = cy - ((strings.length - 1) * lineHeight) / 2 + size * 0.35;
+  return strings.map((string, i) =>
+    text(string, {
+      x: cx,
+      y: top + i * lineHeight,
+      size,
+      weight,
+      fill,
+      anchor: "middle",
+    }),
+  );
+}
+
+/** How each kind of card is drawn: its ground, its border and its text. */
+const CARD = {
+  you: { fill: INK, stroke: INK, title: PAPER, sub: ON_INK_MUTED },
+  agent: { fill: PAPER, stroke: INK, title: INK, sub: MUTED },
+  company: { fill: TINT, stroke: INK, title: INK, sub: MUTED },
+  plain: { fill: PAPER, stroke: INK, title: INK, sub: MUTED },
+  // The protocol's side: Poppy itself on green wash, a part of it in green.
+  poppy: { fill: GREEN_WASH, stroke: GREEN, title: GREEN, sub: INK_SOFT },
+  green: { fill: PAPER, stroke: GREEN, title: INK, sub: MUTED },
+  // What waits for the person, as a gate draws it.
+  wait: { fill: AMBER_WASH, stroke: AMBER, sw: 1, title: INK, sub: INK_SOFT },
+  // A group or a boundary, as `frame` draws it.
+  frame: {
+    fill: "none",
+    stroke: LINE_STRONG,
+    sw: 1,
+    dash: "5 4",
+    title: INK,
+    sub: MUTED,
+  },
+};
+
+/**
+ * A card: a title (600) over muted lines, left-aligned and wrapped to its
+ * width. `sub` is a string or an array of them, each starting a new line. `h`
+ * is a least height, so the cards of a row can match; `dot` puts the amber
+ * dot of what waits for the person at the top right. With `cy` in place of
+ * `y`, the card is centred on that line. Returns { svg, h }.
+ */
+export function card(spec) {
+  if (spec.cy !== undefined) {
+    const { cy, ...rest } = spec;
+    return card({ ...rest, y: cy - card({ ...rest, y: 0 }).h / 2 });
+  }
+  const {
+    kind = "plain",
+    x,
+    y,
+    w,
+    h: least = 0,
+    title,
+    sub = [],
+    size = 15,
+    subSize = size - 1,
+    pad = 14,
+    rx = 6,
+    dot: waits = false,
+  } = spec;
+  const look = CARD[kind];
+  const inner = w - pad * 2 - (waits ? 12 : 0);
+  const titleLH = Math.round(size * 1.27);
+  const subLH = Math.round(subSize * 1.3);
+  const heads = title ? wrap(title, size, 600, inner) : [];
+  // Each line, and whether it starts a paragraph after another one.
+  const subs = (Array.isArray(sub) ? sub : [sub]).flatMap((s, p) =>
+    wrap(s, subSize, 400, inner).map((string, i) => ({
+      string,
+      gap: p > 0 && i === 0 ? 5 : 0,
+    })),
+  );
+  const parts = [];
+  let base = y + pad + size * 0.8;
+  heads.forEach((string, i) => {
+    if (i) base += titleLH;
+    parts.push(
+      text(string, {
+        x: x + pad,
+        y: base,
+        size,
+        weight: 600,
+        fill: look.title,
+      }),
+    );
+  });
+  subs.forEach(({ string, gap }, i) => {
+    if (i || heads.length)
+      base += (heads.length && !i ? subLH + 1 : subLH) + gap;
+    else base = y + pad + subSize * 0.8;
+    parts.push(
+      text(string, { x: x + pad, y: base, size: subSize, fill: look.sub }),
+    );
+  });
+  const h = Math.max(least, base - y + pad - 1);
+  const out = [
+    rect({
+      x,
+      y,
+      w,
+      h,
+      rx,
+      fill: look.fill,
+      stroke: look.stroke,
+      sw: look.sw ?? 1.2,
+      dash: look.dash,
+    }),
+    ...parts,
+  ];
+  if (waits) out.push(dot({ cx: x + w - 12, cy: y + 12, r: 4 }));
+  return { svg: out.join("\n  "), h };
+}
+
+/**
+ * A chain: cards one under the other, each step an arrow down from the last.
+ * `cards` are card specs; `heights` gives the row heights of chains set side
+ * by side, so their rows line up. Returns { parts, bottom, firstCy }.
+ */
+export function chain(cards, { x, y, w, gap = 24, heights, ...style }) {
+  const parts = [];
+  let top = y;
+  let firstCy = 0;
+  cards.forEach((spec, i) => {
+    const c = card({ ...style, ...spec, x, y: top, w, h: heights?.[i] ?? 0 });
+    parts.push(c.svg);
+    if (i === 0) firstCy = top + c.h / 2;
+    top += c.h;
+    if (i < cards.length - 1) {
+      parts.push(
+        arrow({
+          points: [
+            [x + 24, top],
+            [x + 24, top + gap],
+          ],
+        }),
+      );
+      top += gap;
+    }
+  });
+  return { parts, bottom: top, firstCy };
+}
+
+/** The heights of the rows of chains set side by side, each its tallest card. */
+export function rowHeights(columns, { w, ...style }) {
+  const rows = Math.max(...columns.map((c) => c.length));
+  return Array.from({ length: rows }, (_, r) =>
+    Math.max(
+      ...columns
+        .filter((c) => c[r])
+        .map((c) => card({ ...style, ...c[r], x: 0, y: 0, w }).h),
+    ),
+  );
+}
+
+/**
+ * The comparison: rows of one thing done two ways, the way without Poppy in
+ * muted ink and the way with it on green wash. `spec` is { heads: [without,
+ * with], rows: [{ head, without, with }] }. On the narrow drawing each row is
+ * stacked: its head, then each way under its own label.
+ */
+export function compare(spec, variant) {
+  const out = [];
+  if (variant === "wide") {
+    const size = 15;
+    const lh = 19;
+    const col = [
+      { x: 1, w: 150 },
+      { x: 167, w: 260 },
+      { x: 443, w: 276 },
+    ];
+    const pad = 16;
+    const rows = spec.rows.map((row) => {
+      const cells = [
+        wrap(row.head, size, 600, col[0].w - 4),
+        wrap(row.without, size, 400, col[1].w - 8),
+        wrap(row.with, size, 400, col[2].w - pad * 2),
+      ];
+      return {
+        cells,
+        h: Math.max(...cells.map((c) => c.length)) * lh + 22,
+      };
+    });
+    const top = 44;
+    const H = top + rows.reduce((s, r) => s + r.h, 0) + 6;
+    out.push(
+      rect({
+        x: col[2].x,
+        y: 1,
+        w: col[2].w,
+        h: H - 2,
+        rx: 8,
+        fill: GREEN_WASH,
+        stroke: GREEN,
+        sw: 1,
+      }),
+      text(spec.heads[0], {
+        x: col[1].x,
+        y: 28,
+        size: 16,
+        weight: 600,
+        fill: MUTED,
+      }),
+      text(spec.heads[1], {
+        x: col[2].x + pad,
+        y: 28,
+        size: 16,
+        weight: 600,
+        fill: GREEN,
+      }),
+    );
+    let y = top;
+    rows.forEach((row, i) => {
+      out.push(
+        line({
+          x1: 1,
+          y1: y,
+          x2: col[1].x + col[1].w,
+          y2: y,
+          stroke: i ? LINE : LINE_STRONG,
+        }),
+        line({
+          x1: col[2].x + pad,
+          y1: y,
+          x2: col[2].x + col[2].w - pad,
+          y2: y,
+          stroke: GREEN_LIGHT,
+        }),
+      );
+      const at = [col[0].x, col[1].x, col[2].x + pad];
+      row.cells.forEach((cell, c) =>
+        out.push(
+          ...lines(cell, {
+            x: at[c],
+            y: y + 11 + size * 0.95,
+            lineHeight: lh,
+            size,
+            weight: c === 0 ? 600 : 400,
+            fill: c === 1 ? MUTED : INK,
+          }),
+        ),
+      );
+      y += row.h;
+    });
+    return svg(720, H, out);
+  }
+  const size = 14;
+  const lh = 18;
+  const w = 358;
+  let y = 1;
+  spec.rows.forEach((row, i) => {
+    if (i) y += 16;
+    const head = wrap(row.head, 15, 600, w);
+    out.push(
+      line({ x1: 1, y1: y, x2: 359, y2: y, stroke: i ? LINE : LINE_STRONG }),
+      ...lines(head, {
+        x: 1,
+        y: y + 24,
+        lineHeight: 19,
+        size: 15,
+        weight: 600,
+      }),
+    );
+    y += 24 + (head.length - 1) * 19 + 8;
+    const without = wrap(row.without, size, 400, w - 4);
+    out.push(
+      text(spec.heads[0], {
+        x: 1,
+        y: y + 12,
+        size: 13,
+        weight: 600,
+        fill: MUTED,
+      }),
+      ...lines(without, { x: 1, y: y + 30, lineHeight: lh, size, fill: MUTED }),
+    );
+    y += 30 + (without.length - 1) * lh + 12;
+    const withPoppy = wrap(row.with, size, 400, w - 28);
+    const boxH = 34 + withPoppy.length * lh;
+    out.push(
+      rect({
+        x: 1,
+        y,
+        w,
+        h: boxH,
+        rx: 8,
+        fill: GREEN_WASH,
+        stroke: GREEN,
+        sw: 1,
+      }),
+      text(spec.heads[1], {
+        x: 13,
+        y: y + 20,
+        size: 13,
+        weight: 600,
+        fill: GREEN,
+      }),
+      ...lines(withPoppy, { x: 13, y: y + 38, lineHeight: lh, size }),
+    );
+    y += boxH;
+  });
+  return svg(360, y + 1, out);
 }

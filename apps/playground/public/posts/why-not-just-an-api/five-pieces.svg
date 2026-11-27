@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 445" font-family="'Hanken Grotesk','Helvetica Neue',Arial,sans-serif">
+  <rect x="443" y="1" width="276" height="443" rx="8" fill="#eaf3f0" stroke="#0d5c4a" stroke-width="1"/>
+  <text x="167" y="28" font-size="16" font-weight="600" fill="#5b626c">A partner API</text>
+  <text x="459" y="28" font-size="16" font-weight="600" fill="#0d5c4a">With Poppy</text>
+  <line x1="1" y1="44" x2="427" y2="44" stroke="#c9ced5" stroke-width="1"/>
+  <line x1="459" y1="44" x2="703" y2="44" stroke="#9cc7bb" stroke-width="1"/>
+  <text x="1" y="69.25" font-size="15" font-weight="600" fill="#171a1f">Finding you</text>
+  <text x="167" y="69.25" font-size="15" font-weight="400" fill="#5b626c">a developer reads your docs and</text>
+  <text x="167" y="88.25" font-size="15" font-weight="400" fill="#5b626c">copies your URLs</text>
+  <text x="459" y="69.25" font-size="15" font-weight="400" fill="#171a1f">one poppy.json on your domain</text>
+  <text x="459" y="88.25" font-size="15" font-weight="400" fill="#171a1f">lists every interface, scope</text>
+  <text x="459" y="107.25" font-size="15" font-weight="400" fill="#171a1f">and scope hint</text>
+  <line x1="1" y1="123" x2="427" y2="123" stroke="#e3e6ea" stroke-width="1"/>
+  <line x1="459" y1="123" x2="703" y2="123" stroke="#9cc7bb" stroke-width="1"/>
+  <text x="1" y="148.25" font-size="15" font-weight="600" fill="#171a1f">Who is calling</text>
+  <text x="167" y="148.25" font-size="15" font-weight="400" fill="#5b626c">a client ID and secret issued</text>
+  <text x="167" y="167.25" font-size="15" font-weight="400" fill="#5b626c">in your portal</text>
+  <text x="459" y="148.25" font-size="15" font-weight="400" fill="#171a1f">a client_id that is an HTTPS</text>
+  <text x="459" y="167.25" font-size="15" font-weight="400" fill="#171a1f">URL hosting the agent's keys,</text>
+  <text x="459" y="186.25" font-size="15" font-weight="400" fill="#171a1f">with no registration</text>
+  <line x1="1" y1="202" x2="427" y2="202" stroke="#e3e6ea" stroke-width="1"/>
+  <line x1="459" y1="202" x2="703" y2="202" stroke="#9cc7bb" stroke-width="1"/>
+  <text x="1" y="227.25" font-size="15" font-weight="600" fill="#171a1f">Before and after</text>
+  <text x="1" y="246.25" font-size="15" font-weight="600" fill="#171a1f">sign-in</text>
+  <text x="167" y="227.25" font-size="15" font-weight="400" fill="#5b626c">anonymous requests until a</text>
+  <text x="167" y="246.25" font-size="15" font-weight="400" fill="#5b626c">login</text>
+  <text x="459" y="227.25" font-size="15" font-weight="400" fill="#171a1f">a Session from the first</text>
+  <text x="459" y="246.25" font-size="15" font-weight="400" fill="#171a1f">request; consent on your own</text>
+  <text x="459" y="265.25" font-size="15" font-weight="400" fill="#171a1f">page, revocable agent by agent</text>
+  <line x1="1" y1="281" x2="427" y2="281" stroke="#e3e6ea" stroke-width="1"/>
+  <line x1="459" y1="281" x2="703" y2="281" stroke="#9cc7bb" stroke-width="1"/>
+  <text x="1" y="306.25" font-size="15" font-weight="600" fill="#171a1f">Changes</text>
+  <text x="167" y="306.25" font-size="15" font-weight="400" fill="#5b626c">trusts that the caller's screen</text>
+  <text x="167" y="325.25" font-size="15" font-weight="400" fill="#5b626c">showed the real price</text>
+  <text x="459" y="306.25" font-size="15" font-weight="400" fill="#171a1f">approval_required with your</text>
+  <text x="459" y="325.25" font-size="15" font-weight="400" fill="#171a1f">exact terms; runs once, and</text>
+  <text x="459" y="344.25" font-size="15" font-weight="400" fill="#171a1f">only for that revision</text>
+  <line x1="1" y1="360" x2="427" y2="360" stroke="#e3e6ea" stroke-width="1"/>
+  <line x1="459" y1="360" x2="703" y2="360" stroke="#9cc7bb" stroke-width="1"/>
+  <text x="1" y="385.25" font-size="15" font-weight="600" fill="#171a1f">What you don't</text>
+  <text x="1" y="404.25" font-size="15" font-weight="600" fill="#171a1f">offer</text>
+  <text x="167" y="385.25" font-size="15" font-weight="400" fill="#5b626c">a 404, or a workaround the</text>
+  <text x="167" y="404.25" font-size="15" font-weight="400" fill="#5b626c">agent guesses</text>
+  <text x="459" y="385.25" font-size="15" font-weight="400" fill="#171a1f">/poppy/tasks lists it with an</text>
+  <text x="459" y="404.25" font-size="15" font-weight="400" fill="#171a1f">alternative; /poppy/feedback</text>
+  <text x="459" y="423.25" font-size="15" font-weight="400" fill="#171a1f">reports the gap</text>
+</svg>

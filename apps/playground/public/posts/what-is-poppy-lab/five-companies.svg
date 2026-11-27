@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 312" font-family="'Hanken Grotesk','Helvetica Neue',Arial,sans-serif">
+  <rect x="1" y="118" width="128" height="76" rx="6" fill="#171a1f" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="15" y="144" font-size="15" font-weight="600" fill="#ffffff">You</text>
+  <text x="15" y="163" font-size="14" font-weight="400" fill="#c4c9d0">as Elena or</text>
+  <text x="15" y="181" font-size="14" font-weight="400" fill="#c4c9d0">Robin</text>
+  <rect x="169" y="127" width="160" height="58" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="183" y="153" font-size="15" font-weight="600" fill="#171a1f">Iris</text>
+  <text x="183" y="172" font-size="14" font-weight="400" fill="#5b626c">in the playground</text>
+  <path d="M129 156L161 156" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M169 156L161 160.5L161 151.5Z" fill="#0d5c4a"/>
+  <text x="149" y="148" text-anchor="middle" font-size="14" font-weight="400" fill="#5b626c">asks</text>
+  <rect x="347" y="1" width="98" height="310" rx="8" fill="none" stroke="#c9ced5" stroke-width="1" stroke-dasharray="5 4"/>
+  <text x="396" y="26" text-anchor="middle" font-size="15" font-weight="600" fill="#171a1f">Inspector</text>
+  <text x="396" y="46" text-anchor="middle" font-size="13" font-weight="400" fill="#5b626c">every request</text>
+  <text x="396" y="63" text-anchor="middle" font-size="13" font-weight="400" fill="#5b626c">and answer,</text>
+  <text x="396" y="80" text-anchor="middle" font-size="13" font-weight="400" fill="#5b626c">as sent</text>
+  <path d="M329 156L453 156Q461 156 461 148L461 36Q461 28 469 28L477 28" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M485 28L477 32.5L477 23.5Z" fill="#0d5c4a"/>
+  <path d="M329 156L453 156Q461 156 461 148L461 100Q461 92 469 92L477 92" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M485 92L477 96.5L477 87.5Z" fill="#0d5c4a"/>
+  <path d="M329 156L461 156Q461 156 NaN NaNLNaN NaNQ461 156 461 156L477 156" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M485 156L477 160.5L477 151.5Z" fill="#0d5c4a"/>
+  <path d="M329 156L453 156Q461 156 461 164L461 212Q461 220 469 220L477 220" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M485 220L477 224.5L477 215.5Z" fill="#0d5c4a"/>
+  <path d="M329 156L453 156Q461 156 461 164L461 276Q461 284 469 284L477 284" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M485 284L477 288.5L477 279.5Z" fill="#0d5c4a"/>
+  <rect x="485" y="1" width="234" height="54" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="497" y="25" font-size="15" font-weight="600" fill="#171a1f">Juniper Market</text>
+  <text x="497" y="44" font-size="14" font-weight="400" fill="#5b626c">a reversible delivery move</text>
+  <rect x="485" y="65" width="234" height="54" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="497" y="89" font-size="15" font-weight="600" fill="#171a1f">Lantern Noodle Bar</text>
+  <text x="497" y="108" font-size="14" font-weight="400" fill="#5b626c">a support conversation</text>
+  <rect x="485" y="129" width="234" height="54" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="497" y="153" font-size="15" font-weight="600" fill="#171a1f">Harborline Bank</text>
+  <text x="497" y="172" font-size="14" font-weight="400" fill="#5b626c">moving money</text>
+  <rect x="485" y="193" width="234" height="54" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="497" y="217" font-size="15" font-weight="600" fill="#171a1f">Northwind Air</text>
+  <text x="497" y="236" font-size="14" font-weight="400" fill="#5b626c">a paid cabin upgrade</text>
+  <rect x="485" y="257" width="234" height="54" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="497" y="281" font-size="15" font-weight="600" fill="#171a1f">Fernwick Power &amp; Light</text>
+  <text x="497" y="300" font-size="14" font-weight="400" fill="#5b626c">hourly meter readings</text>
+</svg>

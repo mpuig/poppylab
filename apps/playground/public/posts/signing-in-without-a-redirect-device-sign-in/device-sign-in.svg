@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 567" font-family="'Hanken Grotesk','Helvetica Neue',Arial,sans-serif">
+  <line x1="96" y1="48" x2="96" y2="563" stroke="#c9ced5" stroke-width="1.2"/>
+  <line x1="360" y1="48" x2="360" y2="563" stroke="#c9ced5" stroke-width="1.2"/>
+  <line x1="624" y1="48" x2="624" y2="563" stroke="#c9ced5" stroke-width="1.2"/>
+  <rect x="12" y="0.6" width="168" height="46.8" rx="6" fill="#171a1f" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="96" y="29.25" text-anchor="middle" font-size="16" font-weight="600" fill="#ffffff">Robin</text>
+  <rect x="276" y="0.6" width="168" height="46.8" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="360" y="29.25" text-anchor="middle" font-size="16" font-weight="600" fill="#171a1f">Agent</text>
+  <rect x="540" y="0.6" width="168" height="46.8" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="624" y="29.25" text-anchor="middle" font-size="16" font-weight="600" fill="#171a1f">Lantern</text>
+  <line x1="360" y1="99" x2="616" y2="99" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M624 99L616 94.5L616 103.5Z" fill="#0d5c4a"/>
+  <rect x="343.25" y="66" width="297.5" height="29" rx="4" fill="#ffffff"/>
+  <text x="492" y="87" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">1 · Ask for a code, with the scopes</text>
+  <line x1="624" y1="158" x2="368" y2="158" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M360 158L368 153.5L368 162.5Z" fill="#0d5c4a"/>
+  <rect x="306.8" y="125" width="370.4" height="29" rx="4" fill="#ffffff"/>
+  <text x="492" y="146" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">2 · device_code, user_code, verification_uri</text>
+  <rect x="24" y="179.5" width="522.08" height="20" rx="6" fill="#ffffff"/>
+  <text x="28" y="193.5" font-size="14" fill="#5b626c">The agent checks the link's host is Lantern's, and keeps device_code</text>
+  <line x1="360" y1="240" x2="104" y2="240" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M96 240L104 235.5L104 244.5Z" fill="#0d5c4a"/>
+  <rect x="10.4" y="207" width="435.2" height="29" rx="4" fill="#ffffff"/>
+  <text x="228" y="228" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">3 · Lantern's name and domain, the link and the code</text>
+  <rect x="12" y="268" width="696" height="46" rx="8" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <circle cx="32" cy="291" r="4" fill="#f2b705"/>
+  <text x="46" y="296.25" font-size="15" font-weight="600" fill="#171a1f">Waiting for Robin, on another device</text>
+  <line x1="96" y1="365" x2="616" y2="365" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M624 365L616 360.5L616 369.5Z" fill="#0d5c4a"/>
+  <rect x="162.65" y="332" width="394.7" height="29" rx="4" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <text x="360" y="353" text-anchor="middle" font-size="15" font-weight="600" fill="#171a1f">4 · Robin signs in on Lantern's page and allows</text>
+  <line x1="360" y1="424" x2="616" y2="424" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M624 424L616 419.5L616 428.5Z" fill="#0d5c4a"/>
+  <rect x="306.8" y="391" width="370.4" height="29" rx="4" fill="#ffffff"/>
+  <text x="492" y="412" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">5 · Poll the token endpoint with device_code</text>
+  <line x1="624" y1="483" x2="368" y2="483" stroke="#0d5c4a" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M360 483L368 478.5L368 487.5Z" fill="#0d5c4a"/>
+  <rect x="306.8" y="450" width="370.4" height="29" rx="4" fill="#ffffff"/>
+  <text x="492" y="471" text-anchor="middle" font-size="15" font-weight="500" fill="#171a1f">6 · The tokens, to whoever holds device_code</text>
+  <line x1="12" y1="513" x2="708" y2="513" stroke="#e3e6ea" stroke-width="1"/>
+  <rect x="24" y="520.5" width="454.04" height="20" rx="6" fill="#ffffff"/>
+  <text x="28" y="534.5" font-size="14" fill="#5b626c">Nothing ties the person who allows to the agent that asked,</text>
+  <rect x="24" y="543.5" width="567.44" height="20" rx="6" fill="#ffffff"/>
+  <text x="28" y="557.5" font-size="14" fill="#5b626c">so Harborline Bank turns Device Sign-In off and offers Direct Sign-In only</text>
+</svg>

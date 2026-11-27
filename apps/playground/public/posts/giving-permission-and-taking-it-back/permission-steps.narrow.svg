@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 694.2" font-family="'Hanken Grotesk','Helvetica Neue',Arial,sans-serif">
+  <rect x="1" y="1" width="358" height="69.2" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="13" y="24.2" font-size="14" font-weight="600" fill="#171a1f">Signed out</text>
+  <text x="13" y="42.2" font-size="13" font-weight="400" fill="#5b626c">public questions only, such as what Juniper</text>
+  <text x="13" y="59.2" font-size="13" font-weight="400" fill="#5b626c">sells</text>
+  <path d="M25 70.2L25 106.2" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M25 114.2L20.5 106.2L29.5 106.2Z" fill="#0d5c4a"/>
+  <rect x="41" y="78.2" width="194.72" height="28" rx="4" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <text x="138.36" y="96.75" text-anchor="middle" font-size="13" font-weight="600" fill="#171a1f">Elena allows, at Juniper</text>
+  <rect x="1" y="114.2" width="358" height="86.2" rx="6" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="13" y="137.4" font-size="14" font-weight="600" fill="#171a1f">Read</text>
+  <text x="13" y="155.4" font-size="13" font-weight="400" fill="#5b626c">a token with poppy:read, and Propose changes:</text>
+  <text x="13" y="172.4" font-size="13" font-weight="400" fill="#5b626c">None. Iris doesn't send the delivery move at</text>
+  <text x="13" y="189.4" font-size="13" font-weight="400" fill="#5b626c">all.</text>
+  <path d="M25 200.4L25 236.4" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M25 244.4L20.5 236.4L29.5 236.4Z" fill="#0d5c4a"/>
+  <rect x="41" y="208.4" width="165.6" height="28" rx="4" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <text x="123.8" y="226.95" text-anchor="middle" font-size="13" font-weight="600" fill="#171a1f">Elena allows changes</text>
+  <rect x="1" y="244.4" width="358" height="86.2" rx="6" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="13" y="267.6" font-size="14" font-weight="600" fill="#171a1f">Read and propose changes</text>
+  <text x="13" y="285.6" font-size="13" font-weight="400" fill="#5b626c">poppy:read and poppy:write on one consent</text>
+  <text x="13" y="302.6" font-size="13" font-weight="400" fill="#5b626c">screen, replacing the old grant. Each change</text>
+  <text x="13" y="319.6" font-size="13" font-weight="400" fill="#5b626c">still waits for her approval.</text>
+  <path d="M25 330.6L25 366.6" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M25 374.6L20.5 366.6L29.5 366.6Z" fill="#0d5c4a"/>
+  <text x="41" y="357.6" font-size="13" font-weight="400" fill="#5b626c">Sign out in Iris, or Disconnect on Juniper's site</text>
+  <rect x="1" y="374.6" width="358" height="86.2" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="13" y="397.8" font-size="14" font-weight="600" fill="#171a1f">Disconnected</text>
+  <text x="13" y="415.8" font-size="13" font-weight="400" fill="#5b626c">the refresh and access tokens end, Iris drops</text>
+  <text x="13" y="432.8" font-size="13" font-weight="400" fill="#5b626c">back to public access, and the moved delivery</text>
+  <text x="13" y="449.8" font-size="13" font-weight="400" fill="#5b626c">stays moved</text>
+  <rect x="1" y="476.8" width="358" height="103.2" rx="6" fill="none" stroke="#c9ced5" stroke-width="1" stroke-dasharray="5 4"/>
+  <text x="13" y="500" font-size="14" font-weight="600" fill="#171a1f">Narrower than scopes</text>
+  <text x="13" y="518" font-size="13" font-weight="400" fill="#5b626c">At Harborline and Fernwick, Elena also picks</text>
+  <text x="13" y="535" font-size="13" font-weight="400" fill="#5b626c">which accounts or meters to share. The rest</text>
+  <text x="13" y="552" font-size="13" font-weight="400" fill="#5b626c">answer 404 on every channel, as if they didn't</text>
+  <text x="13" y="569" font-size="13" font-weight="400" fill="#5b626c">exist.</text>
+  <rect x="1" y="590" width="358" height="103.2" rx="6" fill="none" stroke="#c9ced5" stroke-width="1" stroke-dasharray="5 4"/>
+  <text x="13" y="613.2" font-size="14" font-weight="600" fill="#171a1f">Ended from either side</text>
+  <text x="13" y="631.2" font-size="13" font-weight="400" fill="#5b626c">Sign out in Iris sends POST /oauth/revoke.</text>
+  <text x="13" y="648.2" font-size="13" font-weight="400" fill="#5b626c">Disconnect on Juniper's website revokes the</text>
+  <text x="13" y="665.2" font-size="13" font-weight="400" fill="#5b626c">grant from the company's side, and Iris's next</text>
+  <text x="13" y="682.2" font-size="13" font-weight="400" fill="#5b626c">request fails.</text>
+</svg>

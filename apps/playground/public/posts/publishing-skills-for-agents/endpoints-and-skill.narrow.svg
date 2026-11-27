@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 746.8000000000002" font-family="'Hanken Grotesk','Helvetica Neue',Arial,sans-serif">
+  <text x="1" y="16" font-size="14" font-weight="600" fill="#5b626c">What the OpenAPI description says</text>
+  <rect x="1" y="28" width="358" height="52.2" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="13" y="51.2" font-size="14" font-weight="600" fill="#171a1f">GET /api/account/accounts</text>
+  <text x="13" y="69.2" font-size="13" font-weight="400" fill="#5b626c">accounts and their fields</text>
+  <rect x="1" y="90.2" width="358" height="52.2" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="13" y="113.4" font-size="14" font-weight="600" fill="#171a1f">GET /api/account/recipients</text>
+  <text x="13" y="131.4" font-size="13" font-weight="400" fill="#5b626c">saved recipients and their fields</text>
+  <rect x="1" y="152.4" width="358" height="52.2" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="13" y="175.6" font-size="14" font-weight="600" fill="#171a1f">POST /api/account/payments</text>
+  <text x="13" y="193.6" font-size="13" font-weight="400" fill="#5b626c">the parameters of a payment</text>
+  <text x="1" y="240.6" font-size="14" font-weight="600" fill="#0d5c4a">What pay-saved-recipient adds</text>
+  <rect x="1" y="252.6" width="358" height="69.2" rx="6" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="13" y="275.8" font-size="14" font-weight="600" fill="#171a1f">1 · Read the accounts</text>
+  <text x="13" y="293.8" font-size="13" font-weight="400" fill="#5b626c">the source is active, and available_cents</text>
+  <text x="13" y="310.8" font-size="13" font-weight="400" fill="#5b626c">covers the payment</text>
+  <path d="M25 321.8L25 329.8" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M25 337.8L20.5 329.8L29.5 329.8Z" fill="#0d5c4a"/>
+  <rect x="1" y="337.8" width="358" height="69.2" rx="6" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="13" y="361" font-size="14" font-weight="600" fill="#171a1f">2 · Read the recipients</text>
+  <text x="13" y="379" font-size="13" font-weight="400" fill="#5b626c">saved and active, and within its</text>
+  <text x="13" y="396" font-size="13" font-weight="400" fill="#5b626c">payment_limit_cents</text>
+  <path d="M25 407L25 415" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M25 423L20.5 415L29.5 415Z" fill="#0d5c4a"/>
+  <rect x="1" y="423" width="358" height="69.2" rx="6" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="13" y="446.2" font-size="14" font-weight="600" fill="#171a1f">3 · Request the payment</text>
+  <text x="13" y="464.2" font-size="13" font-weight="400" fill="#5b626c">one idempotency_key, kept for every retry; a</text>
+  <text x="13" y="481.2" font-size="13" font-weight="400" fill="#5b626c">reference only for a biller</text>
+  <path d="M25 492.2L25 500.2" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M25 508.2L20.5 500.2L29.5 500.2Z" fill="#0d5c4a"/>
+  <rect x="1" y="508.2" width="358" height="69.2" rx="6" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="13" y="531.4" font-size="14" font-weight="600" fill="#171a1f">4 · Expect approval_required</text>
+  <text x="13" y="549.4" font-size="13" font-weight="400" fill="#5b626c">show the terms; only the customer's own</text>
+  <text x="13" y="566.4" font-size="13" font-weight="400" fill="#5b626c">approval counts</text>
+  <rect x="1" y="597.4" width="358" height="69.2" rx="6" fill="none" stroke="#c9ced5" stroke-width="1" stroke-dasharray="5 4"/>
+  <text x="13" y="620.6" font-size="14" font-weight="600" fill="#171a1f">Found in /poppy/tasks</text>
+  <text x="13" y="638.6" font-size="13" font-weight="400" fill="#5b626c">skill_index: name, description, type, url and a</text>
+  <text x="13" y="655.6" font-size="13" font-weight="400" fill="#5b626c">sha256 digest of the file</text>
+  <rect x="1" y="676.6" width="358" height="69.2" rx="6" fill="none" stroke="#c9ced5" stroke-width="1" stroke-dasharray="5 4"/>
+  <text x="13" y="699.8" font-size="14" font-weight="600" fill="#171a1f">Company content, not authority</text>
+  <text x="13" y="717.8" font-size="13" font-weight="400" fill="#5b626c">reading a skill grants no scope and never</text>
+  <text x="13" y="734.8" font-size="13" font-weight="400" fill="#5b626c">counts as an approval</text>
+</svg>

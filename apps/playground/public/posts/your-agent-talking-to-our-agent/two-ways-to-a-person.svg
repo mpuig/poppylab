@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 393" font-family="'Hanken Grotesk','Helvetica Neue',Arial,sans-serif">
+  <text x="1" y="18" font-size="16" font-weight="600" fill="#171a1f">A person at the company</text>
+  <rect x="1" y="34" width="344" height="76" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="15" y="60" font-size="15" font-weight="600" fill="#171a1f">Either side asks for a person</text>
+  <text x="15" y="79" font-size="14" font-weight="400" fill="#5b626c">a handoff request; handoff becomes</text>
+  <text x="15" y="97" font-size="14" font-weight="400" fill="#5b626c">pending</text>
+  <path d="M25 110L25 126" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M25 134L20.5 126L29.5 126Z" fill="#0d5c4a"/>
+  <rect x="1" y="134" width="344" height="99" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="15" y="160" font-size="15" font-weight="600" fill="#171a1f">A staff member joins</text>
+  <text x="15" y="179" font-size="14" font-weight="400" fill="#5b626c">responder becomes human</text>
+  <text x="15" y="202" font-size="14" font-weight="400" fill="#5b626c">If no one is available, the Company Agent</text>
+  <text x="15" y="220" font-size="14" font-weight="400" fill="#5b626c">says why; Lantern gives its phone number.</text>
+  <text x="375" y="18" font-size="16" font-weight="600" fill="#171a1f">The user themself</text>
+  <rect x="375" y="34" width="344" height="58" rx="6" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="389" y="60" font-size="15" font-weight="600" fill="#171a1f">The company asks for the user</text>
+  <text x="389" y="79" font-size="14" font-weight="400" fill="#5b626c">a user_requested event, with its reason</text>
+  <path d="M399 92L399 108" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M399 116L394.5 108L403.5 108Z" fill="#0d5c4a"/>
+  <rect x="375" y="116" width="344" height="76" rx="6" fill="#fff6d6" stroke="#f2b705" stroke-width="1"/>
+  <text x="389" y="142" font-size="15" font-weight="600" fill="#171a1f">Only the user can accept</text>
+  <text x="389" y="161" font-size="14" font-weight="400" fill="#3a4049">the agent asks them, and starts nothing</text>
+  <text x="389" y="179" font-size="14" font-weight="400" fill="#3a4049">on its own</text>
+  <path d="M399 192L399 208" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M399 216L394.5 208L403.5 208Z" fill="#0d5c4a"/>
+  <rect x="375" y="216" width="344" height="76" rx="6" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="389" y="242" font-size="15" font-weight="600" fill="#171a1f">A Direct Conversation opens</text>
+  <text x="389" y="261" font-size="14" font-weight="400" fill="#5b626c">the company speaks first; the user's</text>
+  <text x="389" y="279" font-size="14" font-weight="400" fill="#5b626c">words go as written</text>
+  <path d="M399 292L399 308" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M399 316L394.5 308L403.5 308Z" fill="#0d5c4a"/>
+  <rect x="375" y="316" width="344" height="76" rx="6" fill="none" stroke="#c9ced5" stroke-width="1" stroke-dasharray="5 4"/>
+  <text x="389" y="342" font-size="15" font-weight="600" fill="#171a1f">The agent steps aside</text>
+  <text x="389" y="361" font-size="14" font-weight="400" fill="#5b626c">its messages to the first conversation</text>
+  <text x="389" y="379" font-size="14" font-weight="400" fill="#5b626c">get direct_conversation_open</text>
+</svg>

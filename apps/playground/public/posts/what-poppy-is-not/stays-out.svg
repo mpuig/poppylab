@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 420.8" font-family="'Hanken Grotesk','Helvetica Neue',Arial,sans-serif">
+  <rect x="1" y="1" width="372" height="98.8" rx="8" fill="#ffffff" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="17" y="29.8" font-size="16" font-weight="600" fill="#171a1f">Personal Agent</text>
+  <text x="17" y="48.8" font-size="14" font-weight="400" fill="#5b626c">any model, prompt loop or SDK; Iris runs</text>
+  <text x="17" y="66.8" font-size="14" font-weight="400" fill="#5b626c">OpenAI, Anthropic, Google, Ollama or no</text>
+  <text x="17" y="84.8" font-size="14" font-weight="400" fill="#5b626c">model</text>
+  <line x1="405" y1="22" x2="417" y2="22" stroke="#c9ced5" stroke-width="1.5"/>
+  <text x="427" y="27" font-size="15" font-weight="600" fill="#171a1f">Not an agent framework</text>
+  <text x="427" y="46" font-size="14" font-weight="400" fill="#5b626c">nothing to adopt on the agent's side</text>
+  <path d="M187 107.8L187 119.8" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M187 127.8L182.5 119.8L191.5 119.8Z" fill="#0d5c4a"/>
+  <path d="M187 99.8L191.5 107.8L182.5 107.8Z" fill="#0d5c4a"/>
+  <rect x="1" y="127.8" width="372" height="132" rx="8" fill="#eaf3f0" stroke="#0d5c4a" stroke-width="1.2"/>
+  <text x="17" y="156.6" font-size="16" font-weight="600" fill="#0d5c4a">Poppy</text>
+  <text x="17" y="175.6" font-size="14" font-weight="400" fill="#3a4049">discovery, identity, consent, Sessions and</text>
+  <text x="17" y="193.6" font-size="14" font-weight="400" fill="#3a4049">approvals</text>
+  <line x1="405" y1="148.8" x2="417" y2="148.8" stroke="#c9ced5" stroke-width="1.5"/>
+  <text x="427" y="153.8" font-size="15" font-weight="600" fill="#171a1f">Not a marketplace or directory</text>
+  <text x="427" y="172.8" font-size="14" font-weight="400" fill="#5b626c">poppy.json and each client_id live on</text>
+  <text x="427" y="190.8" font-size="14" font-weight="400" fill="#5b626c">their owners' domains</text>
+  <line x1="405" y1="219.8" x2="417" y2="219.8" stroke="#c9ced5" stroke-width="1.5"/>
+  <text x="427" y="224.8" font-size="15" font-weight="600" fill="#171a1f">Not a chatbot</text>
+  <text x="427" y="243.8" font-size="14" font-weight="400" fill="#5b626c">Conversations is a channel; the</text>
+  <text x="427" y="261.8" font-size="14" font-weight="400" fill="#5b626c">company's agent can be plain code</text>
+  <path d="M187 267.8L187 279.8" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M187 287.8L182.5 279.8L191.5 279.8Z" fill="#0d5c4a"/>
+  <path d="M187 259.8L191.5 267.8L182.5 267.8Z" fill="#0d5c4a"/>
+  <rect x="1" y="287.8" width="372" height="132" rx="8" fill="#f4f6f7" stroke="#171a1f" stroke-width="1.2"/>
+  <text x="17" y="316.6" font-size="16" font-weight="600" fill="#171a1f">The company's own systems</text>
+  <text x="17" y="335.6" font-size="14" font-weight="400" fill="#5b626c">its API, MCP server, support and website;</text>
+  <text x="17" y="353.6" font-size="14" font-weight="400" fill="#5b626c">its catalog, ledger and payments</text>
+  <line x1="405" y1="308.8" x2="417" y2="308.8" stroke="#c9ced5" stroke-width="1.5"/>
+  <text x="427" y="313.8" font-size="15" font-weight="600" fill="#171a1f">Not a payments network</text>
+  <text x="427" y="332.8" font-size="14" font-weight="400" fill="#5b626c">payments, fraud checks and settlement</text>
+  <text x="427" y="350.8" font-size="14" font-weight="400" fill="#5b626c">stay in the company's stack</text>
+  <line x1="405" y1="379.8" x2="417" y2="379.8" stroke="#c9ced5" stroke-width="1.5"/>
+  <text x="427" y="384.8" font-size="15" font-weight="600" fill="#171a1f">Not a replacement for its APIs</text>
+  <text x="427" y="403.8" font-size="14" font-weight="400" fill="#5b626c">it wraps the interfaces already there</text>
+</svg>
