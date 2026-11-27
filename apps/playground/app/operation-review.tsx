@@ -15,6 +15,7 @@ import {
   type ReviewOperation,
 } from "@poppy-lab/pap-agent/operation-presentation";
 import { agentName } from "@poppy-lab/pap-agent/agent";
+import { valueIn } from "@poppy-lab/pap-agent/words";
 /** The amounts of Juniper's and Lantern's terms, as their cards name them. */
 const moneyRows = [
   ["subtotal_cents", "Products"],
@@ -152,7 +153,13 @@ export function OperationReview({
   // Terms the card has no layout for are read from their shape.
   const own = ownLayout(op),
     read = own ? undefined : termRows(op);
-  const diff = read ? read.changes : changes(op),
+  // A slot's code or a day is said as a person says it ("Sunday at
+  // 13:00"); the exact terms below keep the Company's own values.
+  const diff = (read ? read.changes : changes(op)).map((row) => ({
+      ...row,
+      before: valueIn("en", row.before),
+      after: valueIn("en", row.after),
+    })),
     t = op.terms ?? {};
   const active = pending || state === "uncertain";
   const total = amountToApprove(op);

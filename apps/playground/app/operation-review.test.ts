@@ -426,6 +426,9 @@ it("always asks for approval and shows a slot change and exact money from the te
   );
   expect(html).toContain("Approve $45.00");
   expect(html).toContain("Delivery slot");
+  // The change says the day and time; the exact terms keep the code.
+  expect(html).toContain("Friday at 18:30");
+  expect(html).toContain("Saturday at 19:00");
   expect(html).toContain("sat-1900");
   expect(html).toContain("$45.00");
   expect(html).toContain("$8.00");
