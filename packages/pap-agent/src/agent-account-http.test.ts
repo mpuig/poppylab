@@ -14,7 +14,11 @@ import {
   configureLinkingChannel,
   forgetLinkingChannels,
 } from "./agent-account-http";
-import { conversationEvents } from "./api-events";
+import {
+  conversationEvents,
+  MAX_STREAMS,
+  MAX_VISITOR_STREAMS,
+} from "./api-events";
 import { v1 } from "./api-http";
 import { sessionOfAccessToken } from "./api-sessions";
 import { connected } from "./company-fixture";
@@ -934,8 +938,18 @@ describe("a conversation's event stream", () => {
       }),
       from.cookies ?? jar(),
     );
-    const heard = { status: response.status, text: "", done: false, stop };
-    if (response.status !== 200) return heard;
+    const heard = {
+      status: response.status,
+      headers: response.headers,
+      data: undefined as Data | undefined,
+      text: "",
+      done: false,
+      stop,
+    };
+    if (response.status !== 200) {
+      heard.data = (await response.json()) as Data;
+      return heard;
+    }
     const reader = response.body!.getReader();
     void (async () => {
       for (;;) {
@@ -1046,10 +1060,13 @@ describe("a conversation's event stream", () => {
     const started = await call("POST", "/conversations", { token, body: {} });
     const id = started.data.id as string;
     const open: Array<Awaited<ReturnType<typeof listen>>> = [];
-    for (let i = 0; i < 10; i++) open.push(await listen(id, { token }));
-    expect(open.map((s) => s.status)).toEqual(Array(10).fill(200));
+    for (let i = 0; i < MAX_STREAMS; i++)
+      open.push(await listen(id, { token }));
+    expect(open.map((s) => s.status)).toEqual(Array(MAX_STREAMS).fill(200));
     const eleventh = await listen(id, { token });
     expect(eleventh.status).toBe(429);
+    expect(eleventh.data?.code).toBe("too_many_streams");
+    expect(eleventh.headers.get("Retry-After")).toBe("60");
     // One closed frees its place.
     open[0]!.stop.abort();
     await vi.waitFor(() => expect(open[0]!.done).toBe(true));
@@ -1069,6 +1086,52 @@ describe("a conversation's event stream", () => {
     }
     expect(statuses.at(-1)).toBe(429);
     expect(statuses.filter((s) => s === 200)).toHaveLength(18);
+  });
+
+  it("holds an anonymous visitor to MAX_VISITOR_STREAMS open streams and releases on abort", async () => {
+    const cookies = visitor();
+    const started = await call("POST", "/conversations", {
+      ...page(cookies),
+      body: {},
+    });
+    expect(started.status).toBe(201);
+    const id = started.data.id as string;
+
+    const open: Array<Awaited<ReturnType<typeof listen>>> = [];
+    for (let i = 0; i < MAX_VISITOR_STREAMS; i++)
+      open.push(await listen(id, { cookies }));
+    expect(open.map((s) => s.status)).toEqual(
+      Array(MAX_VISITOR_STREAMS).fill(200),
+    );
+
+    const overflow = await listen(id, { cookies });
+    expect(overflow.status).toBe(429);
+    expect(overflow.data?.code).toBe("too_many_streams");
+    expect(overflow.headers.get("Retry-After")).toBe("60");
+
+    // Another anonymous visitor has its own independent limit.
+    const otherCookies = jar({ poppy_visitor: "w".repeat(43) });
+    const otherStarted = await call("POST", "/conversations", {
+      ...page(otherCookies),
+      body: {},
+    });
+    const otherStream = await listen(otherStarted.data.id as string, {
+      cookies: otherCookies,
+    });
+    expect(otherStream.status).toBe(200);
+
+    // Closing one stream frees its slot for the first visitor.
+    open[0]!.stop.abort();
+    await vi.waitFor(() => expect(open[0]!.done).toBe(true));
+    const replacement = await listen(id, { cookies });
+    expect(replacement.status).toBe(200);
+
+    for (const s of [...open, replacement, otherStream]) s.stop.abort();
+    await vi.waitFor(() =>
+      expect([...open, replacement, otherStream].every((s) => s.done)).toBe(
+        true,
+      ),
+    );
   });
 });
 

@@ -16,6 +16,7 @@ import {
   type Proposal,
 } from "./api";
 import { accountBackend, opaqueId } from "./account-store";
+import type { Backend } from "./runs";
 import type { Caller } from "./web";
 
 export type AgentEvent =
@@ -204,21 +205,34 @@ export async function* conversationEvents(
 export const STREAM_MS = 5 * 60000;
 /** An account has at most this many streams open, on all its devices. */
 export const MAX_STREAMS = 10;
+/** A browser not signed in to an account has at most this many streams open. */
+export const MAX_VISITOR_STREAMS = 4;
 type Open = { id: string; until: number };
+export type StreamTarget = { bucket: string; backend: Backend; limit: number };
 
 /**
- * Holds one of the account's streams, or answers undefined when it has
- * `MAX_STREAMS` open already. The list is one record, changed with a
- * compare-and-set, so two devices opening at once can't both take the
- * last place. A stream that never said it closed (its isolate went)
- * frees its place when its time is up.
+ * Holds one open-stream slot, or answers undefined when `limit` streams are
+ * open already. Passing an account ID holds one of that account's
+ * `MAX_STREAMS` slots in `accountBackend()`; passing `{ bucket, backend,
+ * limit }` holds a slot in another bucket (such as an anonymous visitor's).
+ * The list is one record, changed with a compare-and-set, so two tabs or
+ * devices opening at once can't both take the last place. A stream that
+ * never said it closed (its isolate went) frees its place when its time is
+ * up.
  */
-export async function holdStream(account: string) {
-  const bucket = `account:${account}`,
-    key = "streams";
+export async function holdStream(target: string | StreamTarget) {
+  const { bucket, backend, limit } =
+    typeof target === "string"
+      ? {
+          bucket: `account:${target}`,
+          backend: accountBackend(),
+          limit: MAX_STREAMS,
+        }
+      : target;
+  const key = "streams";
   const change = async (edit: (open: Open[]) => Open[] | undefined) => {
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const entry = await accountBackend().get(bucket, key);
+    for (let attempt = 0; attempt < limit + 5; attempt++) {
+      const entry = await backend.get(bucket, key);
       const now = Date.now();
       const open = ((entry?.value as Open[] | undefined) ?? []).filter(
         (s) => s.until > now,
@@ -226,7 +240,7 @@ export async function holdStream(account: string) {
       const next = edit(open);
       if (!next) return false;
       if (
-        await accountBackend().put(
+        await backend.put(
           bucket,
           key,
           next,
@@ -240,7 +254,7 @@ export async function holdStream(account: string) {
   };
   const id = opaqueId();
   const held = await change((open) =>
-    open.length < MAX_STREAMS
+    open.length < limit
       ? [...open, { id, until: Date.now() + STREAM_MS + 60000 }]
       : undefined,
   );

@@ -19,7 +19,12 @@ import {
   type ApiError,
   type Result,
 } from "./api";
-import { conversationEvents, holdStream, MAX_STREAMS } from "./api-events";
+import {
+  conversationEvents,
+  holdStream,
+  MAX_STREAMS,
+  MAX_VISITOR_STREAMS,
+} from "./api-events";
 import { overAccountBudget } from "./account-limits";
 import {
   ACCOUNT_OPERATIONS,
@@ -34,6 +39,7 @@ import { sessionOfAccessToken, stillSignedIn } from "./api-sessions";
 import { apiSessionCaller } from "./identity";
 import { serving } from "./deployment";
 import { openApiDocument } from "./openapi";
+import { storage } from "./runs";
 import { createSignInLink, openSignInLink } from "./sign-in-links";
 import { UserFacingError } from "./user-error";
 import {
@@ -380,8 +386,9 @@ const model = (value: unknown) => {
  * conversation ends; the client opens it again and starts from `state`.
  * A signed-in request's stream ends with `session.ended` within seconds
  * of its session ending or its access token running out. Opening one is
- * counted per source and per account, and an account holds at most
- * `MAX_STREAMS` open at once.
+ * counted per source and per account; a signed-in account holds at most
+ * `MAX_STREAMS` open at once, and an anonymous visitor holds at most
+ * `MAX_VISITOR_STREAMS`.
  */
 async function events(
   caller: Caller,
@@ -397,12 +404,23 @@ async function events(
   if (over) return toResponse(over);
   const first = await getConversation(caller, id);
   if (!first.ok) return error(first);
-  const held = signed ? await holdStream(signed.id) : undefined;
-  if (signed && !held)
+  const visitor = signed ? undefined : caller.user();
+  const held = signed
+    ? await holdStream(signed.id)
+    : visitor
+      ? await holdStream({
+          bucket: visitor,
+          backend: storage(),
+          limit: MAX_VISITOR_STREAMS,
+        })
+      : undefined;
+  if (!held)
     return Response.json(
       {
         code: "too_many_streams",
-        error: `This account has ${MAX_STREAMS} event streams open already. Close one, or wait a minute and try again.`,
+        error: signed
+          ? `This account has ${MAX_STREAMS} event streams open already. Close one, or wait a minute and try again.`
+          : `This browser has ${MAX_VISITOR_STREAMS} event streams open already. Close one, or wait a minute and try again.`,
       },
       { status: 429, headers: { ...headers, "Retry-After": "60" } },
     );
@@ -412,7 +430,11 @@ async function events(
       ? cookies.get(accountCookie())?.value
       : bearer(request.headers.get("authorization") ?? "");
   const stop = new AbortController();
-  request.signal.addEventListener("abort", () => stop.abort(), { once: true });
+  if (request.signal.aborted) stop.abort();
+  else
+    request.signal.addEventListener("abort", () => stop.abort(), {
+      once: true,
+    });
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -434,7 +456,7 @@ async function events(
         }))
           write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
       } finally {
-        await held?.release();
+        await held.release();
         try {
           controller.close();
         } catch {

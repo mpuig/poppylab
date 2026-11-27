@@ -1,7 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ConversationState, Proposal } from "./api";
-import { eventsBetween } from "./api-events";
+import {
+  eventsBetween,
+  holdStream,
+  MAX_STREAMS,
+  MAX_VISITOR_STREAMS,
+  STREAM_MS,
+} from "./api-events";
 import { match, ROUTES } from "./api-http";
+import { configureBackend, memoryBackend, type Backend } from "./runs";
 
 const bank = { origin: "https://bank.example", name: "Harborline Bank" };
 const company = (signedIn = false, consentVersion = 0) => ({
@@ -135,4 +142,75 @@ it("routes each path of /api/v1 to one operation, with its names", () => {
   expect(match("GET", "/api/v1/conversations/run_1/messages")).toBeUndefined();
   expect(match("GET", "/api/v1/conversations/a%2Fb")).toBeUndefined();
   expect(new Set(ROUTES.map((r) => r.operation)).size).toBe(ROUTES.length);
+});
+
+describe("holdStream concurrency cap", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("caps a custom bucket to its limit, releases on close, and writes a short expires", async () => {
+    vi.useFakeTimers({ now: 1_000_000, toFake: ["Date"] });
+    const base = memoryBackend();
+    const expiries: Array<number | undefined> = [];
+    const backend: Backend = {
+      ...base,
+      put(bucket, key, value, expected, expires) {
+        expiries.push(expires);
+        return base.put(bucket, key, value, expected, expires);
+      },
+    };
+    const held: Array<NonNullable<Awaited<ReturnType<typeof holdStream>>>> = [];
+    for (let i = 0; i < MAX_VISITOR_STREAMS; i++) {
+      const slot = await holdStream({
+        bucket: "visitor_hash_1",
+        backend,
+        limit: MAX_VISITOR_STREAMS,
+      });
+      expect(slot).toBeDefined();
+      held.push(slot!);
+    }
+    expect(
+      await holdStream({
+        bucket: "visitor_hash_1",
+        backend,
+        limit: MAX_VISITOR_STREAMS,
+      }),
+    ).toBeUndefined();
+    // Every write sets a short expires (at most STREAM_MS + 60s) so DO alarms stay bounded.
+    expect(expiries).toHaveLength(MAX_VISITOR_STREAMS);
+    for (const exp of expiries) {
+      expect(exp).toBeDefined();
+      expect(exp!).toBeLessThanOrEqual(1_000_000 + STREAM_MS + 60_000);
+    }
+    // Releasing one slot allows a new stream to be held.
+    await held[0]!.release();
+    const replacement = await holdStream({
+      bucket: "visitor_hash_1",
+      backend,
+      limit: MAX_VISITOR_STREAMS,
+    });
+    expect(replacement).toBeDefined();
+    // Abandoned slots expire after STREAM_MS + 60s even without release().
+    vi.setSystemTime(1_000_000 + STREAM_MS + 60_001);
+    const afterExpiry = await holdStream({
+      bucket: "visitor_hash_1",
+      backend,
+      limit: MAX_VISITOR_STREAMS,
+    });
+    expect(afterExpiry).toBeDefined();
+  });
+
+  it("keeps signed-in accounts capped at MAX_STREAMS (10)", async () => {
+    configureBackend(memoryBackend());
+    const held: Array<NonNullable<Awaited<ReturnType<typeof holdStream>>>> = [];
+    for (let i = 0; i < MAX_STREAMS; i++) {
+      const slot = await holdStream("acct_test_1");
+      expect(slot).toBeDefined();
+      held.push(slot!);
+    }
+    expect(await holdStream("acct_test_1")).toBeUndefined();
+    await held[0]!.release();
+    expect(await holdStream("acct_test_1")).toBeDefined();
+  });
 });
