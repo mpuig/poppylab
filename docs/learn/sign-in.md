@@ -102,17 +102,18 @@ Sign-In checks skip at all five Companies ([Validator results](validator.md)).
 
 ## The lab's test sign-in pages
 
-The lab's Companies have no real accounts. Their consent pages list fictional
-test customers, such as Elena Maren and Robin Ito at Lantern, and the user
-picks one: "Test customers. Choosing one doesn't verify who you are."
-Juniper's own website signs in the same way, at `/site/login`.
+The lab's Companies have no real accounts. Their consent pages list two
+fictional test customers, Elena Maren and Robin Ito, and the user picks one;
+most say "Test customers. Choosing one doesn't verify who you are." Each
+Company's own website signs in the same way, at `/site/login`.
 
-A deployment can add one shared demo password, set as a Worker secret such as
-`JUNIPER_PASSWORD_HASH`; the page then asks for it before it lets anyone choose
-a customer. On the live lab, no Company asks for one. A demo password keeps
-strangers out of a test environment, but it doesn't stop an agent's own
-browser, which can type it as a person would. It belongs to the lab only: a
-real Company's sign-in is the user's own account, on the Company's page.
+A deployment can add one shared demo password, set as a Worker secret named for
+the Company, such as `JUNIPER_PASSWORD_HASH`; its pages then ask for it next to
+the choice of customer. On the live lab, no consent page and no `/site/login`
+asks for one. A demo password keeps strangers out of a test environment, but it
+doesn't stop an agent's own browser, which can type it as a person would. It
+belongs to the lab only: a real Company's sign-in is the user's own account, on
+the Company's page.
 
 ## Go deeper
 
