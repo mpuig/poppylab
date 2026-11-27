@@ -1,10 +1,18 @@
+# A pull request runs once per commit (not again as a branch push), and a
+# newer commit cancels its older run. Every push to main runs to the end, so
+# main's history of runs stays complete.
 name: Checks
 on:
   push:
+    branches: [main]
   pull_request:
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:
