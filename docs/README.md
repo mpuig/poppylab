@@ -9,7 +9,7 @@ Practical pages about Personal Agent Protocol ("Poppy"), also published at
 understand the protocol or implement it.
 
 - **Overview:** [Learn Personal Agent Protocol](learn/README.md)
-- **Follow a process:** [How it works](learn/how-it-works/README.md) (8 screen-by-screen walkthroughs) · [One task, request by request](learn/one-task.md)
+- **Follow a process:** [How it works](learn/how-it-works/README.md) (10 screen-by-screen walkthroughs) · [One task, request by request](learn/one-task.md)
 - **Understand:** [Poppy compared](learn/compared.md) · [Conversations with a Company Agent](learn/conversations.md) · [Approvals with Operations](learn/operations.md) · [Domain extensions](learn/extensions/README.md) ([FDX](learn/extensions/fdx.md), [ESPI](learn/extensions/espi.md))
 - **Build:** [Build a Company](learn/build-a-company.md) · [Build a Personal Agent](learn/build-an-agent.md) · [Write a domain extension](learn/write-an-extension.md)
 - **Look up:** [Validator results](learn/validator.md) · [Glossary](learn/glossary.md)

@@ -8,7 +8,7 @@ import {
 /**
  * Native tools for the `poppylab.dev/fdx` v1 extension (§3.3): a read-only
  * API shaped like FDX, not FDX conformant. The field names follow the
- * mapping in plan/fdx-harborline.md; every description here is our own.
+ * mapping in docs/history/plan-fdx-harborline.md; every description here is our own.
  *
  * Tools build URLs only from the validated entry and percent-encoded ids:
  * model input never supplies a URL, header or token. Responses are Company

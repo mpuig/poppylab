@@ -1,5 +1,5 @@
 {
-  "_about": "Hand-written responses in the shape Harborline's FDX-shaped API returns (plan/fdx-harborline.md, mapping table). Not taken from the FDX specification; FDX-shaped, not FDX-conformant. All data is fictional.",
+  "_about": "Hand-written responses in the shape Harborline's FDX-shaped API returns (docs/history/plan-fdx-harborline.md, mapping table). Not taken from the FDX specification; FDX-shaped, not FDX-conformant. All data is fictional.",
   "accounts": {
     "accounts": [
       {

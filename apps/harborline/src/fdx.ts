@@ -6,7 +6,7 @@
  *
  * FDX-shaped, not FDX-conformant or certified. Paths and field names follow
  * the public shape of FDX 6.4 as implementers publish it; the rules, error
- * texts and descriptions are Harborline's own (see `plan/fdx-harborline.md`
+ * texts and descriptions are Harborline's own (see `docs/history/plan-fdx-harborline.md`
  * for the licence limits). Only requests that declare the extension get
  * here (§3.3, `requiredExtension`), and the gateway has already checked the
  * Session, the token and the route's data-cluster scope (§7,
