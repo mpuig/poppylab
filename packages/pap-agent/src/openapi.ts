@@ -132,7 +132,7 @@ const schemas: Record<string, Schema> = {
       ),
     },
     ["label", "answer"],
-    "A quick-reply button attached to an agent message. Render `label` and submit `answer` verbatim; users may also reply in free text.",
+    'A quick-reply button attached to an agent message. Render `label` and submit `answer` verbatim. The user may also answer the question in words with `sendMessage` ("yes", "no", "approve the Lantern one"): the agent\'s code, never a model, reads a short answer to the question just asked, and any other message drops the question.',
   ),
   AgentStep: object(
     {
@@ -172,7 +172,7 @@ const schemas: Record<string, Schema> = {
       },
       text: str("Message body in plain text or light Markdown."),
       spoken: str(
-        "Voice-ready version of `text` (one or two short sentences, no Markdown or IDs, spoken currency). Generated deterministically, never by a model.",
+        "Voice-ready version of `text` (one or two short sentences, no Markdown or IDs, spoken currency). Generated deterministically, never by a model. Only on the agent's messages: a Company's words are never rewritten.",
       ),
       company: ref("CompanyRef", "Company this message is from or about."),
       using: array(
@@ -322,7 +322,7 @@ const schemas: Record<string, Schema> = {
         "The sentence as written, with the whitespace around it, so the texts of one message joined are its text. Ends at a stop, a line's end, or a clause or space before about 220 characters; never inside a word.",
       ),
       spoken: str(
-        "The sentence to read aloud, made by the same fixed rules as a message's `spoken`. Empty when it holds nothing to say, such as a table row or a link.",
+        "The sentence to read aloud, made by the same fixed rules as a message's `spoken`. Empty when it holds nothing to say, such as a table row or a bare address.",
       ),
     },
     ["type", "message", "index", "text", "spoken"],
@@ -379,7 +379,7 @@ const schemas: Record<string, Schema> = {
       ),
       model: str("Optional model identifier for bring-your-own-key providers."),
       turnstile: str(
-        "Single-use Cloudflare Turnstile token required for `free` turns. Missing, invalid, or over-quota turns fall back to `demo` with an explanatory note.",
+        "Single-use Cloudflare Turnstile token required for `free` turns, made by the deployment's widget on its own host for the action `chat`. Missing, invalid, or over-quota turns fall back to `demo` with an explanatory note.",
       ),
     },
     ["provider"],
@@ -699,7 +699,7 @@ const tags = [
   {
     name: "Events",
     description:
-      "Real-time Server-Sent Events stream delivering sign-in outcomes, proposal updates, cross-device activity, and Direct Conversation messages.",
+      "Real-time Server-Sent Events stream delivering sign-in outcomes and the questions after them, proposal updates, cross-device activity, and a Company's Direct Conversation messages once a request has read them.",
   },
   {
     name: "Accounts",
@@ -846,7 +846,7 @@ export function openApiDocument() {
           operationId: "decideProposal",
           summary: "Approve or decline a proposal",
           description:
-            "Approves or declines a pending Operations v3 proposal. Approvals bind strictly to `revision` and execute at most once; if the Company's terms changed, the proposal transitions to `superseded`.",
+            "Approves or declines a pending Operations v3 proposal. Approvals bind strictly to `revision` and execute at most once. A decline is kept by the agent; nothing is sent to the Company. If the Company answers the approval with other terms, nothing is performed: the answer is 409 `terms_changed`, and the proposal waits again at a new `revision` (or, when the Company gave the new terms another ID, this one becomes `superseded` and a new proposal waits).",
           parameters: [
             id,
             {
@@ -876,6 +876,16 @@ export function openApiDocument() {
               ...json(ref("Decision")),
             },
             ...errors,
+            "409": {
+              description:
+                "Another request holds the conversation, or the Company answered the approval with other terms (`terms_changed`): nothing was performed.",
+              ...json(ref("Error")),
+            },
+            "410": {
+              description:
+                "The conversation has ended (`conversation_ended`), or the proposal expired or was already decided (`proposal_expired`).",
+              ...json(ref("Error")),
+            },
           },
         },
       },

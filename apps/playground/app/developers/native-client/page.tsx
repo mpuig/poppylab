@@ -164,16 +164,32 @@ request.userVerificationPreference = .required`)}
               <code>agent</code>, or <code>company</code> for a Company&apos;s
               own words, which are shown as the Company&apos;s and never as the
               agent&apos;s. Without a <code>model</code> a turn runs in demo
-              mode, which runs the scripted examples only.
+              mode, which runs the scripted examples only. A{" "}
+              {ref("type-ModelChoice", "model")} of{" "}
+              <code>openai-compatible</code> or <code>anthropic</code> carries
+              the person&apos;s own key; <code>free</code>, the lab&apos;s free
+              model, takes a Cloudflare Turnstile token made on poppylab.dev for
+              the action <code>chat</code>, and without a good one the turn runs
+              in demo mode and says why.
             </p>
             {example("sendMessage")}
             <p>
               A message can carry <code>choices</code>. Show each{" "}
               <code>label</code> as a button, and when it is pressed send its{" "}
               <code>answer</code> to {ref("answerChoice", "answers")}, never the
-              label as a message.
+              label as a message. A <code>signin</code> answer is the app&apos;s
+              to carry out: ask for a sign-in link (below) for that Company and
+              access instead.
             </p>
             {example("answerChoice")}
+            <p>
+              The person can also answer the agent&apos;s question in words.
+              Send them as a message: &quot;yes&quot;, &quot;no&quot;,
+              &quot;approve the Lantern one&quot;. The agent&apos;s code, never
+              the model, reads a short answer to the question just asked; any
+              other message drops the question and goes on as a message. A voice
+              client sends a spoken &quot;yes&quot; the same way, as text.
+            </p>
 
             <h2 id="voice">Hear the answer as it is written</h2>
             <p>
@@ -193,8 +209,8 @@ request.userVerificationPreference = .required`)}
             <p>
               A voice client says each sentence&apos;s <code>spoken</code> as it
               arrives, in order, and skips one that is empty (a table row, a
-              link). The sentences are the whole answer, so it does not say the
-              message&apos;s own <code>spoken</code> again when{" "}
+              bare address). The sentences are the whole answer, so it does not
+              say the message&apos;s own <code>spoken</code> again when{" "}
               <code>turn</code> comes. Demo mode and the agent&apos;s own lines,
               a question about a proposal say, are there at once: they come as
               sentences too, all together just before <code>turn</code>, so one
@@ -276,6 +292,13 @@ session.start()`)}
               <code>signin.failed</code> after five minutes; asking for a new
               link replaces it.
             </p>
+            <p>
+              When a request stopped for the sign-in, the agent asks once it is
+              done whether to go on with it, and sends nothing until the person
+              says so. The question comes on the events as a{" "}
+              <code>message</code> with a <code>resume</code> choice; the person
+              presses it or says &quot;yes&quot; within 30 minutes.
+            </p>
 
             <h2 id="proposals">Proposals and decisions</h2>
             <p>
@@ -285,18 +308,34 @@ session.start()`)}
               <code>summary</code> as the Company&apos;s words and its exact{" "}
               <code>terms</code>, with an approve and a decline. Nothing is
               performed until the person approves, and an approval covers
-              exactly the <code>revision</code> it names: when the Company
-              answers with other terms, the proposal comes back with a new
-              revision, which waits for the person again.
+              exactly the <code>revision</code> it names.
             </p>
             {example("decideProposal")}
+            <p>
+              When the Company answers the approval with other terms, nothing is
+              performed: the decision is refused with 409{" "}
+              <code>terms_changed</code>, and the proposal comes back with a new
+              revision, as <code>proposal.replaced</code> on the events, which
+              waits for the person again. A proposal past its{" "}
+              <code>expiresAt</code> or already decided is refused with 410{" "}
+              <code>proposal_expired</code>.
+            </p>
+            <p>
+              The agent also asks about each proposal in the conversation, in
+              its own words from the terms: a message with an approve and a
+              decline among its <code>choices</code>, whose <code>spoken</code>{" "}
+              says what the change is and asks &quot;Approve it?&quot;. Pressing
+              one, or answering &quot;yes&quot; or &quot;decline the
+              transfer&quot;, decides it through the same check as the decision
+              request.
+            </p>
 
             <h2 id="events">Follow the events</h2>
             <p>
               Some things happen after a turn has answered: the sign-in in the
-              browser sheet, a proposal that runs out, a Company that writes in
-              a Direct Conversation. Open the event stream while the person is
-              in the conversation.
+              browser sheet and the question after it, a proposal that runs out,
+              another device&apos;s message. Open the event stream while the
+              person is in the conversation.
             </p>
             {example("conversationEvents")}
             <p>

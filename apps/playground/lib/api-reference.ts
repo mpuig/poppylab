@@ -123,7 +123,7 @@ const GROUPS: {
     id: "events",
     title: "Events",
     intro:
-      "What happens after a turn has answered: a sign-in finished in the browser, a proposal ran out, a Company wrote in a Direct Conversation.",
+      "What happens after a turn has answered: a sign-in finished in the browser, a proposal ran out, another device said something.",
     match: (p) => p.endsWith("/events"),
   },
   {
@@ -503,6 +503,16 @@ export const ERROR_CODES = [
     "too_many_streams",
     "429",
     "Open SSE stream limit reached (10 concurrent streams per signed-in account, or 4 per anonymous visitor).",
+  ],
+  [
+    "terms_changed",
+    "409",
+    "The Company answered the approval with other terms. Nothing was performed; the proposal waits again at a new `revision`.",
+  ],
+  [
+    "proposal_expired",
+    "410",
+    "The proposal passed `expiresAt` or was already decided. Nothing was submitted; ask for the change again.",
   ],
   [
     "last_passkey",
