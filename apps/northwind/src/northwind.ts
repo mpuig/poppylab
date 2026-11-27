@@ -173,7 +173,9 @@ function bookingView(
   booking: Booking,
   inventory: Record<string, FlightInventory>,
 ) {
-  const fare = fareBrands[booking.fare];
+  // The fare's cabin is where a booking starts, not where it is: an upgrade
+  // changes one flight's cabin, so only each flight says its cabin.
+  const { cabin, ...fare } = fareBrands[booking.fare];
   return {
     booking_reference: booking.reference,
     status: booking.status,
@@ -184,7 +186,7 @@ function bookingView(
       ...flightView(id, inventory),
       seat: booking.seats[id] ?? null,
       checked_bags: booking.baggage[id] ?? 0,
-      cabin: booking.cabins[id] ?? fare.cabin,
+      cabin: booking.cabins[id] ?? cabin,
     })),
     fare: {
       ...fare,

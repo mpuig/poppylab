@@ -23,6 +23,8 @@ const TITLES = [
   "title",
   "flight_number",
   "booking_reference",
+  // What a Company's agent handles: each request by its name.
+  "request",
   "description",
   "summary",
   "day",
@@ -159,10 +161,16 @@ function lines(
       if (value.length > MAX_ITEMS)
         out.push(`- …and ${value.length - MAX_ITEMS} more`);
     } else if (isObject(value)) {
-      if (depth >= 1) out.push(`${label(key)}: ${inline(value, currency)}`);
+      // A list of objects doesn't fit on one line and would be dropped there,
+      // such as the requests in a Company agent's reply.
+      const listed = Object.values(value).some(
+        (inner) => Array.isArray(inner) && inner.some(isObject),
+      );
+      if (depth >= 1 && !listed)
+        out.push(`${label(key)}: ${inline(value, currency)}`);
       else {
         const inner = lines(value, currency, depth + 1);
-        if (inner.length <= 3)
+        if (inner.length <= 3 && !listed)
           out.push(`${label(key)}: ${inline(value, currency)}`);
         else out.push(`${label(key)}:`, ...inner.map((line) => `  ${line}`));
       }
@@ -211,6 +219,43 @@ export function notSentReply(
 /** How the demo words a change the Company holds for the User's approval. */
 export const HOLDING =
   "The company is holding this change until you approve it:";
+
+/**
+ * What the Company's agent answered, as the demo says it (§8). Each reply
+ * is shown above the demo's answer as the Company's own content, so the
+ * demo points to it in one sentence instead of repeating it, and puts into
+ * plain lines only what the replies' data carries, which the reply itself
+ * shows as raw data. An answer with no replies (an error, a note of Iris's)
+ * is read as any other.
+ */
+export function agentAnswer(value: unknown, company: string) {
+  const replies =
+    isObject(value) && Array.isArray(value.replies)
+      ? value.replies.filter(isObject)
+      : [];
+  if (!replies.length) return readable(value);
+  const carried = replies
+    .filter((reply) => isObject(reply.data))
+    .map((reply) => readable(reply.data));
+  return carried.length
+    ? `${company} answered; its reply is shown above, and its data reads:\n\n${carried.join("\n\n")}`
+    : `${company} answered; its reply is shown above.`;
+}
+
+/**
+ * A feedback report's answer, as the demo says it (§9.3). An alternative
+ * the Company answered with is the Company's own content, shown above as
+ * its own entry, so the demo points to it instead of repeating it.
+ */
+export function feedbackAnswer(value: unknown, company: string) {
+  if (!isObject(value) || value.alternative == null) return readable(value);
+  const rest = Object.fromEntries(
+    Object.entries(value).filter(
+      ([key]) => key !== "alternative" && key !== "untrusted_company_content",
+    ),
+  );
+  return `${readable(rest)}\n\n${company} answered with another way to do this, shown above.`;
+}
 
 /** A Company's answer in plain lines. */
 export function readable(value: unknown): string {

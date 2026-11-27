@@ -650,7 +650,7 @@ async function tripChange(
     return { say: "There is no flight in your bookings to add a bag to." };
   }
   return {
-    say: "The demo can accept an upgrade offer or add a checked bag here. For example: “Upgrade my NA 118 flight to Business.”",
+    say: "The demo can accept an upgrade offer or add a checked bag here. For example: “Upgrade my flight to Business.”",
   };
 }
 
@@ -802,27 +802,17 @@ export function demoChangeKind(message: string, tools: DemoTools) {
 
 /**
  * Whether the message is for the Company's agent or is feedback: the demo's
- * two other ways in, each by its own words. In a payment with an amount,
- * what it is for is the memo, in the User's words to the recipient: "for
- * the quarterly report" or "for design support" asks for neither.
+ * two other ways in, each by the words of its examples (`demo-examples.ts`):
+ * "customer service" and "talk to someone", and a gift card.
  */
 export function demoAside(message: string, tools: DemoTools) {
   const lowered = message.toLowerCase();
-  const said =
-    demoChangeKind(message, tools) === "money" && cents(message)
-      ? lowered.replace(MEMO, "")
-      : lowered;
   if (
     tools.company_agent_send &&
-    /customer service|support|company'?s agent|talk to|speak to|a person|human|someone/.test(
-      said,
-    )
+    /customer service|talk to|someone/.test(lowered)
   )
     return "agent" as const;
-  if (
-    tools.report_unsupported_task &&
-    /gift ?card|voucher|report|feedback|can'?t do/.test(said)
-  )
+  if (tools.report_unsupported_task && /gift card/.test(lowered))
     return "feedback" as const;
   return undefined;
 }

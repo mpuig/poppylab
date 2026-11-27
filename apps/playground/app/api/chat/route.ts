@@ -68,7 +68,12 @@ import {
 import { conversationEnded, overBudget } from "@/lib/limits";
 import { notSaved } from "@/lib/run-size";
 import { pickDemoTool } from "@/lib/demo-tool";
-import { notSentReply, readable } from "@/lib/demo-text";
+import {
+  agentAnswer,
+  feedbackAnswer,
+  notSentReply,
+  readable,
+} from "@/lib/demo-text";
 import {
   demoAside,
   demoChange,
@@ -624,6 +629,12 @@ async function reply(request: Request, started: Outcome) {
       raw = value;
       return readable(value);
     };
+    // What the Company's agent said is shown above as Company content; the
+    // demo's lines point to it, and "Data" keeps the exact answer.
+    const fromAgent = (value: unknown) => {
+      raw = value;
+      return agentAnswer(value, companyName);
+    };
     const lowered = asked.toLowerCase();
     const companyName = connection.company!.document.organization.name;
     // Which Company the answer and each piece of Company content came from.
@@ -713,7 +724,7 @@ async function reply(request: Request, started: Outcome) {
             data: { request: "order_not_delivered", order_id: order },
           })
         : status;
-      text = `Protocol demo (no LLM). ${order ? `Told the Company's agent that order ${order} never arrived.` : "Asked the Company's agent for your orders first."} The company's agent answered:\n\n${show(result)}\n\nIf the Company asks to talk with you, accept or decline with the buttons above the message box.`;
+      text = `Protocol demo (no LLM). ${order ? `Told the Company's agent that order ${order} never arrived.` : "Asked the Company's agent for your orders first."} ${fromAgent(result)}\n\nIf the Company asks to talk with you, accept or decline with the buttons above the message box.`;
     } else if (provider === "demo" && (change || aside)) {
       // A change the demo can prepare comes first, whatever else the message
       // says: "for the quarterly report" in a payment is its memo, not
@@ -740,7 +751,7 @@ async function reply(request: Request, started: Outcome) {
       } else if (aside === "agent") {
         // The demo's way into a conversation (§8): ask what the Company's
         // agent handles, or ask for a person (which needs a conversation first).
-        const person = /talk to|speak to|a person|human|someone/.test(lowered);
+        const person = /talk to|someone/.test(lowered);
         const results: unknown[] = [];
         if (!person || !connection.conversation?.id)
           results.push(
@@ -750,7 +761,7 @@ async function reply(request: Request, started: Outcome) {
           );
         if (person)
           results.push(await tools.company_agent_handoff!.execute({}));
-        text = `Protocol demo (no LLM). Live Company Agent ${person ? "handoff" : "reply"}:\n\n${show(results.at(-1))}\n\nThe Company's agent answers structured requests. For a real conversation with it, select a model.`;
+        text = `Protocol demo (no LLM). Live Company Agent ${person ? "handoff" : "reply"}. ${fromAgent(results.at(-1))}\n\nThe Company's agent answers structured requests. For a real conversation with it, select a model.`;
       } else if (aside === "feedback") {
         // The demo's way into feedback (§9.3): a fixed, identifier-free report.
         const result = await tools.report_unsupported_task!.execute({
@@ -761,7 +772,9 @@ async function reply(request: Request, started: Outcome) {
         // Iris doesn't send a report twice in a Session, or one for a task
         // the Company already lists: the heading says which happened.
         const sent = (result as { sent?: unknown } | null)?.sent !== false;
-        text = `Protocol demo (no LLM). Feedback report ${sent ? "sent" : "not sent"} to the Company (§9.3):\n\n${show(result)}\n\nWith a model, Iris reports a task only after trying the Company's tools.`;
+        // An alternative the Company gave is shown above as its own entry.
+        raw = result;
+        text = `Protocol demo (no LLM). Feedback report ${sent ? "sent" : "not sent"} to the Company (§9.3):\n\n${feedbackAnswer(result, companyName)}\n\nWith a model, Iris reports a task only after trying the Company's tools.`;
       } else if (!connection.accountToken) {
         text =
           "Protocol demo (no LLM). Sign in first: the demo reads your account to prepare this change, and nothing changes until you approve it.";
@@ -803,9 +816,7 @@ async function reply(request: Request, started: Outcome) {
                     ? "my_deliveries"
                     : /deliver|ship|saturday|tuesday|thursday/.test(message)
                       ? "delivery_info"
-                      : /hour|return|refund|open|policy/.test(message)
-                        ? "store_policies"
-                        : "list_products";
+                      : "list_products";
       // Another Company's tools: never guess arguments for unknown schemas,
       // and never talk to the Company's agent unless asked (above).
       const fallback = tools[selected]

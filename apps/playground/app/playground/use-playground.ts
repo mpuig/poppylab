@@ -189,11 +189,6 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
   const [failedTrace, setFailedTrace] = useState<DiscoveryTraceStep[]>([]);
   const [task, setTask] = useState("");
   /**
-   * A suggestion the User picked is one Company's: while the message box
-   * still holds it, the turn names that Company.
-   */
-  const [picked, setPicked] = useState<{ text: string; origin: string }>();
-  /**
    * The Company the User chose for the next message, with several. None:
    * Iris decides, which today is the Company of the last turn or a question
    * with a button for each. It is for one message: the next goes to the
@@ -1110,9 +1105,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
       startingDirect ??
       (target && companies.some((c) => c.origin === target)
         ? target
-        : undefined) ??
-      (picked?.text === message ? picked.origin : undefined);
-    setPicked(undefined);
+        : undefined);
     setTarget(undefined);
     const said: Message[] = [
       { role: "You", text: message, ...(action ? { direct: true } : {}) },
@@ -1124,10 +1117,16 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     );
   }
 
-  /** A suggestion for one Company goes in the message box, named for it. */
-  function suggest(text: string, origin: string) {
-    setTask(text);
-    setPicked({ text, origin });
+  /**
+   * A suggestion is one of demo mode's examples, and pressing it starts
+   * that example: its words go at once, for the Company it was offered for.
+   * What the message box holds stays there.
+   */
+  async function suggest(text: string, origin: string) {
+    if (busy || ended || missing) return;
+    const said: Message[] = [{ role: "You", text }];
+    setMessages((old) => [...old, ...said]);
+    await post({ message: text, company: origin }, said);
   }
 
   /** One of Iris's buttons: its answer goes as it came, its label is shown. */
@@ -1303,10 +1302,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     barNote,
     failedTrace,
     task,
-    setTask: (text: string) => {
-      setTask(text);
-      if (picked && picked.text !== text) setPicked(undefined);
-    },
+    setTask,
     suggest,
     target,
     setTarget,

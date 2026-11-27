@@ -526,6 +526,32 @@ it("accepts the upgrade offer on the flight named, and adds bags", async () => {
   });
 });
 
+it("upgrades the flight with an offer when the request names none, for each passenger", async () => {
+  // The playground's suggestion, which fits Elena and Robin alike.
+  const ask = "Upgrade my flight to Business.";
+  expect(await demoChange(ask, airline(), key)).toMatchObject({
+    call: "accept_upgrade",
+    args: { booking_reference: "NW7K2P", offer_id: "upg_elena_1" },
+    because: expect.stringContaining("upgrade offer on NA 118"),
+  });
+  const robin: DemoTools = {
+    ...airline(),
+    upcoming_trips: tool({
+      trips: [
+        {
+          booking_reference: "NW4D8R",
+          itinerary: [{ id: "flt_na274", flight_number: "NA 274" }],
+          upgrade_offer: { id: "upg_robin_1", flight_id: "flt_na274" },
+        },
+      ],
+    }),
+  };
+  expect(await demoChange(ask, robin, key)).toMatchObject({
+    args: { booking_reference: "NW4D8R", offer_id: "upg_robin_1" },
+    because: expect.stringContaining("upgrade offer on NA 274"),
+  });
+});
+
 it("takes a flight number only from the flights that are booked", async () => {
   // "to 118" and "my 13" have the shape of a flight number and are not one.
   expect(await demoChange("add 2 bags to 118", airline(), key)).toMatchObject({
@@ -729,41 +755,29 @@ it("leaves reading questions and unknown Companies to the other rules", async ()
   ).toBeUndefined();
 });
 
-it("reads words for the agent or for feedback outside a payment's memo only", async () => {
+it("reads the words of its examples for the agent or for feedback", async () => {
   const company = (tools: DemoTools): DemoTools => ({
     ...tools,
     company_agent_send: tool({}),
     report_unsupported_task: tool({}),
   });
-  // What a payment is for is its memo, not a request for either.
-  for (const message of [
-    "Send Beacon Studio $125 for the quarterly report",
-    "Send Beacon Studio $125 for November design support",
-    "Pay Beacon Studio $40 for the gift card we owe someone",
-  ]) {
-    expect(demoAside(message, company(bank()))).toBeUndefined();
-    expect(await demoChange(message, company(bank()), key)).toMatchObject({
-      call: "request_payment",
-    });
-  }
-  // The demo's own ways in still work, at a bank too.
-  expect(demoAside("Pay with a gift card", company(bank()))).toBe("feedback");
-  expect(
-    demoAside("Pay for my order with a gift card", company(restaurant())),
-  ).toBe("feedback");
-  expect(demoAside("I want to talk to a person", company(bank()))).toBe(
-    "agent",
-  );
+  // Learn's examples at Lantern.
+  expect(demoAside("customer service", company(restaurant()))).toBe("agent");
   expect(
     demoAside(
-      "Talk to someone about a transfer for my landlord",
-      company(bank()),
+      "I would like to talk to someone at Lantern.",
+      company(restaurant()),
     ),
   ).toBe("agent");
-  // Outside a memo the words count, wherever they are.
   expect(
-    demoAside("Transfer $5 to savings, then send feedback", company(bank())),
+    demoAside("Pay for my order with a gift card.", company(restaurant())),
   ).toBe("feedback");
+  // A payment's memo is a memo: Moving money's example is a payment.
+  const payment = "Send Beacon Studio $125 for the quarterly report.";
+  expect(demoAside(payment, company(bank()))).toBeUndefined();
+  expect(await demoChange(payment, company(bank()), key)).toMatchObject({
+    call: "request_payment",
+  });
   // A Company with neither is asked for neither.
-  expect(demoAside("talk to support about a voucher", bank())).toBeUndefined();
+  expect(demoAside("customer service", bank())).toBeUndefined();
 });

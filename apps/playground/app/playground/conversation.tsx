@@ -242,10 +242,8 @@ export function Conversation({
                   <button
                     type="button"
                     key={`${c.origin} ${text}`}
-                    onClick={() => {
-                      p.suggest(text, c.origin);
-                      taskInput.current?.focus();
-                    }}
+                    disabled={busy}
+                    onClick={() => void p.suggest(text, c.origin)}
                   >
                     {several && <FromCompany from={c} />}
                     {text}

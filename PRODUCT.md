@@ -24,7 +24,7 @@ Unlike a generic chat client or browser agent, the playground treats Poppy disco
 
 ## Operating Context
 
-Developers use the product locally while implementing or evaluating Poppy Companies and Personal Agents. The central workflow is URL discovery, capability inspection, task execution through OpenAPI, MCP, Company Agent conversations, or session-aware browsing, and review of a chronological protocol trace. The included example Company provides a safe commerce scenario for end-to-end testing.
+Developers use the product locally while implementing or evaluating Poppy Companies and Personal Agents. The central workflow is URL discovery, capability inspection, task execution through OpenAPI, MCP, Company Agent conversations, or session-aware browsing, and review of a chronological protocol trace. The five included example Companies (a grocery, a noodle bar, a bank, an airline and an electricity utility) provide safe fictional scenarios for end-to-end testing, one at a time or up to three in one conversation.
 
 ## Capabilities and Constraints
 
