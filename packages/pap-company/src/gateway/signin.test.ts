@@ -19,17 +19,20 @@ const error = async (r: Response) =>
   ((await r.json()) as { error?: string }).error;
 
 /** A Company with one pushed request, and the browser's view of it. */
-async function pushed() {
-  const x = await setup();
+async function pushed(overrides: Parameters<typeof setup>[1] = {}) {
+  const x = await setup({}, overrides);
   const push = async () =>
     x.form("/oauth/par", { ...request, ...(await x.credentials()) });
   const par = await push();
   expect(par.status).toBe(201);
   const { request_uri } = (await par.json()) as { request_uri: string };
-  const open = (cookie?: string) =>
+  /** Loads the page, as a browser with that cookie, or with `headers`. */
+  const open = (cookie?: string, headers?: Record<string, string>) =>
     x.app.request(
       `/oauth/authorize?${new URLSearchParams({ client_id: client, request_uri })}`,
-      cookie ? { headers: { cookie } } : {},
+      cookie || headers
+        ? { headers: { ...(cookie ? { cookie } : {}), ...headers } }
+        : {},
     );
   const answer = (cookie: string) =>
     x.form(
@@ -231,6 +234,50 @@ it("answers a consent page that ran out with a page of the Company, and a tool w
   const plain = await y.form("/oauth/authorize", answerOf(other), browser);
   expect(plain.status).toBe(400);
   expect(await error(plain)).toBe("invalid_request");
+});
+
+it("answers a reload of a consent page that ran out with a page of the Company, and a tool with the error", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  const asked: string[] = [];
+  const x = await pushed({
+    consentExpired: (how) => {
+      asked.push(how);
+      return "<h1>This page has expired</h1>";
+    },
+  });
+  const start = Date.now();
+  const page = await x.open();
+  const cookie = page.headers.getSetCookie()[0]!.split(";")[0]!;
+  const html = { accept: "text/html,application/xhtml+xml" };
+  const shown = async (r: Response) => {
+    expect(r.status).toBe(400);
+    expect(r.headers.get("content-type")).toContain("text/html");
+    expect(r.headers.get("cache-control")).toBe("no-store");
+    expect(r.headers.get("content-security-policy")).toContain(
+      "form-action 'none'",
+    );
+    expect(await r.text()).toBe("<h1>This page has expired</h1>");
+  };
+
+  // While the page is open, another browser still gets the error.
+  expect(await error(await x.open(undefined, html))).toBe(
+    "invalid_request_uri",
+  );
+
+  // Its five minutes over: the browser has dropped the cookie, and gets
+  // the page; so does one that still sends it. A tool gets the error.
+  vi.setSystemTime(start + 301000);
+  await shown(await x.open(undefined, html));
+  await shown(await x.open(cookie, html));
+  expect(await error(await x.open(cookie))).toBe("invalid_request_uri");
+
+  // Forgotten once the next push drops it: still the page.
+  expect((await x.push()).status).toBe(201);
+  expect(Object.keys(x.store.value.pushed!)).toHaveLength(1);
+  await shown(await x.open(undefined, html));
+  expect(asked.every((how) => how === "reopened")).toBe(true);
+  expect(asked).toHaveLength(3);
+  expect(x.store.value.codes).toEqual({});
 });
 
 it("keeps a used pushed request only while its consent page is open", async () => {

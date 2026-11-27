@@ -98,12 +98,22 @@ export function consentSheetHtml(sheet: ConsentSheet) {
 
 /**
  * What stands in the sheet's place when its answer arrives after the page's
- * five minutes, as the page's `<main>`: the same words at every Company. It
- * names no agent, since the Company may have forgotten the request by then,
- * and links nowhere: the sign-in starts again at the agent.
+ * five minutes (`answered`), or when the page is loaded again after it ran
+ * out or was answered (`reopened`), as the page's `<main>`: the same words
+ * at every Company. A reload can't tell whether the page was answered, so
+ * it says only what the reload changed. It names no agent, since the
+ * Company may have forgotten the request by then, and links nowhere: the
+ * sign-in starts again at the agent.
  */
-export function consentExpiredHtml(company: string) {
-  return `<main class="sheet"><div class="sheet-head"><h1>This page has expired</h1></div><div class="sheet-expired"><p>A page that asks whether an agent may connect to your ${escape(company)} account works for five minutes after it opens, and this one is older. Your answer arrived too late, so nothing was allowed and nothing has changed.</p><p>To connect the agent, go back to it and start the sign-in again.</p></div></main>`;
+export function consentExpiredHtml(
+  company: string,
+  how: "answered" | "reopened" = "answered",
+) {
+  const what =
+    how === "answered"
+      ? `works for five minutes after it opens, and this one is older. Your answer arrived too late, so nothing was allowed and nothing has changed.`
+      : `can be answered once, within five minutes of opening, and this one can&#39;t be shown again. Opening it again changed nothing.`;
+  return `<main class="sheet"><div class="sheet-head"><h1>This page has expired</h1></div><div class="sheet-expired"><p>A page that asks whether an agent may connect to your ${escape(company)} account ${what}</p><p>To connect the agent, go back to it and start the sign-in again.</p></div></main>`;
 }
 
 /**

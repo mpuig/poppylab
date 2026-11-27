@@ -233,6 +233,14 @@ describe("the consent sheet the Companies share", () => {
     expect(consentSheetCss).toContain(".sheet-expired");
   });
 
+  it("says on a reload only what the reload changed, since it can't tell whether the page was answered", () => {
+    const html = consentExpiredHtml("Shop & Co", "reopened");
+    expect(html).toBe(
+      '<main class="sheet"><div class="sheet-head"><h1>This page has expired</h1></div><div class="sheet-expired"><p>A page that asks whether an agent may connect to your Shop &#38; Co account can be answered once, within five minutes of opening, and this one can&#39;t be shown again. Opening it again changed nothing.</p><p>To connect the agent, go back to it and start the sign-in again.</p></div></main>',
+    );
+    expect(html).not.toMatch(/<form|<a |<input|<button/);
+  });
+
   it("has a demo strip without links, so nothing leads away from the decision", () => {
     const bar = labConsentBarHtml("Shop & Co");
     expect(bar).toContain("Shop &#38; Co is a fictional company");

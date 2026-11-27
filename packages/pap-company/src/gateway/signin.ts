@@ -195,18 +195,36 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
     return def.persona(held?.account)?.id;
   };
 
+  /**
+   * The Company's page in place of a consent page that ran out, for a
+   * person: a browser that asks for HTML, at a Company that has the page.
+   * Anything else gets the protocol's error as JSON.
+   */
+  const ranOut = (
+    c: Context,
+    how: "answered" | "reopened",
+    error: "invalid_request" | "invalid_request_uri",
+  ) =>
+    def.consentExpired && (c.req.header("accept") ?? "").includes("text/html")
+      ? c.html(def.consentExpired(how), 400, {
+          "Cache-Control": "no-store",
+          "Content-Security-Policy": `${styles}; form-action 'none'; frame-ancestors 'none'; base-uri 'none'`,
+          "Referrer-Policy": "same-origin",
+        })
+      : c.json({ error }, 400);
+
   app.get("/oauth/authorize", async (c) => {
     const q = c.req.query();
     if (!q.request_uri) return consent(c, q);
     // A pushed request: only client_id and request_uri count. Its 90 seconds
     // are for opening it; once used, its consent page decides (below).
     const p = pushed.get(tokenHash(q.request_uri));
-    if (
-      !p ||
-      p.client !== q.client_id ||
-      (!p.consent && p.expires < Date.now())
-    )
+    if (p && p.client !== q.client_id)
       return c.json({ error: "invalid_request_uri" }, 400);
+    // Forgotten, or never opened in its 90 seconds: a reload of a page that
+    // ran out, for all the browser can tell.
+    if (!p || (!p.consent && p.expires < Date.now()))
+      return ranOut(c, "reopened", "invalid_request_uri");
     return consent(c, p.params, p);
   });
   async function consent(
@@ -222,8 +240,10 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
       // A pushed request works once (RFC 9126 §7.3), except for a reload:
       // the browser that holds its consent page's cookie gets that page
       // again until it is answered or expires. Nothing changes, so nothing
-      // is saved.
-      if (!live(nonce) || consentCookie(c, nonce) !== nonce)
+      // is saved. Answered or expired, a reload gets the Company's page;
+      // another browser while the page is open gets the error.
+      if (!live(nonce)) return ranOut(c, "reopened", "invalid_request_uri");
+      if (consentCookie(c, nonce) !== nonce)
         return c.json({ error: "invalid_request_uri" }, 400);
     } else {
       for (const [id, p] of pending)
@@ -291,17 +311,7 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
       // sheet's form: `Origin` is this Company's, which no other site's
       // page can send, and the browser asks for HTML. Anything else gets
       // the error as JSON.
-      if (
-        ended &&
-        own &&
-        def.consentExpired &&
-        (c.req.header("accept") ?? "").includes("text/html")
-      )
-        return c.html(def.consentExpired(), 400, {
-          "Cache-Control": "no-store",
-          "Content-Security-Policy": `${styles}; form-action 'none'; frame-ancestors 'none'; base-uri 'none'`,
-          "Referrer-Policy": "same-origin",
-        });
+      if (ended && own) return ranOut(c, "answered", "invalid_request");
       return c.json({ error: "invalid_request" }, 400);
     }
     if (Date.now() - windowStart > 60000) {
