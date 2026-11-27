@@ -47,6 +47,13 @@ const refused = (value: unknown) =>
   typeof value === "object" &&
   typeof (value as { error?: unknown }).error === "string";
 const day = (t: number) => new Date(t).toISOString().slice(0, 10);
+/**
+ * The utility reads days in its own time zone, which the demo doesn't
+ * know. Yesterday in UTC can still be today where the meter is (UTC-12
+ * at the furthest), so the last day asked for is one that has ended
+ * everywhere: it is never cut short.
+ */
+const lastDay = (now: number) => now - (24 + 12) * 3600000;
 
 /**
  * Reads with the ESPI-shaped tools: the shared meters, then for each one
@@ -71,8 +78,8 @@ export async function demoEspiAnswer(
       kind === "usage"
         ? await tools.espi_usage!.execute({
             usagePointId,
-            from: day(now - DAYS * 86400000),
-            to: day(now - 86400000),
+            from: day(lastDay(now) - (DAYS - 1) * 86400000),
+            to: day(lastDay(now)),
           })
         : await tools.espi_bills!.execute({ usagePointId }),
     );

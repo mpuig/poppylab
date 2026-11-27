@@ -144,6 +144,17 @@ it("reads each shared meter, by the id the utility gave, over the week before to
   });
 });
 
+it("asks only for days that have ended where the meter is", async () => {
+  const tools = espi({ usagePoints: [{ usagePointId: "UP-E2" }] });
+  // 05:00 UTC on the 27th is still the 26th in Fernwick's UTC-8.
+  await demoEspiAnswer("usage", tools, Date.parse("2026-11-27T05:00:00Z"));
+  expect(tools.espi_usage.execute).toHaveBeenCalledWith({
+    usagePointId: "UP-E2",
+    from: "2026-11-19",
+    to: "2026-11-25",
+  });
+});
+
 it("passes an error answer on, with what to do next", async () => {
   for (const [error, words] of [
     ["sign_in_required", "Sign in first"],
