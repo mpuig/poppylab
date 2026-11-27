@@ -912,7 +912,8 @@ export const demoMissing = (message: string, tools: DemoTools) => {
  * Reports a missing dish to the Company's agent (`report_missing_item`),
  * which may propose a refund for the User to approve. The order and the
  * dish come from the last delivery the agent lists (`order_status`), never
- * from the message alone; `show` puts the agent's answer into lines.
+ * from the message alone; `show` says what the agent answered, in a
+ * sentence or more (see `agentAnswer`).
  */
 export async function demoMissingReport(
   message: string,
@@ -934,7 +935,7 @@ export async function demoMissingReport(
   if (!delivery) {
     // Signed out, the agent's answer asks for sign-in, which says it all.
     const signIn = !!(status as Record<string, unknown> | null)?.sign_in;
-    return `Asked the Company's agent for your last delivery first. The company's agent answered:\n\n${show(status)}${signIn ? "" : "\n\nIt listed no last delivery, so the demo can't report a missing dish here. With a model, Iris can ask the Company's agent in other ways."}`;
+    return `Asked the Company's agent for your last delivery first. ${show(status)}${signIn ? "" : "\n\nIt listed no last delivery, so the demo can't report a missing dish here. With a model, Iris can ask the Company's agent in other ways."}`;
   }
   const order = text(delivery.id);
   const items = list(delivery, "items");
@@ -951,5 +952,5 @@ export async function demoMissingReport(
       dish_id: text(dish.dish_id),
     },
   });
-  return `Told the Company's agent that ${text(dish.name)} was missing from order ${order}. The company's agent answered:\n\n${show(result)}\n\nIf it proposes a refund, approve or decline it in Needs you, above the message box.`;
+  return `Told the Company's agent that ${text(dish.name)} was missing from order ${order}. ${show(result)}\n\nIf it proposes a refund, approve or decline it in Needs you, above the message box.`;
 }

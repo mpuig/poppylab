@@ -11,7 +11,7 @@ import {
   type DemoPlan,
   type DemoTools,
 } from "./demo-changes";
-import { readable } from "./demo-text";
+import { agentAnswer, readable } from "./demo-text";
 
 const tool = (value: unknown) => ({ execute: vi.fn(async () => value) });
 const key = () => "key_fixture_0001";
@@ -935,7 +935,9 @@ it("reports a dish missing from the last delivery to the Company's agent, from w
   expect(demoChangeKind(message, tools)).toBeUndefined();
   expect(demoAside(message, tools)).toBeUndefined();
   expect(demoMissing(message, tools)).toBe(true);
-  const said = await demoMissingReport(message, send, readable);
+  const lantern = (answer: unknown) =>
+    agentAnswer(answer, "Lantern Noodle Bar");
+  const said = await demoMissingReport(message, send, lantern);
   expect(send.execute).toHaveBeenLastCalledWith({
     data: {
       request: "report_missing_item",
@@ -943,8 +945,9 @@ it("reports a dish missing from the last delivery to the Company's agent, from w
       dish_id: "pork-gyoza",
     },
   });
-  expect(said).toMatch(
-    /^Told the Company's agent that Pork gyoza \(6\) was missing from order ord_LNB0907\. The company's agent answered:\n\n[^]*I can refund USD 8\.00\.[^]*\n\nIf it proposes a refund, approve or decline it in Needs you, above the message box\.$/,
+  // The agent's reply is shown above as Lantern's own content.
+  expect(said).toBe(
+    "Told the Company's agent that Pork gyoza (6) was missing from order ord_LNB0907. Lantern Noodle Bar answered; its reply is shown above.\n\nIf it proposes a refund, approve or decline it in Needs you, above the message box.",
   );
   // A dish the delivery didn't have is asked about, and nothing is reported.
   send.execute.mockClear();
@@ -952,7 +955,7 @@ it("reports a dish missing from the last delivery to the Company's agent, from w
     await demoMissingReport(
       "The edamame was missing from my order",
       send,
-      readable,
+      lantern,
     ),
   ).toBe(
     "Which dish was missing? Your last delivery, order ord_LNB0907, had Shoyu ramen and Pork gyoza (6). Nothing was sent to the Company's agent.",

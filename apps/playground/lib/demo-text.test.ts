@@ -1,5 +1,10 @@
 import { expect, it } from "vitest";
-import { notSentReply, readable } from "./demo-text";
+import {
+  agentAnswer,
+  feedbackAnswer,
+  notSentReply,
+  readable,
+} from "./demo-text";
 
 it("turns a catalogue into bullets led by each item's name, with money", () => {
   const text = readable({
@@ -136,6 +141,70 @@ it("shows a list inside a reply's data: what a Company's agent handles", () => {
       "    Handoff: POST {conversation}/handoff",
     ].join("\n"),
   );
+});
+
+it("points to what the Company said, shown above as its content, instead of repeating it", () => {
+  const help = {
+    untrusted_company_content: true,
+    conversation_id: "cnv_1",
+    replies: [
+      {
+        author: "agent",
+        text: "Lantern's automated agent answers structured requests.",
+        data: {
+          requests: [
+            {
+              request: "opening_hours",
+              description: "Kitchen hours and closed days.",
+            },
+          ],
+        },
+      },
+    ],
+  };
+  // The reply's text is in its own entry; only its data is put into lines.
+  expect(agentAnswer(help, "Lantern Noodle Bar")).toBe(
+    [
+      "Lantern Noodle Bar answered; its reply is shown above, and its data reads:",
+      "",
+      "Requests (1):",
+      "- opening hours",
+      "  Description: Kitchen hours and closed days.",
+    ].join("\n"),
+  );
+  expect(
+    agentAnswer(
+      { replies: [{ author: "agent", text: "I can refund USD 8.00." }] },
+      "Lantern Noodle Bar",
+    ),
+  ).toBe("Lantern Noodle Bar answered; its reply is shown above.");
+  // No reply to point to: Iris's own note is read as it is.
+  expect(
+    agentAnswer(
+      { error: "conversation_closed", note: "That conversation is over." },
+      "Lantern Noodle Bar",
+    ),
+  ).toBe("The company answered with an error: conversation closed.");
+  // A feedback report's alternative is its own entry too (§9.3).
+  expect(
+    feedbackAnswer(
+      {
+        sent: true,
+        untrusted_company_content: true,
+        alternative: { instructions: "Open a support case." },
+      },
+      "Juniper Market",
+    ),
+  ).toBe(
+    "Sent: yes\n\nJuniper Market answered with another way to do this, shown above.",
+  );
+  expect(feedbackAnswer({ sent: true }, "Juniper Market")).toBe("Sent: yes");
+  expect(
+    feedbackAnswer(
+      { sent: false, reason: "Already reported in this Session." },
+      "Juniper Market",
+    ),
+  ).toBe("Sent: no\nReason: Already reported in this Session.");
 });
 
 it("formats amounts in cents, negative ones and thousands, and reads times", () => {
