@@ -36,12 +36,16 @@ import type { Connection, Run } from "./runtime";
  * - `connect`: connect this Company, one of the lab's.
  * - `remove`: take these Companies out of the conversation.
  * - `keep`: leave them in.
+ * - `message`: one of demo mode's scripted examples, sent as the User's
+ *   message. Its words are the demo's own (`demo-examples.ts`), and the
+ *   chat route takes no others.
  */
 export type Answer =
   | { company: string }
   | { connect: string }
   | { remove: string[] }
-  | { keep: string[] };
+  | { keep: string[] }
+  | { message: string };
 
 /**
  * A reply the page offers as a button. Pressing it sends `answer` back to
@@ -120,6 +124,10 @@ export function readAnswer(value: unknown): Answer | undefined {
   if (more.length) return undefined;
   const origin = (one: unknown): one is string =>
     typeof one === "string" && !!one && one.length <= 2048;
+  if (kind === "message")
+    return typeof named === "string" && named.trim() && named.length <= 2000
+      ? { message: named }
+      : undefined;
   if (kind === "company" || kind === "connect")
     return !origin(named)
       ? undefined
@@ -164,6 +172,7 @@ export function answerLabel(
   answer: Answer,
   lab: readonly Nameable[],
 ) {
+  if ("message" in answer) return answer.message;
   if ("company" in answer) return buttonName(run, answer.company);
   if ("connect" in answer) {
     const at = originOf({ url: answer.connect });
@@ -359,6 +368,46 @@ function removalQuestion(found: readonly Connection[], rest: string) {
       : []),
     ...(rest ? ["Iris asks the rest of your message after that."] : []),
   ].join(" ");
+}
+
+/**
+ * Connects one of the lab's Companies that a request is clearly for and
+ * that the conversation isn't connected to (`turnConnection`), as typing
+ * "connect with" it does, and the request is then asked there. Iris says
+ * so in one line. Signed out: the request is asked without the User's
+ * account until they sign in there.
+ */
+export async function connectFor(
+  run: Run,
+  company: Nameable,
+  rest: string,
+  allowedPrivateOrigins: string[],
+): Promise<Performed> {
+  const done = await connect(run, [company], rest, allowedPrivateOrigins);
+  if (!done.changed || !done.at) return done;
+  const say = `This is one for ${companyName(done.at)}, so Iris connected it to this conversation. It's asked without your account until you sign in there.`;
+  return { ...done, say, told: say };
+}
+
+/**
+ * The same at a conversation that has as many Companies as it can work
+ * with: nothing is connected, and the User can remove one.
+ */
+export function noRoomFor(
+  run: Run,
+  company: Nameable,
+  lab: readonly Nameable[],
+): Performed {
+  const say = `This is one for ${company.name}, which this conversation isn't connected to. It works with ${MAX_CONNECTIONS} companies already, as many as it can: remove one, then ask again and Iris connects ${company.name}.`;
+  return {
+    say,
+    told: say,
+    changed: false,
+    trace: [],
+    choices: run.connections.map((c) =>
+      choice(run, { remove: [originOf(c)] }, lab),
+    ),
+  };
 }
 
 async function connect(

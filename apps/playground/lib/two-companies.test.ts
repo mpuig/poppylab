@@ -217,6 +217,7 @@ describe("One conversation with Lantern and Harborline, end to end", () => {
     ]);
     const from = net.seen.length;
     const menu = await post(chat, "/api/chat", {
+      company: food,
       message: "What's on the menu?",
       provider: "demo",
     });
@@ -359,12 +360,17 @@ describe("One conversation with Lantern and Harborline, end to end", () => {
     expect(
       page.connections.map((c) => c.operations.map((op) => op.operation_id)),
     ).toEqual([[noodleOrder.operation_id], [transfer.operation_id]]);
-    // A message that names no Company goes where the last turn went.
+    // Demo mode runs its scripted examples only: a message that is none,
+    // for no Company the User chose, is answered by Iris, from none.
+    from = net.seen.length;
     const next = await post(chat, "/api/chat", {
       message: "my account balances",
       provider: "demo",
+      companies: true,
     });
-    expect(next.data.from).toEqual(harbor);
+    expect(next.data).toMatchObject({ mode: "iris" });
+    expect(next.data).not.toHaveProperty("from");
+    expect(since(from)).toEqual([]);
     await note();
   });
 

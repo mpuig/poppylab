@@ -114,6 +114,22 @@ export function namedIn<T extends Nameable>(
 }
 
 /**
+ * How a request points at one Company, as whole words anywhere in it: by
+ * its name ("what's new at Lantern"), by a plain word for its kind ("my
+ * bank account"), or not at all. For weighing which Company a request is
+ * for (`routing.ts`), never for naming one in a command.
+ */
+export function pointsAt(
+  text: string,
+  company: Nameable,
+): "name" | "kind" | undefined {
+  const said = ` ${plain(text)} `;
+  const within = (way: string) => said.includes(` ${way} `);
+  if (nameWays(company).some(within)) return "name";
+  return kindWays(company).some(within) ? "kind" : undefined;
+}
+
+/**
  * The Companies a person names in answer to "Which company is this for?":
  * a name alone, or said as an answer ("for Lantern", "it's Harborline,
  * please"). Only a name counts (`namedBy`). One Company is the answer;

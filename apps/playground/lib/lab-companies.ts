@@ -4,17 +4,24 @@
  * which says where each is for the place this playground runs: the local
  * addresses in development, poppylab.dev's when deployed.
  */
-import { labSites } from "@poppy-lab/pap-core";
+import { labSites, type LabSite } from "@poppy-lab/pap-core";
 import type { Nameable } from "./company-names";
 import { companyName, originOf } from "./connections";
 import type { Connection } from "./runtime";
 
+/**
+ * One of the lab's Companies, as it can be named, with the lab's key for
+ * it ("lantern"), which is how a scripted example of demo mode names its
+ * Company (`demo-examples.ts`).
+ */
+export type LabCompany = Nameable & { id: LabSite };
+
 /** `origin` is this playground's own, from the request. */
-export const labCompanies = (origin: string): Nameable[] =>
+export const labCompanies = (origin: string): LabCompany[] =>
   labSites(origin).flatMap((site) =>
     // The lab's own pages have no words: only its Companies are named.
     "words" in site
-      ? [{ url: site.url, name: site.label, words: site.words }]
+      ? [{ id: site.id, url: site.url, name: site.label, words: site.words }]
       : [],
   );
 

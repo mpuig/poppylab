@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { labCompanies as cards } from "../app/playground/companies";
+import type { Nameable } from "./company-names";
 import { connectCommand } from "./connect-command";
 import { labCompanies, nameable } from "./lab-companies";
 
-const lab = labCompanies("http://localhost:3000");
+const lab: Nameable[] = labCompanies("http://localhost:3000");
 const url = (name: string) => lab.find((c) => c.name.startsWith(name))!.url;
 /** Connected to Juniper, under the name its own discovery gives. */
 const connected = [{ url: url("Juniper"), name: "Juniper" }];

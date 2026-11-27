@@ -11,6 +11,8 @@ const transport = vi.hoisted(() =>
 );
 const discover = vi.hoisted(() => vi.fn());
 const model = vi.hoisted(() => vi.fn());
+// The selected model's choice of Company, before the turn: unsure here.
+const choose = vi.hoisted(() => vi.fn());
 vi.mock("@poppy-lab/pap-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@poppy-lab/pap-client")>()),
   protocolRequest: transport,
@@ -19,6 +21,7 @@ vi.mock("@poppy-lab/pap-client", async (importOriginal) => ({
 vi.mock("@poppy-lab/llm-adapters/server", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@poppy-lab/llm-adapters/server")>()),
   runModel: model,
+  askModel: choose,
 }));
 vi.mock("node:fs/promises", () => ({
   mkdir: vi.fn(async () => {}),
@@ -102,6 +105,10 @@ const post = async (body: Record<string, unknown>) => {
   return { status: response.status, answer: await response.json() };
 };
 const say = (message: string) => post({ message });
+// Demo mode runs only its scripted examples: Iris asks which Company a
+// request is for when a model is selected and unsure.
+const request = (message: string) =>
+  post({ message, provider: "anthropic", apiKey: "key" });
 const press = (choice: Choice) => post({ answer: choice.answer });
 const urls = (run: Run) => run.connections.map((c) => c.url);
 const requested = () => transport.mock.calls.map(([url]) => url);
@@ -127,14 +134,15 @@ beforeEach(() => {
       discovered(new URL(url).origin, names[new URL(url).origin]!),
     );
   model.mockReset();
+  choose.mockReset().mockResolvedValue("unsure");
 });
 
 describe("a button that picks a Company", () => {
   it("carries the Company's origin: a name that reads as a command removes nothing", async () => {
     const run = await conversation("Disconnect from Harborline Bank");
-    const asked = await say("What are your products?");
+    const asked = await request("What are your products?");
     expect(asked.answer).toMatchObject({
-      text: "Which company is this for? This conversation is connected to Disconnect from Harborline Bank and Harborline Bank.",
+      text: "Is this for Disconnect from Harborline Bank or Harborline Bank? Nothing in your message says which.",
       mode: "iris",
       choices: [
         {
@@ -175,7 +183,7 @@ describe("a button that picks a Company", () => {
 
   it("picks the Company whose name another's begins with, and keeps the request", async () => {
     const run = await conversation("Harborline");
-    const asked = await say("What are your products?");
+    const asked = await request("What are your products?");
     const turn = await press(asked.answer.choices[0]);
     expect(turn.answer.from).toEqual({ origin: other, name: "Harborline" });
     expect(run.history.at(-2)).toMatchObject({
@@ -183,19 +191,19 @@ describe("a button that picks a Company", () => {
     });
     // Typed in full, each name is its own Company's.
     await conversation("Harborline");
-    await say("What are your products?");
+    await request("What are your products?");
     expect((await say("Harborline")).answer.from).toEqual({
       origin: other,
       name: "Harborline",
     });
     await conversation("Harborline");
-    await say("What are your products?");
+    await request("What are your products?");
     expect((await say("Harborline Bank")).answer.from).toEqual(harborline);
   });
 
   it("tells two Companies of one name apart by their hosts", async () => {
     await conversation("Harborline Bank");
-    const asked = await say("What are your products?");
+    const asked = await request("What are your products?");
     expect(asked.answer.choices).toEqual([
       {
         label: "Harborline Bank (other.example)",
@@ -210,7 +218,7 @@ describe("a button that picks a Company", () => {
 
   it("asks again when a typed name fits two, and the request still waits", async () => {
     const run = await conversation("Harborline Trust");
-    await say("What are your products?");
+    await request("What are your products?");
     const again = await say("Harborline");
     expect(again.answer).toMatchObject({
       text: "Which one is this for: Harborline Trust or Harborline Bank?",
@@ -230,7 +238,7 @@ describe("a button that picks a Company", () => {
     });
     expect(shown(run).map(([, content]) => content)).toEqual([
       "What are your products?",
-      "Which company is this for? This conversation is connected to Harborline Trust and Harborline Bank.",
+      "Is this for Harborline Trust or Harborline Bank? Nothing in your message says which.",
       "Harborline",
       "Which one is this for: Harborline Trust or Harborline Bank?",
       "Harborline Bank",
@@ -247,7 +255,7 @@ describe("a button that picks a Company", () => {
       mode: "iris",
     });
     expect(stale.answer).not.toHaveProperty("from");
-    await say("What are your products?");
+    await request("What are your products?");
     const refused = await post({ answer: { company: food } });
     expect(refused.status).toBe(400);
     expect(refused.answer.code).toBe("company_not_connected");

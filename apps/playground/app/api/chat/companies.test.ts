@@ -10,6 +10,8 @@ const transport = vi.hoisted(() =>
 );
 const discover = vi.hoisted(() => vi.fn());
 const model = vi.hoisted(() => vi.fn());
+// The selected model's choice of Company, before the turn: unsure here.
+const choose = vi.hoisted(() => vi.fn());
 vi.mock("@poppy-lab/pap-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@poppy-lab/pap-client")>()),
   protocolRequest: transport,
@@ -18,6 +20,7 @@ vi.mock("@poppy-lab/pap-client", async (importOriginal) => ({
 vi.mock("@poppy-lab/llm-adapters/server", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@poppy-lab/llm-adapters/server")>()),
   runModel: model,
+  askModel: choose,
 }));
 vi.mock("node:fs/promises", () => ({
   mkdir: vi.fn(async () => {}),
@@ -97,6 +100,11 @@ async function conversation(signedIn: string[] = [], origins = [shop, food]) {
   await seedRun("v".repeat(43), id, run);
   return run;
 }
+/**
+ * With a model selected: demo mode runs only its scripted examples, so a
+ * turn whose Company Iris works out is a model's.
+ */
+const modelled = { provider: "anthropic", apiKey: "key" };
 const say = async (
   message: string,
   more: Record<string, unknown> = {},
@@ -161,6 +169,7 @@ beforeEach(() => {
       discovered(new URL(url).origin, names[new URL(url).origin]!),
     );
   model.mockReset();
+  choose.mockReset().mockResolvedValue("unsure");
 });
 
 describe("a turn in a conversation with several Companies", () => {
@@ -191,7 +200,8 @@ describe("a turn in a conversation with several Companies", () => {
     await conversation();
     await say("What are your products?", { company: shop });
     transport.mockClear();
-    const next = await say("And again?");
+    model.mockResolvedValueOnce("Again: apples.");
+    const next = await say("And again?", modelled);
     expect(next.answer.from).toEqual(juniper);
     for (const request of sent())
       expect(new URL(request.url).origin).toBe(shop);
@@ -199,10 +209,10 @@ describe("a turn in a conversation with several Companies", () => {
 
   it("asks which Company when nothing says, and sends nothing to any", async () => {
     const run = await conversation();
-    const turn = await say("What are your products?");
+    const turn = await say("What are your products?", modelled);
     expect(turn.status).toBe(200);
     expect(turn.answer).toMatchObject({
-      text: "Which company is this for? This conversation is connected to Juniper Market and Lantern Noodle Bar.",
+      text: "Is this for Juniper Market or Lantern Noodle Bar? Nothing in your message says which.",
       mode: "iris",
       trace: [],
       company: [],
@@ -227,7 +237,7 @@ describe("a turn in a conversation with several Companies", () => {
 
   it("takes the name of a Company as the answer, and then asks that Company what was asked", async () => {
     const run = await conversation();
-    await say("What are your products?");
+    await say("What are your products?", modelled);
     const turn = await say("Lantern, please");
     expect(turn.answer.from).toEqual(lantern);
     expect(turn.answer.text).toContain("The company answered:");
@@ -247,9 +257,11 @@ describe("a turn in a conversation with several Companies", () => {
 
   it("drops the request that waited when the next message isn't a Company's name", async () => {
     const run = await conversation();
-    await say("What are your products?");
-    const again = await say("Never mind, what are your hours?");
-    expect(again.answer.text).toMatch(/^Which company is this for\?/);
+    await say("What are your products?", modelled);
+    const again = await say("Never mind, what are your hours?", modelled);
+    expect(again.answer.text).toMatch(
+      /^Is this for Juniper Market or Lantern Noodle Bar\?/,
+    );
     expect(run.waiting).toBe("Never mind, what are your hours?");
     // The name is the User's answer, whichever Company the page had chosen.
     const named = await say("Juniper Market", { company: food });
@@ -388,7 +400,7 @@ describe("a model's turn with one Company, sent the turns with another", () => {
 describe("a conversation with no Company", () => {
   it("answers a message by saying to connect one, and names the lab's", async () => {
     const run = await conversation([], []);
-    const turn = await say("What's on the menu?");
+    const turn = await say("What can you do?", modelled);
     expect(turn.status).toBe(200);
     expect(turn.answer).toMatchObject({
       text: "This conversation isn't connected to a company yet, so nothing was sent. Connect one first: Juniper Market, Lantern Noodle Bar, Harborline Bank, Northwind Air or Fernwick Power & Light from the lab, or another company by typing its address in the address box.",
@@ -402,14 +414,14 @@ describe("a conversation with no Company", () => {
     expect(discover).not.toHaveBeenCalled();
     // Its words stay, and it is listed under them.
     expect(words(run)).toEqual([
-      ["user", "What's on the menu?", undefined],
+      ["user", "What can you do?", undefined],
       ["assistant", turn.answer.text, undefined],
     ]);
-    expect(run.title).toBe("What's on the menu?");
+    expect(run.title).toBe("What can you do?");
   });
 
   it("starts one for a message that names no conversation and no Company", async () => {
-    const turn = await say("hello", {}, "");
+    const turn = await say("hello", modelled, "");
     expect(turn.status).toBe(200);
     expect(turn.conversation).toMatch(/^[A-Za-z0-9_-]{16,64}$/);
     expect(turn.answer.text).toMatch(
