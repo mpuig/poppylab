@@ -92,7 +92,7 @@ Legend: **I** implemented (within the stated limits) · **P** partial · **N** n
 ## 6. Security and project limits
 
 - Secrets (refresh and access tokens, Session JWTs, keys, codes and PKCE verifiers) stay out of the model context and the traces. Browser API keys live only for the request.
-- **Public deployment:** each visitor has their own agent state in a Durable Object, sealed at rest with `POPPY_STATE_KEY`, and their own copy of each Company's fictional customers. Budgets per visitor, IP and globally; no client may hold more than a fifth of a Company's shared caps.
+- **Public deployment:** each visitor has their own agent state in a Durable Object, sealed at rest with `POPPY_STATE_KEY`, and their own copy of each Company's fictional customers. Budgets per visitor, IP and globally; no client may hold more than a fifth of a Company's shared caps, unless the deployment trusts it with more (`clientShares`).
 - Storage is single-writer (encrypted vaults on Node, one Durable Object per Company on Workers); there is no distributed coordination.
 - **External demos:** see [community demos](community-demos.md).
 - There has been no independent security review and no official conformance check.

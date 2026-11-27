@@ -163,7 +163,18 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
       ? `${origin}${MCP_PATH}`
       : undefined
     : undefined;
-  const replay = new ReplayCache(state.replays);
+  /**
+   * No client may hold more than a fifth of a shared cap, so one agent can't
+   * exhaust Sessions, tokens, grants, consents or the replay cache for
+   * everyone else; a client the deployment trusts may hold its own share.
+   */
+  const shares = deploy.clientShares ?? {};
+  for (const share of Object.values(shares))
+    if (!(share > 0 && share <= 1))
+      throw new Error("clientShares must be more than 0 and at most 1");
+  const shareOf = (client: string) =>
+    Object.hasOwn(shares, client) ? shares[client]! : 0.2;
+  const replay = new ReplayCache(state.replays, { share: shareOf });
   const secure = origin.startsWith("https:"),
     cookiePrefix = secure ? "__Host-" : "";
   const flags = { failed: false };
@@ -213,11 +224,7 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
     return address !== undefined ? addressKey(address) : browserOf(c);
   };
 
-  /**
-   * No client may hold more than a fifth of a shared cap, so one agent can't
-   * exhaust Sessions, tokens, grants or consents for everyone else.
-   */
-  const SHARE = 0.2;
+  /** Whether a client may add no more records under this cap (`shareOf`). */
   const overShare = (
     records: Iterable<{ client: string }>,
     client: string,
@@ -229,7 +236,7 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
       total++;
       if (r.client === client) mine++;
     }
-    return total >= cap || mine >= Math.ceil(cap * SHARE);
+    return total >= cap || mine >= Math.ceil(cap * shareOf(client));
   };
 
   // ---- Client metadata (CIMD) --------------------------------------------

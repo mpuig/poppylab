@@ -727,6 +727,16 @@ export type Deployment = {
   fetchJson: FetchJson;
   /** Plain-HTTP Personal Agents accepted in development, by exact client_id. */
   httpClients?: string[];
+  /**
+   * The part of each shared cap a client may hold, by exact client_id, for
+   * clients this deployment trusts with more than the fifth every other
+   * client gets: Sessions, tokens, grants, sign-ins in progress, browser
+   * joins and the replay cache. Each is more than 0 and at most 1. Meant
+   * for one agent that many people share, such as a lab's own. Every other
+   * client keeps its fifth, and the caps themselves stay the same, so what
+   * a trusted client holds is room the others don't have. Default none.
+   */
+  clientShares?: Record<string, number>;
   /** Salted scrypt hash of a shared demo password for consent (optional). */
   passwordHash?: string;
   dpopNonces?: DpopNonces;
