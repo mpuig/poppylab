@@ -494,6 +494,14 @@ it("accepts an upgrade and cancels a booking once after exact approval", async (
     upgrade,
   );
   expect(upgraded.json().data.itinerary[0].cabin).toBe("Business");
+  // The cabin is each flight's. The fare names none, so nothing beside the
+  // upgraded flight still says Economy, there or in the trips.
+  expect(upgraded.json().data.fare).not.toHaveProperty("cabin");
+  const trips = (
+    await x.call(robin.access_token, "GET", "/api/account/bookings")
+  ).json().trips;
+  expect(trips[0].fare).not.toHaveProperty("cabin");
+  expect(trips[0].itinerary[0].cabin).toBe("Business");
 
   const x2 = await setup();
   const elena = await x2.sign("elena", true);
