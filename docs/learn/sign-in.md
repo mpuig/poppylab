@@ -108,8 +108,8 @@ most say "Test customers. Choosing one doesn't verify who you are." Each
 Company's own website signs in the same way, at `/site/login`.
 
 A deployment can add one shared demo password, set as a Worker secret named for
-the Company, such as `JUNIPER_PASSWORD_HASH`; its pages then ask for it next to
-the choice of customer. On the live lab, no consent page and no `/site/login`
+the Company, such as `JUNIPER_PASSWORD_HASH`; its consent page then asks for it next
+to the choice of customer, and at Juniper its website too. On the live lab, no consent page and no `/site/login`
 asks for one. A demo password keeps strangers out of a test environment, but it
 doesn't stop an agent's own browser, which can type it as a person would. It
 belongs to the lab only: a real Company's sign-in is the user's own account, on
