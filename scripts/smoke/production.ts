@@ -481,7 +481,7 @@ async function checkPlayground() {
     const { status, body } = await two.chat(t, "Hello, what can you do?");
     if (status !== 200 || body.error)
       throw new Error(`Answered ${status}: ${body.error ?? "no answer"}`);
-    if (body.mode !== "iris" || body.from)
+    if (body.mode !== "own" || body.from)
       throw new Error(
         `Answered by ${body.from?.name ?? `mode "${body.mode}"`}, not by Iris`,
       );
