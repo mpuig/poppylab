@@ -2,7 +2,7 @@ import { isLocalCompany } from "@poppy-lab/pap-core";
 import type { AgentStep } from "@poppy-lab/pap-agent/agent-steps";
 import { isSandbox } from "@poppy-lab/pap-agent/company-policy";
 import { DEMO_SUGGESTIONS } from "@poppy-lab/pap-agent/demo-examples";
-import type { TranscriptEntry } from "@/lib/transcript";
+import type { TranscriptEntry } from "@poppy-lab/pap-agent/transcript";
 
 // Inlined at build time: local Companies in development, poppylab.dev when deployed.
 export const exampleUrl =

@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@poppy-lab/pap-client", () => ({ discoverCompany: vi.fn() }));
+vi.mock("@poppy-lab/pap-client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@poppy-lab/pap-client")>()),
+  discoverCompany: vi.fn(),
+}));
 import { discoverCompany } from "@poppy-lab/pap-client";
 import { POST } from "./route";
 

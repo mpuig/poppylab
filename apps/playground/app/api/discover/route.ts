@@ -1,3 +1,4 @@
+import "@/lib/agent";
 import { discoverCompany } from "@poppy-lab/pap-client";
 import { LOCAL_COMPANY_ORIGINS, PapDiscoveryError } from "@poppy-lab/pap-core";
 import { NextResponse } from "next/server";
@@ -9,11 +10,14 @@ import {
   releaseRun,
   visitorOf,
   type Held,
-} from "@/lib/runs";
-import { signInCookie, signInCookieOptions } from "@/lib/sign-in-cookie";
-import { connectionAt } from "@/lib/connections";
-import { connectCompany } from "@/lib/connecting";
-import { conversationEnded, overBudget } from "@/lib/limits";
+} from "@poppy-lab/pap-agent/runs";
+import {
+  signInCookie,
+  signInCookieOptions,
+} from "@poppy-lab/pap-agent/sign-in-cookie";
+import { connectionAt } from "@poppy-lab/pap-agent/connections";
+import { connectCompany } from "@poppy-lab/pap-agent/connecting";
+import { conversationEnded, overBudget } from "@poppy-lab/pap-agent/limits";
 import { notSaved } from "@poppy-lab/pap-agent/run-size";
 import { publicMode } from "@poppy-lab/pap-agent/deployment";
 

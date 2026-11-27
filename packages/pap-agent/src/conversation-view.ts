@@ -4,7 +4,7 @@
  * it changed which Companies the conversation works with. No token, key,
  * Session header or request body is in any of it.
  */
-import { accountUnavailableNotice } from "@poppy-lab/pap-agent/account-recovery";
+import { accountUnavailableNotice } from "./account-recovery";
 import { companyRef, originOf, type CompanyRef } from "./connections";
 import { directState } from "./direct-state";
 import { shownLog } from "./inspector-log";

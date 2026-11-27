@@ -26,7 +26,11 @@ import {
   missingExtensionScopes,
 } from "@poppy-lab/pap-agent/account-permissions";
 import { domainExtension } from "@poppy-lab/pap-agent/domain-extension";
-import { applyingLine, LOG_LIMITS, statementLine } from "@/lib/inspector-log";
+import {
+  applyingLine,
+  LOG_LIMITS,
+  statementLine,
+} from "@poppy-lab/pap-agent/inspector-log";
 import {
   nextAutoApproval,
   usesAllowance,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { labCompanies as cards } from "../app/playground/companies";
-import type { Nameable } from "@poppy-lab/pap-agent/company-names";
-import { connectCommand } from "@poppy-lab/pap-agent/connect-command";
+import { DEMO_SUGGESTIONS } from "./demo-examples";
+import type { Nameable } from "./company-names";
+import { connectCommand } from "./connect-command";
 import { labCompanies, nameable } from "./lab-companies";
 
 const lab: Nameable[] = labCompanies("http://localhost:3000");
@@ -370,8 +370,8 @@ describe("a message that is for a Company, and no request about the Companies", 
     expect(read(message)).toBeUndefined();
   });
 
-  it("leaves every request the page suggests as it is", () => {
-    for (const company of cards)
+  it("leaves every request the demo suggests as it is", () => {
+    for (const company of Object.values(DEMO_SUGGESTIONS))
       for (const phrase of [...company.open, ...company.account, company.ask])
         expect(read(phrase), phrase).toBeUndefined();
   });

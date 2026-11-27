@@ -44,8 +44,11 @@ vi.mock("@poppy-lab/pap-agent/deployment", async (importOriginal) => ({
   proposalsAllowed: () => true,
 }));
 import { createIdentity, ProtocolError } from "@poppy-lab/pap-client";
-import { connected, discovered } from "@/lib/company-fixture";
-import { forgetCompany, shownTranscript } from "@/lib/transcript";
+import { connected, discovered } from "@poppy-lab/pap-agent/company-fixture";
+import {
+  forgetCompany,
+  shownTranscript,
+} from "@poppy-lab/pap-agent/transcript";
 import { historyToMessages } from "@/app/playground/companies";
 import { RUN_LIMITS } from "@poppy-lab/pap-agent/run-size";
 import {
@@ -53,8 +56,8 @@ import {
   readConversation,
   seedRun,
   visitorOf,
-} from "@/lib/runs";
-import type { Run } from "@/lib/runtime";
+} from "@poppy-lab/pap-agent/runs";
+import type { Run } from "@poppy-lab/pap-agent/runtime";
 import { POST } from "./route";
 
 const shop = "https://shop.papsandbox.com";

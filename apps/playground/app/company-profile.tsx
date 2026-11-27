@@ -3,7 +3,7 @@ import {
   companyProfile,
   type DiscoveredCompany,
 } from "@poppy-lab/pap-core";
-import type { ShownSkill, ShownTask } from "@/lib/shown-tasks";
+import type { ShownSkill, ShownTask } from "@poppy-lab/pap-agent/shown-tasks";
 import { SpecRef } from "./spec-ref";
 
 const changeLabel = {

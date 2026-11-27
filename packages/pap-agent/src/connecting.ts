@@ -11,7 +11,7 @@ import {
   connectionAt,
   MAX_CONNECTIONS,
 } from "./connections";
-import { bytesOf, RUN_LIMITS } from "@poppy-lab/pap-agent/run-size";
+import { bytesOf, RUN_LIMITS } from "./run-size";
 import type { Connection, Run } from "./runtime";
 
 /** Why a Company can't be connected, in words the page can show. */

@@ -1,3 +1,4 @@
+import "@/lib/agent";
 import { companyProfile } from "@poppy-lab/pap-core";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
@@ -24,20 +25,23 @@ import {
   espiAuthorizationTarget,
   espiAuthorizationRecord,
   revokeEspiAuthorization,
-} from "@/lib/runtime";
-import { connectionAt, connectionNamed } from "@/lib/connections";
+} from "@poppy-lab/pap-agent/runtime";
+import {
+  connectionAt,
+  connectionNamed,
+} from "@poppy-lab/pap-agent/connections";
 import {
   afterReset,
   companiesView,
   connectionState,
   lostAccess,
   wordsView,
-} from "@/lib/conversation-view";
+} from "@poppy-lab/pap-agent/conversation-view";
 import {
   inheritOperationAccounts,
   operationAccounts,
-} from "@/lib/operation-store";
-import { removeCompany } from "@/lib/removing";
+} from "@poppy-lab/pap-agent/operation-store";
+import { removeCompany } from "@poppy-lab/pap-agent/removing";
 import {
   extensionByKey,
   extensionsOn,
@@ -47,14 +51,14 @@ import {
   forgetCompany,
   forgetLostAccount,
   recordOutcome,
-} from "@/lib/transcript";
+} from "@poppy-lab/pap-agent/transcript";
 import { refusalFacts } from "@poppy-lab/pap-agent/protocol-log";
 import {
   applyingLine,
   keepLines,
   notAppliedLine,
   statementLine,
-} from "@/lib/inspector-log";
+} from "@poppy-lab/pap-agent/inspector-log";
 import {
   accountRecovery,
   accountUnavailableNotice,
@@ -77,9 +81,12 @@ import {
   releaseRun,
   visitorOf,
   type Held,
-} from "@/lib/runs";
-import { signInCookie, signInCookieOptions } from "@/lib/sign-in-cookie";
-import { conversationEnded, overBudget } from "@/lib/limits";
+} from "@poppy-lab/pap-agent/runs";
+import {
+  signInCookie,
+  signInCookieOptions,
+} from "@poppy-lab/pap-agent/sign-in-cookie";
+import { conversationEnded, overBudget } from "@poppy-lab/pap-agent/limits";
 import {
   coveredBy,
   notCovered,

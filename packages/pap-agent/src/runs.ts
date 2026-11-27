@@ -3,14 +3,14 @@
  * server keys all its runs (tokens, keys, conversation) by the cookie's
  * SHA-256, so one visitor can never name another visitor's run.
  *
- * Backends: in Node, an in-process map snapshotted to the encrypted vault
- * (local development or a single VPS process); in Cloudflare Workers, one
- * Durable Object per visitor (see `worker/visitor.ts`). Run locking is a
+ * Backends (`Backend`): in Node, an in-process map snapshotted to the
+ * encrypted vault (local development or a single VPS process); elsewhere
+ * the one a channel configures (`configureStorage`), such as the
+ * playground's Durable Object per visitor on Workers. Run locking is a
  * compare-and-set on a version, so it holds across Worker isolates.
  */
 import { createHash, randomBytes } from "node:crypto";
 import { onWorkers, randomId, vault } from "@poppy-lab/pap-client";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
 import type { Connection, Run } from "./runtime";
 import {
   companyName,
@@ -20,12 +20,7 @@ import {
   newConnection,
   originOf,
 } from "./connections";
-import {
-  bytesOf,
-  RUN_LIMITS,
-  RunNotSaved,
-} from "@poppy-lab/pap-agent/run-size";
-import { importStateKey, sealedBackend } from "./sealed";
+import { bytesOf, RUN_LIMITS, RunNotSaved } from "./run-size";
 
 export type Versioned<T = unknown> = { value: T; version: number };
 export interface Backend {
@@ -218,66 +213,40 @@ function nodeBackend() {
   return backend;
 }
 
-/** The visitor Durable Object's RPC surface (`worker/visitor.ts`). */
-type VisitorObject = {
-  getEntry(key: string): Promise<Versioned | undefined>;
-  putEntry(
-    key: string,
-    value: unknown,
-    expected: number | null,
-  ): Promise<boolean>;
-  removeEntry(key: string): Promise<void>;
-  listEntries(prefix: string): Promise<Array<[string, Versioned]>>;
-  count(key: string, windowMs: number): Promise<number>;
+const global = globalThis as typeof globalThis & {
+  poppyBackend?: Backend;
+  poppyStorage?: () => Backend;
 };
-type Namespace = {
-  idFromName(name: string): unknown;
-  get(id: unknown): VisitorObject;
-};
-/**
- * Workers: one Durable Object per visitor (and per budget bucket), every
- * value sealed with the POPPY_STATE_KEY secret before it leaves the isolate.
- */
-function durableBackend(): Backend {
-  const env = () => getCloudflareContext().env as Record<string, unknown>;
-  const stub = (visitor: string) => {
-    const ns = env().POPPY_VISITORS as Namespace;
-    return ns.get(ns.idFromName(visitor));
-  };
-  const key = importStateKey(
-    typeof env().POPPY_STATE_KEY === "string"
-      ? (env().POPPY_STATE_KEY as string)
-      : undefined,
-  );
-  key.catch(() => {});
-  return sealedBackend(plainDurableBackend(stub), key);
-}
-function plainDurableBackend(
-  stub: (visitor: string) => VisitorObject,
-): Backend {
-  return {
-    get: (visitor, key) => stub(visitor).getEntry(key),
-    put: (visitor, key, value, expected) =>
-      stub(visitor).putEntry(key, value, expected),
-    remove: (visitor, key) => stub(visitor).removeEntry(key),
-    list: (visitor, prefix) => stub(visitor).listEntries(prefix),
-    count: (visitor, key, windowMs) => stub(visitor).count(key, windowMs),
-  };
-}
-
-const global = globalThis as typeof globalThis & { poppyBackend?: Backend };
-/** Replace the backend (Workers entry, tests). */
+/** Replace the backend (tests, a channel with a store of its own). */
 export function configureBackend(backend: Backend) {
   global.poppyBackend = backend;
+}
+/**
+ * Where conversations are kept, opened on the first request that needs
+ * them: a Worker's bindings are only there while it serves one. The
+ * playground keeps them in a Durable Object per visitor
+ * (`apps/playground/lib/visitor-storage.ts`); a Node process that
+ * configures nothing keeps them in memory and the encrypted vault.
+ */
+export function configureStorage(open: () => Backend) {
+  global.poppyStorage = open;
 }
 function backend(): Backend {
   return (global.poppyBackend ??=
     // Tests never touch the developer's vault, whatever NODE_ENV they stub.
     process.env.NODE_ENV === "test" || process.env.VITEST
       ? memoryBackend()
-      : onWorkers()
-        ? durableBackend()
-        : nodeBackend());
+      : global.poppyStorage
+        ? global.poppyStorage()
+        : onWorkers()
+          ? unconfigured()
+          : nodeBackend());
+}
+/** A Worker has no file system for the vault: its store has to be named. */
+function unconfigured(): never {
+  throw new Error(
+    "No storage for conversations: call configureStorage before the first request.",
+  );
 }
 
 // ---- Visitor cookie --------------------------------------------------------

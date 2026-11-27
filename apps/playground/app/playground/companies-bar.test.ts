@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { discovered } from "@/lib/company-fixture";
+import { discovered } from "@poppy-lab/pap-agent/company-fixture";
 import { CompaniesBar } from "./companies-bar";
 import { harborlineUrl, lanternUrl, type Message } from "./companies";
 import {

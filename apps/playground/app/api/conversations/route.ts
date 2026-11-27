@@ -3,10 +3,15 @@
  * one action that starts the demo over. Only names and times leave here;
  * a conversation's words come from `/api/account?conversation=`.
  */
+import "@/lib/agent";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { listConversations, resetDemo, visitorOf } from "@/lib/runs";
-import { overBudget } from "@/lib/limits";
+import {
+  listConversations,
+  resetDemo,
+  visitorOf,
+} from "@poppy-lab/pap-agent/runs";
+import { overBudget } from "@poppy-lab/pap-agent/limits";
 
 export const runtime = "nodejs";
 const headers = { "Cache-Control": "no-store" };

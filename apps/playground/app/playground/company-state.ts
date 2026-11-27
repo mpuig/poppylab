@@ -10,11 +10,11 @@
 import { companyProfile } from "@poppy-lab/pap-core";
 import type { DiscoveredCompany } from "@poppy-lab/pap-core";
 import { canChange } from "@poppy-lab/pap-agent/account-permissions";
-import { directView } from "@/lib/direct-state";
+import { directView } from "@poppy-lab/pap-agent/direct-state";
 import { domainExtension } from "@poppy-lab/pap-agent/domain-extension";
 import type { GuideOperation } from "@/lib/guide";
 import type { ReviewOperation } from "@poppy-lab/pap-agent/operation-presentation";
-import type { ShownSkill, ShownTask } from "@/lib/shown-tasks";
+import type { ShownSkill, ShownTask } from "@poppy-lab/pap-agent/shown-tasks";
 import type { FdxConsentRecord } from "./fdx-consent";
 import type { EspiAuthorizationRecord } from "./espi-authorization";
 import type { FdxStatementAccount } from "./fdx-statements";

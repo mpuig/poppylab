@@ -1,5 +1,5 @@
 import { operatorDirectoryResponse } from "@poppy-lab/pap-client";
-import { agentOrigin, operatorKey } from "@/lib/runtime";
+import { agentOrigin, operatorKey } from "@poppy-lab/pap-agent/runtime";
 import { publicMode } from "@poppy-lab/pap-agent/deployment";
 export const dynamic = "force-dynamic";
 /**

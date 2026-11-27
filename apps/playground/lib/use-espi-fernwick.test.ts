@@ -82,15 +82,20 @@ import { POST as discover } from "../app/api/discover/route";
 import { GET as account, POST as act } from "../app/api/account/route";
 import { GET as callback } from "../app/api/account/callback/route";
 import { POST as chat } from "../app/api/chat/route";
-import { acquireRun, releaseRun, visitorOf, type Held } from "./runs";
-import { onlyConnection } from "./connections";
+import {
+  acquireRun,
+  releaseRun,
+  visitorOf,
+  type Held,
+} from "@poppy-lab/pap-agent/runs";
+import { onlyConnection } from "@poppy-lab/pap-agent/connections";
 import {
   connect,
   ESPI_GUIDANCE,
   papRequest,
   renewAccount,
   type Connection,
-} from "./runtime";
+} from "@poppy-lab/pap-agent/runtime";
 
 const base = `${origin}/espi/1_1/resource`;
 const agent = "http://localhost:3000";

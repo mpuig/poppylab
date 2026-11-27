@@ -53,11 +53,11 @@ vi.mock("@poppy-lab/pap-agent/deployment", async (importOriginal) => ({
 import { createIdentity } from "@poppy-lab/pap-client";
 import { PapDiscoveryError } from "@poppy-lab/pap-core";
 import { labCompanies as cards } from "@/app/playground/companies";
-import { connected, discovered } from "@/lib/company-fixture";
+import { connected, discovered } from "@poppy-lab/pap-agent/company-fixture";
 import { demoGuidedReply } from "@poppy-lab/pap-agent/demo-examples";
-import { seedRun } from "@/lib/runs";
-import type { Run } from "@/lib/runtime";
-import { recordTurn } from "@/lib/transcript";
+import { seedRun } from "@poppy-lab/pap-agent/runs";
+import type { Run } from "@poppy-lab/pap-agent/runtime";
+import { recordTurn } from "@poppy-lab/pap-agent/transcript";
 import { POST } from "./route";
 
 // The lab's own Companies, where they are for a playground on localhost.

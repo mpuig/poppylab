@@ -1,3 +1,4 @@
+import "@/lib/agent";
 import { cookies } from "next/headers";
 import {
   identity,
@@ -10,8 +11,8 @@ import {
   revokeRefreshToken,
   usesDpop,
   type Connection,
-} from "@/lib/runtime";
-import { connectionForState } from "@/lib/connections";
+} from "@poppy-lab/pap-agent/runtime";
+import { connectionForState } from "@poppy-lab/pap-agent/connections";
 import {
   assertion,
   proof,
@@ -23,10 +24,21 @@ import {
   tokenResponse,
 } from "@poppy-lab/pap-agent/token-response";
 import { serving } from "@poppy-lab/pap-agent/deployment";
-import { acquireRun, releaseRun, runForState, visitorOf } from "@/lib/runs";
-import { signInCookie, signInCookieOptions } from "@/lib/sign-in-cookie";
-import { backToPublic, keepPublicHistory } from "@/lib/transcript";
-import { keepLines } from "@/lib/inspector-log";
+import {
+  acquireRun,
+  releaseRun,
+  runForState,
+  visitorOf,
+} from "@poppy-lab/pap-agent/runs";
+import {
+  signInCookie,
+  signInCookieOptions,
+} from "@poppy-lab/pap-agent/sign-in-cookie";
+import {
+  backToPublic,
+  keepPublicHistory,
+} from "@poppy-lab/pap-agent/transcript";
+import { keepLines } from "@poppy-lab/pap-agent/inspector-log";
 export const runtime = "nodejs";
 
 /** A thread's events from its saved cursor: a read that changes nothing here. */

@@ -81,8 +81,13 @@ import { POST as discover } from "../app/api/discover/route";
 import { GET as account, POST as act } from "../app/api/account/route";
 import { GET as callback } from "../app/api/account/callback/route";
 import { POST as chat } from "../app/api/chat/route";
-import { acquireRun, releaseRun, visitorOf, type Held } from "./runs";
-import { onlyConnection } from "./connections";
+import {
+  acquireRun,
+  releaseRun,
+  visitorOf,
+  type Held,
+} from "@poppy-lab/pap-agent/runs";
+import { onlyConnection } from "@poppy-lab/pap-agent/connections";
 import {
   clientFor,
   connect,
@@ -91,7 +96,7 @@ import {
   papRequest,
   renewAccount,
   type Connection,
-} from "./runtime";
+} from "@poppy-lab/pap-agent/runtime";
 
 const base = `${origin}/fdx/v6`;
 const agent = "http://localhost:3000";

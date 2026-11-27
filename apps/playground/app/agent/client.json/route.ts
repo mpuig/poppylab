@@ -1,4 +1,4 @@
-import { agentOrigin } from "@/lib/runtime";
+import { agentOrigin } from "@poppy-lab/pap-agent/runtime";
 import { publicMode } from "@poppy-lab/pap-agent/deployment";
 export function GET(request: Request) {
   const origin =

@@ -16,7 +16,8 @@
   },
   "dependencies": {
     "@poppy-lab/pap-client": "workspace:*",
-    "@poppy-lab/pap-core": "workspace:*"
+    "@poppy-lab/pap-core": "workspace:*",
+    "jose": "^6.2.12"
   },
   "devDependencies": {
     "@types/node": "^24.10.0",

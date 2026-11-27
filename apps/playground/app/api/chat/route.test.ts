@@ -33,9 +33,9 @@ vi.mock("@poppy-lab/pap-agent/deployment", async (importOriginal) => ({
 import { createIdentity, ProtocolError } from "@poppy-lab/pap-client";
 import { agentStep } from "@poppy-lab/pap-agent/agent-steps";
 import { logEntry } from "@poppy-lab/pap-agent/protocol-log";
-import { listConversations, seedRun } from "@/lib/runs";
-import type { Connection, Run } from "@/lib/runtime";
-import { onlyConnection as at } from "@/lib/connections";
+import { listConversations, seedRun } from "@poppy-lab/pap-agent/runs";
+import type { Connection, Run } from "@poppy-lab/pap-agent/runtime";
+import { onlyConnection as at } from "@poppy-lab/pap-agent/connections";
 import { POST } from "./route";
 
 const origin = "https://shop.papsandbox.com";

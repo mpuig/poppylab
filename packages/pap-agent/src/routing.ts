@@ -27,11 +27,7 @@
  * User's task needs from the others.
  */
 import type { ApiTool } from "@poppy-lab/pap-client";
-import {
-  plain,
-  pointsAt,
-  type Nameable,
-} from "@poppy-lab/pap-agent/company-names";
+import { plain, pointsAt, type Nameable } from "./company-names";
 import {
   companyName,
   connectionAt,
@@ -42,7 +38,7 @@ import {
 } from "./connections";
 import type { DirectAction } from "./conversations";
 import { nameable, type LabCompany } from "./lab-companies";
-import { bytesOf } from "@poppy-lab/pap-agent/run-size";
+import { bytesOf } from "./run-size";
 import type { Connection, Run } from "./runtime";
 
 /** A tool a Company offered, as the conversation remembers it. */

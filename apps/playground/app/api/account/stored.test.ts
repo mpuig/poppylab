@@ -29,8 +29,8 @@ import {
   memoryBackend,
   readConversation,
   seedRun,
-} from "@/lib/runs";
-import type { Run } from "@/lib/runtime";
+} from "@poppy-lab/pap-agent/runs";
+import type { Run } from "@poppy-lab/pap-agent/runtime";
 import { POST as chat } from "../chat/route";
 import { GET as list } from "../conversations/route";
 import { GET, POST } from "./route";

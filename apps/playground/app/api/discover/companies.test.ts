@@ -18,16 +18,16 @@ vi.mock("next/headers", () => ({
   }),
 }));
 import { PapDiscoveryError } from "@poppy-lab/pap-core";
-import { connected, discovered } from "@/lib/company-fixture";
+import { connected, discovered } from "@poppy-lab/pap-agent/company-fixture";
 import { bytesOf, RUN_LIMITS } from "@poppy-lab/pap-agent/run-size";
 import {
   configureBackend,
   memoryBackend,
   readConversation,
   seedRun,
-} from "@/lib/runs";
-import type { Run } from "@/lib/runtime";
-import { recordTurn } from "@/lib/transcript";
+} from "@poppy-lab/pap-agent/runs";
+import type { Run } from "@poppy-lab/pap-agent/runtime";
+import { recordTurn } from "@poppy-lab/pap-agent/transcript";
 import { POST } from "./route";
 
 const shop = "https://shop.example";

@@ -16,10 +16,10 @@
  * Company it went to, for the User to see exactly what went where.
  */
 import type { ApiTool } from "@poppy-lab/pap-client";
-import { agentStep, type AgentStep } from "@poppy-lab/pap-agent/agent-steps";
+import { agentStep, type AgentStep } from "./agent-steps";
 import type { CompanyRef } from "./connections";
 import type { CompanyEntry } from "./conversations";
-import { logEntry } from "@poppy-lab/pap-agent/protocol-log";
+import { logEntry } from "./protocol-log";
 import type { Connection, Operation } from "./runtime";
 
 /**

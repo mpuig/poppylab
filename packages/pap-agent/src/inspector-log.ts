@@ -1,8 +1,5 @@
 import { cameFrom, forPage, from, holdsAccount } from "./connections";
-import {
-  logEntry,
-  type ProtocolEntry,
-} from "@poppy-lab/pap-agent/protocol-log";
+import { logEntry, type ProtocolEntry } from "./protocol-log";
 import type { Connection, Run } from "./runtime";
 
 /**

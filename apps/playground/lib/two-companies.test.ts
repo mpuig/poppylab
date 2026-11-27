@@ -80,9 +80,9 @@ import { POST as discover } from "../app/api/discover/route";
 import { GET as account, POST as act } from "../app/api/account/route";
 import { GET as callback } from "../app/api/account/callback/route";
 import { POST as chat } from "../app/api/chat/route";
-import type { ConnectionView } from "./conversation-view";
-import { loadRun, visitorOf } from "./runs";
-import type { Operation } from "./runtime";
+import type { ConnectionView } from "@poppy-lab/pap-agent/conversation-view";
+import { loadRun, visitorOf } from "@poppy-lab/pap-agent/runs";
+import type { Operation } from "@poppy-lab/pap-agent/runtime";
 
 const agent = "http://localhost:3000";
 const food = lantern.origin;

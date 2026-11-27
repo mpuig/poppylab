@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { Connection, Run } from "@/lib/runtime";
-import { recordDirect, recordTurn, shownTranscript } from "@/lib/transcript";
+import type { Connection, Run } from "@poppy-lab/pap-agent/runtime";
+import {
+  recordDirect,
+  recordTurn,
+  shownTranscript,
+} from "@poppy-lab/pap-agent/transcript";
 import { historyToMessages } from "./companies";
 
 const company = "Lantern Noodle Bar";

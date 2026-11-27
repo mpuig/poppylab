@@ -45,9 +45,9 @@ vi.mock("@poppy-lab/pap-agent/deployment", async (importOriginal) => ({
   proposalsAllowed: () => true,
 }));
 import { createIdentity } from "@poppy-lab/pap-client";
-import { connected, discovered } from "@/lib/company-fixture";
-import { seedRun } from "@/lib/runs";
-import type { Run } from "@/lib/runtime";
+import { connected, discovered } from "@poppy-lab/pap-agent/company-fixture";
+import { seedRun } from "@poppy-lab/pap-agent/runs";
+import type { Run } from "@poppy-lab/pap-agent/runtime";
 import { POST } from "./route";
 
 // Two of the lab's own, where they are for a playground on localhost,

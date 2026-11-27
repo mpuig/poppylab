@@ -1,5 +1,5 @@
-import type * as OperationStore from "../../../lib/operation-store";
-import type * as Runtime from "../../../lib/runtime";
+import type * as OperationStore from "@poppy-lab/pap-agent/operation-store";
+import type * as Runtime from "@poppy-lab/pap-agent/runtime";
 import {
   afterEach,
   beforeAll,
@@ -119,11 +119,13 @@ vi.mock("@poppy-lab/pap-client", async (importOriginal) => ({
   protocolRequest: state.transport,
 }));
 
-vi.mock("@/lib/runtime", async () => ({
+vi.mock("@poppy-lab/pap-agent/runtime", async () => ({
   localOrigins: ["http://juniper.localhost:4100"],
   sendApproval: state.request,
   recordOperation: (
-    await vi.importActual<typeof OperationStore>("../../../lib/operation-store")
+    await vi.importActual<typeof OperationStore>(
+      "@poppy-lab/pap-agent/operation-store",
+    )
   ).recordOperation,
   connect: state.connect,
   clientFor: () => "http://localhost:3000/agent/client.json",
@@ -136,39 +138,43 @@ vi.mock("@/lib/runtime", async () => ({
   clientId: "http://localhost:3000/agent/client.json",
   agentOrigin: "http://localhost:3000",
   // Use FDX (poppylab.dev/fdx v1): the runtime's own rules.
-  fdxEntry: (await vi.importActual<typeof Runtime>("../../../lib/runtime"))
-    .fdxEntry,
-  setFdx: (await vi.importActual<typeof Runtime>("../../../lib/runtime"))
-    .setFdx,
-  setExtension: (await vi.importActual<typeof Runtime>("../../../lib/runtime"))
-    .setExtension,
+  fdxEntry: (
+    await vi.importActual<typeof Runtime>("@poppy-lab/pap-agent/runtime")
+  ).fdxEntry,
+  setFdx: (
+    await vi.importActual<typeof Runtime>("@poppy-lab/pap-agent/runtime")
+  ).setFdx,
+  setExtension: (
+    await vi.importActual<typeof Runtime>("@poppy-lab/pap-agent/runtime")
+  ).setExtension,
   // Use ESPI (poppylab.dev/espi v1): the runtime's own rules and calls.
   espiAuthorizationTarget: (
-    await vi.importActual<typeof Runtime>("../../../lib/runtime")
+    await vi.importActual<typeof Runtime>("@poppy-lab/pap-agent/runtime")
   ).espiAuthorizationTarget,
   espiAuthorizationRecord: (
-    await vi.importActual<typeof Runtime>("../../../lib/runtime")
+    await vi.importActual<typeof Runtime>("@poppy-lab/pap-agent/runtime")
   ).espiAuthorizationRecord,
   revokeEspiAuthorization: (
-    await vi.importActual<typeof Runtime>("../../../lib/runtime")
+    await vi.importActual<typeof Runtime>("@poppy-lab/pap-agent/runtime")
   ).revokeEspiAuthorization,
   // The consent calls are the runtime's own, down to the request it sends.
   fdxConsentRecord: (
-    await vi.importActual<typeof Runtime>("../../../lib/runtime")
+    await vi.importActual<typeof Runtime>("@poppy-lab/pap-agent/runtime")
   ).fdxConsentRecord,
   revokeFdxConsent: (
-    await vi.importActual<typeof Runtime>("../../../lib/runtime")
+    await vi.importActual<typeof Runtime>("@poppy-lab/pap-agent/runtime")
   ).revokeFdxConsent,
-  fdxUserTools: (await vi.importActual<typeof Runtime>("../../../lib/runtime"))
-    .fdxUserTools,
+  fdxUserTools: (
+    await vi.importActual<typeof Runtime>("@poppy-lab/pap-agent/runtime")
+  ).fdxUserTools,
   fdxStatementDownload: (
-    await vi.importActual<typeof Runtime>("../../../lib/runtime")
+    await vi.importActual<typeof Runtime>("@poppy-lab/pap-agent/runtime")
   ).fdxStatementDownload,
 }));
 
 import { POST, GET } from "./route";
-import { recordOperation } from "../../../lib/operation-store";
-import { listConversations, seedRun } from "@/lib/runs";
+import { recordOperation } from "@poppy-lab/pap-agent/operation-store";
+import { listConversations, seedRun } from "@poppy-lab/pap-agent/runs";
 import {
   nextAutoApproval,
   usesAllowance,

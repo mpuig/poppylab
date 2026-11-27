@@ -5,7 +5,7 @@
  * addresses in development, poppylab.dev's when deployed.
  */
 import { labSites, type LabSite } from "@poppy-lab/pap-core";
-import type { Nameable } from "@poppy-lab/pap-agent/company-names";
+import type { Nameable } from "./company-names";
 import { companyName, originOf } from "./connections";
 import type { Connection } from "./runtime";
 

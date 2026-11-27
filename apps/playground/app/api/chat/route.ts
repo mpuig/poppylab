@@ -1,3 +1,4 @@
+import "@/lib/agent";
 import {
   accountRecovery,
   accountUnavailableNotice,
@@ -18,8 +19,8 @@ import {
   type Operation,
   type Run,
   type Turn,
-} from "@/lib/runtime";
-import { noteOperationAccounts } from "@/lib/operation-store";
+} from "@poppy-lab/pap-agent/runtime";
+import { noteOperationAccounts } from "@poppy-lab/pap-agent/operation-store";
 import {
   companyName as nameOf,
   companyRef,
@@ -28,7 +29,7 @@ import {
   MAX_CONNECTIONS,
   newConnection,
   originOf,
-} from "@/lib/connections";
+} from "@poppy-lab/pap-agent/connections";
 import { answeredWith } from "@poppy-lab/pap-agent/company-names";
 import {
   answerLabel,
@@ -45,14 +46,21 @@ import {
   type Answer,
   type Choice,
   type Performed,
-} from "@/lib/company-commands";
+} from "@poppy-lab/pap-agent/company-commands";
 import {
   connectCommand,
   type ConnectCommand,
 } from "@poppy-lab/pap-agent/connect-command";
-import { companiesView, lostAccess } from "@/lib/conversation-view";
-import { labCompanies, nameable } from "@/lib/lab-companies";
-import { directConnection, offeredTools, turnConnection } from "@/lib/routing";
+import {
+  companiesView,
+  lostAccess,
+} from "@poppy-lab/pap-agent/conversation-view";
+import { labCompanies, nameable } from "@poppy-lab/pap-agent/lab-companies";
+import {
+  directConnection,
+  offeredTools,
+  turnConnection,
+} from "@poppy-lab/pap-agent/routing";
 import {
   accountsIn,
   forgetLostAccount,
@@ -61,7 +69,7 @@ import {
   recordOwn,
   recordTurn,
   turnAccounts,
-} from "@/lib/transcript";
+} from "@poppy-lab/pap-agent/transcript";
 import {
   modelTools,
   newParts,
@@ -71,19 +79,22 @@ import {
   severalSteps,
   type Call,
   type Part,
-} from "@/lib/several";
-import { keepLines } from "@/lib/inspector-log";
-import { shownSkills, shownTasks } from "@/lib/shown-tasks";
-import type { CompanyEntry, DirectAction } from "@/lib/conversations";
-import { directState } from "@/lib/direct-state";
+} from "@poppy-lab/pap-agent/several";
+import { keepLines } from "@poppy-lab/pap-agent/inspector-log";
+import { shownSkills, shownTasks } from "@poppy-lab/pap-agent/shown-tasks";
+import type {
+  CompanyEntry,
+  DirectAction,
+} from "@poppy-lab/pap-agent/conversations";
+import { directState } from "@poppy-lab/pap-agent/direct-state";
 import {
   acquireRun,
   createRun,
   releaseRun,
   visitorOf,
   type Held,
-} from "@/lib/runs";
-import { conversationEnded, overBudget } from "@/lib/limits";
+} from "@poppy-lab/pap-agent/runs";
+import { conversationEnded, overBudget } from "@poppy-lab/pap-agent/limits";
 import { notSaved } from "@poppy-lab/pap-agent/run-size";
 import { pickDemoTool } from "@poppy-lab/pap-agent/demo-tool";
 import {

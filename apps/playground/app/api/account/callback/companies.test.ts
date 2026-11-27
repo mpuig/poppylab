@@ -46,9 +46,9 @@ vi.mock("@poppy-lab/pap-agent/deployment", async (importOriginal) => ({
   isAccountCompany: () => true,
   proposalsAllowed: () => true,
 }));
-import { connected, discovered } from "@/lib/company-fixture";
-import { seedRun } from "@/lib/runs";
-import type { Run } from "@/lib/runtime";
+import { connected, discovered } from "@poppy-lab/pap-agent/company-fixture";
+import { seedRun } from "@poppy-lab/pap-agent/runs";
+import type { Run } from "@poppy-lab/pap-agent/runtime";
 import { POST as act } from "../route";
 import { GET as callback } from "./route";
 

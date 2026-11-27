@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto";
-import { NextResponse } from "next/server";
 import { allow, endedConversation, type Limit } from "./runs";
-import { publicMode } from "@poppy-lab/pap-agent/deployment";
+import { publicMode } from "./deployment";
 
 const minute = 60000,
   day = 86400000;
@@ -52,7 +51,7 @@ export async function overBudget(
         { visitor: b.ip },
       )));
   if (ok) return undefined;
-  return NextResponse.json(
+  return Response.json(
     { error: "Too many requests. Wait a minute and try again." },
     {
       status: 429,
@@ -75,7 +74,7 @@ export async function conversationEnded(
 ) {
   const ended = await endedConversation(visitor, id);
   if (!ended || !id) return undefined;
-  return NextResponse.json(
+  return Response.json(
     {
       code: "conversation_ended",
       error:

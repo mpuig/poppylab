@@ -55,7 +55,7 @@ vi.mock("next/headers", () => ({
     delete: s.remove,
   }),
 }));
-vi.mock("@/lib/runtime", () => {
+vi.mock("@poppy-lab/pap-agent/runtime", () => {
   return {
     identity: async () => ({ privateKey: {} }),
     clientFor: () => "https://identity.example/agent/client.json",
@@ -97,8 +97,12 @@ vi.mock("@poppy-lab/pap-agent/deployment", () => ({
   localOrigins: ["http://juniper.localhost:4100"],
 }));
 import { GET } from "./route";
-import { listConversations, seedRun, visitorOf } from "@/lib/runs";
-import { directState } from "@/lib/direct-state";
+import {
+  listConversations,
+  seedRun,
+  visitorOf,
+} from "@poppy-lab/pap-agent/runs";
+import { directState } from "@poppy-lab/pap-agent/direct-state";
 import { ProtocolError } from "@poppy-lab/pap-client";
 beforeEach(async () => {
   vi.stubEnv("NODE_ENV", "development");

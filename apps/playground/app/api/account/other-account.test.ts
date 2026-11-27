@@ -49,10 +49,10 @@ import {
   ProtocolError,
   type ApiTool,
 } from "@poppy-lab/pap-client";
-import { connected, discovered } from "@/lib/company-fixture";
-import { seedRun } from "@/lib/runs";
-import type { Run } from "@/lib/runtime";
-import { backToPublic } from "@/lib/transcript";
+import { connected, discovered } from "@poppy-lab/pap-agent/company-fixture";
+import { seedRun } from "@poppy-lab/pap-agent/runs";
+import type { Run } from "@poppy-lab/pap-agent/runtime";
+import { backToPublic } from "@poppy-lab/pap-agent/transcript";
 import { POST as chat } from "../chat/route";
 import { GET, POST } from "./route";
 

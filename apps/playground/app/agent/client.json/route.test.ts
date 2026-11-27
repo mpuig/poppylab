@@ -1,5 +1,7 @@
 import { it, expect, vi } from "vitest";
-vi.mock("@/lib/runtime", () => ({ agentOrigin: "https://identity.example" }));
+vi.mock("@poppy-lab/pap-agent/runtime", () => ({
+  agentOrigin: "https://identity.example",
+}));
 import { GET } from "./route";
 it("keeps Juniper localhost registration unchanged when a public identity is configured", async () => {
   const data = await GET(

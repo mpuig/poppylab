@@ -1,4 +1,4 @@
-import { identity } from "@/lib/runtime";
+import { identity } from "@poppy-lab/pap-agent/runtime";
 export const dynamic = "force-dynamic";
 export async function GET() {
   return Response.json(

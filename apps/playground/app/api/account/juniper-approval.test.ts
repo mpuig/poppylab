@@ -1,5 +1,5 @@
 import { it, expect, vi } from "vitest";
-import type * as OperationStore from "../../../lib/operation-store";
+import type * as OperationStore from "@poppy-lab/pap-agent/operation-store";
 import { testApp } from "../../../../juniper/src/test-app";
 import {
   approvalHeader,
@@ -8,8 +8,8 @@ import {
 } from "@poppy-lab/pap-client";
 import { operations } from "../../../../juniper/src/operations";
 import { accountPaths } from "../../../../juniper/src/openapi";
-import type { Operation } from "@/lib/runtime";
-import { recordOperation } from "../../../lib/operation-store";
+import type { Operation } from "@poppy-lab/pap-agent/runtime";
+import { recordOperation } from "@poppy-lab/pap-agent/operation-store";
 const state = vi.hoisted(() => {
   /** The conversation's one Company: its sign-in and its proposals. */
   const connection = {
@@ -62,11 +62,13 @@ vi.mock("@poppy-lab/pap-agent/deployment", () => ({
   localOrigins: ["http://juniper.localhost:4100"],
 }));
 
-vi.mock("@/lib/runtime", async () => ({
+vi.mock("@poppy-lab/pap-agent/runtime", async () => ({
   localOrigins: ["http://juniper.localhost:4100"],
   sendApproval: state.send,
   recordOperation: (
-    await vi.importActual<typeof OperationStore>("../../../lib/operation-store")
+    await vi.importActual<typeof OperationStore>(
+      "@poppy-lab/pap-agent/operation-store",
+    )
   ).recordOperation,
   connect: vi.fn(),
   clientFor: vi.fn(),
@@ -76,7 +78,7 @@ vi.mock("@/lib/runtime", async () => ({
   revokeRefreshToken: vi.fn(),
 }));
 import { POST } from "./route";
-import { seedRun } from "@/lib/runs";
+import { seedRun } from "@poppy-lab/pap-agent/runs";
 
 it("model tool → real Juniper 403 operation → human approval → Poppy-Approval retry → exactly one order", async () => {
   Object.assign(state.run, { protocol: "1.0" });

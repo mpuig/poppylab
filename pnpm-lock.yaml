@@ -310,6 +310,9 @@ importers:
       '@poppy-lab/pap-core':
         specifier: workspace:*
         version: link:../pap-core
+      jose:
+        specifier: ^6.2.12
+        version: 6.2.12
     devDependencies:
       '@types/node':
         specifier: ^24.10.0
