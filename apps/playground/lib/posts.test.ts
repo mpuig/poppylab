@@ -95,6 +95,45 @@ describe("front matter", () => {
     );
   });
 
+  it("reads a list over several lines, as Prettier wraps a long one", () => {
+    const tags = (front: string) =>
+      readPost("2026-12-01-a.md", post(`title: A\n${front}\nlearn: /learn`));
+    expect(
+      tags(
+        [
+          "tags:",
+          "  [",
+          "    ai-agents,",
+          "    'personal-agent-protocol',",
+          "    product-strategy,",
+          "  ]",
+        ].join("\n"),
+      ),
+    ).toMatchObject({
+      tags: ["ai-agents", "personal-agent-protocol", "product-strategy"],
+      learn: "/learn",
+    });
+    expect(tags("tags: [ai-agents,\n  product-strategy]").tags).toEqual([
+      "ai-agents",
+      "product-strategy",
+    ]);
+    expect(
+      tags("tags:\n  - ai-agents\n  # a note\n  - 'product-strategy'"),
+    ).toMatchObject({
+      tags: ["ai-agents", "product-strategy"],
+      learn: "/learn",
+    });
+    expect(() => tags("tags:\n  [ai-agents,\n  titel: B")).toThrow(
+      'unreadable front matter line "  [ai-agents,"',
+    );
+    expect(() => tags("tags:\n  - ai-agents\n  product-strategy")).toThrow(
+      'unreadable front matter line "  - ai-agents"',
+    );
+    expect(() => tags("tags:\n  - ai-agents\ntitel: B")).toThrow(
+      /unknown front matter "titel"/,
+    );
+  });
+
   it("skips blank lines and comments", () => {
     expect(readFrontMatter(post("# a note\n\ntitle: A")).fields).toEqual({
       title: "A",

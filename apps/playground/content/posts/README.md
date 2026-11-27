@@ -23,6 +23,9 @@ The text, in Markdown, rendered as Learn's pages are.
 
 - `title` is required. `date` is optional and, when given, must be the date
   in the file's name.
+- `tags` may go on over several indented lines, as Prettier wraps a long
+  list, either as `[a, b]` or as one `- a` a line.
+- A key not shown here is a mistake and stops the build.
 - `learn` is a Learn page that goes deeper, linked under the post.
 - `canonical` is the original's address, only for a post first published
   somewhere else. Without it the post's own address is canonical, so a copy

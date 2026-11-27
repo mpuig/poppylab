@@ -44,21 +44,39 @@ const KEYS = new Set([
 
 /**
  * The front matter between the two `---` lines: one `key: value` a line,
- * a value optionally in quotes, tags as `[a, b]` or `a, b`. An unknown key
- * is a mistake, so it stops the build rather than being dropped.
+ * a value optionally in quotes, tags as `[a, b]` or `a, b`. A list may
+ * also go on over the indented lines below its key, as `[a, b]` or as one
+ * `- a` a line: Prettier wraps a long `tags` that way. An unknown key is a
+ * mistake, so it stops the build rather than being dropped.
  */
 export function readFrontMatter(source: string, file = "post") {
   const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(source);
   if (!match) throw new Error(`${file}: no front matter`);
   const fields: Record<string, string> = {};
-  for (const line of match[1]!.split(/\r?\n/)) {
+  const lines = match[1]!.split(/\r?\n/);
+  const unreadable = (line: string) =>
+    new Error(`${file}: unreadable front matter line "${line}"`);
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
     if (!line.trim() || line.trimStart().startsWith("#")) continue;
     const kv = /^([a-z]+):\s*(.*)$/.exec(line);
-    if (!kv) throw new Error(`${file}: unreadable front matter line "${line}"`);
-    const [, key, raw] = kv as unknown as [string, string, string];
+    if (!kv) throw unreadable(line);
+    const [, key, first] = kv as unknown as [string, string, string];
     if (!KEYS.has(key))
       throw new Error(`${file}: unknown front matter "${key}"`);
-    fields[key] = raw.trim().replace(/^(["'])(.*)\1$/, "$2");
+    let raw = first.trim();
+    const more: string[] = [];
+    while (/^\s+\S/.test(lines[i + 1] ?? "")) more.push(lines[++i]!);
+    const items = more.map((l) => l.trim()).filter((l) => !l.startsWith("#"));
+    if (items.length) {
+      const block = items.map((l) => /^-\s+(.*)$/.exec(l)?.[1]);
+      const flow = [raw, ...items].filter(Boolean).join(" ");
+      if (!raw && block.every((item) => item !== undefined))
+        raw = `[${block.join(", ")}]`;
+      else if (/^\[[^[\]]*\]$/.test(flow)) raw = flow;
+      else throw unreadable(more.find((l) => !l.trim().startsWith("#"))!);
+    }
+    fields[key] = raw.replace(/^(["'])(.*)\1$/, "$2");
   }
   return { fields, body: source.slice(match[0].length) };
 }
