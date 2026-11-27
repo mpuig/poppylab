@@ -9,9 +9,9 @@
     "start": "next start -p 3000",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.worker.json",
     "test": "vitest run --passWithNoTests",
-    "lint": "tsc --noEmit",
+    "lint": "eslint .",
     "build:worker": "node scripts/build-worker.mjs",
-    "preview:worker": "wrangler dev --port 4400",
+    "preview:worker": "wrangler dev --port 8788",
     "deploy:worker": "OPEN_NEXT_DEPLOY=true wrangler deploy"
   },
   "dependencies": {

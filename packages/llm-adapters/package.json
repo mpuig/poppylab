@@ -12,7 +12,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run src",
-    "lint": "tsc -p tsconfig.json --noEmit"
+    "lint": "eslint ."
   },
   "devDependencies": {
     "typescript": "^5.9.3",

@@ -5,14 +5,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node scripts/site-script.mjs && tsx watch src/node.ts",
+    "dev": "node scripts/site-script.mjs --watch -- tsx watch src/node.ts",
     "start": "node scripts/site-script.mjs && tsx src/node.ts",
     "dev:worker": "node scripts/site-script.mjs && wrangler dev",
     "deploy": "node scripts/site-script.mjs && wrangler deploy",
     "build": "node scripts/site-script.mjs && tsc -p tsconfig.json --noEmit",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node scripts/site-script.mjs && vitest run src",
-    "lint": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
     "site:script": "node scripts/site-script.mjs"
   },
   "dependencies": {

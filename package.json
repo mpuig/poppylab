@@ -4,10 +4,15 @@
   "license": "Apache-2.0",
   "private": true,
   "packageManager": "pnpm@11.1.2",
+  "engines": {
+    "node": ">=22.18",
+    "pnpm": ">=11"
+  },
   "scripts": {
     "dev": "pnpm --parallel --filter @poppy-lab/playground --filter @poppy-lab/juniper --filter @poppy-lab/lantern --filter @poppy-lab/harborline --filter @poppy-lab/northwind --filter @poppy-lab/fernwick dev",
     "dev:playground": "pnpm --filter @poppy-lab/playground dev",
-    "dev:company": "pnpm --filter @poppy-lab/juniper dev",
+    "dev:juniper": "pnpm --filter @poppy-lab/juniper dev",
+    "dev:company": "pnpm dev:juniper",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck && tsc -p scripts/smoke",
     "test": "pnpm --workspace-concurrency=1 -r test --maxWorkers=2",

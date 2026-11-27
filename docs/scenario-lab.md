@@ -40,7 +40,7 @@ Some tests repeat across groups: report counts aren't unique normative requireme
 Juniper can turn the challenge on explicitly, without changing the existing server automatically:
 
 ```sh
-JUNIPER_DPOP_NONCE=required pnpm dev:company
+JUNIPER_DPOP_NONCE=required pnpm dev:juniper
 ```
 
 Don't run another instance against the same vault while the first is running. Without the variable, the previous behaviour is kept; the nonce tests turn it on in their isolated environment.
