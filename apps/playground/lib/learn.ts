@@ -209,14 +209,17 @@ const PUBLIC = "apps/playground/public/";
  * folder of the page that has the link, under `docs/learn`.
  */
 export function learnHref(href: string, from = "") {
-  if (/^(https?:|mailto:|#)/.test(href)) return href;
+  // An address on the site itself, such as a post's link to /playground.
+  if (/^(https?:|mailto:|#|\/)/.test(href)) return href;
   const [target, hash] = href.split("#") as [string, string | undefined];
   const anchor = hash ? `#${hash}` : "";
-  const file = path.posix.normalize(path.posix.join(from, target));
-  const page = LEARN_PAGES.find((p) => p.file === file);
+  const resolved = path.posix.normalize(
+    path.posix.join("docs/learn", from, target),
+  );
+  // By its path in the repository, so a post outside docs/learn finds it too.
+  const page = LEARN_PAGES.find((p) => `docs/learn/${p.file}` === resolved);
   if (page) return `/learn${page.slug ? `/${page.slug}` : ""}${anchor}`;
   // Anything else is a file or folder in the repository.
-  const resolved = path.posix.normalize(path.posix.join("docs/learn", file));
   if (resolved.startsWith(PUBLIC))
     return `/${resolved.slice(PUBLIC.length)}${anchor}`;
   const kind = path.posix.extname(resolved) ? "blob" : "tree";

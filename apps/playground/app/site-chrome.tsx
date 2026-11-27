@@ -6,6 +6,7 @@ import {
   labFootGroups,
   type LabFootGroup,
 } from "@poppy-lab/pap-core";
+import { loadPosts } from "@/lib/posts";
 import { SITE_NAME } from "@/lib/site";
 import { BarNav } from "./bar-nav";
 import { specLink } from "./spec-ref";
@@ -128,13 +129,20 @@ export const companies = [
   },
 ] as const;
 
-export function SiteBar({ current }: { current?: "developers" | "learn" }) {
+/** Posts has a link only once there is a post to read. */
+const hasPosts = () => loadPosts().length > 0;
+
+export function SiteBar({
+  current,
+}: {
+  current?: "developers" | "learn" | "posts";
+}) {
   return (
     <header className="bar">
       <a className="wordmark" href="/">
         {SITE_NAME}
       </a>
-      <BarNav current={current} />
+      <BarNav current={current} posts={hasPosts()} />
       <a className="button small" href="/playground">
         <span className="long">Try the live demo</span>
         <span className="short">Live demo</span>
@@ -145,11 +153,12 @@ export function SiteBar({ current }: { current?: "developers" | "learn" }) {
 
 /**
  * The footer's groups: the ones every Company's footer shows too, with the
- * lab's own pages about itself (About and Privacy) added to its group
- * here, since they are this site's and not the Companies'.
+ * lab's own pages about itself (Posts, About and Privacy) added to its
+ * group here, since they are this site's and not the Companies'.
  */
-export function footGroups(): LabFootGroup[] {
+export function footGroups(posts = hasPosts()): LabFootGroup[] {
   const own = [
+    ...(posts ? [{ label: "Posts", href: "/posts" }] : []),
     { label: "About", href: "/about" },
     { label: "Privacy", href: "/privacy" },
   ];

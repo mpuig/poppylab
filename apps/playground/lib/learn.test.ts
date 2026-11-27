@@ -31,6 +31,14 @@ describe("learn links", () => {
     expect(learnHref("#top")).toBe("#top");
   });
 
+  it("maps a Learn file from outside docs/learn, and keeps site addresses", () => {
+    const posts = "../../apps/playground/content/posts";
+    expect(learnHref("../../../../docs/learn/one-task.md#top", posts)).toBe(
+      "/learn/one-task#top",
+    );
+    expect(learnHref("/playground", posts)).toBe("/playground");
+  });
+
   it("clips a description at a sentence, or at a word", () => {
     const sentence = `${"A sentence that runs on. ".repeat(10)}And then some more words`;
     expect(clip("Short.")).toBe("Short.");

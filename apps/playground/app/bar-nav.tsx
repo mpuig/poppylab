@@ -20,8 +20,11 @@ const READING_LINE = 120;
  */
 export function BarNav({
   current,
+  posts = false,
 }: {
-  current?: "developers" | "learn" | undefined;
+  current?: "developers" | "learn" | "posts" | undefined;
+  /** Whether there is a post, so Posts has a link. */
+  posts?: boolean;
 }) {
   const [section, setSection] = useState<string>();
 
@@ -79,6 +82,15 @@ export function BarNav({
       >
         Developers
       </a>
+      {posts && (
+        <a
+          href="/posts"
+          data-label="Posts"
+          aria-current={current === "posts" ? "page" : undefined}
+        >
+          Posts
+        </a>
+      )}
     </nav>
   );
 }

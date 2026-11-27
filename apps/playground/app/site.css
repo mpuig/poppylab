@@ -1720,6 +1720,46 @@ body:has(.site) {
   margin-top: -12px;
   margin-bottom: 28px;
 }
+.reading-meta {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.site .learn-body + .reading-learn,
+.site .learn-foot + .reading-meta {
+  margin-top: 28px;
+}
+.site .reading-lead + .reading-meta {
+  margin: -12px 0 28px;
+}
+.reading-learn a {
+  color: var(--green);
+  text-decoration-color: var(--green-light);
+}
+/* The posts, newest first: the date beside the title and its subtitle. */
+.post-list div {
+  grid-template-columns: 160px minmax(0, 1fr);
+}
+.post-list dd a {
+  font-family: inherit;
+  font-size: 17px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.post-list dd a:hover {
+  text-decoration: underline;
+}
+.post-list dd p {
+  margin-top: 4px;
+  color: var(--ink-soft);
+  font-weight: 400;
+}
+@media (max-width: 520px) {
+  .post-list div {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+}
 @media (max-width: 900px) {
   .learn {
     grid-template-columns: 1fr;
