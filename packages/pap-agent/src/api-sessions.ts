@@ -15,6 +15,7 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import {
   isOpaqueId,
   listSessions,
+  loadAccount,
   loadSession,
   opaqueId,
   putSession,
@@ -81,14 +82,19 @@ export type SessionTokens = {
   refreshTokenExpiresAt: number;
 };
 
-/** A new session for a device, after a passkey proved the person. */
+/**
+ * A new session for a device, after a passkey proved the person; none
+ * when the passkey was removed in the meantime.
+ */
 export async function startSession(
   account: AgentAccount,
   input: { kind: "browser" | "app"; device: string; passkey: Passkey },
 ): Promise<
-  { session: ApiSession } & (
-    { kind: "browser"; cookie: string } | { kind: "app"; tokens: SessionTokens }
-  )
+  | ({ session: ApiSession } & (
+      | { kind: "browser"; cookie: string }
+      | { kind: "app"; tokens: SessionTokens }
+    ))
+  | undefined
 > {
   const now = Date.now();
   const base: ApiSession = {
@@ -112,6 +118,7 @@ export async function startSession(
       cookie: { hash: hash(cookie) },
     };
     if (!(await putSession(session, null))) throw new Error("Session conflict");
+    if (!(await stillHeld(session))) return undefined;
     return { session, kind: "browser", cookie };
   }
   const access = mint("at", base),
@@ -122,7 +129,21 @@ export async function startSession(
     refresh: { hash: hash(refresh), used: [] },
   };
   if (!(await putSession(session, null))) throw new Error("Session conflict");
+  if (!(await stillHeld(session))) return undefined;
   return { session, kind: "app", tokens: tokensOf(session, access, refresh) };
+}
+/**
+ * Whether the new session's passkey is still on the account, read after
+ * the session is written. Removing a passkey ends the sessions it
+ * started (`endSessionsOf`), so a sign-in that raced the removal is
+ * either ended by it or ends itself here.
+ */
+async function stillHeld(session: ApiSession) {
+  const found = await loadAccount(session.account);
+  if (found?.account.passkeys.some((p) => p.id === session.passkey))
+    return true;
+  await removeSession(session.account, session.id);
+  return false;
 }
 const tokensOf = (
   session: ApiSession,
@@ -272,6 +293,21 @@ export async function revokeSession(account: string, id: string) {
   if (!found) return false;
   await removeSession(account, id);
   return true;
+}
+
+/**
+ * Ends every session started with this passkey, once it is off the
+ * account: a lost phone's cookie and tokens stop working with it.
+ * Answers the sessions it ended.
+ */
+export async function endSessionsOf(account: string, passkey: string) {
+  const ended: string[] = [];
+  for (const session of await listSessions(account))
+    if (session.passkey === passkey) {
+      await removeSession(account, session.id);
+      ended.push(session.id);
+    }
+  return ended;
 }
 
 /** Ends every session of the account, this one too. */

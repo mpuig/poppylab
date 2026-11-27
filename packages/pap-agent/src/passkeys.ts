@@ -36,6 +36,7 @@ import {
   type AgentAccount,
   type Passkey,
 } from "./account-store";
+import { endSessionsOf } from "./api-sessions";
 import { publicMode } from "./deployment";
 
 /** Who the passkeys are for: this deployment's host and origin. */
@@ -293,11 +294,14 @@ export async function addPasskey(
   return { account: next, passkey };
 }
 
-/** Removes a passkey; the account keeps at least one. */
+/**
+ * Removes a passkey, and ends every session it started (`ended`, by
+ * ID); the account keeps at least one.
+ */
 export async function removePasskey(
   account: string,
   passkey: string,
-): Promise<AgentAccount | Refusal> {
+): Promise<{ account: AgentAccount; ended: string[] } | Refusal> {
   const next = await updateAccount<Refusal>(account, (current) => {
     if (!current.passkeys.some((p) => p.id === passkey))
       return {
@@ -322,7 +326,8 @@ export async function removePasskey(
   });
   if (!next)
     return refusal(404, "account_not_found", "There is no such account.");
-  return "refused" in next ? next.refused : next;
+  if ("refused" in next) return next.refused;
+  return { account: next, ended: await endSessionsOf(account, passkey) };
 }
 
 /** Options for signing in: no username, any of the site's passkeys. */

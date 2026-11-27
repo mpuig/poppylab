@@ -131,6 +131,14 @@ async function body(request: Request): Promise<Record<string, unknown>> {
 const fromPage = (request: Request) => request.headers.has("origin");
 const ipOf = (request: Request) => request.headers.get("cf-connecting-ip");
 
+/** A sign-in whose passkey was removed while it was under way. */
+const PASSKEY_GONE = () =>
+  refuse(
+    400,
+    "passkey_not_verified",
+    "This passkey was removed from the account. Sign in with another one.",
+  );
+
 /** Starts the device's session and answers it the way its client keeps it. */
 async function signedIn(
   request: Request,
@@ -146,6 +154,7 @@ async function signedIn(
       device,
       passkey,
     });
+    if (!started) return PASSKEY_GONE();
     if (started.kind !== "browser") throw new Error("Unreachable");
     cookies.set(accountCookie(), started.cookie, accountCookieOptions());
     return answer(
@@ -154,6 +163,7 @@ async function signedIn(
     );
   }
   const started = await startSession(account, { kind: "app", device, passkey });
+  if (!started) return PASSKEY_GONE();
   if (started.kind !== "app") throw new Error("Unreachable");
   return answer(
     {
@@ -335,8 +345,12 @@ export async function accountOperation(
       );
     }
     case "removePasskey": {
-      const next = await removePasskey(account.id, names.passkey ?? "");
-      return "status" in next ? refused(next) : answer(await shown(next));
+      const removed = await removePasskey(account.id, names.passkey ?? "");
+      if ("status" in removed) return refused(removed);
+      // This browser signed in with it: it is signed out with the rest.
+      if (browser && removed.ended.includes(signed.session))
+        cookies.set(accountCookie(), "", accountCookieOptions(0));
+      return answer(await shown(removed.account));
     }
     case "listSessions":
       return answer({ sessions: await sessionsOf(account.id, signed.session) });

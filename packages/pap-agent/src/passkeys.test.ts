@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { accountBackend, loadAccount } from "./account-store";
+import { accountBackend, listSessions, loadAccount } from "./account-store";
+import { startSession } from "./api-sessions";
 import {
   addOptions,
   addPasskey,
@@ -234,9 +235,9 @@ describe("an account's passkeys", () => {
 
     const first = added.account.passkeys[0]!;
     const left = await removePasskey(account.id, first.id);
-    expect("passkeys" in left && left.passkeys.map((p) => p.id)).toEqual([
-      added.passkey.id,
-    ]);
+    expect("account" in left && left.account.passkeys.map((p) => p.id)).toEqual(
+      [added.passkey.id],
+    );
     expect(await removePasskey(account.id, added.passkey.id)).toMatchObject({
       status: 409,
       code: "last_passkey",
@@ -269,6 +270,35 @@ describe("an account's passkeys", () => {
     ]);
     expect(results.filter((r) => "code" in r)).toHaveLength(1);
     expect((await loadAccount(account.id))!.account.passkeys).toHaveLength(1);
+  });
+
+  it("starts no session for a sign-in its passkey was removed under", async () => {
+    const { account } = await newAccount();
+    const phone = softwareAuthenticator(origin);
+    const started = await addOptions(rp, account);
+    if ("status" in started) throw new Error(started.error);
+    const added = await addPasskey(rp, account, {
+      ceremony: started.ceremony,
+      credential: await phone.create(started.options),
+      device: "iPhone",
+    });
+    if ("status" in added) throw new Error(added.error);
+    const { ceremony, options } = await signInOptions(rp);
+    const proved = await verifySignIn(rp, {
+      ceremony,
+      credential: await phone.get(options),
+    });
+    if ("status" in proved) throw new Error(proved.error);
+    // Removed on another device after the sign-in was verified.
+    await removePasskey(account.id, added.passkey.id);
+    expect(
+      await startSession(proved.account, {
+        kind: "app",
+        device: "iPhone",
+        passkey: proved.passkey,
+      }),
+    ).toBeUndefined();
+    expect(await listSessions(account.id)).toEqual([]);
   });
 
   it("is refused for a ceremony started for another account", async () => {

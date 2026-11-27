@@ -668,7 +668,7 @@ function accountPaths() {
       delete: {
         operationId: "removePasskey",
         summary:
-          "Remove a passkey. The account keeps at least one (`last_passkey`).",
+          "Remove a passkey, and end every session it started, this one too when it began with it. The account keeps at least one (`last_passkey`).",
         security: bearer,
         parameters: [passkeyId],
         responses: {

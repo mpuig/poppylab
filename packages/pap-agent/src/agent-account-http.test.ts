@@ -569,6 +569,8 @@ describe("devices", () => {
       page(cookies),
     );
     expect(removed.status).toBe(200);
+    // This browser had signed in with it, so it signs in again.
+    expect((await signIn(page(cookies), phone)).status).toBe(201);
     const last = await call(
       "DELETE",
       `/account/passkeys/${passkeys[1]!.id}`,
@@ -580,6 +582,85 @@ describe("devices", () => {
       "passkey_unknown",
     );
     expect((await signIn({}, phone)).status).toBe(201);
+  });
+
+  it("ends every session a removed passkey started, this device's too", async () => {
+    const laptop = visitor();
+    const created = await create(page(laptop));
+    const started = await call("POST", "/account/passkeys/options", {
+      ...page(laptop),
+      body: {},
+    });
+    const { ceremony, options } = started.data as {
+      ceremony: string;
+      options: Parameters<
+        ReturnType<typeof softwareAuthenticator>["create"]
+      >[0];
+    };
+    const lost = softwareAuthenticator(site);
+    const added = await call("POST", "/account/passkeys", {
+      ...page(laptop),
+      body: { ceremony, credential: await lost.create(options), device: "x" },
+    });
+    const [kept, gone] = (
+      added.data.account as { passkeys: Array<{ id: string }> }
+    ).passkeys;
+    // The lost phone signed in an app and a browser with its passkey.
+    const app = (await signIn({}, lost)).data.tokens!;
+    const browser = visitor();
+    expect((await signIn(page(browser), lost)).status).toBe(201);
+
+    const removed = await call(
+      "DELETE",
+      `/account/passkeys/${gone!.id}`,
+      page(laptop),
+    );
+    expect(removed.status).toBe(200);
+    const token = app.accessToken as string;
+    expect((await call("GET", "/account", { token })).status).toBe(401);
+    expect(
+      (
+        await call("POST", "/sessions/refresh", {
+          body: { refreshToken: app.refreshToken },
+        })
+      ).status,
+    ).toBe(401);
+    expect((await call("GET", "/account", { cookies: browser })).status).toBe(
+      401,
+    );
+    // The laptop signed in with the passkey it keeps, so it stays.
+    expect((await call("GET", "/account", { cookies: laptop })).status).toBe(
+      200,
+    );
+
+    // Removing the passkey this browser signed in with signs it out.
+    const other = visitor();
+    expect((await signIn(page(other), created.authenticator)).status).toBe(201);
+    const more = await call("POST", "/account/passkeys/options", {
+      ...page(other),
+      body: {},
+    });
+    const spare = softwareAuthenticator(site);
+    await call("POST", "/account/passkeys", {
+      ...page(other),
+      body: {
+        ceremony: more.data.ceremony,
+        credential: await spare.create(
+          more.data.options as Parameters<typeof spare.create>[0],
+        ),
+        device: "y",
+      },
+    });
+    const self = await call(
+      "DELETE",
+      `/account/passkeys/${kept!.id}`,
+      page(other),
+    );
+    expect(self.status).toBe(200);
+    expect(other.map.has("poppy_account")).toBe(false);
+    expect((await call("GET", "/account", { cookies: laptop })).status).toBe(
+      401,
+    );
   });
 });
 
