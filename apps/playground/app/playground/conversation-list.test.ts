@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { CompaniesOf } from "./conversation-list";
+import { CompaniesOf, readConversations } from "./conversation-list";
 
 const row = (item: Parameters<typeof CompaniesOf>[0]["item"]) =>
   renderToStaticMarkup(createElement(CompaniesOf, { item }));
@@ -28,6 +28,33 @@ it("lists a conversation with every Company it has, and one with none", () => {
   expect(row({ company: "No company yet", companies: [] })).toBe(
     "<strong>No company yet</strong>",
   );
+});
+
+it("reads a refused list as an error, not as no conversations", async () => {
+  // The route refuses a request from another origin, or past its budget,
+  // with an error body and no list in it.
+  await expect(
+    readConversations(
+      Response.json(
+        { error: "Same-origin browser requests required" },
+        { status: 403 },
+      ),
+    ),
+  ).rejects.toThrow();
+  await expect(
+    readConversations(Response.json({ error: "Busy" }, { status: 429 })),
+  ).rejects.toThrow();
+  const item = {
+    id: "run_1",
+    company: "Lantern Noodle Bar",
+    created: 1,
+    active: true,
+    until: 2,
+  };
+  expect(
+    await readConversations(Response.json({ conversations: [item] })),
+  ).toEqual([item]);
+  expect(await readConversations(Response.json({}))).toEqual([]);
 });
 
 it("lists a Company removed from the conversation, marked as removed", () => {

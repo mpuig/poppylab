@@ -59,6 +59,18 @@ const when = (time: number) =>
   });
 
 /**
+ * The list from `GET /api/conversations`. A refusal (403, 429) carries an
+ * error and no list, and is no answer that there are none.
+ */
+export async function readConversations(
+  response: Response,
+): Promise<Summary[]> {
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const data = (await response.json()) as { conversations?: Summary[] };
+  return data.conversations ?? [];
+}
+
+/**
  * The visitor's conversations, each a link to its own address, and the one
  * action that starts the demo over. A new conversation keeps what earlier
  * ones changed at the Companies; only a reset gives fresh data.
@@ -78,8 +90,8 @@ export function ConversationList({
 
   const load = useCallback(() => {
     void fetch("/api/conversations")
-      .then((r) => r.json())
-      .then((data) => setList(data.conversations ?? []))
+      .then(readConversations)
+      .then(setList)
       .catch(() => setError("Couldn’t load your conversations. Try again."));
   }, []);
   useEffect(load, [load]);
