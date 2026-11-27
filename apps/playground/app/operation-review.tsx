@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useState, type ReactNode } from "react";
-import { ArrowRight } from "lucide-react";
+import { useEffect, useState, type MouseEvent, type ReactNode } from "react";
+import { ArrowRight, Check } from "lucide-react";
 import {
   amountToApprove,
   changes,
@@ -12,9 +12,9 @@ import {
   ownLayout,
   termRows,
   termValue,
-  waitsAgain,
   type ReviewOperation,
 } from "@poppy-lab/pap-agent/operation-presentation";
+import { agentName } from "@poppy-lab/pap-agent/agent";
 /** The amounts of Juniper's and Lantern's terms, as their cards name them. */
 const moneyRows = [
   ["subtotal_cents", "Products"],
@@ -28,17 +28,78 @@ const moneyRows = [
   ["new_total_cents", "New total"],
   ["refund_cents", "Refund"],
 ] as const;
-const states: Record<string, string> = {
-  proposed: "Approval required",
-  succeeded: "Completed",
-  declined: "Declined",
-  refused: "Declined by the Company",
-  failed: "Not applied",
-  expired: "Expired",
-  uncertain: "Outcome unknown",
-  // The Company answered an approval with new terms under another ID.
-  superseded: "Replaced by new terms",
-};
+
+/** "17:42": a time of today, as the card says when something happened. */
+export function hourOf(at: number | undefined) {
+  if (at === undefined || !Number.isFinite(at)) return "";
+  const d = new Date(at);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** "17:42", or "27 Nov, 17:42" when it isn't today. */
+export function whenOf(at: number, now = Date.now()) {
+  const d = new Date(at);
+  return d.toDateString() === new Date(now).toDateString()
+    ? hourOf(at)
+    : `${d.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}, ${hourOf(at)}`;
+}
+
+/**
+ * What the card says of where its proposal stands, in a few words, and
+ * the tone of the mark beside them: `waiting` (amber, it is the person's
+ * to do), `done` (green, performed), or `ended` (neutral).
+ */
+export function cardState(
+  op: ReviewOperation,
+  now = Date.now(),
+): { words: string; tone: "waiting" | "done" | "ended" } {
+  const pending = op.state === "proposed" && Date.parse(op.expires_at) > now;
+  if (pending) return { words: "Waiting for you", tone: "waiting" };
+  const at = (time: number | undefined) =>
+    time !== undefined ? ` · ${whenOf(time, now)}` : "";
+  // An approval's time is in seconds, as it was sent to the Company.
+  const approved =
+    op.approval?.approved_at !== undefined
+      ? op.approval.approved_at * 1000
+      : undefined;
+  switch (op.state) {
+    case "proposed":
+    case "expired":
+      return { words: "Expired", tone: "ended" };
+    case "uncertain":
+      return { words: "Outcome unknown", tone: "waiting" };
+    case "succeeded":
+      return {
+        words:
+          op.approvedBy?.approver === "agent"
+            ? `Approved by ${agentName()} on your standing instruction${at(approved)}`
+            : op.approvedBy?.approver === "user"
+              ? `Approved by you${at(approved)}`
+              : "Done by the Company",
+        tone: "done",
+      };
+    case "declined":
+      return { words: `Declined by you${at(op.changed)}`, tone: "ended" };
+    case "refused":
+      return { words: "Declined by the Company", tone: "ended" };
+    case "failed":
+      return { words: "Not applied", tone: "ended" };
+    // The Company answered an approval with new terms under another ID.
+    case "superseded":
+      return { words: "Replaced by new terms", tone: "ended" };
+    default:
+      return { words: op.state, tone: "ended" };
+  }
+}
+
+/**
+ * One proposal, as a card in the transcript where it arrived: the
+ * Company's name and host, what changes before and after, what the
+ * Company says (as its words, §10.1), when the terms run out, and one
+ * Approve and Decline. Once it is decided or has run out, the same card
+ * folds to how it ended; it stays where it was.
+ */
 export function OperationReview({
   op,
   company,
@@ -47,9 +108,9 @@ export function OperationReview({
   signedIn,
   onAction,
   notApplied,
-  open,
-  onOpen,
   mark,
+  error,
+  id,
 }: {
   op: ReviewOperation;
   company: string;
@@ -62,16 +123,17 @@ export function OperationReview({
   domain?: string | undefined;
   busy: boolean;
   signedIn: boolean;
-  onAction: (action: string, op: ReviewOperation) => void;
+  /**
+   * The person's decision. `keyboard` is true when it was pressed from
+   * the keyboard, so the page can give the message box its focus back.
+   */
+  onAction: (action: string, op: ReviewOperation, keyboard?: boolean) => void;
   /** Why the User's standing instruction left this to them (`leftToUser`). */
   notApplied?: string | null | undefined;
-  /**
-   * "Needs you" opens one waiting card at a time: whether it is this one,
-   * and the person's click on its title. Without them the card opens itself
-   * while it waits.
-   */
-  open?: boolean | undefined;
-  onOpen?: ((open: boolean) => void) | undefined;
+  /** What went wrong with the person's last decision on this card. */
+  error?: string | undefined;
+  /** The card's element ID, for the inbox to bring it into view. */
+  id?: string | undefined;
 }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -95,40 +157,50 @@ export function OperationReview({
   const active = pending || state === "uncertain";
   const total = amountToApprove(op);
   const disagreements = summaryDisagreements(op);
-  // A finished operation says how it ended on its closed entry.
-  const ended = active ? {} : outcome(op, state, company);
+  const stand = cardState(op, now);
+  // A finished operation says how it ended on its closed entry. Who
+  // approved it is in its state already.
+  const told = active ? {} : outcome(op, state, company);
+  const ended = {
+    says: told.says,
+    note:
+      (state === "succeeded"
+        ? told.note?.replace(/\s*Approved by [^.]*\.$/, "").trim()
+        : told.note) || undefined,
+  };
+  // The generic title says nothing a closed card needs: its first change does.
+  const title =
+    operationTitle(op) === "Review Company proposal" && diff[0]
+      ? `${diff[0].label}: ${diff[0].before} → ${diff[0].after}`
+      : operationTitle(op);
+  const act = (action: string) => (event: MouseEvent<HTMLButtonElement>) =>
+    // A click from the keyboard has no pointer, and no click count.
+    onAction(action, op, event.detail === 0);
   return (
-    <details className="operation-review" open={open ?? active}>
-      <summary
-        className="operation-summary"
-        onClick={
-          onOpen &&
-          ((event) => {
-            event.preventDefault();
-            onOpen(!open);
-          })
-        }
-      >
-        <span>
+    <details
+      className={`operation-review ${stand.tone}`}
+      open={active}
+      {...(id ? { id } : {})}
+    >
+      <summary className="operation-summary">
+        <span className="operation-company">
           {mark}
-          {operationTitle(op)}
+          <strong>{company}</strong>
+          {domain ? <span> · {domain}</span> : null}
         </span>
-        <span className="operation-state">
-          {mark ? `${company} · ` : ""}
-          {states[state] ?? state}
-          {/* A closed line among several says what tells it apart: why it
-              waits again, which its note says only once it is open, and its
-              amount. */}
-          {open === false && pending
-            ? [
-                waitsAgain(op, notApplied),
-                total && `${total.text} ${total.label}`,
-              ]
-                .filter(Boolean)
-                .map((words) => ` · ${words}`)
-                .join("")
-            : ""}
+        <span className={`operation-state ${stand.tone}`}>
+          {stand.tone === "done" && (
+            <Check size={14} strokeWidth={2.5} aria-hidden="true" />
+          )}
+          {stand.words}
+          {pending && (
+            <span className="operation-expiry">
+              {" "}
+              · expires {whenOf(Date.parse(op.expires_at), now)}
+            </span>
+          )}
         </span>
+        <span className="operation-title">{title}</span>
         {(ended.says || ended.note) && (
           <span className="operation-outcome">
             {ended.says && (
@@ -143,21 +215,36 @@ export function OperationReview({
         )}
       </summary>
       <div className="operation-content">
-        <p className="quiet operation-company">
-          {company}
-          {domain ? <> · {domain}</> : null} · terms revision {op.revision}
-        </p>
         {total && pending && (
           <p className="operation-headline" data-total>
             <span>{total.text}</span>
             <strong>{total.label}</strong>
           </p>
         )}
+        {diff.map((row, index) => (
+          <div className="operation-diff" key={`${row.label}-${index}`}>
+            <strong>{row.label}</strong>
+            <div>
+              <span>
+                <small>Before</small>
+                {row.before}
+              </span>
+              <ArrowRight size={18} aria-hidden="true" />
+              <span>
+                <small>After</small>
+                {row.after}
+              </span>
+            </div>
+          </div>
+        ))}
         {op.summary ? (
           // Quoted as the Company's words and shown as text: a summary's
           // Markdown, links or images never render.
           <figure className="company-says">
-            <figcaption>{company} says:</figcaption>
+            <figcaption>
+              {company} says:{" "}
+              <span className="company-badge">Company content</span>
+            </figcaption>
             <blockquote>{op.summary}</blockquote>
           </figure>
         ) : (
@@ -178,22 +265,6 @@ export function OperationReview({
             </ul>
           </div>
         )}
-        {diff.map((row, index) => (
-          <div className="operation-diff" key={`${row.label}-${index}`}>
-            <strong>{row.label}</strong>
-            <div>
-              <span>
-                <small>Before</small>
-                {row.before}
-              </span>
-              <ArrowRight size={18} aria-hidden="true" />
-              <span>
-                <small>After</small>
-                {row.after}
-              </span>
-            </div>
-          </div>
-        ))}
         {!!read?.rows.length && (
           <dl className="operation-money operation-fields">
             {read.rows.map((row) => (
@@ -248,11 +319,10 @@ export function OperationReview({
           <pre className="operation-exact">
             {JSON.stringify(op.terms ?? {}, null, 2)}
           </pre>
-          <p className="quiet">Operation {op.operation_id}</p>
         </details>
         {pending && (
           <p className="quiet">
-            Approval covers only revision {op.revision}. Expires{" "}
+            Approving covers exactly these terms. They expire{" "}
             {new Date(op.expires_at).toLocaleString()}.
           </p>
         )}
@@ -262,9 +332,13 @@ export function OperationReview({
             same approval; the Company performs it at most once.
           </p>
         )}
+        {error && (
+          <p className="operation-error" role="alert">
+            {error}
+          </p>
+        )}
         {active && (
-          // Why the card still waits belongs with its buttons: "Needs you"
-          // keeps this foot in view while the terms scroll behind it.
+          // Why the card still waits belongs with its buttons.
           <div className="operation-foot">
             {pending && op.agentDeclined && (
               <p className="operation-ledger declined" role="status">
@@ -307,15 +381,15 @@ export function OperationReview({
                     type="button"
                     className="connect-button"
                     disabled={busy || !signedIn}
-                    onClick={() => onAction("approve", op)}
+                    onClick={act("approve")}
                   >
                     {total ? `Approve ${total.label}` : "Approve this change"}
                   </button>
                   <button
                     type="button"
-                    className="text-button"
+                    className="ghost-button"
                     disabled={busy}
-                    onClick={() => onAction("decline", op)}
+                    onClick={act("decline")}
                   >
                     Decline
                   </button>
@@ -325,7 +399,7 @@ export function OperationReview({
                   type="button"
                   className="connect-button"
                   disabled={busy || !signedIn}
-                  onClick={() => onAction("retry", op)}
+                  onClick={act("retry")}
                 >
                   Retry the same approval
                 </button>

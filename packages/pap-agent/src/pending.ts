@@ -10,7 +10,7 @@
  * code or OAuth `state`. Plain data and no I/O, safe for a page to load;
  * a stored run is read in `pending-runs.ts`.
  */
-import { proposalNoun, questionCents } from "./approval-question";
+import { firstChange, proposalNoun, questionCents } from "./approval-question";
 import {
   money,
   needsYou,
@@ -61,11 +61,21 @@ export type PendingCompany = {
 
 const iso = (ms: number) => new Date(ms).toISOString();
 
-/** "the $88.00 change", "the transfer": one proposal, its Company aside. */
+/**
+ * "the $88.00 change", "the transfer", "the change of plan from Time of
+ * use to Flat rate": one proposal, its Company aside.
+ */
 function proposalWords(op: ReviewOperation) {
   const amount = questionCents(op);
   const currency = op.terms?.currency;
-  return `the ${amount !== undefined && typeof currency === "string" && /^[A-Z]{3}$/.test(currency) ? `${money(amount, currency)} ` : ""}${proposalNoun(op)}`;
+  const noun = proposalNoun(op);
+  const priced =
+    amount !== undefined &&
+    typeof currency === "string" &&
+    /^[A-Z]{3}$/.test(currency);
+  if (priced) return `the ${money(amount, currency)} ${noun}`;
+  const what = noun === "change" ? firstChange(op) : undefined;
+  return what ? `the change of ${what}` : `the ${noun}`;
 }
 
 /** What a waiting proposal asks of the User. */

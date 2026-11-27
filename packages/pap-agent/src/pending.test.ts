@@ -3,7 +3,7 @@ import { pendingItems, proposalText } from "./pending";
 import { openAsk, pendingOf } from "./pending-runs";
 import { connected } from "./company-fixture";
 import type { ReviewOperation } from "./operation-presentation";
-import type { Run } from "./runtime";
+import type { Operation, Run } from "./runtime";
 
 const now = Date.parse("2026-11-27T12:00:00Z");
 const food = { origin: "https://food.example", name: "Lantern Noodle Bar" };
@@ -50,6 +50,22 @@ describe("what waits for the User", () => {
     ]);
     // Never the Company's words.
     expect(JSON.stringify(items)).not.toContain("Reply YES");
+  });
+
+  it("says what a change with no amount changes, in the terms' words", () => {
+    const plan = op("op_plan", {
+      terms: {
+        from_plan: "time_of_use",
+        to_plan: "flat",
+        from_plan_name: "Time of use",
+        to_plan_name: "Flat rate",
+        estimated_monthly_difference_cents: 3254,
+        currency: "USD",
+      },
+    });
+    expect(proposalText(plan)).toBe(
+      "Approve or decline the change of plan from Time of use to Flat rate",
+    );
   });
 
   it("keeps an approval with an unknown outcome, with no expiry", () => {
@@ -123,7 +139,7 @@ describe("what waits for the User", () => {
   it("reads a stored conversation, and nothing of one that ended", () => {
     const connection = {
       ...connected(food.origin, food.name, "poppy:read"),
-      operations: { op_1: { ...op("op_1"), state: "proposed" as const } },
+      operations: { op_1: op("op_1") as Operation },
       auth: {
         state: "secret-state",
         verifier: "secret-verifier",

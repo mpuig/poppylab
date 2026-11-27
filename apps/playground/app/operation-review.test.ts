@@ -1,7 +1,7 @@
 import { it, expect, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { OperationReview } from "./operation-review";
+import { cardState, hourOf, OperationReview } from "./operation-review";
 const op = {
   operation_id: "op_test",
   revision: "r1",
@@ -79,8 +79,11 @@ it("shows the domain discovery proved next to the Company's claimed name (§10.3
     }),
   );
   expect(html).toContain(
-    "Juniper Market · grocery-demo.poppylab.dev · terms revision",
+    "<strong>Juniper Market</strong><span> · grocery-demo.poppylab.dev</span>",
   );
+  // The revision and the operation's ID are the Inspector's, not the card's.
+  expect(html).not.toContain("revision");
+  expect(html).not.toContain("op_test");
 });
 it("labels a Company's decline", () => {
   const html = render("refused");
@@ -199,19 +202,31 @@ it("shows the Company's confirmation and who approved on a finished entry", () =
     result: { summary: refunded },
     approvedBy: { approver: "user" },
   });
-  expect(own).toContain("Completed");
   // Company content, marked as the Company's words.
   expect(own).toContain(
     `<span class="company-says"><small>Lantern Noodle Bar says:</small>${refunded}</span>`,
   );
-  expect(own).toContain("Approved by you.");
+  // Who approved, said once, in the card's state.
+  expect(own).toContain("Approved by you");
+  expect(own.match(/Approved by you/g)).toHaveLength(1);
+  // The approval's time is in seconds, as it went to the Company.
+  const at = Math.floor(Date.now() / 1000) - 1;
+  expect(
+    entry({
+      state: "succeeded",
+      approvedBy: { approver: "user" },
+      approval: { approved_at: at },
+    }),
+  ).toContain(`Approved by you · ${hourOf(at * 1000)}`);
   expect(
     entry({
       state: "succeeded",
       result: { summary: refunded },
       approvedBy: { approver: "agent", rule: "$37.00 within your limit" },
     }),
-  ).toContain("Approved by Iris on your standing instruction.");
+  ).toContain("Approved by Iris on your standing instruction");
+  // Performed, though nobody here approved it: the Company says it did it.
+  expect(entry({ state: "succeeded" })).toContain("Done by the Company");
   // A Company that sent no confirmation is not quoted as saying one.
   const silent = entry({
     state: "succeeded",
@@ -219,9 +234,7 @@ it("shows the Company's confirmation and who approved on a finished entry", () =
     approvedBy: { approver: "user" },
   });
   expect(silent).not.toContain("says:");
-  expect(silent).toContain(
-    "The Company performed the approved operation. Approved by you.",
-  );
+  expect(silent).toContain("The Company performed the approved operation.");
 });
 it("says on a closed entry why nothing was done and what to do next", () => {
   expect(
@@ -658,70 +671,60 @@ it("keeps every note on why a card still waits in its foot, with the buttons", (
     /^<div class="operation-foot"><div class="operation-actions">/,
   );
 });
-it("is open or a closed line as the panel says, and a closed line names its amount", () => {
-  const waiting = (open?: boolean) =>
+it("says where its proposal stands on its line, and folds once decided", () => {
+  const card = (marks: object, more: object = {}) =>
     renderToStaticMarkup(
       createElement(OperationReview, {
-        op: { ...op, terms: harborlineTransfer },
+        op: { ...op, terms: harborlineTransfer, ...marks },
         company: "Harborline Bank",
         busy: false,
         signedIn: true,
         onAction: vi.fn(),
-        ...(open === undefined ? {} : { open, onOpen: vi.fn() }),
+        ...more,
       }),
     );
-  const line = (html: string) => html.slice(0, html.indexOf("</summary>"));
-  // Two transfers waiting read the same but for their amounts.
-  expect(waiting(false)).toMatch(/^<details class="operation-review">/);
-  expect(line(waiting(false))).toContain(
-    '<span class="operation-state">Approval required · Amount $25.00</span>',
+  const head = (html: string) => html.slice(0, html.indexOf("</summary>"));
+  // Waiting: open, in amber, with when it runs out and one pair of buttons.
+  const waiting = card({}, { id: "proposal-1" });
+  expect(waiting).toMatch(
+    /^<details class="operation-review waiting" open="" id="proposal-1">/,
   );
-  // Open, the headline says it.
-  expect(waiting(true)).toMatch(/^<details class="operation-review" open/);
-  expect(line(waiting(true))).toContain(
-    '<span class="operation-state">Approval required</span>',
+  expect(head(waiting)).toContain(
+    '<span class="operation-state waiting">Waiting for you<span class="operation-expiry"> · expires ',
   );
-  // Outside the panel a waiting card opens itself.
-  expect(waiting()).toMatch(/^<details class="operation-review" open/);
+  expect(waiting.match(/<button/g)).toHaveLength(2);
+  expect(waiting).toContain("Approve $25.00");
+  expect(waiting).toContain(">Decline</button>");
+  // Decided: closed to one line that says how it ended, with no buttons.
+  const declined = card({ state: "declined", changed: Date.now() });
+  expect(declined).toMatch(/^<details class="operation-review ended">/);
+  expect(head(declined)).toMatch(/Declined by you · \d\d:\d\d/);
+  expect(declined).not.toContain("<button");
+  expect(head(card({ state: "expired" }))).toContain("Expired");
+  // What went wrong with the last decision is said on the card.
+  expect(card({}, { error: "That didn't reach the company." })).toContain(
+    '<p class="operation-error" role="alert">That didn&#x27;t reach the company.</p>',
+  );
 });
-it("says on a closed line why its proposal waits again, before its amount", () => {
-  const line = (marks: object, notApplied?: string, open = false) =>
-    /<span class="operation-state">(.*?)<\/span>/.exec(
-      renderToStaticMarkup(
-        createElement(OperationReview, {
-          op: { ...op, terms: harborlineTransfer, ...marks },
-          company: "Harborline Bank",
-          busy: false,
-          signedIn: true,
-          onAction: vi.fn(),
-          notApplied,
-          open,
-          onOpen: vi.fn(),
-        }),
-      ),
-    )?.[1];
-  const refused = {
-    notPerformed: "refused",
-    result: { summary: "Harborline Bank refused this request (HTTP 409)." },
-  };
-  // One nobody has answered, and one the Company refused.
-  expect(line({})).toBe("Approval required · Amount $25.00");
-  expect(line(refused)).toBe(
-    "Approval required · Last approval refused · Amount $25.00",
-  );
-  expect(line({ notPerformed: "new_terms" })).toBe(
-    "Approval required · Came back with new terms · Amount $25.00",
-  );
-  expect(line({ agentDeclined: { reason: "Not for agents." } })).toBe(
-    "Approval required · Iris’s approval declined · Amount $25.00",
-  );
-  expect(line({}, "the amount, $25.00, is over your limit of $10.00")).toBe(
-    "Approval required · Standing instruction did not apply · Amount $25.00",
-  );
-  // Open, the note in the card's foot says it in full.
-  expect(line(refused, undefined, true)).toBe("Approval required");
-  // One that no longer waits says how it ended, not why it waited.
-  expect(line({ ...refused, state: "refused" })).toBe(
-    "Declined by the Company",
+it("names each state in a few words, and its tone", () => {
+  const now = Date.now();
+  const at = (marks: object) =>
+    cardState({ ...op, ...marks } as Parameters<typeof cardState>[0], now);
+  expect(at({})).toEqual({ words: "Waiting for you", tone: "waiting" });
+  expect(at({ expires_at: new Date(now - 1).toISOString() })).toEqual({
+    words: "Expired",
+    tone: "ended",
+  });
+  expect(at({ state: "uncertain" }).tone).toBe("waiting");
+  expect(at({ state: "refused" }).words).toBe("Declined by the Company");
+  expect(at({ state: "superseded" }).words).toBe("Replaced by new terms");
+  expect(
+    at({
+      state: "succeeded",
+      approvedBy: { approver: "agent" },
+      approval: { approved_at: Math.floor(now / 1000) },
+    }).words,
+  ).toBe(
+    `Approved by Iris on your standing instruction · ${hourOf(Math.floor(now / 1000) * 1000)}`,
   );
 });

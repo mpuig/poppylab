@@ -27,6 +27,10 @@ export type ReviewOperation = {
   notPerformed?: "refused" | "new_terms";
   /** Why the standing instruction left these terms to the User, once kept. */
   notApplied?: string;
+  /** The approval as sent: when, in seconds (Operations v3 §6). */
+  approval?: { approved_at: number };
+  /** When it last changed here (its terms came, or the User declined it). */
+  changed?: number;
 };
 /** The full stop a Company's words still need to end a sentence, if any. */
 const stop = (words: string) => (/[.!?…]["'”’)\]]*$/.test(words) ? "" : ".");
@@ -357,7 +361,23 @@ export function termRows(op: ReviewOperation) {
     const lines = text.slice(text.indexOf(":") + 1).trim();
     if (lines) rows.push({ key, label: fieldLabel(key), value: lines });
   }
-  return { changes, rows };
+  return { changes: inWords(changes), rows };
+}
+/**
+ * A change the terms also name in words ("plan" beside "plan name", as
+ * `time-of-use` beside "Time of use") is told once, in those words, under
+ * the field's own label.
+ */
+export function inWords<T extends { label: string }>(rows: readonly T[]): T[] {
+  const labels = new Set(rows.map((row) => row.label.toLowerCase()));
+  return rows
+    .filter((row) => !labels.has(`${row.label.toLowerCase()} name`))
+    .map((row) =>
+      / name$/i.test(row.label) &&
+      labels.has(row.label.toLowerCase().replace(/ name$/, ""))
+        ? { ...row, label: row.label.replace(/ name$/i, "") }
+        : row,
+    );
 }
 /**
  * Where a summary names an amount the terms do not contain. The summary is
@@ -397,8 +417,8 @@ export function needsYou(op: ReviewOperation, now = Date.now()) {
 }
 
 /**
- * Why a proposal waits again, in a few words for its closed line in "Needs
- * you", where the note in its card's foot does not show. What became of the
+ * Why a proposal waits again, in a few words for its line in the inbox of
+ * what waits, where the note in its card's foot does not show. What became of the
  * approval sent last comes first: `result` is its sentence while the terms
  * still wait, and `notPerformed` says whether it was refused or answered
  * with new terms. Then what the Company did with an approval Iris sent,
@@ -411,20 +431,6 @@ export function waitsAgain(op: ReviewOperation, notApplied?: string | null) {
   if (op.agentSuperseded) return "Came back with new terms";
   if (op.agentDeclined) return `${agentName()}’s approval declined`;
   return notApplied ? "Standing instruction did not apply" : "";
-}
-
-/**
- * The waiting operations in the order "Needs you" lists them. One card is
- * open at a time and it comes last, so the others are closed lines above it
- * and the buttons at the panel's foot are always its own. It is the one the
- * User opened, or the first to arrive while that one is not waiting.
- */
-export function openLast<T extends { operation_id: string }>(
-  waiting: T[],
-  chosen?: string,
-): T[] {
-  const last = waiting.find((op) => op.operation_id === chosen) ?? waiting[0];
-  return last ? [...waiting.filter((op) => op !== last), last] : [];
 }
 
 /** What the account route records when a Company's result has no summary. */

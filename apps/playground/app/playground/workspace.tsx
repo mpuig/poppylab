@@ -52,8 +52,28 @@ const day = (time: number) =>
  * phone showed the last three and hid Juniper and Lantern above them.
  */
 function toEnd(transcript: HTMLElement | null) {
-  if (transcript && !transcript.querySelector(":scope > .company-picker"))
-    transcript.scrollTop = transcript.scrollHeight;
+  if (!transcript || transcript.querySelector(":scope > .company-picker"))
+    return;
+  transcript.scrollTop = transcript.scrollHeight;
+  // A waiting card taller than the room left is read from Iris's question
+  // above it, not from its buttons.
+  const card = [
+    ...transcript.querySelectorAll<HTMLElement>(
+      ":scope > .operation-review.waiting",
+    ),
+  ].at(-1);
+  const before = card?.previousElementSibling;
+  // Only while it is the latest thing said: what follows is read first.
+  let next = card?.nextElementSibling;
+  while (next && !next.matches(".message")) next = next.nextElementSibling;
+  if (!before || next) return;
+  const top =
+    before.getBoundingClientRect().top -
+    transcript.getBoundingClientRect().top +
+    transcript.scrollTop -
+    8;
+  if (transcript.scrollHeight - top > transcript.clientHeight)
+    transcript.scrollTop = top;
 }
 
 /**

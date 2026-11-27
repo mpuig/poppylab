@@ -2,6 +2,7 @@ import { isLocalCompany } from "@poppy-lab/pap-core";
 import type { AgentStep } from "@poppy-lab/pap-agent/agent-steps";
 import { isSandbox } from "@poppy-lab/pap-agent/company-policy";
 import { DEMO_SUGGESTIONS } from "@poppy-lab/pap-agent/demo-examples";
+import type { ProposalRef } from "@poppy-lab/pap-agent/approval-question";
 import type { TranscriptEntry } from "@poppy-lab/pap-agent/transcript";
 
 // Inlined at build time: local Companies in development, poppylab.dev when deployed.
@@ -110,6 +111,11 @@ export type Message = {
   using?: CompanyRef[];
   /** Iris's buttons, for the person to answer with. */
   choices?: Choice[];
+  /**
+   * The proposals that arrived with this message: their cards follow it
+   * in the transcript, and stay there once decided (`transcript-items.ts`).
+   */
+  proposals?: ProposalRef[];
   /**
    * A page for the person to open themselves: a Company's sign-in, when
    * the browser kept its tab from opening. The page's own, never kept.
@@ -222,6 +228,8 @@ export const historyToMessages = (
         ...(m.using?.length ? { using: m.using } : {}),
         // Its buttons, while it is the last thing said.
         ...(m.choices?.length ? { choices: m.choices } : {}),
+        // The proposals it brought, whose cards follow it.
+        ...(m.proposals?.length ? { proposals: m.proposals } : {}),
       },
     ];
   });

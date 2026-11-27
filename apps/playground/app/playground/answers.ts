@@ -8,6 +8,7 @@ import {
   logEntry,
   type ProtocolEntry,
 } from "@poppy-lab/pap-agent/protocol-log";
+import type { ProposalRef } from "@poppy-lab/pap-agent/approval-question";
 import type { Choice, CompanyRef, Message } from "./companies";
 
 /** An Inspector line, and the Company the request was for. */
@@ -63,7 +64,9 @@ export type ChatAnswer = {
    * person: a proposal to approve, a sign-in the turn stopped for, an
    * invitation. Its buttons are quick replies; a typed answer works too.
    */
-  question?: { text: string; choices?: Choice[] };
+  question?: { text: string; choices?: Choice[]; proposals?: ProposalRef[] };
+  /** An answer of Iris's own that asks about new terms: the ones it brought. */
+  proposals?: ProposalRef[];
   data?: unknown;
   trace?: string[];
   /**
@@ -121,6 +124,9 @@ export function turnMessages(data: ChatAnswer): Message[] {
                 role: "Own" as const,
                 text: data.text,
                 ...(data.choices?.length ? { choices: data.choices } : {}),
+                ...(data.proposals?.length
+                  ? { proposals: data.proposals }
+                  : {}),
               }
             : {
                 role: (data.mode === "demo"
@@ -146,6 +152,9 @@ export function turnMessages(data: ChatAnswer): Message[] {
             text: data.question.text,
             ...(data.question.choices?.length
               ? { choices: data.question.choices }
+              : {}),
+            ...(data.question.proposals?.length
+              ? { proposals: data.question.proposals }
               : {}),
           },
         ]

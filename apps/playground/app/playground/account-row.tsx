@@ -7,15 +7,13 @@ import {
   EspiAuthorization,
   type EspiAuthorizationRecord,
 } from "./espi-authorization";
-import { unsentFor } from "@poppy-lab/pap-agent/agent-steps";
 import { FromCompany } from "./company-mark";
-import type { Message } from "./companies";
-import { mayChange, type CompanyState, type Operation } from "./company-state";
+import type { CompanyState, Operation } from "./company-state";
 import { openQuestion, signInOf } from "./typed";
 import { extensionOf, type Playground } from "./use-playground";
 
 /** What the account row says of each domain extension's grant. */
-const GRANT_WORDS = {
+export const GRANT_WORDS = {
   fdx: {
     revoked: (company: string) =>
       `FDX consent revoked. ${company} ended the grant and its tokens, and ${company} is signed out in this conversation.`,
@@ -52,46 +50,12 @@ export const leftOutAt =
     );
 
 /**
- * Whether the account row of the Company the conversation is with has
- * something for the person to press there now, which is when it closes
- * the transcript: a sign-in under way, access lost or a grant revoked, a
- * sign-in or permission the last turn there stopped for, or what the
- * guide asks of that Company (sign in, or Request change permission).
- * Otherwise its controls are in the Company's panel in the Companies bar.
- */
-export function rowWaits(
-  p: Pick<Playground, "extensionSignIn" | "moreAccess">,
-  c: CompanyState,
-  messages: Message[],
-  guide: { company: CompanyState | undefined; step: number },
-) {
-  if (c.signingIn || p.extensionSignIn(c)) return true;
-  if (!c.signedIn && (c.recovery || c.grantRevoked)) return true;
-  // The last answer to a turn, when it was this Company's and Iris
-  // stopped before a request for want of a sign-in, until there is one,
-  // or of a permission (a new consent takes that answer away).
-  const answer = [...messages].reverse().find((m) => m.steps?.length);
-  if (
-    answer &&
-    (answer.from?.origin ?? c.origin) === c.origin &&
-    answer.steps!.some((step) => {
-      const wanted = unsentFor(step);
-      return wanted === "sign-in" ? !c.signedIn : !!wanted;
-    })
-  )
-    return true;
-  if (guide.company?.origin !== c.origin) return false;
-  return (
-    (!c.signedIn && guide.step === 1) ||
-    (c.signedIn && guide.step === 2 && !mayChange(c) && p.moreAccess(c))
-  );
-}
-
-/**
- * One Company's account controls: its access, Use FDX or Use ESPI and the
- * grant, change permission, sign-in and sign-out, and the standing
- * instruction. Each acts at this Company only. `named` heads the row with
- * the Company, where the conversation has several.
+ * One Company's account controls, in its panel in the Companies bar: its
+ * access, Use FDX or Use ESPI and the grant, change permission, sign-in
+ * and sign-out, and the standing instruction. Each acts at this Company
+ * only. What waits for the person there (a sign-in to finish, the change
+ * permission to ask for) is also an ask in the transcript, where it arose
+ * (`asks.ts`). `named` heads the row with the Company.
  */
 export function AccountRow({
   p,

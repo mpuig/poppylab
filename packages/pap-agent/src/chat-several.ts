@@ -217,7 +217,7 @@ function severalAnswer(
       ...companiesNow(turn),
       ...lost,
       // Each Company's state, its proposals among it: a proposal at
-      // each makes its own card in Needs you.
+      // each makes its own card in the transcript.
       ...companiesView(conversation),
     },
     { headers: { "Cache-Control": "no-store" } },

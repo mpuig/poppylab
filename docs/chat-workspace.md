@@ -9,7 +9,7 @@ Nothing needs to be set up. The page opens with five cards, one for each fiction
 1. **Pick a company.** Each card shows the Company, what it is and a request to try. Picking one connects to it and starts the conversation; the Companies bar above the guide then shows it, with its state ("Public access"), and opening it says what discovery found ("Juniper Market · grocery-demo.poppylab.dev · 1 API · Company agent · Poppy 1.0"). **Use another address** opens a form for any other Company's URL. The message box works before any Company too: Iris answers that one is needed, with a button for each of the lab's.
 2. **Sign in.** The button in the chat opens the Company's own consent page in a new tab. When a request needs your account, Iris asks first, in the chat ("Sign in to Juniper Market to go on with “my deliveries”?"), and answering "yes" opens the same page; once the sign-in is done Iris asks whether to go on with that request ([Iris asks, and you can answer in words](#iris-asks-and-you-can-answer-in-words)). You choose Elena or Robin, the two test customers every Company has, and allow read access. Iris never sees a password. Read access is all a first sign-in asks for. When you allow or decline, the tab lands on a short page of the lab's that says how it went and to close the tab (`/playground/sign-in/done` or `/playground/sign-in/failed`); the one-time code the Company sent back does not stay in its address. After a completed sign-in the page names the Company ("Signed in to Juniper Market."). The address carries nothing for that: the playground tab leaves the display name in the storage of the tab it opens for the sign-in (`sessionStorage`, which the tab keeps while it goes to the Company and back), and the page reads it there once and shows it as text. Two sign-ins under way at once are two tabs, so each names its own Company. Where the browser blocks storage, the page says "the Company account".
 3. **Ask for a change.** First press **Request change permission**, which opens the consent page again for the change scope. Then ask with the suggestion under the guide, which sends its words when pressed, or, with a model, in your own words. Asked for a change without that permission, Iris asks whether to request it, and goes on with the change once it is given and you say yes.
-4. **Approve it.** The Company answers with the exact terms and holds the change. It appears in the "Needs you" panel above the message box, and Iris asks about it in the chat, in its own words from the terms ("Juniper Market proposes a change to your recurring delivery day, from Thursday to Saturday. The fee is $0.00. The terms expire in 10 minutes. Approve it?"). You approve or decline it on its card, with the buttons under Iris's question, or by typing "yes" or "no". The guide ends with "Done: Juniper Market performed the change once. Its website shows the same data." If the change isn't performed, the guide says which way it ended and what you can do: you declined it, it expired, the Company declined or refused the approval, or the Company answered with new terms. While a card reads "Outcome unknown", the guide says that the change may or may not have been made, to retry the same approval, which the Company performs at most once, and not to ask for the change again until the outcome is known. The fourth step is ticked only beside "Done": a proposal that ended without being performed leaves it open, even after an earlier change went through. With several proposals in one conversation, the guide speaks about the one something happened to last, and a proposal that waits for you comes before one that is finished.
+4. **Approve it.** The Company answers with the exact terms and holds the change. Iris asks about it in the chat, in its own words from the terms ("Juniper Market proposes a change to your recurring delivery day, from Thursday to Saturday. The fee is $0.00. The terms expire in 10 minutes. Approve it?"), and the proposal's card follows the question: the Company's name and host, the before and after, what the Company says, when the terms expire, and one Approve and Decline. The count in the conversation's heading ("1 waiting") says it waits. You approve or decline it on its card, or by typing "yes" or "no"; either way the card says how it ended ("Approved by you · 13:42") and stays where it arrived. The guide ends with "Done: Juniper Market performed the change once. Its website shows the same data." If the change isn't performed, the guide says which way it ended and what you can do: you declined it, it expired, the Company declined or refused the approval, or the Company answered with new terms. While a card reads "Outcome unknown", the guide says that the change may or may not have been made, to retry the same approval, which the Company performs at most once, and not to ask for the change again until the outcome is known. The fourth step is ticked only beside "Done": a proposal that ended without being performed leaves it open, even after an earlier change went through. With several proposals in one conversation, the guide speaks about the one something happened to last, and a proposal that waits for you comes before one that is finished.
 
 A run at Juniper Market, in demo mode, is three messages and two consent pages:
 
@@ -75,11 +75,13 @@ The page shows every Company of the conversation, up to three, and the person ca
 - **The Companies bar**, above the guide once there is a conversation, has one item for each Company: its mark (a small square in the colour of its own website), its name and its state in a few words ("Public access", "Signed in · read only", "Signed in · can propose changes", "Sign-in under way", "Access lost"). An item opens that Company's panel: what discovery found and "Inspect connection", its account controls (sign-in, Use FDX or Use ESPI and the grant, Request change permission, Sign out, the standing instruction), and "Remove from this conversation". **Add a company** offers the lab's Companies not yet connected and **Use another address**; a fourth is refused before anything is sent. Opening an item is a view only: it never decides which Company a message is for.
 - **Removing** asks first, in the panel, when the Company is signed in or holds a proposal that waits, and says what goes ("Remove Lantern Noodle Bar from this conversation? That revokes the access you gave Iris at Lantern Noodle Bar, and what Iris read with your account there no longer shows."). The server removes at once, so this question is the confirmation; while an approval sent there has an unknown outcome the server refuses, and the panel shows its words. A line under the bar then says "Lantern Noodle Bar was removed from this conversation.", followed by the server's notice when the grant couldn't be revoked.
 - **Messages** name the Company they came from, with its mark, once the conversation has had two: each answer ("Protocol demo · Lantern Noodle Bar"), each failed turn and each piece of Company content. An answer to a turn that used several names each of them, in the order it used them ("Iris · Fernwick Power & Light · Harborline Bank"; see [Several Companies in one turn](#several-companies-in-one-turn)). Iris's own words (it connected or removed a Company, or asks "Is this for Harborline Bank or Lantern Noodle Bar?") are labelled "Iris" and name none; their buttons send what they carry, never their label as words.
-- **Which Company a message is for.** With several and a model selected, the model works it out from the words, in a short call of its own before the turn: "what is my bank account" goes to Harborline Bank, "add 2 vegetable gyoza" to Lantern Noodle Bar after a turn with the bank. A task that needs two of them at once, such as paying a Fernwick bill from the bank, can be for both ([Several Companies in one turn](#several-companies-in-one-turn)). When the model gives no answer, a Company's name in the message, or the lab's word for its kind ("the bank"), says which; "yes" or "how much is it" goes on with the Company of the last turn. Otherwise Iris asks and says why ("Is this for Juniper Market or Lantern Noodle Bar? Nothing in your message says which."), with a button for each; the button asks the request there, with nothing typed again. A select beside the send button ("Iris decides", "For Lantern Noodle Bar") lets the person say so for one message, and wins over all of this; a suggestion picked under an empty conversation is for its Company too.
-- **Demo mode runs scripted examples.** Without a model, a message that is one of the demo's examples ("Add a matcha ice cream and move it to Sunday lunchtime.") goes to its own Company, whichever others are connected. Any other message, unless the select names a Company, is answered by Iris with the examples to try as buttons, and nothing is sent to any Company.
+- **Which Company a message is for.** With several and a model selected, the model works it out from the words, in a short call of its own before the turn: "what is my bank account" goes to Harborline Bank, "add 2 vegetable gyoza" to Lantern Noodle Bar after a turn with the bank. A task that needs two of them at once, such as paying a Fernwick bill from the bank, can be for both ([Several Companies in one turn](#several-companies-in-one-turn)). When the model gives no answer, a Company's name in the message, or the lab's word for its kind ("the bank"), says which; "yes" or "how much is it" goes on with the Company of the last turn. Otherwise Iris asks and says why ("Is this for Juniper Market or Lantern Noodle Bar? Nothing in your message says which."), with a button for each; the button asks the request there, with nothing typed again. A suggestion picked under an empty conversation is for its Company.
+- **Demo mode runs scripted examples.** Without a model, a message that is one of the demo's examples ("Add a matcha ice cream and move it to Sunday lunchtime.") goes to its own Company, whichever others are connected. Any other message is answered by Iris with the examples to try as buttons, and nothing is sent to any Company.
 - **A request for a Company that isn't connected.** An example for Northwind Air with only Harborline and Lantern connected, or a model that chooses Northwind for "book me a flight to Lisbon", connects Northwind Air, as typing "connect with Northwind Air" does, and asks the request there, signed out, with one line first: "This is one for Northwind Air, so Iris connected it to this conversation. It's asked without your account until you sign in there." A conversation with no Company yet does the same. Only the lab's Companies are connected this way, never an address. At three Companies Iris connects none, says so, and offers a button to remove each one.
-- **Account controls.** Each Company's account row is in its panel. The Company the conversation is with (the last turn's, or the one just connected) also has it at the end of the transcript, headed with its name when there are several, while something there waits for the person: a sign-in the guide asks for or the last turn there stopped for ("Sign in to Harborline Bank · read only" right under the answer), "Finish sign-in in the Harborline Bank tab.", access lost or a grant revoked, or change permission the guide or the turn needs ("Request change permission"). While Iris's question about that sign-in is the last thing said, its button is under the question and the row stays in the panel, where it says the question can be answered in the chat too. Once nothing waits, as when the person is signed in with change permission, it goes from the transcript; Use FDX or Use ESPI, the grant, Sign out and the standing instruction stay in the panel. Two sign-ins can be under way at once, each in its own tab.
-- **Needs you** lists the proposals of every Company in the order they came, each card with its Company's mark and name, and every action goes to the card's Company.
+- **Account controls.** Each Company's account row is in its panel in the bar, and only there: its access and scopes, Use FDX or Use ESPI, the grant, change permission, sign-in, Sign out and the standing instruction. Nothing about an account docks at the end of the transcript.
+- **What waits, where it arose.** Everything that waits for the person is in the transcript at the point it arose, in time order (`transcript-items.ts`, `asks.ts`): each proposal's card after Iris's question that brought it, and each ask about an account after the message that was last when it arose. The asks are a sign-in the guide suggests ("Sign in to Harborline Bank · read only"), the change permission it suggests ("Request change permission"), a sign-in to finish in the Company's tab, a sign-in to do again once the Company stopped taking it or a grant was revoked, and a Company's invitation to talk directly. While Iris's question about a sign-in or an invitation is the last thing said, its buttons are under the question and no ask repeats them. Once done, a card or an ask stays where it was, folded to how it ended ("Approved by you · 13:42", "Signed in at Harborline Bank · read only"); a suggestion nobody took goes once it is no longer made. Nothing moves below a later message. Each card has its Company's mark and name, and every action goes to the card's Company. Two sign-ins can be under way at once, each in its own tab.
+- **The inbox.** The conversation's heading counts what waits for the person ("2 waiting"), only while something does. It opens a list of each: the Company, what it is in Iris's words, and when it runs out. It lists the conversation's own proposals, sign-ins and Iris's open question, and those of the visitor's other running conversations, read from `GET /api/v1/pending` ([the agent's API](pap-agent.md)). Choosing one brings its card or ask into view and gives it the focus, or opens its conversation at the card. A popover under the count, or a sheet at the window's foot on a phone; Escape, a click outside or Tab away closes it, and the focus goes back to the count.
+- **Talking directly.** "Talk to Lantern Noodle Bar yourself" is offered above the composer for the Company the conversation is with now (the last turn's, or the one just connected), never for one the conversation has moved on from.
 - **The guide** speaks about one Company and names it in each sentence: the one whose proposal waits for the person, the newest first, and otherwise the one the last turn was with.
 - **The Inspector** lists every line with its Company and offers a choice of Company, which shows that one's discovery, lines, profile and document. **History** lists each conversation with all its Companies, and after them those removed from it, marked "(removed)".
 
@@ -100,13 +102,13 @@ Some tasks need two of the conversation's Companies at once: "Pay my Fernwick bi
 - **What Iris did** lists each Company's steps together, in the order the task used them, each caption starting with the Company's name ("Harborline Bank · API · view and change"). A call that sent arguments shows them under its step, as they went: what crossed from one Company to the other is there to read. The Inspector lists each line under its own Company.
 - **Data** has each call's answer, in order, with its Company: `[{ company: { origin, name }, tool, output }]`, the tool by its Company's own name for it.
 - **In demo mode** the one example of this kind is "Pay my Fernwick bill from checking." (`packages/pap-agent/src/demo-pay-bill.ts`). With Fernwick and Harborline connected, read access at Fernwick and change permission at Harborline, it reads the latest month's bills at Fernwick (one for each meter, under one reference), then the accounts and saved recipients at Harborline, and proposes one payment from the checking account to the saved Fernwick recipient, for the bills' total, under their reference, with "Bill for October 2026" as the memo. The answer says in one line what crossed: "From Fernwick Power & Light, Iris sent Harborline Bank the bill's amount, $183.78, its reference, FPL-2041-7731-202610, and its month, October 2026, in the memo, and nothing else." What is missing comes first, and nothing is read until both are signed in. A Company that isn't connected: Iris says so in its own words ("This takes two companies: Fernwick Power & Light, where Iris reads your bill, and Harborline Bank, where it proposes the payment. Fernwick Power & Light isn't connected to this conversation yet. Connect it, sign in at both and ask again. Nothing was sent to any company."), with a button to connect each, or to remove one when the conversation has no room. Signed out at either: the answer is about that Company, so its sign-in is right under it, and the step says the request wasn't sent ("Sign in to Fernwick Power & Light first, and then to Harborline Bank. Iris didn't read your bill or ask Harborline Bank for anything."). Read only at Harborline: the payment isn't sent, and the answer points to "Request change permission". A bill that comes to nothing or to a credit, or a payment over the recipient's limit, is said so and not sent.
-- **Approvals** are as in any turn: a proposal at a Company is its card in Needs you, with that Company's mark, approved there or by answering Iris's question about it. A proposal made in such a turn can hold what was read at the other Company (a bill's amount and reference), so it is kept as holding both accounts: signing out at Fernwick takes back a waiting Harborline payment made from its bill, and Iris says why ([chat continuity](chat-continuity.md#a-conversation-and-its-companies)).
+- **Approvals** are as in any turn: a proposal at a Company is its card in the transcript, with that Company's mark, approved there or by answering Iris's question about it. A proposal made in such a turn can hold what was read at the other Company (a bill's amount and reference), so it is kept as holding both accounts: signing out at Fernwick takes back a waiting Harborline payment made from its bill, and Iris says why ([chat continuity](chat-continuity.md#a-conversation-and-its-companies)).
 
 ## Iris asks, and you can answer in words
 
-Whatever waits for the person becomes a question of Iris's own in the conversation, answerable by typing. The buttons stay, as quick replies under the question, and so does Needs you, the list of what waits. The questions are written by Iris's code from facts it holds, never by a model and never in a Company's words (`packages/pap-agent/src/chat-answers.ts`):
+Whatever waits for the person becomes a question of Iris's own in the conversation, answerable by typing. The buttons stay, as quick replies under the question (for a proposal, on its card), and so does the inbox of what waits, behind the count in the conversation's heading. The questions are written by Iris's code from facts it holds, never by a model and never in a Company's words (`packages/pap-agent/src/chat-answers.ts`):
 
-- **A proposal.** When a turn brings one, Iris says, from the exact terms, the Company, what changes, the amount that matters and when the terms run out, and asks "Approve it?": "Lantern Noodle Bar proposes a change to your order: delivery slot from sat-1230 to sun-1300. The new total is $88.00, $15.00 more. The terms expire in 10 minutes. Approve it?" (`approval-question.ts`). The Company's summary is never the question; its card quotes it as the Company's words. The quick replies are Approve and Decline, the card's own actions. When another proposal waits too, Iris names each and asks which: "… The $88.00 change at Lantern Noodle Bar waits for you too. Which do you approve: the $500.00 transfer at Harborline Bank or the $88.00 change at Lantern Noodle Bar?"
+- **A proposal.** When a turn brings one, Iris says, from the exact terms, the Company, what changes, the amount that matters and when the terms run out, and asks "Approve it?": "Lantern Noodle Bar proposes a change to your order: delivery slot from sat-1230 to sun-1300. The new total is $88.00, $15.00 more. The terms expire in 10 minutes. Approve it?" (`approval-question.ts`). The Company's summary is never the question; its card quotes it as the Company's words. A client of the agent's API gets Approve and Decline as the question's quick replies, and the proposals it brought in `proposals`; the page shows them once, on the card that follows the question. With no payment in the terms and an estimate from the Company, Iris says so and gives the estimate as the Company's: "Fernwick Power & Light proposes a change: plan from Time of use to Flat rate. There is no payment now. Fernwick Power & Light estimates the monthly difference at $32.54 more." Said aloud: "Fernwick Power & Light wants to change your plan from Time of use to Flat rate, with no payment now. Approve it?" When another proposal waits too, Iris names each and asks which: "… The $88.00 change at Lantern Noodle Bar waits for you too. Which do you approve: the $500.00 transfer at Harborline Bank or the $88.00 change at Lantern Noodle Bar?"
 - **A sign-in.** When a turn stopped for want of a sign-in, or of change permission: "Sign in to Harborline Bank to go on with “my account balances”? You sign in on Harborline Bank's own page, read only, and Iris never sees your password." or "Ask Harborline Bank for change permission to go on with “Transfer $500 from checking to savings”? It opens Harborline Bank's own page again, and nothing changes until you approve the change itself." The consent stays on the Company's page. "sign in to Lantern" typed in the chat asks the same, with no request to go on with.
 - **Going on after it.** The request that stopped waits with that Company's connection, and once the sign-in or the second consent completes, in its tab, Iris asks "You're signed in at Harborline Bank. Shall Iris go on with “my account balances”?". A typed yes or the quick reply sends it; anything else drops it. A request that changes something is never sent again without that question. It works after a reload while the tab was open: the question is kept with the conversation.
 - **A sign-out**, only when you asked for one ("sign out of Harborline"): "Sign out of Harborline Bank? That revokes the access you gave Iris there, and what Iris read with your account there no longer shows."
@@ -157,31 +159,30 @@ Remote/production requests cannot use this environment-key fallback. They must s
 How the playground shows what Iris did and asks for a decision. All of it is
 in the page; the server's approval endpoint is the one it always was.
 
-- **Needs you.** Proposals waiting for a decision collect in a panel above the
-  message box, with a count. Iris's question about the newest is in the
-  conversation as well, and its quick replies go once the proposal no longer
-  waits at that revision ([Iris asks](#iris-asks-and-you-can-answer-in-words)). It folds with its button or Escape and opens
-  again when a new proposal arrives; you can keep chatting while it is open.
-  A status line announces a waiting proposal to screen readers. Settled
-  operations stay in the transcript. One card is open at a time: the first to
-  arrive, until you open another by its title. The others are closed lines
-  above it, each with its amount. A closed line whose proposal waits again
-  says why before the amount: "Last approval refused", "Came back with new
-  terms", "Iris’s approval declined" or "Standing instruction did not
-  apply". The open card's Approve and Decline stay at the foot of the panel
-  while its terms scroll behind them, and so does the note that says why a
-  card still waits: the Company refused the approval or answered it with new
-  terms, or your standing instruction did not apply.
-  Where only the top of the card is in view, the buttons stay in view and
-  cover the note until you scroll on. In a window up to 1100px tall the panel
-  does not scroll inside the conversation. The page grows instead and moves
-  to the panel, the card is shown whole, and the buttons stay at the foot of
-  the window until you reach the end of the card. On a phone the transcript
-  does not scroll inside the conversation either: it is shown whole above the
-  panel, and the page moves to the top of the latest message, so you read the
-  answer and then the card. The message box is then below the card; the
-  panel's button or Escape folds the panel and brings the window-sized chat
-  back.
+- **One card per proposal.** Each proposal is one card in the transcript,
+  after Iris's question that brought it (the question names it in
+  `proposals`, which the conversation keeps, so a reload puts it in the same
+  place). The question keeps its words; its Approve and Decline are the
+  card's, shown once. While it waits the card is open, with an amber rule and
+  "Waiting for you · expires 13:52"; once decided, from its buttons or by a
+  typed "yes" or "no", or once it runs out, it folds in place to how it ended
+  ("Approved by you · 13:42", "Declined by you · 13:43", "Expired", "Declined
+  by the Company", "Replaced by new terms", or an error when the decision
+  didn't reach the Company) and stays above whatever is said next. New terms
+  for the same proposal come with a new question, and the card follows that.
+  A proposal no message names (new terms a card's button got back) is placed
+  where the page first saw it. A status line announces how many things wait
+  to screen readers. The note that says why a card still waits sits above its
+  buttons: the Company refused the approval or answered it with new terms, or
+  your standing instruction did not apply; the inbox's line says it in a few
+  words ("Last approval refused", "Came back with new terms", "Iris’s
+  approval declined", "Standing instruction did not apply"). The terms
+  revision and the operation's ID are in the Inspector, under "Proposals".
+- **The message box keeps the focus.** After a send (Enter or the button), a
+  quick reply, or a decision on a card from the keyboard, the box takes the
+  focus back once the turn is over and it is enabled again
+  (`focus-return.ts`), unless the person moved to another field, the inbox,
+  a dialog or a sign-in tab. Nothing takes the focus on page load.
 - **The approval card.** It leads with the amount being approved, which is also
   on the button ("Approve $28.00"), and quotes the Company's summary as the
   Company's own words, as text only. It warns when the summary names an amount
@@ -284,35 +285,36 @@ in the page; the server's approval endpoint is the one it always was.
 The examples below are from the run in [A first run](#a-first-run): Elena
 asks Juniper Market to move her recurring delivery to Saturday.
 
-**The approval card**, in the "Needs you" panel:
+**The approval card**, in the transcript under Iris's question:
 
 ```text
-Change delivery day                                   Approval required
-Juniper Market · grocery-demo.poppylab.dev · terms revision 1795610120-n19JJxSZnvGF54sY
+Juniper Market · grocery-demo.poppylab.dev       ● Waiting for you · expires 13:45
+Change delivery day
 
-Juniper Market says:
+Recurring delivery day
+  Before  Thursday    →    After  Saturday
+
+Juniper Market says:  Company content
   Move Elena Maren's fictional delivery delivery_001 from Thursday to
   Saturday, recurring weekly. No charge (USD 0.00). No real shipment is
   affected.
 
-Recurring delivery day
-  Before  Thursday    →    After  Saturday
 Change fee                 $0.00
 
 › All exact terms
 
-Approval covers only revision 1795610120-n19JJxSZnvGF54sY. Expires 25/11/2026, 13:45:20.
-[ Approve this change ]   Decline
+Approving covers exactly these terms. They expire 25/11/2026, 13:45:20.
+[ Approve this change ]   [ Decline ]
 ```
 
 The domain sits beside the name because discovery proves the domain, not who
 owns it. "All exact terms" opens the terms as the Company sent them. Once
-approved, the card moves to the transcript as a closed entry, "Change
-delivery day · Completed", which shows how it ended without a click: the
+approved, the card folds in place to a closed entry, "Approved by you ·
+13:42" over "Change delivery day", which shows how it ended without a click: the
 Company's result, quoted as its words ("Juniper Market says: Fictional
 delivery delivery_001 now repeats weekly on Saturday. USD 0.00 charged. No
-real shipment affected."), and who approved ("Approved by you." or "Approved
-by Iris on your standing instruction."). A declined, refused, replaced or
+real shipment affected."), and who approved, in its state ("Approved by you
+· 13:42" or "Approved by Iris on your standing instruction · 13:42"). A declined, refused, replaced or
 expired entry says why nothing was done and what to do next; an expired one
 reads "This proposal ran out before it was approved, so nothing was done. Ask
 for the change again to get new terms." If an approval was sent before the
@@ -368,7 +370,7 @@ Never recorded: headers, bodies, tokens, Session JWTs, DPoP proofs, keys, codes 
 **A standing instruction.** With "Approve exchanges up to (USD) 20" saved for
 a Company, a covered proposal whose terms total $18.50 is approved by Iris:
 the log shows "Applying your standing instruction" and, on the next line, how
-the Company answered. One for $28.00 is not covered and waits in "Needs you"
+the Company answered. One for $28.00 is not covered and waits on its card
 with "Approve $28.00" on its button and the reason on its card: "Your
 standing instruction did not apply: the total, $28.00, is over your limit of
 $20.00. It's up to you now." The log says "Standing instruction not applied

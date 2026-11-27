@@ -43,7 +43,7 @@ Earlier tokens and grants aren't widened or revoked automatically. Revoking the 
 | Insufficient permission       | HTTP 403 and guidance to request permissions; approval blocked locally before anything is sent if write access is missing.                                      |
 | Access no longer accepted     | Explains that it may have expired or been revoked, without inventing an exact cause, and offers Sign in. What the page showed with the account goes, see below. |
 | Expired proposal              | A local HTTP 410 when approving; nothing is sent. Ask for another proposal if needed.                                                                           |
-| Changed terms                 | The new terms take the place of the approved ones in "Needs you", and their card says the Company returned them instead. Approve them separately, or decline.   |
+| Changed terms                 | The new terms wait on a card of their own in the transcript, and it says the Company returned them instead. Approve them separately, or decline.                |
 | Refused request               | HTTP 409. The proposal keeps waiting and its card says the Company refused it, with the Company's status and error code. Approve again once it is sorted out.   |
 | Uncertain response            | HTTP 502 and the only action is to retry the same approval. No purchase is retried.                                                                             |
 | Refused or incomplete consent | The previous access isn't taken as a new consent, and its context isn't cleared.                                                                                |

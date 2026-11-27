@@ -61,6 +61,15 @@ export function Inspector({
       ? chatLog.filter((line) => line.from?.origin === choice.origin)
       : chatLog;
   const all = several && !choice;
+  // The proposals of the Companies shown, with the IDs the cards leave out.
+  const proposals = [...companies, ...former]
+    .filter((c) => all || !choice || c.origin === choice.origin)
+    .flatMap((c) =>
+      c.operations.map((op) => ({
+        from: { origin: c.origin, name: c.name },
+        op,
+      })),
+    );
   const report = () =>
     traceReport({
       company: all
@@ -222,6 +231,33 @@ export function Inspector({
                 <span className={`outcome ${entry.outcome}`}>
                   {outcomeLabel[entry.outcome]}
                 </span>
+              </li>
+            ))}
+          </ol>
+        </>
+      )}
+      {!!proposals.length && (
+        <>
+          <h2>Proposals</h2>
+          <p className="log-note">
+            Each proposal as the agent holds it. An approval covers exactly the
+            revision listed; new terms come with a new one.
+          </p>
+          <ol className="api-events proposal-list">
+            {proposals.map(({ from, op }) => (
+              <li key={`${from.origin} ${op.operation_id}`}>
+                <span className="timing">{op.state}</span>
+                <div>
+                  {all && <FromCompany from={from} />}
+                  <p>
+                    Operation <code>{op.operation_id}</code> · terms revision{" "}
+                    <code>{op.revision}</code>
+                    <SpecRef className="spec-ref" reference="Operations §4" />
+                  </p>
+                  <code>
+                    Expires {new Date(op.expires_at).toLocaleString()}
+                  </code>
+                </div>
               </li>
             ))}
           </ol>

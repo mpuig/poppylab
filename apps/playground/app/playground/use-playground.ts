@@ -197,14 +197,14 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
   const [barNote, setBarNote] = useState("");
   const [failedTrace, setFailedTrace] = useState<DiscoveryTraceStep[]>([]);
   const [task, setTask] = useState("");
-  /**
-   * The Company the User chose for the next message, with several. None:
-   * Iris decides, which today is the Company of the last turn or a question
-   * with a button for each. It is for one message: the next goes to the
-   * Company of the last turn anyway, until the User chooses again.
-   */
-  const [target, setTarget] = useState<string | undefined>();
   const [messages, setMessages] = useState<Message[]>([]);
+  /**
+   * What went wrong with the person's last decision on a proposal's card,
+   * by the card's key (`<origin> <operation ID>`): the card says it.
+   */
+  const [cardError, setCardError] = useState<
+    { key: string; text: string } | undefined
+  >();
   /**
    * The Inspector's "Session & API calls". The server keeps the same lines
    * with the conversation (`inspector-log.ts`), within the same count, so a
@@ -540,6 +540,12 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     const popup = action === "signin" ? window.open("about:blank", tab) : null;
     setAccountBusy(true);
     setError("");
+    setCardError(undefined);
+    // A decision's failure is said on the proposal's card.
+    const card =
+      op && ["approve", "decline", "retry"].includes(action)
+        ? `${origin} ${op.operation_id}`
+        : undefined;
     let answer: ApprovalAnswer = "lost";
     try {
       const response = await fetch(
@@ -628,11 +634,14 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
       if (data.operation) showOperations(origin, data.operation);
     } catch (caught) {
       popup?.close();
-      setError(
+      const text =
         caught instanceof Error && caught.message
           ? caught.message
-          : "Account action failed.",
-      );
+          : card
+            ? "That didn't reach the company. Nothing was changed; try again."
+            : "Account action failed.";
+      if (card) setCardError({ key: card, text });
+      else setError(text);
     } finally {
       // Before the page is idle again, so the next decision already sees it.
       answered?.(answer);
@@ -973,7 +982,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
   }
   // A fixed check against the exact terms; each revision is tried once, at
   // each Company with its own instruction. Anything it does not cover stays
-  // for the User in the Needs you panel, where its card says why
+  // for the User on its card in the transcript, which says why
   // (`leftToUser`), and the Inspector says it too.
   useEffect(() => {
     for (const c of companies) {
@@ -1160,13 +1169,9 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
       );
       return;
     }
-    const company =
-      directWith?.origin ??
-      startingDirect ??
-      (target && companies.some((c) => c.origin === target)
-        ? target
-        : undefined);
-    setTarget(undefined);
+    // Iris works out which Company the words are for, and asks when it
+    // can't; only a Direct Conversation names its Company.
+    const company = directWith?.origin ?? startingDirect;
     const said: Message[] = [
       { role: "You", text: message, ...(action ? { direct: true } : {}) },
     ];
@@ -1436,9 +1441,8 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     task,
     setTask,
     suggest,
-    target,
-    setTarget,
     messages,
+    cardError,
     chatLog,
     sending,
     busy,

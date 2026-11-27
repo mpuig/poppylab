@@ -72,21 +72,24 @@ export const named = (
 
 /** What the terms change, as they name it, before and after. */
 function changed(op: ReviewOperation) {
-  const rows = ownLayout(op) ? changes(op) : termRows(op).changes;
-  const labels = new Set(rows.map((row) => row.label.toLowerCase()));
-  // A balance follows from the change; the change itself is what to say.
   // A field the terms also name in words ("plan" beside "plan name") is
-  // said in those words, once.
+  // said in those words, once (`termRows`).
+  const rows = ownLayout(op) ? changes(op) : termRows(op).changes;
+  // A balance follows from the change; the change itself is what to say.
   return rows
     .filter(
       (row) =>
-        !/balance/i.test(row.label) &&
-        row.before !== row.after &&
-        row.after &&
-        !labels.has(`${row.label.toLowerCase()} name`),
+        !/balance/i.test(row.label) && row.before !== row.after && row.after,
     )
-    .map((row) => ({ ...row, label: row.label.replace(/ name$/i, "") }))
     .slice(0, 2);
+}
+
+/** The first thing the terms change, in words: "plan from Time of use to Flat rate". */
+export function firstChange(op: ReviewOperation) {
+  const row = changed(op)[0];
+  return row
+    ? `${row.label.charAt(0).toLowerCase()}${row.label.slice(1)} from ${row.before} to ${row.after}`
+    : undefined;
 }
 
 /** What the order or booking is, when the terms say. */

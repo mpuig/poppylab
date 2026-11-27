@@ -168,15 +168,15 @@ describe("a conversation with several Companies", () => {
     expect(html).toContain('class="from-company"');
     expect(html).toMatch(/Protocol demo<span class="from-company">/);
     expect(html).toContain(">Harborline Bank</button>");
-    // Which Company a message is for, when the person wants to say so.
-    expect(html).toContain("Iris decides");
-    expect(html).toContain("For Harborline Bank");
+    // Iris works out which Company a message is for, and asks: the
+    // composer has no choice of its own.
+    expect(html).not.toContain("Iris decides");
+    expect(html).not.toContain("composer-target");
   });
 
   it("keeps one Company's screen as it was", () => {
     const html = chat(page({ companies: [two[0]!], messages }));
     expect(html).not.toContain('class="from-company"');
-    expect(html).not.toContain("Iris decides");
   });
 
   it("offers a button only while Iris's question is the last thing said", () => {
@@ -189,11 +189,18 @@ describe("a conversation with several Companies", () => {
     expect(html).not.toContain(">Harborline Bank</button>");
   });
 
-  it("tells two Companies' proposals apart in Needs you, though their IDs match", () => {
+  it("tells two Companies' cards apart, though their IDs match, and counts both as waiting", () => {
     const html = chat(page({ companies: two }));
-    expect(html).toContain("Needs you");
-    expect(html).toContain("Lantern Noodle Bar · Approval required");
-    expect(html).toContain("Harborline Bank · Approval required");
+    expect(html).toContain("<strong>Lantern Noodle Bar</strong>");
+    expect(html).toContain("<strong>Harborline Bank</strong>");
+    expect(
+      html.match(/Waiting for you<span class="operation-expiry">/g),
+    ).toHaveLength(2);
+    expect(html).toContain('id="proposal-noodles-localhost-4200-op_1"');
+    expect(html).toContain('id="proposal-harbor-localhost-4300-op_1"');
+    // The count in the heading; the panel that docked below is gone.
+    expect(html).toContain("2 waiting</button>");
+    expect(html).not.toContain("needs-you");
   });
 
   it("names the Company the person is talking with directly", () => {
@@ -208,144 +215,195 @@ describe("a conversation with several Companies", () => {
     );
     expect(html).toContain('placeholder="Message Lantern Noodle Bar…"');
   });
+
+  it("offers to talk directly only with the Company the conversation is with now", () => {
+    const can = { direct: false, invitation: null, canTalkDirectly: true };
+    const companies = [
+      at(harborline, "Harborline Bank", { direct: can }),
+      at(lantern, "Lantern Noodle Bar", { direct: can }),
+    ];
+    const html = chat(page({ companies, messages, lastTurn: lantern }));
+    expect(html).toContain("Talk to Lantern Noodle Bar yourself");
+    expect(html).not.toContain("Talk to Harborline Bank yourself");
+  });
 });
 
-describe("the account row at the end of the transcript", () => {
-  const bank = { origin: harborline, name: "Harborline Bank" };
-  const read = (path: string) => ({
-    text: `Read ${path}`,
-    how: "API" as const,
-    access: "view" as const,
-    state: "done" as const,
+describe("what waits, where it arose in the transcript", () => {
+  const fernwick = "http://fernwick.localhost:4500";
+  const plan = (state: string, more: Partial<Operation> = {}): Operation => ({
+    ...proposal("op_plan"),
+    revision: "r1",
+    state,
+    terms: {
+      from_plan: "time_of_use",
+      to_plan: "flat",
+      from_plan_name: "Time of use",
+      to_plan_name: "Flat rate",
+      estimated_monthly_difference_cents: 3254,
+      currency: "USD",
+    },
+    ...more,
   });
-  const balances: Message[] = [
-    { role: "You", text: "my account balances" },
+  const asked: Message[] = [
+    { role: "You", text: "switch my plan to flat rate" },
     {
-      role: "Demo",
-      text: "Accounts (2).",
-      from: bank,
-      steps: [read("/api/account/accounts")],
+      role: "Own",
+      text: "Fernwick Power & Light proposes a change: plan from Time of use to Flat rate. There is no payment now. Approve it?",
+      choices: [
+        {
+          label: "Approve this change",
+          answer: {
+            approve: { company: fernwick, proposal: "op_plan", revision: "r1" },
+          },
+        },
+        {
+          label: "Decline this change",
+          answer: {
+            decline: { company: fernwick, proposal: "op_plan", revision: "r1" },
+          },
+        },
+      ],
+      proposals: [{ company: fernwick, proposal: "op_plan", revision: "r1" }],
     },
   ];
-  const signedIn = (scopes: string, more: Partial<CompanyState> = {}) =>
-    at(harborline, "Harborline Bank", { signedIn: true, scopes, ...more });
-  const row = (html: string) => html.includes('class="account-row"');
+  const later: Message[] = [
+    { role: "You", text: "connect with lantern noodle bar" },
+    { role: "Own", text: "Connected Lantern Noodle Bar." },
+    { role: "You", text: "show the menu" },
+    {
+      role: "Demo",
+      text: "Dishes.",
+      from: { origin: lantern, name: "Lantern Noodle Bar" },
+    },
+  ];
+  const fern = (op: Operation) =>
+    at(fernwick, "Fernwick Power & Light", {
+      signedIn: true,
+      scopes: "poppy:read poppy:write",
+      operations: [op],
+    });
+  /** Where each of these words is in the page, in their order. */
+  const order = (html: string, ...words: string[]) =>
+    words.map((w) => html.indexOf(w)) as [number, number, number];
 
-  it("goes once nothing there waits for the person, with one Company or several", () => {
-    for (const companies of [
-      [signedIn("poppy:read poppy:write")],
-      [at(lantern, "Lantern Noodle Bar"), signedIn("poppy:read poppy:write")],
-    ]) {
-      const p = page({ companies, messages: balances, lastTurn: harborline });
-      expect(row(chat(p))).toBe(false);
-      // Its controls are in the Company's panel in the Companies bar.
-      const panel = bar({ ...p, panel: harborline });
-      expect(panel).toContain('class="account-row"');
-      expect(panel).toContain("poppy:read, poppy:write");
-      expect(panel).toContain(">Sign out</button>");
-    }
+  it("shows one card after Iris's question, with one pair of buttons", () => {
+    const html = chat(
+      page({ companies: [fern(plan("proposed"))], messages: asked }),
+    );
+    const [question, card] = order(
+      html,
+      "Fernwick Power &amp; Light proposes a change",
+      'class="operation-review waiting"',
+    );
+    expect(question).toBeGreaterThan(-1);
+    expect(card).toBeGreaterThan(question);
+    // The question's own buttons are the card's: not a second pair.
+    expect(html.match(/>Approve this change</g)).toHaveLength(1);
+    expect(html.match(/>Decline</g)).toHaveLength(1);
+    expect(html).toContain("1 waiting</button>");
   });
 
-  it("is there while the guide asks for a press in it", () => {
-    // Signed out: the guide says to sign in, and the button is right here.
-    const out = chat(
-      page({
-        companies: [at(harborline, "Harborline Bank")],
-        messages: balances,
-        lastTurn: harborline,
-      }),
-    );
-    expect(out).toContain("Sign in to Harborline Bank · read only");
-    // Read only: the guide says to press "Request change permission".
-    const readOnly = chat(
-      page({
-        companies: [signedIn("poppy:read")],
-        messages: balances,
-        lastTurn: harborline,
-        moreAccess: () => true,
-      }),
-    );
-    expect(readOnly).toContain("Request change permission");
-  });
-
-  it("is there while a sign-in is under way, or after the access was lost", () => {
-    const signing = chat(
+  it("keeps a decided card where the proposal arrived, above later messages", () => {
+    const html = chat(
       page({
         companies: [
-          signedIn("poppy:read poppy:write", {
-            signingIn: { baseline: 1, since: 0 },
-          }),
+          fern(
+            plan("succeeded", {
+              approvedBy: { approver: "user" },
+              approval: { approved_at: Math.floor(Date.now() / 1000) },
+            }),
+          ),
+          at(lantern, "Lantern Noodle Bar"),
         ],
-        messages: balances,
-        lastTurn: harborline,
-      }),
-    );
-    expect(row(signing)).toBe(true);
-    // Lost while a proposal waits at another Company, which the guide is
-    // about.
-    const lost = chat(
-      page({
-        companies: [
-          at(lantern, "Lantern Noodle Bar", {
-            signedIn: true,
-            scopes: "poppy:read poppy:write",
-            operations: [proposal("op_1")],
-          }),
-          at(harborline, "Harborline Bank", { recovery: "access_denied" }),
-        ],
-        messages: balances,
-        lastTurn: harborline,
-      }),
-    );
-    expect(lost).toContain("Sign in to Harborline Bank · read only");
-  });
-
-  it("is there when the last turn there stopped for a permission, and not for a turn elsewhere", () => {
-    const stopped: Message[] = [
-      { role: "You", text: "my cards" },
-      {
-        role: "Demo",
-        text: "This needs a permission your sign-in to Harborline Bank doesn't include.",
-        from: bank,
-        steps: [
-          {
-            text: "Did not send a request to /api/account/cards (permission not granted)",
-            how: "API",
-            access: null,
-            state: "done",
-          },
-        ],
-      },
-    ];
-    const here = chat(
-      page({
-        companies: [signedIn("poppy:read poppy:write")],
-        messages: stopped,
-        lastTurn: harborline,
-      }),
-    );
-    expect(here).toContain(">Sign out</button>");
-    const elsewhere = chat(
-      page({
-        companies: [
-          signedIn("poppy:read poppy:write"),
-          at(lantern, "Lantern Noodle Bar", {
-            signedIn: true,
-            scopes: "poppy:read poppy:write",
-          }),
-        ],
-        messages: [
-          ...stopped,
-          {
-            role: "Demo",
-            text: "Dishes.",
-            from: { origin: lantern, name: "Lantern Noodle Bar" },
-            steps: [read("/api/menu")],
-          },
-        ],
+        messages: [...asked, ...later],
         lastTurn: lantern,
       }),
     );
-    expect(row(elsewhere)).toBe(false);
+    const [card, connected, menu] = order(
+      html,
+      'class="operation-review done"',
+      "Connected Lantern Noodle Bar.",
+      "Dishes.",
+    );
+    expect(card).toBeGreaterThan(-1);
+    expect(card).toBeLessThan(connected);
+    expect(connected).toBeLessThan(menu);
+    expect(html).toMatch(/Approved by you · \d\d:\d\d/);
+    // Nothing waits: no count, and the card's buttons are gone.
+    expect(html).not.toContain("waiting</button>");
+    expect(html).not.toContain("Approve this change");
+    expect(html).not.toContain(">Decline<");
+  });
+
+  it("asks for change permission where it arose, and docks no account controls below", () => {
+    const signedInRead = at(lantern, "Lantern Noodle Bar", {
+      signedIn: true,
+      scopes: "poppy:read",
+    });
+    const p = page({
+      companies: [signedInRead],
+      messages: later,
+      lastTurn: lantern,
+      moreAccess: () => true,
+    });
+    const html = chat(p);
+    expect(html).toContain("Request change permission");
+    // Sign out and the access level are the Companies bar's.
+    expect(html).not.toContain('class="account-row"');
+    expect(html).not.toContain("Sign out");
+    expect(html).not.toContain("Read-only access");
+    expect(bar({ ...p, panel: lantern })).toContain(">Sign out</button>");
+  });
+
+  it("asks to finish a sign-in under way, or to sign in again once access was lost", () => {
+    const signing = chat(
+      page({
+        companies: [
+          at(harborline, "Harborline Bank", {
+            signingIn: { baseline: 1, since: 0 },
+          }),
+        ],
+        messages: later,
+        lastTurn: harborline,
+      }),
+    );
+    expect(signing).toContain(
+      "Finish signing in on Harborline Bank&#x27;s own page",
+    );
+    expect(signing).toContain("1 waiting</button>");
+    const lost = chat(
+      page({
+        companies: [
+          at(harborline, "Harborline Bank", { recovery: "access_denied" }),
+        ],
+        messages: later,
+        lastTurn: harborline,
+      }),
+    );
+    expect(lost).toContain("Sign in to Harborline Bank again");
+    expect(lost).toContain("1 waiting</button>");
+  });
+
+  it("keeps a Company's bookkeeping data out of the transcript", () => {
+    const html = chat(
+      page({
+        companies: [at(lantern, "Lantern Noodle Bar")],
+        messages: [
+          {
+            role: "Company",
+            author: "Lantern Noodle Bar automated agent",
+            text: "Nobody can join this fictional demo.",
+            data: '{"handoff":"unavailable","fictional_company":true}',
+          },
+          {
+            role: "Company",
+            author: "Lantern Noodle Bar automated agent",
+            text: "Here is your order.",
+            data: '{"order":{"id":"ord_1"}}',
+          },
+        ],
+      }),
+    );
+    expect(html.match(/<summary>Data<\/summary>/g)).toHaveLength(1);
   });
 });
