@@ -49,6 +49,38 @@ describe("Harborline conversations", () => {
         }),
       ]),
     );
+    expect(companyMessages(account.json()).at(-1)).toMatchObject({
+      text: "That needs additional Harborline account access. Sign in or add the listed permissions, then send the request again.",
+      data: { error: "sign_in_required", scopes: ["accounts:read"] },
+    });
+  });
+
+  it("tells a customer signed in without a permission which one is missing, not to sign in", async () => {
+    const { sign, call } = await setup();
+    const token = await sign("elena", ["accounts:read"]);
+    const spending = await call(
+      token.access_token,
+      "POST",
+      "/poppy/conversations?wait=0",
+      {
+        id: "req_spending_reader",
+        message: {
+          author: { type: "agent" },
+          data: { request: "spending_summary" },
+        },
+      },
+    );
+    expect(companyMessages(spending.json()).at(-1)).toMatchObject({
+      text: "You're signed in, but you haven't allowed this agent to see your transactions or see your budgets. Allow it from your agent, then send the request again.",
+      data: {
+        error: "insufficient_scope",
+        scopes: ["transactions:read", "budgets:read"],
+      },
+    });
+    expect(spending.json().events.at(-1)).toMatchObject({
+      type: "authorization",
+      scope: "transactions:read budgets:read",
+    });
   });
 
   it("reads cash position and freezes a card only after conversation approval", async () => {

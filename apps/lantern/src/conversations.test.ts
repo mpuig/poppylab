@@ -165,6 +165,10 @@ it("answers structured requests signed out, reports state in four fields, and as
     error: "insufficient_scope",
     scope: "orders:read",
   });
+  expect(x.company((account.body as Read).events).at(-1)).toMatchObject({
+    text: "That needs your Lantern account. Sign in, then send the request again.",
+    data: { error: "sign_in_required", scopes: ["orders:read"] },
+  });
   // Free text gets the list of requests, never an interpretation.
   const text = await x.post(
     "",
@@ -452,6 +456,14 @@ it("asks for the write scope first, and sends no operation to a request that doe
   expect((r.body as Read).events.at(-1)).toMatchObject({
     type: "authorization",
     scope: "orders:read orders:write",
+  });
+  // Signed in: what is missing, not a sign-in.
+  expect(x.company((r.body as Read).events).at(-1)).toMatchObject({
+    text: "You're signed in, but you haven't allowed this agent to propose changes to your orders. Allow it from your agent, then send the request again.",
+    data: {
+      error: "insufficient_scope",
+      scopes: ["orders:read", "orders:write"],
+    },
   });
   const writer = await x.sign("elena", true);
   const undeclared = await x.post(

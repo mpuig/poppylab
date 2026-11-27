@@ -762,6 +762,21 @@ it("answers a consent page that ran out with a page of the airline, and a tool w
   const tool = await allow({ origin });
   expect(tool.statusCode).toBe(400);
   expect(tool.json()).toEqual({ error: "invalid_request" });
+  // A pushed request's page loaded again once the airline has forgotten it.
+  const reload = (headers: Record<string, string>) =>
+    inject({
+      url: `/oauth/authorize?${new URLSearchParams({ client_id: "https://agent.example/client.json", request_uri: "urn:ietf:params:oauth:request_uri:gone" })}`,
+      headers,
+    });
+  const again = await reload({ accept: "text/html,*/*;q=0.8" });
+  expect(again.statusCode).toBe(400);
+  expect(again.body).toContain(
+    "<title>This page has expired · Northwind Air</title>",
+  );
+  expect(again.body).toContain(
+    "connect to your Northwind account can be answered once, within five minutes of opening, and this one can&#39;t be shown again. Opening it again changed nothing.</p><p>To connect the agent, go back to it and start the sign-in again.</p>",
+  );
+  expect((await reload({})).json()).toEqual({ error: "invalid_request_uri" });
 });
 
 it("keeps the customer's record of an applied request and of who approved it after the gateway has forgotten the operation", async () => {

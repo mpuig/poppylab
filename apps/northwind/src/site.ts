@@ -319,6 +319,9 @@ export function consentPage(input: {
   return consentFrame(`Allow ${input.client}`, sheet);
 }
 
-/** In the consent page's place, when it is answered after its five minutes. */
-export const consentExpiredPage = () =>
-  consentFrame("This page has expired", consentExpiredHtml("Northwind"));
+/**
+ * In the consent page's place, when it is answered after its five minutes,
+ * or loaded again after it ran out or was answered.
+ */
+export const consentExpiredPage = (how: "answered" | "reopened" = "answered") =>
+  consentFrame("This page has expired", consentExpiredHtml("Northwind", how));

@@ -117,20 +117,39 @@ export function deliveredView(account: string, refunds: Refund[]) {
   };
 }
 
+/** What each scope lets the agent do, in the consent page's plain words. */
+const permissions: Record<string, string> = {
+  "orders:read": "see your scheduled orders",
+  "orders:write": "propose changes to your orders",
+};
+
 export function lanternAgent(deps: Deps): ConversationHandler {
-  /** §8.11: the reply when the token lacks scopes (or there is none). */
-  const needs = (turn: ConversationTurn, scopes: readonly string[]) =>
-    !turn.account || scopes.some((s) => !turn.scopes.includes(s))
-      ? ({
-          replies: [
-            {
+  /**
+   * §8.11: the reply when the token lacks scopes (or there is none). A
+   * customer who is signed in is told which permission is missing, not to
+   * sign in.
+   */
+  const needs = (
+    turn: ConversationTurn,
+    scopes: readonly string[],
+  ): TurnResult | undefined => {
+    const missing = scopes.filter((s) => !turn.scopes.includes(s));
+    if (turn.account && !missing.length) return undefined;
+    return {
+      replies: [
+        turn.account
+          ? {
+              text: `You're signed in, but you haven't allowed this agent to ${missing.map((s) => permissions[s] ?? s).join(" or ")}. Allow it from your agent, then send the request again.`,
+              data: { error: "insufficient_scope", scopes },
+            }
+          : {
               text: "That needs your Lantern account. Sign in, then send the request again.",
               data: { error: "sign_in_required", scopes },
             },
-          ],
-          authorization: scopes.join(" "),
-        } satisfies TurnResult)
-      : undefined;
+      ],
+      authorization: scopes.join(" "),
+    };
+  };
 
   const catalogue = (note?: string): TurnResult => ({
     replies: [

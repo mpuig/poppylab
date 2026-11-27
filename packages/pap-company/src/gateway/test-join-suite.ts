@@ -352,7 +352,7 @@ export function browserJoinSuite(suite: JoinSuite) {
       expect(text).toContain(html(AGENT_BROWSER_LOGIN));
       expect(text).not.toContain("<form");
       expect((await b.get("/site/state")).status).toBe(401);
-      // The demo's login takes no password; an agent's browser can't use it.
+      // The demo's login takes no password; a joined browser can't use it.
       const posted = await b.post("/site/login", { account });
       expect(posted.status).toBe(403);
       expect((await b.get("/site/state")).status).toBe(401);

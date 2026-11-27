@@ -334,7 +334,7 @@ describe.each(modes)("with %s", (_, deploy) => {
     await join(x, out, { session: newSessionId() });
     const grants = structuredClone(x.store.value.grants);
     // Every writing route of the website, one that doesn't exist yet, and
-    // the consent page, where an agent's browser could allow its own agent.
+    // the consent page, where a joined browser could allow its own agent.
     const writes: Array<[string, string]> = [
       ["POST", "/site/notes"],
       ["PUT", "/site/notes/1"],

@@ -63,6 +63,40 @@ it("answers store questions signed out and asks for sign-in for the account", as
     type: "authorization",
     scope: "poppy:read",
   });
+  expect(company(status).at(-1)).toMatchObject({
+    text: "That needs your Juniper account. Sign in, then send the request again.",
+    data: { error: "sign_in_required", scopes: ["poppy:read"] },
+  });
+});
+
+it("tells a customer signed in without a permission which one is missing, not to sign in", async () => {
+  const { visitor } = await visitors();
+  const reader = await visitor("usr_ana", undefined, "poppy:read");
+  const report = (
+    await reader(
+      "POST",
+      `${BASE}?wait=0`,
+      msg({
+        data: {
+          request: "report_problem",
+          topic: "delivery",
+          subject: "Bruised apples",
+          message: "Two apples were bruised.",
+        },
+      }),
+    )
+  ).json() as Read;
+  expect(company(report).at(-1)).toMatchObject({
+    text: "You're signed in, but you haven't allowed this agent to propose changes, such as opening a support case. Allow it from your agent, then send the request again.",
+    data: {
+      error: "insufficient_scope",
+      scopes: ["poppy:read", "poppy:write"],
+    },
+  });
+  expect(report.events.at(-1)).toMatchObject({
+    type: "authorization",
+    scope: "poppy:read poppy:write",
+  });
 });
 
 it("opens a support case only with the approval, and the website shows it", async () => {
