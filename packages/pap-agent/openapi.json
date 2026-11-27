@@ -239,11 +239,16 @@
         },
         "responses": {
           "200": {
-            "description": "Turn completed.",
+            "description": "Turn completed. As JSON, the `TurnResult`. With `Accept: text/event-stream`, Server-Sent Events (`TurnEvent`): one `message.delta` per sentence of the agent's as it is written, then `turn` with the same result, or `error`. A request refused before anything was said is answered as without the header, with its status and an `Error`.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TurnResult"
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/TurnEvent"
                 }
               }
             }
@@ -345,11 +350,16 @@
         },
         "responses": {
           "200": {
-            "description": "Answer applied.",
+            "description": "Answer applied. As JSON, the `TurnResult`. With `Accept: text/event-stream`, Server-Sent Events (`TurnEvent`): one `message.delta` per sentence of the agent's as it is written, then `turn` with the same result, or `error`. A request refused before anything was said is answered as without the header, with its status and an `Error`.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TurnResult"
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/TurnEvent"
                 }
               }
             }
@@ -2482,6 +2492,10 @@
       "AgentMessage": {
         "type": "object",
         "properties": {
+          "id": {
+            "type": "string",
+            "description": "Only in a turn streamed with `Accept: text/event-stream`, on each of the agent's messages: the ID its `message.delta` events named. Match it to the sentences shown, and drop shown sentences whose ID no message carries."
+          },
           "from": {
             "type": "string",
             "enum": [
@@ -2763,6 +2777,102 @@
           "state"
         ],
         "description": "Result of a completed message or quick-reply turn."
+      },
+      "MessageDelta": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "message.delta"
+            ],
+            "description": "Always `message.delta`; also the SSE event name."
+          },
+          "message": {
+            "type": "string",
+            "description": "ID of the agent message this sentence belongs to; the `turn` event's message with this `id` holds the whole text."
+          },
+          "index": {
+            "type": "integer",
+            "description": "Position of the sentence within its message, from 0."
+          },
+          "text": {
+            "type": "string",
+            "description": "The sentence as written, with the whitespace around it, so the texts of one message joined are its text. Ends at a stop, a line's end, or a clause or space before about 220 characters; never inside a word."
+          },
+          "spoken": {
+            "type": "string",
+            "description": "The sentence to read aloud, made by the same fixed rules as a message's `spoken`. Empty when it holds nothing to say, such as a table row or a link."
+          }
+        },
+        "required": [
+          "type",
+          "message",
+          "index",
+          "text",
+          "spoken"
+        ],
+        "description": "One sentence of one of the agent's messages, sent as soon as it is written. A voice client speaks `spoken` as each one arrives."
+      },
+      "TurnEvent": {
+        "type": "object",
+        "description": "One Server-Sent Event of a turn streamed with `Accept: text/event-stream`; `type` matches the SSE `event:` field. `message.delta` events come first, one per sentence, then exactly one `turn` or `error`. Only the agent's words come as sentences: Company content comes whole in the result as its own message (§10.1). Demo-mode answers and the agent's own lines, which are ready at once, come as sentences too, all together just before `turn`.",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/MessageDelta"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "turn"
+                ],
+                "description": "Always `turn`; the last event of a turn that ended."
+              },
+              "result": {
+                "$ref": "#/components/schemas/TurnResult",
+                "description": "The same result as the JSON answer; each agent message carries the `id` its sentences named."
+              }
+            },
+            "required": [
+              "type",
+              "result"
+            ],
+            "description": "The turn ended: show `result` in place of the sentences shown."
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "error"
+                ],
+                "description": "Always `error`; the last event of a turn that failed after it began."
+              },
+              "status": {
+                "type": "integer",
+                "description": "The HTTP status the JSON answer would have had."
+              },
+              "code": {
+                "type": "string",
+                "description": "Machine-readable error code, when there is one."
+              },
+              "error": {
+                "type": "string",
+                "description": "User-facing explanation that can be shown as is."
+              }
+            },
+            "required": [
+              "type",
+              "status",
+              "error"
+            ],
+            "description": "The turn failed after its first sentence: drop the sentences shown and show `error`."
+          }
+        ]
       },
       "ModelChoice": {
         "type": "object",

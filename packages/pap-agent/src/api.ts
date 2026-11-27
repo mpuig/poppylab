@@ -10,6 +10,7 @@
  * `openapi.ts` describes these as HTTP (`api-http.ts`).
  */
 import { accountAction, accountReading } from "./account";
+import type { TurnStream } from "./answer-stream";
 import { chatTurn } from "./chat";
 import type { Answer, Choice } from "./company-commands";
 import type { AgentStep } from "./agent-steps";
@@ -77,6 +78,11 @@ export type Proposal = {
 
 /** Something said in the conversation. */
 export type AgentMessage = {
+  /**
+   * In a turn's answer streamed with `Accept: text/event-stream`, on each
+   * of the agent's messages: the ID its `message.delta` events named.
+   */
+  id?: string;
   /**
    * `user`: the User's words (or the label of the choice they pressed).
    * `agent`: the agent's answer; with `company`, to a turn with that
@@ -372,11 +378,16 @@ async function turn(
   caller: Caller,
   id: string,
   body: Record<string, unknown>,
+  options: TurnOptions = {},
 ): Promise<Result<TurnResult>> {
   const gone = await running(caller, id);
   if (gone) return gone;
   const done = await chatTurn(
-    { read: async () => ({ ...body, companies: true }), conversation: id },
+    {
+      read: async () => ({ ...body, companies: true }),
+      conversation: id,
+      stream: options.stream,
+    },
     caller,
   );
   if (done.status !== 200) return failure(done);
@@ -404,6 +415,12 @@ const model = (choice: ModelChoice | undefined) => ({
 });
 
 /**
+ * How a channel takes a turn's answer besides its result: `stream` is
+ * given the model's answer as it is written (`answer-stream.ts`).
+ */
+export type TurnOptions = { stream?: TurnStream | undefined };
+
+/**
  * The User's message. `company` is the Company the User chose for it, by
  * origin; without it the agent works out which, or asks.
  */
@@ -411,14 +428,20 @@ export async function sendMessage(
   caller: Caller,
   id: string,
   input: { text: string; company?: string; model?: ModelChoice },
+  options: TurnOptions = {},
 ): Promise<Result<TurnResult>> {
   if (typeof input.text !== "string")
     return refused(400, "invalid_request", "Send the message as text.");
-  return turn(caller, id, {
-    message: input.text,
-    ...(input.company !== undefined ? { company: input.company } : {}),
-    ...model(input.model),
-  });
+  return turn(
+    caller,
+    id,
+    {
+      message: input.text,
+      ...(input.company !== undefined ? { company: input.company } : {}),
+      ...model(input.model),
+    },
+    options,
+  );
 }
 
 /** The answer a choice carries, in place of a message: never its label. */
@@ -426,8 +449,14 @@ export async function answerChoice(
   caller: Caller,
   id: string,
   input: { answer: Answer; model?: ModelChoice },
+  options: TurnOptions = {},
 ): Promise<Result<TurnResult>> {
-  return turn(caller, id, { answer: input.answer, ...model(input.model) });
+  return turn(
+    caller,
+    id,
+    { answer: input.answer, ...model(input.model) },
+    options,
+  );
 }
 
 // ---- Proposals and sign-in -------------------------------------------------

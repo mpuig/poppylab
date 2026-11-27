@@ -95,6 +95,7 @@ export async function severalTurn(
     part.trace.push(
       `Offered the model ${Object.keys(part.tools).length - count} of ${part.ref.name}'s ${Object.keys(part.tools).length} tools · at most ${SEVERAL_LIMITS.tools} in a turn with several Companies`,
     );
+  if (scope.did.before) turn.stream?.line(scope.did.before);
   const text = await runModel(
     modelProvider(provider),
     [
@@ -106,6 +107,7 @@ export async function severalTurn(
       ...turn.modelConfig,
       name: agentName(),
       steps: SEVERAL_LIMITS.steps,
+      onText: turn.stream?.text,
       // Whose each tool is and what may cross between them (§10.1),
       // then the User's account at each, as a turn with one is told.
       context: [

@@ -161,6 +161,9 @@ const schemas: Record<string, Schema> = {
   ),
   AgentMessage: object(
     {
+      id: str(
+        "Only in a turn streamed with `Accept: text/event-stream`, on each of the agent's messages: the ID its `message.delta` events named. Match it to the sentences shown, and drop shown sentences whose ID no message carries.",
+      ),
       from: {
         type: "string",
         enum: ["user", "agent", "company"],
@@ -304,6 +307,65 @@ const schemas: Record<string, Schema> = {
     ["conversation", "messages", "replaced", "state"],
     "Result of a completed message or quick-reply turn.",
   ),
+  MessageDelta: object(
+    {
+      type: {
+        type: "string",
+        enum: ["message.delta"],
+        description: "Always `message.delta`; also the SSE event name.",
+      },
+      message: str(
+        "ID of the agent message this sentence belongs to; the `turn` event's message with this `id` holds the whole text.",
+      ),
+      index: int("Position of the sentence within its message, from 0."),
+      text: str(
+        "The sentence as written, with the whitespace around it, so the texts of one message joined are its text. Ends at a stop, a line's end, or a clause or space before about 220 characters; never inside a word.",
+      ),
+      spoken: str(
+        "The sentence to read aloud, made by the same fixed rules as a message's `spoken`. Empty when it holds nothing to say, such as a table row or a link.",
+      ),
+    },
+    ["type", "message", "index", "text", "spoken"],
+    "One sentence of one of the agent's messages, sent as soon as it is written. A voice client speaks `spoken` as each one arrives.",
+  ),
+  TurnEvent: {
+    type: "object",
+    description:
+      "One Server-Sent Event of a turn streamed with `Accept: text/event-stream`; `type` matches the SSE `event:` field. `message.delta` events come first, one per sentence, then exactly one `turn` or `error`. Only the agent's words come as sentences: Company content comes whole in the result as its own message (§10.1). Demo-mode answers and the agent's own lines, which are ready at once, come as sentences too, all together just before `turn`.",
+    oneOf: [
+      ref("MessageDelta"),
+      object(
+        {
+          type: {
+            type: "string",
+            enum: ["turn"],
+            description: "Always `turn`; the last event of a turn that ended.",
+          },
+          result: ref(
+            "TurnResult",
+            "The same result as the JSON answer; each agent message carries the `id` its sentences named.",
+          ),
+        },
+        ["type", "result"],
+        "The turn ended: show `result` in place of the sentences shown.",
+      ),
+      object(
+        {
+          type: {
+            type: "string",
+            enum: ["error"],
+            description:
+              "Always `error`; the last event of a turn that failed after it began.",
+          },
+          status: int("The HTTP status the JSON answer would have had."),
+          code: str("Machine-readable error code, when there is one."),
+          error: str("User-facing explanation that can be shown as is."),
+        },
+        ["type", "status", "error"],
+        "The turn failed after its first sentence: drop the sentences shown and show `error`.",
+      ),
+    ],
+  },
   ModelChoice: object(
     {
       provider: {
@@ -608,6 +670,20 @@ const id = {
   description: "Conversation ID.",
 };
 const body = (schema: Schema) => ({ required: true, ...json(schema) });
+/**
+ * A turn's answers: the result, or with `Accept: text/event-stream` the
+ * agent's sentences as they are written and then the result.
+ */
+const turnResponses = (done: string) => ({
+  "200": {
+    description: `${done} As JSON, the \`TurnResult\`. With \`Accept: text/event-stream\`, Server-Sent Events (\`TurnEvent\`): one \`message.delta\` per sentence of the agent's as it is written, then \`turn\` with the same result, or \`error\`. A request refused before anything was said is answered as without the header, with its status and an \`Error\`.`,
+    content: {
+      "application/json": { schema: ref("TurnResult") },
+      "text/event-stream": { schema: ref("TurnEvent") },
+    },
+  },
+  ...errors,
+});
 
 const tags = [
   {
@@ -738,13 +814,7 @@ export function openApiDocument() {
               ["text"],
             ),
           ),
-          responses: {
-            "200": {
-              description: "Turn completed.",
-              ...json(ref("TurnResult")),
-            },
-            ...errors,
-          },
+          responses: turnResponses("Turn completed."),
         },
       },
       "/api/v1/conversations/{id}/answers": {
@@ -767,13 +837,7 @@ export function openApiDocument() {
               ["answer"],
             ),
           ),
-          responses: {
-            "200": {
-              description: "Answer applied.",
-              ...json(ref("TurnResult")),
-            },
-            ...errors,
-          },
+          responses: turnResponses("Answer applied."),
         },
       },
       "/api/v1/conversations/{id}/proposals/{proposal}/decision": {

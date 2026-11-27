@@ -1,4 +1,5 @@
 import { accountUnavailableNotice } from "./account-recovery";
+import type { TurnStream } from "./answer-stream";
 import type { Before } from "./chat-answers";
 import type { Choice, Performed } from "./company-commands";
 import { companiesView } from "./conversation-view";
@@ -109,6 +110,8 @@ export type HeldTurn = {
    * the order it uses them.
    */
   also: Connection[];
+  /** Where the model's answer goes as it is written, when it is streamed. */
+  stream?: TurnStream | undefined;
 };
 
 /**

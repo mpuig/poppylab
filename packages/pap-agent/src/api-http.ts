@@ -18,7 +18,10 @@ import {
   startSignIn,
   type ApiError,
   type Result,
+  type TurnOptions,
+  type TurnResult,
 } from "./api";
+import { answerStream, turnEvents, wantsEvents } from "./answer-stream";
 import {
   conversationEvents,
   holdStream,
@@ -301,21 +304,28 @@ async function serve(
       }
       case "sendMessage": {
         const input = await body(request);
-        return answer(
-          await sendMessage(caller, id, {
-            text: text(input.text) ?? "",
-            ...(text(input.company) ? { company: text(input.company)! } : {}),
-            ...model(input.model),
-          }),
+        return turned(request, (options) =>
+          sendMessage(
+            caller,
+            id,
+            {
+              text: text(input.text) ?? "",
+              ...(text(input.company) ? { company: text(input.company)! } : {}),
+              ...model(input.model),
+            },
+            options,
+          ),
         );
       }
       case "answerChoice": {
         const input = await body(request);
-        return answer(
-          await answerChoice(caller, id, {
-            answer: input.answer as never,
-            ...model(input.model),
-          }),
+        return turned(request, (options) =>
+          answerChoice(
+            caller,
+            id,
+            { answer: input.answer as never, ...model(input.model) },
+            options,
+          ),
         );
       }
       case "decideProposal": {
@@ -362,6 +372,45 @@ async function serve(
     });
   }
   return error({ status: 404, code: "not_found", error: "No such route." });
+}
+
+/**
+ * A turn's answer: its result as JSON, or, for a client that accepts
+ * `text/event-stream`, the agent's sentences as they are written
+ * (`message.delta`), then `turn` with the same result, each of the agent's
+ * messages in it with the `id` its sentences named. What the turn says at
+ * once (demo mode, the agent's own lines) comes the same way, whole. A
+ * turn refused before it said anything is answered as without the
+ * stream, with its status; one that fails after ends with `error`.
+ */
+async function turned(
+  request: Request,
+  run: (options: TurnOptions) => Promise<Result<TurnResult>>,
+) {
+  if (!wantsEvents(request)) return answer(await run({}));
+  return turnEvents(async (send) => {
+    const said = answerStream(send);
+    const result = await run({ stream: said.stream });
+    if (!result.ok)
+      return {
+        last: {
+          type: "error",
+          status: result.status,
+          ...(result.code ? { code: result.code } : {}),
+          error: result.error,
+        },
+        instead: () => error(result),
+      };
+    return {
+      last: {
+        type: "turn",
+        result: {
+          ...result.value,
+          messages: said.finish(result.value.messages),
+        },
+      },
+    };
+  });
 }
 
 const model = (value: unknown) => {

@@ -3,6 +3,12 @@ import { companyProfile } from "@poppy-lab/pap-core";
 import { runModel } from "@poppy-lab/llm-adapters/server";
 import { agentName } from "./agent";
 import { accountNote } from "./account-permissions";
+import {
+  answerStream,
+  turnEvents,
+  wantsEvents,
+  type TurnStream,
+} from "./answer-stream";
 import { answerQuestion, askAfter, before, withoutModel } from "./chat-answers";
 import { checkChatBody } from "./chat-body";
 import { chooseCompany } from "./chat-companies";
@@ -82,6 +88,8 @@ type Outcome = {
 export type ChatInput = {
   read: () => Promise<unknown>;
   conversation?: string | undefined;
+  /** Where the model's answer goes as it is written, for a client that streams it. */
+  stream?: TurnStream | undefined;
 };
 /** The answer, and the conversation it was in (new or the one named). */
 export type ChatTurn = Reply & { conversation?: string };
@@ -113,17 +121,58 @@ export async function chatTurn(
  * its address (docs/chat-continuity.md).
  */
 export async function chat(request: Request, cookies: CookieStore) {
-  const turn = await chatTurn(
-    {
-      read: () => readJson(request, 6000),
-      conversation: request.headers.get("x-poppy-conversation") ?? undefined,
-    },
-    await browserCaller(request, cookies),
-  );
-  const response = toResponse(turn);
-  if (turn.conversation)
-    response.headers.set("X-Poppy-Conversation", turn.conversation);
-  return response;
+  const input: ChatInput = {
+    read: () => readJson(request, 6000),
+    conversation: request.headers.get("x-poppy-conversation") ?? undefined,
+  };
+  const caller = await browserCaller(request, cookies);
+  const answer = (turn: ChatTurn) => {
+    const response = toResponse(turn);
+    if (turn.conversation)
+      response.headers.set("X-Poppy-Conversation", turn.conversation);
+    return response;
+  };
+  if (!wantsEvents(request)) return answer(await chatTurn(input, caller));
+  // The page shows the model's answer as it is written, and the rest of
+  // the turn whole, from the event that ends the stream: `answer`, with
+  // the status, headers and body the response would have had.
+  return turnEvents(async (send) => {
+    const { stream } = answerStream(send);
+    let lines = 0;
+    const turn = await chatTurn(
+      {
+        ...input,
+        stream: {
+          text: stream.text,
+          // Iris's own line before the answer, whole, which the page shows
+          // as its own words and not as an answer.
+          line: (text) =>
+            send({
+              type: "message.delta",
+              message: `own-${++lines}`,
+              index: 0,
+              text,
+              own: true,
+            } as { type: string }),
+        },
+      },
+      caller,
+    );
+    return {
+      last: {
+        type: "answer",
+        status: turn.status,
+        headers: {
+          ...turn.headers,
+          ...(turn.conversation
+            ? { "X-Poppy-Conversation": turn.conversation }
+            : {}),
+        },
+        body: turn.body,
+      },
+      instead: () => answer(turn),
+    };
+  });
 }
 /**
  * One turn, from the guards that let it in to the bookkeeping after it:
@@ -310,6 +359,7 @@ async function reply(
       asked: message,
       typed: undefined,
       also: [],
+      stream: input.stream,
     };
     // The User's answer to that question, read before any model or rule
     // of the demo sees the message.
@@ -562,6 +612,8 @@ async function modelReply(
       },
     ]),
   );
+  // Iris's own line from before the model, said before its answer.
+  if (scope.did.before) turn.stream?.line(scope.did.before);
   const text = await runModel(
     modelProvider(turn.provider),
     // The roles and the words, without the Company each turn was with.
@@ -573,6 +625,7 @@ async function modelReply(
     {
       ...turn.modelConfig,
       name: agentName(),
+      onText: turn.stream?.text,
       // Whether the User is signed in here, and with what: Company
       // content may say what a request needs, never what the User has.
       context: accountNote(companyName, {

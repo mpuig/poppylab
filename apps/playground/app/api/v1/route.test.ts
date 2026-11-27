@@ -223,6 +223,55 @@ describe("a new conversation in demo mode", () => {
     expect((read.data.messages as unknown[]).length).toBe(messages.length);
   });
 
+  it("streams a demo turn's answer in the same events as a model's, each as described", async () => {
+    const started = await call("POST", "/conversations", {});
+    const id = started.data.id as string;
+    const response = await POST(
+      new Request(`${agent}/api/v1/conversations/${id}/messages`, {
+        method: "POST",
+        headers: {
+          origin: agent,
+          "Content-Type": "application/json",
+          Accept: "text/event-stream",
+        },
+        body: JSON.stringify({ text: "hello there" }),
+      }),
+    );
+    expect(response.headers.get("Content-Type")).toContain("text/event-stream");
+    const events = (await response.text())
+      .split("\n\n")
+      .filter(Boolean)
+      .map((block) => {
+        const [name, data] = block.split("\n");
+        const event = JSON.parse(data!.slice(6)) as { type: string };
+        expect(name).toBe(`event: ${event.type}`);
+        return event as Record<string, unknown> & { type: string };
+      });
+    const schema = (
+      document.paths["/api/v1/conversations/{id}/messages"] as {
+        post: {
+          responses: {
+            "200": { content: Record<string, { schema: Schema }> };
+          };
+        };
+      }
+    ).post.responses["200"].content["text/event-stream"]!.schema;
+    for (const event of events) expect(mismatches(event, schema)).toEqual([]);
+    // Demo mode's answer is there at once: its sentences, all, then the turn.
+    expect(events.at(-1)!.type).toBe("turn");
+    const deltas = events.slice(0, -1);
+    expect(deltas.length).toBeGreaterThan(0);
+    expect(deltas.every((e) => e.type === "message.delta")).toBe(true);
+    const result = events.at(-1)!.result as {
+      messages: Array<{ from: string; text: string; id?: string }>;
+    };
+    const answer = result.messages.at(-1)!;
+    expect(answer.from).toBe("agent");
+    const own = deltas.filter((d) => d.message === answer.id);
+    expect(own.map((d) => d.index)).toEqual(own.map((_, i) => i));
+    expect(own.map((d) => d.text).join("")).toBe(answer.text);
+  });
+
   it("refuses what isn't the user's own, and what isn't there", async () => {
     expect(
       (
