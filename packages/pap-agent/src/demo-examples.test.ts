@@ -8,6 +8,7 @@ import {
   demoExamplesFor,
   demoGuidedReply,
 } from "./demo-examples";
+import { SAYS_YES, yesOrNo } from "./typed-answers";
 
 it("has every suggestion demo mode shows, for its Company", () => {
   for (const [company, c] of Object.entries(DEMO_SUGGESTIONS))
@@ -39,11 +40,16 @@ it("has every message a Learn page has the reader type", () => {
         /\b(?:types|writes|asks|answers|asks for it):? "([^"]+)"/g,
       ),
     ])
-    .map((match) => match[1]!)
-    // Said in a Direct Conversation: the Company reads it, not demo mode.
-    .filter((text) => text !== "yes");
-  expect(asked.length).toBeGreaterThan(8);
-  for (const text of asked) expect(demoExampleFor(text), text).toBeDefined();
+    .map((match) => match[1]!);
+  // An answer to a question of the agent's own ("yes", "approve") is read
+  // by the typed-answer rules, not by demo mode; so is "yes" in a Direct
+  // Conversation, which the Company reads.
+  const verbs = Object.values(SAYS_YES).flat();
+  const answers = asked.filter((text) => yesOrNo(text, verbs));
+  const messages = asked.filter((text) => !answers.includes(text));
+  expect(messages.length).toBeGreaterThan(8);
+  for (const text of messages)
+    expect(demoExampleFor(text), text).toBeDefined();
 });
 
 it("matches whatever the case, the spaces, the quotes or the last punctuation", () => {
