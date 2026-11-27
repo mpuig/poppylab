@@ -107,7 +107,7 @@ Verified by tests (Lantern: separate copies, stolen token, eviction and split pe
 
 Deployed: `https://noodles.poppylab.dev` (`334aa256`) and `https://juniper.poppylab.dev` (`7a5a276d`). Both serve discovery, metadata, excluded tasks and OpenAPI. The API without a Session header and plain-HTTP clients at authorize return 400; Juniper's portal returns 403.
 
-**Still open for the public Companies:** global caps (2000 Sessions, 2000 tokens, 1000 grants) are shared by all clients; an edge rate-limit rule should go in front before Poppy is public.
+**Still open for the public Companies:** the caps (2,000 Sessions, 2,000 tokens, 1,000 grants and the others in [Scaling boundary](#scaling-boundary)) are for all clients together, and each client may hold a fifth of each, or the larger share a deployment gives it in `clientShares`. A client can publish many client metadata documents, so many `client_id`s together can still fill a cap; an edge rate-limit rule should go in front before Poppy is public.
 
 ## Scaling boundary
 
@@ -138,7 +138,7 @@ That is why a deployment can name clients it trusts with a larger share (`client
 Two limits come from the storage values and the single object rather than from a cap:
 
 - **Size.** Cloudflare stores at most 2 MB in one value. Filled to every cap with records as large as a client can make them (a `client_id` of 200 characters, the longest the gateway takes, and User and Agent IDs of 256), the protocol state comes to about 7 MB of JSON, and its largest row, `state:sessions`, to about 1.7 MB; the replay cache, which keeps hashes, to about 0.6 MB (`split-store.test.ts`). Each value is measured as UTF-8 JSON before a save, and a save with one over 2,000,000 bytes writes nothing and logs `state_value_too_large`. It then fails like any other: 503, then a start from the last stored state.
-- **Rate.** Each signed request puts one entry in the replay cache for about 70 seconds: its DPoP proof, or its Session JWT when it has no proof. A client at its fifth of the 10,000 entries has its next header or proof refused as invalid; that is about 28 signed requests a second for one client, and the others go on. When many clients fill the cache together, the entry nearest its end makes room, so a copy of that one JWT could then be accepted. Refusing a reused `jti` is optional (§5.3), and a cache that refused everyone once full would let one client, or anyone who publishes many client metadata documents, stop every client. Each signed request also writes the protocol state's rows. Cloudflare's own soft limit for one object is about 1,000 requests a second.
+- **Rate.** Each signed request puts one entry in the replay cache for about 70 seconds: its DPoP proof, or its Session JWT when it has no proof. A client at its share of the 10,000 entries has its next header or proof refused as invalid; at a fifth, that is about 28 signed requests a second for one client, and the others go on. When many clients fill the cache together, the entry nearest its end makes room, so a copy of that one JWT could then be accepted. Refusing a reused `jti` is optional (§5.3), and a cache that refused everyone once full would let one client, or anyone who publishes many client metadata documents, stop every client. Each signed request also writes the protocol state's rows. Cloudflare's own soft limit for one object is about 1,000 requests a second.
 
 **Sharding by visitor** would give each tenant its own object, so one visitor's load and records stop counting against everyone else's. It would take:
 
