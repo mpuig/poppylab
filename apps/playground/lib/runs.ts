@@ -14,6 +14,7 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 import type { Connection, Run } from "./runtime";
 import {
   companyName,
+  connectionAt,
   connectionForState,
   from,
   newConnection,
@@ -444,8 +445,17 @@ export type ConversationSummary = {
    */
   company: string;
   url: string;
-  /** Each of its Companies, in the order they were connected. */
-  companies: Array<{ origin: string; name: string; url: string }>;
+  /**
+   * Each of its Companies, in the order they were connected, then those
+   * removed from it and not connected again (`removed`), in the order
+   * they left.
+   */
+  companies: Array<{
+    origin: string;
+    name: string;
+    url: string;
+    removed?: true;
+  }>;
   title?: string;
   created: number;
   /** Still running; otherwise read-only. */
@@ -468,11 +478,21 @@ export async function listConversations(
         run.connections.map(companyName).join(", ") ||
         (run.archived ? "No company" : "No company yet"),
       url: run.connections[0]?.url ?? "",
-      companies: run.connections.map((connection) => ({
-        origin: originOf(connection),
-        name: companyName(connection),
-        url: connection.url,
-      })),
+      companies: [
+        ...run.connections.map((connection) => ({
+          origin: originOf(connection),
+          name: companyName(connection),
+          url: connection.url,
+        })),
+        ...(run.former ?? [])
+          .filter((f) => !connectionAt(run, f.url))
+          .map((f) => ({
+            origin: originOf(f),
+            name: f.name,
+            url: f.url,
+            removed: true as const,
+          })),
+      ],
       ...(run.title ? { title: run.title } : {}),
       created: startOf(run),
       active: !run.archived,

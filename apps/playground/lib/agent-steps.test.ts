@@ -19,7 +19,7 @@ it("describes a read and a change in plain words with their access", () => {
 
 it("never says Iris read or sent a request it stopped before asking", () => {
   expect(step("Not sent · GET /api/account/orders · sign-in needed")).toEqual({
-    text: "Did not ask for /api/account/orders (sign-in needed); nothing was sent",
+    text: "Did not send a request to /api/account/orders (sign-in needed)",
     how: "API",
     access: null,
     state: "done",
@@ -29,7 +29,7 @@ it("never says Iris read or sent a request it stopped before asking", () => {
       "Not sent · POST /api/account/delivery-change · permission not granted",
     ).text,
   ).toBe(
-    "Did not ask for /api/account/delivery-change (permission not granted); nothing was sent",
+    "Did not send a request to /api/account/delivery-change (permission not granted)",
   );
 });
 

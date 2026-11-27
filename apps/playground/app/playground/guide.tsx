@@ -60,18 +60,27 @@ export function guideCompany(
   return inFocus(companies, lastTurn, waits?.origin);
 }
 
-/** The four moves of a first run, the one the visitor is on, and what to do. */
-export function Guide({ p }: { p: Playground }) {
-  const now = useProposalClock(p.companies.flatMap((c) => c.operations));
-  const company = guideCompany(p.companies, p.lastTurn, now);
-  const known = labCompany(company?.url);
+/** The Company the guide speaks about, where it is, and the step it is on. */
+export function guideAt(
+  companies: CompanyState[],
+  lastTurn: string | undefined,
+  now = Date.now(),
+) {
+  const company = guideCompany(companies, lastTurn, now);
   const state = {
     connected: !!company,
     signedIn: !!company?.signedIn,
     canWrite: !!company && mayChange(company),
     ...guideProposals(company?.operations ?? [], now),
   };
-  const step = guideStep(state);
+  return { company, state, step: guideStep(state) };
+}
+
+/** The four moves of a first run, the one the visitor is on, and what to do. */
+export function Guide({ p }: { p: Playground }) {
+  const now = useProposalClock(p.companies.flatMap((c) => c.operations));
+  const { company, state, step } = guideAt(p.companies, p.lastTurn, now);
+  const known = labCompany(company?.url);
   return (
     <section className="guide" aria-label="What to do next">
       <ol>

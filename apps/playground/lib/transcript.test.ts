@@ -122,7 +122,8 @@ describe("what a Direct Conversation leaves behind (§8.10)", () => {
 
   it("tells the model what Iris answered, without the User's words", () => {
     const r = run();
-    const over = "That direct conversation is over, so nothing was sent.";
+    const over =
+      "That direct conversation is over, so the Company didn't take your message.";
     recordDirect(r, company, "say", secret, over, false);
 
     expect(forModel(r)).not.toContain("4417");
@@ -132,7 +133,7 @@ describe("what a Direct Conversation leaves behind (§8.10)", () => {
   it("doesn't say the User wrote to the Company when their words may not have been sent", () => {
     const notes = {
       start: `A direct conversation with ${company} was already open, and Iris had lost track of it. You're back in it now. This message wasn't sent: say it again if ${company} doesn't have it yet.`,
-      say: "This direct conversation needs you signed in, so nothing was sent. Use the Sign in control in the chat, then try again.",
+      say: "This direct conversation needs you signed in, so the Company didn't take your message. Use the Sign in control in the chat, then try again.",
     } as const;
     for (const action of ["start", "say"] as const) {
       const r = run();
@@ -359,6 +360,38 @@ describe("what the page shows again after a reload", () => {
     expect(answer!.steps![0]!.text.length).toBeLessThanOrEqual(300);
     expect(answer).not.toHaveProperty("data");
     expect(companyEntry!.note!.length).toBeLessThanOrEqual(600);
+  });
+
+  it("bounds Iris's buttons, and keeps them only on the question it asked last", () => {
+    const r = run();
+    transcript.recordOwn(r, undefined, "q", "Which one?", false);
+    transcript.offerChoices(r, "Which one?", [
+      // A name is text the Company supplies.
+      { label: "n".repeat(5000), answer: { company: "https://a.example" } },
+      // Longer than any answer Iris makes: left out.
+      {
+        label: "Long",
+        answer: { remove: ["https://b.example/" + "p".repeat(9000)] },
+      },
+      ...Array.from({ length: 20 }, (_, i) => ({
+        label: `Company ${i}`,
+        answer: { connect: `https://c${i}.example` },
+      })),
+    ]);
+    const asked = r.transcript!.at(-1)!;
+    expect(asked.choices).toHaveLength(TRANSCRIPT_LIMITS.choices);
+    expect(asked.choices![0]!.label.length).toBeLessThanOrEqual(200);
+    expect(asked.choices!.map((c) => c.label)).not.toContain("Long");
+    // Only Iris's own last line takes them.
+    transcript.offerChoices(r, "Something else", [
+      { label: "x", answer: { company: "https://a.example" } },
+    ]);
+    expect(r.transcript!.at(-1)!.choices).toHaveLength(
+      TRANSCRIPT_LIMITS.choices,
+    );
+    // Whatever follows the question takes its buttons away.
+    recordTurn(r, "q2", "a2");
+    expect(r.transcript!.some((e) => e.choices)).toBe(false);
   });
 
   it("bounds the whole transcript, dropping the oldest data first", () => {

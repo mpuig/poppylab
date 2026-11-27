@@ -79,7 +79,7 @@ export async function conversationEnded(
     {
       code: "conversation_ended",
       error:
-        "This conversation has ended and is read-only. Nothing was sent. Start a new conversation to go on.",
+        "This conversation has ended and is read-only, so nothing was sent to any company. Start a new conversation to go on.",
       keptUntil: ended.keptUntil,
     },
     {

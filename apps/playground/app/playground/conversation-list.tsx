@@ -6,8 +6,16 @@ type Summary = {
   id: string;
   /** The names in one line, or "No company yet" / "No company". */
   company: string;
-  /** Every Company of the conversation, in the order they were connected. */
-  companies?: Array<{ origin: string; name: string; url: string }>;
+  /**
+   * Every Company of the conversation, in the order they were connected,
+   * then those removed from it.
+   */
+  companies?: Array<{
+    origin: string;
+    name: string;
+    url: string;
+    removed?: boolean;
+  }>;
   title?: string;
   created: number;
   active: boolean;
@@ -15,8 +23,9 @@ type Summary = {
 };
 /**
  * A conversation's Companies, each with its mark, in the order they were
- * connected; with none, the server's words for it ("No company yet" while
- * it runs, "No company" once it has ended).
+ * connected, and those removed from it, marked so; with none, the server's
+ * words for it ("No company yet" while it runs, "No company" once it has
+ * ended).
  */
 export function CompaniesOf({
   item,
@@ -32,6 +41,7 @@ export function CompaniesOf({
               <span className="history-company">
                 <CompanyMark origin={c.origin} />
                 {c.name}
+                {c.removed && <span className="removed">(removed)</span>}
               </span>
             </Fragment>
           ))

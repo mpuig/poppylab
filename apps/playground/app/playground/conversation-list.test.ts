@@ -29,3 +29,20 @@ it("lists a conversation with every Company it has, and one with none", () => {
     "<strong>No company yet</strong>",
   );
 });
+
+it("lists a Company removed from the conversation, marked as removed", () => {
+  const html = row({
+    company: "No company yet",
+    companies: [
+      {
+        origin: "https://lantern.example",
+        name: "Lantern Noodle Bar",
+        url: "",
+        removed: true,
+      },
+    ],
+  });
+  expect(html).toBe(
+    '<strong><span class="history-company"><span class="company-mark other" aria-hidden="true"></span>Lantern Noodle Bar<span class="removed">(removed)</span></span></strong>',
+  );
+});

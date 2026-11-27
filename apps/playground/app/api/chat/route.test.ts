@@ -174,11 +174,11 @@ beforeEach(() => {
   });
 });
 
-it("says to sign in, and that nothing was sent, when a signed-out customer asks for their orders", async () => {
+it("says to sign in, and that the request wasn't sent, when a signed-out customer asks for their orders", async () => {
   const turn = await say(shop(), "my orders");
   expect(turn.status).toBe(200);
   expect(turn.answer.text).toBe(
-    "Protocol demo (no LLM). This needs your account at Juniper Market, and you are not signed in. Iris did not ask: nothing was sent to the Company. Press “Sign in to Juniper Market”, then ask again.",
+    "Protocol demo (no LLM). This needs your account at Juniper Market, and you are not signed in. Iris didn't send this request to the Company. Press “Sign in to Juniper Market”, then ask again.",
   );
   // Nothing of the Company's to show under Data.
   expect(turn.answer).not.toHaveProperty("data");
@@ -187,19 +187,19 @@ it("says to sign in, and that nothing was sent, when a signed-out customer asks 
     "Not sent · GET /api/account/orders · sign-in needed",
   );
   expect(turn.steps).toContain(
-    "Did not ask for /api/account/orders (sign-in needed); nothing was sent",
+    "Did not send a request to /api/account/orders (sign-in needed)",
   );
   expect(turn.steps.join("\n")).not.toMatch(/^(Read|Sent a request to) /m);
 });
 
-it("names the change permission, and says nothing was sent, when a read-only customer asks for a change", async () => {
+it("names the change permission, and says the request wasn't sent, when a read-only customer asks for a change", async () => {
   const turn = await say(
     shop("poppy:read"),
     "Move my recurring delivery to Saturday.",
   );
   expect(turn.status).toBe(200);
   expect(turn.answer.text).toBe(
-    "Protocol demo (no LLM). This needs the change permission, which your sign-in to Juniper Market doesn't include. Iris did not ask: nothing was sent to the Company. Press “Request change permission”, review the Company's consent, and ask again.",
+    "Protocol demo (no LLM). This needs the change permission, which your sign-in to Juniper Market doesn't include. Iris didn't send this request to the Company. Press “Request change permission”, review the Company's consent, and ask again.",
   );
   expect(turn.answer).not.toHaveProperty("data");
   expect(turn.asked).not.toContain(origin + "/api/account/delivery-change");
@@ -569,7 +569,7 @@ it("tells the page its conversation has ended, and starts no new one in its plac
   expect(await refused.json()).toEqual({
     code: "conversation_ended",
     error:
-      "This conversation has ended and is read-only. Nothing was sent. Start a new conversation to go on.",
+      "This conversation has ended and is read-only, so nothing was sent to any company. Start a new conversation to go on.",
     keptUntil: expect.any(Number),
   });
   // Nothing was asked of the Company, and nothing new was started.

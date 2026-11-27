@@ -295,6 +295,43 @@ it("leaves no trail of conversations nothing was said in", async () => {
   );
 });
 
+it("lists the Companies removed from a conversation too, marked as removed", async () => {
+  configureBackend(memoryBackend());
+  const held = await createRun("v", "https://juniper.example");
+  held.run.title = "What's on the menu?";
+  addConnection(held.run, "https://lantern.example");
+  addConnection(held.run, "https://harbor.example");
+  removeConnection(
+    held.run,
+    connectionAt(held.run, "https://lantern.example")!,
+  );
+  // Removed and connected again: listed once, as connected.
+  removeConnection(held.run, connectionAt(held.run, "https://harbor.example")!);
+  addConnection(held.run, "https://harbor.example");
+  await releaseRun("v", held);
+  const [listed] = await listConversations("v");
+  expect(listed!.companies).toEqual([
+    {
+      origin: "https://juniper.example",
+      name: "juniper.example",
+      url: "https://juniper.example",
+    },
+    {
+      origin: "https://harbor.example",
+      name: "harbor.example",
+      url: "https://harbor.example",
+    },
+    {
+      origin: "https://lantern.example",
+      name: "lantern.example",
+      url: "https://lantern.example",
+      removed: true,
+    },
+  ]);
+  // The line for a list that shows one name names the connected ones.
+  expect(listed!.company).toBe("juniper.example, harbor.example");
+});
+
 it("doesn't list an ended conversation that has no words left to read", async () => {
   configureBackend(memoryBackend());
   const start = Date.now();
@@ -378,15 +415,19 @@ it("holds a conversation's Companies in one run: one lock, one lifetime, and eac
         name: "lantern.example",
         url: "https://lantern.example",
       },
+      // A Company that left the conversation is listed after them, as
+      // removed, and is not in the line of names.
+      {
+        origin: "https://harborline.example",
+        name: "harborline.example",
+        url: "https://harborline.example",
+        removed: true,
+      },
     ],
   };
   expect(await listConversations("v")).toEqual([
     expect.objectContaining({ ...listed, active: true }),
   ]);
-  // A Company that left the conversation is not one of them.
-  expect(JSON.stringify(await listConversations("v"))).not.toContain(
-    "harborline",
-  );
 
   vi.setSystemTime(start + 31 * 60000);
   const read = (await readConversation("v", held.id))!;

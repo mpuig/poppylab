@@ -785,7 +785,7 @@ describe("Human-controlled account boundary", () => {
       await act("decline");
       expect(stored()).toMatchObject({
         state: "declined",
-        result: { summary: "Declined. Nothing was sent to the Company." },
+        result: { summary: "Declined. No approval was sent to the Company." },
       });
       expect(stored()).not.toHaveProperty("notPerformed");
 
@@ -1563,7 +1563,7 @@ describe("Human-controlled account boundary", () => {
       expect(await r.json()).toEqual({
         code: "conversation_ended",
         error:
-          "This conversation has ended and is read-only. Nothing was sent. Start a new conversation to go on.",
+          "This conversation has ended and is read-only, so nothing was sent to any company. Start a new conversation to go on.",
         keptUntil: expect.any(Number),
       });
     }

@@ -214,6 +214,8 @@ export const historyToMessages = (
         // removed a Company, or asked which one), which no Company wrote,
         // though it is kept as being about one.
         ...(m.demo || m.steps?.length ? from : {}),
+        // Its buttons, while it is the last thing said.
+        ...(m.choices?.length ? { choices: m.choices } : {}),
       },
     ];
   });

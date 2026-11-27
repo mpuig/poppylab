@@ -209,3 +209,143 @@ describe("a conversation with several Companies", () => {
     expect(html).toContain('placeholder="Message Lantern Noodle Bar…"');
   });
 });
+
+describe("the account row at the end of the transcript", () => {
+  const bank = { origin: harborline, name: "Harborline Bank" };
+  const read = (path: string) => ({
+    text: `Read ${path}`,
+    how: "API" as const,
+    access: "view" as const,
+    state: "done" as const,
+  });
+  const balances: Message[] = [
+    { role: "You", text: "my account balances" },
+    {
+      role: "Demo",
+      text: "Accounts (2).",
+      from: bank,
+      steps: [read("/api/account/accounts")],
+    },
+  ];
+  const signedIn = (scopes: string, more: Partial<CompanyState> = {}) =>
+    at(harborline, "Harborline Bank", { signedIn: true, scopes, ...more });
+  const row = (html: string) => html.includes('class="account-row"');
+
+  it("goes once nothing there waits for the person, with one Company or several", () => {
+    for (const companies of [
+      [signedIn("poppy:read poppy:write")],
+      [at(lantern, "Lantern Noodle Bar"), signedIn("poppy:read poppy:write")],
+    ]) {
+      const p = page({ companies, messages: balances, lastTurn: harborline });
+      expect(row(chat(p))).toBe(false);
+      // Its controls are in the Company's panel in the Companies bar.
+      const panel = bar({ ...p, panel: harborline });
+      expect(panel).toContain('class="account-row"');
+      expect(panel).toContain("poppy:read, poppy:write");
+      expect(panel).toContain(">Sign out</button>");
+    }
+  });
+
+  it("is there while the guide asks for a press in it", () => {
+    // Signed out: the guide says to sign in, and the button is right here.
+    const out = chat(
+      page({
+        companies: [at(harborline, "Harborline Bank")],
+        messages: balances,
+        lastTurn: harborline,
+      }),
+    );
+    expect(out).toContain("Sign in to Harborline Bank · read only");
+    // Read only: the guide says to press "Request change permission".
+    const readOnly = chat(
+      page({
+        companies: [signedIn("poppy:read")],
+        messages: balances,
+        lastTurn: harborline,
+        moreAccess: () => true,
+      }),
+    );
+    expect(readOnly).toContain("Request change permission");
+  });
+
+  it("is there while a sign-in is under way, or after the access was lost", () => {
+    const signing = chat(
+      page({
+        companies: [
+          signedIn("poppy:read poppy:write", {
+            signingIn: { baseline: 1, since: 0 },
+          }),
+        ],
+        messages: balances,
+        lastTurn: harborline,
+      }),
+    );
+    expect(row(signing)).toBe(true);
+    // Lost while a proposal waits at another Company, which the guide is
+    // about.
+    const lost = chat(
+      page({
+        companies: [
+          at(lantern, "Lantern Noodle Bar", {
+            signedIn: true,
+            scopes: "poppy:read poppy:write",
+            operations: [proposal("op_1")],
+          }),
+          at(harborline, "Harborline Bank", { recovery: "access_denied" }),
+        ],
+        messages: balances,
+        lastTurn: harborline,
+      }),
+    );
+    expect(lost).toContain("Sign in to Harborline Bank · read only");
+  });
+
+  it("is there when the last turn there stopped for a permission, and not for a turn elsewhere", () => {
+    const stopped: Message[] = [
+      { role: "You", text: "my cards" },
+      {
+        role: "Demo",
+        text: "This needs a permission your sign-in to Harborline Bank doesn't include.",
+        from: bank,
+        steps: [
+          {
+            text: "Did not send a request to /api/account/cards (permission not granted)",
+            how: "API",
+            access: null,
+            state: "done",
+          },
+        ],
+      },
+    ];
+    const here = chat(
+      page({
+        companies: [signedIn("poppy:read poppy:write")],
+        messages: stopped,
+        lastTurn: harborline,
+      }),
+    );
+    expect(here).toContain(">Sign out</button>");
+    const elsewhere = chat(
+      page({
+        companies: [
+          signedIn("poppy:read poppy:write"),
+          at(lantern, "Lantern Noodle Bar", {
+            signedIn: true,
+            scopes: "poppy:read poppy:write",
+          }),
+        ],
+        messages: [
+          ...stopped,
+          {
+            role: "Demo",
+            text: "Dishes.",
+            from: { origin: lantern, name: "Lantern Noodle Bar" },
+            steps: [read("/api/menu")],
+          },
+        ],
+        lastTurn: lantern,
+      }),
+    );
+    expect(row(elsewhere)).toBe(false);
+  });
+});

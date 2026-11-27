@@ -865,7 +865,7 @@ async function act(request: Request, started: { id?: string }) {
       if (op.state !== "proposed") throw new Error();
       op.state = "declined";
       op.changed = Date.now();
-      op.result = { summary: "Declined. Nothing was sent to the Company." };
+      op.result = { summary: "Declined. No approval was sent to the Company." };
       delete op.notPerformed;
       delete op.request;
       return NextResponse.json(

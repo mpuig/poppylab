@@ -184,7 +184,7 @@ function waitingHint(state: GuideState, company: string) {
 function endedHint(state: GuideState, company: string) {
   switch (state.ended) {
     case "declined":
-      return `You declined the last proposal, so nothing was sent to ${company}. Ask for the change again if you still want it.`;
+      return `You declined the last proposal, so Iris sent no approval to ${company} and nothing was done. Ask for the change again if you still want it.`;
     case "expired":
       // An approval sent before the terms ran out is part of what happened.
       return state.again === "refused"

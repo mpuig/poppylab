@@ -195,7 +195,7 @@ function notSent(value: unknown) {
 
 /**
  * What the demo says when Iris stopped before asking: what the request
- * needs, the control to press, and that nothing was sent. Undefined for an
+ * needs, the control to press, and that the request wasn't sent. Undefined for an
  * answer of the Company's. `changes` says whether a scope lets Iris propose
  * changes (the Company's own hints): missing one, the control is “Request
  * change permission”.
@@ -208,12 +208,12 @@ export function notSentReply(
   const reason = notSent(value);
   if (!reason) return undefined;
   if (reason === "sign_in")
-    return `This needs your account at ${company}, and you are not signed in. Iris did not ask: nothing was sent to the Company. Press “Sign in to ${company}”, then ask again.`;
+    return `This needs your account at ${company}, and you are not signed in. Iris didn't send this request to the Company. Press “Sign in to ${company}”, then ask again.`;
   const missing = (value as Json).missing;
   return Array.isArray(missing) &&
     missing.some((scope) => typeof scope === "string" && changes(scope))
-    ? `This needs the change permission, which your sign-in to ${company} doesn't include. Iris did not ask: nothing was sent to the Company. Press “Request change permission”, review the Company's consent, and ask again.`
-    : `This needs a permission your sign-in to ${company} doesn't include. Iris did not ask: nothing was sent to the Company. Sign out, then sign in again and keep every permission ticked on the Company's consent page.`;
+    ? `This needs the change permission, which your sign-in to ${company} doesn't include. Iris didn't send this request to the Company. Press “Request change permission”, review the Company's consent, and ask again.`
+    : `This needs a permission your sign-in to ${company} doesn't include. Iris didn't send this request to the Company. Sign out, then sign in again and keep every permission ticked on the Company's consent page.`;
 }
 
 /** How the demo words a change the Company holds for the User's approval. */
@@ -265,7 +265,7 @@ export function readable(value: unknown): string {
   // Not an answer of the Company's: Iris never asked.
   const stopped = notSent(value);
   if (stopped)
-    return `Iris did not ask the Company: ${stopped === "sign_in" ? "this needs your account, and you are not signed in" : "your sign-in doesn't include a permission this needs"}. Nothing was sent.`;
+    return `Iris didn't send this request to the Company: ${stopped === "sign_in" ? "this needs your account, and you are not signed in" : "your sign-in doesn't include a permission this needs"}.`;
   // A change the Company holds: its own summary says it best.
   if (value.status === "approval_required" && typeof value.summary === "string")
     return `${HOLDING}\n${value.summary}`;

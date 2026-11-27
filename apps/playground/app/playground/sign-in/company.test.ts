@@ -5,7 +5,7 @@ import {
   takeSignInCompany,
 } from "./company";
 
-/** A browser's storage, as far as these two functions use it. */
+/** A tab's storage, as far as these two functions use it. */
 function storage(blocked = false) {
   const values = new Map<string, string>();
   const refuse = () => {
@@ -31,26 +31,42 @@ it("names the Company the sign-in was started at, where the rest of the flow doe
 });
 
 it("hands the name from the playground tab to the tab the sign-in lands in, once", () => {
-  const store = storage();
-  rememberSignInCompany("Juniper Market", store);
+  const tab = storage();
+  rememberSignInCompany("Juniper Market", () => tab);
   // Nothing but the name is kept.
-  expect([...store.values.values()]).toEqual(["Juniper Market"]);
-  expect(takeSignInCompany(store)).toBe("Juniper Market");
+  expect([...tab.values.values()]).toEqual(["Juniper Market"]);
+  expect(takeSignInCompany(() => tab)).toBe("Juniper Market");
   // A tab opened on that address later doesn't repeat it.
-  expect(takeSignInCompany(store)).toBeUndefined();
-  expect(store.values.size).toBe(0);
+  expect(takeSignInCompany(() => tab)).toBeUndefined();
+  expect(tab.values.size).toBe(0);
 
-  // A later sign-in replaces the name, and one without a name removes it.
-  rememberSignInCompany("Juniper Market", store);
-  rememberSignInCompany("Lantern Noodle Bar", store);
-  expect(takeSignInCompany(store)).toBe("Lantern Noodle Bar");
-  rememberSignInCompany("Juniper Market", store);
-  rememberSignInCompany(undefined, store);
-  expect(takeSignInCompany(store)).toBeUndefined();
+  // Another sign-in in the same tab replaces the name, and one without a
+  // name removes it.
+  rememberSignInCompany("Juniper Market", () => tab);
+  rememberSignInCompany("Lantern Noodle Bar", () => tab);
+  expect(takeSignInCompany(() => tab)).toBe("Lantern Noodle Bar");
+  rememberSignInCompany("Juniper Market", () => tab);
+  rememberSignInCompany(undefined, () => tab);
+  expect(takeSignInCompany(() => tab)).toBeUndefined();
+});
+
+it("names its own Company in each tab when two sign-ins are under way at once", () => {
+  // Each sign-in has its own tab, and its name goes into that tab.
+  const lantern = storage();
+  const harborline = storage();
+  rememberSignInCompany("Lantern Noodle Bar", () => lantern);
+  rememberSignInCompany("Harborline Bank", () => harborline);
+  // The one started first lands first, and still names its own Company.
+  expect(signedInText(takeSignInCompany(() => lantern))).toBe(
+    "Signed in to Lantern Noodle Bar. Close this tab and return to Poppy Lab.",
+  );
+  expect(signedInText(takeSignInCompany(() => harborline))).toBe(
+    "Signed in to Harborline Bank. Close this tab and return to Poppy Lab.",
+  );
 });
 
 it("keeps a short display name and nothing else", () => {
-  const store = storage();
+  const tab = storage();
   for (const name of [
     "",
     "   ",
@@ -58,23 +74,33 @@ it("keeps a short display name and nothing else", () => {
     "Juniper\nMarket",
     "a\u0000b",
   ]) {
-    rememberSignInCompany(name, store);
-    expect(takeSignInCompany(store)).toBeUndefined();
+    rememberSignInCompany(name, () => tab);
+    expect(takeSignInCompany(() => tab)).toBeUndefined();
   }
   // Whatever else is found under the key is held to the same rule.
-  rememberSignInCompany("Juniper Market", store);
-  const [key] = [...store.values.keys()];
-  store.values.set(key!, "y".repeat(500));
-  expect(takeSignInCompany(store)).toBeUndefined();
+  rememberSignInCompany("Juniper Market", () => tab);
+  const [key] = [...tab.values.keys()];
+  tab.values.set(key!, "y".repeat(500));
+  expect(takeSignInCompany(() => tab)).toBeUndefined();
   // Markup is only ever text: the page renders the sentence as a string.
-  rememberSignInCompany("<b>Juniper</b>", store);
-  expect(signedInText(takeSignInCompany(store))).toBe(
+  rememberSignInCompany("<b>Juniper</b>", () => tab);
+  expect(signedInText(takeSignInCompany(() => tab))).toBe(
     "Signed in to <b>Juniper</b>. Close this tab and return to Poppy Lab.",
   );
 });
 
 it("names no Company when the browser blocks storage", () => {
-  const store = storage(true);
-  expect(() => rememberSignInCompany("Juniper Market", store)).not.toThrow();
-  expect(takeSignInCompany(store)).toBeUndefined();
+  const tab = storage(true);
+  expect(() =>
+    rememberSignInCompany("Juniper Market", () => tab),
+  ).not.toThrow();
+  expect(takeSignInCompany(() => tab)).toBeUndefined();
+  // Nor when the tab's storage can't be reached at all.
+  const unreachable = () => {
+    throw new Error("SecurityError");
+  };
+  expect(() =>
+    rememberSignInCompany("Juniper Market", unreachable),
+  ).not.toThrow();
+  expect(takeSignInCompany(unreachable)).toBeUndefined();
 });

@@ -2325,7 +2325,8 @@ footer .lab-links a:hover {
   align-items: center;
   gap: 6px;
 }
-.conversations a strong .separator {
+.conversations a strong .separator,
+.conversations a strong .removed {
   color: var(--muted);
   font-weight: 400;
 }

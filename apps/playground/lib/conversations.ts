@@ -386,7 +386,7 @@ export function conversationSession(connection: Connection, options: Options) {
           delete state().direct;
           return {
             error: error.code,
-            note: "That direct conversation is over, so nothing was sent. Iris is back.",
+            note: "That direct conversation is over, so the Company didn't take your message. Iris is back.",
           };
         }
         connection.conversation = { endpoint: options.endpoint, seen: [] };
@@ -420,7 +420,7 @@ export function conversationSession(connection: Connection, options: Options) {
           // In their own thread the User reads the answer, not the model.
           ...(own
             ? {
-                note: "This direct conversation needs you signed in, so nothing was sent. Use the Sign in control in the chat, then try again.",
+                note: "This direct conversation needs you signed in, so the Company didn't take your message. Use the Sign in control in the chat, then try again.",
               }
             : {}),
         };
