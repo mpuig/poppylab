@@ -34,7 +34,7 @@ Every `POST` has a JSON body with a request `id` chosen by the Personal Agent; a
 
 The phone numbers are fictional: 555-0100 to 555-0199 are reserved for fiction in North America.
 
-## The three Company Agents
+## The five Company Agents
 
 Each answers `{"request":"help"}` (and any message it doesn't understand) with the list of requests it handles, their fields and the scopes they need.
 
@@ -63,6 +63,23 @@ Each answers `{"request":"help"}` (and any message it doesn't understand) with t
 | `store_info`      | —                           | Hours, returns policy, delivery, FAQs and the phone number              |
 | `delivery_status` | `poppy:read`                | The recurring delivery and recent orders                                |
 | `report_problem`  | `poppy:read`, `poppy:write` | A support-case proposal, opened after approval and shown on the website |
+
+**Northwind** (`apps/northwind/src/agent.ts`):
+
+| Request              | Needs           | Answer                                                 |
+| -------------------- | --------------- | ------------------------------------------------------ |
+| `flight_status`      | —               | Fictional status and gate for a flight number and date |
+| `travel_information` | —               | Baggage, check-in or fare-condition information        |
+| `trip_summary`       | `bookings:read` | The signed-in customer's upcoming fictional booking    |
+| `loyalty_summary`    | `profile:read`  | Loyalty balance, tier and points due to expire         |
+
+**Fernwick** (`apps/fernwick/src/agent.ts`):
+
+| Request            | Needs                        | Answer                                                                        |
+| ------------------ | ---------------------------- | ----------------------------------------------------------------------------- |
+| `usage_this_month` | `account:read`               | Energy delivered (and sent to the grid) and cost this month per shared meter  |
+| `last_bill`        | `account:read`               | The last closed monthly bill of each shared meter                             |
+| `change_plan`      | `account:read`, `plan:write` | A rate-plan switch proposal for a shared meter, performed once after approval |
 
 ## Iris's side
 

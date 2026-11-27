@@ -8,15 +8,11 @@ Practical pages about Personal Agent Protocol ("Poppy"), also published at
 [poppylab.dev/learn](https://poppylab.dev/learn). Start here if you want to
 understand the protocol or implement it.
 
-- [Overview](learn/README.md)
-- [One task, request by request](learn/one-task.md)
-- [Poppy compared](learn/compared.md)
-- [Conversations with a Company Agent](learn/conversations.md)
-- [Approvals with Operations](learn/operations.md)
-- [Build a Company](learn/build-a-company.md)
-- [Build a Personal Agent](learn/build-an-agent.md)
-- [Validator results](learn/validator.md)
-- [Glossary](learn/glossary.md)
+- **Overview:** [Learn Personal Agent Protocol](learn/README.md)
+- **Follow a process:** [How it works](learn/how-it-works/README.md) (8 screen-by-screen walkthroughs) · [One task, request by request](learn/one-task.md)
+- **Understand:** [Poppy compared](learn/compared.md) · [Conversations with a Company Agent](learn/conversations.md) · [Approvals with Operations](learn/operations.md) · [Domain extensions](learn/extensions/README.md) ([FDX](learn/extensions/fdx.md), [ESPI](learn/extensions/espi.md))
+- **Build:** [Build a Company](learn/build-a-company.md) · [Build a Personal Agent](learn/build-an-agent.md) · [Write a domain extension](learn/write-an-extension.md)
+- **Look up:** [Validator results](learn/validator.md) · [Glossary](learn/glossary.md)
 
 ## Design notes: for contributors
 
@@ -31,8 +27,7 @@ code and change with it.
 | [Conversations](conversations.md)                                                                                                                                                        | The deterministic Company Agents and Iris's conversation tools                                                                                 |
 | [Community demos](community-demos.md)                                                                                                                                                    | Results against other implementations and validators                                                                                           |
 | [Scenario lab](scenario-lab.md)                                                                                                                                                          | Isolated scenario suites, nonces and revisions                                                                                                 |
-| [Lantern](lantern-noodles.md), [Harborline](harborline-bank.md), [Northwind](northwind-air.md)                                                                                           | The three standalone Companies                                                                                                                 |
-| [Fernwick](fernwick-power.md)                                                                                                                                                            | The electricity utility and its ESPI-shaped extension, `poppylab.dev/espi`                                                                     |
+| [Lantern](lantern-noodles.md), [Harborline](harborline-bank.md), [Northwind](northwind-air.md), [Fernwick](fernwick-power.md)                                                            | The four standalone Companies (noodle bar, bank, airline and electricity utility)                                                              |
 | Extensions: [`poppylab.dev/fdx`](extensions/fdx.md), [`poppylab.dev/espi`](extensions/espi.md)                                                                                           | The lab's experimental domain extensions, FDX-shaped (bank data) and ESPI-shaped (energy usage): discovery, scopes, consent, resources, errors |
 | [Product photos](product-photos.md)                                                                                                                                                      | The generated photos on Juniper and Lantern: files, serving, catalogue field, regenerating                                                     |
 | [Juniper website](juniper-web.md), [services](juniper-services.md), [profiles](juniper-profile.md), [shopping](juniper-shopping-web.md), [personas](juniper-personas.md)                 | The grocery Company, its customer website and its services                                                                                     |
@@ -44,7 +39,7 @@ code and change with it.
 
 [`history/`](history) keeps notes written for earlier drafts of the protocol
 (0.1 to 0.3) and for features the lab has since removed, such as the PAP
-Sandbox integration and the identity relay. They explain past decisions; don't
+Sandbox integration and the identity relay. They explain past decisions (including archived implementation plans from `plan/`); don't
 use them as a description of current behaviour. [`history/pitfalls.md`](history/pitfalls.md)
 is the odd one out: the bugs the lab hit and fixed while it was built, kept as
 source material for write-ups rather than as documentation.

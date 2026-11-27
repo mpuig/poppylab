@@ -80,7 +80,7 @@ At Fernwick the same control reads **Use ESPI**, with the ESPI-shaped tools of t
 
 ## ESPI-shaped APIs: a native adapter
 
-`packages/pap-client/src/espi.ts` builds four read tools for the `poppylab.dev/espi` v1 extension, the read-only usage API of an electricity utility. The API is ESPI-shaped (modelled on NAESB REQ.21 ESPI), not certified. Element names, codes and URL patterns follow the ESPI XML schemas, which are Apache-2.0. The descriptions, fixtures and data are our own, and no REQ.21 text is in the repository. The plan is [plan/espi-utility.md](../plan/espi-utility.md). The playground uses them with **Use ESPI** on ([Use ESPI](#use-espi)).
+`packages/pap-client/src/espi.ts` builds four read tools for the `poppylab.dev/espi` v1 extension, the read-only usage API of an electricity utility. The API is ESPI-shaped (modelled on NAESB REQ.21 ESPI), not certified. Element names, codes and URL patterns follow the ESPI XML schemas, which are Apache-2.0. The descriptions, fixtures and data are our own, and no REQ.21 text is in the repository. The original implementation plan is archived in [docs/history/plan-espi-utility.md](history/plan-espi-utility.md). The playground uses them with **Use ESPI** on ([Use ESPI](#use-espi)).
 
 The generic adapter can't serve this API, for two reasons:
 

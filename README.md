@@ -38,9 +38,9 @@ pnpm dev
 - Northwind Air: http://northwind.localhost:4400 (customer portal at `/account`)
 - Fernwick Power & Light: http://fernwick.localhost:4500 (customer portal at `/account`)
 
-The playground starts in demo mode, with no key: it runs scripted examples, the suggestions under the conversation and the messages Learn has you type, and fixed rules call the Company's tools for them. They read at every Company, through the domain extension too with Use FDX or Use ESPI on, and propose one kind of change at each of the first four (a delivery day, an order, a transfer or payment, an upgrade or a bag). Anything else gets an answer from Iris that offers the examples; to ask in your own words, press "Use your own model" and paste an OpenAI or Anthropic key. Pick a Company, sign in as a fictional customer (Elena or Robin), ask for a change, and approve it in Needs you, above the message box. The Company website shows the same data within two seconds.
+The playground starts in demo mode, with no key: it runs scripted examples, the suggestions under the conversation and the messages Learn has you type, and fixed rules call the Company's tools for them. They read at every Company (including through `poppylab.dev/fdx` or `poppylab.dev/espi` when enabled), propose one kind of change at each of the first four Companies (a delivery day, an order, a transfer or payment, an upgrade or a bag), and run one two-company example ("Pay my Fernwick bill from checking.") across Fernwick and Harborline. Anything else gets an answer from Iris that offers the examples; to ask in your own words, press "Use your own model" and paste an OpenAI, Anthropic or Google key. Pick a Company, sign in as a fictional customer (Elena or Robin), ask for a change, and approve it in Needs you, above the message box. The Company website shows the same data within two seconds.
 
-To use the local environment keys instead, `cp apps/playground/.env.example apps/playground/.env.local` and set `OPENAI_API_KEY` or `ANTHROPIC_API_KEY`. Keys never reach the model context, the Companies, logs or the Worker bundle (`build:worker` refuses a bundle that contains a local secret).
+To use local environment keys instead, `cp apps/playground/.env.example apps/playground/.env.local` and set `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` or `GOOGLE_GENERATIVE_AI_API_KEY` (an `OLLAMA_BASE_URL` adapter is also available internally; see `.env.example`). Keys never reach the model context, the Companies, logs or the Worker bundle (`build:worker` refuses a bundle that contains a local secret).
 
 ## Checks
 
@@ -55,6 +55,11 @@ pnpm spec:drift
 ```
 
 ## Workspace
+
+```text
+apps/playground  → pap-agent   → pap-client / llm-adapters → pap-core
+apps/{5 sites}   → pap-company → pap-client                → pap-core
+```
 
 - `apps/playground`: the Next.js web channel of the agent (OpenNext on Workers or `next start`): the page, its routes over the agent's core, `/api/v1`, per-visitor state in Durable Objects, the home page and Learn.
 - `apps/juniper`: Juniper Market, a `CompanyDefinition` with a customer portal.

@@ -8,7 +8,7 @@ web
 
 ## Stack
 
-Delegated: a TypeScript monorepo using pnpm. Next.js (OpenNext on Cloudflare Workers, or Node) for the playground at poppylab.dev, whose Personal Agent is called Iris; a Hono Company gateway (`@poppy-lab/pap-company`) that runs five fictional Companies on Workers with Durable Objects or on Node; provider-neutral LLM adapters. Public visitors are isolated: one Durable Object per visitor for the agent, sealed at rest, and one copy of each Company's fictional customers per agent user.
+Delegated: a TypeScript monorepo using pnpm. Next.js (OpenNext on Cloudflare Workers, or Node) for the playground at poppylab.dev, backed by a channel-neutral Personal Agent core (`@poppy-lab/pap-agent`, whose agent is called Iris); a Hono Company gateway (`@poppy-lab/pap-company`) that runs five fictional Companies on Workers with Durable Objects or on Node; provider-neutral LLM adapters. Public visitors are isolated: one Durable Object per visitor for the agent, sealed at rest, and one copy of each Company's fictional customers per agent user.
 
 ## Users
 
@@ -16,7 +16,7 @@ The public home (`/`) is written for business readers and curious end users who 
 
 ## Product Purpose
 
-Provide a practical environment for learning, implementing, and testing Personal Agent Protocol 1.0 (published 14 November 2026; `pnpm spec:drift` reports changes to the pinned text). The product combines a Personal Agent playground, reusable client and server libraries, protocol inspection, and an example Company. Success means a developer can enter a Company URL, understand its advertised capabilities, run a task through a selected LLM, and inspect every safe, sanitized protocol step.
+Provide a practical environment for learning, implementing, and testing Personal Agent Protocol 1.0 (published 14 November 2026; `pnpm spec:drift` reports changes to the pinned text). The product combines a Personal Agent playground, reusable agent, client and server libraries, protocol inspection, and five fictional Companies. Success means a developer can enter a Company URL, understand its advertised capabilities, run a task through a selected LLM, and inspect every safe, sanitized protocol step.
 
 ## Positioning
 
@@ -34,7 +34,7 @@ Developers use the product locally while implementing or evaluating Poppy Compan
 - Keep credentials, private keys, Session Tokens, Account Tokens, one-time codes, OAuth state, and DPoP material out of model context and user-visible traces.
 - Prevent SSRF, unsafe redirects, private-network access, prompt-injection crossover, and unapproved consequential actions.
 - Clearly distinguish Poppy-capable Companies from ordinary websites; generic browser automation is not Poppy.
-- Example Company should eventually expose OpenAPI, MCP, Poppy conversations, browser Session joining, sign-in, scopes, and approval-gated operations.
+- All five fictional Companies expose OpenAPI, Streamable HTTP MCP, Poppy conversations, read-only browser Session joining, Direct Sign-In (plus Device Sign-In at four of them), scopes, and Operations v3 approval-gated changes.
 - The initial implementation may be an experimental MVP, but security boundaries should be architectural rather than deferred UI warnings.
 
 ## Brand Commitments

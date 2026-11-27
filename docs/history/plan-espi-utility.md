@@ -1,18 +1,20 @@
 # Plan: an energy utility with an ESPI-shaped extension
 
+> **Historical.** Implementation plan kept for the record after the feature shipped. For current behaviour, see the design notes in [`docs/`](../README.md) and [`docs/learn/`](../learn/README.md).
+
 Second demo of the "domain standard + Poppy extension" pattern, after `poppylab.dev/fdx` in Harborline. A fictional electricity utility serves its usage and bill data in the shape of NAESB REQ.21 ESPI, which is the standard behind Green Button™ data, and the agent reads it with a native adapter.
 
 ## Decisions
 
-| Decision | Choice |
-|---|---|
-| Company | **Fernwick Power & Light** (fictional). App `apps/fernwick`, local `http://fernwick.localhost:4500`, production `energy-demo.poppylab.dev`. Can be renamed. |
-| Extension | `poppylab.dev/espi` v1, "ESPI-shaped (modelled on NAESB REQ.21 ESPI), not certified". |
-| Trademark | "Green Button" never appears in a name, package, product, UI or feature. At most one mention in the docs, as an adjective with ™, with the ownership note ("GREEN BUTTON and the Green Button Logo are trademarks or registered trademarks owned by Departments of the U.S. Government and/or Green Button Alliance, Inc.") and "not certified by or affiliated with the Green Button Alliance". No logo, no "compatible", no "Connect My Data". |
-| Licence | The ESPI XSDs are Apache-2.0 (granted by NAESB); element names, codes and URL patterns can be reused. The REQ.21 prose is copyrighted and paywalled: no text or tables from it (including authoritative function-block descriptions). Fixtures and data are our own; we don't copy XSDs or OpenESPI samples. |
-| Format | Atom XML (`application/atom+xml`), namespaces `http://www.w3.org/2005/Atom`, `http://naesb.org/espi` and `http://naesb.org/espi/customer`. No JSON (there is no official one). |
-| Client XML | A strict parser in `pap-client` for the subset we use, with no dependency: refuses `<!DOCTYPE`, entities other than the five predefined ones and processing instructions other than the XML declaration; bounded in size, depth and element count. |
-| Writes | One change through the utility's own API with Operations v3: switch rate plan (flat ↔ time of use) with exact terms (plan, effective date, estimated monthly difference). The ESPI API only reads. |
+| Decision   | Choice                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Company    | **Fernwick Power & Light** (fictional). App `apps/fernwick`, local `http://fernwick.localhost:4500`, production `energy-demo.poppylab.dev`. Can be renamed.                                                                                                                                                                                                                                                                                      |
+| Extension  | `poppylab.dev/espi` v1, "ESPI-shaped (modelled on NAESB REQ.21 ESPI), not certified".                                                                                                                                                                                                                                                                                                                                                            |
+| Trademark  | "Green Button" never appears in a name, package, product, UI or feature. At most one mention in the docs, as an adjective with ™, with the ownership note ("GREEN BUTTON and the Green Button Logo are trademarks or registered trademarks owned by Departments of the U.S. Government and/or Green Button Alliance, Inc.") and "not certified by or affiliated with the Green Button Alliance". No logo, no "compatible", no "Connect My Data". |
+| Licence    | The ESPI XSDs are Apache-2.0 (granted by NAESB); element names, codes and URL patterns can be reused. The REQ.21 prose is copyrighted and paywalled: no text or tables from it (including authoritative function-block descriptions). Fixtures and data are our own; we don't copy XSDs or OpenESPI samples.                                                                                                                                     |
+| Format     | Atom XML (`application/atom+xml`), namespaces `http://www.w3.org/2005/Atom`, `http://naesb.org/espi` and `http://naesb.org/espi/customer`. No JSON (there is no official one).                                                                                                                                                                                                                                                                   |
+| Client XML | A strict parser in `pap-client` for the subset we use, with no dependency: refuses `<!DOCTYPE`, entities other than the five predefined ones and processing instructions other than the XML declaration; bounded in size, depth and element count.                                                                                                                                                                                               |
+| Writes     | One change through the utility's own API with Operations v3: switch rate plan (flat ↔ time of use) with exact terms (plan, effective date, estimated monthly difference). The ESPI API only reads.                                                                                                                                                                                                                                               |
 
 ## The extension (v1)
 
@@ -35,11 +37,11 @@ Second demo of the "domain standard + Poppy extension" pattern, after `poppylab.
 
 **Scopes** (Poppy scopes, not ESPI's `FB=…` strings; the equivalent function blocks go in the description):
 
-| Scope | Allows | Function blocks |
-|---|---|---|
-| `espi:usage` | Meters (UsagePoint), readings and hourly intervals with their cost | 1, 3, 4, 5, 12, 13 |
-| `espi:summary` | Bill summaries (UsageSummary) with costs | 15, 16 |
-| `espi:customer` | Name and service address (RetailCustomer, PII) | 51, 53, 54, 55 |
+| Scope           | Allows                                                             | Function blocks    |
+| --------------- | ------------------------------------------------------------------ | ------------------ |
+| `espi:usage`    | Meters (UsagePoint), readings and hourly intervals with their cost | 1, 3, 4, 5, 12, 13 |
+| `espi:summary`  | Bill summaries (UsageSummary) with costs                           | 15, 16             |
+| `espi:customer` | Name and service address (RetailCustomer, PII)                     | 51, 53, 54, 55     |
 
 All with `scope_hints` `{ "changes": "none", "personal_data": true }`.
 
@@ -49,14 +51,14 @@ All with `scope_hints` `{ "changes": "none", "personal_data": true }`.
 
 **Routes** (under `resource_endpoint`, all `GET` except revocation; all require declaring the extension, `extension_required` otherwise):
 
-| Route | Scope | Answers |
-|---|---|---|
-| `Batch/Subscription/{sub}` | `espi:usage` | Atom feed with every chosen UsagePoint and what hangs off it (MeterReading, ReadingType, IntervalBlock in the window, LocalTimeParameters; UsageSummary only with `espi:summary`) |
-| `Subscription/{sub}/UsagePoint` | `espi:usage` | Feed of chosen UsagePoints |
-| `Subscription/{sub}/UsagePoint/{up}` | `espi:usage` | Entry |
-| `Subscription/{sub}/UsagePoint/{up}/MeterReading` | `espi:usage` | Feed |
-| `…/MeterReading/{mr}/IntervalBlock` | `espi:usage` | Feed of IntervalBlocks (one per day) in the window |
-| `Subscription/{sub}/UsagePoint/{up}/UsageSummary` | `espi:summary` | Feed of bill summaries |
+| Route                                             | Scope          | Answers                                                                                                                                                                           |
+| ------------------------------------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Batch/Subscription/{sub}`                        | `espi:usage`   | Atom feed with every chosen UsagePoint and what hangs off it (MeterReading, ReadingType, IntervalBlock in the window, LocalTimeParameters; UsageSummary only with `espi:summary`) |
+| `Subscription/{sub}/UsagePoint`                   | `espi:usage`   | Feed of chosen UsagePoints                                                                                                                                                        |
+| `Subscription/{sub}/UsagePoint/{up}`              | `espi:usage`   | Entry                                                                                                                                                                             |
+| `Subscription/{sub}/UsagePoint/{up}/MeterReading` | `espi:usage`   | Feed                                                                                                                                                                              |
+| `…/MeterReading/{mr}/IntervalBlock`               | `espi:usage`   | Feed of IntervalBlocks (one per day) in the window                                                                                                                                |
+| `Subscription/{sub}/UsagePoint/{up}/UsageSummary` | `espi:summary` | Feed of bill summaries                                                                                                                                                            |
 
 `espi:summary` alone can also read the UsagePoint routes and `LocalTimeParameters/{id}`, to put the bills in local dates (decided when integrating the client). `published-max` is exclusive on both sides.
 | `ReadingType/{id}`, `LocalTimeParameters/{id}` | `espi:usage` | Entry |
@@ -69,6 +71,7 @@ Query: `published-min`, `published-max` (RFC 3339, the window of intervals and s
 **Errors:** token errors stay OAuth/Poppy (`WWW-Authenticate`). Malformed parameters → `400` with a small JSON body of our own `{ "error": "invalid_parameter", "description": … }` (ESPI defines no error body; documented as Harborline-style lab-own).
 
 **Data, units and time (per the XSD):**
+
 - Two customers (Elena and Robin, as in the other Companies). Elena: home meter + EV charger meter. Robin: home meter with solar panels (a second MeterReading with `flowDirection` 19, exported).
 - Hourly intervals (`intervalLength` 3600) for 92 days ending at "today", generated deterministically (a seed per meter: daily and seasonal curve, weekends, EV charging at night), never random.
 - ReadingType: `uom` 72 (Wh), `powerOfTenMultiplier` 0, `accumulationBehaviour` 4, `commodity` 1, `flowDirection` 1 or 19, `kind` 12, `currency` 840.

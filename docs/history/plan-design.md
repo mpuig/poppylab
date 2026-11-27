@@ -1,5 +1,7 @@
 # Juniper Market PAP design
 
+> **Historical.** Implementation plan kept for the record after the feature shipped. For current behaviour, see the design notes in [`docs/`](../README.md) and [`docs/learn/`](../learn/README.md).
+
 ```yaml poppy-design
 protocol_version: "0.2"
 domain: "juniper.localhost"

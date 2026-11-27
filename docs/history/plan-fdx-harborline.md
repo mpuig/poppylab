@@ -1,5 +1,7 @@
 # Plan: extensión FDX en Harborline
 
+> **Historical.** Implementation plan kept for the record after the feature shipped. For current behaviour, see the design notes in [`docs/`](../README.md) and [`docs/learn/`](../learn/README.md).
+
 Borrador. Los detalles de FDX (rutas, campos, data clusters, códigos de error, duración del consentimiento) están escritos de memoria y se verifican en la fase 0 antes de escribir código.
 
 ## Estado (25/11/2026)
@@ -21,19 +23,20 @@ Qué debe quedar demostrado:
 
 ## Decisiones a validar
 
-| Decisión | Recomendación |
-|---|---|
-| Nombre de la extensión | `poppylab.dev/fdx`. Los nombres sin dominio están reservados (§3.3) y `poppylab.dev` es el dominio de despliegue del lab. |
-| Licencia de FDX | No copiar al repo la OpenAPI ni los esquemas de FDX: el repo es público y la especificación FDX tiene su propia licencia. Escribir desde cero un subconjunto "con forma FDX" y no reclamar conformidad, como Harborline ya hace con la banca y con Poppy. Confirmar en la fase 0. |
-| Dos APIs en el agente | Listar la API FDX también en `apis`, para que agentes sin la extensión puedan usarla, y en el playground mostrar las herramientas FDX solo cuando la extensión está declarada. Un interruptor en el playground ("usar FDX") hace la demo más clara que mezclar ambos juegos de herramientas. |
-| Extractos | Dejarlos para la fase 2b: exigen generar documentos (PDF) y quitar la tarea de `excludedTasks`. |
-| Versión FDX que se imita | La 6.x vigente; se fija en la fase 0. |
+| Decisión                 | Recomendación                                                                                                                                                                                                                                                                                |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Nombre de la extensión   | `poppylab.dev/fdx`. Los nombres sin dominio están reservados (§3.3) y `poppylab.dev` es el dominio de despliegue del lab.                                                                                                                                                                    |
+| Licencia de FDX          | No copiar al repo la OpenAPI ni los esquemas de FDX: el repo es público y la especificación FDX tiene su propia licencia. Escribir desde cero un subconjunto "con forma FDX" y no reclamar conformidad, como Harborline ya hace con la banca y con Poppy. Confirmar en la fase 0.            |
+| Dos APIs en el agente    | Listar la API FDX también en `apis`, para que agentes sin la extensión puedan usarla, y en el playground mostrar las herramientas FDX solo cuando la extensión está declarada. Un interruptor en el playground ("usar FDX") hace la demo más clara que mezclar ambos juegos de herramientas. |
+| Extractos                | Dejarlos para la fase 2b: exigen generar documentos (PDF) y quitar la tarea de `excludedTasks`.                                                                                                                                                                                              |
+| Versión FDX que se imita | La 6.x vigente; se fija en la fase 0.                                                                                                                                                                                                                                                        |
 
 ## Hallazgos de la fase 0 (verificados el 25/11/2026)
 
 Fuentes: la licencia de FDX (primaria), el subconjunto público de Plaid Core Exchange 6.4 y documentación de Akoya y Flinks (implementadores), y un SDK no oficial generado desde FDX 6.2. La especificación oficial requiere registro y no se ha consultado.
 
-**Licencia.** El *FDX API License Agreement* (15/07/2026) prohíbe copiar, crear obras derivadas y publicar la especificación o su documentación (§2.1, §2.2), y se acepta con solo acceder a ella. Por tanto:
+**Licencia.** El _FDX API License Agreement_ (15/07/2026) prohíbe copiar, crear obras derivadas y publicar la especificación o su documentación (§2.1, §2.2), y se acepta con solo acceder a ella. Por tanto:
+
 - No entra en el repo ningún YAML, esquema ni texto descriptivo de FDX, tampoco el `corex.yaml` de Plaid, que arrastra los mismos términos.
 - Escribimos a mano un subconjunto que reutiliza rutas y nombres de campo, como hacen públicamente Plaid, Akoya, Flinks y MX. Siempre lo etiquetamos como "con forma FDX, sin conformidad ni certificación", sin logotipos ni marca FDX. Que eso sea suficiente es una cuestión legal que no hemos resuelto.
 - Nadie del proyecto debe registrarse para ver la especificación oficial con el fin de copiarla.
@@ -42,21 +45,21 @@ Fuentes: la licencia de FDX (primaria), el subconjunto público de Plaid Core Ex
 
 **Mapeo `data.ts` → forma FDX:**
 
-| Harborline | Forma FDX |
-|---|---|
-| `Account.id` | `accountId` |
-| — | `accountCategory: "DEPOSIT_ACCOUNT"` |
-| `type: checking / savings` | `accountType: CHECKING / SAVINGS` |
-| `name` | `productName`, más `nickname` (no existe `displayName`) |
-| últimos dígitos derivados del id | `accountNumberDisplay` (no existe `maskedAccountNumber`) |
-| `status: active / inactive` | `status: OPEN / CLOSED` |
-| `"USD"` | `currency: { currencyCode: "USD" }` |
+| Harborline                         | Forma FDX                                                          |
+| ---------------------------------- | ------------------------------------------------------------------ |
+| `Account.id`                       | `accountId`                                                        |
+| —                                  | `accountCategory: "DEPOSIT_ACCOUNT"`                               |
+| `type: checking / savings`         | `accountType: CHECKING / SAVINGS`                                  |
+| `name`                             | `productName`, más `nickname` (no existe `displayName`)            |
+| últimos dígitos derivados del id   | `accountNumberDisplay` (no existe `maskedAccountNumber`)           |
+| `status: active / inactive`        | `status: OPEN / CLOSED`                                            |
+| `"USD"`                            | `currency: { currencyCode: "USD" }`                                |
 | `balance_cents`, `available_cents` | `currentBalance`, `availableBalance` en decimal, más `balanceAsOf` |
-| `Transaction.id` | `transactionId` |
-| `occurred_at` | `transactionTimestamp`, y `postedTimestamp` si está `posted` |
-| signo de `amount_cents` | `amount` en valor absoluto, más `debitCreditMemo: DEBIT / CREDIT` |
-| `status: posted / pending` | `status: POSTED / PENDING` |
-| `category` | `category` (texto propio de Harborline, no MCC) |
+| `Transaction.id`                   | `transactionId`                                                    |
+| `occurred_at`                      | `transactionTimestamp`, y `postedTimestamp` si está `posted`       |
+| signo de `amount_cents`            | `amount` en valor absoluto, más `debitCreditMemo: DEBIT / CREDIT`  |
+| `status: posted / pending`         | `status: POSTED / PENDING`                                         |
+| `category`                         | `category` (texto propio de Harborline, no MCC)                    |
 
 **Consentimiento.** El registro tiene `id`, `status` (`ACTIVE`, `EXPIRED`, `REVOKED`), `parties[]` (el banco como `DATA_PROVIDER` y el agente como `DATA_RECIPIENT`), `createdTime`, `expirationTime`, `durationType` (`TIME_BOUND`, o `ONE_TIME` sin `offline_access`), `durationPeriod` y `resources[]` (`{ resourceType: "ACCOUNT", resourceId, dataClusters }`). La revocación es `PUT /consents/{consentId}/revocation` con `{ reason: "USER_ACTION", initiator }` y responde 204.
 
@@ -64,11 +67,11 @@ Fuentes: la licencia de FDX (primaria), el subconjunto público de Plaid Core Ex
 
 **Errores.** El cuerpo es `{ code, message, debugMessage? }`, con `code` como string. Usamos estos códigos:
 
-| Situación | Respuesta |
-|---|---|
-| Cuenta inexistente o no incluida en el consentimiento | 404 `701` |
-| Rango de fechas inválido | 400 `703` |
-| Cliente no autorizado | 401 `602` (solo dentro del cuerpo FDX; los errores de token siguen siendo OAuth, en `WWW-Authenticate`) |
+| Situación                                             | Respuesta                                                                                               |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Cuenta inexistente o no incluida en el consentimiento | 404 `701`                                                                                               |
+| Rango de fechas inválido                              | 400 `703`                                                                                               |
+| Cliente no autorizado                                 | 401 `602` (solo dentro del cuerpo FDX; los errores de token siguen siendo OAuth, en `WWW-Authenticate`) |
 
 **Seguridad.** El modelo CSDF de la 6.4 tiene un perfil "Blue" basado en FAPI 2.0. Lo que ya ofrece Harborline (PAR, PKCE, `private_key_jwt`, tokens ligados con DPoP) encaja con ese estilo, pero no está confirmado contra la especificación. Lo documentamos así.
 
@@ -96,12 +99,12 @@ Fuentes: la licencia de FDX (primaria), el subconjunto público de Plaid Core Ex
 
 **Scopes = data clusters**, con `scope_hints` `{ "changes": "none", "personal_data": true }`:
 
-| Scope | Habilita |
-|---|---|
-| `fdx:ACCOUNT_BASIC` | `GET /accounts`, `GET /accounts/{id}`: id, tipo, nombre, número enmascarado, estado |
-| `fdx:ACCOUNT_DETAILED` | Añade saldos (`currentBalance`, `availableBalance`) a esas respuestas |
-| `fdx:TRANSACTIONS` | `GET /accounts/{id}/transactions` |
-| `fdx:CUSTOMER_CONTACT` | `GET /customers/current` |
+| Scope                  | Habilita                                                                            |
+| ---------------------- | ----------------------------------------------------------------------------------- |
+| `fdx:ACCOUNT_BASIC`    | `GET /accounts`, `GET /accounts/{id}`: id, tipo, nombre, número enmascarado, estado |
+| `fdx:ACCOUNT_DETAILED` | Añade saldos (`currentBalance`, `availableBalance`) a esas respuestas               |
+| `fdx:TRANSACTIONS`     | `GET /accounts/{id}/transactions`                                                   |
+| `fdx:CUSTOMER_CONTACT` | `GET /customers/current`                                                            |
 
 Son scopes aparte de `accounts:read` y demás. Un sign-in puede pedir ambos tipos.
 
