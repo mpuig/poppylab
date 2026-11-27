@@ -73,12 +73,19 @@ export const named = (
 /** What the terms change, as they name it, before and after. */
 function changed(op: ReviewOperation) {
   const rows = ownLayout(op) ? changes(op) : termRows(op).changes;
+  const labels = new Set(rows.map((row) => row.label.toLowerCase()));
   // A balance follows from the change; the change itself is what to say.
+  // A field the terms also name in words ("plan" beside "plan name") is
+  // said in those words, once.
   return rows
     .filter(
       (row) =>
-        !/balance/i.test(row.label) && row.before !== row.after && row.after,
+        !/balance/i.test(row.label) &&
+        row.before !== row.after &&
+        row.after &&
+        !labels.has(`${row.label.toLowerCase()} name`),
     )
+    .map((row) => ({ ...row, label: row.label.replace(/ name$/i, "") }))
     .slice(0, 2);
 }
 
@@ -125,8 +132,42 @@ function spokenName(op: ReviewOperation, company: string) {
   return `the ${proposalNoun(op)}${amount !== undefined && currency ? ` of ${spokenAmount(amount, currency)}` : ""} at ${company}`;
 }
 
+/**
+ * An amount the terms give as the Company's estimate, not as a payment
+ * (`estimated_monthly_difference_cents`): what it estimates, and how much.
+ */
+export function estimateOf(op: ReviewOperation) {
+  const t = op.terms ?? {};
+  const found = Object.entries(t).find(
+    ([key, value]) =>
+      /^estimated_[a-z_]+_cents$/.test(key) && cents(value) !== undefined,
+  );
+  if (!found) return undefined;
+  const words = found[0]
+    .replace(/^estimated_/, "")
+    .replace(/_cents$/, "")
+    .replaceAll("_", " ");
+  return { words, cents: found[1] as number, currency: currencyOf(t) };
+}
+
+/**
+ * The Company's estimate in a sentence of the agent's that says whose it
+ * is: "Fernwick Power & Light estimates the monthly difference at $32.54
+ * more." Never the Company's own wording, which its card quotes.
+ */
+function estimateSentence(op: ReviewOperation, company: string) {
+  const estimate = estimateOf(op);
+  if (!estimate) return "";
+  const { words, cents: value, currency } = estimate;
+  if (value === 0) return `${company} estimates no ${words}.`;
+  const amount = money(Math.abs(value), currency);
+  return /difference/.test(words)
+    ? `${company} estimates the ${words} at ${amount} ${value > 0 ? "more" : "less"}.`
+    : `${company} estimates the ${words} at ${value < 0 ? "minus " : ""}${amount}.`;
+}
+
 /** The amount that matters, in its own sentence. */
-function amountSentence(op: ReviewOperation) {
+function amountSentence(op: ReviewOperation, company: string) {
   const t = op.terms ?? {};
   const currency = currencyOf(t);
   if (proposalNoun(op) !== "change") return "";
@@ -148,7 +189,12 @@ function amountSentence(op: ReviewOperation) {
     ([key, value]) => /fee_cents$/.test(key) && cents(value) !== undefined,
   );
   if (fee) return `The fee is ${money(fee[1], currency)}.`;
-  return "The terms name no amount to pay.";
+  // Nothing to pay in the terms. A Company's estimate is not a payment,
+  // and is said as the Company's.
+  const estimate = estimateSentence(op, company);
+  return estimate
+    ? `There is no payment now. ${estimate}`
+    : "The terms name no payment.";
 }
 
 /** When the terms run out, from now. */
@@ -172,7 +218,13 @@ export function spokenProposal(op: ReviewOperation, company: string) {
     return `${company} wants to move ${spokenAmount(amount, currency)} from ${text(t.source_name)} to ${text(t.destination_name)}.`;
   if (proposalNoun(op) === "payment" && amount !== undefined)
     return `${company} wants to pay ${text(t.recipient_name)} ${spokenAmount(amount, currency)}.`;
-  const what = subject(op) ?? "something";
+  const first = changed(op)[0];
+  // Without a subject the terms name, the thing that changes is it.
+  const what =
+    subject(op) ??
+    (first
+      ? `your ${first.label.charAt(0).toLowerCase()}${first.label.slice(1)}`
+      : "something");
   const total = cents(t.new_total_cents);
   const before = cents(t.before_total_cents);
   const verb = t.kind === "checkout" ? "place" : "change";
@@ -194,7 +246,15 @@ export function spokenProposal(op: ReviewOperation, company: string) {
   const detail = rows[0]
     ? ` from ${spokenText(rows[0].before).replace(/\.$/, "")} to ${spokenText(rows[0].after).replace(/\.$/, "")}`
     : "";
-  return `${company} wants to ${verb} ${what}${detail}${shown !== undefined && shown > 0 ? `, for ${spokenAmount(shown, currency)}` : ""}.`;
+  // An estimate is the Company's, and no payment: a voice says only that
+  // nothing is paid now, as the written question does.
+  const owed =
+    shown !== undefined && shown > 0
+      ? `, for ${spokenAmount(shown, currency)}`
+      : estimateOf(op)
+        ? ", with no payment now"
+        : "";
+  return `${company} wants to ${verb} ${what}${detail}${owed}.`;
 }
 
 /**
@@ -212,7 +272,7 @@ export function approvalQuestion(
   if (!lead) return undefined;
   const about = [
     proposed(lead.op, lead.company),
-    amountSentence(lead.op),
+    amountSentence(lead.op, lead.company),
     expiry(lead.op, now),
   ].filter(Boolean);
   const also = all.slice(1);

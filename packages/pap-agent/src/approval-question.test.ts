@@ -109,6 +109,42 @@ describe("the agent's question about a proposal", () => {
     expect(asked.spoken).toBe(spoken);
   });
 
+  it("says there is no payment now, and gives an estimate as the Company's", () => {
+    // As Fernwick sends a plan change: nothing is paid, and the difference
+    // is the Company's estimate on a past month's usage.
+    const plan = op(
+      {
+        usage_point_id: "up_fpl_1001",
+        meter: "Home",
+        from_plan: "time_of_use",
+        to_plan: "flat",
+        from_plan_name: "Time of use",
+        to_plan_name: "Flat rate",
+        effective_date: "2026-12-01",
+        estimate_basis_month: "2026-10",
+        estimate_basis_kwh: "412.0",
+        billed_cents: 9100,
+        on_new_plan_cents: 12354,
+        estimated_monthly_difference_cents: 3254,
+        currency: "USD",
+        meter_version: 2,
+      },
+      "Switch Home from Time of use to Flat rate. On October's usage the bill would have been USD 32.54 more.",
+    );
+    const asked = approvalQuestion(
+      [{ op: plan, company: "Fernwick Power & Light" }],
+      [],
+      now,
+    )!;
+    expect(asked.text).toBe(
+      "Fernwick Power & Light proposes a change: plan from Time of use to Flat rate. There is no payment now. Fernwick Power & Light estimates the monthly difference at $32.54 more. The terms expire in 10 minutes. Approve it?",
+    );
+    expect(asked.text).not.toContain("no amount");
+    expect(asked.spoken).toBe(
+      "Fernwick Power & Light wants to change your plan from Time of use to Flat rate, with no payment now. Approve it?",
+    );
+  });
+
   it("names each when another waits too, and asks which", () => {
     const asked = approvalQuestion(
       [{ op: transfer, company: "Harborline Bank" }],
