@@ -6,13 +6,97 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { modelError } from "./errors";
 export { ModelRequestError } from "./errors";
 
-type ModelConfig = { apiKey?: string | undefined; model?: string | undefined };
+/**
+ * Cloudflare Workers AI's binding (a Worker's `env.AI`), as much of it as
+ * is used here. Its text models answer in OpenAI's `chat.completion`
+ * shape, with the Neurons the call cost in `usage.neurons`.
+ */
+export type WorkersAiBinding = {
+  run(model: string, input: Record<string, unknown>): Promise<unknown>;
+};
+
+type ModelConfig = {
+  apiKey?: string | undefined;
+  model?: string | undefined;
+  /**
+   * For `workers-ai`: the deployment's binding, told what each call
+   * cost. There is no key: the model runs in the Worker's own account.
+   */
+  workersAi?:
+    | { binding: WorkersAiBinding; onUsage?: (neurons: number) => void }
+    | undefined;
+};
+
+/** The Workers AI model used when none is named. */
+export const WORKERS_AI_MODEL = "@cf/google/gemma-4-26b-a4b-it";
+
+/**
+ * A `fetch` for the OpenAI-compatible provider that hands each request to
+ * the Workers AI binding instead of the network. `thinking` is off for a
+ * short question, whose few hundred tokens the model's reasoning would
+ * otherwise use up.
+ */
+function workersAiFetch(
+  ai: NonNullable<ModelConfig["workersAi"]>,
+  thinking: boolean,
+): typeof fetch {
+  return async (_url, init) => {
+    const body = JSON.parse(String(init?.body ?? "{}")) as {
+      model: string;
+      messages?: Array<Record<string, unknown>>;
+      tools?: unknown;
+      tool_choice?: unknown;
+      max_tokens?: number;
+    };
+    const input = {
+      // After a tool call the AI SDK sends the assistant's message with
+      // `content: null`, which the binding refuses (error 5006).
+      messages: (body.messages ?? []).map((m) =>
+        m.content === null ? { ...m, content: "" } : m,
+      ),
+      ...(body.tools ? { tools: body.tools } : {}),
+      ...(body.tool_choice ? { tool_choice: body.tool_choice } : {}),
+      ...(body.max_tokens ? { max_tokens: body.max_tokens } : {}),
+      ...(thinking ? {} : { chat_template_kwargs: { enable_thinking: false } }),
+    };
+    let raw: Record<string, unknown>;
+    try {
+      raw = (await ai.binding.run(body.model, input)) as Record<
+        string,
+        unknown
+      >;
+    } catch (error) {
+      // The binding throws with its code in the message: 4006 is the
+      // account's daily free allocation used up, 3040 no capacity now.
+      const message = error instanceof Error ? error.message : "";
+      const status = /\b(4006|3040)\b|allocation|capacity/i.test(message)
+        ? 429
+        : 502;
+      return Response.json({ error: { message: "Workers AI" } }, { status });
+    }
+    const usage = raw?.usage as { neurons?: unknown } | undefined;
+    if (typeof usage?.neurons === "number") ai.onUsage?.(usage.neurons);
+    return Response.json({
+      id: "workers-ai",
+      object: "chat.completion",
+      created: 0,
+      model: body.model,
+      ...raw,
+    });
+  };
+}
 
 /**
  * The selected provider's model, with the options its calls take. Every
  * call to a model goes through here, so each one is configured alike.
+ * A `question` is a short call of its own, such as which Company a turn
+ * is for.
  */
-function selectedModel(provider: string, config?: ModelConfig) {
+function selectedModel(
+  provider: string,
+  config?: ModelConfig,
+  use: "turn" | "question" = "turn",
+) {
   const env: Record<string, string | undefined> = config?.apiKey
     ? {}
     : process.env;
@@ -20,7 +104,18 @@ function selectedModel(provider: string, config?: ModelConfig) {
   let model;
   let useOpenAIReasoning = false;
   let useOfficialOpenAI = false;
-  if (provider === "anthropic") {
+  if (provider === "workers-ai") {
+    if (!config?.workersAi)
+      throw new Error(
+        "The free model runs only on the deployed site, where Workers AI is bound.",
+      );
+    model = createOpenAICompatible({
+      name: "workers-ai",
+      // Never reached: the binding answers every call.
+      baseURL: "https://workers-ai.invalid/v1",
+      fetch: workersAiFetch(config.workersAi, use === "turn"),
+    })(config.model || WORKERS_AI_MODEL);
+  } else if (provider === "anthropic") {
     if (!(key ?? env.ANTHROPIC_API_KEY))
       throw new Error(
         "Set ANTHROPIC_API_KEY in apps/playground/.env.local, or choose Protocol demo.",
@@ -134,13 +229,16 @@ export async function runModel(
       .join("\n\n"),
     messages,
     tools,
-    stopWhen: stepCountIs(config?.steps ?? 5),
+    // A smaller model takes a step or two more for the same task.
+    stopWhen: stepCountIs(
+      (config?.steps ?? 5) + (provider === "workers-ai" ? 2 : 0),
+    ),
     maxOutputTokens: 1800,
     ...selected,
     abortSignal: AbortSignal.timeout(60000),
     maxRetries: 0,
   }).catch((error: unknown) => {
-    throw modelError(error);
+    throw modelError(error, provider);
   });
   return (
     response.text ||
@@ -167,11 +265,11 @@ export async function askModel(
     system: question.system,
     prompt: question.prompt,
     maxOutputTokens: limits.maxOutputTokens,
-    ...selectedModel(provider, config),
+    ...selectedModel(provider, config, "question"),
     abortSignal: AbortSignal.timeout(limits.timeout),
     maxRetries: 0,
   }).catch((error: unknown) => {
-    throw modelError(error);
+    throw modelError(error, provider);
   });
   return response.text;
 }

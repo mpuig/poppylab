@@ -8,8 +8,16 @@ export class ModelRequestError extends Error {
   }
 }
 
-/** Never expose provider messages, request headers, URLs, or response bodies. */
-export function modelError(error: unknown): ModelRequestError {
+/**
+ * Never expose provider messages, request headers, URLs, or response
+ * bodies. The free model (`workers-ai`) has no key or account of the
+ * visitor's to check, so its errors say only what the visitor can do.
+ */
+export function modelError(
+  error: unknown,
+  provider?: string,
+): ModelRequestError {
+  if (provider === "workers-ai") return freeModelError(error);
   const chain: Array<Record<string, unknown>> = [];
   let current = error;
   for (
@@ -82,5 +90,33 @@ export function modelError(error: unknown): ModelRequestError {
   return new ModelRequestError(
     "provider_network",
     "Could not complete the LLM request. Check internet access and the configured endpoint. For Ollama, confirm it is running and the model is installed.",
+  );
+}
+
+function freeModelError(error: unknown): ModelRequestError {
+  const chain: Array<Record<string, unknown>> = [];
+  for (
+    let current = error, depth = 0;
+    depth < 6 && current && typeof current === "object";
+    depth++, current = (current as { cause?: unknown }).cause
+  )
+    chain.push(current as Record<string, unknown>);
+  if (chain.some((item) => item.statusCode === 429))
+    return new ModelRequestError(
+      "provider_quota",
+      "The free model is busy or has used its allowance for now. Try again later, or switch to Demo mode or your own model.",
+    );
+  if (
+    chain.some(
+      (item) => item.name === "AbortError" || item.name === "TimeoutError",
+    )
+  )
+    return new ModelRequestError(
+      "provider_timeout",
+      "The free model took too long to answer. Try again, or ask for something smaller.",
+    );
+  return new ModelRequestError(
+    "provider_unavailable",
+    "The free model couldn't answer just now. Try again in a moment, or switch to Demo mode.",
   );
 }
