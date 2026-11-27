@@ -17,8 +17,8 @@
   "dependencies": {
     "@poppy-lab/pap-core": "workspace:*",
     "ipaddr.js": "^2.5.0",
-    "jose": "^6.2.12",
-    "undici": "^8.12.2"
+    "jose": "^6.2.18",
+    "undici": "^8.13.1"
   },
   "devDependencies": {
     "@types/node": "^24.10.0",

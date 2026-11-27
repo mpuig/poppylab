@@ -19,10 +19,10 @@
     "vitest": "^4.0.18"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^4.0.82",
-    "@ai-sdk/google": "^4.0.99",
-    "@ai-sdk/openai": "^4.0.96",
-    "@ai-sdk/openai-compatible": "^3.0.71",
-    "ai": "^7.0.143"
+    "@ai-sdk/anthropic": "^4.0.107",
+    "@ai-sdk/google": "^4.0.125",
+    "@ai-sdk/openai": "^4.0.122",
+    "@ai-sdk/openai-compatible": "^3.0.94",
+    "ai": "^7.0.181"
   }
 }
