@@ -24,6 +24,8 @@ const SESSION = "nsDf4rxOjzq3NFKVJdG2AQ";
 const ACCESS = `poppy_at.${ACCOUNT}.${SESSION}.KNGQT617OSA3c-i9As0a4HxastNzn0rb3CX977GSDSo`;
 const BEARER = { Authorization: `Bearer ${ACCESS}` };
 const CONVERSATION = "hKhgaC-veINpeBH3fJQO4-ewBMbIdw9j";
+/** The ID a streamed answer's sentences come under. */
+const DELTA = "q7Vb2YxkS1mR0cJtE4uWnA";
 const LANTERN = {
   origin: "https://food-demo.poppylab.dev",
   name: "Lantern Noodle Bar",
@@ -237,6 +239,28 @@ export const EXAMPLES = {
         proposals: [],
       },
     },
+  },
+  /** The same request, its answer streamed as the free model writes it. */
+  sendMessageStreamed: {
+    operation: "sendMessage",
+    path: { id: CONVERSATION },
+    headers: { ...BEARER, Accept: "text/event-stream" },
+    request: {
+      text: "What's on the menu tonight?",
+      model: { provider: "free", turnstile: "0.Kx3…" },
+    },
+    status: 200,
+    text: `event: message.delta
+data: {"type":"message.delta","message":"${DELTA}","index":0,"text":"Lantern Noodle Bar has shoyu ramen for $14.00 and salted edamame for $5.50 tonight. ","spoken":"Lantern Noodle Bar has shoyu ramen for 14 dollars and salted edamame for 5 dollars 50 tonight."}
+
+event: message.delta
+data: {"type":"message.delta","message":"${DELTA}","index":1,"text":"The matcha ice cream is back too. ","spoken":"The matcha ice cream is back too."}
+
+event: message.delta
+data: {"type":"message.delta","message":"${DELTA}","index":2,"text":"Shall I add anything to your order?\\n\\n","spoken":"Shall I add anything to your order?"}
+
+event: turn
+data: {"type":"turn","result":{"conversation":"${CONVERSATION}","messages":[{"from":"user",…},{"id":"${DELTA}","from":"agent","text":"Lantern Noodle Bar has shoyu ramen…",…}],…}}`,
   },
   answerChoice: {
     operation: "answerChoice",

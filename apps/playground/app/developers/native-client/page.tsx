@@ -175,6 +175,62 @@ request.userVerificationPreference = .required`)}
             </p>
             {example("answerChoice")}
 
+            <h2 id="voice">Hear the answer as it is written</h2>
+            <p>
+              A model takes seconds to write a whole answer. Send{" "}
+              <code>Accept: text/event-stream</code> with the message, or with
+              an answer, and the same request answers each of the agent&apos;s
+              sentences as soon as it is written, as a{" "}
+              <code>message.delta</code> event: the message&apos;s ID, the
+              sentence&apos;s <code>index</code>, its <code>text</code> and its{" "}
+              <code>spoken</code> form. The last event is <code>turn</code>,
+              with the same result the JSON answer has, in which each of the
+              agent&apos;s messages carries as <code>id</code> the ID its
+              sentences came under, or <code>error</code> when the turn failed
+              after it began.
+            </p>
+            {example("sendMessageStreamed")}
+            <p>
+              A voice client says each sentence&apos;s <code>spoken</code> as it
+              arrives, in order, and skips one that is empty (a table row, a
+              link). The sentences are the whole answer, so it does not say the
+              message&apos;s own <code>spoken</code> again when{" "}
+              <code>turn</code> comes. Demo mode and the agent&apos;s own lines,
+              a question about a proposal say, are there at once: they come as
+              sentences too, all together just before <code>turn</code>, so one
+              path speaks everything the agent says. A Company&apos;s own words
+              are never sentences of the agent&apos;s: they come whole in the
+              result, as the Company&apos;s message, to be shown or said as the
+              Company&apos;s.
+            </p>
+            {swift(`var request = URLRequest(url: messagesURL)
+request.httpMethod = "POST"
+request.setValue("Bearer \\(accessToken)", forHTTPHeaderField: "Authorization")
+request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+request.httpBody = try JSONEncoder().encode(message)
+let (bytes, response) = try await URLSession.shared.bytes(for: request)
+// Refused before anything was said: JSON with its status, as without the header.
+guard (response as? HTTPURLResponse)?.mimeType == "text/event-stream" else { … }
+for try await line in bytes.lines where line.hasPrefix("data: ") {
+  let event = try decoder.decode(TurnEvent.self, from: Data(line.dropFirst(6).utf8))
+  switch event {
+  case .delta(let sentence) where !sentence.spoken.isEmpty:
+    synthesizer.speak(AVSpeechUtterance(string: sentence.spoken))
+  case .turn(let result): show(result)  // the same TurnResult as the JSON answer
+  case .error(let failure): stopSpeaking(); show(failure.error)
+  default: break
+  }
+}`)}
+            <p>
+              A request refused before anything was said, because another
+              request holds the conversation say, is answered as it would be
+              without the header: its status and an <code>Error</code>. The
+              conversation&apos;s event stream carries the agent&apos;s message
+              whole, as <code>message</code>, for the account&apos;s other
+              devices; the sentences go only to the request that sent it.
+            </p>
+
             <h2 id="company">Connect a Company</h2>
             <p>
               The person signs in on the Company&apos;s own page; the agent
@@ -266,26 +322,10 @@ session.start()`)}
             <h2 id="coming">What is coming</h2>
             <p>
               The API is <code>v1</code> and still changing until it is frozen.
-              Three things a phone needs are not in it yet:
-            </p>
-            <ul>
-              <li>
-                <strong>Spoken text.</strong> A message will carry a form of its
-                text written to be read aloud, for a client that speaks its
-                answers.
-              </li>
-              <li>
-                <strong>Streaming.</strong> A turn answers once, when it is
-                done. Its text will come as it is written.
-              </li>
-              <li>
-                <strong>Push.</strong> Events reach an app only while its stream
-                is open. A device will register for push notifications on its
-                own session, so they stop when the session ends.
-              </li>
-            </ul>
-            <p>
-              Each will be in the document, and on the{" "}
+              One thing a phone needs is not in it yet: push. Events reach an
+              app only while its stream is open. A device will register for push
+              notifications on its own session, so they stop when the session
+              ends. It will be in the document, and on the{" "}
               <a href={REFERENCE}>reference</a>, when it is in the API.
             </p>
           </div>

@@ -15,6 +15,7 @@ import { SITE_NAME, pageMetadata } from "@/lib/site";
 import { SiteBar, SiteFoot } from "../../site-chrome";
 import {
   ApiNav,
+  Example,
   FieldList,
   Inline,
   SchemaView,
@@ -345,6 +346,62 @@ export default function ApiReference() {
                 {group.operations.map((op) => (
                   <OperationView key={op.id} op={op} document={document} />
                 ))}
+                {group.id === "conversations" && (
+                  <section
+                    className="api-op"
+                    id="streamed-answers"
+                    aria-labelledby="streamed-answers-title"
+                  >
+                    <h3 id="streamed-answers-title">
+                      The answer as it is written
+                    </h3>
+                    <p>
+                      With <code>Accept: text/event-stream</code>,{" "}
+                      <a href="#sendMessage">
+                        <code>POST …/messages</code>
+                      </a>{" "}
+                      and{" "}
+                      <a href="#answerChoice">
+                        <code>POST …/answers</code>
+                      </a>{" "}
+                      answer Server-Sent Events: a{" "}
+                      <a href="#type-MessageDelta">
+                        <code>message.delta</code>
+                      </a>{" "}
+                      for each of the agent&apos;s sentences as soon as the
+                      model has written it, then <code>turn</code> with the same{" "}
+                      <a href="#type-TurnResult">
+                        <code>TurnResult</code>
+                      </a>{" "}
+                      as the JSON answer, or <code>error</code>. Each agent
+                      message of the result carries as <code>id</code> the ID
+                      its sentences came under; drop shown sentences whose ID no
+                      message carries. Demo mode and the agent&apos;s own lines
+                      come as sentences too, all together before{" "}
+                      <code>turn</code>, so a client has one path. A
+                      Company&apos;s own words never come as sentences: they are
+                      in the result, as the Company&apos;s message.
+                    </p>
+                    <p>
+                      A voice client says each sentence&apos;s{" "}
+                      <code>spoken</code> as it arrives and doesn&apos;t say the
+                      message&apos;s <code>spoken</code> again. A request
+                      refused before anything was said is answered as without
+                      the header, with its status and an{" "}
+                      <a href="#type-Error">
+                        <code>Error</code>
+                      </a>
+                      . The sentences go only to the request that sent the
+                      message; the event stream below carries the message whole,
+                      as <code>message</code>, to the account&apos;s other
+                      devices.
+                    </p>
+                    <Example
+                      document={document}
+                      example={EXAMPLES.sendMessageStreamed}
+                    />
+                  </section>
+                )}
                 {group.id === "events" && (
                   <section
                     className="api-op"

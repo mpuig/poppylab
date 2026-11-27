@@ -10,6 +10,7 @@ import path from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { openApiDocument } from "@poppy-lab/pap-agent/openapi";
+import { spokenText } from "@poppy-lab/pap-agent/spoken";
 import ApiReference from "../app/developers/api/page";
 import NativeClient from "../app/developers/native-client/page";
 import { exampleText } from "../app/developers/api-parts";
@@ -203,6 +204,34 @@ describe("the native-client guide", () => {
     for (const line of EXAMPLES.conversationEvents.text.split("\n"))
       if (line.startsWith("data: "))
         expect(line).toMatch(/^data: \{"type":"([^"]+)"/);
+  });
+
+  it("streams a turn's answer in events the document has, each sentence as described", () => {
+    const schema = document.components.schemas.TurnEvent as Schema & {
+      oneOf: Schema[];
+    };
+    const text = EXAMPLES.sendMessageStreamed.text;
+    const names = [...text.matchAll(/^event: (.+)$/gm)].map((m) => m[1]);
+    expect(names.at(-1)).toBe("turn");
+    for (const line of text.split("\n")) {
+      if (!line.startsWith("data: ")) continue;
+      // The sentences are whole; the result is cut short with "…".
+      if (line.startsWith('data: {"type":"message.delta"'))
+        expect(mismatches(document, JSON.parse(line.slice(6)), schema)).toEqual(
+          [],
+        );
+      else expect(line).toMatch(/^data: \{"type":"turn"/);
+    }
+    // The spoken forms are the core's, sentence by sentence.
+    for (const line of text
+      .split("\n")
+      .filter((l) => l.startsWith('data: {"type":"message.delta"'))) {
+      const delta = JSON.parse(line.slice(6)) as {
+        text: string;
+        spoken: string;
+      };
+      expect(delta.spoken).toBe(spokenText(delta.text));
+    }
   });
 
   it("writes each request with the method and path the document gives", () => {
