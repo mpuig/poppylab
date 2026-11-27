@@ -106,8 +106,12 @@ describe("Fernwick ESPI-shaped API", () => {
         },
       ],
     });
-    // The ESPI-shaped API is XML: only Fernwick's own OpenAPI is listed.
-    expect(discovery.apis).toHaveLength(1);
+    // The ESPI-shaped API is XML: only Fernwick's own OpenAPI is listed,
+    // and the MCP server that offers its operations as tools.
+    expect(discovery.apis.map((api: { type: string }) => api.type)).toEqual([
+      "openapi",
+      "mcp",
+    ]);
     // The Company's own, then the protocol's for an agent's browser (§6).
     expect(Object.keys(discovery.auth.scopes)).toEqual([
       ...scopes,

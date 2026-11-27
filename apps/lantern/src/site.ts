@@ -436,7 +436,8 @@ export function homePage(origin: string) {
   return shell("Lantern Noodle Bar · Menu and delivery", body, "/", origin);
 }
 
-export function forAgentsPage(origin: string) {
+/** `mcpTools`: the MCP server's tools as table rows (`mcpToolRowsHtml`). */
+export function forAgentsPage(origin: string, mcpTools: string) {
   const host = escape(new URL(origin).host);
   const rows: Array<[string, string, string]> = [
     ["Discovery", `${origin}/.well-known/poppy.json`, "§3"],
@@ -467,6 +468,11 @@ export function forAgentsPage(origin: string) {
       "§3.4, §5.2–5.3",
     ],
     ["API", `${origin}/openapi.json · OpenAPI 3.1`, "§7"],
+    [
+      "MCP",
+      `${origin}/mcp · Streamable HTTP, MCP 2025-06-18 · tokens with resource=${origin}/mcp`,
+      "§7",
+    ],
     [
       "Tasks",
       `GET ${origin}/poppy/tasks · excluded tasks, skills, feedback endpoint`,
@@ -499,7 +505,7 @@ export function forAgentsPage(origin: string) {
       return `<li><strong>${escape(c.name)}</strong><span>Account <code>${c.id}</code> · order <code>${c.order.id}</code>: ${escape(lines)} · ${escape(slot)}</span></li>`;
     })
     .join("");
-  const body = `<main class="wrap"><section class="intro"><h1>Point your agent here.</h1><p>Lantern Noodle Bar speaks Personal Agent Protocol 1.0. Any Personal Agent with an HTTPS <code>client_id</code> that serves its metadata and keys (ES256 or PS384) can start a Session, sign in as a test customer, with or without a pushed authorization request, and change a scheduled order with Operations version 3. Every visitor gets its own copy of the customers.</p></section><section class="plain"><h2>Endpoints at ${host}</h2><div class="table-wrap"><table><thead><tr><th scope="col">What</th><th scope="col">Where</th><th scope="col">Spec</th></tr></thead><tbody>${table}</tbody></table></div><p class="try">Scopes: <code>orders:read</code> (scheduled orders) and <code>orders:write</code> (propose changes). Sign-in offers read first; a visitor adds write later.</p></section><section class="plain"><h2>Skills</h2><div class="table-wrap"><table><tbody>${skillRowsHtml(skills)}</tbody></table></div><p class="try">A skill is Lantern's own note for agents on how to do one task with its API. It grants nothing, and a change still waits for the customer's approval. The tasks response lists each skill with the digest of its file (${specRefHtml("§9.4")}).</p></section><section class="plain"><h2>Test customers</h2><ul class="customers">${people}</ul><p class="try">Try: <q>Add a matcha ice cream to my order and move it to Sunday lunchtime.</q> The approval shows the new slot, the dishes and the price difference before anything changes.</p><p class="try">Or: <q>The gyoza were missing from my last delivery.</q> Your agent takes it up with Lantern's own agent in a conversation. It answers structured requests with data, and proposes a refund you approve.</p></section><section class="plain"><h2>Watch it work</h2><p class="try">Open <a href="${labPlaygroundUrl(origin)}">Iris</a>, the test Personal Agent in Poppy Lab, with this Company connected. Its Inspector shows discovery, the Session and each API call with the spec section it meets.</p></section></main>`;
+  const body = `<main class="wrap"><section class="intro"><h1>Point your agent here.</h1><p>Lantern Noodle Bar speaks Personal Agent Protocol 1.0. Any Personal Agent with an HTTPS <code>client_id</code> that serves its metadata and keys (ES256 or PS384) can start a Session, sign in as a test customer, with or without a pushed authorization request, and change a scheduled order with Operations version 3. Every visitor gets its own copy of the customers.</p></section><section class="plain"><h2>Endpoints at ${host}</h2><div class="table-wrap"><table><thead><tr><th scope="col">What</th><th scope="col">Where</th><th scope="col">Spec</th></tr></thead><tbody>${table}</tbody></table></div><p class="try">Scopes: <code>orders:read</code> (scheduled orders) and <code>orders:write</code> (propose changes). Sign-in offers read first; a visitor adds write later.</p></section><section class="plain"><h2>MCP tools</h2><div class="table-wrap"><table><thead><tr><th scope="col">Tool</th><th scope="col">What it does</th><th scope="col">Scopes</th></tr></thead><tbody>${mcpTools}</tbody></table></div><p class="try">The MCP server at <code>${escape(origin)}/mcp</code> offers the API's operations as tools, checked as the API checks them: the Session header on every call, a token requested with <code>resource</code> set to the server's URL and used only there, the same scopes, and every change returned as an operation that waits for the customer's approval, sent back in <code>_meta</code> (${specRefHtml("§7")}).</p></section><section class="plain"><h2>Skills</h2><div class="table-wrap"><table><tbody>${skillRowsHtml(skills)}</tbody></table></div><p class="try">A skill is Lantern's own note for agents on how to do one task with its API. It grants nothing, and a change still waits for the customer's approval. The tasks response lists each skill with the digest of its file (${specRefHtml("§9.4")}).</p></section><section class="plain"><h2>Test customers</h2><ul class="customers">${people}</ul><p class="try">Try: <q>Add a matcha ice cream to my order and move it to Sunday lunchtime.</q> The approval shows the new slot, the dishes and the price difference before anything changes.</p><p class="try">Or: <q>The gyoza were missing from my last delivery.</q> Your agent takes it up with Lantern's own agent in a conversation. It answers structured requests with data, and proposes a refund you approve.</p></section><section class="plain"><h2>Watch it work</h2><p class="try">Open <a href="${labPlaygroundUrl(origin)}">Iris</a>, the test Personal Agent in Poppy Lab, with this Company connected. Its Inspector shows discovery, the Session and each API call with the spec section it meets.</p></section></main>`;
   return shell("For agents · Lantern Noodle Bar", body, "/for-agents", origin);
 }
 

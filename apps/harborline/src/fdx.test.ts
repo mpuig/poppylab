@@ -76,7 +76,8 @@ describe("Harborline FDX-shaped API", () => {
         },
       ],
     });
-    expect(discovery.apis).toHaveLength(2);
+    // Harborline's own OpenAPI, the FDX-shaped one, and its MCP server.
+    expect(discovery.apis).toHaveLength(3);
     expect(discovery.apis[0].url).toBe(`${origin}/openapi.json`);
     expect(discovery.apis[1]).toMatchObject({
       type: "openapi",

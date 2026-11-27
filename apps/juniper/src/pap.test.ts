@@ -123,7 +123,7 @@ it("publishes 1.0 OAuth metadata and no longer accepts the JWT-bearer Session gr
     ).json();
     expect(metadata).toMatchObject({
       issuer: origin,
-      protected_resources: [origin],
+      protected_resources: [origin, `${origin}/mcp`],
       grant_types_supported: [
         "authorization_code",
         "urn:ietf:params:oauth:grant-type:device_code",

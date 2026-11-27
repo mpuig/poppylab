@@ -27,7 +27,7 @@ it("publishes its own issuer, scopes and an Operations v2 contract", async () =>
   ).json();
   expect(metadata).toMatchObject({
     issuer: origin,
-    protected_resources: [origin],
+    protected_resources: [origin, `${origin}/mcp`],
     scopes_supported: ["orders:read", "orders:write", "poppy:browser-sign-in"],
     grant_types_supported: [
       "authorization_code",

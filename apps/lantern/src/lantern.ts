@@ -16,6 +16,7 @@ import type {
   OperationRecord,
   Session,
 } from "@poppy-lab/pap-company";
+import { MCP_PATH, mcpToolRowsHtml } from "@poppy-lab/pap-company";
 import type { Context } from "hono";
 import {
   consentExpiredPage,
@@ -466,6 +467,12 @@ export const lantern: CompanyDefinition = {
         description:
           "Menu, delivery slots, the customer's scheduled orders, and changes to them",
       },
+      {
+        type: "mcp",
+        url: `${origin}${MCP_PATH}`,
+        description:
+          "The same operations as MCP tools: menu, delivery slots, scheduled orders and changes to them",
+      },
     ],
     agent: {
       protocols: [
@@ -513,7 +520,7 @@ export const lantern: CompanyDefinition = {
   },
   landing: homePage,
   pages: {
-    "/for-agents": forAgentsPage,
+    "/for-agents": (origin) => forAgentsPage(origin, mcpToolRowsHtml(lantern)),
     "/how-it-works": (origin) => howItWorksPage(origin, agentGuide(origin)),
   },
   pageHeaders,

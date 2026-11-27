@@ -5,7 +5,12 @@
  * (`@poppy-lab/pap-company`) in Node and in Cloudflare Workers.
  * Independent experiment, not affiliated with the protocol's authors.
  */
-import { ObjectMap, type CompanyDefinition } from "@poppy-lab/pap-company";
+import {
+  MCP_PATH,
+  mcpToolRowsHtml,
+  ObjectMap,
+  type CompanyDefinition,
+} from "@poppy-lab/pap-company";
 import { accountPaths } from "./openapi.js";
 import { servicePaths } from "./service-openapi.js";
 import { operations, type Commerce } from "./operations.js";
@@ -192,6 +197,12 @@ export function juniperCompany(options: {
             description:
               "Products, delivery information, opening hours, and returns policies",
           },
+          {
+            type: "mcp",
+            url: `${publicOrigin}${MCP_PATH}`,
+            description:
+              "The same operations as MCP tools: products, delivery and policies, and your basket, orders, recurring delivery, profile and support cases",
+          },
         ],
         web: {
           browser_session_endpoint: `${publicOrigin}/poppy/browser-session`,
@@ -251,7 +262,8 @@ export function juniperCompany(options: {
     landing: (publicOrigin) =>
       homePage(publicOrigin, { products, delivery, policies }),
     pages: {
-      "/for-agents": forAgentsPage,
+      "/for-agents": (publicOrigin) =>
+        forAgentsPage(publicOrigin, mcpToolRowsHtml(company)),
       "/how-it-works": (publicOrigin) =>
         howItWorksPage(publicOrigin, guide(publicOrigin)),
     },

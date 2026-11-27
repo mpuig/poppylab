@@ -7,6 +7,7 @@ import { createHash } from "node:crypto";
 import type { Context, Hono } from "hono";
 import {
   GRANT_MS,
+  MCP_PATH,
   TOKEN_MS,
   type CompanyDefinition,
   type Session,
@@ -1349,6 +1350,12 @@ export const harborline: CompanyDefinition = {
         url: `${origin}${FDX_OPENAPI}`,
         description:
           "FDX-shaped, read-only view of the same fictional accounts, balances, transactions, monthly PDF statements and customer, with a consent API. Not FDX-conformant or certified. Requests must declare the poppylab.dev/fdx extension, version 1.",
+      },
+      {
+        type: "mcp",
+        url: `${origin}${MCP_PATH}`,
+        description:
+          "The operations of /openapi.json as MCP tools: accounts, transactions, cards, recipients, budgets, and approval-gated payments and transfers. Not the FDX-shaped API.",
       },
     ],
     agent: {

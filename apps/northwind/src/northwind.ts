@@ -13,6 +13,7 @@ import type {
   OperationRecord,
   Session,
 } from "@poppy-lab/pap-company";
+import { MCP_PATH, mcpToolRowsHtml } from "@poppy-lab/pap-company";
 import {
   airports,
   customers,
@@ -1217,6 +1218,12 @@ export const northwind: CompanyDefinition = {
         description:
           "Fictional flight search, status, booking lookup, account trips, loyalty, preferences and approval-gated booking changes",
       },
+      {
+        type: "mcp",
+        url: `${origin}${MCP_PATH}`,
+        description:
+          "The same operations as MCP tools: flight search, status, booking lookup, trips, loyalty, preferences and approval-gated booking changes",
+      },
     ],
     agent: {
       protocols: [
@@ -1258,7 +1265,8 @@ export const northwind: CompanyDefinition = {
   ],
   landing: homePage,
   pages: {
-    "/for-agents": forAgentsPage,
+    "/for-agents": (origin) =>
+      forAgentsPage(origin, mcpToolRowsHtml(northwind)),
     "/how-it-works": (origin) => howItWorksPage(origin, agentGuide(origin)),
   },
   pageHeaders,

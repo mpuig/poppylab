@@ -10,6 +10,8 @@ import { createHash } from "node:crypto";
 import type { Context, Hono } from "hono";
 import {
   GRANT_MS,
+  MCP_PATH,
+  mcpToolRowsHtml,
   TOKEN_MS,
   type CompanyDefinition,
 } from "@poppy-lab/pap-company";
@@ -444,6 +446,12 @@ export const fernwick: CompanyDefinition = {
         description:
           "Fictional electricity account: service address, meters and rate plans, monthly bills, and an approval-gated switch between the flat and time-of-use plans",
       },
+      {
+        type: "mcp",
+        url: `${origin}${MCP_PATH}`,
+        description:
+          "The same operations as MCP tools: the account, its bills, and an approval-gated rate plan switch",
+      },
     ],
     agent: {
       protocols: [
@@ -508,7 +516,7 @@ export const fernwick: CompanyDefinition = {
   ],
   landing: homePage,
   pages: {
-    "/for-agents": forAgentsPage,
+    "/for-agents": (origin) => forAgentsPage(origin, mcpToolRowsHtml(fernwick)),
     "/how-it-works": (origin) => howItWorksPage(origin, agentGuide(origin)),
   },
   pageHeaders,
