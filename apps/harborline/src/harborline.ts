@@ -8,6 +8,7 @@ import type { Context, Hono } from "hono";
 import {
   GRANT_MS,
   MCP_PATH,
+  mcpToolRowsHtml,
   TOKEN_MS,
   type CompanyDefinition,
   type Session,
@@ -1421,7 +1422,8 @@ export const harborline: CompanyDefinition = {
   ],
   landing: homePage,
   pages: {
-    "/for-agents": forAgentsPage,
+    "/for-agents": (origin) =>
+      forAgentsPage(origin, mcpToolRowsHtml(harborline)),
     "/how-it-works": (origin) => howItWorksPage(origin, agentGuide(origin)),
   },
   pageHeaders,
