@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+// The playground's pages allow no eval (its Content-Security-Policy), and
+// Zod would try it to compile its parsers. On Workers it never does.
+z.config({ jitless: true });
+
 /**
  * The local example Companies (development only, plain HTTP): Juniper Market,
  * Lantern Noodle Bar, Harborline Bank, Northwind Air and Fernwick Power &

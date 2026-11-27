@@ -1,6 +1,26 @@
 import type { NextConfig } from "next";
 import { AGENT_NAME } from "./lib/agent-name";
 
+// Visitors' model keys and standing instructions live in the browser's
+// storage, so the page may load code only from itself and send data only
+// to itself: the model providers are called from the server. Next writes
+// its page data as inline scripts and the home, /developers and /learn are
+// prerendered, so a per-request nonce isn't possible and inline scripts
+// stay allowed. Development adds eval, which React's dev build uses.
+const contentSecurityPolicy = [
+  "default-src 'self'",
+  `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}`,
+  "style-src 'self' 'unsafe-inline'",
+  // The stylesheets' icons are data: URLs.
+  "img-src 'self' data:",
+  "font-src 'self'",
+  "connect-src 'self'",
+  "object-src 'none'",
+  "base-uri 'none'",
+  "frame-ancestors 'none'",
+  "form-action 'self'",
+].join("; ");
+
 const nextConfig: NextConfig = {
   // The agent core's sentences that the page renders name the agent too
   // (`agentName` in @poppy-lab/pap-agent/agent).
@@ -33,6 +53,9 @@ const nextConfig: NextConfig = {
       {
         source: "/(.*)",
         headers: [
+          { key: "Content-Security-Policy", value: contentSecurityPolicy },
+          // The zone doesn't send it; browsers ignore it over plain HTTP.
+          { key: "Strict-Transport-Security", value: "max-age=31536000" },
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "no-referrer" },
           { key: "X-Frame-Options", value: "DENY" },
