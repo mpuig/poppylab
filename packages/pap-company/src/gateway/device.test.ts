@@ -82,6 +82,31 @@ it("advertises Device Sign-In in the issuer's metadata", async () => {
   ]);
 });
 
+it("offers none of it at a Company that offers only Direct Sign-In", async () => {
+  const x = await setup({}, { deviceSignIn: false });
+  const metadata = (await (
+    await x.app.request("/.well-known/oauth-authorization-server")
+  ).json()) as Record<string, unknown>;
+  expect(metadata).not.toHaveProperty("device_authorization_endpoint");
+  expect(metadata.grant_types_supported).toEqual([
+    "authorization_code",
+    "refresh_token",
+  ]);
+  const start = await x.form("/oauth/device", {
+    scope: "things:read",
+    ...(await x.credentials()),
+  });
+  expect(start.status).toBe(404);
+  expect((await x.app.request("/device")).status).toBe(404);
+  const poll = await x.form("/oauth/token", {
+    grant_type: DEVICE_GRANT,
+    device_code: "anything",
+    ...(await x.credentials()),
+  });
+  expect(poll.status).toBe(400);
+  expect(await error(poll)).toBe("unsupported_grant_type");
+});
+
 it("signs in on another device: code, page, consent, then tokens", async () => {
   const x = await started();
   const { device } = x;

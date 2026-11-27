@@ -10,6 +10,7 @@ import { DEVICE_GRANT } from "./types.ts";
 
 export function mountDiscovery(app: Hono, ctx: Ctx) {
   const { def, origin, both } = ctx;
+  const device = def.deviceSignIn !== false;
   // Metadata is public and changes only with a deployment.
   const cached = { "Cache-Control": "public, max-age=300" };
   app.get("/.well-known/poppy.json", (c) =>
@@ -34,14 +35,17 @@ export function mountDiscovery(app: Hono, ctx: Ctx) {
         // RFC 9126: offered, not required (§4.2).
         pushed_authorization_request_endpoint: `${origin}/oauth/par`,
         require_pushed_authorization_requests: false,
-        // §4.3, RFC 8628: Device Sign-In, on the same consent page.
-        device_authorization_endpoint: `${origin}${DEVICE_ENDPOINT}`,
+        // §4.3, RFC 8628: Device Sign-In, on the same consent page, unless
+        // the Company offers only Direct Sign-In.
+        ...(device
+          ? { device_authorization_endpoint: `${origin}${DEVICE_ENDPOINT}` }
+          : {}),
         token_endpoint: `${origin}/oauth/token`,
         revocation_endpoint: `${origin}/oauth/revoke`,
         protected_resources: [origin],
         grant_types_supported: [
           "authorization_code",
-          DEVICE_GRANT,
+          ...(device ? [DEVICE_GRANT] : []),
           "refresh_token",
         ],
         response_types_supported: ["code"],

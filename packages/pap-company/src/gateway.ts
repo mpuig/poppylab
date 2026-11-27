@@ -62,7 +62,7 @@ export function createCompany(def: CompanyDefinition, deploy: Deployment) {
   mountBrowserGuard(app, ctx);
   mountDiscovery(app, ctx);
   const signIn = mountSignIn(app, ctx);
-  mountDevice(app, ctx, signIn);
+  if (def.deviceSignIn !== false) mountDevice(app, ctx, signIn);
   mountTokens(app, ctx, signIn.codes);
   const tenancy = createTenancy(ctx);
   mountSessions(app, ctx, tenancy);

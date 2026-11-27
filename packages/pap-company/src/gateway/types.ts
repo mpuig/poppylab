@@ -498,6 +498,13 @@ export type DpopNonces = {
 };
 export type CompanyDefinition = {
   name: string;
+  /**
+   * §4.3: offer Device Sign-In. Default `true`. RFC 10027 §6.2.1.5 advises
+   * against the device grant for high-value accounts, and the guides say a
+   * Company such as a bank may offer only Direct Sign-In: `false` leaves it
+   * out of the metadata and refuses the grant.
+   */
+  deviceSignIn?: boolean;
   /** Default scopes for account reads and changes (legacy two-scope Companies). */
   readScope: string;
   writeScope: string;

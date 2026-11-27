@@ -1215,6 +1215,9 @@ function agentGuide(origin: string): AgentGuide {
 
 export const harborline: CompanyDefinition = {
   name: "Harborline Bank",
+  // A bank's accounts are high-value: Direct Sign-In only (RFC 10027
+  // §6.2.1.5, as the guides advise).
+  deviceSignIn: false,
   readScope: "accounts:read",
   writeScope: "cards:write",
   scopes: [...scopes],

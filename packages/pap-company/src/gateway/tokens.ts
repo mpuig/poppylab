@@ -74,9 +74,11 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
         if (g.expires < now) delete state.grants[id];
       const body = (await c.req.parseBody()) as Record<string, string>;
       if (
-        !["authorization_code", "refresh_token", DEVICE_GRANT].includes(
-          body.grant_type ?? "",
-        ) ||
+        ![
+          "authorization_code",
+          "refresh_token",
+          ...(def.deviceSignIn === false ? [] : [DEVICE_GRANT]),
+        ].includes(body.grant_type ?? "") ||
         body.client_assertion_type !==
           "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
       )
