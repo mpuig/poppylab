@@ -14,7 +14,7 @@ import {
 import { accountPaths } from "./openapi.js";
 import { servicePaths } from "./service-openapi.js";
 import { operations, type Commerce } from "./operations.js";
-import { website, type WebSession } from "./website.js";
+import { loginLimit, website, type WebSession } from "./website.js";
 import { browserSignInHint, browserSignInScope } from "@poppy-lab/pap-core";
 import { consentExpiredPage, consentPage } from "./consent-page.js";
 import { persona, personas } from "./personas.js";
@@ -106,7 +106,15 @@ const policies = {
 
 export function juniperCompany(options: {
   portal: boolean;
+  /** On Workers, where only Cloudflare sets `CF-Connecting-IP`. */
+  workers?: boolean;
 }): CompanyDefinition {
+  // Outside `mount`, which runs once for each visitor's copy.
+  const logins = loginLimit(
+    options.workers
+      ? (req) => req.headers["cf-connecting-ip"] ?? ""
+      : undefined,
+  );
   /** What "How it works" shows, read from this definition and the seed data. */
   const guide = (publicOrigin: string): AgentGuide => {
     const elena = personas[0]!;
@@ -293,6 +301,7 @@ export function juniperCompany(options: {
         options.portal,
         ctx.feedback,
         (req) => ctx.browser(req.ctx),
+        logins,
       );
       r.get("/api/products", async () => ({
         currency: "USD",

@@ -129,6 +129,38 @@ export function publicPage(
     style,
   );
 }
+/**
+ * Wrong website passwords in a minute, by where they come from, and from
+ * everyone as a backstop. One for the whole Company: with `isolation:
+ * "visitor"` each browser cookie has its own copy of the website, so a
+ * count kept there starts again when the cookie is cleared. Without a
+ * source every attempt counts as one source.
+ */
+export function loginLimit(sourceOf: (req: Req) => string = () => "") {
+  const wrong = new Map<string, { count: number; start: number }>();
+  let everyone = { count: 0, start: Date.now() };
+  return {
+    blocked(req: Req) {
+      const now = Date.now();
+      if (now - everyone.start > 60000) everyone = { count: 0, start: now };
+      const source = sourceOf(req),
+        mine = wrong.get(source);
+      if (mine && now - mine.start > 60000) wrong.delete(source);
+      return everyone.count >= 200 || (wrong.get(source)?.count ?? 0) >= 10;
+    },
+    failed(req: Req) {
+      everyone.count++;
+      const source = sourceOf(req),
+        mine = wrong.get(source);
+      if (mine) mine.count++;
+      else {
+        // Least recently inserted goes first (Map order).
+        if (wrong.size >= 1000) wrong.delete(wrong.keys().next().value!);
+        wrong.set(source, { count: 1, start: Date.now() });
+      }
+    },
+  };
+}
 export function website(
   app: Router,
   origin: string,
@@ -145,6 +177,8 @@ export function website(
   feedback: () => readonly FeedbackReport[] = () => [],
   /** The browser join a request belongs to (§6), as the gateway tells it. */
   browser: (req: Req) => BrowserJoin | undefined = () => undefined,
+  /** Wrong passwords, shared by every visitor's copy of the website. */
+  logins = loginLimit(),
 ) {
   lab = foot(origin);
   bar = labBarHtml(origin, "Juniper Market");
@@ -161,8 +195,6 @@ export function website(
       reply.header("Referrer-Policy", "same-origin");
     }
   });
-  let failures = 0,
-    windowStart = Date.now();
   const active = (req: Req) => {
     const record = sessions.get(tokenHash(cookie(req, "juniper_web")));
     return (
@@ -244,11 +276,7 @@ export function website(
             `<div class="login"><h1>This sign-in page has expired.</h1><p class="intro">A sign-in page works for five minutes after it opens, and this one is older. You aren't signed in, and nothing has changed.</p><p><a href="/site/login">Open the sign-in page again</a></p></div>`,
           ),
         );
-    if (Date.now() - windowStart > 60000) {
-      failures = 0;
-      windowStart = Date.now();
-    }
-    if (failures >= 10)
+    if (logins.blocked(req))
       return reply.code(429).send("Too many attempts. Wait a minute.");
     const configured = process.env.JUNIPER_PASSWORD_HASH;
     if (configured) {
@@ -261,7 +289,7 @@ export function website(
         64,
       );
       if (!timingSafeEqual(actual, Buffer.from(expected!, "hex"))) {
-        failures++;
+        logins.failed(req);
         return reply.code(401).send("Wrong password. Go back to /site/login.");
       }
     }

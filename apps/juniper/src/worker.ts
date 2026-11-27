@@ -59,7 +59,7 @@ export class JuniperCompany extends DurableObject<Env> {
       /^http:\/\/[a-z0-9.-]*localhost(:\d+)?$/.test(this.env.PUBLIC_ORIGIN)
         ? this.env.DEV_HTTP_CLIENT
         : undefined;
-    this.app = createCompany(juniperCompany({ portal: true }), {
+    this.app = createCompany(juniperCompany({ portal: true, workers: true }), {
       origin: this.env.PUBLIC_ORIGIN,
       store,
       // Public: every agent user gets a fresh copy of the fictional customers.

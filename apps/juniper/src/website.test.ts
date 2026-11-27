@@ -1,5 +1,5 @@
 import { it, expect, vi } from "vitest";
-import { testApp } from "./test-app.js";
+import { juniperApp, testApp } from "./test-app.js";
 import { website } from "./website.js";
 import { approvalOf } from "./test-v2.js";
 import { operations } from "./operations.js";
@@ -292,6 +292,58 @@ it("uses the configured password for website login too", async () => {
   } finally {
     vi.unstubAllEnvs();
     await app.close();
+  }
+});
+it("counts wrong website passwords across visitor copies, by source only on Workers", async () => {
+  const salt = "01".repeat(16);
+  vi.stubEnv(
+    "JUNIPER_PASSWORD_HASH",
+    salt +
+      ":" +
+      scryptSync("dedicated-test-password", salt, 64).toString("hex"),
+  );
+  // A browser without cookies each time: a fresh visitor copy each time.
+  const attempt = async (
+    app: ReturnType<typeof juniperApp>,
+    address: string,
+  ) => {
+    const headers = { "cf-connecting-ip": address };
+    const page = await app.inject({ url: "/site/login", headers });
+    const jar = ([] as string[])
+      .concat(page.headers["set-cookie"] ?? [])
+      .map((c) => c.split(";")[0]!)
+      .join("; ");
+    return (
+      await app.inject({
+        method: "POST",
+        url: "/site/login",
+        headers: { ...headers, cookie: jar, origin },
+        payload: {
+          login_token: /juniper_login=([^;]+)/.exec(jar)![1],
+          password: "wrong",
+        },
+      })
+    ).statusCode;
+  };
+  const fetchJson = async () => ({});
+  try {
+    // Off Workers anyone can send the header, so it changes nothing.
+    const node = juniperApp({ isolation: "visitor", fetchJson });
+    for (let i = 0; i < 10; i++)
+      expect(await attempt(node, `192.0.2.${i}`)).toBe(401);
+    expect(await attempt(node, "192.0.2.99")).toBe(429);
+    // On Workers only Cloudflare sets it: one address doesn't lock out another.
+    const workers = juniperApp({
+      isolation: "visitor",
+      fetchJson,
+      workers: true,
+    });
+    for (let i = 0; i < 10; i++)
+      expect(await attempt(workers, "192.0.2.1")).toBe(401);
+    expect(await attempt(workers, "192.0.2.1")).toBe(429);
+    expect(await attempt(workers, "192.0.2.2")).toBe(401);
+  } finally {
+    vi.unstubAllEnvs();
   }
 });
 it("serves parseable customer code without HTML injection sinks", async () => {

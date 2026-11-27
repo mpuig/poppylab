@@ -118,12 +118,16 @@ export function juniperApp(
     store?: Store;
     fetchJson: Deployment["fetchJson"];
     portal?: boolean;
+    workers?: boolean;
     drop?: (request: Request, response: Response) => boolean;
   } & Partial<Pick<Deployment, "passwordHash" | "dpopNonces" | "isolation">>,
 ) {
   const origin = options.origin ?? "http://juniper.localhost:4100";
   const app = createCompany(
-    juniperCompany({ portal: options.portal ?? true }),
+    juniperCompany({
+      portal: options.portal ?? true,
+      workers: options.workers ?? false,
+    }),
     {
       origin,
       store: options.store ?? memory(),
