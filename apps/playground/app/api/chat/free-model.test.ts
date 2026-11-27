@@ -241,7 +241,7 @@ describe("a turn the free model doesn't take runs in demo mode", () => {
     const command = await say("connect with Lantern");
     expect(command.status).toBe(200);
     expect(command.answer.before).toBeUndefined();
-    expect(command.answer.text).toMatch(/^Connected to Lantern Noodle Bar\./);
+    expect(command.answer.text).toMatch(/^I've connected Lantern Noodle Bar\./);
     // A scripted example runs as the demo runs it, saying nothing of it.
     const example = await say("What are your products?");
     expect(example.answer.before).toBeUndefined();

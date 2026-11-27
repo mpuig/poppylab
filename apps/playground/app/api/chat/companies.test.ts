@@ -407,7 +407,7 @@ describe("a conversation with no Company", () => {
     const turn = await say("What can you do?", modelled);
     expect(turn.status).toBe(200);
     expect(turn.answer).toMatchObject({
-      text: "This conversation isn't connected to a company yet, so Iris didn't send your request to any company. Connect one first: Juniper Market, Lantern Noodle Bar, Harborline Bank, Northwind Air or Fernwick Power & Light from the lab, or another company by typing its address in the address box.",
+      text: "This conversation has no company yet, so I haven't sent your request anywhere. Connect one first: Juniper Market, Lantern Noodle Bar, Harborline Bank, Northwind Air or Fernwick Power & Light from the lab, or another by typing its address in the address box.",
       mode: "own",
       signedIn: false,
       operations: [],
@@ -448,9 +448,7 @@ describe("a conversation with no Company", () => {
     const turn = await say("hello", modelled, "");
     expect(turn.status).toBe(200);
     expect(turn.conversation).toMatch(/^[A-Za-z0-9_-]{16,64}$/);
-    expect(turn.answer.text).toMatch(
-      /^This conversation isn't connected to a company yet/,
-    );
+    expect(turn.answer.text).toMatch(/^This conversation has no company yet/);
     const { cookies } = await import("next/headers");
     const stored = await readConversation(
       visitorOf((await cookies()) as never)!,

@@ -165,7 +165,7 @@ describe("“connect with <Company>”, typed in the chat", () => {
     const run = await conversation();
     const turn = await say("connect with Lantern");
     expect(turn.status).toBe(200);
-    const text = `Connected to Lantern Noodle Bar. It describes what it offers as ${offers("Lantern Noodle Bar")}. You can ask it something now. Signing in is offered when a request needs your account there.`;
+    const text = `I've connected Lantern Noodle Bar. It describes what it offers as ${offers("Lantern Noodle Bar")}. You can ask it something now. If a request needs your account there, I'll offer you a sign-in.`;
     expect(turn.answer).toMatchObject({
       text,
       mode: "own",
@@ -205,7 +205,7 @@ describe("“connect with <Company>”, typed in the chat", () => {
       ["user", "connect with Lantern"],
       [
         "assistant",
-        "Connected to Lantern Noodle Bar. You can ask it something now. Signing in is offered when a request needs your account there.",
+        "I've connected Lantern Noodle Bar. You can ask it something now. If a request needs your account there, I'll offer you a sign-in.",
       ],
     ]);
     expect(run.log).toEqual([
@@ -225,7 +225,7 @@ describe("“connect with <Company>”, typed in the chat", () => {
     const run = await conversation();
     const turn = await say("Connect with Lantern and what are your products?");
     expect(turn.status).toBe(200);
-    const before = `Connected to Lantern Noodle Bar. It describes what it offers as ${offers("Lantern Noodle Bar")}. Signing in is offered when a request needs your account there.`;
+    const before = `I've connected Lantern Noodle Bar. It describes what it offers as ${offers("Lantern Noodle Bar")}. If a request needs your account there, I'll offer you a sign-in.`;
     expect(turn.answer).toMatchObject({ before, from: lantern, mode: "demo" });
     expect(turn.answer.text).toContain("The company answered:");
     expect(turn.answer.connections).toHaveLength(2);
@@ -241,7 +241,7 @@ describe("“connect with <Company>”, typed in the chat", () => {
     ]);
     expect(told(run).map(([, words]) => words)).toEqual([
       "Connect with Lantern and what are your products?",
-      "Connected to Lantern Noodle Bar. Signing in is offered when a request needs your account there.",
+      "I've connected Lantern Noodle Bar. If a request needs your account there, I'll offer you a sign-in.",
       "what are your products?",
       turn.answer.text,
     ]);
@@ -265,7 +265,7 @@ describe("“connect with <Company>”, typed in the chat", () => {
       answer: { connect: food },
     });
     const turn = await press(none.answer.choices[1]);
-    expect(turn.answer.text).toMatch(/^Connected to Lantern Noodle Bar\./);
+    expect(turn.answer.text).toMatch(/^I've connected Lantern Noodle Bar\./);
     expect(run.connections.map((c) => c.url)).toEqual([food]);
     // The words from before it are still there, and the label of the
     // button is the User's line.
@@ -283,7 +283,7 @@ describe("“connect with <Company>”, typed in the chat", () => {
     const run = await conversation();
     const turn = await say("connect with Lantern, the bank and the airline");
     expect(turn.answer.text).toBe(
-      `Connected to Lantern Noodle Bar and Harborline Bank. Lantern Noodle Bar describes what it offers as ${offers("Lantern Noodle Bar")}. Harborline Bank describes what it offers as ${offers("Harborline Bank")}. A conversation works with at most 3 companies. Remove one to connect another. You can ask them something now. Signing in is offered when a request needs your account at one of them.`,
+      `I've connected Lantern Noodle Bar and Harborline Bank. Lantern Noodle Bar describes what it offers as ${offers("Lantern Noodle Bar")}. Harborline Bank describes what it offers as ${offers("Harborline Bank")}. A conversation works with at most 3 companies. Remove one to connect another. You can ask them something now. If a request needs your account at one of them, I'll offer you a sign-in.`,
     );
     expect(run.connections.map((c) => c.url)).toEqual([shop, food, bank]);
     expect(discover).toHaveBeenCalledTimes(2);
@@ -315,7 +315,7 @@ describe("“connect with <Company>”, typed in the chat", () => {
     ]) {
       const turn = await say(message!);
       expect(turn.answer.text).toBe(
-        `There is no company called “${said}” among the lab's. The lab's companies are Juniper Market, Lantern Noodle Bar, Harborline Bank, Northwind Air and Fernwick Power & Light. To connect another company, type its address in the address box.`,
+        `The lab has no company called “${said}”. The lab's companies are Juniper Market, Lantern Noodle Bar, Harborline Bank, Northwind Air and Fernwick Power & Light. To connect another company, type its address in the address box.`,
       );
       // A button for each one that isn't connected.
       expect(
@@ -364,7 +364,7 @@ describe("“connect with <Company>”, typed in the chat", () => {
     );
     const turn = await say("connect with Lantern and show me the menu");
     expect(turn.answer.text).toBe(
-      "Lantern Noodle Bar couldn't be connected. No Poppy document there. The rest of your message wasn't asked of anyone.",
+      "I couldn't connect Lantern Noodle Bar. No Poppy document there. I didn't pass the rest of your message to anyone.",
     );
     expect(turn.answer).not.toHaveProperty("connections");
     expect(run.connections).toHaveLength(1);
@@ -427,7 +427,7 @@ describe("“disconnect from <Company>”, typed in the chat", () => {
     const asked = await say("disconnect from Juniper");
     expect(asked.status).toBe(200);
     const question =
-      "Remove Juniper Market from this conversation? That revokes the access you gave Iris there, and what Iris read with your account there no longer shows.";
+      "Remove Juniper Market from this conversation? That revokes the access you gave me there, and what I read with your account will be gone from here.";
     expect(asked.answer).toMatchObject({
       text: question,
       mode: "own",
@@ -450,7 +450,7 @@ describe("“disconnect from <Company>”, typed in the chat", () => {
     const turn = await press(asked.answer.choices[0]);
     expect(turn.status).toBe(200);
     const text =
-      "Juniper Market was removed from this conversation, and the access you gave Iris there was revoked. What Iris read with your account there no longer shows. You can connect it again at any time.";
+      "I've removed Juniper Market from this conversation and revoked the access you gave me there. What I read with your account there is gone from here. You can connect it again at any time.";
     expect(turn.answer).toMatchObject({
       text,
       mode: "own",
@@ -497,7 +497,7 @@ describe("“disconnect from <Company>”, typed in the chat", () => {
     );
     expect(turn.answer).toMatchObject({
       before:
-        "Juniper Market was removed from this conversation. You can connect it again at any time.",
+        "I've removed Juniper Market from this conversation. You can connect it again at any time.",
       from: lantern,
     });
     expect(turn.answer.connections).toHaveLength(1);
@@ -514,7 +514,7 @@ describe("“disconnect from <Company>”, typed in the chat", () => {
     );
     expect(turn.answer).toMatchObject({
       before:
-        "Juniper Market was removed from this conversation. You can connect it again at any time.",
+        "I've removed Juniper Market from this conversation. You can connect it again at any time.",
       text: "Is this for Lantern Noodle Bar or Harborline Bank? Nothing in your message says which.",
       mode: "own",
     });
@@ -561,7 +561,7 @@ describe("“disconnect from <Company>”, typed in the chat", () => {
       "This conversation isn't connected to Harborline Bank.",
     );
     expect((await say("disconnect from Acme")).answer.text).toBe(
-      "This conversation isn't connected to a company called “Acme”. It is connected to Juniper Market and Lantern Noodle Bar.",
+      "This conversation isn't connected to a company called “Acme”. It's connected to Juniper Market and Lantern Noodle Bar.",
     );
     expect(run.connections).toHaveLength(2);
     expect(transport).not.toHaveBeenCalled();
@@ -571,7 +571,7 @@ describe("“disconnect from <Company>”, typed in the chat", () => {
     const run = await conversation();
     const turn = await say("disconnect from Juniper Market");
     expect(turn.answer.text).toBe(
-      "Juniper Market was removed from this conversation. This conversation isn't connected to a company now. Connect one to go on.",
+      "I've removed Juniper Market from this conversation. This conversation has no company now. Connect one to go on.",
     );
     expect(turn.answer.connections).toEqual([]);
     expect(turn.answer.signedIn).toBe(false);
@@ -646,13 +646,13 @@ describe("words a person says to a Company about an order", () => {
 
 describe("removing a Company on words that could also be about an order", () => {
   const question =
-    "Remove Lantern Noodle Bar from this conversation? That revokes the access you gave Iris there, and what Iris read with your account there no longer shows.";
+    "Remove Lantern Noodle Bar from this conversation? That revokes the access you gave me there, and what I read with your account will be gone from here.";
   const choices = [
     { label: "Remove Lantern Noodle Bar", answer: { remove: [food] } },
     { label: "Keep Lantern Noodle Bar", answer: { keep: [food] } },
   ];
   const removed =
-    "Lantern Noodle Bar was removed from this conversation, and the access you gave Iris there was revoked. What Iris read with your account there no longer shows. You can connect it again at any time.";
+    "I've removed Lantern Noodle Bar from this conversation and revoked the access you gave me there. What I read with your account there is gone from here. You can connect it again at any time.";
 
   it.each(["remove Lantern", "drop Lantern Noodle Bar", "leave Lantern"])(
     "asks first for “%s”, and removes nothing until the User confirms",
@@ -697,7 +697,7 @@ describe("removing a Company on words that could also be about an order", () => 
     expect(run.connections).toHaveLength(2);
     const turn = await press(asked.answer.choices[0]);
     expect(turn.answer.text).toBe(
-      "Lantern Noodle Bar was removed from this conversation. You can connect it again at any time.",
+      "I've removed Lantern Noodle Bar from this conversation. You can connect it again at any time.",
     );
     expect(run.connections.map((c) => c.url)).toEqual([shop]);
     expect(transport).not.toHaveBeenCalled();
@@ -706,7 +706,7 @@ describe("removing a Company on words that could also be about an order", () => 
   it("keeps the Company when the User says so, with the button or in words", async () => {
     const run = await conversation([shop, food], [food]);
     const kept =
-      "Lantern Noodle Bar stays connected. Nothing was removed or revoked.";
+      "OK, Lantern Noodle Bar stays connected. Nothing was removed or revoked.";
     const asked = await say("remove Lantern");
     const turn = await press(asked.answer.choices[1]);
     expect(turn.answer).toMatchObject({ text: kept, mode: "own" });
@@ -777,7 +777,7 @@ describe("removing a Company on words that could also be about an order", () => 
       modelled,
     );
     expect(asked.answer).toMatchObject({
-      text: "Remove Juniper Market from this conversation? That revokes the access you gave Iris there, and what Iris read with your account there no longer shows. A proposal that waits for your approval is dropped with it. Iris asks the rest of your message after that.",
+      text: "Remove Juniper Market from this conversation? That revokes the access you gave me there, and what I read with your account will be gone from here. A proposal waiting for your approval goes with it. I'll ask the rest of your message after that.",
       mode: "own",
     });
     expect(asked.answer).not.toHaveProperty("from");
@@ -788,7 +788,7 @@ describe("removing a Company on words that could also be about an order", () => 
     });
     expect(turn.answer).toMatchObject({
       before:
-        "Juniper Market was removed from this conversation, and the access you gave Iris there was revoked. What Iris read with your account there no longer shows. You can connect it again at any time.",
+        "I've removed Juniper Market from this conversation and revoked the access you gave me there. What I read with your account there is gone from here. You can connect it again at any time.",
       from: lantern,
       mode: "anthropic",
     });
@@ -800,7 +800,7 @@ describe("removing a Company on words that could also be about an order", () => 
     const run = await conversation([shop, food, bank], [food]);
     const asked = await say("remove Juniper and Lantern");
     expect(asked.answer).toMatchObject({
-      text: "Remove Juniper Market and Lantern Noodle Bar from this conversation? That revokes the access you gave Iris at Lantern Noodle Bar, and what Iris read with your account there no longer shows.",
+      text: "Remove Juniper Market and Lantern Noodle Bar from this conversation? That revokes the access you gave me at Lantern Noodle Bar, and what I read with your account will be gone from here.",
       choices: [
         {
           label: "Remove Juniper Market and Lantern Noodle Bar",
@@ -916,7 +916,7 @@ describe("which Company a message is for", () => {
       const turn = await say(upgrade);
       expect(turn.status).toBe(200);
       const before =
-        "This is one for Northwind Air, so Iris connected it to this conversation. It's asked without your account until you sign in there.";
+        "That's one for Northwind Air, so I connected it to this conversation. I'm asking without your account until you sign in there.";
       expect(turn.answer).toMatchObject({
         before,
         from: northwind,
@@ -942,7 +942,7 @@ describe("which Company a message is for", () => {
       const run = await conversation([shop, food, bank]);
       const turn = await say(upgrade);
       expect(turn.answer).toMatchObject({
-        text: "This is one for Northwind Air, which this conversation isn't connected to. It works with 3 companies already, as many as it can: remove one, then ask again and Iris connects Northwind Air.",
+        text: "That's one for Northwind Air, which isn't in this conversation. It already has 3 companies, the most it can hold: remove one, ask again, and I'll connect Northwind Air.",
         mode: "own",
         choices: [
           { label: "Remove Juniper Market", answer: { remove: [shop] } },
@@ -1006,7 +1006,7 @@ describe("which Company a message is for", () => {
       const turn = await say("book me a flight to Lisbon", key);
       expect(turn.answer).toMatchObject({
         before:
-          "This is one for Northwind Air, so Iris connected it to this conversation. It's asked without your account until you sign in there.",
+          "That's one for Northwind Air, so I connected it to this conversation. I'm asking without your account until you sign in there.",
         from: northwind,
       });
       expect(run.connections.map((c) => c.url)).toEqual([bank, food, air]);

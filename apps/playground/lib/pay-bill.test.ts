@@ -238,7 +238,7 @@ describe("Pay my Fernwick bill from checking, in demo mode", () => {
     expect(turn.status).toBe(200);
     expect(turn.data).toMatchObject({
       mode: "own",
-      text: "This takes two companies: Fernwick Power & Light, where Iris reads your bill, and Harborline Bank, where it proposes the payment. Fernwick Power & Light isn't connected to this conversation yet. Connect it, sign in at both and ask again. Nothing was sent to any company.",
+      text: "This needs two companies: Fernwick Power & Light, where I read your bill, and Harborline Bank, where I propose the payment. Fernwick Power & Light isn't in this conversation yet. Connect it, sign in at both and ask again. I haven't sent anything to any company.",
       choices: [
         { label: "Fernwick Power & Light", answer: { connect: power } },
       ],
@@ -414,7 +414,7 @@ describe("Pay my Fernwick bill from checking, in demo mode", () => {
     // Iris asks about the payment in its own words, from the terms, and a
     // reload shows the question last, with its buttons.
     expect(turn.data.question.text).toBe(
-      `Harborline Bank proposes a payment of ${dollars} to Fernwick Power & Light. The terms expire in 10 minutes. Approve it?`,
+      `Harborline Bank wants to pay Fernwick Power & Light ${dollars}. It expires in 10 minutes. Shall I approve it?`,
     );
     const shown = (await reload()).history;
     expect(shown.at(-1)).toMatchObject({

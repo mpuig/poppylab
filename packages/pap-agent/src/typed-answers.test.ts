@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { typedAnswer } from "./company-commands";
 import {
   readApproval,
   SAYS_YES,
@@ -184,4 +185,131 @@ describe("tryAgain", () => {
     "leaves %j",
     (text) => expect(tryAgain(text)).toBe(false),
   );
+});
+
+describe("answers in Spanish, Catalan and French", () => {
+  it.each([
+    // Spanish
+    ["sí", "yes"],
+    ["Sí, por favor", "yes"],
+    ["vale", "yes"],
+    ["claro", "yes"],
+    ["de acuerdo", "yes"],
+    ["adelante", "yes"],
+    ["sí, hazlo", "yes"],
+    ["no", "no"],
+    ["no, gracias", "no"],
+    ["ahora no", "no"],
+    ["cancela", "no"],
+    ["mejor no", "no"],
+    // Catalan
+    ["d'acord", "yes"],
+    ["sí, si us plau", "yes"],
+    ["endavant", "yes"],
+    ["fes-ho", "yes"],
+    ["no, gràcies", "no"],
+    ["ara no", "no"],
+    ["millor no", "no"],
+    // French
+    ["oui", "yes"],
+    ["Oui, s'il vous plaît", "yes"],
+    ["d'accord", "yes"],
+    ["vas-y", "yes"],
+    ["ça marche", "yes"],
+    ["non", "no"],
+    ["non merci", "no"],
+    ["pas maintenant", "no"],
+    ["annule", "no"],
+  ] as const)("reads %j as %s", (text, answer) => {
+    expect(yesOrNo(text)).toBe(answer);
+  });
+
+  it("reads each question's own verbs in each language", () => {
+    for (const approve of [
+      "aprueba",
+      "apruébalo",
+      "sí, apruébalo",
+      "aprova-ho",
+      "l'aprovo",
+      "approuve-le",
+      "j'approuve",
+    ])
+      expect(yesOrNo(approve, SAYS_YES.approve)).toBe("yes");
+    for (const signin of ["inicia sesión", "inicia sessió", "connecte-moi"])
+      expect(yesOrNo(signin, SAYS_YES.signin)).toBe("yes");
+    for (const signout of [
+      "cierra sesión",
+      "tanca la sessió",
+      "déconnecte-moi",
+    ])
+      expect(yesOrNo(signout, SAYS_YES.signout)).toBe("yes");
+    for (const resume of ["sí, sigue", "continua", "continuez"])
+      expect(yesOrNo(resume, SAYS_YES.resume)).toBe("yes");
+    for (const talk of ["hablar", "parlar", "parler"])
+      expect(yesOrNo(talk, SAYS_YES.invitation)).toBe("yes");
+    // A question's verb answers that question alone.
+    expect(yesOrNo("aprueba", SAYS_YES.signin)).toBeUndefined();
+  });
+
+  it("leaves anything more than an answer as a message", () => {
+    for (const text of [
+      "sí, pero primero dime el total",
+      "no sé, ¿cuánto cuesta?",
+      "oui mais combien ça coûte ?",
+      "d'acord, i quin és el total?",
+      "muéstrame mis pedidos",
+    ])
+      expect(yesOrNo(text, SAYS_YES.approve)).toBeUndefined();
+  });
+
+  const two: Named[] = [
+    { names: ["Lantern Noodle Bar"], cents: 8800, noun: "change" },
+    { names: ["Harborline Bank"], cents: 50000, noun: "transfer" },
+  ];
+  it.each([
+    ["aprueba la de Lantern", { decision: "approve", picked: 0 }],
+    ["sí, la transferencia", { decision: "approve", picked: 1 }],
+    ["no, el cambio de 88", { decision: "decline", picked: 0 }],
+    ["la de Harborline", { decision: "approve", picked: 1 }],
+    ["aprova la de Harborline", { decision: "approve", picked: 1 }],
+    ["rebutja el canvi", { decision: "decline", picked: 0 }],
+    ["approuve le virement", { decision: "approve", picked: 1 }],
+    ["non, celle de Lantern", undefined],
+    ["oui, chez Lantern", { decision: "approve", picked: 0 }],
+    ["sí", { unclear: "approve" }],
+  ] as const)("picks a proposal from %j", (text, read) => {
+    expect(readApproval(text, two, true)).toEqual(read);
+  });
+
+  it("answers the question about removing a Company in each language", () => {
+    const asked = { remove: ["https://food.example"] };
+    for (const yes of [
+      "yes, remove it",
+      "sí, quítala",
+      "d'acord, treu-la",
+      "oui, retire-la",
+      "go ahead",
+    ])
+      expect(typedAnswer(yes, asked)).toEqual({ remove: asked.remove });
+    for (const no of [
+      "no, keep it",
+      "no, mantenla",
+      "no, mantingues-la",
+      "non, garde-la",
+      "cancel",
+    ])
+      expect(typedAnswer(no, asked)).toEqual({ keep: asked.remove });
+    expect(typedAnswer("quita las naranjas", asked)).toBeUndefined();
+    // Removal's verbs answer that question alone.
+    expect(yesOrNo("quítala", Object.values(SAYS_YES).flat())).toBeUndefined();
+  });
+
+  it.each([
+    "inténtalo de nuevo",
+    "otra vez",
+    "torna-ho a provar",
+    "un altre cop",
+    "réessaie",
+    "encore une fois",
+  ])("reads %j as try again", (text) => expect(tryAgain(text)).toBe(true));
 });

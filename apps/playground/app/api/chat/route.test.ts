@@ -245,7 +245,7 @@ it("answers a refused request with the Company's status, code and a number it ga
   expect(turn.status).toBe(502);
   expect(turn.answer).toMatchObject({
     error:
-      "Juniper Market answered HTTP 409 insufficient_funds (available balance: 3,210.55). Nothing was retried; see the Inspector.",
+      "Juniper Market answered HTTP 409 insufficient_funds (available balance: 3,210.55). I didn't retry anything; see the Inspector.",
     code: "company_error",
   });
   // What "see the Inspector" points at: the request, then its refusal.
@@ -265,7 +265,7 @@ it("says a limit the Company gave, and nothing of a body it doesn't know", async
     refusal(422, { error: "transfer_limit_exceeded", limit_cents: 250000 }),
   );
   expect(limited.answer.error).toBe(
-    "Juniper Market answered HTTP 422 transfer_limit_exceeded (limit: 2,500.00). Nothing was retried; see the Inspector.",
+    "Juniper Market answered HTTP 422 transfer_limit_exceeded (limit: 2,500.00). I didn't retry anything; see the Inspector.",
   );
   expect(limited.answer.trace!.at(-1)).toBe(
     "POST /api/account/delivery-change · refused by the Company · HTTP 422 transfer_limit_exceeded",
@@ -279,7 +279,7 @@ it("says a limit the Company gave, and nothing of a body it doesn't know", async
     }),
   );
   expect(priced.answer.error).toBe(
-    "Juniper Market answered HTTP 409 insufficient_funds (available balance: $3,210.55). Nothing was retried; see the Inspector.",
+    "Juniper Market answered HTTP 409 insufficient_funds (available balance: $3,210.55). I didn't retry anything; see the Inspector.",
   );
   // Not a whole number, or under another key: left out.
   const odd = await refusedChange(
@@ -292,11 +292,11 @@ it("says a limit the Company gave, and nothing of a body it doesn't know", async
     }),
   );
   expect(odd.answer.error).toBe(
-    "Juniper Market answered HTTP 409 account_inactive. Nothing was retried; see the Inspector.",
+    "Juniper Market answered HTTP 409 account_inactive. I didn't retry anything; see the Inspector.",
   );
   const bare = await refusedChange(refusal(503));
   expect(bare.answer.error).toBe(
-    "Juniper Market answered HTTP 503. Nothing was retried; see the Inspector.",
+    "Juniper Market answered HTTP 503. I didn't retry anything; see the Inspector.",
   );
   expect(bare.answer.trace!.at(-1)).toBe(
     "POST /api/account/delivery-change · request failed · HTTP 503",

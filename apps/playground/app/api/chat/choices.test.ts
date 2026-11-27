@@ -251,7 +251,7 @@ describe("a button that picks a Company", () => {
     const stale = await post({ answer: { company: bank } });
     expect(stale.status).toBe(200);
     expect(stale.answer).toMatchObject({
-      text: "No request is waiting for a company to be chosen. Type your request again.",
+      text: "There's no request waiting for a company any more. Could you type it again?",
       mode: "own",
     });
     expect(stale.answer).not.toHaveProperty("from");
@@ -270,7 +270,7 @@ describe("a button that removes a Company", () => {
     const run = await conversation("Fresh and Harborline Bank");
     const asked = await say("disconnect from");
     expect(asked.answer).toMatchObject({
-      text: "Which company should be removed? This conversation is connected to Fresh and Harborline Bank and Harborline Bank.",
+      text: "Which company should I remove? This conversation is connected to Fresh and Harborline Bank and Harborline Bank.",
       choices: [
         {
           label: "Remove Fresh and Harborline Bank",
@@ -281,7 +281,7 @@ describe("a button that removes a Company", () => {
     });
     const turn = await press(asked.answer.choices[0]);
     expect(turn.answer.text).toBe(
-      "Fresh and Harborline Bank was removed from this conversation. You can connect it again at any time.",
+      "I've removed Fresh and Harborline Bank from this conversation. You can connect it again at any time.",
     );
     // Harborline stays, signed in, and nothing was revoked.
     expect(urls(run)).toEqual([bank]);
@@ -296,7 +296,7 @@ describe("a button that removes a Company", () => {
     const asked = await say("disconnect from");
     const turn = await press(asked.answer.choices[1]);
     expect(turn.answer.text).toMatch(
-      /^Remove Harborline Bank from this conversation\? That revokes the access you gave Iris there/,
+      /^Remove Harborline Bank from this conversation\? That revokes the access you gave me there/,
     );
     expect(urls(run)).toEqual([other, bank]);
     expect(requested()).toEqual([]);
@@ -306,7 +306,7 @@ describe("a button that removes a Company", () => {
     const run = await conversation("Fresh and Harborline Bank");
     const turn = await say("disconnect from Fresh and Harborline Bank");
     expect(turn.answer.text).toBe(
-      "Fresh and Harborline Bank was removed from this conversation. You can connect it again at any time.",
+      "I've removed Fresh and Harborline Bank from this conversation. You can connect it again at any time.",
     );
     expect(urls(run)).toEqual([bank]);
   });
@@ -324,7 +324,7 @@ describe("a button that connects a Company", () => {
       },
     ]);
     const turn = await press(asked.answer.choices[0]);
-    expect(turn.answer.text).toMatch(/^Connected to Lantern Noodle Bar\./);
+    expect(turn.answer.text).toMatch(/^I've connected Lantern Noodle Bar\./);
     expect(urls(run)).toEqual([other, bank, food]);
     expect(discover).toHaveBeenCalledTimes(1);
     expect(discover).toHaveBeenCalledWith(food, expect.anything());

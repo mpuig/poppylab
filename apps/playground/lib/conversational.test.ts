@@ -220,9 +220,9 @@ describe("Iris asks, and the User answers in words", () => {
     const orders = await say("my orders");
     expect(orders.status).toBe(200);
     expect(orders.data.question).toEqual({
-      text: "Sign in to Lantern Noodle Bar to go on with “my orders”? You sign in on Lantern Noodle Bar's own page, read only, and Iris never sees your password.",
+      text: "That needs your Lantern Noodle Bar account. Sign in on Lantern Noodle Bar's own page to go on with “my orders”? It's read only, and I never see your password.",
       spoken:
-        "Sign in to Lantern Noodle Bar to go on? You sign in on Lantern Noodle Bar's own page.",
+        "Sign in to Lantern Noodle Bar to go on? You do it on Lantern Noodle Bar's own page.",
       choices: [
         {
           label: "Sign in to Lantern Noodle Bar · read only",
@@ -242,7 +242,7 @@ describe("Iris asks, and the User answers in words", () => {
     const yes = await say("yes");
     expect(yes.data).toMatchObject({
       mode: "own",
-      text: "Open Lantern Noodle Bar's own page with the button below to sign in, read only. Iris never sees your password.",
+      text: "Use the button below to open Lantern Noodle Bar's own page and sign in, read only. I never see your password.",
       choices: orders.data.question.choices,
     });
     expect(since(from)).toEqual([]);
@@ -259,7 +259,7 @@ describe("Iris asks, and the User answers in words", () => {
     });
     expect(started.status).toBe(200);
     expect(started.data.said).toBe(
-      "Lantern Noodle Bar's own page is open in a new tab. You sign in there, and Iris never sees your password.",
+      "Lantern Noodle Bar's own page is open in a new tab. Sign in there; I never see your password.",
     );
     await consent(food, started.data.url);
     // The sign-in finished in its own tab: Iris asks, and a reload (or the
@@ -268,7 +268,7 @@ describe("Iris asks, and the User answers in words", () => {
     expect(after.at(-1)).toMatchObject({
       role: "assistant",
       content:
-        "You're signed in at Lantern Noodle Bar. Shall Iris go on with “my orders”?",
+        "You're signed in at Lantern Noodle Bar. Shall I go on with “my orders”?",
       choices: [{ label: "Yes, go on", answer: { resume: food } }],
     });
     expect(after.map((e) => e.content)).toContain("yes");
@@ -292,7 +292,7 @@ describe("Iris asks, and the User answers in words", () => {
       "Add a matcha ice cream and move it to Sunday lunchtime.",
     );
     expect(asked.data.question.text).toBe(
-      "Ask Lantern Noodle Bar for change permission to go on with “Add a matcha ice cream and move it to Sunday lunchtime”? It opens Lantern Noodle Bar's own page again, and nothing changes until you approve the change itself.",
+      "That needs change permission at Lantern Noodle Bar. Ask Lantern Noodle Bar for it to go on with “Add a matcha ice cream and move it to Sunday lunchtime”? Lantern Noodle Bar's page opens again, and nothing changes until you approve the change itself.",
     );
     expect(asked.data.question.choices[0].answer).toEqual({
       signin: { company: food, access: "write" },
@@ -308,8 +308,8 @@ describe("Iris asks, and the User answers in words", () => {
     const history = (await reload()).history;
     expect(history.slice(-3).map((e) => e.content)).toEqual([
       "Request change permission at Lantern Noodle Bar",
-      "Lantern Noodle Bar's own page is open in a new tab, for the change permission. You sign in there, and Iris never sees your password.",
-      "You're signed in at Lantern Noodle Bar. Shall Iris go on with “Add a matcha ice cream and move it to Sunday lunchtime”?",
+      "Lantern Noodle Bar's own page is open in a new tab for the change permission. Sign in there; I never see your password.",
+      "You're signed in at Lantern Noodle Bar. Shall I go on with “Add a matcha ice cream and move it to Sunday lunchtime”?",
     ]);
     // The button sends the request that waited, and nothing else.
     const turn = await post(chat, "/api/chat", {
@@ -321,12 +321,12 @@ describe("Iris asks, and the User answers in words", () => {
     expect(turn.data.operations).toHaveLength(1);
     const op = turn.data.operations[0] as Operation;
     expect(turn.data.question.text).toMatch(
-      /^Lantern Noodle Bar proposes a change to your order: delivery slot from \S+ to sun-1300\. The new total is \$\d+\.\d\d, \$\d+\.\d\d more\. The terms expire in 10 minutes\. Approve it\?$/,
+      /^Lantern Noodle Bar wants to change your order: the delivery slot from [A-Z][a-z]+day at \d\d:\d\d to Sunday at 13:00\. The new total is \$\d+\.\d\d, \$\d+\.\d\d more than before\. It expires in 10 minutes\. Shall I approve it\?$/,
     );
     // Iris's words, never the Company's summary.
     expect(turn.data.question.text).not.toContain(op.summary!.slice(0, 20));
     expect(turn.data.question.spoken).toMatch(
-      /^Lantern Noodle Bar wants to change your order, for a new total of \d+ dollars, \d+ more\. Approve it\?$/,
+      /^Lantern Noodle Bar wants to change your order, for a new total of \d+ dollars, \d+ more\. Shall I approve it\?$/,
     );
     expect(
       turn.data.question.choices.map((c: { label: string }) => c.label),
@@ -350,7 +350,7 @@ describe("Iris asks, and the User answers in words", () => {
     const order = page.connections[0]!.operations[0]!;
     const total = `$${(Number(order.terms!.new_total_cents) / 100).toFixed(2)}`;
     expect(transfer.data.question.text).toBe(
-      `Harborline Bank proposes a transfer of $500.00 from Operating checking to Reserve savings. The terms expire in 10 minutes. The ${total} change at Lantern Noodle Bar waits for you too. Which do you approve: the $500.00 transfer at Harborline Bank or the ${total} change at Lantern Noodle Bar?`,
+      `Harborline Bank wants to move $500.00 from Operating checking to Reserve savings. It expires in 10 minutes. The ${total} change at Lantern Noodle Bar is waiting for you too. Which one should I approve: the $500.00 transfer at Harborline Bank or the ${total} change at Lantern Noodle Bar?`,
     );
     // Four buttons: approve and decline each.
     expect(transfer.data.question.choices).toHaveLength(4);
@@ -358,7 +358,7 @@ describe("Iris asks, and the User answers in words", () => {
     let from = net.seen.length;
     const which = await say("yes");
     expect(which.data.text).toBe(
-      `Which one do you approve: the $500.00 transfer at Harborline Bank or the ${total} change at Lantern Noodle Bar? Say the company or the amount.`,
+      `Which one do you want to approve: the $500.00 transfer at Harborline Bank or the ${total} change at Lantern Noodle Bar? You can say the company or the amount.`,
     );
     expect(since(from)).toEqual([]);
     // "approve the Lantern one": Lantern's, sent as the card sends it.
@@ -366,7 +366,7 @@ describe("Iris asks, and the User answers in words", () => {
     const approved = await say("approve the Lantern one");
     expect(approved.status).toBe(200);
     expect(approved.data.text).toBe(
-      `You approved the ${total} change at Lantern Noodle Bar, and Lantern Noodle Bar performed it. The $500.00 transfer at Harborline Bank still waits for you. Approve it too?`,
+      `Done. You approved the ${total} change at Lantern Noodle Bar, and Lantern Noodle Bar has carried it out. The $500.00 transfer at Harborline Bank is still waiting for you. Shall I approve that one too?`,
     );
     const sent = at(from, food);
     expect(sent.map((r) => [r.method, new URL(r.url).pathname])).toContainEqual(
@@ -382,7 +382,7 @@ describe("Iris asks, and the User answers in words", () => {
     from = net.seen.length;
     const declined = await say("no");
     expect(declined.data.text).toBe(
-      "Declined. Iris sent no approval to Harborline Bank, and nothing was done.",
+      "Declined. I sent no approval to Harborline Bank, and nothing was done.",
     );
     expect(since(from)).toEqual([]);
     expect((await reload()).connections[1]!.operations[0]!.state).toBe(
@@ -456,7 +456,7 @@ describe("Iris asks, and the User answers in words", () => {
     });
     expect(approved.status).toBe(200);
     expect(approved.data.text).toBe(
-      "You approved the $25.00 transfer at Harborline Bank, and Harborline Bank performed it.",
+      "Done. You approved the $25.00 transfer at Harborline Bank, and Harborline Bank has carried it out.",
     );
     expect(model.asked).toBe(before);
     expect(at(from, bank).some((r) => r.headers["poppy-approval"])).toBe(true);
@@ -485,7 +485,7 @@ describe("Iris asks, and the User answers in words", () => {
   it("asks before signing out, and signs out on yes", async () => {
     const asked = await say("sign out of Harborline");
     expect(asked.data.text).toBe(
-      "Sign out of Harborline Bank? That revokes the access you gave Iris there, and what Iris read with your account there no longer shows.",
+      "Sign out of Harborline Bank? That revokes the access you gave me there, and what I read with your account will be gone from here.",
     );
     expect(asked.data.choices).toEqual([
       { label: "Sign out of Harborline Bank", answer: { signout: bank } },
@@ -493,7 +493,7 @@ describe("Iris asks, and the User answers in words", () => {
     const from = net.seen.length;
     const done = await say("yes");
     expect(done.data.text).toBe(
-      "Signed out of Harborline Bank. The access you gave Iris there was revoked, and what Iris read with your account there no longer shows.",
+      "Done, you're signed out of Harborline Bank. The access you gave me there is revoked, and what I read with your account is gone from here.",
     );
     expect(at(from, bank).map((r) => new URL(r.url).pathname)).toEqual([
       "/oauth/revoke",
@@ -518,7 +518,7 @@ describe("Iris asks, and the User answers in words", () => {
     });
     await consent(food, started.data.url, { write: "yes" });
     const turn = await say("Add 2 pork gyoza");
-    expect(turn.data.question?.text).toMatch(/Approve it\?$/);
+    expect(turn.data.question?.text).toMatch(/Shall I approve it\?$/);
     vi.setSystemTime(Date.now() + 11 * 60000);
     const from = net.seen.length;
     const late = await say("yes");

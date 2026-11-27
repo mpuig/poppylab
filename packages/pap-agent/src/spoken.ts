@@ -6,34 +6,75 @@
  * words or facts as the text, and never by a model: a model rewriting a
  * Company's content could make it say something the Company didn't.
  *
+ * Amounts are said in the conversation's language (`language.ts`).
+ *
  * Plain data and no I/O.
  */
+import type { Language } from "./language";
 
 /** At most this many sentences, and about this many characters. */
 const SENTENCES = 2;
 const LONGEST = 280;
 
-const UNITS: Record<string, [one: string, many: string, cent: string]> = {
-  USD: ["dollar", "dollars", "cents"],
-  EUR: ["euro", "euros", "cents"],
-  GBP: ["pound", "pounds", "pence"],
+/** Each currency's names: one, many, and its hundredth. */
+const UNITS: Record<
+  Language,
+  Record<string, [one: string, many: string, cent: string]>
+> = {
+  en: {
+    USD: ["dollar", "dollars", "cents"],
+    EUR: ["euro", "euros", "cents"],
+    GBP: ["pound", "pounds", "pence"],
+  },
+  es: {
+    USD: ["dólar", "dólares", "centavos"],
+    EUR: ["euro", "euros", "céntimos"],
+    GBP: ["libra", "libras", "peniques"],
+  },
+  ca: {
+    USD: ["dòlar", "dòlars", "cèntims"],
+    EUR: ["euro", "euros", "cèntims"],
+    GBP: ["lliura", "lliures", "penics"],
+  },
+  fr: {
+    USD: ["dollar", "dollars", "cents"],
+    EUR: ["euro", "euros", "centimes"],
+    GBP: ["livre", "livres", "pence"],
+  },
 };
 const SIGNS: Record<string, string> = { $: "USD", "€": "EUR", "£": "GBP" };
+const MINUS: Record<Language, string> = {
+  en: "minus",
+  es: "menos",
+  ca: "menys",
+  fr: "moins",
+};
+/** What joins the hundredths to the whole: "12 dólares con 50". */
+const AND: Record<Language, string> = {
+  en: "",
+  es: "con ",
+  ca: "amb ",
+  fr: "",
+};
 
 /** An amount as it is said: "88 dollars", "12 dollars 50", "1,000 dollars". */
-export function spokenAmount(cents: number, currency = "USD") {
-  const unit = UNITS[currency];
-  const minus = cents < 0 ? "minus " : "";
+export function spokenAmount(
+  cents: number,
+  currency = "USD",
+  language: Language = "en",
+) {
+  const unit = UNITS[language][currency];
+  const minus = cents < 0 ? `${MINUS[language]} ` : "";
   const whole = Math.floor(Math.abs(cents) / 100);
   const part = Math.abs(cents) % 100;
   const number = whole.toLocaleString("en-US");
   if (!unit) return `${minus}${number}${part ? `.${part}` : ""} ${currency}`;
   if (!whole && part) return `${minus}${part} ${unit[2]}`;
-  return `${minus}${number} ${whole === 1 ? unit[0] : unit[1]}${part ? ` ${part}` : ""}`;
+  return `${minus}${number} ${whole === 1 ? unit[0] : unit[1]}${part ? ` ${AND[language]}${part}` : ""}`;
 }
 
 /** "$88.00", "-$6.00", "€5", "USD 9.99" in words. */
-function sayAmounts(text: string) {
+function sayAmounts(text: string, language: Language) {
   return text
     .replace(
       /(-)?([$€£])\s?(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d{1,2}))?/g,
@@ -43,6 +84,7 @@ function sayAmounts(text: string) {
             (Number(whole.replaceAll(",", "")) * 100 +
               Number((part ?? "0").padEnd(2, "0"))),
           SIGNS[sign],
+          language,
         ),
     )
     .replace(
@@ -52,6 +94,7 @@ function sayAmounts(text: string) {
           Number(whole.replaceAll(",", "")) * 100 +
             Number((part ?? "0").padEnd(2, "0")),
           currency,
+          language,
         ),
     );
 }
@@ -121,9 +164,9 @@ function opening(text: string) {
  * two, plain, without identifiers, with amounts in words. Empty for words
  * that hold nothing to say.
  */
-export function spokenText(text: string) {
+export function spokenText(text: string, language: Language = "en") {
   const plainText = unformatted(
     text.replace(/^Protocol demo \(no LLM\)\.\s*/, ""),
   );
-  return opening(tidied(sayAmounts(plainText).replace(ID, " ")));
+  return opening(tidied(sayAmounts(plainText, language).replace(ID, " ")));
 }

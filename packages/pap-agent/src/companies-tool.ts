@@ -22,6 +22,7 @@ import { namedCommand } from "./connect-command";
 import { companyName, originOf } from "./connections";
 import { localOrigins } from "./deployment";
 import { nameable } from "./lab-companies";
+import { languageOf } from "./language";
 import { spokenText } from "./spoken";
 
 /** What the tool did in a turn, for the answer after it. */
@@ -90,7 +91,7 @@ export function companiesTool(turn: HeldTurn, use: CompaniesUse): ApiTool {
     if (done.choices?.length && (done.ask || "which" in command))
       use.question = {
         text: done.say,
-        spoken: spokenText(done.say),
+        spoken: spokenText(done.say, languageOf(run)),
         choices: done.choices,
       };
     if (done.about)

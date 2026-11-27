@@ -43,6 +43,8 @@ import { directState } from "./direct-state";
 import { admitFreeTurn, modelProvider, type FreeTurn } from "./free-model";
 import { keepLines } from "./inspector-log";
 import { labCompanies, nameable } from "./lab-companies";
+import { languageOf, noteLanguage } from "./language";
+import { say } from "./lines";
 import { conversationEnded, overBudget } from "./limits";
 import { noteOperationAccounts } from "./operation-store";
 import { offeredTools } from "./routing";
@@ -299,6 +301,10 @@ async function reply(
     // What the User said: their words, or the label of the button they
     // pressed, which the page showed as their line. The label is worked
     // out again here: nothing a button sends is ever taken as words.
+    // What the User typed, and nothing else, says the language the agent's
+    // own lines are in: never a button's label, a Company's words or a
+    // model's answer. Before the label, which is in that language.
+    if (!pressed) noteLanguage(run, request.written);
     const message = pressed ? answerLabel(run, pressed, lab) : request.written;
     if (!pressed) run.title ??= message.trim().slice(0, 80);
     if (run.calls >= 20)
@@ -347,7 +353,13 @@ async function reply(
         : !typedOnly);
     if (provider === "free" && typedOnly) provider = "demo";
     if (provider === "free" && needsModel) {
-      const admitted = await admitFreeTurn(caller, visitor, request.turnstile);
+      const admitted = await admitFreeTurn(
+        caller,
+        visitor,
+        request.turnstile,
+        Date.now(),
+        languageOf(run),
+      );
       if ("notice" in admitted) {
         provider = "demo";
         scope.did.before = admitted.notice;
@@ -453,7 +465,7 @@ async function reply(
     return json(
       {
         text,
-        spoken: spokenText(text),
+        spoken: spokenText(text, languageOf(run)),
         ...(question ? { question } : {}),
         ...(exact !== undefined ? { data: exact } : {}),
         trace,
@@ -567,14 +579,16 @@ async function directReply(
     trace,
     shown,
   )) as { note?: string; error?: string };
+  const language = languageOf(run);
+  const name = { name: companyName };
   const text =
     result.note ??
     {
-      accept: `You're talking with ${companyName} directly. ${agentName()} doesn't read or answer here: what you type goes to ${companyName} as your own words.`,
-      start: `You're talking with ${companyName} directly. ${agentName()} doesn't read or answer here: what you type goes to ${companyName} as your own words.`,
+      accept: say(language, "directOpen", name),
+      start: say(language, "directOpen", name),
       say: "",
-      decline: `${agentName()} told ${companyName} you're not available to talk directly right now.`,
-      close: `You've left the direct conversation with ${companyName}. ${agentName()} is back.`,
+      decline: say(language, "directDeclined", name),
+      close: say(language, "directClosed", name),
     }[direct];
   // Their words are kept for the page, never for the model. They count
   // as sent only when the Company answered and Iris has nothing to say
@@ -596,7 +610,7 @@ async function directReply(
   return json(
     {
       text,
-      ...(text ? { spoken: spokenText(text) } : {}),
+      ...(text ? { spoken: spokenText(text, language) } : {}),
       trace,
       sessionId: connection.sessionId,
       mode: "direct",

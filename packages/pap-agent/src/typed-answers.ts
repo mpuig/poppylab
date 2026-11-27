@@ -6,8 +6,11 @@
  * or a model's answer. The caller binds the answer to the question that
  * was asked, and to the message that follows it, and to nothing else.
  *
- * English only, a short list of words, and nothing guessed: a message
- * that says anything more is no answer, and goes on as a message.
+ * In the languages the agent speaks (`language.ts`): English, Spanish,
+ * Catalan and French. A fixed list of words for each, written as `plain`
+ * leaves them (lowercase, no accents or apostrophes: "sí" is "si",
+ * "d'acord" is "dacord"), and nothing guessed: a message that says
+ * anything more is no answer, and goes on as a message.
  *
  * Plain data and no I/O, so the page can read a typed "yes" the same way
  * (a sign-in has to open its tab in the same keystroke).
@@ -17,71 +20,126 @@ import { plain } from "./company-names";
 /** Longer than this, a message is a message and no answer. */
 const LONGEST = 120;
 
+/** "a b, c d": the words of a list, each one or more words. */
+const words = (list: string) =>
+  list
+    .split(",")
+    .map((w) => w.trim())
+    .filter(Boolean);
+
 /** A yes to any question. Each kind of question adds its own verbs. */
 const YES = [
-  "yes",
-  "y",
-  "yeah",
-  "yep",
-  "yup",
-  "sure",
-  "ok",
-  "okay",
-  "alright",
-  "all right",
-  "fine",
-  "go ahead",
-  "go for it",
-  "do it",
-  "please do",
-  "confirm",
-  "confirmed",
-  "correct",
-  "absolutely",
-  "of course",
-  "definitely",
-  "sounds good",
-  "i do",
+  ...words(`yes, y, yeah, yep, yup, sure, ok, okay, alright, all right, fine,
+    go ahead, go for it, do it, please do, confirm, confirmed, correct,
+    absolutely, of course, definitely, sounds good, i do`),
+  // Spanish
+  ...words(`si, vale, claro, de acuerdo, dale, adelante, hazlo, por supuesto,
+    perfecto, correcto, venga, bueno, conforme, claro que si, sin problema`),
+  // Catalan
+  ...words(`dacord, endavant, fes ho, fes, es clar, perfecte, correcte, va,
+    som hi, vinga, molt be, i tant`),
+  // French
+  ...words(`oui, ouais, daccord, bien sur, vas y, allez y, fais, faites,
+    parfait, ca marche, entendu, exact, volontiers, avec plaisir,
+    absolument, carrement`),
 ];
 
 /** The verbs that say yes to each kind of question. */
 export const SAYS_YES = {
-  approve: ["approve", "approved", "i approve", "accept", "agree"],
-  signin: ["sign in", "sign me in", "log in", "log me in", "allow"],
-  signout: ["sign out", "sign me out", "log out", "log me out"],
-  resume: ["go on", "carry on", "continue", "ask it", "ask again"],
-  invitation: ["talk", "talk to them", "accept", "join"],
+  approve: [
+    ...words("approve, approved, i approve, accept, agree"),
+    ...words(`aprueba, aprobar, apruebo, apruebalo, apruebala, acepta,
+      aceptar, acepto, aceptalo`),
+    ...words("aprova, aprovar, aprovo, laprovo, accepta, acceptar, accepto"),
+    ...words(`approuve, approuver, approuvez, japprouve, accepte, accepter,
+      jaccepte, valide, valider`),
+  ],
+  signin: [
+    ...words("sign in, sign me in, log in, log me in, allow"),
+    ...words("inicia sesion, iniciar sesion, entra, entrar, permite, permitir"),
+    ...words("inicia sessio, iniciar sessio, permet, permetre"),
+    ...words(`connecte moi, connectez moi, me connecter, se connecter,
+      autorise, autoriser`),
+  ],
+  signout: [
+    ...words("sign out, sign me out, log out, log me out"),
+    ...words("cierra sesion, cerrar sesion, desconecta, desconectar"),
+    ...words("tanca sessio, tancar sessio, desconnecta, desconnectar"),
+    ...words(`deconnecte moi, deconnectez moi, me deconnecter,
+      se deconnecter`),
+  ],
+  resume: [
+    ...words("go on, carry on, continue, ask it, ask again"),
+    ...words("sigue, seguir, continua, continuar, sigue adelante"),
+    ...words("segueix"),
+    ...words("continuez, continuer, poursuis, poursuivez"),
+  ],
+  invitation: [
+    ...words("talk, talk to them, accept, join"),
+    ...words("hablar, hablemos, acepta, aceptar, habla con ellos"),
+    ...words("parlar, parlem, accepta, acceptar"),
+    ...words("parler, parlons, accepte, accepter, rejoindre"),
+  ],
+} as const;
+
+/**
+ * The answer to the agent asking whether to remove a Company: the verbs
+ * that say remove it, and those that say keep it (`typedAnswer`). Apart
+ * from `SAYS_YES`, which the agent's other questions read together.
+ */
+export const SAYS_REMOVE = {
+  yes: [
+    ...words("remove, remove them, confirm"),
+    ...words(`quita, quitala, quitalas, quitar, elimina, eliminala, eliminar,
+      borra, borrala`),
+    ...words("treu, treure, eliminar"),
+    ...words("retire, retirer, supprime, supprimer, enleve, enlever"),
+  ],
+  no: [
+    ...words("keep, keep them"),
+    ...words("mantener, mantenla, mantenlas, dejala, dejalas, no quites"),
+    ...words("mantenir, mantingues, no treguis"),
+    ...words("garde, garder, gardez, ne retire pas"),
+  ],
 } as const;
 
 const NO = new Set([
-  "no",
-  "n",
-  "nope",
-  "nah",
-  "not now",
-  "not yet",
-  "later",
-  "never mind",
-  "nevermind",
-  "cancel",
-  "decline",
-  "reject",
-  "deny",
-  "refuse",
-  "stop",
-  "dont",
-  "do not",
-  "i decline",
-  "leave",
-  "skip",
+  ...words(`no, n, nope, nah, not now, not yet, later, never mind, nevermind,
+    cancel, decline, reject, deny, refuse, stop, dont, do not, i decline,
+    leave, skip`),
+  // Spanish
+  ...words(`ahora no, todavia no, aun no, mas tarde, luego, cancela,
+    cancelar, rechaza, rechazar, rechazalo, rechazala, no hagas, dejalo,
+    olvidalo, mejor no, para nada, de ninguna manera, nunca, no apruebes,
+    no aceptes`),
+  // Catalan
+  ...words(`ara no, encara no, mes tard, despres, cancella, rebutja, rebutjar,
+    no facis, deixa, oblida, millor no, de cap manera, mai, no aprovis`),
+  // French
+  ...words(`non, pas maintenant, pas encore, plus tard, annule, annuler,
+    refuse, refuser, rejette, rejeter, ne fais pas, laisse, laisse tomber,
+    surtout pas, jamais, pas question, napprouve pas, ne lapprouve pas`),
 ]);
 
 /**
  * Words that change nothing about yes or no: manners, and the pronouns
- * and articles a person puts around them ("yes, approve it please").
+ * and articles a person puts around them ("yes, approve it please", "sí,
+ * apruébalo por favor", "oui, approuve-le s'il te plaît").
  */
-const AROUND =
-  /\b(?:please|thanks|thank you|thankyou|it|that|this|them|one|the|a|an|then|now|just|so)\b/g;
+const AROUND = new RegExp(
+  `\\b(?:${[
+    ...words(`please, thanks, thank you, thankyou, it, that, this, them, one,
+      the, a, an, then, now, just, so`),
+    ...words(`por favor, porfa, gracias, lo, la, los, las, eso, esto, ya,
+      pues, entonces`),
+    ...words("si us plau, gracies, ho, el, les, aixo, ja, doncs, ara mateix"),
+    ...words(`sil vous plait, sil te plait, stp, svp, merci, le, ca, cela,
+      alors, donc`),
+  ]
+    .sort((a, b) => b.length - a.length)
+    .join("|")})\\b`,
+  "g",
+);
 
 /** The words, with manners and pronouns left out. */
 const bare = (words: string) =>
@@ -96,22 +154,25 @@ const bare = (words: string) =>
 export function yesOrNo(
   text: string,
   verbs: readonly string[] = [],
+  /** The words that also say no to the question asked ("keep it"). */
+  noVerbs: readonly string[] = [],
 ): "yes" | "no" | undefined {
   if (text.length > LONGEST) return undefined;
   const said = plain(text);
   if (!said) return undefined;
   const yes = new Set([...YES, ...verbs]);
+  const no = new Set([...NO, ...noVerbs]);
   const sayings = [said, bare(said)].filter(Boolean);
   // "yes approve", "ok go ahead", "no dont": said twice, still one answer.
-  const words = bare(said).split(" ");
+  const parts = bare(said).split(" ");
   const twice = (set: Set<string>) =>
     [1, 2].some((cut) => {
-      const head = words.slice(0, cut).join(" ");
-      const tail = words.slice(cut).join(" ");
-      return words.length > cut && set.has(head) && set.has(tail);
+      const head = parts.slice(0, cut).join(" ");
+      const tail = parts.slice(cut).join(" ");
+      return parts.length > cut && set.has(head) && set.has(tail);
     });
   if (sayings.some((s) => yes.has(s)) || twice(yes)) return "yes";
-  if (sayings.some((s) => NO.has(s)) || twice(NO)) return "no";
+  if (sayings.some((s) => no.has(s)) || twice(no)) return "no";
   // "dont do it", "no, dont approve".
   if (
     /^(?:no )?(?:dont|do not)(?: do| (?:approve|accept|send|sign in|sign out|go on))?$/.test(
@@ -126,10 +187,13 @@ export function yesOrNo(
 export function tryAgain(text: string) {
   if (text.length > LONGEST) return false;
   const said = plain(text)
-    .replace(/\b(?:please|ok|okay|yes|can you|could you)\b/g, " ")
+    .replace(
+      /\b(?:please|ok|okay|yes|can you|could you|por favor|si|vale|puedes|si us plau|pots|sil vous plait|sil te plait|oui|pouvez vous|peux tu)\b/g,
+      " ",
+    )
     .replace(/\s+/g, " ")
     .trim();
-  return /^(?:try (?:it |that )?again|retry|again|one more time|send (?:it |that )?again)$/.test(
+  return /^(?:try (?:it |that )?again|retry|again|one more time|send (?:it |that )?again|intentalo (?:de nuevo|otra vez)|vuelve a intentarlo|prueba (?:de nuevo|otra vez)|otra vez|de nuevo|reintenta(?:r|lo)?|torna (?:ho )?a provar|prova ho (?:de nou|un altre cop)|un altre cop|una altra vegada|de nou|reessaie|reessayez|reessayer|encore une fois|essaie (?:encore|a nouveau)|recommence|recommencez)$/.test(
     said,
   );
 }
@@ -144,20 +208,41 @@ export type Named = {
   noun: string;
 };
 
-/** Words that name a kind of change. */
-const NOUNS = new Set([
-  "change",
-  "transfer",
-  "payment",
-  "order",
-  "booking",
-  "upgrade",
-  "delivery",
-  "proposal",
+/**
+ * Words that name a kind of change, each with the English word for it,
+ * which is the kind a proposal goes by (`proposalNoun`).
+ */
+const NOUNS = new Map<string, string>([
+  ...words(
+    "change, transfer, payment, order, booking, upgrade, delivery, proposal",
+  ).map((w): [string, string] => [w, w]),
+  ...(
+    [
+      ["change", "cambio, canvi, modification, changement"],
+      ["transfer", "transferencia, virement, transfert"],
+      ["payment", "pago, pagament, paiement"],
+      ["order", "pedido, comanda, commande"],
+      ["booking", "reserva, reservation"],
+      ["delivery", "entrega, lliurament, livraison"],
+      ["proposal", "propuesta, proposta, proposition"],
+    ] as const
+  ).flatMap(([kind, list]) =>
+    words(list).map((w): [string, string] => [w, kind]),
+  ),
 ]);
 /** Words that say where, or what for, beside a name or an amount. */
-const LINKS =
-  /\b(?:at|for|from|of|to|with|in|on|by|and|both|one|ones|dollars?|usd|bucks?)\b/g;
+const LINKS = new RegExp(
+  `\\b(?:${[
+    ...words(`at, for, from, of, to, with, in, on, by, and, both, one, ones,
+      dollars?, usd, bucks?`),
+    // Not "y" or "i", which are also a yes and a pronoun.
+    ...words(`de, del, en, a, al, con, para, por, el, la, los, las, un, una,
+      uno, dolar, dolares, las dos, ambas`),
+    ...words("per, amb, els, les, dolars, totes dues"),
+    ...words("chez, pour, avec, du, des, le, une, et, les deux, dollar"),
+  ].join("|")})\\b`,
+  "g",
+);
 
 /** The amounts in the words, in cents: "$88", "88.00", "$1,000". */
 function amounts(text: string) {
@@ -221,8 +306,8 @@ export function readApproval(
   const byNoun = new Set<number>();
   let nouns = 0;
   for (const word of said.trim().split(" ")) {
-    const noun = word.replace(/s$/, "");
-    if (!NOUNS.has(noun)) continue;
+    const noun = NOUNS.get(word) ?? NOUNS.get(word.replace(/s$/, ""));
+    if (!noun) continue;
     nouns++;
     said = said.replace(` ${word} `, " ");
     asked.forEach((one, i) => {

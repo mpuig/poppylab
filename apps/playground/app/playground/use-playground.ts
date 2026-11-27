@@ -27,6 +27,8 @@ import {
   missingExtensionScopes,
 } from "@poppy-lab/pap-agent/account-permissions";
 import { domainExtension } from "@poppy-lab/pap-agent/domain-extension";
+import { isLanguage } from "@poppy-lab/pap-agent/language";
+import { say as sayLine } from "@poppy-lab/pap-agent/lines";
 import {
   applyingLine,
   LOG_LIMITS,
@@ -604,16 +606,20 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
             setMessages((old) => [...old, { role: "Own", text: data.said }]);
         } else if (said !== undefined) {
           // The browser kept the tab closed: Iris says so, with the page
-          // to open, which a click on it can.
+          // to open, which a click on it can. In the conversation's
+          // language, as the server keeps it.
           signingIn();
+          const language = isLanguage(data.language) ? data.language : "en";
           setMessages((old) => [
             ...old,
             {
               role: "Own",
-              text: `Your browser didn't open ${company.name}'s page in a new tab. Open it with the link below to sign in; Iris never sees your password.`,
+              text: sayLine(language, "signInTabBlocked", {
+                name: company.name,
+              }),
               link: {
                 href: data.url,
-                label: `Open ${company.name}'s sign-in page`,
+                label: sayLine(language, "signInLink", { name: company.name }),
                 target: tab,
               },
             },

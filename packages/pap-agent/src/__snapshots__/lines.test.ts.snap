@@ -1,0 +1,930 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`the agent's own lines > are all in every language, as the table shows them 1`] = `
+{
+  "accessUnchanged": [
+    {
+      "ca": "D'acord. El teu accés a Lantern Noodle Bar es queda igual.",
+      "en": "OK. Your access at Lantern Noodle Bar stays as it is.",
+      "es": "De acuerdo. Tu acceso en Lantern Noodle Bar sigue igual.",
+      "fr": "D'accord. Votre accès chez Lantern Noodle Bar reste tel quel.",
+    },
+    {
+      "ca": "D'acord. El teu accés a Lantern Noodle Bar es queda igual i no li he demanat «my orders».",
+      "en": "OK. Your access at Lantern Noodle Bar stays as it is, and I haven't asked it for “my orders”.",
+      "es": "De acuerdo. Tu acceso en Lantern Noodle Bar sigue igual y no le he pedido «my orders».",
+      "fr": "D'accord. Votre accès chez Lantern Noodle Bar reste tel quel, et je ne lui ai pas demandé « my orders ».",
+    },
+  ],
+  "alreadyApproved": [
+    {
+      "ca": "Ja s'havia aprovat the $88.00 change at Lantern Noodle Bar i Lantern Noodle Bar ja l'ha fet. No he enviat res més.",
+      "en": "The $88.00 change at Lantern Noodle Bar was already approved, and Lantern Noodle Bar has carried it out. I sent nothing more.",
+      "es": "Ya se había aprobado the $88.00 change at Lantern Noodle Bar y Lantern Noodle Bar ya lo ha hecho. No he enviado nada más.",
+      "fr": "L'approbation de the $88.00 change at Lantern Noodle Bar était déjà faite, et Lantern Noodle Bar s'en est chargé. Je n'ai rien envoyé de plus.",
+    },
+    {
+      "ca": "Ja havia aprovat the $88.00 change at Lantern Noodle Bar segons la teva instrucció permanent i Lantern Noodle Bar ja l'ha fet. No he enviat res més.",
+      "en": "I already approved the $88.00 change at Lantern Noodle Bar on your standing instruction, and Lantern Noodle Bar has carried it out. I sent nothing more.",
+      "es": "Ya aprobé the $88.00 change at Lantern Noodle Bar según tu instrucción permanente y Lantern Noodle Bar ya lo ha hecho. No he enviado nada más.",
+      "fr": "J'avais déjà approuvé the $88.00 change at Lantern Noodle Bar selon votre instruction permanente, et Lantern Noodle Bar s'en est chargé. Je n'ai rien envoyé de plus.",
+    },
+  ],
+  "alreadyConnected": [
+    {
+      "ca": "Aquesta conversa ja està connectada a Lantern Noodle Bar.",
+      "en": "This conversation is already connected to Lantern Noodle Bar.",
+      "es": "Esta conversación ya está conectada a Lantern Noodle Bar.",
+      "fr": "Cette conversation est déjà connectée à Lantern Noodle Bar.",
+    },
+  ],
+  "alreadyDeclined": [
+    {
+      "ca": "Ja vas rebutjar the $88.00 change at Lantern Noodle Bar, així que no s'ha enviat res a Lantern Noodle Bar.",
+      "en": "You already declined the $88.00 change at Lantern Noodle Bar, so nothing was sent to Lantern Noodle Bar.",
+      "es": "Ya rechazaste the $88.00 change at Lantern Noodle Bar, así que no se ha enviado nada a Lantern Noodle Bar.",
+      "fr": "Vous aviez déjà refusé the $88.00 change at Lantern Noodle Bar, donc rien n'a été envoyé à Lantern Noodle Bar.",
+    },
+  ],
+  "alreadySignedIn": [
+    {
+      "ca": "Ja tens la sessió iniciada a Lantern Noodle Bar.",
+      "en": "You're already signed in at Lantern Noodle Bar.",
+      "es": "Ya tienes la sesión iniciada en Lantern Noodle Bar.",
+      "fr": "Votre session chez Lantern Noodle Bar est déjà active.",
+    },
+  ],
+  "approvalRefused": [
+    {
+      "ca": "Lantern Noodle Bar ha rebutjat l'aprovació i no ha fet res.",
+      "en": "Lantern Noodle Bar declined the approval and did nothing.",
+      "es": "Lantern Noodle Bar ha rechazado la aprobación y no ha hecho nada.",
+      "fr": "Lantern Noodle Bar a refusé l'approbation et n'a rien fait.",
+    },
+  ],
+  "approveButton": [
+    {
+      "ca": "Aprovar $88.00",
+      "en": "Approve $88.00",
+      "es": "Aprobar $88.00",
+      "fr": "Approuver $88.00",
+    },
+  ],
+  "askNow": [
+    {
+      "ca": "Ja li pots preguntar alguna cosa.",
+      "en": "You can ask it something now.",
+      "es": "Ya puedes preguntarle algo.",
+      "fr": "Vous pouvez lui demander quelque chose maintenant.",
+    },
+    {
+      "ca": "Ja els pots preguntar alguna cosa.",
+      "en": "You can ask them something now.",
+      "es": "Ya puedes preguntarles algo.",
+      "fr": "Vous pouvez leur demander quelque chose maintenant.",
+    },
+  ],
+  "chatFailed": [
+    {
+      "ca": "No ha funcionat. Comprova que l'empresa funciona i que el proveïdor triat està configurat, o prova Protocol demo.",
+      "en": "That didn't go through. Check the Company is running and the selected provider is configured, or try Protocol demo.",
+      "es": "No ha funcionado. Comprueba que la empresa está en marcha y que el proveedor elegido está configurado, o prueba Protocol demo.",
+      "fr": "Cela n'a pas abouti. Vérifiez que l'entreprise fonctionne et que le fournisseur choisi est configuré, ou essayez Protocol demo.",
+    },
+  ],
+  "companyError": [
+    {
+      "ca": "Lantern Noodle Bar ha respost HTTP 409 insufficient_funds (available balance: 3,210.55). No he tornat a provar res; mira l'Inspector.",
+      "en": "Lantern Noodle Bar answered HTTP 409 insufficient_funds (available balance: 3,210.55). I didn't retry anything; see the Inspector.",
+      "es": "Lantern Noodle Bar ha respondido HTTP 409 insufficient_funds (available balance: 3,210.55). No he reintentado nada; mira el Inspector.",
+      "fr": "Lantern Noodle Bar a répondu HTTP 409 insufficient_funds (available balance: 3,210.55). Je n'ai rien relancé ; voyez l'Inspector.",
+    },
+  ],
+  "connectAgainAnyTime": [
+    {
+      "ca": "La pots tornar a connectar quan vulguis.",
+      "en": "You can connect it again at any time.",
+      "es": "Puedes volver a conectarla cuando quieras.",
+      "fr": "Vous pouvez la reconnecter à tout moment.",
+    },
+    {
+      "ca": "Les pots tornar a connectar quan vulguis.",
+      "en": "You can connect them again at any time.",
+      "es": "Puedes volver a conectarlas cuando quieras.",
+      "fr": "Vous pouvez les reconnecter à tout moment.",
+    },
+  ],
+  "connected": [
+    {
+      "ca": "He connectat Lantern Noodle Bar i Harborline Bank.",
+      "en": "I've connected Lantern Noodle Bar and Harborline Bank.",
+      "es": "He conectado Lantern Noodle Bar y Harborline Bank.",
+      "fr": "J'ai connecté Lantern Noodle Bar et Harborline Bank.",
+    },
+  ],
+  "connectedFor": [
+    {
+      "ca": "Això és cosa de Lantern Noodle Bar, així que l'he connectada a aquesta conversa. Pregunto sense el teu compte fins que hi iniciïs sessió.",
+      "en": "That's one for Lantern Noodle Bar, so I connected it to this conversation. I'm asking without your account until you sign in there.",
+      "es": "Eso es cosa de Lantern Noodle Bar, así que la he conectado a esta conversación. Pregunto sin tu cuenta hasta que inicies sesión allí.",
+      "fr": "C'est une demande pour Lantern Noodle Bar, je l'ai donc connectée à cette conversation. Je demande sans votre compte jusqu'à ce que vous vous y connectiez.",
+    },
+  ],
+  "couldntConnect": [
+    {
+      "ca": "No he pogut connectar Lantern Noodle Bar. No respon.",
+      "en": "I couldn't connect Lantern Noodle Bar. It couldn't be reached.",
+      "es": "No he podido conectar Lantern Noodle Bar. No responde.",
+      "fr": "Je n'ai pas pu connecter Lantern Noodle Bar. Elle ne répond pas.",
+    },
+  ],
+  "declineButton": [
+    {
+      "ca": "Rebutjar this change",
+      "en": "Decline this change",
+      "es": "Rechazar this change",
+      "fr": "Refuser this change",
+    },
+  ],
+  "declined": [
+    {
+      "ca": "Rebutjat. No he enviat cap aprovació a Lantern Noodle Bar i no s'ha fet res.",
+      "en": "Declined. I sent no approval to Lantern Noodle Bar, and nothing was done.",
+      "es": "Rechazado. No he enviado ninguna aprobación a Lantern Noodle Bar y no se ha hecho nada.",
+      "fr": "Refusé. Je n'ai envoyé aucune approbation à Lantern Noodle Bar, et rien n'a été fait.",
+    },
+  ],
+  "describesOffer": [
+    {
+      "ca": "L'empresa descriu el que ofereix així: «Noodles, delivered.».",
+      "en": "It describes what it offers as “Noodles, delivered.”.",
+      "es": "La empresa describe lo que ofrece así: «Noodles, delivered.».",
+      "fr": "L'entreprise décrit son offre ainsi : « Noodles, delivered. ».",
+    },
+    {
+      "ca": "Lantern Noodle Bar descriu el que ofereix així: «Noodles, delivered.».",
+      "en": "Lantern Noodle Bar describes what it offers as “Noodles, delivered.”.",
+      "es": "Lantern Noodle Bar describe lo que ofrece así: «Noodles, delivered.».",
+      "fr": "Lantern Noodle Bar décrit son offre ainsi : « Noodles, delivered. ».",
+    },
+  ],
+  "didntResume": [
+    {
+      "ca": "D'acord. No he demanat res a Lantern Noodle Bar.",
+      "en": "OK. I haven't asked Lantern Noodle Bar anything.",
+      "es": "De acuerdo. No le he pedido nada a Lantern Noodle Bar.",
+      "fr": "D'accord. Je n'ai rien demandé à Lantern Noodle Bar.",
+    },
+    {
+      "ca": "D'acord. No he demanat «my orders» a Lantern Noodle Bar.",
+      "en": "OK. I haven't asked Lantern Noodle Bar for “my orders”.",
+      "es": "De acuerdo. No le he pedido «my orders» a Lantern Noodle Bar.",
+      "fr": "D'accord. Je n'ai pas demandé « my orders » à Lantern Noodle Bar.",
+    },
+  ],
+  "directClosed": [
+    {
+      "ca": "Has sortit de la conversa directa amb Lantern Noodle Bar. Ja torno a ser aquí.",
+      "en": "You've left the direct conversation with Lantern Noodle Bar. I'm back.",
+      "es": "Has salido de la conversación directa con Lantern Noodle Bar. Ya estoy aquí otra vez.",
+      "fr": "Vous avez quitté la conversation directe avec Lantern Noodle Bar. Je suis de retour.",
+    },
+  ],
+  "directDeclined": [
+    {
+      "ca": "He dit a Lantern Noodle Bar que ara no pots parlar directament.",
+      "en": "I told Lantern Noodle Bar you can't talk directly right now.",
+      "es": "Le he dicho a Lantern Noodle Bar que ahora no puedes hablar directamente.",
+      "fr": "J'ai dit à Lantern Noodle Bar que vous ne pouvez pas parler directement pour le moment.",
+    },
+  ],
+  "directOpen": [
+    {
+      "ca": "Ara parles directament amb Lantern Noodle Bar. Aquí no llegeixo ni responc: el que escriguis li arriba a Lantern Noodle Bar com a paraules teves.",
+      "en": "You're talking with Lantern Noodle Bar directly now. I don't read or answer here: what you type goes to Lantern Noodle Bar as your own words.",
+      "es": "Ahora hablas directamente con Lantern Noodle Bar. Aquí no leo ni respondo: lo que escribas le llega a Lantern Noodle Bar como tus propias palabras.",
+      "fr": "Vous parlez maintenant directement avec Lantern Noodle Bar. Je ne lis ni ne réponds ici : ce que vous tapez arrive à Lantern Noodle Bar comme vos propres mots.",
+    },
+  ],
+  "expired": [
+    {
+      "ca": "The $88.00 change at Lantern Noodle Bar ha caducat, així que no s'ha aprovat res. Torna a demanar el canvi per rebre condicions noves.",
+      "en": "The $88.00 change at Lantern Noodle Bar has expired, so nothing was approved. Ask for the change again to get new terms.",
+      "es": "The $88.00 change at Lantern Noodle Bar ha caducado, así que no se ha aprobado nada. Vuelve a pedir el cambio para recibir condiciones nuevas.",
+      "fr": "The $88.00 change at Lantern Noodle Bar a expiré, donc rien n'a été approuvé. Redemandez la modification pour recevoir de nouvelles conditions.",
+    },
+  ],
+  "freeModel": [
+    {
+      "ca": "El model gratuït només funciona al lloc publicat, així que aquest torn ha anat en mode demo, amb exemples guiats.",
+      "en": "The free model runs only on the deployed site, so this turn ran in demo mode, with guided examples.",
+      "es": "El modelo gratuito solo funciona en el sitio publicado, así que este turno ha ido en modo demo, con ejemplos guiados.",
+      "fr": "Le modèle gratuit ne fonctionne que sur le site déployé, ce tour s'est donc déroulé en mode démo, avec des exemples guidés.",
+    },
+    {
+      "ca": "El model gratuït ha esgotat la quota d'avui per a tothom, així que aquest torn ha anat en mode demo, amb exemples guiats. Torna a mitjanit UTC, o pots fer servir el teu propi model.",
+      "en": "The free model has used today's allowance for everyone, so this turn ran in demo mode, with guided examples. It starts again at midnight UTC, or you can use your own model.",
+      "es": "El modelo gratuito ha agotado la cuota de hoy para todos, así que este turno ha ido en modo demo, con ejemplos guiados. Vuelve a medianoche UTC, o puedes usar tu propio modelo.",
+      "fr": "Le modèle gratuit a épuisé le quota du jour pour tout le monde, ce tour s'est donc déroulé en mode démo, avec des exemples guidés. Il revient à minuit UTC, ou vous pouvez utiliser votre propre modèle.",
+    },
+    {
+      "ca": "Has fet servir els 20 torns del model gratuït d'aquesta hora, així que aquest torn ha anat en mode demo, amb exemples guiats. Prova-ho més tard, o fes servir el teu propi model.",
+      "en": "You've used the free model's 20 turns for this hour, so this turn ran in demo mode, with guided examples. Try again later, or use your own model.",
+      "es": "Has usado los 20 turnos del modelo gratuito de esta hora, así que este turno ha ido en modo demo, con ejemplos guiados. Prueba más tarde, o usa tu propio modelo.",
+      "fr": "Vous avez utilisé les 20 tours du modèle gratuit pour cette heure, ce tour s'est donc déroulé en mode démo, avec des exemples guidés. Réessayez plus tard, ou utilisez votre propre modèle.",
+    },
+  ],
+  "invitationAsk": [
+    {
+      "ca": "Lantern Noodle Bar vol parlar amb tu directament. Jo no hi llegeixo ni hi responc, i en pots sortir quan vulguis. Parles amb Lantern Noodle Bar?",
+      "en": "Lantern Noodle Bar would like to talk with you directly. I won't read or answer there, and you can leave at any time. Talk with Lantern Noodle Bar?",
+      "es": "Lantern Noodle Bar quiere hablar contigo directamente. Yo no leo ni respondo ahí, y puedes salir cuando quieras. ¿Hablas con Lantern Noodle Bar?",
+      "fr": "Lantern Noodle Bar souhaite vous parler directement. Je ne lis ni ne réponds là-bas, et vous pouvez partir à tout moment. Parler avec Lantern Noodle Bar ?",
+    },
+  ],
+  "invitationAskSpoken": [
+    {
+      "ca": "Lantern Noodle Bar vol parlar amb tu directament. Hi parles?",
+      "en": "Lantern Noodle Bar would like to talk with you directly. Talk with them?",
+      "es": "Lantern Noodle Bar quiere hablar contigo directamente. ¿Hablas con ellos?",
+      "fr": "Lantern Noodle Bar souhaite vous parler directement. Lui parler ?",
+    },
+  ],
+  "invitationGone": [
+    {
+      "ca": "Lantern Noodle Bar ja no demana parlar amb tu directament.",
+      "en": "Lantern Noodle Bar no longer asks to talk with you directly.",
+      "es": "Lantern Noodle Bar ya no pide hablar contigo directamente.",
+      "fr": "Lantern Noodle Bar ne demande plus à vous parler directement.",
+    },
+  ],
+  "isItFor": [
+    {
+      "ca": "És per a Lantern Noodle Bar o Harborline Bank? El teu missatge no diu quina.",
+      "en": "Is this for Lantern Noodle Bar or Harborline Bank? Nothing in your message says which.",
+      "es": "¿Es para Lantern Noodle Bar o Harborline Bank? Tu mensaje no dice cuál.",
+      "fr": "C'est pour Lantern Noodle Bar ou Harborline Bank ? Votre message ne dit pas laquelle.",
+    },
+    {
+      "ca": "És per a Lantern Noodle Bar o Harborline Bank? Totes dues podrien tenir el que busques.",
+      "en": "Is this for Lantern Noodle Bar or Harborline Bank? Both could have what you asked about.",
+      "es": "¿Es para Lantern Noodle Bar o Harborline Bank? Las dos podrían tener lo que buscas.",
+      "fr": "C'est pour Lantern Noodle Bar ou Harborline Bank ? Les deux pourraient avoir ce que vous cherchez.",
+    },
+  ],
+  "keepButton": [
+    {
+      "ca": "Mantenir Lantern Noodle Bar i Harborline Bank",
+      "en": "Keep Lantern Noodle Bar and Harborline Bank",
+      "es": "Mantener Lantern Noodle Bar y Harborline Bank",
+      "fr": "Garder Lantern Noodle Bar et Harborline Bank",
+    },
+  ],
+  "kept": [
+    {
+      "ca": "D'acord, Lantern Noodle Bar continua connectada. No s'ha tret res.",
+      "en": "OK, Lantern Noodle Bar stays connected. Nothing was removed.",
+      "es": "De acuerdo, Lantern Noodle Bar sigue conectada. No se ha quitado nada.",
+      "fr": "D'accord, Lantern Noodle Bar reste connectée. Rien n'a été retiré.",
+    },
+    {
+      "ca": "D'acord, Lantern Noodle Bar i Harborline Bank continuen connectades. No s'ha tret ni revocat res.",
+      "en": "OK, Lantern Noodle Bar and Harborline Bank stay connected. Nothing was removed or revoked.",
+      "es": "De acuerdo, Lantern Noodle Bar y Harborline Bank siguen conectadas. No se ha quitado ni revocado nada.",
+      "fr": "D'accord, Lantern Noodle Bar et Harborline Bank restent connectées. Rien n'a été retiré ni révoqué.",
+    },
+  ],
+  "labCompanies": [
+    {
+      "ca": "Les empreses del laboratori són Lantern Noodle Bar i Harborline Bank. Per connectar-ne una altra, escriu-ne l'adreça al quadre d'adreça.",
+      "en": "The lab's companies are Lantern Noodle Bar and Harborline Bank. To connect another company, type its address in the address box.",
+      "es": "Las empresas del laboratorio son Lantern Noodle Bar y Harborline Bank. Para conectar otra, escribe su dirección en el cuadro de dirección.",
+      "fr": "Les entreprises du laboratoire sont Lantern Noodle Bar et Harborline Bank. Pour en connecter une autre, tapez son adresse dans la barre d'adresse.",
+    },
+  ],
+  "needsTwo": [
+    {
+      "ca": "Això necessita dues empreses: Fernwick Power & Light, on llegeixo la teva factura, i Harborline Bank, on proposo el pagament. Fernwick Power & Light encara no és en aquesta conversa. Connecta-la, inicia sessió a totes dues i torna a preguntar. No he enviat res a cap empresa.",
+      "en": "This needs two companies: Fernwick Power & Light, where I read your bill, and Harborline Bank, where I propose the payment. Fernwick Power & Light isn't in this conversation yet. Connect it, sign in at both and ask again. I haven't sent anything to any company.",
+      "es": "Esto necesita dos empresas: Fernwick Power & Light, donde leo tu factura, y Harborline Bank, donde propongo el pago. Fernwick Power & Light aún no está en esta conversación. Conéctala, inicia sesión en las dos y vuelve a preguntar. No he enviado nada a ninguna empresa.",
+      "fr": "Il faut deux entreprises : Fernwick Power & Light, où je lis votre facture, et Harborline Bank, où je propose le paiement. Fernwick Power & Light n'est pas encore dans cette conversation. Connectez-la, connectez-vous aux deux et redemandez. Je n'ai rien envoyé à aucune entreprise.",
+    },
+    {
+      "ca": "Això necessita dues empreses: Fernwick Power & Light, on llegeixo la teva factura, i Harborline Bank, on proposo el pagament. Fernwick Power & Light i Harborline Bank encara no són en aquesta conversa. Ja en té 3, així que treu-ne 2 primer; després connecta-les, inicia sessió a totes dues i torna a preguntar. No he enviat res a cap empresa.",
+      "en": "This needs two companies: Fernwick Power & Light, where I read your bill, and Harborline Bank, where I propose the payment. Fernwick Power & Light and Harborline Bank aren't in this conversation yet. It already has 3 companies, so remove 2 of them first, then connect them, sign in at both and ask again. I haven't sent anything to any company.",
+      "es": "Esto necesita dos empresas: Fernwick Power & Light, donde leo tu factura, y Harborline Bank, donde propongo el pago. Fernwick Power & Light y Harborline Bank aún no están en esta conversación. Ya tiene 3 empresas, así que quita 2 primero; luego conéctalas, inicia sesión en las dos y vuelve a preguntar. No he enviado nada a ninguna empresa.",
+      "fr": "Il faut deux entreprises : Fernwick Power & Light, où je lis votre facture, et Harborline Bank, où je propose le paiement. Fernwick Power & Light et Harborline Bank ne sont pas encore dans cette conversation. Elle a déjà 3 entreprises, retirez-en donc 2 d'abord, puis connectez-les, connectez-vous aux deux et redemandez. Je n'ai rien envoyé à aucune entreprise.",
+    },
+  ],
+  "noCompanyNow": [
+    {
+      "ca": "Ara aquesta conversa no té cap empresa. Connecta'n una per continuar.",
+      "en": "This conversation has no company now. Connect one to go on.",
+      "es": "Ahora esta conversación no tiene ninguna empresa. Conecta una para seguir.",
+      "fr": "Cette conversation n'a plus d'entreprise. Connectez-en une pour continuer.",
+    },
+  ],
+  "noCompanyToAsk": [
+    {
+      "ca": "Aquesta conversa encara no té cap empresa, així que no he enviat la teva petició enlloc. Connecta'n una primer: Lantern Noodle Bar o Harborline Bank del laboratori, o una altra escrivint-ne l'adreça al quadre d'adreça.",
+      "en": "This conversation has no company yet, so I haven't sent your request anywhere. Connect one first: Lantern Noodle Bar or Harborline Bank from the lab, or another by typing its address in the address box.",
+      "es": "Esta conversación aún no tiene ninguna empresa, así que no he enviado tu petición a ninguna parte. Conecta una primero: Lantern Noodle Bar o Harborline Bank del laboratorio, u otra escribiendo su dirección en el cuadro de dirección.",
+      "fr": "Cette conversation n'a pas encore d'entreprise, je n'ai donc envoyé votre demande nulle part. Connectez-en une d'abord : Lantern Noodle Bar ou Harborline Bank du laboratoire, ou une autre en tapant son adresse dans la barre d'adresse.",
+    },
+  ],
+  "noCompanyYet": [
+    {
+      "ca": "Aquesta conversa encara no està connectada a cap empresa. Connecta'n una primer.",
+      "en": "This conversation isn't connected to a company yet. Connect one first.",
+      "es": "Esta conversación aún no está conectada a ninguna empresa. Conecta una primero.",
+      "fr": "Cette conversation n'est encore connectée à aucune entreprise. Connectez-en une d'abord.",
+    },
+  ],
+  "noLongerWaits": [
+    {
+      "ca": "The $88.00 change at Lantern Noodle Bar ja no espera resposta, així que no s'ha rebutjat res.",
+      "en": "The $88.00 change at Lantern Noodle Bar no longer waits for an answer, so nothing was declined.",
+      "es": "The $88.00 change at Lantern Noodle Bar ya no espera respuesta, así que no se ha rechazado nada.",
+      "fr": "The $88.00 change at Lantern Noodle Bar n'attend plus de réponse, donc rien n'a été refusé.",
+    },
+  ],
+  "noRequestWaiting": [
+    {
+      "ca": "Ja no hi ha cap petició esperant que triïs empresa. La pots tornar a escriure?",
+      "en": "There's no request waiting for a company any more. Could you type it again?",
+      "es": "Ya no hay ninguna petición esperando a que elijas empresa. ¿Puedes escribirla de nuevo?",
+      "fr": "Plus aucune demande n'attend le choix d'une entreprise. Pouvez-vous la retaper ?",
+    },
+  ],
+  "noRoomFor": [
+    {
+      "ca": "Això és cosa de Lantern Noodle Bar, que no és en aquesta conversa. Ja té 3 empreses, el màxim: treu-ne una, torna a preguntar i connecto Lantern Noodle Bar.",
+      "en": "That's one for Lantern Noodle Bar, which isn't in this conversation. It already has 3 companies, the most it can hold: remove one, ask again, and I'll connect Lantern Noodle Bar.",
+      "es": "Eso es cosa de Lantern Noodle Bar, que no está en esta conversación. Ya tiene 3 empresas, el máximo: quita una, vuelve a preguntar y conecto Lantern Noodle Bar.",
+      "fr": "C'est une demande pour Lantern Noodle Bar, qui n'est pas dans cette conversation. Elle a déjà 3 entreprises, le maximum : retirez-en une, redemandez, et je connecterai Lantern Noodle Bar.",
+    },
+  ],
+  "noSignInOffered": [
+    {
+      "ca": "Lantern Noodle Bar no ofereix inici de sessió a agents com jo.",
+      "en": "Lantern Noodle Bar doesn't offer sign-in to agents like me.",
+      "es": "Lantern Noodle Bar no ofrece inicio de sesión a agentes como yo.",
+      "fr": "Lantern Noodle Bar ne propose pas de connexion aux agents comme moi.",
+    },
+    {
+      "ca": "Lantern Noodle Bar i Harborline Bank no ofereixen inici de sessió a agents com jo.",
+      "en": "Lantern Noodle Bar and Harborline Bank don't offer sign-in to agents like me.",
+      "es": "Lantern Noodle Bar y Harborline Bank no ofrecen inicio de sesión a agentes como yo.",
+      "fr": "Lantern Noodle Bar et Harborline Bank ne proposent pas de connexion aux agents comme moi.",
+    },
+  ],
+  "noSuchConnected": [
+    {
+      "ca": "Aquesta conversa no està connectada a cap empresa anomenada «Acme Bakery». No està connectada a cap empresa.",
+      "en": "This conversation isn't connected to a company called “Acme Bakery”. It isn't connected to any company.",
+      "es": "Esta conversación no está conectada a ninguna empresa llamada «Acme Bakery». No está conectada a ninguna empresa.",
+      "fr": "Cette conversation n'est connectée à aucune entreprise nommée « Acme Bakery ». Elle n'est connectée à aucune entreprise.",
+    },
+    {
+      "ca": "Aquesta conversa no està connectada a cap empresa anomenada «Acme Bakery». Està connectada a Lantern Noodle Bar i Harborline Bank.",
+      "en": "This conversation isn't connected to a company called “Acme Bakery”. It's connected to Lantern Noodle Bar and Harborline Bank.",
+      "es": "Esta conversación no está conectada a ninguna empresa llamada «Acme Bakery». Está conectada a Lantern Noodle Bar y Harborline Bank.",
+      "fr": "Cette conversation n'est connectée à aucune entreprise nommée « Acme Bakery ». Elle est connectée à Lantern Noodle Bar et Harborline Bank.",
+    },
+  ],
+  "noSuchLabCompany": [
+    {
+      "ca": "Quina empresa?",
+      "en": "Which company?",
+      "es": "¿Qué empresa?",
+      "fr": "Quelle entreprise ?",
+    },
+    {
+      "ca": "El laboratori no té cap empresa anomenada «Acme Bakery».",
+      "en": "The lab has no company called “Acme Bakery”.",
+      "es": "El laboratorio no tiene ninguna empresa llamada «Acme Bakery».",
+      "fr": "Le laboratoire n'a aucune entreprise nommée « Acme Bakery ».",
+    },
+  ],
+  "noneToRemove": [
+    {
+      "ca": "Aquesta conversa no està connectada a cap empresa, així que no hi ha res a treure.",
+      "en": "This conversation isn't connected to any company, so there's none to remove.",
+      "es": "Esta conversación no está conectada a ninguna empresa, así que no hay nada que quitar.",
+      "fr": "Cette conversation n'est connectée à aucune entreprise, il n'y a donc rien à retirer.",
+    },
+  ],
+  "notConnectedAnyMore": [
+    {
+      "ca": "Aquesta conversa ja no està connectada a Lantern Noodle Bar, així que no hi ha on iniciar sessió.",
+      "en": "This conversation isn't connected to Lantern Noodle Bar any more, so there's nothing to sign in to.",
+      "es": "Esta conversación ya no está conectada a Lantern Noodle Bar, así que no hay dónde iniciar sesión.",
+      "fr": "Cette conversation n'est plus connectée à Lantern Noodle Bar, il n'y a donc rien où se connecter.",
+    },
+  ],
+  "notConnectedTo": [
+    {
+      "ca": "Aquesta conversa no està connectada a Lantern Noodle Bar.",
+      "en": "This conversation isn't connected to Lantern Noodle Bar.",
+      "es": "Esta conversación no está conectada a Lantern Noodle Bar.",
+      "fr": "Cette conversation n'est pas connectée à Lantern Noodle Bar.",
+    },
+  ],
+  "notNowButton": [
+    {
+      "ca": "Ara no",
+      "en": "Not now",
+      "es": "Ahora no",
+      "fr": "Pas maintenant",
+    },
+  ],
+  "notSent": [
+    {
+      "ca": "No ho he pogut enviar a Lantern Noodle Bar, així que no s'ha aprovat res. Torna-ho a provar d'aquí a una estona.",
+      "en": "I couldn't send that to Lantern Noodle Bar, so nothing was approved. Try again in a moment.",
+      "es": "No he podido enviárselo a Lantern Noodle Bar, así que no se ha aprobado nada. Vuelve a intentarlo en un momento.",
+      "fr": "Je n'ai pas pu l'envoyer à Lantern Noodle Bar, donc rien n'a été approuvé. Réessayez dans un instant.",
+    },
+  ],
+  "notSignedIn": [
+    {
+      "ca": "No tens la sessió iniciada a Lantern Noodle Bar.",
+      "en": "You aren't signed in at Lantern Noodle Bar.",
+      "es": "No tienes la sesión iniciada en Lantern Noodle Bar.",
+      "fr": "Vous n'avez pas de session active chez Lantern Noodle Bar.",
+    },
+  ],
+  "notSignedInAnywhere": [
+    {
+      "ca": "No tens la sessió iniciada a cap empresa d'aquesta conversa.",
+      "en": "You aren't signed in at any company in this conversation.",
+      "es": "No tienes la sesión iniciada en ninguna empresa de esta conversación.",
+      "fr": "Vous n'avez de session active chez aucune entreprise de cette conversation.",
+    },
+  ],
+  "nothingRemoved": [
+    {
+      "ca": "No s'ha tret res.",
+      "en": "Nothing was removed.",
+      "es": "No se ha quitado nada.",
+      "fr": "Rien n'a été retiré.",
+    },
+  ],
+  "nothingToResume": [
+    {
+      "ca": "Ja no hi ha cap petició esperant. La pots tornar a escriure?",
+      "en": "There's no request waiting any more. Could you type it again?",
+      "es": "Ya no hay ninguna petición esperando. ¿Puedes escribirla de nuevo?",
+      "fr": "Plus aucune demande n'attend. Pouvez-vous la retaper ?",
+    },
+    {
+      "ca": "Ja no hi ha cap petició esperant a Lantern Noodle Bar. La pots tornar a escriure?",
+      "en": "There's no request waiting at Lantern Noodle Bar any more. Could you type it again?",
+      "es": "Ya no hay ninguna petición esperando en Lantern Noodle Bar. ¿Puedes escribirla de nuevo?",
+      "fr": "Plus aucune demande n'attend chez Lantern Noodle Bar. Pouvez-vous la retaper ?",
+    },
+  ],
+  "nothingToSignIn": [
+    {
+      "ca": "No hi ha cap empresa en aquesta conversa on iniciar sessió.",
+      "en": "There's no company in this conversation to sign in to.",
+      "es": "No hay ninguna empresa en esta conversación donde iniciar sesión.",
+      "fr": "Il n'y a aucune entreprise dans cette conversation où se connecter.",
+    },
+  ],
+  "outcomeUnknown": [
+    {
+      "ca": "Es va aprovar the $88.00 change at Lantern Noodle Bar, però Lantern Noodle Bar no ha dit si s'ha fet. Torna a provar la mateixa aprovació des de la seva targeta; no he enviat res de nou.",
+      "en": "The $88.00 change at Lantern Noodle Bar was approved, but Lantern Noodle Bar hasn't said whether it was carried out. Retry the same approval on its card; I sent nothing new.",
+      "es": "Se aprobó the $88.00 change at Lantern Noodle Bar, pero Lantern Noodle Bar no ha dicho si se ha llevado a cabo. Reintenta la misma aprobación desde su tarjeta; no he enviado nada nuevo.",
+      "fr": "L'approbation de the $88.00 change at Lantern Noodle Bar a été envoyée, mais Lantern Noodle Bar n'a pas dit si c'était fait. Relancez la même approbation depuis sa carte ; je n'ai rien envoyé de nouveau.",
+    },
+  ],
+  "performed": [
+    {
+      "ca": "Fet. Has aprovat the $88.00 change at Lantern Noodle Bar i Lantern Noodle Bar ja l'ha fet.",
+      "en": "Done. You approved the $88.00 change at Lantern Noodle Bar, and Lantern Noodle Bar has carried it out.",
+      "es": "Hecho. Has aprobado the $88.00 change at Lantern Noodle Bar y Lantern Noodle Bar ya lo ha hecho.",
+      "fr": "C'est fait. Vous avez approuvé the $88.00 change at Lantern Noodle Bar, et Lantern Noodle Bar s'en est chargé.",
+    },
+  ],
+  "proposalAt": [
+    {
+      "ca": "la proposta de Lantern Noodle Bar",
+      "en": "the proposal at Lantern Noodle Bar",
+      "es": "la propuesta de Lantern Noodle Bar",
+      "fr": "la proposition de Lantern Noodle Bar",
+    },
+  ],
+  "proposalGone": [
+    {
+      "ca": "The $88.00 change at Lantern Noodle Bar ja no hi és, així que no s'ha aprovat res.",
+      "en": "The $88.00 change at Lantern Noodle Bar isn't here any more, so nothing was approved.",
+      "es": "The $88.00 change at Lantern Noodle Bar ya no está aquí, así que no se ha aprobado nada.",
+      "fr": "The $88.00 change at Lantern Noodle Bar n'est plus là, donc rien n'a été approuvé.",
+    },
+    {
+      "ca": "The $88.00 change at Lantern Noodle Bar ja no hi és, així que no s'ha rebutjat res.",
+      "en": "The $88.00 change at Lantern Noodle Bar isn't here any more, so nothing was declined.",
+      "es": "The $88.00 change at Lantern Noodle Bar ya no está aquí, así que no se ha rechazado nada.",
+      "fr": "The $88.00 change at Lantern Noodle Bar n'est plus là, donc rien n'a été refusé.",
+    },
+  ],
+  "readGone": [
+    {
+      "ca": "El que vaig llegir amb el teu compte allà ja no apareix aquí.",
+      "en": "What I read with your account there is gone from here.",
+      "es": "Lo que leí con tu cuenta allí ya no aparece aquí.",
+      "fr": "Ce que j'ai lu avec votre compte là-bas n'apparaît plus ici.",
+    },
+  ],
+  "removeAsk": [
+    {
+      "ca": "Trec Lantern Noodle Bar i Harborline Bank d'aquesta conversa?",
+      "en": "Remove Lantern Noodle Bar and Harborline Bank from this conversation?",
+      "es": "¿Quito Lantern Noodle Bar y Harborline Bank de esta conversación?",
+      "fr": "Je retire Lantern Noodle Bar et Harborline Bank de cette conversation ?",
+    },
+  ],
+  "removeButton": [
+    {
+      "ca": "Treure Lantern Noodle Bar i Harborline Bank",
+      "en": "Remove Lantern Noodle Bar and Harborline Bank",
+      "es": "Quitar Lantern Noodle Bar y Harborline Bank",
+      "fr": "Retirer Lantern Noodle Bar et Harborline Bank",
+    },
+  ],
+  "removeDropsProposals": [
+    {
+      "ca": "Una proposta pendent de la teva aprovació se'n va amb ella.",
+      "en": "A proposal waiting for your approval goes with it.",
+      "es": "Una propuesta pendiente de tu aprobación se va con ella.",
+      "fr": "Une proposition en attente de votre approbation part avec elle.",
+    },
+    {
+      "ca": "2 propostes pendents de la teva aprovació se'n van amb elles.",
+      "en": "2 proposals waiting for your approval go with them.",
+      "es": "2 propuestas pendientes de tu aprobación se van con ellas.",
+      "fr": "2 propositions en attente de votre approbation partent avec elles.",
+    },
+  ],
+  "removeRevokes": [
+    {
+      "ca": "Això revoca l'accés que em vas donar allà, i el que vaig llegir amb el teu compte desapareixerà d'aquí.",
+      "en": "That revokes the access you gave me there, and what I read with your account will be gone from here.",
+      "es": "Eso revoca el acceso que me diste allí, y lo que leí con tu cuenta desaparecerá de aquí.",
+      "fr": "Cela révoque l'accès que vous m'avez donné là-bas, et ce que j'ai lu avec votre compte disparaîtra d'ici.",
+    },
+    {
+      "ca": "Això revoca l'accés que em vas donar a Harborline Bank, i el que vaig llegir amb el teu compte desapareixerà d'aquí.",
+      "en": "That revokes the access you gave me at Harborline Bank, and what I read with your account will be gone from here.",
+      "es": "Eso revoca el acceso que me diste en Harborline Bank, y lo que leí con tu cuenta desaparecerá de aquí.",
+      "fr": "Cela révoque l'accès que vous m'avez donné chez Harborline Bank, et ce que j'ai lu avec votre compte disparaîtra d'ici.",
+    },
+  ],
+  "removed": [
+    {
+      "ca": "He tret Lantern Noodle Bar d'aquesta conversa.",
+      "en": "I've removed Lantern Noodle Bar from this conversation.",
+      "es": "He quitado Lantern Noodle Bar de esta conversación.",
+      "fr": "J'ai retiré Lantern Noodle Bar de cette conversation.",
+    },
+  ],
+  "removedRevoked": [
+    {
+      "ca": "He tret Lantern Noodle Bar d'aquesta conversa i he revocat l'accés que em vas donar allà.",
+      "en": "I've removed Lantern Noodle Bar from this conversation and revoked the access you gave me there.",
+      "es": "He quitado Lantern Noodle Bar de esta conversación y he revocado el acceso que me diste allí.",
+      "fr": "J'ai retiré Lantern Noodle Bar de cette conversation et révoqué l'accès que vous m'aviez donné là-bas.",
+    },
+  ],
+  "restAfter": [
+    {
+      "ca": "Després pregunto la resta del teu missatge.",
+      "en": "I'll ask the rest of your message after that.",
+      "es": "Después pregunto el resto de tu mensaje.",
+      "fr": "Je poserai ensuite le reste de votre message.",
+    },
+  ],
+  "restDropped": [
+    {
+      "ca": "No he passat la resta del teu missatge a ningú.",
+      "en": "I didn't pass the rest of your message to anyone.",
+      "es": "No he pasado el resto de tu mensaje a nadie.",
+      "fr": "Je n'ai transmis le reste de votre message à personne.",
+    },
+  ],
+  "resumeAsk": [
+    {
+      "ca": "Ja has iniciat sessió a Lantern Noodle Bar. Continuo amb «my orders»?",
+      "en": "You're signed in at Lantern Noodle Bar. Shall I go on with “my orders”?",
+      "es": "Ya has iniciado sesión en Lantern Noodle Bar. ¿Sigo con «my orders»?",
+      "fr": "La connexion à Lantern Noodle Bar est faite. Je continue « my orders » ?",
+    },
+  ],
+  "resumeAskSpoken": [
+    {
+      "ca": "Ja has iniciat sessió a Lantern Noodle Bar. Continuo amb la teva petició?",
+      "en": "You're signed in at Lantern Noodle Bar. Shall I go on with your request?",
+      "es": "Ya has iniciado sesión en Lantern Noodle Bar. ¿Sigo con tu petición?",
+      "fr": "La connexion à Lantern Noodle Bar est faite. Je continue votre demande ?",
+    },
+  ],
+  "resumeButton": [
+    {
+      "ca": "Sí, continua",
+      "en": "Yes, go on",
+      "es": "Sí, sigue",
+      "fr": "Oui, continuez",
+    },
+  ],
+  "sessionRefused": [
+    {
+      "ca": "L'empresa ha rebutjat aquesta sessió de Poppy 1.0 sense compte. Potser implementa una altra versió del protocol; revisa'n el descobriment a l'Inspector.",
+      "en": "The Company refused this signed-out Poppy 1.0 Session. It may implement another version of the protocol; check its discovery in the Inspector.",
+      "es": "La empresa ha rechazado esta sesión de Poppy 1.0 sin cuenta. Puede que implemente otra versión del protocolo; revisa su descubrimiento en el Inspector.",
+      "fr": "L'entreprise a refusé cette session Poppy 1.0 sans compte. Elle implémente peut-être une autre version du protocole ; vérifiez sa découverte dans l'Inspector.",
+    },
+  ],
+  "signInAsk": [
+    {
+      "ca": "Inicies sessió a Lantern Noodle Bar? Es fa a la pàgina de Lantern Noodle Bar, només de lectura, i mai no veig la teva contrasenya.",
+      "en": "Sign in to Lantern Noodle Bar? You do it on Lantern Noodle Bar's own page, read only, and I never see your password.",
+      "es": "¿Inicias sesión en Lantern Noodle Bar? Se hace en la propia página de Lantern Noodle Bar, solo lectura, y nunca veo tu contraseña.",
+      "fr": "Vous connecter à Lantern Noodle Bar ? Cela se fait sur la page de Lantern Noodle Bar, en lecture seule, et je ne vois jamais votre mot de passe.",
+    },
+    {
+      "ca": "Per a això necessito el teu compte de Lantern Noodle Bar. Inicies sessió a la pàgina de Lantern Noodle Bar per continuar amb «my orders»? És només de lectura i mai no veig la teva contrasenya.",
+      "en": "That needs your Lantern Noodle Bar account. Sign in on Lantern Noodle Bar's own page to go on with “my orders”? It's read only, and I never see your password.",
+      "es": "Para eso necesito tu cuenta de Lantern Noodle Bar. ¿Inicias sesión en la página de Lantern Noodle Bar para seguir con «my orders»? Es solo lectura y nunca veo tu contraseña.",
+      "fr": "Pour cela, j'ai besoin de votre compte Lantern Noodle Bar. Vous vous connectez sur la page de Lantern Noodle Bar pour continuer « my orders » ? C'est en lecture seule, et je ne vois jamais votre mot de passe.",
+    },
+  ],
+  "signInAskSpoken": [
+    {
+      "ca": "Inicies sessió a Lantern Noodle Bar? Es fa a la pàgina de Lantern Noodle Bar.",
+      "en": "Sign in to Lantern Noodle Bar? You do it on Lantern Noodle Bar's own page.",
+      "es": "¿Inicias sesión en Lantern Noodle Bar? Se hace en la página de Lantern Noodle Bar.",
+      "fr": "Vous connecter à Lantern Noodle Bar ? Cela se fait sur la page de Lantern Noodle Bar.",
+    },
+    {
+      "ca": "Inicies sessió a Lantern Noodle Bar per continuar? Es fa a la pàgina de Lantern Noodle Bar.",
+      "en": "Sign in to Lantern Noodle Bar to go on? You do it on Lantern Noodle Bar's own page.",
+      "es": "¿Inicias sesión en Lantern Noodle Bar para seguir? Se hace en la página de Lantern Noodle Bar.",
+      "fr": "Vous connecter à Lantern Noodle Bar pour continuer ? Cela se fait sur la page de Lantern Noodle Bar.",
+    },
+  ],
+  "signInButton": [
+    {
+      "ca": "Iniciar sessió a Lantern Noodle Bar · només lectura",
+      "en": "Sign in to Lantern Noodle Bar · read only",
+      "es": "Iniciar sesión en Lantern Noodle Bar · solo lectura",
+      "fr": "Se connecter à Lantern Noodle Bar · lecture seule",
+    },
+  ],
+  "signInLink": [
+    {
+      "ca": "Obrir la pàgina d'inici de sessió de Lantern Noodle Bar",
+      "en": "Open Lantern Noodle Bar's sign-in page",
+      "es": "Abrir la página de inicio de sesión de Lantern Noodle Bar",
+      "fr": "Ouvrir la page de connexion de Lantern Noodle Bar",
+    },
+  ],
+  "signInOffered": [
+    {
+      "ca": "Si alguna petició necessita el teu compte allà, t'oferiré iniciar sessió.",
+      "en": "If a request needs your account there, I'll offer you a sign-in.",
+      "es": "Si alguna petición necesita tu cuenta allí, te ofreceré iniciar sesión.",
+      "fr": "Si une demande a besoin de votre compte là-bas, je vous proposerai de vous connecter.",
+    },
+    {
+      "ca": "Si alguna petició necessita el teu compte en alguna d'elles, t'oferiré iniciar sessió.",
+      "en": "If a request needs your account at one of them, I'll offer you a sign-in.",
+      "es": "Si alguna petición necesita tu cuenta en alguna de ellas, te ofreceré iniciar sesión.",
+      "fr": "Si une demande a besoin de votre compte chez l'une d'elles, je vous proposerai de vous connecter.",
+    },
+  ],
+  "signInOpen": [
+    {
+      "ca": "Fes servir el botó de sota per obrir la pàgina de Lantern Noodle Bar i iniciar sessió, només de lectura. Mai no veig la teva contrasenya.",
+      "en": "Use the button below to open Lantern Noodle Bar's own page and sign in, read only. I never see your password.",
+      "es": "Usa el botón de abajo para abrir la página de Lantern Noodle Bar y iniciar sesión, solo lectura. Nunca veo tu contraseña.",
+      "fr": "Utilisez le bouton ci-dessous pour ouvrir la page de Lantern Noodle Bar et vous connecter, en lecture seule. Je ne vois jamais votre mot de passe.",
+    },
+    {
+      "ca": "Fes servir el botó de sota per obrir la pàgina de Lantern Noodle Bar i donar el permís per fer canvis. Mai no veig la teva contrasenya.",
+      "en": "Use the button below to open Lantern Noodle Bar's own page and give the change permission. I never see your password.",
+      "es": "Usa el botón de abajo para abrir la página de Lantern Noodle Bar y dar el permiso para hacer cambios. Nunca veo tu contraseña.",
+      "fr": "Utilisez le bouton ci-dessous pour ouvrir la page de Lantern Noodle Bar et donner l'autorisation de faire des modifications. Je ne vois jamais votre mot de passe.",
+    },
+  ],
+  "signInRequired": [
+    {
+      "ca": "Això necessita el teu compte a l'empresa, i no ha acceptat la petició sense. Fes servir Iniciar sessió al xat si l'empresa ho ofereix i torna a preguntar.",
+      "en": "That needs your account at the Company, and it didn't take the request without it. Use Sign in in the chat if the Company offers it, then ask again.",
+      "es": "Eso necesita tu cuenta en la empresa, y no ha aceptado la petición sin ella. Usa Iniciar sesión en el chat si la empresa lo ofrece y vuelve a preguntar.",
+      "fr": "Cela demande votre compte chez l'entreprise, qui n'a pas accepté la demande sans lui. Utilisez Se connecter dans le chat si l'entreprise le propose, puis redemandez.",
+    },
+  ],
+  "signInTabBlocked": [
+    {
+      "ca": "El teu navegador no ha obert la pàgina de Lantern Noodle Bar en una pestanya nova. Obre-la amb l'enllaç de sota per iniciar sessió; mai no veig la teva contrasenya.",
+      "en": "Your browser didn't open Lantern Noodle Bar's page in a new tab. Open it with the link below to sign in; I never see your password.",
+      "es": "Tu navegador no ha abierto la página de Lantern Noodle Bar en una pestaña nueva. Ábrela con el enlace de abajo para iniciar sesión; nunca veo tu contraseña.",
+      "fr": "Votre navigateur n'a pas ouvert la page de Lantern Noodle Bar dans un nouvel onglet. Ouvrez-la avec le lien ci-dessous pour vous connecter ; je ne vois jamais votre mot de passe.",
+    },
+  ],
+  "signInTabOpen": [
+    {
+      "ca": "La pàgina de Lantern Noodle Bar és oberta en una pestanya nova. Inicia-hi sessió; mai no veig la teva contrasenya.",
+      "en": "Lantern Noodle Bar's own page is open in a new tab. Sign in there; I never see your password.",
+      "es": "La página de Lantern Noodle Bar está abierta en una pestaña nueva. Inicia sesión allí; nunca veo tu contraseña.",
+      "fr": "La page de Lantern Noodle Bar est ouverte dans un nouvel onglet. Connectez-vous là-bas ; je ne vois jamais votre mot de passe.",
+    },
+    {
+      "ca": "La pàgina de Lantern Noodle Bar és oberta en una pestanya nova per al permís de canvis. Inicia-hi sessió; mai no veig la teva contrasenya.",
+      "en": "Lantern Noodle Bar's own page is open in a new tab for the change permission. Sign in there; I never see your password.",
+      "es": "La página de Lantern Noodle Bar está abierta en una pestaña nueva para el permiso de cambios. Inicia sesión allí; nunca veo tu contraseña.",
+      "fr": "La page de Lantern Noodle Bar est ouverte dans un nouvel onglet pour l'autorisation de modifier. Connectez-vous là-bas ; je ne vois jamais votre mot de passe.",
+    },
+  ],
+  "signOutAsk": [
+    {
+      "ca": "Tanco la teva sessió a Lantern Noodle Bar? Això revoca l'accés que em vas donar allà, i el que vaig llegir amb el teu compte desapareixerà d'aquí.",
+      "en": "Sign out of Lantern Noodle Bar? That revokes the access you gave me there, and what I read with your account will be gone from here.",
+      "es": "¿Cierro tu sesión en Lantern Noodle Bar? Eso revoca el acceso que me diste allí, y lo que leí con tu cuenta desaparecerá de aquí.",
+      "fr": "Fermer votre session chez Lantern Noodle Bar ? Cela révoque l'accès que vous m'avez donné là-bas, et ce que j'ai lu avec votre compte disparaîtra d'ici.",
+    },
+  ],
+  "signOutAskSpoken": [
+    {
+      "ca": "Tanco la teva sessió a Lantern Noodle Bar? El que hi vaig llegir desapareixerà.",
+      "en": "Sign out of Lantern Noodle Bar? What I read there will be gone.",
+      "es": "¿Cierro tu sesión en Lantern Noodle Bar? Lo que leí allí desaparecerá.",
+      "fr": "Fermer votre session chez Lantern Noodle Bar ? Ce que j'y ai lu disparaîtra.",
+    },
+  ],
+  "signOutButton": [
+    {
+      "ca": "Tancar sessió a Lantern Noodle Bar",
+      "en": "Sign out of Lantern Noodle Bar",
+      "es": "Cerrar sesión en Lantern Noodle Bar",
+      "fr": "Se déconnecter de Lantern Noodle Bar",
+    },
+  ],
+  "signOutFailed": [
+    {
+      "ca": "No he pogut tancar la teva sessió a Lantern Noodle Bar. Torna-ho a provar d'aquí a una estona.",
+      "en": "I couldn't sign you out of Lantern Noodle Bar. Try again in a moment.",
+      "es": "No he podido cerrar tu sesión en Lantern Noodle Bar. Vuelve a intentarlo en un momento.",
+      "fr": "Je n'ai pas pu fermer votre session chez Lantern Noodle Bar. Réessayez dans un instant.",
+    },
+  ],
+  "signedOut": [
+    {
+      "ca": "Fet, has tancat la sessió a Lantern Noodle Bar. L'accés que em vas donar allà està revocat, i el que vaig llegir amb el teu compte ja no apareix aquí.",
+      "en": "Done, you're signed out of Lantern Noodle Bar. The access you gave me there is revoked, and what I read with your account is gone from here.",
+      "es": "Hecho, has cerrado la sesión en Lantern Noodle Bar. El acceso que me diste allí está revocado, y lo que leí con tu cuenta ya no aparece aquí.",
+      "fr": "C'est fait, la session chez Lantern Noodle Bar est fermée. L'accès que vous m'aviez donné là-bas est révoqué, et ce que j'ai lu avec votre compte n'apparaît plus ici.",
+    },
+  ],
+  "stayedSignedIn": [
+    {
+      "ca": "D'acord, continues amb la sessió iniciada a Lantern Noodle Bar i Harborline Bank. No s'ha revocat res.",
+      "en": "OK, you stay signed in at Lantern Noodle Bar and Harborline Bank. Nothing was revoked.",
+      "es": "De acuerdo, sigues con la sesión iniciada en Lantern Noodle Bar y Harborline Bank. No se ha revocado nada.",
+      "fr": "D'accord, votre session chez Lantern Noodle Bar et Harborline Bank reste active. Rien n'a été révoqué.",
+    },
+  ],
+  "stayedSignedOut": [
+    {
+      "ca": "D'acord. Continues sense sessió a Lantern Noodle Bar.",
+      "en": "OK. You stay signed out at Lantern Noodle Bar.",
+      "es": "De acuerdo. Sigues sin sesión en Lantern Noodle Bar.",
+      "fr": "D'accord, pas de connexion à Lantern Noodle Bar.",
+    },
+    {
+      "ca": "D'acord. Continues sense sessió a Lantern Noodle Bar i no li he demanat «my orders».",
+      "en": "OK. You stay signed out at Lantern Noodle Bar, and I haven't asked it for “my orders”.",
+      "es": "De acuerdo. Sigues sin sesión en Lantern Noodle Bar y no le he pedido «my orders».",
+      "fr": "D'accord, pas de connexion à Lantern Noodle Bar, et je ne lui ai pas demandé « my orders ».",
+    },
+  ],
+  "stillWaitMany": [
+    {
+      "ca": "Encara t'esperen the $88.00 change at Lantern Noodle Bar i the $500.00 transfer at Harborline Bank. Quina aprovo: the $88.00 change at Lantern Noodle Bar o the $500.00 transfer at Harborline Bank?",
+      "en": "The $88.00 change at Lantern Noodle Bar and the $500.00 transfer at Harborline Bank are still waiting for you. Which one should I approve: the $88.00 change at Lantern Noodle Bar or the $500.00 transfer at Harborline Bank?",
+      "es": "Siguen esperándote the $88.00 change at Lantern Noodle Bar y the $500.00 transfer at Harborline Bank. ¿Cuál apruebo: the $88.00 change at Lantern Noodle Bar o the $500.00 transfer at Harborline Bank?",
+      "fr": "The $88.00 change at Lantern Noodle Bar et the $500.00 transfer at Harborline Bank vous attendent encore. Laquelle dois-je approuver : the $88.00 change at Lantern Noodle Bar ou the $500.00 transfer at Harborline Bank ?",
+    },
+  ],
+  "stillWaitsOne": [
+    {
+      "ca": "The $88.00 change at Lantern Noodle Bar encara t'espera. També l'aprovo?",
+      "en": "The $88.00 change at Lantern Noodle Bar is still waiting for you. Shall I approve that one too?",
+      "es": "The $88.00 change at Lantern Noodle Bar sigue esperándote. ¿Lo apruebo también?",
+      "fr": "The $88.00 change at Lantern Noodle Bar vous attend encore. Je l'approuve aussi ?",
+    },
+  ],
+  "talkButton": [
+    {
+      "ca": "Parlar amb Lantern Noodle Bar",
+      "en": "Talk to Lantern Noodle Bar",
+      "es": "Hablar con Lantern Noodle Bar",
+      "fr": "Parler avec Lantern Noodle Bar",
+    },
+  ],
+  "termsChanged": [
+    {
+      "ca": "Lantern Noodle Bar ha canviat les condicions després de preguntar-t'ho, així que no s'ha aprovat res.",
+      "en": "Lantern Noodle Bar changed the terms after I asked, so nothing was approved.",
+      "es": "Lantern Noodle Bar ha cambiado las condiciones después de preguntarte, así que no se ha aprobado nada.",
+      "fr": "Lantern Noodle Bar a modifié les conditions après ma question, donc rien n'a été approuvé.",
+    },
+  ],
+  "thisChange": [
+    {
+      "ca": "aquest canvi",
+      "en": "this change",
+      "es": "este cambio",
+      "fr": "cette modification",
+    },
+  ],
+  "whichIsItFor": [
+    {
+      "ca": "Per a quina és: Lantern Noodle Bar o Harborline Bank?",
+      "en": "Which one is this for: Lantern Noodle Bar or Harborline Bank?",
+      "es": "¿Para cuál es: Lantern Noodle Bar o Harborline Bank?",
+      "fr": "C'est pour laquelle : Lantern Noodle Bar ou Harborline Bank ?",
+    },
+  ],
+  "whichOneMeant": [
+    {
+      "ca": "Quina vols dir: Lantern Noodle Bar o Harborline Bank?",
+      "en": "Which one do you mean: Lantern Noodle Bar or Harborline Bank?",
+      "es": "¿Cuál quieres decir: Lantern Noodle Bar o Harborline Bank?",
+      "fr": "Laquelle voulez-vous dire : Lantern Noodle Bar ou Harborline Bank ?",
+    },
+  ],
+  "whichSignIn": [
+    {
+      "ca": "A quina empresa vols iniciar sessió: Lantern Noodle Bar o Harborline Bank?",
+      "en": "Which company do you want to sign in to: Lantern Noodle Bar or Harborline Bank?",
+      "es": "¿En qué empresa quieres iniciar sesión: Lantern Noodle Bar o Harborline Bank?",
+      "fr": "À quelle entreprise voulez-vous vous connecter : Lantern Noodle Bar ou Harborline Bank ?",
+    },
+  ],
+  "whichSignOut": [
+    {
+      "ca": "A quina empresa vols tancar la sessió: Lantern Noodle Bar o Harborline Bank?",
+      "en": "Which company do you want to sign out of: Lantern Noodle Bar or Harborline Bank?",
+      "es": "¿En qué empresa quieres cerrar la sesión: Lantern Noodle Bar o Harborline Bank?",
+      "fr": "De quelle entreprise voulez-vous vous déconnecter : Lantern Noodle Bar ou Harborline Bank ?",
+    },
+  ],
+  "whichToRemove": [
+    {
+      "ca": "Quina empresa trec? Aquesta conversa està connectada a Lantern Noodle Bar i Harborline Bank.",
+      "en": "Which company should I remove? This conversation is connected to Lantern Noodle Bar and Harborline Bank.",
+      "es": "¿Qué empresa quito? Esta conversación está conectada a Lantern Noodle Bar y Harborline Bank.",
+      "fr": "Quelle entreprise dois-je retirer ? Cette conversation est connectée à Lantern Noodle Bar et Harborline Bank.",
+    },
+  ],
+  "writeAsk": [
+    {
+      "ca": "Demano a Lantern Noodle Bar permís per fer canvis? Es torna a obrir la pàgina de Lantern Noodle Bar, i res no canvia fins que aprovis el canvi.",
+      "en": "Ask Lantern Noodle Bar for change permission? Lantern Noodle Bar's page opens again, and nothing changes until you approve the change itself.",
+      "es": "¿Pido a Lantern Noodle Bar permiso para hacer cambios? Se vuelve a abrir la página de Lantern Noodle Bar, y nada cambia hasta que apruebes el cambio en sí.",
+      "fr": "Demander à Lantern Noodle Bar l'autorisation de faire des modifications ? La page de Lantern Noodle Bar s'ouvre à nouveau, et rien ne change tant que vous n'avez pas approuvé la modification elle-même.",
+    },
+    {
+      "ca": "Per a això necessito permís per fer canvis a Lantern Noodle Bar. L'hi demano per continuar amb «move it to Sunday»? Es torna a obrir la pàgina de Lantern Noodle Bar, i res no canvia fins que aprovis el canvi.",
+      "en": "That needs change permission at Lantern Noodle Bar. Ask Lantern Noodle Bar for it to go on with “move it to Sunday”? Lantern Noodle Bar's page opens again, and nothing changes until you approve the change itself.",
+      "es": "Para eso necesito permiso para hacer cambios en Lantern Noodle Bar. ¿Se lo pido para seguir con «move it to Sunday»? Se vuelve a abrir la página de Lantern Noodle Bar, y nada cambia hasta que apruebes el cambio en sí.",
+      "fr": "Pour cela, j'ai besoin de l'autorisation de faire des modifications chez Lantern Noodle Bar. Je la demande pour continuer « move it to Sunday » ? La page de Lantern Noodle Bar s'ouvre à nouveau, et rien ne change tant que vous n'avez pas approuvé la modification elle-même.",
+    },
+  ],
+  "writeAskSpoken": [
+    {
+      "ca": "Demano a Lantern Noodle Bar permís per fer canvis? Res no canvia fins que aprovis el canvi.",
+      "en": "Ask Lantern Noodle Bar for change permission? Nothing changes until you approve the change itself.",
+      "es": "¿Pido a Lantern Noodle Bar permiso para hacer cambios? Nada cambia hasta que apruebes el cambio en sí.",
+      "fr": "Demander à Lantern Noodle Bar l'autorisation de modifier ? Rien ne change tant que vous n'avez pas approuvé la modification.",
+    },
+    {
+      "ca": "Demano a Lantern Noodle Bar permís per fer canvis i continuar? Res no canvia fins que aprovis el canvi.",
+      "en": "Ask Lantern Noodle Bar for change permission to go on? Nothing changes until you approve the change itself.",
+      "es": "¿Pido a Lantern Noodle Bar permiso para hacer cambios y seguir? Nada cambia hasta que apruebes el cambio en sí.",
+      "fr": "Demander à Lantern Noodle Bar l'autorisation de modifier pour continuer ? Rien ne change tant que vous n'avez pas approuvé la modification.",
+    },
+  ],
+  "writeButton": [
+    {
+      "ca": "Demanar permís de canvis a Lantern Noodle Bar",
+      "en": "Request change permission at Lantern Noodle Bar",
+      "es": "Pedir permiso de cambios en Lantern Noodle Bar",
+      "fr": "Demander l'autorisation de modifier chez Lantern Noodle Bar",
+    },
+  ],
+}
+`;

@@ -22,6 +22,7 @@ import { overBudget } from "./limits";
 import { spokenProposal } from "./approval-question";
 import { hideLinkSecrets } from "./link-display";
 import { spokenText } from "./spoken";
+import { languageOf, type Language } from "./language";
 import { notSaved } from "./run-size";
 import type { PendingItem } from "./pending";
 import { pendingFor } from "./pending-runs";
@@ -196,7 +197,10 @@ type PageEntry = {
 };
 const LINK = /https?:\/\/[^\s<>"')\]]+/gi;
 /** A kept entry of the page's, as a message any channel can show. */
-export function messageOf(entry: PageEntry): AgentMessage {
+export function messageOf(
+  entry: PageEntry,
+  language: Language = "en",
+): AgentMessage {
   const links = [...entry.content.matchAll(LINK)].map((m) =>
     hideLinkSecrets(m[0]),
   );
@@ -210,7 +214,7 @@ export function messageOf(entry: PageEntry): AgentMessage {
     text: entry.content,
     // The agent's own words only: a Company's are never rewritten.
     ...(entry.role === "assistant"
-      ? { spoken: entry.spoken ?? spokenText(entry.content) }
+      ? { spoken: entry.spoken ?? spokenText(entry.content, language) }
       : {}),
     ...(entry.from ? { company: entry.from } : {}),
     ...(entry.using?.length ? { using: entry.using } : {}),
@@ -231,7 +235,11 @@ export function messageOf(entry: PageEntry): AgentMessage {
       : {}),
   };
 }
-const proposalOf = (company: CompanyRef, op: Operation): Proposal => ({
+const proposalOf = (
+  company: CompanyRef,
+  op: Operation,
+  language: Language = "en",
+): Proposal => ({
   id: op.operation_id,
   company,
   revision: op.revision,
@@ -240,7 +248,7 @@ const proposalOf = (company: CompanyRef, op: Operation): Proposal => ({
   state: op.state,
   expiresAt: op.expires_at,
   ...(op.result?.summary ? { result: op.result.summary } : {}),
-  spoken: spokenProposal(op, company.name),
+  spoken: spokenProposal(op, company.name, language),
 });
 /**
  * A sign-in waiting for its callback there, and only that. The page's
@@ -274,22 +282,23 @@ type View = {
 };
 /** The reload's answer (`readAccount`) as a channel shows it. */
 export function stateOf(id: string, view: View, run?: Run): ConversationState {
+  const language = languageOf(run);
   return {
     id,
     active: !view.readOnly,
     ...(view.keptUntil ? { keptUntil: view.keptUntil } : {}),
     companies: view.connections.map((c) => companyOf(c, run)),
     removed: view.former.map(({ origin, name }) => ({ origin, name })),
-    messages: view.history.map(messageOf),
+    messages: view.history.map((entry) => messageOf(entry, language)),
     proposals: [
       ...view.connections.flatMap((c) =>
         c.operations.map((op) =>
-          proposalOf({ origin: c.origin, name: c.name }, op),
+          proposalOf({ origin: c.origin, name: c.name }, op, language),
         ),
       ),
       ...view.former.flatMap((f) =>
         f.operations.map((op) =>
-          proposalOf({ origin: f.origin, name: f.name }, op),
+          proposalOf({ origin: f.origin, name: f.name }, op, language),
         ),
       ),
     ],

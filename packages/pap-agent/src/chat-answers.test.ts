@@ -140,12 +140,12 @@ describe("a typed answer to Iris's question about a proposal", () => {
       input: "typed",
     });
     expect(textOf(answered)).toBe(
-      "You approved the $88.00 change at Lantern Noodle Bar, and Lantern Noodle Bar performed it.",
+      "Done. You approved the $88.00 change at Lantern Noodle Bar, and Lantern Noodle Bar has carried it out.",
     );
     // Kept as the User's line and Iris's, for a reload.
     expect(run.transcript?.slice(-2).map((e) => e.content)).toEqual([
       "yes",
-      "You approved the $88.00 change at Lantern Noodle Bar, and Lantern Noodle Bar performed it.",
+      "Done. You approved the $88.00 change at Lantern Noodle Bar, and Lantern Noodle Bar has carried it out.",
     ]);
   });
 
@@ -160,7 +160,7 @@ describe("a typed answer to Iris's question about a proposal", () => {
     );
     expect(acted).not.toHaveBeenCalled();
     expect(textOf(answered)).toMatch(
-      /^Lantern Noodle Bar changed the terms since Iris asked, so nothing was approved\. Lantern Noodle Bar proposes a change to your order\. The new total is \$88\.00, \$15\.00 more\. The terms expire in (10|9) minutes\. Approve it\?$/,
+      /^Lantern Noodle Bar changed the terms after I asked, so nothing was approved\. Lantern Noodle Bar wants to change your order\. The new total is \$88\.00, \$15\.00 more than before\. It expires in (10|9) minutes\. Shall I approve it\?$/,
     );
     // The question now names the new revision, and only that.
     expect(run.asking).toEqual({ approve: [ref(food, order("r2"))] });
@@ -191,7 +191,7 @@ describe("a typed answer to Iris's question about a proposal", () => {
     const question = run.transcript!.find((e) => e.proposals?.length);
     expect(question?.proposals).toEqual([ref(food, order("r2"))]);
     expect(question?.choices).toBeUndefined();
-    expect(run.transcript!.at(-1)!.content).toMatch(/^You approved/);
+    expect(run.transcript!.at(-1)!.content).toMatch(/^Done\. You approved/);
   });
 
   it("asks again, naming each, when two wait and the answer doesn't say which", async () => {
@@ -211,7 +211,7 @@ describe("a typed answer to Iris's question about a proposal", () => {
     );
     expect(acted).not.toHaveBeenCalled();
     expect(textOf(answered)).toBe(
-      "Which one do you approve: the $88.00 change at Lantern Noodle Bar or the $500.00 transfer at Harborline Bank? Say the company or the amount.",
+      "Which one do you want to approve: the $88.00 change at Lantern Noodle Bar or the $500.00 transfer at Harborline Bank? You can say the company or the amount.",
     );
     expect(run.asking).toEqual(open);
     // A Company's name picks one.
@@ -289,7 +289,102 @@ describe("a typed answer to Iris's question about a proposal", () => {
     );
     expect(acted.mock.calls[0]![2]).toMatchObject({ action: "decline" });
     expect(textOf(answered)).toBe(
-      "Declined. Iris sent no approval to Lantern Noodle Bar, and nothing was done.",
+      "Declined. I sent no approval to Lantern Noodle Bar, and nothing was done.",
     );
+  });
+});
+
+describe("answers and lines in the conversation's language", () => {
+  it.each([
+    [
+      "es",
+      "sí, apruébalo",
+      "Hecho. Has aprobado el cambio de $88.00 en Lantern Noodle Bar y Lantern Noodle Bar ya lo ha hecho.",
+    ],
+    [
+      "es",
+      "vale",
+      "Hecho. Has aprobado el cambio de $88.00 en Lantern Noodle Bar y Lantern Noodle Bar ya lo ha hecho.",
+    ],
+    [
+      "ca",
+      "d'acord",
+      "Fet. Has aprovat el canvi de $88.00 a Lantern Noodle Bar i Lantern Noodle Bar ja l'ha fet.",
+    ],
+    [
+      "fr",
+      "oui",
+      "C'est fait. Vous avez approuvé la modification de $88.00 chez Lantern Noodle Bar, et Lantern Noodle Bar s'en est chargé.",
+    ],
+  ] as const)("approves on a %s yes: %s", async (language, typed, said) => {
+    const op = order();
+    const run = { ...conversation([food, "Lantern Noodle Bar", op]), language };
+    const answered = await answerQuestion(
+      turnOf(run, typed),
+      requestOf(typed),
+      { approve: [ref(food, op)] },
+      caller,
+    );
+    expect(acted.mock.calls[0]![2]).toMatchObject({ action: "approve" });
+    expect(textOf(answered)).toBe(said);
+  });
+
+  it.each([
+    [
+      "es",
+      "no, gracias",
+      "Rechazado. No he enviado ninguna aprobación a Lantern Noodle Bar y no se ha hecho nada.",
+    ],
+    [
+      "ca",
+      "no, gràcies",
+      "Rebutjat. No he enviat cap aprovació a Lantern Noodle Bar i no s'ha fet res.",
+    ],
+    [
+      "fr",
+      "non merci",
+      "Refusé. Je n'ai envoyé aucune approbation à Lantern Noodle Bar, et rien n'a été fait.",
+    ],
+  ] as const)("declines on a %s no", async (language, typed, said) => {
+    const op = order();
+    const run = { ...conversation([food, "Lantern Noodle Bar", op]), language };
+    const answered = await answerQuestion(
+      turnOf(run, typed),
+      requestOf(typed),
+      { approve: [ref(food, op)] },
+      caller,
+    );
+    expect(acted.mock.calls[0]![2]).toMatchObject({ action: "decline" });
+    expect(textOf(answered)).toBe(said);
+  });
+
+  it("asks which in Spanish, and takes the Company's name as the answer", async () => {
+    const run = {
+      ...conversation(
+        [food, "Lantern Noodle Bar", order()],
+        [bank, "Harborline Bank", transfer()],
+      ),
+      language: "es" as const,
+    };
+    const open: Asking = {
+      approve: [ref(food, order()), ref(bank, transfer())],
+      which: true,
+    };
+    const answered = await answerQuestion(
+      turnOf(run, "sí"),
+      requestOf("sí"),
+      open,
+      caller,
+    );
+    expect(textOf(answered)).toBe(
+      "¿Cuál quieres aprobar: el cambio de $88.00 en Lantern Noodle Bar o la transferencia de $500.00 en Harborline Bank? Puedes decir la empresa o el importe.",
+    );
+    await answerQuestion(
+      turnOf(run, "la de Harborline"),
+      requestOf("la de Harborline"),
+      run.asking,
+      caller,
+    );
+    expect(acted.mock.calls[0]![2]).toMatchObject({ company: bank });
   });
 });

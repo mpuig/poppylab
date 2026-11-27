@@ -1,6 +1,31 @@
 import { describe, expect, it } from "vitest";
 import { spokenAmount, spokenText } from "./spoken";
 
+describe("amounts said in the conversation's language", () => {
+  it.each([
+    ["es", 8800, "USD", "88 dólares"],
+    ["es", 1250, "USD", "12 dólares con 50"],
+    ["es", 100, "EUR", "1 euro"],
+    ["ca", 8800, "USD", "88 dòlars"],
+    ["ca", 1250, "EUR", "12 euros amb 50"],
+    ["ca", 50, "EUR", "50 cèntims"],
+    ["fr", 8800, "USD", "88 dollars"],
+    ["fr", 50, "EUR", "50 centimes"],
+    ["fr", -600, "USD", "moins 6 dollars"],
+  ] as const)("in %s, %i %s is %j", (language, cents, currency, said) => {
+    expect(spokenAmount(cents, currency, language)).toBe(said);
+  });
+
+  it("says a line's amounts in its language", () => {
+    expect(spokenText("El total nuevo es de $88.00.", "es")).toBe(
+      "El total nuevo es de 88 dólares.",
+    );
+    expect(spokenText("Le total est de $12.50.", "fr")).toBe(
+      "Le total est de 12 dollars 50.",
+    );
+  });
+});
+
 describe("spokenAmount", () => {
   it.each([
     [8800, "USD", "88 dollars"],

@@ -5,6 +5,8 @@ import { accountRecovery } from "./account-recovery";
 import type { TurnScope } from "./chat-turn";
 import { companyRef, originOf } from "./connections";
 import { companiesView, lostAccess } from "./conversation-view";
+import { languageOf } from "./language";
+import { say } from "./lines";
 import { refusalFacts } from "./protocol-log";
 import { UserFacingError } from "./user-error";
 import { json, type Reply } from "./web";
@@ -16,6 +18,7 @@ import { json, type Reply } from "./web";
  */
 export function failedTurn(error: unknown, scope: TurnScope): Reply {
   const { run, connection, parts, trace, did, stage } = scope;
+  const language = languageOf(run);
   const recovery = accountRecovery(error);
   // In a turn with several Companies, the one this failed at: the answer
   // is about that one, and what it knew of its sign-in.
@@ -56,8 +59,7 @@ export function failedTurn(error: unknown, scope: TurnScope): Reply {
   )
     return json(
       {
-        error:
-          "The Company refused this signed-out Poppy 1.0 Session. It may implement another version of the protocol; check its discovery in the Inspector.",
+        error: say(language, "sessionRefused"),
         code: "session_refused",
         stage,
         trace: lines,
@@ -69,8 +71,7 @@ export function failedTurn(error: unknown, scope: TurnScope): Reply {
   if (recovery && at && !at.accountToken)
     return json(
       {
-        error:
-          "This needs your account at the Company, which didn't take the request without it. Use Sign in in the chat if the Company offers it, then ask again.",
+        error: say(language, "signInRequired"),
         code: "sign_in_required",
         next: "signin",
         stage,
@@ -114,7 +115,11 @@ export function failedTurn(error: unknown, scope: TurnScope): Reply {
     const facts = refusalFacts(error.body);
     return json(
       {
-        error: `${at?.company?.document.organization.name ?? "The Company"} answered HTTP ${error.status}${shown ? ` ${shown}` : ""}${facts.length ? ` (${facts.join(", ")})` : ""}. Nothing was retried; see the Inspector.`,
+        error: say(language, "companyError", {
+          name: at?.company?.document.organization.name,
+          status: error.status,
+          facts: `${shown ? ` ${shown}` : ""}${facts.length ? ` (${facts.join(", ")})` : ""}`,
+        }),
         code: code ?? "company_error",
         stage,
         trace: lines,
@@ -139,7 +144,7 @@ export function failedTurn(error: unknown, scope: TurnScope): Reply {
     (stage === "provider" &&
       /^(Set [A-Z_]+_API_KEY|Unknown model)/.test(message))
       ? message
-      : "Chat request failed. Check the Company is running and the selected provider is configured; retry with Protocol demo.";
+      : say(language, "chatFailed");
   return json(
     { error: safe, stage, trace: lines, ...turn },
     { status: 400, headers: { "Cache-Control": "no-store" } },

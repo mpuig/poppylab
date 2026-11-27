@@ -16,8 +16,9 @@ import {
   type Connection,
   type Run,
 } from "./runtime";
-import { agentName } from "./agent";
 import { answerLabel } from "./company-commands";
+import { languageOf } from "./language";
+import { say } from "./lines";
 import { companyName, originOf } from "./connections";
 import { forgetCompany, recordAsked } from "./transcript";
 import { json } from "./web";
@@ -162,6 +163,9 @@ export async function signIn({
     {
       url: url.toString(),
       consentVersion: connection.consentVersion ?? 0,
+      // For a line the page writes about this sign-in, in the language
+      // the conversation's own lines are in.
+      language: languageOf(run),
       ...answered(run, connection, body),
     },
     { headers: { "Cache-Control": "no-store" } },
@@ -204,7 +208,10 @@ function answered(
       : "");
   if (!said) return {};
   const name = companyName(connection);
-  const text = `${name}'s own page is open in a new tab${access === "write" ? ", for the change permission" : ""}. You sign in there, and ${agentName()} never sees your password.`;
+  const text = say(languageOf(run), "signInTabOpen", {
+    name,
+    write: access === "write",
+  });
   recordAsked(run, undefined, [], { said, text });
   return { said: text };
 }

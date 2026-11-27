@@ -5,6 +5,7 @@ import type { Asking } from "./chat-answers";
 import type { Removing } from "./company-commands";
 import type { ConversationState } from "./conversations";
 import type { KeptLine } from "./inspector-log";
+import type { Language } from "./language";
 import type { OfferedTool } from "./routing";
 import type { TranscriptEntry } from "./transcript";
 
@@ -275,6 +276,12 @@ export type Run = {
    * or in the User's own words; any other message drops it.
    */
   asking?: Asking;
+  /**
+   * The language the agent's own lines are in: the one the User writes
+   * in, read from their typed messages alone (`language.ts`). English
+   * until they write in another.
+   */
+  language?: Language;
   /** When the conversation started, and its first request, for the list. */
   created?: number;
   title?: string;

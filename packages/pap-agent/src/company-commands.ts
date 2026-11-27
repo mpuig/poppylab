@@ -11,8 +11,9 @@
  * words that are also said about an order ("remove Lantern"): nothing is
  * revoked or removed until the User confirms.
  */
-import { agentName } from "./agent";
 import { PapDiscoveryError } from "@poppy-lab/pap-core";
+import { languageOf, type Language } from "./language";
+import { say } from "./lines";
 import {
   proposalName,
   questionCents,
@@ -32,6 +33,7 @@ import {
 import { keepLines } from "./inspector-log";
 import { removalRefusal, removeCompany, type Removal } from "./removing";
 import type { Connection, Run } from "./runtime";
+import { SAYS_REMOVE, yesOrNo } from "./typed-answers";
 
 /**
  * What a button of Iris's answers when it is pressed. It names Companies
@@ -129,11 +131,8 @@ const offer = (connection: Connection) =>
       ?.description ?? "",
   );
 
-const labLine = (lab: readonly Nameable[]) =>
-  `The lab's companies are ${listed(
-    lab.map((c) => c.name),
-    "and",
-  )}. To connect another company, type its address in the address box.`;
+const labLine = (language: Language, lab: readonly Nameable[]) =>
+  say(language, "labCompanies", { names: lab.map((c) => c.name) });
 
 /**
  * An answer as a request carries it: one kind, with one origin, or one to
@@ -237,37 +236,51 @@ function buttonName(run: Pick<Run, "connections" | "former">, origin: string) {
  * request.
  */
 export function answerLabel(
-  run: Pick<Run, "connections" | "former">,
+  run: Pick<Run, "connections" | "former" | "language">,
   answer: Answer,
   lab: readonly Nameable[],
 ) {
   if ("message" in answer) return answer.message;
   if ("company" in answer) return buttonName(run, answer.company);
+  const language = languageOf(run);
   if ("approve" in answer || "decline" in answer) {
     const ref = "approve" in answer ? answer.approve : answer.decline;
-    const verb = "approve" in answer ? "Approve" : "Decline";
+    const verb = "approve" in answer ? "approveButton" : "declineButton";
     const op = connectionAt(run, ref.company)?.operations?.[ref.proposal];
     const name = buttonName(run, ref.company);
     // With several Companies, which one's; with one, as its card says it.
     if (run.connections.length > 1 || !op)
-      return `${verb} ${op ? proposalName(op, name) : `the proposal at ${name}`}`;
+      return say(language, verb, {
+        what: op
+          ? proposalName(op, name, language)
+          : say(language, "proposalAt", { name }),
+      });
     const amount = questionCents(op);
     const currency = op.terms?.currency;
-    return "approve" in answer && amount && typeof currency === "string"
-      ? `Approve ${money(amount, currency)}`
-      : `${verb} this change`;
+    return say(language, verb, {
+      what:
+        "approve" in answer && amount && typeof currency === "string"
+          ? money(amount, currency)
+          : say(language, "thisChange"),
+    });
   }
   if ("signin" in answer)
-    return answer.signin.access === "write"
-      ? `Request change permission at ${buttonName(run, answer.signin.company)}`
-      : `Sign in to ${buttonName(run, answer.signin.company)} · read only`;
+    return say(
+      language,
+      answer.signin.access === "write" ? "writeButton" : "signInButton",
+      { name: buttonName(run, answer.signin.company) },
+    );
   if ("signout" in answer)
-    return `Sign out of ${buttonName(run, answer.signout)}`;
-  if ("resume" in answer) return "Yes, go on";
+    return say(language, "signOutButton", {
+      name: buttonName(run, answer.signout),
+    });
+  if ("resume" in answer) return say(language, "resumeButton");
   if ("invitation" in answer)
     return answer.invitation.accept
-      ? `Talk to ${buttonName(run, answer.invitation.company)}`
-      : "Not now";
+      ? say(language, "talkButton", {
+          name: buttonName(run, answer.invitation.company),
+        })
+      : say(language, "notNowButton");
   if ("connect" in answer) {
     const at = originOf({ url: answer.connect });
     return lab.find((c) => originOf(c) === at)?.name ?? buttonName(run, at);
@@ -275,12 +288,14 @@ export function answerLabel(
   const names = ("remove" in answer ? answer.remove : answer.keep).map(
     (origin) => buttonName(run, origin),
   );
-  return `${"remove" in answer ? "Remove" : "Keep"} ${listed(names, "and")}`;
+  return say(language, "remove" in answer ? "removeButton" : "keepButton", {
+    names,
+  });
 }
 
 /** The button for an answer. */
 export const choice = (
-  run: Pick<Run, "connections" | "former">,
+  run: Pick<Run, "connections" | "former" | "language">,
   answer: Answer,
   lab: readonly Nameable[],
 ): Choice => ({ label: answerLabel(run, answer, lab), answer });
@@ -305,33 +320,18 @@ export const answers = (asked: Removing, origins: readonly string[]) => {
 };
 
 /**
- * "yes" or "no", typed in answer to Iris asking whether to remove a
- * Company. Only these few: any other message is a message, and the
- * question is dropped.
+ * "yes" or "no", typed in answer to the agent asking whether to remove a
+ * Company, in any language the agent speaks (`typed-answers.ts`): "yes,
+ * remove it", "sí, quítala", "non, garde-la". Only these few: any other
+ * message is a message, and the question is dropped.
  */
 export function typedAnswer(
   message: string,
   asked: Removing,
 ): { remove: string[] } | { keep: string[] } | undefined {
-  const said = message
-    .trim()
-    .toLowerCase()
-    .replace(/[.!]+$/, "")
-    .replace(/[,’']/g, "")
-    .replace(/\s+/g, " ")
-    .replace(/ please$/, "");
-  if (
-    /^(?:yes|yes remove (?:it|them)|remove (?:it|them)|confirm|go ahead)$/.test(
-      said,
-    )
-  )
-    return { remove: asked.remove };
-  if (
-    /^(?:no|no thanks|no keep (?:it|them)|keep (?:it|them)|cancel|dont|never mind)$/.test(
-      said,
-    )
-  )
-    return { keep: asked.remove };
+  const answer = yesOrNo(message, SAYS_REMOVE.yes, SAYS_REMOVE.no);
+  if (answer === "yes") return { remove: asked.remove };
+  if (answer === "no") return { keep: asked.remove };
   return undefined;
 }
 
@@ -346,18 +346,20 @@ export function keepCompanies(
     return connection ? [connection] : [];
   });
   const names = kept.map(companyName);
-  const say = [
-    ...(kept.length
-      ? [
-          `${listed(names, "and")} ${kept.length > 1 ? "stay" : "stays"} connected. Nothing was removed${kept.some((c) => c.accountToken) ? " or revoked" : ""}.`,
-        ]
-      : ["Nothing was removed."]),
-    ...(rest ? ["The rest of your message wasn't asked of anyone."] : []),
+  const language = languageOf(run);
+  const words = [
+    kept.length
+      ? say(language, "kept", {
+          names,
+          revoked: kept.some((c) => c.accountToken),
+        })
+      : say(language, "nothingRemoved"),
+    ...(rest ? [say(language, "restDropped")] : []),
   ].join(" ");
   const about = kept.at(-1);
   return {
-    say,
-    told: say,
+    say: words,
+    told: words,
     ...(about ? { about } : {}),
     changed: false,
     trace: [],
@@ -377,12 +379,13 @@ export async function performCommand(
   confirmed = false,
 ): Promise<Performed> {
   const connecting = command.verb === "connect";
+  const language = languageOf(run);
   if ("which" in command) {
     const names = command.which.map((c) => c.name);
-    const say = `Which one do you mean: ${listed(names, "or")}?`;
+    const words = say(language, "whichOneMeant", { names });
     return {
-      say,
-      told: say,
+      say: words,
+      told: words,
       changed: false,
       trace: [],
       choices: command.which.map((c) =>
@@ -396,16 +399,19 @@ export async function performCommand(
   }
   if ("unknown" in command) {
     const connected = run.connections.map(companyName);
-    const say = connecting
-      ? `${command.unknown ? `There is no company called “${command.unknown}” among the lab's.` : "Which company?"} ${labLine(lab)}`
+    const words = connecting
+      ? `${say(language, "noSuchLabCompany", { named: command.unknown || undefined })} ${labLine(language, lab)}`
       : command.unknown
-        ? `This conversation isn't connected to a company called “${command.unknown}”. ${connected.length ? `It is connected to ${listed(connected, "and")}.` : "It isn't connected to any company."}`
+        ? say(language, "noSuchConnected", {
+            named: command.unknown,
+            names: connected,
+          })
         : connected.length
-          ? `Which company should be removed? This conversation is connected to ${listed(connected, "and")}.`
-          : "This conversation isn't connected to any company, so there is none to remove.";
+          ? say(language, "whichToRemove", { names: connected })
+          : say(language, "noneToRemove");
     return {
-      say,
-      told: say,
+      say: words,
+      told: words,
       changed: false,
       trace: [],
       choices: connecting
@@ -441,28 +447,31 @@ const waitingAt = (connection: Connection) =>
  * Iris's question before a removal, with what the removal takes with it:
  * the access the User gave, what was read with it, a waiting proposal.
  */
-function removalQuestion(found: readonly Connection[], rest: string) {
+function removalQuestion(
+  language: Language,
+  found: readonly Connection[],
+  rest: string,
+) {
   const one = found.length === 1;
   const signedIn = found.filter((c) => c.accountToken).map(companyName);
   const waiting = found.reduce((sum, c) => sum + waitingAt(c), 0);
   return [
-    `Remove ${listed(found.map(companyName), "and")} from this conversation?`,
+    say(language, "removeAsk", { names: found.map(companyName) }),
     ...(signedIn.length
-      ? [
-          `That revokes the access you gave ${agentName()} ${one ? "there" : `at ${listed(signedIn, "and")}`}, and what ${agentName()} read with your account there no longer shows.`,
-        ]
+      ? [say(language, "removeRevokes", { at: one ? undefined : signedIn })]
       : []),
     ...(waiting
       ? [
-          `${waiting > 1 ? `${waiting} proposals that wait for your approval are` : "A proposal that waits for your approval is"} dropped with ${one ? "it" : "them"}.`,
+          say(language, "removeDropsProposals", {
+            count: waiting,
+            many: !one,
+          }),
         ]
       : []),
     ...(!signedIn.length && !waiting
-      ? [`You can connect ${one ? "it" : "them"} again at any time.`]
+      ? [say(language, "connectAgainAnyTime", { many: !one })]
       : []),
-    ...(rest
-      ? [`${agentName()} asks the rest of your message after that.`]
-      : []),
+    ...(rest ? [say(language, "restAfter")] : []),
   ].join(" ");
 }
 
@@ -481,8 +490,10 @@ export async function connectFor(
 ): Promise<Performed> {
   const done = await connect(run, [company], rest, allowedPrivateOrigins);
   if (!done.changed || !done.at) return done;
-  const say = `This is one for ${companyName(done.at)}, so ${agentName()} connected it to this conversation. It's asked without your account until you sign in there.`;
-  return { ...done, say, told: say };
+  const words = say(languageOf(run), "connectedFor", {
+    name: companyName(done.at),
+  });
+  return { ...done, say: words, told: words };
 }
 
 /**
@@ -494,10 +505,13 @@ export function noRoomFor(
   company: Nameable,
   lab: readonly Nameable[],
 ): Performed {
-  const say = `This is one for ${company.name}, which this conversation isn't connected to. It works with ${MAX_CONNECTIONS} companies already, as many as it can: remove one, then ask again and ${agentName()} connects ${company.name}.`;
+  const words = say(languageOf(run), "noRoomFor", {
+    name: company.name,
+    most: MAX_CONNECTIONS,
+  });
   return {
-    say,
-    told: say,
+    say: words,
+    told: words,
     changed: false,
     trace: [],
     choices: run.connections.map((c) =>
@@ -516,12 +530,13 @@ async function connect(
   /** What else there is to say, each a sentence. */
   const notes: string[] = [];
   const trace: string[] = [];
+  const language = languageOf(run);
   let last: Connection | undefined;
   for (const company of companies) {
     const already = connectionAt(run, company.url);
     if (already) {
       notes.push(
-        `This conversation is already connected to ${companyName(already)}.`,
+        say(language, "alreadyConnected", { name: companyName(already) }),
       );
       last = already;
       continue;
@@ -546,18 +561,25 @@ async function connect(
     } catch (error) {
       // A discovery error's message is ours, as the Connect step shows it.
       notes.push(
-        `${company.name} couldn't be connected. ${error instanceof PapDiscoveryError ? error.message : "It couldn't be reached."}`,
+        say(language, "couldntConnect", {
+          name: company.name,
+          why: error instanceof PapDiscoveryError ? error.message : undefined,
+        }),
       );
       last = undefined;
     }
   }
   const names = added.map(companyName);
-  const lead = added.length ? [`Connected to ${listed(names, "and")}.`] : [];
+  const many = added.length > 1;
+  const lead = added.length ? [say(language, "connected", { names })] : [];
   const offers = added.flatMap((connection) => {
     const words = offer(connection);
     return words
       ? [
-          `${added.length > 1 ? companyName(connection) : "It"} describes what it offers as “${words}”.`,
+          say(language, "describesOffer", {
+            name: many ? companyName(connection) : undefined,
+            words,
+          }),
         ]
       : [];
   });
@@ -566,14 +588,12 @@ async function connect(
   const next = !added.length
     ? []
     : carry
-      ? [
-          `Signing in is offered when a request needs your account ${added.length > 1 ? "at one of them" : "there"}.`,
-        ]
+      ? [say(language, "signInOffered", { many })]
       : [
-          `You can ask ${added.length > 1 ? "them" : "it"} something now. Signing in is offered when a request needs your account ${added.length > 1 ? "at one of them" : "there"}.`,
+          say(language, "askNow", { many }),
+          say(language, "signInOffered", { many }),
         ];
-  const dropped =
-    rest && !last ? ["The rest of your message wasn't asked of anyone."] : [];
+  const dropped = rest && !last ? [say(language, "restDropped")] : [];
   const about = last ?? added.at(-1);
   return {
     say: [...lead, ...offers, ...notes, ...next, ...dropped].join(" "),
@@ -599,13 +619,14 @@ async function remove(
   let left: Performed["left"];
   let withAccount = false;
   let removed = 0;
+  const language = languageOf(run);
   // The ones that can be removed: connected, and with no approval out.
   const found: Connection[] = [];
   for (const company of companies) {
     const connection = connectionAt(run, company.url);
     const refusal = connection && removalRefusal(connection);
     if (!connection)
-      notes.push(`This conversation isn't connected to ${company.name}.`);
+      notes.push(say(language, "notConnectedTo", { name: company.name }));
     else if (refusal) notes.push(refusal.refused.error);
     else if (!found.includes(connection)) found.push(connection);
   }
@@ -618,10 +639,10 @@ async function remove(
     (!sure || found.some((c) => c.accountToken || waitingAt(c)))
   ) {
     const origins = found.map(originOf);
-    const say = [...notes, removalQuestion(found, rest)].join(" ");
+    const words = [...notes, removalQuestion(language, found, rest)].join(" ");
     return {
-      say,
-      told: say,
+      say: words,
+      told: words,
       about: { url: found.at(-1)!.url },
       changed: false,
       trace,
@@ -646,24 +667,21 @@ async function remove(
     if (removal.revoked !== undefined) withAccount = true;
     notes.push(
       removal.revoked
-        ? `${name} was removed from this conversation, and the access you gave ${agentName()} there was revoked.`
-        : `${name} was removed from this conversation.${removal.notice ? ` ${removal.notice}` : ""}`,
+        ? say(language, "removedRevoked", { name })
+        : `${say(language, "removed", { name })}${removal.notice ? ` ${removal.notice}` : ""}`,
     );
   }
-  if (withAccount)
-    notes.push(
-      `What ${agentName()} read with your account there no longer shows.`,
-    );
+  if (withAccount) notes.push(say(language, "readGone"));
   if (removed)
     notes.push(
       run.connections.length
-        ? `You can connect ${removed > 1 ? "them" : "it"} again at any time.`
-        : "This conversation isn't connected to a company now. Connect one to go on.",
+        ? say(language, "connectAgainAnyTime", { many: removed > 1 })
+        : say(language, "noCompanyNow"),
     );
-  const say = notes.join(" ");
+  const words = notes.join(" ");
   return {
-    say,
-    told: say,
+    say: words,
+    told: words,
     ...(about ? { about } : {}),
     changed: removed > 0,
     ...(left ? { left } : {}),

@@ -18,7 +18,6 @@
  * of the terms, the same record.
  */
 import { companyProfile } from "@poppy-lab/pap-core";
-import { agentName } from "./agent";
 import { actOn } from "./account";
 import { accountCommand } from "./account-command";
 import { canChange, canRequestChanges } from "./account-permissions";
@@ -32,7 +31,7 @@ import {
 import type { ChatRequest } from "./chat-body";
 import { ownAnswer, type HeldTurn } from "./chat-turn";
 import { answeredWith, type Nameable } from "./company-names";
-import { choice, listed, type Choice } from "./company-commands";
+import { choice, type Choice } from "./company-commands";
 import {
   companyName,
   companyRef,
@@ -46,6 +45,9 @@ import { demoExamplesFor } from "./demo-examples";
 import { isAccountCompany } from "./deployment";
 import { directState } from "./direct-state";
 import { nameable } from "./lab-companies";
+import { languageOf, type Language } from "./language";
+import { say } from "./lines";
+import { spokenText } from "./spoken";
 import { operationAccounts } from "./operation-store";
 import type { Connection, Operation, Run } from "./runtime";
 import { recordAsked } from "./transcript";
@@ -166,7 +168,12 @@ function askApproval(
       op,
       company: companyName(connection),
     }));
-  const asked = approvalQuestion(words(fresh), words(others));
+  const asked = approvalQuestion(
+    words(fresh),
+    words(others),
+    Date.now(),
+    languageOf(run),
+  );
   if (!asked) return undefined;
   const question = {
     text: lead ? `${lead} ${asked.text}` : asked.text,
@@ -238,15 +245,17 @@ function signInQuestion(
   request?: string,
 ): Question {
   const name = companyName(connection);
-  const goOn = request ? ` to go on with “${quoted(request)}”` : "";
+  const language = languageOf(run);
+  const words = { name, request: request ? quoted(request) : undefined };
+  const spokenWords = { name, goOn: !!request };
   const text =
     access === "read"
-      ? `Sign in to ${name}${goOn}? You sign in on ${name}'s own page, read only, and ${agentName()} never sees your password.`
-      : `Ask ${name} for change permission${goOn}? It opens ${name}'s own page again, and nothing changes until you approve the change itself.`;
+      ? say(language, "signInAsk", words)
+      : say(language, "writeAsk", words);
   const spoken =
     access === "read"
-      ? `Sign in to ${name}${request ? " to go on" : ""}? You sign in on ${name}'s own page.`
-      : `Ask ${name} for change permission${request ? " to go on" : ""}? Nothing changes until you approve the change itself.`;
+      ? say(language, "signInAskSpoken", spokenWords)
+      : say(language, "writeAskSpoken", spokenWords);
   return {
     text,
     spoken,
@@ -309,8 +318,8 @@ export function askAfter(
     const name = companyName(connection);
     const origin = originOf(connection);
     const question = {
-      text: `${name} asks to talk with you directly. ${agentName()} won't read or answer there, and you can leave at any time. Talk with ${name}?`,
-      spoken: `${name} asks to talk with you directly. Talk with them?`,
+      text: say(languageOf(run), "invitationAsk", { name }),
+      spoken: say(languageOf(run), "invitationAskSpoken", { name }),
       choices: [
         choice(run, { invitation: { company: origin, accept: true } }, lab),
         choice(run, { invitation: { company: origin, accept: false } }, lab),
@@ -352,14 +361,20 @@ export function askToResume(
   }
   const name = companyName(connection);
   const origin = originOf(connection);
+  const language = languageOf(run);
   const question: Question = {
-    text: `You're signed in at ${name}. Shall ${agentName()} go on with “${quoted(resume.asked)}”?`,
-    spoken: `You're signed in at ${name}. Shall ${agentName()} go on with your request?`,
-    choices: [{ label: "Yes, go on", answer: { resume: origin } }],
+    text: say(language, "resumeAsk", { name, request: quoted(resume.asked) }),
+    spoken: say(language, "resumeAskSpoken", { name }),
+    choices: [
+      { label: say(language, "resumeButton"), answer: { resume: origin } },
+    ],
   };
   run.asking = { resume: origin };
-  // The User's own words, asked before this account was signed in.
-  recordAsked(run, undefined, [], question);
+  // The User's own words, asked before this account was signed in. The
+  // question is about the sign-in here, so it is kept as the account's:
+  // signing out here, or losing the access, takes it away with the rest
+  // (`forgetCompany`), and it no longer shows once it doesn't apply.
+  recordAsked(run, connection, [origin], question);
   return question;
 }
 
@@ -442,6 +457,7 @@ export async function answerQuestion(
           company: companyName(connection),
         })),
         read.unclear,
+        languageOf(run),
       );
       const question = {
         ...again,
@@ -483,12 +499,13 @@ export async function answerQuestion(
       const waited = connection?.resume?.asked;
       if (connection) delete connection.resume;
       const name = nameFor(run, originOf({ url: open.signin.company }));
+      const words = { name, waited: waited ? quoted(waited) : undefined };
       return says(
         turn,
         connection,
         open.signin.access === "read"
-          ? `Fine: you stay signed out at ${name}${waited ? `, and ${agentName()} didn't ask it for “${quoted(waited)}”` : ""}.`
-          : `Fine: your access at ${name} stays as it is${waited ? `, and ${agentName()} didn't ask it for “${quoted(waited)}”` : ""}.`,
+          ? say(languageOf(run), "stayedSignedOut", words)
+          : say(languageOf(run), "accessUnchanged", words),
         said,
       );
     }
@@ -506,7 +523,9 @@ export async function answerQuestion(
       return says(
         turn,
         undefined,
-        `You stay signed in at ${listed(companies.map(companyName), "and")}. Nothing was revoked.`,
+        say(languageOf(run), "stayedSignedIn", {
+          names: companies.map(companyName),
+        }),
         said,
       );
     const picked = answeredWith(
@@ -527,7 +546,10 @@ export async function answerQuestion(
       return says(
         turn,
         undefined,
-        `Fine: ${agentName()} didn't ask ${nameFor(run, originOf({ url: open.resume }))}${waited ? ` for “${quoted(waited)}”` : " anything"}.`,
+        say(languageOf(run), "didntResume", {
+          name: nameFor(run, originOf({ url: open.resume })),
+          waited: waited ? quoted(waited) : undefined,
+        }),
         said,
       );
     return undefined;
@@ -597,9 +619,6 @@ function says(
   };
 }
 
-const capital = (words: string) =>
-  words.charAt(0).toUpperCase() + words.slice(1);
-
 /**
  * The User's decision on one proposal, at the revision the question
  * named: through the account route's own handler, as the card's button.
@@ -619,20 +638,21 @@ async function decide(
   const name = connection
     ? companyName(connection)
     : nameFor(run, originOf({ url: ref.company }));
-  const what = op ? proposalName(op, name) : `the proposal at ${name}`;
-  const done = decision === "approve" ? "approved" : "declined";
+  const language = languageOf(run);
+  const what = op
+    ? proposalName(op, name, language)
+    : say(language, "proposalAt", { name });
+  const done = { approve: decision === "approve" };
   const accounts = connection && op ? accountsOf(connection, op) : [];
   const record = (text: string, extra: Record<string, unknown> = {}) => {
     recordAsked(run, connection, accounts, { said, text });
     return { reply: ownAnswer(turn, text, [], extra) };
   };
   if (!connection || !op)
-    return record(
-      `${capital(what)} no longer shows here, so nothing was ${done}.`,
-    );
+    return record(say(language, "proposalGone", { what, ...done }));
   // Terms other than the ones asked about: never approved for the User.
   if (op.revision !== ref.revision) {
-    const changed = `${name} changed the terms since ${agentName()} asked, so nothing was ${done}.`;
+    const changed = say(language, "termsChanged", { name, ...done });
     if (live(op)) {
       const question = askApproval(
         run,
@@ -652,7 +672,7 @@ async function decide(
     return record(changed);
   }
   if (op.state !== "proposed" || (decision === "decline" && !live(op)))
-    return record(settled(op, what, name, done));
+    return record(settled(op, what, name, done.approve, language));
   const answer = await actOn(
     run,
     connection,
@@ -687,14 +707,14 @@ async function decide(
   const now = result.operation ?? op;
   const text =
     answer.status === 200 && now.state === "succeeded"
-      ? `You approved ${what}, and ${name} performed it.`
+      ? say(language, "performed", { what, name })
       : answer.status === 200 && result.code === "approval_declined"
-        ? `${name} declined the approval and did nothing.`
+        ? say(language, "approvalRefused", { name })
         : answer.status === 200 && now.state === "declined"
-          ? `Declined. ${agentName()} sent no approval to ${name}, and nothing was done.`
+          ? say(language, "declined", { name })
           : typeof result.error === "string" && result.error
             ? result.error
-            : `${agentName()} couldn't send that to ${name}. Nothing was ${done}; try again in a moment.`;
+            : say(language, "notSent", { name, ...done });
   // New terms in answer to the approval: asked about, as any proposal is.
   const next =
     result.code === "terms_changed" && result.operation
@@ -742,16 +762,17 @@ function remaining(
     recordAsked(run, connection, accounts, { said, text });
     return { reply: ownAnswer(turn, text, [], extra) };
   }
+  const language = languageOf(run);
   const names = left.map(({ connection: c, op }) =>
-    proposalName(op, companyName(c)),
+    proposalName(op, companyName(c), language),
   );
   const follow =
     left.length === 1
-      ? `${capital(names[0]!)} still waits for you. Approve it too?`
-      : `${capital(listed(names, "and"))} still wait for you. Which do you approve: ${listed(names, "or")}?`;
+      ? say(language, "stillWaitsOne", { what: names[0]! })
+      : say(language, "stillWaitMany", { names });
   const question = {
     text: `${text} ${follow}`,
-    spoken: `${text} ${follow}`,
+    spoken: spokenText(`${text} ${follow}`, language),
     choices: decisionChoices(run, left, turn.lab),
   };
   run.asking = {
@@ -777,19 +798,29 @@ function remaining(
 }
 
 /** Why a proposal takes no answer any more, in the agent's words. */
-function settled(op: Operation, what: string, name: string, done: string) {
+function settled(
+  op: Operation,
+  what: string,
+  name: string,
+  approve: boolean,
+  language: Language,
+) {
   switch (op.state) {
     case "succeeded":
-      return `${capital(what)} was already approved${op.approvedBy?.approver === "agent" ? ` by ${agentName()} on your standing instruction` : ""}, and ${name} performed it. Nothing more was sent.`;
+      return say(language, "alreadyApproved", {
+        what,
+        name,
+        byAgent: op.approvedBy?.approver === "agent",
+      });
     case "declined":
-      return `You already declined ${what}, so nothing was sent to ${name}.`;
+      return say(language, "alreadyDeclined", { what, name });
     case "uncertain":
-      return `${capital(what)} was approved, and ${name} hasn't said whether it was performed. Retry the same approval on its card; nothing new was sent.`;
+      return say(language, "outcomeUnknown", { what, name });
     case "proposed":
     case "expired":
-      return `${capital(what)} has expired, so nothing was ${done}. Ask for the change again to get new terms.`;
+      return say(language, "expired", { what, approve });
     default:
-      return `${capital(what)} no longer waits for an answer, so nothing was ${done}.`;
+      return say(language, "noLongerWaits", { what, approve });
   }
 }
 
@@ -805,11 +836,14 @@ function signInAgain(
 ): Answered {
   const run = turn.conversation;
   const connection = connectionAt(run, asked.company);
+  const language = languageOf(run);
   if (!connection)
     return says(
       turn,
       undefined,
-      `This conversation isn't connected to ${nameFor(run, originOf({ url: asked.company }))} any more, so there is nothing to sign in to.`,
+      say(language, "notConnectedAnyMore", {
+        name: nameFor(run, originOf({ url: asked.company })),
+      }),
       said,
     );
   const name = companyName(connection);
@@ -817,11 +851,14 @@ function signInAgain(
     return says(
       turn,
       connection,
-      `${name} doesn't offer sign-in to ${agentName()}.`,
+      say(language, "noSignInOffered", { names: [name] }),
       said,
     );
   const origin = originOf(connection);
-  const text = `Open ${name}'s own page with the button below to sign in${asked.access === "write" ? " for the change permission" : ", read only"}. ${agentName()} never sees your password.`;
+  const text = say(language, "signInOpen", {
+    name,
+    write: asked.access === "write",
+  });
   const choices = [
     choice(
       run,
@@ -846,8 +883,14 @@ async function signOut(
   const name = connection
     ? companyName(connection)
     : nameFor(run, originOf({ url: company }));
+  const language = languageOf(run);
   if (!connection?.accountToken)
-    return says(turn, undefined, `You aren't signed in at ${name}.`, said);
+    return says(
+      turn,
+      undefined,
+      say(language, "notSignedIn", { names: [name] }),
+      said,
+    );
   const answer = await actOn(
     run,
     connection,
@@ -864,10 +907,10 @@ async function signOut(
   const trace = result.trace ?? [];
   const text =
     answer.status === 200
-      ? `Signed out of ${name}. The access you gave ${agentName()} there was revoked, and what ${agentName()} read with your account there no longer shows.`
+      ? say(language, "signedOut", { name })
       : typeof result.error === "string" && result.error
         ? result.error
-        : `${agentName()} couldn't sign you out of ${name}. Try again in a moment.`;
+        : say(language, "signOutFailed", { name });
   // What the conversation shows after the sign-out comes first, then this.
   return says(turn, undefined, text, said, {
     trace,
@@ -892,7 +935,9 @@ function resume(
     return says(
       turn,
       connection,
-      `No request is waiting to go on${connection ? ` at ${companyName(connection)}` : ""}. Type it again.`,
+      say(languageOf(run), "nothingToResume", {
+        name: connection ? companyName(connection) : undefined,
+      }),
       turn.message,
     );
   turn.asked = waited.asked;
@@ -913,7 +958,9 @@ function invitation(
     return says(
       turn,
       connection,
-      `${nameFor(run, originOf({ url: company }))} no longer asks to talk with you directly.`,
+      say(languageOf(run), "invitationGone", {
+        name: nameFor(run, originOf({ url: company })),
+      }),
       turn.message,
     );
   return { direct: accept ? "accept" : "decline", connection };
@@ -927,6 +974,7 @@ function accountWords(
 ): Answered {
   const run = turn.conversation;
   const lab = turn.lab;
+  const language = languageOf(run);
   const named = command.named.flatMap((n) => {
     const c = connectionAt(run, n.url);
     return c ? [c] : [];
@@ -940,13 +988,15 @@ function accountWords(
         turn,
         undefined,
         named.length
-          ? `You aren't signed in at ${listed(named.map(companyName), "or")}.`
-          : "You aren't signed in at any company in this conversation.",
+          ? say(language, "notSignedIn", { names: named.map(companyName) })
+          : say(language, "notSignedInAnywhere"),
         said,
       );
     if (signedIn.length > 1) {
       const question = {
-        text: `Which company do you want to sign out of: ${listed(signedIn.map(companyName), "or")}?`,
+        text: say(language, "whichSignOut", {
+          names: signedIn.map(companyName),
+        }),
         spoken: "",
         choices: signedIn.map((c) =>
           choice(run, { signout: originOf(c) }, lab),
@@ -960,8 +1010,8 @@ function accountWords(
     const connection = signedIn[0]!;
     const name = companyName(connection);
     const question = {
-      text: `Sign out of ${name}? That revokes the access you gave ${agentName()} there, and what ${agentName()} read with your account there no longer shows.`,
-      spoken: `Sign out of ${name}? What ${agentName()} read there no longer shows.`,
+      text: say(language, "signOutAsk", { name }),
+      spoken: say(language, "signOutAskSpoken", { name }),
       choices: [choice(run, { signout: originOf(connection) }, lab)],
     };
     run.asking = { signout: [originOf(connection)] };
@@ -984,15 +1034,15 @@ function accountWords(
       turn,
       undefined,
       named.length
-        ? `${listed(named.map(companyName), "and")} ${named.length > 1 ? "don't" : "doesn't"} offer sign-in to ${agentName()}.`
+        ? say(language, "noSignInOffered", { names: named.map(companyName) })
         : run.connections.length
-          ? `There is no company in this conversation to sign in to.`
-          : "This conversation isn't connected to a company yet. Connect one first.",
+          ? say(language, "nothingToSignIn")
+          : say(language, "noCompanyYet"),
       said,
     );
   if (targets.length > 1) {
     const question = {
-      text: `Which company do you want to sign in to: ${listed(targets.map(companyName), "or")}?`,
+      text: say(language, "whichSignIn", { names: targets.map(companyName) }),
       choices: targets.map((c) =>
         choice(run, { signin: { company: originOf(c), access: "read" } }, lab),
       ),
@@ -1012,7 +1062,7 @@ function accountWords(
     return says(
       turn,
       connection,
-      `You're already signed in at ${companyName(connection)}.`,
+      say(language, "alreadySignedIn", { name: companyName(connection) }),
       said,
     );
   const access = more ? "write" : "read";

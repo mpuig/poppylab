@@ -16,6 +16,8 @@ import { createHmac } from "node:crypto";
 import { addressKey } from "@poppy-lab/pap-client";
 import type { WorkersAiBinding } from "@poppy-lab/llm-adapters/server";
 import { publicMode } from "./deployment";
+import type { Language } from "./language";
+import { say, type LineParams } from "./lines";
 import { allow, storage, type Limit } from "./runs";
 import type { Caller } from "./web";
 
@@ -261,38 +263,28 @@ export async function admitFreeTurn(
   visitor: string,
   token: string | undefined,
   now = Date.now(),
+  /** The conversation's language, for the line about demo mode. */
+  language: Language = "en",
 ): Promise<FreeTurn | { notice: string }> {
   const status = freeModelStatus();
   const ai = binding();
   const secret = env("TURNSTILE_SECRET_KEY");
-  const demo = "so this turn ran in demo mode, with guided examples";
+  const notice = (why: LineParams<"freeModel">["why"], count?: number) => ({
+    notice: say(language, "freeModel", { why, count }),
+  });
   if (!status.available || !ai || !secret)
-    return {
-      notice: !ai
-        ? `The free model runs only on the deployed site, ${demo}.`
-        : `The free model is off on this deployment, ${demo}.`,
-    };
+    return notice(!ai ? "notDeployed" : "off");
   const cap = dailyNeurons();
-  const capNotice = `The free model has used today's allowance for everyone, ${demo}. It starts again at midnight UTC, or you can use your own model.`;
-  if ((await neuronsToday(now)) + TURN_RESERVE > cap)
-    return { notice: capNotice };
-  if (!token)
-    return {
-      notice: `The browser check for the free model hadn't finished, ${demo}. Send it again in a moment.`,
-    };
+  const capNotice = notice("allowance");
+  if ((await neuronsToday(now)) + TURN_RESERVE > cap) return capNotice;
+  if (!token) return notice("unfinished");
   if (!(await verified(token, caller.origin, secret, caller.ip)))
-    return {
-      notice: `Cloudflare's browser check didn't pass, ${demo}. Send it again in a moment.`,
-    };
+    return notice("failed");
   const { visitor: mine, network } = FREE_LIMITS;
   if (!(await allow(visitor, { visitor: [limit("free:h", mine.hour, hour)] })))
-    return {
-      notice: `You've used the free model's ${mine.hour} turns for this hour, ${demo}. Try again later, or use your own model.`,
-    };
+    return notice("hour", mine.hour);
   if (!(await allow(visitor, { visitor: [limit("free:d", mine.day, day)] })))
-    return {
-      notice: `You've used the free model's ${mine.day} turns for today, ${demo}. Try again tomorrow, or use your own model.`,
-    };
+    return notice("day", mine.day);
   if (caller.ip) {
     const bucket = networkBucket(caller.ip, secret, now);
     if (
@@ -303,12 +295,9 @@ export async function admitFreeTurn(
         ],
       }))
     )
-      return {
-        notice: `Visitors on your network have used the free model's turns for now, ${demo}. Try again later, or use your own model.`,
-      };
+      return notice("network");
   }
-  if (!(await reserveNeurons(TURN_RESERVE, cap, now)))
-    return { notice: capNotice };
+  if (!(await reserveNeurons(TURN_RESERVE, cap, now))) return capNotice;
   let used = 0;
   let settled = false;
   return {

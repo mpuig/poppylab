@@ -237,7 +237,7 @@ describe("One conversation with Lantern and Harborline, end to end", () => {
     });
     expect(typed.status).toBe(200);
     expect(typed.data.text).toBe(
-      "Connected to Harborline Bank. It describes what it offers as “Fictional accounts, balances, transactions, cards, recipients, budgets, payment requests and owned-account transfers”. You can ask it something now. Signing in is offered when a request needs your account there.",
+      "I've connected Harborline Bank. It describes what it offers as “Fictional accounts, balances, transactions, cards, recipients, budgets, payment requests and owned-account transfers”. You can ask it something now. If a request needs your account there, I'll offer you a sign-in.",
     );
     expect(typed.data).toMatchObject({ mode: "own" });
     expect(typed.data).not.toHaveProperty("from");

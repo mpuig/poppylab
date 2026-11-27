@@ -164,16 +164,40 @@ beforeEach(() => {
 
 describe("connecting a Company in the User's own language", () => {
   // The messages reach the model: none is "connect with" in English.
-  const said: Array<[string, string, string]> = [
-    ["Spanish", "conéctate con Lantern Noodle Bar", "Lantern Noodle Bar"],
-    ["Catalan", "connecta't amb el Lantern, si us plau", "Lantern"],
-    ["French", "connecte-toi à Lantern Noodle Bar", "lantern noodle bar"],
+  // What happened is said in the User's language, as the agent's own
+  // lines are, and the model answers from it.
+  const spanish =
+    "He conectado Lantern Noodle Bar. Ya puedes preguntarle algo. Si alguna petición necesita tu cuenta allí, te ofreceré iniciar sesión.";
+  const said: Array<[string, string, string, string]> = [
+    [
+      "Spanish",
+      "conéctate con Lantern Noodle Bar",
+      "Lantern Noodle Bar",
+      spanish,
+    ],
+    [
+      "Catalan",
+      "connecta't amb el Lantern, si us plau",
+      "Lantern",
+      "He connectat Lantern Noodle Bar. Ja li pots preguntar alguna cosa. Si alguna petició necessita el teu compte allà, t'oferiré iniciar sessió.",
+    ],
+    [
+      "French",
+      "connecte-toi à Lantern Noodle Bar",
+      "lantern noodle bar",
+      "J'ai connecté Lantern Noodle Bar. Vous pouvez lui demander quelque chose maintenant. Si une demande a besoin de votre compte là-bas, je vous proposerai de vous connecter.",
+    ],
     // The User's typo, in the words and the name: the model gives the name.
-    ["a typo", "connectate con lantren noodle bar", "Lantern Noodle Bar"],
+    [
+      "a typo",
+      "connectate con lantren noodle bar",
+      "Lantern Noodle Bar",
+      spanish,
+    ],
   ];
   it.each(said)(
     "connects it in %s, as “connect with” it does, and the model is told what happened there",
-    async (_language, message, company) => {
+    async (_language, message, company, happened) => {
       const run = await conversation([power]);
       calls(["connect_company", { action: "connect", company }]);
       const turn = await say(message);
@@ -182,8 +206,7 @@ describe("connecting a Company in the User's own language", () => {
       expect(results).toEqual([
         {
           done: "connected",
-          what_happened:
-            "Connected to Lantern Noodle Bar. You can ask it something now. Signing in is offered when a request needs your account there.",
+          what_happened: happened,
           companies_now: [
             { name: "Fernwick Power & Light", signed_in: false },
             { name: "Lantern Noodle Bar", signed_in: false },
@@ -236,7 +259,7 @@ describe("connecting a Company in the User's own language", () => {
     expect(results[0]).toMatchObject({
       done: "nothing_changed",
       what_happened: expect.stringMatching(
-        /^There is no company called “Acme Bakery” among the lab's\./,
+        /^El laboratorio no tiene ninguna empresa llamada «Acme Bakery»\./,
       ),
     });
     expect(discoveredElsewhere()).toEqual([]);
@@ -278,19 +301,68 @@ describe("removing a Company in the User's own language", () => {
     });
     expect(run.connections).toHaveLength(2);
     const question = turn.answer.question;
+    // In the User's language, Catalan here, buttons and all.
     expect(question.text).toBe(
-      "Remove Lantern Noodle Bar from this conversation? You can connect it again at any time.",
+      "Trec Lantern Noodle Bar d'aquesta conversa? La pots tornar a connectar quan vulguis.",
     );
     expect(question.choices).toEqual([
-      { label: "Remove Lantern Noodle Bar", answer: { remove: [food] } },
-      { label: "Keep Lantern Noodle Bar", answer: { keep: [food] } },
+      { label: "Treure Lantern Noodle Bar", answer: { remove: [food] } },
+      { label: "Mantenir Lantern Noodle Bar", answer: { keep: [food] } },
     ]);
     // The User presses Remove: the typed request's own path removes it.
     const removed = await post({ answer: question.choices[0].answer });
     expect(removed.answer.text).toBe(
-      "Lantern Noodle Bar was removed from this conversation. You can connect it again at any time.",
+      "He tret Lantern Noodle Bar d'aquesta conversa. La pots tornar a connectar quan vulguis.",
     );
     expect(run.connections.map((c) => c.url)).toEqual([power]);
+  });
+});
+
+describe("the language of the agent's own lines", () => {
+  // A Company and a model that answer in French, whatever the User wrote.
+  const french = () => {
+    transport.mockImplementation(async (url) => {
+      const { origin, pathname } = new URL(url);
+      if (pathname === "/poppy/openapi.json") return api(origin);
+      if (pathname === "/poppy/tasks") return { excluded_tasks: [] };
+      return {
+        bills: [{ note: "Votre facture est prête. Merci de la payer." }],
+      };
+    });
+    model.mockImplementationOnce(
+      async (_provider: string, _turns: unknown, tools: Tools) => {
+        for (const tool of Object.values(tools))
+          if (/bills/i.test(tool.description)) await tool.execute({});
+        return "Bonjour ! Votre facture est prête, et je vous la montre.";
+      },
+    );
+  };
+
+  it("is the User's, never a Company's or the model's", async () => {
+    const run = await conversation([power]);
+    french();
+    await say("What do I owe this month?");
+    // The answer was French; the User wrote English, and so does the agent.
+    const connect = await post({ answer: { connect: food } });
+    expect(connect.answer.text).toMatch(/^I've connected Lantern Noodle Bar\./);
+    expect(run.language).toBeUndefined();
+  });
+
+  it("follows the User into Spanish, and stays there for a word of no language", async () => {
+    const run = await conversation([power]);
+    french();
+    await say("Hola, ¿cuánto debo este mes?");
+    // A button's label is the agent's, and says nothing of the language.
+    const connect = await post({ answer: { connect: food } });
+    expect(connect.answer.text).toMatch(/^He conectado Lantern Noodle Bar\./);
+    // "Lantern" says no language: the next line is still Spanish.
+    model.mockResolvedValueOnce("Lantern Noodle Bar is connected.");
+    await say("Lantern");
+    const removed = await post({ answer: { remove: [power] } });
+    expect(removed.answer.text).toBe(
+      "He quitado Fernwick Power & Light de esta conversación. Puedes volver a conectarla cuando quieras.",
+    );
+    expect(run.language).toBe("es");
   });
 });
 

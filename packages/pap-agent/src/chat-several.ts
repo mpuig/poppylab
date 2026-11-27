@@ -28,6 +28,7 @@ import {
   turnState,
   type HeldTurn,
 } from "./chat-turn";
+import { languageOf } from "./language";
 import { spokenText } from "./spoken";
 import { json } from "./web";
 
@@ -196,7 +197,7 @@ function severalAnswer(
   return json(
     {
       text,
-      spoken: spokenText(text),
+      spoken: spokenText(text, languageOf(conversation)),
       ...(question ? { question } : {}),
       ...(exact !== undefined ? { data: exact } : {}),
       trace: [...trace, ...parts.flatMap((part) => part.trace)],

@@ -9,6 +9,7 @@ import { companiesView } from "./conversation-view";
 import { directState } from "./direct-state";
 import type { FreeTurn } from "./free-model";
 import { nameable, type LabCompany } from "./lab-companies";
+import { languageOf } from "./language";
 import type { Connection, Operation, Run, Turn } from "./runtime";
 import type { Part } from "./several";
 import { shownSkills, shownTasks } from "./shown-tasks";
@@ -195,7 +196,7 @@ export function ownAnswer(
     {
       text,
       // For a voice: made from the same words, by fixed rules.
-      spoken: spokenText(text),
+      spoken: spokenText(text, languageOf(conversation)),
       ...(scope.did.before ? { before: scope.did.before } : {}),
       trace: scope.trace,
       // The agent's own words, under no name of its own: the page reads

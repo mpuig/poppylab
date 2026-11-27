@@ -1,5 +1,4 @@
 import { askModel } from "@poppy-lab/llm-adapters/server";
-import { agentName } from "./agent";
 import type { ChatRequest } from "./chat-body";
 import { severalTurn } from "./chat-several";
 import { ownAnswer, type HeldTurn } from "./chat-turn";
@@ -10,7 +9,6 @@ import {
   companiesAt,
   connectFor,
   keepCompanies,
-  listed,
   noRoomFor,
   performCommand,
   typedAnswer,
@@ -28,6 +26,8 @@ import { demoExamplesFor, demoGuidedReply } from "./demo-examples";
 import { localOrigins } from "./deployment";
 import { modelProvider } from "./free-model";
 import { nameable } from "./lab-companies";
+import { languageOf } from "./language";
+import { say } from "./lines";
 import { directConnection, turnConnection } from "./routing";
 import { recordOwn } from "./transcript";
 import { json, type Reply } from "./web";
@@ -75,10 +75,9 @@ export async function chooseCompany(
     // that waited is asked there. A button of a question that is no
     // longer open has nothing to ask.
     if (!waiting) {
-      const say =
-        "No request is waiting for a company to be chosen. Type your request again.";
-      recordOwn(run, undefined, message, say, false);
-      return own(say);
+      const words = say(languageOf(run), "noRequestWaiting");
+      recordOwn(run, undefined, message, words, false);
+      return own(words);
     }
     scope.connection = connectionAt(run, pressed.company);
     turn.asked = waiting;
@@ -191,14 +190,13 @@ export async function chooseCompany(
   if (answered.length > 1) {
     // The name fits several: Iris asks again, and the request goes on
     // waiting for the answer.
-    const say = `Which one is this for: ${listed(
-      answered.map((c) => c.name),
-      "or",
-    )}?`;
+    const words = say(languageOf(run), "whichIsItFor", {
+      names: answered.map((c) => c.name),
+    });
     run.waiting = waiting!;
-    recordOwn(run, undefined, message, say, false);
+    recordOwn(run, undefined, message, words, false);
     return own(
-      say,
+      words,
       answered.map((c) => choice(run, { company: originOf(c) }, lab)),
     );
   }
@@ -260,18 +258,17 @@ export async function chooseCompany(
     const others = run.connections.filter(
       (c) => !pair.some((p) => originOf(p) === originOf(c)),
     );
-    const say = `This takes two companies: ${pair[0]!.name}, where ${agentName()} reads your bill, and ${pair[1]!.name}, where it proposes the payment. ${listed(
-      absent.map((c) => c.name),
-      "and",
-    )} ${absent.length > 1 ? "aren't" : "isn't"} connected to this conversation yet. ${
-      absent.length > room
-        ? `It already has ${run.connections.length} companies, so remove ${absent.length - room > 1 ? `${absent.length - room} of them` : "one"} first, then connect ${absent.length > 1 ? "them" : "it"}, sign in at both and ask again.`
-        : `Connect ${absent.length > 1 ? "them" : "it"}, sign in at both and ask again.`
-    } Nothing was sent to any company.`;
-    recordOwn(run, undefined, asked, say, false, typed !== null);
+    const words = say(languageOf(run), "needsTwo", {
+      reads: pair[0]!.name,
+      pays: pair[1]!.name,
+      absent: absent.map((c) => c.name),
+      have: run.connections.length,
+      remove: absent.length > room ? absent.length - room : 0,
+    });
+    recordOwn(run, undefined, asked, words, false, typed !== null);
     run.history = run.history.slice(-10);
     return own(
-      say,
+      words,
       absent.length > room
         ? others.map((c) => choice(run, { remove: [originOf(c)] }, lab))
         : absent.map((c) => choice(run, { connect: originOf(c) }, lab)),
@@ -301,14 +298,13 @@ export async function chooseCompany(
     );
   }
   if (!run.connections.length) {
-    const say = `This conversation isn't connected to a company yet, so ${agentName()} didn't send your request to any company. Connect one first: ${listed(
-      lab.map((c) => c.name),
-      "or",
-    )} from the lab, or another company by typing its address in the address box.`;
-    recordOwn(run, undefined, asked, say, say, typed !== null);
+    const words = say(languageOf(run), "noCompanyToAsk", {
+      names: lab.map((c) => c.name),
+    });
+    recordOwn(run, undefined, asked, words, words, typed !== null);
     run.history = run.history.slice(-10);
     return own(
-      say,
+      words,
       lab.map((c) => choice(run, { connect: originOf(c) }, lab)),
     );
   }
@@ -316,15 +312,14 @@ export async function chooseCompany(
     // Nothing is sent to any Company. The request waits for the
     // answer, which a button or the User's own words can give.
     const names = route.ask.map(nameOf);
-    const say = `Is this for ${listed(names, "or")}? ${
-      route.why === "none"
-        ? "Nothing in your message says which."
-        : `${names.length > 2 ? "Each of them" : "Both"} could have what you asked about.`
-    }`;
+    const words = say(languageOf(run), "isItFor", {
+      names,
+      why: route.why === "none" ? "none" : names.length > 2 ? "each" : "both",
+    });
     run.waiting = asked;
-    recordOwn(run, undefined, asked, say, false, typed !== null);
+    recordOwn(run, undefined, asked, words, false, typed !== null);
     return own(
-      say,
+      words,
       route.ask.map((c) => choice(run, { company: originOf(c) }, lab)),
     );
   }
