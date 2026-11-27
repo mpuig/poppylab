@@ -304,7 +304,9 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
       );
       const revoked = tokenHash(body.token ?? "");
       if (state.grants[revoked]?.client === id) delete state.grants[revoked];
-      // RFC 7009 §2.1: access tokens of a revoked refresh token end too.
+      // RFC 7009 §2.1: an access token sent on its own ends, and its grant
+      // goes on; the access tokens of a revoked refresh token end too.
+      if (state.tokens[revoked]?.client === id) delete state.tokens[revoked];
       for (const [k, t] of Object.entries(state.tokens))
         if (t.grant === revoked && t.client === id) delete state.tokens[k];
       return c.body(null, 200, { "Cache-Control": "no-store" });
