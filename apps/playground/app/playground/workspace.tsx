@@ -47,6 +47,16 @@ const day = (time: number) =>
   });
 
 /**
+ * The transcript shows its end, where the latest message is. The Company
+ * cards of a new conversation are read from the top: from the end, a
+ * phone showed the last three and hid Juniper and Lantern above them.
+ */
+function toEnd(transcript: HTMLElement | null) {
+  if (transcript && !transcript.querySelector(":scope > .company-picker"))
+    transcript.scrollTop = transcript.scrollHeight;
+}
+
+/**
  * The playground, at `/playground` (a new conversation) and at
  * `/playground/<id>` (that conversation). Both routes render this.
  */
@@ -73,19 +83,23 @@ export function Workspace() {
       ? "Each one has its own address. Every device signed in to your account can open them."
       : copy[view].lead;
 
+  // A window too short for all of the workspace: a phone with its keyboard
+  // open, where only the visual viewport shrinks.
+  const [short, setShort] = useState(false);
   // The viewport owns the workspace; the transcript scrolls to its end.
   useEffect(() => {
     const viewport = window.visualViewport;
     let frame = 0;
     const resize = () => {
+      const height = viewport?.height ?? window.innerHeight;
       document.documentElement.style.setProperty(
         "--workspace-height",
-        `${viewport?.height ?? window.innerHeight}px`,
+        `${height}px`,
       );
+      setShort(height < 560);
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
-        const element = transcript.current;
-        if (element) element.scrollTop = element.scrollHeight;
+        toEnd(transcript.current);
       });
     };
     resize();
@@ -98,17 +112,17 @@ export function Workspace() {
       document.documentElement.style.removeProperty("--workspace-height");
     };
   }, []);
-  useEffect(() => {
-    const element = transcript.current;
-    if (element) element.scrollTop = element.scrollHeight;
-  }, [p.messages, p.sending, p.companies, p.error]);
+  useEffect(
+    () => toEnd(transcript.current),
+    [p.messages, p.sending, p.companies, p.error],
+  );
   // Part of the page, on a phone with a proposal waiting: only a new
   // message moves the page, never a refresh of the Companies.
   useEffect(() => showLatest(transcript.current), [p.messages.length]);
 
   return (
     <div
-      className={`app ${view === "run" ? "chat-workspace" : ""} ${p.messages.length || p.companies.length || p.conversation ? "has-conversation" : ""}`}
+      className={`app ${view === "run" ? "chat-workspace" : ""} ${p.messages.length || p.companies.length || p.conversation ? "has-conversation" : ""} ${short ? "short-window" : ""}`}
     >
       <header className="site-header">
         <a href="/" className="brand">

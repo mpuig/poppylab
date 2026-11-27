@@ -465,9 +465,10 @@ h1 {
   display: flex;
   flex-direction: column;
 }
+/* At least as tall as its cards, so a short window scrolls them: centred in
+   a smaller box, the first card was cut off above the transcript's top. */
 .messages:has(> .company-picker) > .company-picker {
-  flex: 1;
-  min-height: 0;
+  flex: 1 0 auto;
 }
 .messages:has(> .company-picker) > .error-message {
   order: -1;
@@ -2598,5 +2599,78 @@ footer .lab-links a:hover {
   }
   .narrow-only {
     display: inline;
+  }
+}
+
+/*
+ * On a phone every control a finger takes is at least 44px tall: the tabs,
+ * the message box's controls, the disclosures, the buttons of an answer, a
+ * card and a panel, and the quiet text buttons beside them. A text button
+ * inside a sentence keeps the sentence's line. The wordmark and the link in
+ * the heading reach the same height with padding, so neither row grows.
+ */
+@media (max-width: 600px) {
+  .nav-item,
+  .needs-you-toggle,
+  .message-choices .ghost-button,
+  .messages .account-row button,
+  .messages .account-row .connect-button,
+  .messages .account-row .ghost-button,
+  .company-panel .account-row .connect-button,
+  .company-panel .account-row .ghost-button,
+  .remove-confirm .ghost-button,
+  .suggestions button,
+  .inspector-filter button,
+  .conversations a,
+  .text-button:not(p > .text-button) {
+    min-height: 44px;
+  }
+  .agent-steps summary,
+  .company-data summary,
+  .operation-terms > summary,
+  .raw-document summary {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+  }
+  /* The taller lines bring their own room. */
+  .agent-steps,
+  .company-data {
+    margin-top: 0;
+  }
+  /* A label that takes two lines keeps room above and below them. */
+  .connect-button {
+    height: auto;
+    min-height: 44px;
+    padding-block: 6px;
+  }
+  .send-button {
+    flex-basis: 44px;
+    width: 44px;
+    height: 44px;
+  }
+  .composer-target {
+    height: 44px;
+  }
+  .site-header .brand {
+    padding-block: 9px;
+  }
+  .conversation-heading .new-conversation {
+    display: inline-block;
+    padding-block: 13px;
+    margin-block: -13px;
+  }
+}
+/*
+ * With the keyboard open, a phone's window is a few hundred pixels tall and
+ * the transcript had none of it left. While the message box has the focus
+ * there, the model row, the Companies bar and the guide wait until the
+ * keyboard closes, so the latest messages stay in view above the box.
+ */
+@media (max-width: 600px) {
+  .chat-workspace.short-window:has(.composer textarea:focus) .model-settings,
+  .chat-workspace.short-window:has(.composer textarea:focus) .companies-bar,
+  .chat-workspace.short-window:has(.composer textarea:focus) .guide {
+    display: none;
   }
 }

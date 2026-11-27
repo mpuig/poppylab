@@ -385,7 +385,7 @@ Strokes are 1px for rules and borders, 1.2px for node outlines and 1.5px for con
 
 ### Buttons
 
-- **Shape:** gently squared (6px), 46px tall, 18px side padding, 16px semibold; the small size is 40px tall with 14px padding and 15px type.
+- **Shape:** gently squared (6px), 46px tall, 18px side padding, 16px semibold; the small size is 40px tall with 14px padding and 15px type, 44px on phones.
 - **Primary:** petrol green with paper text and a matching 1px border. Hover deepens to `green-deep` over 160ms on the system's one easing curve (cubic-bezier(0.16, 1, 0.3, 1)); pressed keeps `green-deep` and moves down 1px. Often carries a trailing 18px arrow.
 - **Ghost:** paper with ink text and a `line-strong` border; hover turns the border ink.
 - **Dark:** ink with paper text; hover lightens to `ink-soft`.
@@ -573,7 +573,7 @@ What the Company's own agent says (§8) appears as separate transcript entries b
 
 Visible labels, keyboard focus rings, explicit loading/disabled/error states, and polite live updates remain. Enter submits a message; Shift+Enter inserts a line break. Composition events are respected for IME users. Empty-state suggestions fill the composer but never trigger paid requests automatically. Reduced-motion preferences disable activity animation.
 
-Model settings sits above the Companies bar (before a conversation, the connection row). A new conversation starts from the five Company cards or from a message, and the Company address form appears only on request. The provider and key fields stack on mobile. Account access, permission expansion, sign-out, errors and Operation widgets live inside the conversation, for the Company it is with; another Company's account row is in its panel in the bar, the one place it is offered above the conversation. All views and provider choices remain accessible; long URLs and responses wrap without horizontal page overflow.
+Model settings sits above the Companies bar (before a conversation, the connection row). A new conversation starts from the five Company cards or from a message, and the Company address form appears only on request. The provider and key fields stack on mobile. Account access, permission expansion, sign-out, errors and Operation widgets live inside the conversation, for the Company it is with; another Company's account row is in its panel in the bar, the one place it is offered above the conversation. All views and provider choices remain accessible; long URLs and responses wrap without horizontal page overflow. On a phone every control a finger takes is at least 44px tall (tabs, the message box's send button and select, disclosures, the buttons of an answer, a card or a panel, and text buttons outside a sentence). With the keyboard open there, while the message box has the focus, the model row, the Companies bar and the guide give their room to the transcript until it closes. A new conversation's Company cards are read from the top, and scroll in the transcript when the window is short.
 
 ## Juniper customer website
 

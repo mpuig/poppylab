@@ -1833,3 +1833,13 @@ body:has(.site) {
     text-decoration-thickness: 2px;
   }
 }
+/* On a phone a small button and the link beside it on a Company card are
+   44px tall, as every control is that a finger takes. */
+@media (max-width: 520px) {
+  .button.small {
+    min-height: 44px;
+  }
+  .case-links > a:not(.button) {
+    min-height: 44px;
+  }
+}
