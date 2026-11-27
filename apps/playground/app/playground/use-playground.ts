@@ -563,8 +563,10 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
       if (data.url) {
         if (popup) {
           popup.opener = null;
-          // For the page that tab lands on, which names the Company.
-          rememberSignInCompany(company.name);
+          // For the page that tab lands on, which names the Company: in
+          // that tab's own storage, so a second sign-in elsewhere doesn't
+          // change what this one says.
+          rememberSignInCompany(company.name, () => popup.sessionStorage);
           popup.location.href = data.url;
           setCompanies((all) =>
             patchCompany(all, origin, {
