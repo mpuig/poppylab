@@ -166,9 +166,9 @@ The same Next.js app runs with `next dev`/`next start` on Node and on Cloudflare
   - Chat accepts only Protocol demo, OpenAI-compatible and Anthropic, each with the visitor's own key. The server keys are used only on localhost in development.
   - Sign-in and proposals are allowed only for `PAP_ACCOUNT_ORIGINS` (Juniper, Lantern, Harborline, Northwind and Fernwick on poppylab.dev; Fernwick's once it is deployed) and the PAP Sandbox. `client.json` always names the public origin.
 - **Budgets** (`packages/pap-agent/src/limits.ts`, public mode):
-  - chat: 8/min and 150/day per visitor, 20/min per IP, 600/min global;
-  - account: 20/min per visitor, 40/min per IP;
-  - discovery: 20/min per visitor, 40/min per IP.
+  - chat: 8/min and 150/day per visitor, 60/min per IP (room for an office sharing one address), 600/min global;
+  - account: 20/min per visitor, 80/min per IP;
+  - discovery: 20/min per visitor, 80/min per IP.
     An IPv6 address counts by its /64, as at the Companies (`addressKey` in `pap-client`). Counters are Durable Objects on Workers.
 - **Build:** `pnpm --filter @poppy-lab/playground build:worker` (`scripts/build-worker.mjs`).
   - OpenNext copies `.env*` values into `next-env.mjs`; the first build contained the local model keys and was deleted before any deployment.

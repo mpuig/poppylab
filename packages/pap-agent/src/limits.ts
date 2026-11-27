@@ -23,17 +23,19 @@ const l = (name: string, limit: number, windowMs: number): Limit => ({
 const budgets = {
   chat: {
     visitor: [l("chat:m", 8, minute), l("chat:d", 150, day)],
-    ip: [l("chat:ip", 20, minute)],
+    // A company's office often shares one address: room for a dozen people
+    // trying the lab at once, while the per-visitor and global caps hold.
+    ip: [l("chat:ip", 60, minute)],
     global: [l("chat:g", 600, minute)],
   },
   account: {
     visitor: [l("account:m", 20, minute)],
-    ip: [l("account:ip", 40, minute)],
+    ip: [l("account:ip", 80, minute)],
     global: [l("account:g", 1200, minute)],
   },
   discover: {
     visitor: [l("discover:m", 20, minute)],
-    ip: [l("discover:ip", 40, minute)],
+    ip: [l("discover:ip", 80, minute)],
     global: [l("discover:g", 1200, minute)],
   },
 };
