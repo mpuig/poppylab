@@ -2,7 +2,7 @@
 
 ## Known protocol deviation
 
-The [coverage matrix, A08](coverage.md) now includes the corrected Session rule: exchange and refresh reject `account_mismatch`, including after revocation and signed-out renewal. Poppy prepares a new candidate Session for explicit consent and replaces its old context only after success. Integration tests keep different personas in distinct Sessions. This is not a full conformance claim.
+A Session holds one account: the shared gateway answers `session_ended` to a token for another account in a Session that already used one ([§5](https://personalagentprotocol.org/docs/1.0/spec#sessions)), and accepts a token for the same account. Poppy prepares a new candidate Session for explicit consent and replaces its old context only after success. Integration tests keep different personas in distinct Sessions. This is not a full conformance claim.
 
 ## Try it
 
