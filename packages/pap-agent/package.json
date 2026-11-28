@@ -12,6 +12,7 @@
     "./account-store": "./src/account-store.ts",
     "./agent": "./src/agent.ts",
     "./agent-steps": "./src/agent-steps.ts",
+    "./api-contract": "./src/api-contract/index.ts",
     "./api-events": "./src/api-events.ts",
     "./api-http": "./src/api-http.ts",
     "./approval-question": "./src/approval-question.ts",
@@ -67,7 +68,8 @@
     "@poppy-lab/pap-client": "workspace:*",
     "@poppy-lab/pap-core": "workspace:*",
     "@simplewebauthn/server": "14.1.0",
-    "jose": "^6.2.18"
+    "jose": "^6.2.18",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^24.10.0",
