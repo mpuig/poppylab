@@ -182,8 +182,7 @@ sends Harborline the same request again, this time with her approval
 attached. Harborline checks that the
 approval matches the terms it offered, moves the money and confirms it. The
 card shows the bank's confirmation and who approved, and Iris says: "Done. You
-approved the $1,000.00 transfer at Harborline Bank, and Harborline Bank has
-carried it out."
+approved the $1,000.00 transfer at Harborline Bank, and it has been carried out."
 
 The approval is something only Elena gives: the button, or her own answer
 to the question Iris asked about these terms. Iris reads that answer by fixed
