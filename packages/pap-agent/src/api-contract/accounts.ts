@@ -8,7 +8,7 @@ const credentialBase = {
   id: z.string().max(2048),
   rawId: z.string().max(2048),
   type: z.literal("public-key"),
-  clientExtensionResults: z.record(z.string(), z.unknown()),
+  clientExtensionResults: z.record(z.string(), z.unknown()).default({}),
   authenticatorAttachment: z
     .enum(["cross-platform", "platform"])
     .nullable()

@@ -617,13 +617,101 @@ const schemas: Record<string, Schema> = {
     undefined,
     "Challenge and WebAuthn request options for usernameless passkey sign-in.",
   ),
+  RegistrationCredential: object(
+    {
+      id: { ...str("Credential ID in base64url."), maxLength: 2048 },
+      rawId: { ...str("Credential raw ID in base64url."), maxLength: 2048 },
+      type: { type: "string", enum: ["public-key"] },
+      authenticatorAttachment: {
+        type: ["string", "null"],
+        enum: ["cross-platform", "platform", null],
+        description: "Authenticator attachment, when the platform reports it.",
+      },
+      clientExtensionResults: {
+        type: "object",
+        additionalProperties: true,
+        description:
+          "WebAuthn client extension results. Optional; omitted means an empty object.",
+      },
+      response: object(
+        {
+          clientDataJSON: {
+            ...str("Base64url client data JSON."),
+            maxLength: 16000,
+          },
+          attestationObject: {
+            ...str("Base64url attestation object."),
+            maxLength: 16000,
+          },
+          transports: {
+            type: "array",
+            items: { type: "string", maxLength: 32 },
+            maxItems: 16,
+            description: "Authenticator transports reported by the platform.",
+          },
+          publicKey: {
+            ...str("Base64url credential public key, when supplied."),
+            maxLength: 16000,
+          },
+          publicKeyAlgorithm: int(
+            "COSE algorithm identifier, when supplied by the platform.",
+          ),
+        },
+        ["clientDataJSON", "attestationObject"],
+      ),
+    },
+    ["id", "rawId", "type", "response"],
+    "WebAuthn registration response returned after creating a passkey.",
+  ),
+  AuthenticationCredential: object(
+    {
+      id: { ...str("Credential ID in base64url."), maxLength: 2048 },
+      rawId: { ...str("Credential raw ID in base64url."), maxLength: 2048 },
+      type: { type: "string", enum: ["public-key"] },
+      authenticatorAttachment: {
+        type: ["string", "null"],
+        enum: ["cross-platform", "platform", null],
+        description: "Authenticator attachment, when the platform reports it.",
+      },
+      clientExtensionResults: {
+        type: "object",
+        additionalProperties: true,
+        description:
+          "WebAuthn client extension results. Optional; omitted means an empty object.",
+      },
+      response: object(
+        {
+          clientDataJSON: {
+            ...str("Base64url client data JSON."),
+            maxLength: 16000,
+          },
+          authenticatorData: {
+            ...str("Base64url authenticator data."),
+            maxLength: 16000,
+          },
+          signature: {
+            ...str("Base64url authenticator signature."),
+            maxLength: 16000,
+          },
+          userHandle: {
+            type: ["string", "null"],
+            maxLength: 2048,
+            description: "Discoverable credential user handle, when supplied.",
+          },
+        },
+        ["clientDataJSON", "authenticatorData", "signature"],
+      ),
+    },
+    ["id", "rawId", "type", "response"],
+    "WebAuthn authentication response returned after proving a passkey.",
+  ),
   PasskeyAnswer: object(
     {
       ceremony: opaqueIdString(
         "Ceremony ID received from the corresponding `/options` call.",
       ),
       credential: {
-        type: "object",
+        oneOf: [ref("RegistrationCredential"), ref("AuthenticationCredential")],
         description:
           "Authenticator response (`RegistrationResponseJSON` or `AuthenticationResponseJSON`).",
       },

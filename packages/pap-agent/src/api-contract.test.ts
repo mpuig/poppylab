@@ -108,6 +108,41 @@ describe("public API input", () => {
     ).toBe(true);
   });
 
+  it("defaults omitted WebAuthn extension results to an empty object", () => {
+    const registration = accountOperations.createAccount.body.safeParse({
+      ceremony: "c".repeat(22),
+      credential: {
+        id: "credential",
+        rawId: "credential",
+        type: "public-key",
+        response: {
+          clientDataJSON: "client-data",
+          attestationObject: "attestation",
+        },
+      },
+    });
+    expect(registration.success).toBe(true);
+    if (registration.success)
+      expect(registration.data.credential.clientExtensionResults).toEqual({});
+
+    const authentication = accountOperations.signIn.body.safeParse({
+      ceremony: "c".repeat(22),
+      credential: {
+        id: "credential",
+        rawId: "credential",
+        type: "public-key",
+        response: {
+          clientDataJSON: "client-data",
+          authenticatorData: "authenticator-data",
+          signature: "signature",
+        },
+      },
+    });
+    expect(authentication.success).toBe(true);
+    if (authentication.success)
+      expect(authentication.data.credential.clientExtensionResults).toEqual({});
+  });
+
   it("uses a parent field's safe message for a nested failure", () => {
     const parsed = parsePublicInput(
       accountOperations.createAccount.body,

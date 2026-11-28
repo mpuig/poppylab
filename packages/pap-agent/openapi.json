@@ -3328,6 +3328,166 @@
         ],
         "description": "Challenge and WebAuthn request options for usernameless passkey sign-in."
       },
+      "RegistrationCredential": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Credential ID in base64url.",
+            "maxLength": 2048
+          },
+          "rawId": {
+            "type": "string",
+            "description": "Credential raw ID in base64url.",
+            "maxLength": 2048
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "public-key"
+            ]
+          },
+          "authenticatorAttachment": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "cross-platform",
+              "platform",
+              null
+            ],
+            "description": "Authenticator attachment, when the platform reports it."
+          },
+          "clientExtensionResults": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "WebAuthn client extension results. Optional; omitted means an empty object."
+          },
+          "response": {
+            "type": "object",
+            "properties": {
+              "clientDataJSON": {
+                "type": "string",
+                "description": "Base64url client data JSON.",
+                "maxLength": 16000
+              },
+              "attestationObject": {
+                "type": "string",
+                "description": "Base64url attestation object.",
+                "maxLength": 16000
+              },
+              "transports": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "maxLength": 32
+                },
+                "maxItems": 16,
+                "description": "Authenticator transports reported by the platform."
+              },
+              "publicKey": {
+                "type": "string",
+                "description": "Base64url credential public key, when supplied.",
+                "maxLength": 16000
+              },
+              "publicKeyAlgorithm": {
+                "type": "integer",
+                "description": "COSE algorithm identifier, when supplied by the platform."
+              }
+            },
+            "required": [
+              "clientDataJSON",
+              "attestationObject"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "rawId",
+          "type",
+          "response"
+        ],
+        "description": "WebAuthn registration response returned after creating a passkey."
+      },
+      "AuthenticationCredential": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Credential ID in base64url.",
+            "maxLength": 2048
+          },
+          "rawId": {
+            "type": "string",
+            "description": "Credential raw ID in base64url.",
+            "maxLength": 2048
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "public-key"
+            ]
+          },
+          "authenticatorAttachment": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "cross-platform",
+              "platform",
+              null
+            ],
+            "description": "Authenticator attachment, when the platform reports it."
+          },
+          "clientExtensionResults": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "WebAuthn client extension results. Optional; omitted means an empty object."
+          },
+          "response": {
+            "type": "object",
+            "properties": {
+              "clientDataJSON": {
+                "type": "string",
+                "description": "Base64url client data JSON.",
+                "maxLength": 16000
+              },
+              "authenticatorData": {
+                "type": "string",
+                "description": "Base64url authenticator data.",
+                "maxLength": 16000
+              },
+              "signature": {
+                "type": "string",
+                "description": "Base64url authenticator signature.",
+                "maxLength": 16000
+              },
+              "userHandle": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 2048,
+                "description": "Discoverable credential user handle, when supplied."
+              }
+            },
+            "required": [
+              "clientDataJSON",
+              "authenticatorData",
+              "signature"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "rawId",
+          "type",
+          "response"
+        ],
+        "description": "WebAuthn authentication response returned after proving a passkey."
+      },
       "PasskeyAnswer": {
         "type": "object",
         "properties": {
@@ -3337,7 +3497,14 @@
             "pattern": "^[A-Za-z0-9_-]{22}$"
           },
           "credential": {
-            "type": "object",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/RegistrationCredential"
+              },
+              {
+                "$ref": "#/components/schemas/AuthenticationCredential"
+              }
+            ],
             "description": "Authenticator response (`RegistrationResponseJSON` or `AuthenticationResponseJSON`)."
           },
           "device": {

@@ -77,7 +77,9 @@ export default function NativeClient() {
             <p>
               The relying party is <code>poppylab.dev</code>. The clientDataJSON
               an iOS app sends has the origin <code>https://poppylab.dev</code>,
-              which the API expects.
+              which the API expects. Every <code>POST</code> request carries{" "}
+              <code>Content-Type: application/json</code> and a JSON object body
+              (<code>{"{}"}</code> when the route needs no fields).
             </p>
 
             <h2 id="create">Create an account</h2>
