@@ -42,6 +42,7 @@ import {
 } from "@poppy-lab/pap-agent/auto-approval";
 import { withOperations } from "@/lib/operation-list";
 import {
+  clearInstructions,
   loadApprovals,
   loadInstruction,
   recordApproval,
@@ -1445,8 +1446,14 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     keptUntil: ended?.keptUntil,
     missing,
     reloadConversation,
-    /** The demo was reset under this page: its conversation has ended. */
-    markEnded: () => {
+    /**
+     * The demo was reset under this page: its conversation has ended, and
+     * the standing instructions go with the old test customers' accounts
+     * they were given for.
+     */
+    demoReset: () => {
+      clearInstructions();
+      setInstructions({});
       if (current.current) setEnded({});
     },
     companyUrl,

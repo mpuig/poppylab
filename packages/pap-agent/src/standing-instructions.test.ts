@@ -1,10 +1,13 @@
 import { expect, it } from "vitest";
 import {
+  clearInstructions,
   coveredBy,
   loadApprovals,
+  loadInstruction,
   notCovered,
   parseLimit,
   recordApproval,
+  saveInstruction,
   type Instruction,
 } from "./standing-instructions";
 
@@ -394,6 +397,38 @@ it("keeps a record of recent approvals for an hour, and ignores damaged ones", (
     expect(loadApprovals("https://b.example", now)).toEqual([]);
     store.set("poppy-lab:auto-approvals", "not json");
     expect(loadApprovals("https://a.example", now)).toEqual([]);
+  } finally {
+    if (original) Object.defineProperty(globalThis, "localStorage", original);
+    else delete (globalThis as { localStorage?: unknown }).localStorage;
+  }
+});
+
+it("clears every Company's instruction at once, and keeps the hour's approvals", () => {
+  const store = new Map<string, string>();
+  const original = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+      removeItem: (k: string) => void store.delete(k),
+    },
+  });
+  try {
+    const now = Date.now();
+    saveInstruction("https://a.example", rule);
+    saveInstruction("https://b.example", { maxCents: 500, currency: "EUR" });
+    recordApproval("https://a.example", { at: now - 1000, cents: 200 }, now);
+    expect(loadInstruction("https://a.example")).toEqual(rule);
+    // A reset of the demo data: the rules were written for the old test
+    // customers' accounts, so none of them carries over.
+    clearInstructions();
+    expect(loadInstruction("https://a.example")).toBeUndefined();
+    expect(loadInstruction("https://b.example")).toBeUndefined();
+    // The hourly allowance still counts what was approved before the reset.
+    expect(loadApprovals("https://a.example", now)).toEqual([
+      { at: now - 1000, cents: 200 },
+    ]);
   } finally {
     if (original) Object.defineProperty(globalThis, "localStorage", original);
     else delete (globalThis as { localStorage?: unknown }).localStorage;

@@ -134,7 +134,7 @@ export default function Privacy() {
               model&apos;s provider for that request and does not store it. What
               you type, and what the companies answer, go to that provider to
               produce the reply. Standing instructions you set are kept in your
-              browser too.
+              browser too, until you remove them or reset the demo data.
             </p>
             <p>
               The protocol demo, which needs no key, uses no model: fixed rules

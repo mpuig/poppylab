@@ -248,7 +248,7 @@ export function Workspace() {
           </>
         )}
         {view === "history" && (
-          <ConversationList current={p.conversation} onReset={p.markEnded} />
+          <ConversationList current={p.conversation} onReset={p.demoReset} />
         )}
       </main>
       <footer>

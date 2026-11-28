@@ -1,7 +1,11 @@
 import { expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { CompaniesOf, readConversations } from "./conversation-list";
+import {
+  CompaniesOf,
+  ConversationList,
+  readConversations,
+} from "./conversation-list";
 
 const row = (item: Parameters<typeof CompaniesOf>[0]["item"]) =>
   renderToStaticMarkup(createElement(CompaniesOf, { item }));
@@ -71,5 +75,14 @@ it("lists a Company removed from the conversation, marked as removed", () => {
   });
   expect(html).toBe(
     '<strong><span class="history-company"><span class="company-mark other" aria-hidden="true"></span>Lantern Noodle Bar<span class="removed">(removed)</span></span></strong>',
+  );
+});
+
+it("says that starting over removes the standing instructions", () => {
+  const html = renderToStaticMarkup(
+    createElement(ConversationList, { current: undefined, onReset: () => {} }),
+  );
+  expect(html).toMatch(
+    /ends\s+the conversations that are open and removes your standing\s+instructions/,
   );
 });

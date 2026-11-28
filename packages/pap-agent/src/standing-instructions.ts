@@ -276,6 +276,19 @@ export function saveInstruction(
   }
 }
 
+/**
+ * Every Company's instruction removed, as a reset of the demo data does: the
+ * rules were given for the old test customers' accounts. The hour's record
+ * of approvals stays, so a reset never widens the allowance.
+ */
+export function clearInstructions() {
+  try {
+    localStorage.removeItem(KEY);
+  } catch {
+    // Storage can be blocked; nothing was kept there then.
+  }
+}
+
 /** One approval a standing instruction made, kept so a rule cannot be chained without end. */
 export type Approval = { at: number; cents: number };
 const APPROVALS_KEY = "poppy-lab:auto-approvals";

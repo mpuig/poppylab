@@ -159,8 +159,10 @@ export function ConversationList({
         <p>
           A new conversation keeps what earlier ones changed at the companies: a
           moved delivery stays moved. Starting over gives you a fresh copy of
-          every company&apos;s test customers the next time you connect, and
-          ends the conversations that are open. They stay readable here.
+          every company&apos;s test customers the next time you connect, ends
+          the conversations that are open and removes your standing
+          instructions, which were given for the old accounts. The conversations
+          stay readable here.
         </p>
         {confirming ? (
           <div className="reset-actions">
