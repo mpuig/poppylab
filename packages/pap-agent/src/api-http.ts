@@ -48,7 +48,7 @@ import {
 import { sessionOfAccessToken, stillSignedIn } from "./api-sessions";
 import { apiSessionCaller } from "./identity";
 import { serving } from "./deployment";
-import { openApiDocument } from "./openapi";
+import openApiDocumentJson from "../openapi.json" with { type: "json" };
 import { readPublicInput } from "./public-input";
 import { storage } from "./runs";
 import { createSignInLink, openSignInLink } from "./sign-in-links";
@@ -206,7 +206,7 @@ export async function v1(request: Request, cookies: CookieStore) {
       error: "No such route. See /api/v1/openapi.json.",
     });
   if (route.operation === "getOpenApi")
-    return Response.json(openApiDocument(), { headers });
+    return Response.json(openApiDocumentJson, { headers });
   // A deployment without its configuration serves no route, whatever
   // each function would check, and reads no body.
   if (!serving())

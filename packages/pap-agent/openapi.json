@@ -66,6 +66,7 @@
                 "properties": {
                   "company": {
                     "type": "string",
+                    "maxLength": 2048,
                     "description": "Optional Company origin URL to discover and connect immediately."
                   }
                 },
@@ -265,11 +266,12 @@
                 "properties": {
                   "text": {
                     "type": "string",
-                    "description": "User message text.",
-                    "maxLength": 2000
+                    "maxLength": 2000,
+                    "description": "User message text."
                   },
                   "company": {
                     "type": "string",
+                    "maxLength": 2048,
                     "description": "Optional target Company origin URL to scope this turn."
                   },
                   "model": {
@@ -504,12 +506,13 @@
                 "properties": {
                   "company": {
                     "type": "string",
+                    "maxLength": 2048,
                     "description": "Origin URL of the Company holding the proposal."
                   },
                   "revision": {
                     "type": "string",
-                    "description": "Exact `revision` token from the proposal shown to the user.",
-                    "pattern": "^[A-Za-z0-9_-]{1,256}$"
+                    "pattern": "^[A-Za-z0-9_-]{1,256}$",
+                    "description": "Exact `revision` token from the proposal shown to the user."
                   },
                   "decision": {
                     "type": "string",
@@ -622,6 +625,7 @@
                 "properties": {
                   "company": {
                     "type": "string",
+                    "maxLength": 2048,
                     "description": "Origin URL of the connected Company."
                   },
                   "access": {
@@ -1313,9 +1317,9 @@
                 "properties": {
                   "refreshToken": {
                     "type": "string",
-                    "description": "Current refresh token from `SessionTokens`.",
                     "maxLength": 200,
-                    "pattern": "^poppy_rt\\.[A-Za-z0-9_-]{22}\\.[A-Za-z0-9_-]{22}\\.[A-Za-z0-9_-]{43}$"
+                    "pattern": "^poppy_rt\\.[A-Za-z0-9_-]{22}\\.[A-Za-z0-9_-]{22}\\.[A-Za-z0-9_-]{43}$",
+                    "description": "Current refresh token from `SessionTokens`."
                   }
                 },
                 "required": [
@@ -2137,19 +2141,19 @@
                 "properties": {
                   "channel": {
                     "type": "string",
-                    "description": "Configured external channel identifier.",
-                    "maxLength": 32
+                    "maxLength": 32,
+                    "description": "Configured external channel identifier."
                   },
                   "user": {
                     "type": "string",
-                    "description": "User identifier within that channel.",
                     "minLength": 1,
-                    "maxLength": 256
+                    "maxLength": 256,
+                    "description": "User identifier within that channel."
                   },
                   "code": {
                     "type": "string",
-                    "description": "8-character one-time link code provided by the user.",
-                    "maxLength": 32
+                    "maxLength": 32,
+                    "description": "8-character one-time link code provided by the user."
                   }
                 },
                 "required": [
@@ -2285,17 +2289,18 @@
         "properties": {
           "company": {
             "type": "string",
+            "maxLength": 2048,
             "description": "Origin URL of the Company holding the proposal."
           },
           "proposal": {
             "type": "string",
-            "description": "Unique proposal ID issued by the Company.",
-            "pattern": "^[A-Za-z0-9_-]{1,256}$"
+            "pattern": "^[A-Za-z0-9_-]{1,256}$",
+            "description": "Unique proposal ID issued by the Company."
           },
           "revision": {
             "type": "string",
-            "description": "Exact revision token shown to the user for approval.",
-            "pattern": "^[A-Za-z0-9_-]{1,256}$"
+            "pattern": "^[A-Za-z0-9_-]{1,256}$",
+            "description": "Exact revision token shown to the user for approval."
           }
         },
         "required": [
@@ -2303,76 +2308,90 @@
           "proposal",
           "revision"
         ],
+        "additionalProperties": false,
         "description": "References a specific proposal at an exact revision. Approvals bind strictly to `revision`."
       },
       "Answer": {
-        "description": "Structured payload carried by a quick-reply `Choice`. Must contain exactly one member; Companies are referenced by origin and values are never parsed as free text. `approve` and `decline` decide a proposal at its exact revision; `signin` tells the client to call `POST /api/v1/conversations/{id}/sign-ins`; `signout` signs out of that Company; `resume` retries the request that waited for sign-in; `invitation` accepts or declines a Direct Conversation.",
         "oneOf": [
           {
             "type": "object",
             "properties": {
               "company": {
                 "type": "string",
+                "maxLength": 2048,
                 "description": "Selects an already-connected Company by origin."
               }
             },
             "required": [
               "company"
-            ]
+            ],
+            "additionalProperties": false
           },
           {
             "type": "object",
             "properties": {
               "connect": {
                 "type": "string",
+                "maxLength": 2048,
                 "description": "Connects a new Company by origin URL."
               }
             },
             "required": [
               "connect"
-            ]
+            ],
+            "additionalProperties": false
           },
           {
             "type": "object",
             "properties": {
               "remove": {
+                "minItems": 1,
+                "maxItems": 3,
                 "type": "array",
                 "items": {
-                  "type": "string"
+                  "type": "string",
+                  "maxLength": 2048
                 },
                 "description": "Disconnects the listed Company origins."
               }
             },
             "required": [
               "remove"
-            ]
+            ],
+            "additionalProperties": false
           },
           {
             "type": "object",
             "properties": {
               "keep": {
+                "minItems": 1,
+                "maxItems": 3,
                 "type": "array",
                 "items": {
-                  "type": "string"
+                  "type": "string",
+                  "maxLength": 2048
                 },
                 "description": "Keeps only the listed Company origins when replacing a full conversation."
               }
             },
             "required": [
               "keep"
-            ]
+            ],
+            "additionalProperties": false
           },
           {
             "type": "object",
             "properties": {
               "message": {
                 "type": "string",
+                "maxLength": 2000,
                 "description": "Sends a scripted prompt text as the user's turn."
               }
             },
             "required": [
               "message"
-            ]
+            ],
+            "additionalProperties": false
           },
           {
             "type": "object",
@@ -2384,7 +2403,8 @@
             },
             "required": [
               "approve"
-            ]
+            ],
+            "additionalProperties": false
           },
           {
             "type": "object",
@@ -2396,7 +2416,8 @@
             },
             "required": [
               "decline"
-            ]
+            ],
+            "additionalProperties": false
           },
           {
             "type": "object",
@@ -2406,6 +2427,7 @@
                 "properties": {
                   "company": {
                     "type": "string",
+                    "maxLength": 2048,
                     "description": "Origin URL of the Company to sign in to."
                   },
                   "access": {
@@ -2421,36 +2443,42 @@
                   "company",
                   "access"
                 ],
+                "additionalProperties": false,
                 "description": "Prompts the client to start a Company sign-in flow."
               }
             },
             "required": [
               "signin"
-            ]
+            ],
+            "additionalProperties": false
           },
           {
             "type": "object",
             "properties": {
               "signout": {
                 "type": "string",
+                "maxLength": 2048,
                 "description": "Origin URL of the Company to sign out from."
               }
             },
             "required": [
               "signout"
-            ]
+            ],
+            "additionalProperties": false
           },
           {
             "type": "object",
             "properties": {
               "resume": {
                 "type": "string",
+                "maxLength": 2048,
                 "description": "Origin URL of the Company whose pending request should resume after sign-in."
               }
             },
             "required": [
               "resume"
-            ]
+            ],
+            "additionalProperties": false
           },
           {
             "type": "object",
@@ -2460,6 +2488,7 @@
                 "properties": {
                   "company": {
                     "type": "string",
+                    "maxLength": 2048,
                     "description": "Origin URL of the Company that sent the invitation."
                   },
                   "accept": {
@@ -2471,14 +2500,17 @@
                   "company",
                   "accept"
                 ],
+                "additionalProperties": false,
                 "description": "Responds to a Company's invitation to speak directly with the user."
               }
             },
             "required": [
               "invitation"
-            ]
+            ],
+            "additionalProperties": false
           }
-        ]
+        ],
+        "description": "Structured payload carried by a quick-reply `Choice`. Must contain exactly one member; Companies are referenced by origin and values are never parsed as free text. `approve` and `decline` decide a proposal at its exact revision; `signin` tells the client to call `POST /api/v1/conversations/{id}/sign-ins`; `signout` signs out of that Company; `resume` retries the request that waited for sign-in; `invitation` accepts or declines a Direct Conversation."
       },
       "Choice": {
         "type": "object",
@@ -3014,18 +3046,18 @@
           },
           "apiKey": {
             "type": "string",
-            "description": "Provider API key for `openai-compatible` or `anthropic`. Sent per request and never stored.",
-            "maxLength": 2048
+            "maxLength": 2048,
+            "description": "Provider API key for `openai-compatible` or `anthropic`. Sent per request and never stored."
           },
           "model": {
             "type": "string",
-            "description": "Optional model identifier for bring-your-own-key providers.",
-            "maxLength": 256
+            "maxLength": 256,
+            "description": "Optional model identifier for bring-your-own-key providers."
           },
           "turnstile": {
             "type": "string",
-            "description": "Single-use Cloudflare Turnstile token required for `free` turns, made by the deployment's widget on its own host for the action `chat`. Missing, invalid, or over-quota turns fall back to `demo` with an explanatory note.",
-            "maxLength": 2048
+            "maxLength": 2048,
+            "description": "Single-use Cloudflare Turnstile token required for `free` turns, made by the deployment's widget on its own host for the action `chat`. Missing, invalid, or over-quota turns fall back to `demo` with an explanatory note."
           }
         },
         "required": [
@@ -3295,8 +3327,8 @@
         "properties": {
           "ceremony": {
             "type": "string",
-            "description": "Opaque single-use ceremony ID to echo back within 5 minutes.",
-            "pattern": "^[A-Za-z0-9_-]{22}$"
+            "pattern": "^[A-Za-z0-9_-]{22}$",
+            "description": "Opaque single-use ceremony ID to echo back within 5 minutes."
           },
           "options": {
             "type": "object",
@@ -3314,8 +3346,8 @@
         "properties": {
           "ceremony": {
             "type": "string",
-            "description": "Opaque single-use ceremony ID to echo back within 5 minutes.",
-            "pattern": "^[A-Za-z0-9_-]{22}$"
+            "pattern": "^[A-Za-z0-9_-]{22}$",
+            "description": "Opaque single-use ceremony ID to echo back within 5 minutes."
           },
           "options": {
             "type": "object",
@@ -3333,19 +3365,25 @@
         "properties": {
           "id": {
             "type": "string",
-            "description": "Credential ID in base64url.",
-            "maxLength": 2048
+            "maxLength": 2048,
+            "description": "Credential ID in base64url."
           },
           "rawId": {
             "type": "string",
-            "description": "Credential raw ID in base64url.",
-            "maxLength": 2048
+            "maxLength": 2048,
+            "description": "Credential raw ID in base64url."
           },
           "type": {
             "type": "string",
             "enum": [
               "public-key"
             ]
+          },
+          "clientExtensionResults": {
+            "default": {},
+            "type": "object",
+            "additionalProperties": true,
+            "description": "WebAuthn client extension results. Optional; omitted means an empty object."
           },
           "authenticatorAttachment": {
             "type": [
@@ -3359,37 +3397,32 @@
             ],
             "description": "Authenticator attachment, when the platform reports it."
           },
-          "clientExtensionResults": {
-            "type": "object",
-            "additionalProperties": true,
-            "description": "WebAuthn client extension results. Optional; omitted means an empty object."
-          },
           "response": {
             "type": "object",
             "properties": {
               "clientDataJSON": {
                 "type": "string",
-                "description": "Base64url client data JSON.",
-                "maxLength": 16000
+                "maxLength": 16000,
+                "description": "Base64url client data JSON."
               },
               "attestationObject": {
                 "type": "string",
-                "description": "Base64url attestation object.",
-                "maxLength": 16000
+                "maxLength": 16000,
+                "description": "Base64url attestation object."
               },
               "transports": {
+                "maxItems": 16,
                 "type": "array",
                 "items": {
                   "type": "string",
                   "maxLength": 32
                 },
-                "maxItems": 16,
                 "description": "Authenticator transports reported by the platform."
               },
               "publicKey": {
                 "type": "string",
-                "description": "Base64url credential public key, when supplied.",
-                "maxLength": 16000
+                "maxLength": 16000,
+                "description": "Base64url credential public key, when supplied."
               },
               "publicKeyAlgorithm": {
                 "type": "integer",
@@ -3415,19 +3448,25 @@
         "properties": {
           "id": {
             "type": "string",
-            "description": "Credential ID in base64url.",
-            "maxLength": 2048
+            "maxLength": 2048,
+            "description": "Credential ID in base64url."
           },
           "rawId": {
             "type": "string",
-            "description": "Credential raw ID in base64url.",
-            "maxLength": 2048
+            "maxLength": 2048,
+            "description": "Credential raw ID in base64url."
           },
           "type": {
             "type": "string",
             "enum": [
               "public-key"
             ]
+          },
+          "clientExtensionResults": {
+            "default": {},
+            "type": "object",
+            "additionalProperties": true,
+            "description": "WebAuthn client extension results. Optional; omitted means an empty object."
           },
           "authenticatorAttachment": {
             "type": [
@@ -3441,28 +3480,23 @@
             ],
             "description": "Authenticator attachment, when the platform reports it."
           },
-          "clientExtensionResults": {
-            "type": "object",
-            "additionalProperties": true,
-            "description": "WebAuthn client extension results. Optional; omitted means an empty object."
-          },
           "response": {
             "type": "object",
             "properties": {
               "clientDataJSON": {
                 "type": "string",
-                "description": "Base64url client data JSON.",
-                "maxLength": 16000
+                "maxLength": 16000,
+                "description": "Base64url client data JSON."
               },
               "authenticatorData": {
                 "type": "string",
-                "description": "Base64url authenticator data.",
-                "maxLength": 16000
+                "maxLength": 16000,
+                "description": "Base64url authenticator data."
               },
               "signature": {
                 "type": "string",
-                "description": "Base64url authenticator signature.",
-                "maxLength": 16000
+                "maxLength": 16000,
+                "description": "Base64url authenticator signature."
               },
               "userHandle": {
                 "type": [
@@ -3493,8 +3527,8 @@
         "properties": {
           "ceremony": {
             "type": "string",
-            "description": "Ceremony ID received from the corresponding `/options` call.",
-            "pattern": "^[A-Za-z0-9_-]{22}$"
+            "pattern": "^[A-Za-z0-9_-]{22}$",
+            "description": "Ceremony ID received from the corresponding `/options` call."
           },
           "credential": {
             "oneOf": [
