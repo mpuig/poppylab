@@ -199,6 +199,25 @@ export function lastTurnCompany(
 }
 
 /**
+ * The Company the last turn asked something of, when it is still
+ * connected: the last entry from a Company that is its own words, or an
+ * answer with the steps of a turn there. Iris's line that it connected
+ * one ("Lantern Noodle Bar is connected.") asked it nothing.
+ */
+function lastAskedCompany(
+  run: Pick<Run, "connections" | "transcript" | "history">,
+): Connection | undefined {
+  const last = (run.transcript ?? [])
+    .filter(
+      (entry) =>
+        entry.company !== undefined &&
+        (entry.role === "company" || !!entry.steps?.length),
+    )
+    .at(-1)?.company;
+  return last === undefined ? undefined : connectionAt(run, last);
+}
+
+/**
  * §8.10: the Company one of the User's own actions on a Direct
  * Conversation is for. Their words go to a Company as they wrote them, so
  * the Company is never worked out from the words: it is the one the
@@ -463,6 +482,7 @@ export async function turnConnection(
     run.connections.includes(c as Connection),
   );
   const fit = topicFit(message, run.connections);
+  const asked = lastAskedCompany(run);
   const chosen =
     how.ask && rest.length
       ? await modelChoice(
@@ -485,14 +505,14 @@ export async function turnConnection(
     if (at) {
       // "When can you deliver?" with a shop and a restaurant: the model
       // chose one, though nothing in the message names it, and the words
-      // it is about are another's as much. Unless the last turn was with
-      // it, the User is asked.
+      // it is about are another's as much. Unless the last turn asked it
+      // something (connecting it asked nothing), the User is asked.
       const i = run.connections.indexOf(at);
       const tied = run.connections.filter(
         (_, j) => j !== i && fit.any[j]! >= fit.any[i]!,
       );
       return !named.length &&
-        at !== last &&
+        at !== asked &&
         fit.any[i]! > 0 &&
         fit.alone.every((n) => n === 0) &&
         tied.length
@@ -514,9 +534,9 @@ export async function turnConnection(
     for (const counts of [fit.alone, fit.any]) {
       const best = Math.max(0, ...counts);
       if (!best) continue;
-      // The last turn's Company goes on when no other fits better.
-      if (last && counts[run.connections.indexOf(last)] === best)
-        return { connection: last };
+      // The Company the last turn asked goes on when no other fits better.
+      if (asked && counts[run.connections.indexOf(asked)] === best)
+        return { connection: asked };
       const fitting = run.connections.filter((_, i) => counts[i]! > 0);
       return fitting.length === 1
         ? { connection: fitting[0]! }

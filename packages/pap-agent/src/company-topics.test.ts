@@ -6,7 +6,7 @@ import { connectionAt } from "./connections";
 import { labCompanies } from "./lab-companies";
 import { type AskModel, offeredTools, turnConnection } from "./routing";
 import type { Connection, Run } from "./runtime";
-import { recordTurn } from "./transcript";
+import { recordOwn, recordTurn } from "./transcript";
 
 const lab = labCompanies("http://localhost:3000");
 const at = (name: string) => lab.find((c) => c.name.startsWith(name))!;
@@ -126,7 +126,9 @@ const conversation = (
     connections: sites.map(company),
   };
   if (last)
-    recordTurn(run, connectionAt(run, last.url)!, "Hello", "Here it is.");
+    recordTurn(run, connectionAt(run, last.url)!, "Hello", "Here it is.", {
+      trace: ["GET /api/menu · 200"],
+    });
   return run;
 };
 type Routed = Awaited<ReturnType<typeof turnConnection>>;
@@ -204,7 +206,22 @@ describe("what a message is about, against what each Company publishes", () => {
         }),
       ),
     ).toBe("ask both: Lantern Noodle Bar, Juniper Market");
-    // Unless the last turn was with it, or the message names it.
+    // Iris's line that it connected Lantern asked Lantern nothing.
+    recordOwn(
+      run,
+      connectionAt(run, lantern.url),
+      "connect with Lantern",
+      "Lantern Noodle Bar is connected.",
+    );
+    expect(
+      said(
+        await turnConnection(run, "When can you deliver?", undefined, {
+          lab,
+          ask: choosing,
+        }),
+      ),
+    ).toBe("ask both: Lantern Noodle Bar, Juniper Market");
+    // Unless the last turn asked it something, or the message names it.
     expect(
       said(
         await turnConnection(
