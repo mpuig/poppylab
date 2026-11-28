@@ -8,7 +8,8 @@ Lantern has its own automated agent, the kind of support chat many companies
 already run, and Iris talks to it on Elena's behalf.
 
 This page follows that conversation screen by screen, on Iris's side and on
-Lantern's. Every screenshot is from the live lab, taken on 26 November 2026.
+Lantern's. Every screenshot is from the live lab at
+[poppylab.dev](https://poppylab.dev), taken on 26 and 28 November 2026.
 The lab ran in demo mode, which answers its guided examples without an AI
 model, so Iris sent fixed requests in answer to Elena's messages, and each
 step says which. No refund is proposed
@@ -130,15 +131,16 @@ Here it is with the descriptions of the fields left out:
 
 ### 4. Lantern asks Elena to sign in
 
-![Elena writes that her last order never arrived. Lantern's agent answers that this needs her Lantern account, and a Sign in button appears under the answer](../../../apps/playground/public/learn-media/how-it-works/getting-help-from-the-company/04-asked-to-sign-in.webp "Lantern's agent keeps the conversation open and asks for the customer's account.")
+![Elena writes that her last order never arrived. Lantern's agent answers that this needs her Lantern account, and Lantern's event reads Asked for sign-in (orders:read). The demo's answer says the company answered with an error: sign in required](../../../apps/playground/public/learn-media/how-it-works/getting-help-from-the-company/04-asked-to-sign-in.webp "Lantern's agent keeps the conversation open and asks for the customer's account.")
 
 Elena writes: "My last order never arrived." To report it Iris first needs to
 know which order she means, so it asks Lantern's agent for her orders. Lantern
 answers that this needs her account, and the conversation stays open while it
 waits.
 
-Iris turns that answer into its usual Sign in button. The button says what
-Lantern asked for: read-only access to her orders.
+Iris adds no new block or question for it. The sign-in block at the top of
+the conversation already offers what Lantern asked for, read-only access to
+her account, and Elena signs in from there.
 
 <details>
 <summary>What travelled</summary>
