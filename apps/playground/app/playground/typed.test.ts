@@ -123,11 +123,16 @@ describe("what needs no model, and so no browser check", () => {
     "connect with Harborline",
     "disconnect from Lantern",
     "sign out of Lantern",
-    "What’s on the menu?",
-    "my orders",
   ])("%j is answered by Iris's own rules", (text) => {
     expect(typedWithoutModel(text, known())).toBe(true);
   });
+
+  it.each(["What’s on the menu?", "my orders"])(
+    "%j, a demo example typed, is for the selected model: only its button runs the script",
+    (text) => {
+      expect(typedWithoutModel(text, known())).toBe(false);
+    },
+  );
 
   it("an answer to Iris's question needs none; another message does", () => {
     const asked = known([approvalQuestion()], [op()]);

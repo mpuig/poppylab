@@ -160,6 +160,12 @@ const SAMPLES: { [K in LineKey]: Array<LineParams<K>> } = {
     { ...two, why: "none" },
     { ...two, why: "both" },
   ],
+  noAnswer: [
+    { names: [], did: "nothing" },
+    { names: ["Lantern Noodle Bar"], did: "read" },
+    { names: ["Lantern Noodle Bar"], did: "agent" },
+    { names: ["Lantern Noodle Bar"], did: "proposed" },
+  ],
   noCompanyToAsk: [two],
   needsTwo: [
     {

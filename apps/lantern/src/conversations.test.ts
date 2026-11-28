@@ -175,9 +175,24 @@ it("answers structured requests signed out, reports state in four fields, and as
     `${BASE}/${id}/messages?wait=0&cursor=${(account.body as Read).cursor}`,
     msg({ text: "Where is my food?", as_of_cursor: help!.id }),
   );
-  expect(x.company((text.body as Read).events)[0]!.text).toContain(
-    "only structured requests",
+  // In words a person reads too: what it handles, and where the rest is.
+  const reply = x.company((text.body as Read).events)[0]!;
+  expect(reply.text).toBe(
+    "I can't read written messages, only the requests I handle. I'm Lantern's automated agent. I can tell you our opening hours, delivery slots and fee, and how your orders stand, and refund a dish missing from a delivery or an order that never arrived. Your agent reads the menu and changes your orders with Lantern directly. To talk to a person, ask for one.",
   );
+  expect(reply.text).not.toMatch(/data\.request|structured|handoff/);
+  // An agent still gets the requests as data, with their fields.
+  expect(
+    (reply.data as { requests: Array<{ request: string }> }).requests.map(
+      (r) => r.request,
+    ),
+  ).toEqual([
+    "opening_hours",
+    "delivery_info",
+    "order_status",
+    "report_missing_item",
+    "order_not_delivered",
+  ]);
   // An unknown author type counts as the agent's (§8.4).
   const odd = await x.post(
     "",

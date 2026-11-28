@@ -112,7 +112,12 @@ async function conversation(overrides: Partial<Run> = {}) {
   id = `run_free_model_${String(++count).padStart(4, "0")}`;
   await seedRun("f".repeat(43), id, run);
 }
-const say = async (message: string, turnstile?: string) => {
+const say = async (
+  message: string,
+  turnstile?: string,
+  /** Sent by the button of one of demo mode's examples. */
+  button = false,
+) => {
   const response = await POST(
     new Request("http://localhost:3000/api/chat", {
       method: "POST",
@@ -122,7 +127,7 @@ const say = async (message: string, turnstile?: string) => {
         "X-Poppy-Conversation": id,
       },
       body: JSON.stringify({
-        message,
+        ...(button ? { answer: { message } } : { message }),
         provider: "free",
         apiKey: "",
         // The page sends its own name for the model: never used.
@@ -242,12 +247,19 @@ describe("a turn the free model doesn't take runs in demo mode", () => {
     expect(command.status).toBe(200);
     expect(command.answer.before).toBeUndefined();
     expect(command.answer.text).toMatch(/^I've connected Lantern Noodle Bar\./);
-    // A scripted example runs as the demo runs it, saying nothing of it.
-    const example = await say("What are your products?");
+    // A scripted example's button runs it as the demo runs it, saying
+    // nothing of it.
+    const example = await say("What are your products?", undefined, true);
     expect(example.answer.before).toBeUndefined();
     expect(example.answer.text).not.toContain("browser check");
     expect(siteverify).not.toHaveBeenCalled();
     expect(binding.run).not.toHaveBeenCalled();
+  });
+
+  it("a scripted example typed is the User's own words, for the free model", async () => {
+    const typed = await say("What are your products?", "good");
+    expect(typed.answer.mode).toBe("free");
+    expect(binding.run).toHaveBeenCalled();
   });
 
   it("with a token Turnstile refuses, or one for another action", async () => {

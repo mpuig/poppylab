@@ -9,8 +9,10 @@
  * lab's, and the ones the conversation is connected to), and against
  * nothing else: a name is never turned into an address.
  *
- * English only: in another language, or with a typo, the message goes on
- * to the model, which can ask for the same with a Company's name alone
+ * In English, and in Spanish, Catalan and French only their plainest
+ * wordings with a Company's name ("quita Lantern de esta conversación",
+ * "ajoute Harborline"): otherwise, or with a typo, the message goes on to
+ * the model, which can ask for the same with a Company's name alone
  * (`namedCommand`). Two kinds of wording:
  *
  * - "connect with …", "connect to …" and "disconnect from …" are only
@@ -92,6 +94,20 @@ const WORDINGS: Array<{
     sure: false,
     start: /^(?:disconnect|remove|drop|leave|stop\s+using)\s+/i,
   },
+  // The plainest of the same in Spanish, Catalan and French: a name must
+  // follow, and nothing else ("añade 2 gyoza" is about an order).
+  {
+    verb: "connect",
+    sure: false,
+    start:
+      /^(?:con[eé]ctame\s+(?:con|a)|conecta(?:\s+(?:con|a))?|a[ñn]ade|agrega|connecta'?m\s+(?:amb|a)|connecta(?:\s+(?:amb|a))?|afegeix|connecte-moi\s+(?:[àa]|avec)|connecte(?:\s+(?:[àa]|avec))?|ajoute)\s+/i,
+  },
+  {
+    verb: "remove",
+    sure: false,
+    start:
+      /^(?:quita|elimina|desconecta|saca|treu|desconnecta|retire|supprime|enl[èe]ve|d[ée]connecte)\s+/i,
+  },
 ];
 
 /** Where one thing asked for ends and the next begins. */
@@ -107,7 +123,15 @@ const tidy = (words: string) =>
   words
     .trim()
     .replace(/[.!?]+$/, "")
-    .replace(/\s+(?:please|too|as well|now|for me)$/i, "")
+    .replace(
+      /\s+(?:please|too|as well|now|for me|por favor|si us plau|s'il (?:te|vous) pla[iî]t)$/i,
+      "",
+    )
+    // "… from this conversation", "… de esta conversación".
+    .replace(
+      /\s+(?:(?:from|to|in)\s+(?:this|the)\s+(?:conversation|chat)|(?:de|a|en)\s+(?:esta|la)\s+conversaci[oó]n|(?:d'|de\s+|a\s+)(?:aquesta|la)\s+conversa|(?:de|[àa])\s+(?:cette|la)\s+conversation)$/i,
+      "",
+    )
     .trim();
 
 const place = (url: string) => {

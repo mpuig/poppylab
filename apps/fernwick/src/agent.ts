@@ -91,7 +91,7 @@ export function fernwickAgent(deps: Deps): ConversationHandler {
   const catalogue = (note?: string): TurnResult => ({
     replies: [
       {
-        text: `${note ? `${note} ` : ""}Fernwick's automated guide accepts structured requests in data.request. No real utility, meter or bill is involved.`,
+        text: `${note ? `${note} ` : ""}I'm Fernwick's automated guide. I can show this month's energy use and its cost and your last bill, and switch a meter between the flat and time-of-use plans for you to approve. No real utility, meter or bill is involved.`,
         data: { requests: agentRequests, notice: FICTION_NOTICE },
       },
     ],
@@ -217,7 +217,7 @@ export function fernwickAgent(deps: Deps): ConversationHandler {
       case "help":
         return catalogue(
           turn.message.text && !request
-            ? "I don't interpret free text in this deterministic demo."
+            ? "I can't read written messages, only the requests I handle."
             : undefined,
         );
       case "usage_this_month": {

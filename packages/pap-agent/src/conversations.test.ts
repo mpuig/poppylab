@@ -123,6 +123,19 @@ describe("conversations (§8) in Iris", () => {
     ).toBeUndefined();
   });
 
+  it("tells the model what the Company's agent is for: what the APIs don't do, help first, and never the user's answer", () => {
+    const { t } = tools(newRun(), () => ({}));
+    const description = t.company_agent_send!.description;
+    for (const words of [
+      "Only for what",
+      "never for what they do, such as reading the menu or the catalogue, or changing an order",
+      "never to pass on the user's answer to your own question",
+      '{"request":"help"} first',
+      "send text only when a request it listed asks for it",
+    ])
+      expect(description).toContain(words);
+  });
+
   it("starts a conversation, keeps the cursor, skips repeated events and shows Company content", async () => {
     const run = newRun();
     const { t, shown, request } = tools(run, (url) =>

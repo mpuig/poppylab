@@ -99,6 +99,7 @@ const requestOf = (
   direct: more.direct,
   pressed: more.pressed,
   written,
+  example: false,
   provider: "demo",
   modelConfig: { apiKey: undefined, model: undefined },
   turnstile: undefined,

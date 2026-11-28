@@ -408,6 +408,32 @@ exports[`the agent's own lines > are all in every language, as the table shows t
       "fr": "Il faut deux entreprises : Fernwick Power & Light, où je lis votre facture, et Harborline Bank, où je propose le paiement. Fernwick Power & Light et Harborline Bank ne sont pas encore dans cette conversation. Elle a déjà 3 entreprises, retirez-en donc 2 d'abord, puis connectez-les, connectez-vous aux deux et redemandez. Je n'ai rien envoyé à aucune entreprise.",
     },
   ],
+  "noAnswer": [
+    {
+      "ca": "Aquest cop no t'he pogut donar una resposta. Torna-m'ho a preguntar, o digues-me amb altres paraules què vols fer.",
+      "en": "I couldn't put an answer together this time. Ask me again, or tell me in other words what you'd like done.",
+      "es": "Esta vez no he podido darte una respuesta. Pregúntamelo otra vez, o dime con otras palabras qué quieres hacer.",
+      "fr": "Je n'ai pas pu vous donner de réponse cette fois. Redemandez-moi, ou dites-moi autrement ce que vous voulez faire.",
+    },
+    {
+      "ca": "Ho he consultat a Lantern Noodle Bar, però no t'he pogut donar una resposta amb això. Torna-m'ho a preguntar, o digues-me amb altres paraules què vols fer.",
+      "en": "I looked this up at Lantern Noodle Bar, but couldn't put an answer together from it. Ask me again, or tell me in other words what you'd like done.",
+      "es": "Lo he consultado en Lantern Noodle Bar, pero no he podido darte una respuesta con eso. Pregúntamelo otra vez, o dime con otras palabras qué quieres hacer.",
+      "fr": "J'ai consulté Lantern Noodle Bar, mais je n'ai pas pu en tirer de réponse. Redemandez-moi, ou dites-moi autrement ce que vous voulez faire.",
+    },
+    {
+      "ca": "Ho he preguntat a Lantern Noodle Bar, però no t'he pogut donar una resposta amb el que ha dit. Torna-m'ho a preguntar, o digues-me amb altres paraules què vols fer.",
+      "en": "I asked Lantern Noodle Bar about this, but couldn't put an answer together from the reply. Ask me again, or tell me in other words what you'd like done.",
+      "es": "Se lo he preguntado a Lantern Noodle Bar, pero no he podido darte una respuesta con lo que ha dicho. Pregúntamelo otra vez, o dime con otras palabras qué quieres hacer.",
+      "fr": "J'ai posé la question à Lantern Noodle Bar, mais je n'ai pas pu tirer de réponse de ce qui a été dit. Redemandez-moi, ou dites-moi autrement ce que vous voulez faire.",
+    },
+    {
+      "ca": "Lantern Noodle Bar té el canvi a punt; les condicions exactes t'esperen a sota perquè les aprovis o les rebutgis.",
+      "en": "Lantern Noodle Bar has the change ready, and its exact terms wait below for you to approve or decline.",
+      "es": "Lantern Noodle Bar tiene el cambio listo; sus condiciones exactas te esperan abajo para que las apruebes o rechaces.",
+      "fr": "Lantern Noodle Bar a préparé la modification ; ses conditions exactes vous attendent ci-dessous pour que vous les approuviez ou les refusiez.",
+    },
+  ],
   "noCompanyNow": [
     {
       "ca": "Ara aquesta conversa no té cap empresa. Connecta'n una per continuar.",

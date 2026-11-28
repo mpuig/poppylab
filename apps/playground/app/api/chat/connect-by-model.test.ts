@@ -1,9 +1,13 @@
 /**
  * Connecting or removing a Company in any language: "connect with …" is
- * read before any model in English only, so with a model selected the
- * request reaches it, and it asks with Iris's `connect_company` tool. And
- * a Company only receives what was asked of it: no tool, a feedback report
- * included, sends the User's request to a Company they didn't address.
+ * read before any model in English, and in Spanish, Catalan and French
+ * only in its plainest wordings with a name; otherwise, with a model
+ * selected, the request reaches it, and it asks with Iris's
+ * `connect_company` tool. A lab Company the message names, with one
+ * other connected, is connected before anything is asked of that one.
+ * And a Company only receives what was asked of it: no tool, a feedback
+ * report included, sends the User's request to a Company they didn't
+ * address.
  * The real runtime; only the network, discovery and the model are
  * replaced. The model is a fake that makes the tool calls a model would.
  */
@@ -163,37 +167,29 @@ beforeEach(() => {
 });
 
 describe("connecting a Company in the User's own language", () => {
-  // The messages reach the model: none is "connect with" in English.
+  // The messages reach the model: none is "connect with" in English, and
+  // the name is misspelt, so no rule of Iris's reads it as one of the
+  // lab's (a name said right connects that Company before any turn).
   // What happened is said in the User's language, as the agent's own
   // lines are, and the model answers from it.
   const spanish =
     "He conectado Lantern Noodle Bar. Ya puedes preguntarle algo. Si alguna petición necesita tu cuenta allí, te ofreceré iniciar sesión.";
   const said: Array<[string, string, string, string]> = [
-    [
-      "Spanish",
-      "conéctate con Lantern Noodle Bar",
-      "Lantern Noodle Bar",
-      spanish,
-    ],
+    ["Spanish", "conéctate con Lanturn", "Lantern Noodle Bar", spanish],
     [
       "Catalan",
-      "connecta't amb el Lantern, si us plau",
+      "connecta't amb el Lanturn, si us plau",
       "Lantern",
       "He connectat Lantern Noodle Bar. Ja li pots preguntar alguna cosa. Si alguna petició necessita el teu compte allà, t'oferiré iniciar sessió.",
     ],
     [
       "French",
-      "connecte-toi à Lantern Noodle Bar",
+      "connecte-toi à Lanturn",
       "lantern noodle bar",
       "J'ai connecté Lantern Noodle Bar. Vous pouvez lui demander quelque chose maintenant. Si une demande a besoin de votre compte là-bas, je vous proposerai de vous connecter.",
     ],
     // The User's typo, in the words and the name: the model gives the name.
-    [
-      "a typo",
-      "connectate con lantren noodle bar",
-      "Lantern Noodle Bar",
-      spanish,
-    ],
+    ["a typo", "connectate con lantren nodle", "Lantern Noodle Bar", spanish],
   ];
   it.each(said)(
     "connects it in %s, as “connect with” it does, and the model is told what happened there",
@@ -240,6 +236,37 @@ describe("connecting a Company in the User's own language", () => {
     },
   );
 
+  it.each([
+    [
+      "Ajoute la banque, s'il te plaît",
+      bank,
+      /je l'ai donc connectée à cette conversation/,
+    ],
+    [
+      "my balance at Harborline",
+      bank,
+      /That's one for Harborline Bank, so I connected it/,
+    ],
+    [
+      "conéctate con Lantern Noodle Bar",
+      food,
+      /Eso es cosa de Lantern Noodle Bar, así que la he conectado/,
+    ],
+  ])(
+    "connects the lab's Company %j names before anything is asked of the connected one",
+    async (message, origin, line) => {
+      const run = await conversation([power]);
+      calls();
+      const turn = await say(message);
+      expect(turn.status).toBe(200);
+      expect(turn.answer.before).toMatch(line);
+      expect(run.connections.map((c) => c.url)).toEqual([power, origin]);
+      // Fernwick was asked nothing: no Session, no tasks, no API.
+      expect(sentTo(power)).toEqual([]);
+      expect(turn.answer.from.origin).toBe(origin);
+    },
+  );
+
   it("is offered with the lab's names, only on a page that shows several Companies", async () => {
     await conversation([power]);
     calls();
@@ -274,7 +301,7 @@ describe("connecting a Company in the User's own language", () => {
       "noodles.localhost:4200/.well-known/poppy.json",
     ]) {
       calls(["connect_company", { action: "connect", company }]);
-      await say("conéctate con mi restaurante");
+      await say("conéctate con mi sitio de ramen");
     }
     for (const result of results)
       expect(result).toEqual({
@@ -315,6 +342,18 @@ describe("removing a Company in the User's own language", () => {
       "He tret Lantern Noodle Bar d'aquesta conversa. La pots tornar a connectar quan vulguis.",
     );
     expect(run.connections.map((c) => c.url)).toEqual([power]);
+  });
+
+  it("reads a plain removal with the Company's name before asking which Company a turn is for", async () => {
+    const run = await conversation([power, food]);
+    const turn = await say("Quita Lantern de esta conversación.");
+    // No question about which Company, no model, no Company asked.
+    expect(choose).not.toHaveBeenCalled();
+    expect(model).not.toHaveBeenCalled();
+    expect(turn.answer.text).toBe(
+      "¿Quito Lantern Noodle Bar de esta conversación? Puedes volver a conectarla cuando quieras.",
+    );
+    expect(run.connections).toHaveLength(2);
   });
 });
 
@@ -382,9 +421,10 @@ describe("a Company only receives what was asked of it", () => {
       ["bills", {}],
     );
     const before = sentTo(power).length;
-    await say("connectate con lantern noodle bar");
+    // Two of the lab's, so no rule of Iris's connects either first.
+    await say("connectate con lantern noodle bar y harborline");
     const why =
-      "The user's request is about Lantern Noodle Bar, not Fernwick Power & Light. Fernwick Power & Light only receives what was asked of it, so nothing was sent to Fernwick Power & Light.";
+      "The user's request is about Lantern Noodle Bar, Harborline Bank, not Fernwick Power & Light. Fernwick Power & Light only receives what was asked of it, so nothing was sent to Fernwick Power & Light.";
     expect(results).toEqual([
       { sent: false, not_addressed: true, reason: why },
       { sent: false, not_addressed: true, reason: why },

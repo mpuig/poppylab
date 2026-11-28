@@ -125,7 +125,7 @@ export function companiesTool(turn: HeldTurn, use: CompaniesUse): ApiTool {
     };
   };
   return {
-    description: `Connect a company to this conversation, or remove one, when the user asks for it in any language ("conéctate con …", "connecte-toi à …", "treu …"). Give the company's name as the lab or the conversation calls it, never an address. The lab's companies are ${labNames}. Connecting reads the company's public discovery and nothing else; removing only asks the user, who confirms with a button. Then tell the user what happened, from the result.`,
+    description: `Connect a company to this conversation, or remove one, when the user asks for it in any language ("conéctate con …", "connecte-toi à …", "treu …"). Give the company's name as the lab or the conversation calls it, never an address. The lab's companies are ${labNames}. Connecting reads the company's public discovery and nothing else; removing only asks the user, who confirms with a button. Then tell the user what happened, from the result, in your own words: the result is yours, not any company's, so never quote it as a company's.`,
     schema: {
       type: "object",
       properties: {

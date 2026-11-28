@@ -30,6 +30,7 @@ import {
   type HeldTurn,
 } from "./chat-turn";
 import { languageOf } from "./language";
+import { noAnswer } from "./no-answer";
 import { say } from "./lines";
 import { spokenText } from "./spoken";
 import { json } from "./web";
@@ -123,6 +124,12 @@ export async function severalTurn(
       name: agentName(),
       steps: SEVERAL_LIMITS.steps,
       onText: turn.stream?.text,
+      // No answer from the model, even asked again: what was done where.
+      unanswered: () =>
+        noAnswer(
+          languageOf(conversation),
+          calls.map((c) => ({ ...c, company: c.company.name })),
+        ),
       // Whose each tool is and what may cross between them (§10.1),
       // then the User's account at each, as a turn with one is told.
       context: [

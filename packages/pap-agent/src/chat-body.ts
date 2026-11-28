@@ -47,6 +47,11 @@ export type ChatRequest = {
   pressed: Exclude<Answer, { message: string }> | undefined;
   /** The User's words, or the scripted example a button sends as them. */
   written: string;
+  /**
+   * `written` is one of demo mode's scripted examples, sent by its button.
+   * The same words typed are the User's own, for the selected model.
+   */
+  example: boolean;
   provider: string;
   modelConfig: { apiKey: string | undefined; model: string | undefined };
   turnstile: string | undefined;
@@ -176,6 +181,7 @@ export function checkChatBody(
     direct,
     pressed,
     written,
+    example: !!answer && "message" in answer,
     provider: typeof body.provider === "string" ? body.provider : "demo",
     // The free model's model is the deployment's to choose, never the
     // request's: another Workers AI model could cost many times more.

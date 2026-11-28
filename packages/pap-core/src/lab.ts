@@ -29,7 +29,9 @@ export const LAB_AUTHOR = {
  * The lab's sites. Each Company also lists a few plain words (`words`) a
  * person may use for it instead of its name, such as "the bank": Iris
  * matches what they type in the chat against these and the names here,
- * and never against anything else. No two Companies share a word.
+ * and never against anything else. No two Companies share a word. The
+ * English ones come first; the others say the same in Spanish, Catalan
+ * and French, the languages Iris speaks ("la banque").
  *
  * Each word says what kind of company it is, never what it sells: "remove
  * the noodles" and "add flights" are what a person says to a Company
@@ -56,7 +58,14 @@ export function labSites(origin: string) {
     {
       id: "juniper" as const,
       label: "Juniper Market",
-      words: ["grocery store", "supermarket"],
+      words: [
+        "grocery store",
+        "supermarket",
+        "supermercado",
+        "supermercat",
+        "supermarché",
+        "épicerie",
+      ],
       url: local
         ? "http://juniper.localhost:4100"
         : "https://grocery-demo.poppylab.dev",
@@ -64,7 +73,7 @@ export function labSites(origin: string) {
     {
       id: "lantern" as const,
       label: "Lantern Noodle Bar",
-      words: ["restaurant", "noodle bar"],
+      words: ["restaurant", "noodle bar", "restaurante"],
       url: local
         ? "http://noodles.localhost:4200"
         : "https://food-demo.poppylab.dev",
@@ -72,7 +81,7 @@ export function labSites(origin: string) {
     {
       id: "harborline" as const,
       label: "Harborline Bank",
-      words: ["bank"],
+      words: ["bank", "banco", "banc", "banque"],
       url: local
         ? "http://harbor.localhost:4300"
         : "https://bank-demo.poppylab.dev",
@@ -80,7 +89,7 @@ export function labSites(origin: string) {
     {
       id: "northwind" as const,
       label: "Northwind Air",
-      words: ["airline"],
+      words: ["airline", "aerolínea", "aerolínia", "compagnie aérienne"],
       url: local
         ? "http://northwind.localhost:4400"
         : "https://airline-demo.poppylab.dev",
@@ -88,7 +97,14 @@ export function labSites(origin: string) {
     {
       id: "fernwick" as const,
       label: "Fernwick Power & Light",
-      words: ["utility", "power company", "energy company"],
+      words: [
+        "utility",
+        "power company",
+        "energy company",
+        "compañía eléctrica",
+        "companyia elèctrica",
+        "fournisseur d’électricité",
+      ],
       url: local
         ? "http://fernwick.localhost:4500"
         : "https://energy-demo.poppylab.dev",

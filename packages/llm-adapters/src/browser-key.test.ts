@@ -1,7 +1,10 @@
 import { afterEach, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   create: vi.fn(() => ({ responses: vi.fn(() => ({})) })),
-  generate: vi.fn(async () => ({ text: "Done", steps: [{ text: "Done" }] })),
+  generate: vi.fn(async () => ({
+    text: "Done",
+    steps: [{ text: "Done", toolCalls: [] }],
+  })),
 }));
 vi.mock("@ai-sdk/openai", () => ({ createOpenAI: mocks.create }));
 vi.mock("ai", () => ({

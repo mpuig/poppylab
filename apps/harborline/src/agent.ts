@@ -84,7 +84,7 @@ export function harborlineAgent(deps: Deps): ConversationHandler {
   const catalogue = (note?: string): TurnResult => ({
     replies: [
       {
-        text: `${note ? `${note} ` : ""}Harborline's automated guide accepts structured requests in data.request. No real banker, account or money is involved.`,
+        text: `${note ? `${note} ` : ""}I'm Harborline's automated guide. I can show your accounts and total balance, a summary of your recent spending and budgets, and your cards' status, and freeze a card for you to approve. No real banker, account or money is involved.`,
         data: { requests: agentRequests, notice: FICTION_NOTICE },
       },
     ],
@@ -225,7 +225,7 @@ export function harborlineAgent(deps: Deps): ConversationHandler {
       case "help":
         return catalogue(
           turn.message.text && !request
-            ? "I don't interpret free text in this deterministic demo."
+            ? "I can't read written messages, only the requests I handle."
             : undefined,
         );
       case "cash_position": {

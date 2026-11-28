@@ -152,7 +152,7 @@ describe("Workers AI through its binding", () => {
     expect(answer).toBe("https://bank-demo.poppylab.dev");
     const input = binding.run.mock.calls[0]![1] as Input;
     expect(input.chat_template_kwargs).toEqual({ enable_thinking: false });
-    expect(input.max_tokens).toBe(400);
+    expect(input.max_tokens).toBe(64);
   });
 
   it("says what the visitor can do when the allocation is used up or the binding fails", async () => {

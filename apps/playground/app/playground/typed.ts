@@ -10,7 +10,6 @@ import { named } from "@poppy-lab/pap-agent/approval-question";
 import { accountCommand } from "@poppy-lab/pap-agent/account-command";
 import type { Nameable } from "@poppy-lab/pap-agent/company-names";
 import { connectCommand } from "@poppy-lab/pap-agent/connect-command";
-import { demoExamplesFor } from "@poppy-lab/pap-agent/demo-examples";
 import {
   readApproval,
   SAYS_YES,
@@ -105,11 +104,11 @@ function asked(choices: readonly Choice[], companies: readonly CompanyState[]) {
 }
 
 /**
- * Whether the message can be answered without a model: one of demo mode's
- * scripted examples, one of Iris's own commands ("connect with Lantern",
- * "sign out of Harborline"), or an answer to the question Iris just
- * asked. The server decides the same way; this only spares the wait for
- * the browser check.
+ * Whether the typed message can be answered without a model: one of
+ * Iris's own commands ("connect with Lantern", "sign out of Harborline"),
+ * or an answer to the question Iris just asked. A demo example typed is
+ * for the model: only its button runs the script. The server decides
+ * the same way; this only spares the wait for the browser check.
  */
 export function typedWithoutModel(
   text: string,
@@ -119,7 +118,6 @@ export function typedWithoutModel(
     lab: readonly Nameable[];
   },
 ) {
-  if (demoExamplesFor(text).length) return true;
   const connected = known.companies.map((c) => ({ url: c.url, name: c.name }));
   if (accountCommand(text, connected)) return true;
   const command = connectCommand(text, { connected, lab: known.lab });

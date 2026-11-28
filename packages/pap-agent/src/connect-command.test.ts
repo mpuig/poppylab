@@ -51,14 +51,58 @@ describe("the lab's Companies, as a person may name them", () => {
     expect(lab.flatMap((c) => c.words ?? [])).toEqual([
       "grocery store",
       "supermarket",
+      "supermercado",
+      "supermercat",
+      "supermarché",
+      "épicerie",
       "restaurant",
       "noodle bar",
+      "restaurante",
       "bank",
+      "banco",
+      "banc",
+      "banque",
       "airline",
+      "aerolínea",
+      "aerolínia",
+      "compagnie aérienne",
       "utility",
       "power company",
       "energy company",
+      "compañía eléctrica",
+      "companyia elèctrica",
+      "fournisseur d’électricité",
     ]);
+  });
+});
+
+describe("a request about the Companies in Spanish, Catalan or French", () => {
+  it.each([
+    ["Quita Lantern de esta conversación.", "remove", "Lantern Noodle Bar"],
+    ["elimina Harborline", "remove", "Harborline Bank"],
+    ["Treu Lantern d'aquesta conversa", "remove", "Lantern Noodle Bar"],
+    ["Retire Harborline de cette conversation.", "remove", "Harborline Bank"],
+    ["déconnecte Lantern", "remove", "Lantern Noodle Bar"],
+    ["Conecta con Harborline, por favor", "connect", "Harborline Bank"],
+    ["Afegeix Northwind", "connect", "Northwind Air"],
+    ["ajoute Harborline", "connect", "Harborline Bank"],
+  ])("%j: %s %s, after the User confirms", (message, verb, name) => {
+    expect(connectCommand(message, { connected: [], lab })).toMatchObject({
+      verb,
+      sure: false,
+      companies: [{ name }],
+      rest: "",
+    });
+  });
+
+  it.each([
+    "añade 2 gyoza vegetales",
+    "quita el ramen",
+    "treu les postres",
+    "ajoute la banque et le menu",
+    "retire le plat",
+  ])("leaves %j, about an order or no name alone, to the turn", (message) => {
+    expect(connectCommand(message, { connected: [], lab })).toBeUndefined();
   });
 });
 

@@ -1108,8 +1108,9 @@ function accountWords(
 /**
  * Whether the message can be answered with no model: a button that does
  * something itself, an answer to the open question, one of the agent's
- * own commands, or one of demo mode's scripted examples. Such a turn
- * takes no free-model turn and waits for no browser check.
+ * own commands, or one of demo mode's scripted examples, sent by its
+ * button. Such a turn takes no free-model turn and waits for no browser
+ * check.
  */
 export function withoutModel(
   run: Run,
@@ -1120,7 +1121,9 @@ export function withoutModel(
 ) {
   const { pressed, written } = request;
   if (pressed) return !("company" in pressed) && !("resume" in pressed);
-  if (demoExamplesFor(written).length) return true;
+  // Only an example's button runs its script: the same words typed are
+  // for the selected model.
+  if (request.example && demoExamplesFor(written).length) return true;
   if (open && "approve" in open)
     return (
       readApproval(

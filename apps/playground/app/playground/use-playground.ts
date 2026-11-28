@@ -1225,8 +1225,10 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     if (busy || ended || missing) return;
     const said: Message[] = [{ role: "You", text }];
     setMessages((old) => [...old, ...said]);
-    // A scripted example: the demo's rules run it, with no browser check.
-    await post({ message: text, company: origin }, said, false);
+    // A scripted example, sent as its button's answer: the demo's rules
+    // run it, with no browser check. The same words typed go to the
+    // selected model.
+    await post({ answer: { message: text }, company: origin }, said, false);
   }
 
   /** One of Iris's buttons: its answer goes as it came, its label is shown. */

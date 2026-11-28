@@ -95,6 +95,26 @@ describe("the model's instructions", () => {
       expect(tools).toContain(words);
   });
 
+  it("go on with a task after the user answers, and keep the Company's agent for what the APIs don't do", () => {
+    const tools = TOOL_USE.join(" ");
+    for (const words of [
+      // "pork", after "pork gyoza or vegetable gyoza?"
+      "it is their answer to it: go on with the same task at the same Company, with the API tools that task uses",
+      "Never pass their answer to the Company's agent.",
+      "never for what an API tool does, such as reading the menu or changing an order",
+      'Always first send {"request":"help"} in data',
+      "send text only when a request it listed asks for it",
+      // "I'll check your balance now", and then nothing.
+      "don't answer with what you're about to do",
+      // connect_company's result is Iris's, never "Harborline Bank says".
+      "connect_company and report_unsupported_task are your own tools, not a Company's",
+      "never to quote as a Company's",
+      // "Harborline Bank doesn't have a menu", in a turn at Lantern.
+      "Don't say what another company has or lacks unless the user asked about it.",
+    ])
+      expect(tools).toContain(words);
+  });
+
   it("name the agent only as it is configured", () => {
     expect(systemPrompt()).not.toContain("Iris");
     expect(systemPrompt("Ada").startsWith("You are Ada,")).toBe(true);

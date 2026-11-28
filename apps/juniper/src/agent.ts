@@ -103,7 +103,7 @@ export function juniperAgent(
   const catalogue = (note?: string): TurnResult => ({
     replies: [
       {
-        text: `${note ? `${note} ` : ""}Juniper's automated agent answers structured requests: send one in data.request. To reach a person, ask for a handoff.`,
+        text: `${note ? `${note} ` : ""}I'm Juniper's automated agent. I can tell you the store's hours, delivery days and fees, how your recurring delivery and recent orders stand, and open a support case for a problem with an order, a delivery or a bill. Your agent changes your basket and orders with Juniper directly. To talk to a person, ask for one.`,
         data: {
           requests: agentRequests,
           handoff: "POST {conversation}/handoff",
@@ -204,7 +204,7 @@ export function juniperAgent(
       case "help":
         return catalogue(
           turn.message.text && !request
-            ? "I don't read free text, only structured requests."
+            ? "I can't read written messages, only the requests I handle."
             : undefined,
         );
       case "store_info":

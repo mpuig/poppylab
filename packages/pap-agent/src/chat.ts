@@ -51,6 +51,7 @@ import { admitFreeTurn, modelProvider, type FreeTurn } from "./free-model";
 import { keepLines } from "./inspector-log";
 import { labCompanies, nameable } from "./lab-companies";
 import { languageOf, noteLanguage } from "./language";
+import { noAnswer } from "./no-answer";
 import { say } from "./lines";
 import { conversationEnded, overBudget } from "./limits";
 import { noteOperationAccounts } from "./operation-store";
@@ -703,6 +704,12 @@ async function modelReply(
       ...turn.modelConfig,
       name: agentName(),
       onText: turn.stream?.text,
+      // No answer from the model, even asked again: what was done here.
+      unanswered: () =>
+        noAnswer(
+          languageOf(run),
+          answered.map((a) => ({ ...a, company: companyName })),
+        ),
       // Whether the User is signed in here, and with what: Company
       // content may say what a request needs, never what the User has.
       context: accountNote(companyName, {

@@ -77,7 +77,7 @@ export function northwindAgent(deps: Deps): ConversationHandler {
   const help = (note?: string): TurnResult => ({
     replies: [
       {
-        text: `${note ? `${note} ` : ""}Northwind's automated travel desk accepts structured requests in data.request. To reach a person, request a handoff.`,
+        text: `${note ? `${note} ` : ""}I'm Northwind's automated travel desk. I can tell you a flight's status and gate, the baggage, check-in and fare rules, your upcoming trip and your loyalty balance. To talk to a person, ask for one.`,
         data: { requests: agentRequests, notice: FICTION_NOTICE },
       },
     ],
@@ -90,7 +90,7 @@ export function northwindAgent(deps: Deps): ConversationHandler {
       case "help":
         return help(
           turn.message.text && !request
-            ? "I don't interpret free text; use a structured request."
+            ? "I can't read written messages, only the requests I handle."
             : undefined,
         );
       case "flight_status": {

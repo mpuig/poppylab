@@ -1,9 +1,16 @@
-import { generateText, streamText, tool, jsonSchema, stepCountIs } from "ai";
+import {
+  generateText,
+  streamText,
+  tool,
+  jsonSchema,
+  stepCountIs,
+  type ModelMessage,
+} from "ai";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { modelError } from "./errors";
+import { modelError, ModelRequestError } from "./errors";
 import { systemPrompt } from "./prompt";
 export { ModelRequestError } from "./errors";
 export { systemPrompt } from "./prompt";
@@ -229,12 +236,15 @@ function workersAiFetch(
  * The selected provider's model, with the options its calls take. Every
  * call to a model goes through here, so each one is configured alike.
  * A `question` is a short call of its own, such as which Company a turn
- * is for.
+ * is for. With `lowest` it asks for no reasoning at all, from OpenAI's
+ * reasoning models and from Gemini, which a model may not accept:
+ * `lowered` says whether anything was asked that way.
  */
 function selectedModel(
   provider: string,
   config?: ModelConfig,
   use: "turn" | "question" = "turn",
+  lowest = false,
 ) {
   const env: Record<string, string | undefined> = config?.apiKey
     ? {}
@@ -243,6 +253,7 @@ function selectedModel(
   let model;
   let useOpenAIReasoning = false;
   let useOfficialOpenAI = false;
+  let useGoogleThinking = false;
   if (provider === "workers-ai") {
     if (!config?.workersAi)
       throw new Error(
@@ -270,6 +281,7 @@ function selectedModel(
     model = createGoogleGenerativeAI({
       apiKey: (key ?? env.GOOGLE_GENERATIVE_AI_API_KEY)!,
     })((config?.model || env.GOOGLE_MODEL) ?? "gemini-2.5-flash");
+    useGoogleThinking = true;
   } else if (provider === "ollama" || provider === "openai-compatible") {
     const local = provider === "ollama";
     if (!local && !(key ?? env.OPENAI_API_KEY))
@@ -300,17 +312,28 @@ function selectedModel(
     }
   } else throw new Error("Unknown model provider");
   return {
-    model,
-    ...(useOfficialOpenAI
-      ? {
-          providerOptions: {
-            openai: {
-              store: false,
-              ...(useOpenAIReasoning ? { reasoningEffort: "low" } : {}),
+    lowered: lowest && (useOpenAIReasoning || useGoogleThinking),
+    options: {
+      model,
+      ...(useOfficialOpenAI
+        ? {
+            providerOptions: {
+              openai: {
+                store: false,
+                ...(useOpenAIReasoning
+                  ? { reasoningEffort: lowest ? "none" : "low" }
+                  : {}),
+              },
             },
-          },
-        }
-      : {}),
+          }
+        : useGoogleThinking && lowest
+          ? {
+              providerOptions: {
+                google: { thinkingConfig: { thinkingBudget: 0 } },
+              },
+            }
+          : {}),
+    },
   };
 }
 
@@ -345,9 +368,14 @@ export async function runModel(
      * text `runModel` answers, give or take the space around it.
      */
     onText?: ((text: string) => void) | undefined;
+    /**
+     * The answer when the model wrote none, even asked once more: what
+     * was done and what the User can do, in the conversation's language.
+     */
+    unanswered?: (() => string) | undefined;
   },
 ) {
-  const selected = selectedModel(provider, config);
+  const { options: selected } = selectedModel(provider, config);
   // Whether a tool has run: after one, the turn can't be asked again.
   let used = false;
   const tools = Object.fromEntries(
@@ -372,19 +400,64 @@ export async function runModel(
       }),
     ]),
   );
+  // A smaller model takes a step or two more for the same task.
+  const budget = (config?.steps ?? 5) + (provider === "workers-ai" ? 2 : 0);
+  const system = [systemPrompt(config?.name), config?.context]
+    .filter(Boolean)
+    .join("\n\n");
   const options = {
-    system: [systemPrompt(config?.name), config?.context]
-      .filter(Boolean)
-      .join("\n\n"),
+    system,
     messages,
     tools,
-    // A smaller model takes a step or two more for the same task.
-    stopWhen: stepCountIs(
-      (config?.steps ?? 5) + (provider === "workers-ai" ? 2 : 0),
-    ),
+    // The budget's last step is kept for the answer, when the steps
+    // before it called tools and wrote none (`recovered`).
+    stopWhen: stepCountIs(Math.max(1, budget - 1)),
     maxOutputTokens: 1800,
     ...selected,
     maxRetries: 0,
+  };
+  /** What the User reads when the model wrote no answer at all. */
+  const unanswered = () => config?.unanswered?.() ?? UNANSWERED;
+  /**
+   * The turn's answer, from what its steps wrote (`steps`, in order, each
+   * with whether it called a tool) and the messages they made:
+   *
+   * - Steps that called tools and wrote nothing: the answer is asked for
+   *   once more, in the step the budget kept, from what the tools
+   *   returned, with no tool to call.
+   * - A last step that says what the model is about to do ("I'll check
+   *   your balance now.") and does nothing: it is asked to go on, with
+   *   its tools, in the steps the budget has left.
+   *
+   * With no answer even then, the caller's line says what was done.
+   * `more` hears what is added, for a stream.
+   */
+  const finish = async (
+    steps: ReadonlyArray<{ text: string; called: boolean }>,
+    made: () => PromiseLike<ModelMessage[]>,
+    more?: (text: string) => void,
+  ): Promise<string> => {
+    const text = said(steps.map((s) => s.text));
+    const last = steps.at(-1);
+    const stalled = !!text && !!last && !last.called && promises(last.text);
+    if (text && !stalled) return text;
+    const left = budget - steps.length;
+    const added =
+      left > 0 && (used || stalled)
+        ? await generateText({
+            ...options,
+            system: `${system}\n\n${stalled ? GO_ON : ANSWER_NOW}`,
+            messages: [...messages, ...(await made())],
+            stopWhen: stepCountIs(left),
+            ...(stalled ? {} : { toolChoice: "none" as const }),
+            abortSignal: AbortSignal.timeout(30000),
+          })
+            .then((response) => said(response.steps.map((s) => s.text)))
+            .catch(() => "")
+        : "";
+    const late = added || unanswered();
+    if (late) more?.(late);
+    return said([text, late]);
   };
   const whole = async () => {
     const response = await generateText({
@@ -393,31 +466,46 @@ export async function runModel(
     }).catch((error: unknown) => {
       throw modelError(error, provider);
     });
-    return said(response.steps.map((step) => step.text));
+    return finish(
+      response.steps.map((step) => ({
+        text: step.text,
+        called: step.toolCalls.length > 0,
+      })),
+      async () => response.steps.flatMap((step) => step.response.messages),
+    );
   };
   if (!config?.onText) return whole();
   const onText = config.onText;
   // What the model wrote at each step: a line before it calls a tool
   // ("I'll look at your orders.") is part of the answer, as it was heard.
-  const written: string[] = [];
+  const written: Array<{ text: string; called: boolean }> = [];
   let step = "";
-  const nothing = () => !used && !step.trim() && !written.some((t) => t.trim());
+  let called = false;
+  const nothing = () =>
+    !used && !step.trim() && !written.some((t) => t.text.trim());
+  // The messages each step made, once the stream is over, for `finish`.
+  let made: (() => PromiseLike<ModelMessage[]>) | undefined;
   try {
     const result = streamText({
       ...options,
       abortSignal: AbortSignal.timeout(60000),
     });
+    made = async () =>
+      (await result.steps).flatMap((step) => step.response.messages);
     for await (const part of result.fullStream) {
       if (part.type === "error") throw part.error;
       if (part.type === "text-delta" && part.text) {
         step += part.text;
         onText(part.text);
+      } else if (part.type === "tool-call") {
+        called = true;
       } else if (part.type === "finish-step") {
-        written.push(step);
+        written.push({ text: step, called });
         // The step's last sentence is whole now, and the next step's
         // words are a paragraph of their own.
         if (step.trim()) onText("\n\n");
         step = "";
+        called = false;
       }
     }
   } catch (error) {
@@ -439,41 +527,108 @@ export async function runModel(
   }
   // A stream that ended with nothing in it, from a provider that answered
   // a stream with something else, is asked again the same way.
-  return nothing() ? whole() : said(written);
+  if (nothing()) return whole();
+  return finish(written, made!, onText);
 }
+
+/**
+ * The last sentence of a step that says what the model is about to do,
+ * in the languages Iris speaks: "I'll check your balance now.", "Voy a
+ * revisarlo.", "Je vais vérifier.". Not "Let me know if …".
+ */
+const PROMISE =
+  /^(?:(?:ok|okay|sure|alright|vale|claro|d'acord|d'accord|bien|perfecto|perfect)[,!.]?\s+)?(?:i'?ll\b|i will\b|let me (?!know)|i'?m going to\b|one moment|just a (?:moment|sec)|voy a\b|d[ée]jame\b|un momento|ahora (?:mismo )?(?:lo |la )?(?:compruebo|reviso|miro|consulto|busco)|vaig a\b|deixa'?m\b|un moment\b|ara (?:ho |el |la )?(?:comprovo|miro|consulto|busco)|je vais\b|laisse[sz]?-moi\b|un instant|je (?:regarde|v[ée]rifie|consulte|cherche)\b)/i;
+
+const promises = (text: string) => {
+  const sentences = text
+    .trim()
+    .split(/(?<=[.!?…:])\s+/)
+    .filter(Boolean);
+  return PROMISE.test(sentences.at(-1) ?? "");
+};
+
+/**
+ * Asked of the model, once, when the turn's steps called tools and wrote
+ * no answer: Iris's own words, never Company content.
+ */
+const ANSWER_NOW =
+  "Your steps so far called tools and wrote no answer. Answer the user now, in their language, from what the tools returned in this turn: what you found or did, and the next step if there is one. Don't call a tool.";
+
+/** Asked once, when the turn's last step said what it would do and stopped. */
+const GO_ON =
+  "Your last step said what you were about to do and stopped there. Do it now with the tools, then answer the user, in their language, with what they returned. Don't say again what you're about to do.";
+
+/**
+ * The answer to a turn the model wrote nothing of, when the caller gives
+ * none of its own: it says what happened and what the User can do.
+ */
+const UNANSWERED =
+  "I made the requests for this, but no answer came out of them. Ask me again, or tell me in other words what you'd like done.";
 
 /** A model's answer: the words of each step, a paragraph each. */
 const said = (steps: string[]) =>
   steps
     .map((text) => text.trim())
     .filter(Boolean)
-    .join("\n\n") ||
-  "The tool calls completed but the model returned no final text. Please ask a more specific question.";
+    .join("\n\n");
 
 /**
  * One short answer from the selected model, with no tools and no turns
  * before it: for a choice Iris makes before a turn, such as which Company
  * the turn is for. The caller writes the instructions and reads the
- * answer; it is bounded in time and length, and never retried.
+ * answer; it is bounded in time and length.
+ *
+ * Its answer is a line, so it is asked for with no reasoning and a few
+ * tokens: a reasoning model's tokens for its reasoning count against the
+ * same limit, and at the turn's effort its reasoning alone can use them
+ * all, and the time, before it writes the line. A model that refuses to
+ * be asked without reasoning is asked once more at the turn's effort,
+ * with room for its reasoning, in the time that is left.
  */
 export async function askModel(
   provider: string,
   question: { system: string; prompt: string },
   config?: ModelConfig,
-  limits: { timeout: number; maxOutputTokens: number } = {
+  limits: { timeout: number; maxOutputTokens: number; reasoning?: number } = {
     timeout: 10000,
-    maxOutputTokens: 400,
+    maxOutputTokens: 64,
+    reasoning: 1024,
   },
 ) {
-  const response = await generateText({
-    system: question.system,
-    prompt: question.prompt,
-    maxOutputTokens: limits.maxOutputTokens,
-    ...selectedModel(provider, config, "question"),
-    abortSignal: AbortSignal.timeout(limits.timeout),
-    maxRetries: 0,
-  }).catch((error: unknown) => {
-    throw modelError(error, provider);
-  });
-  return response.text;
+  const deadline = AbortSignal.timeout(limits.timeout);
+  const ask = (lowest: boolean) => {
+    const { options, lowered } = selectedModel(
+      provider,
+      config,
+      "question",
+      lowest,
+    );
+    return {
+      lowered,
+      answer: generateText({
+        system: question.system,
+        prompt: question.prompt,
+        maxOutputTokens: lowest
+          ? limits.maxOutputTokens
+          : limits.maxOutputTokens + (limits.reasoning ?? 0),
+        ...options,
+        abortSignal: deadline,
+        maxRetries: 0,
+      }).catch((error: unknown) => {
+        throw modelError(error, provider);
+      }),
+    };
+  };
+  const first = ask(true);
+  try {
+    return (await first.answer).text;
+  } catch (error) {
+    if (
+      !first.lowered ||
+      !(error instanceof ModelRequestError) ||
+      error.code !== "provider_request"
+    )
+      throw error;
+    return (await ask(false).answer).text;
+  }
 }

@@ -237,3 +237,26 @@ describe("the Data under a model's answer", () => {
     expect(await say("Hi")).not.toHaveProperty("answer.data");
   });
 });
+
+describe("a turn the model wrote no answer to", () => {
+  it("says what was done, in the User's language, and what they can do next", async () => {
+    await conversation("poppy:read");
+    model.mockImplementationOnce(
+      async (
+        _provider: string,
+        _turns: unknown,
+        tools: Record<string, { execute: (input?: unknown) => unknown }>,
+        config: { unanswered: () => string },
+      ) => {
+        await tools.list_products!.execute({});
+        // As `runModel` does when, asked again, the model still wrote none.
+        return config.unanswered();
+      },
+    );
+    const turn = await say("¿Qué productos tenéis hoy?");
+    expect(turn.answer.text).toBe(
+      "Lo he consultado en Juniper Market, pero no he podido darte una respuesta con eso. Pregúntamelo otra vez, o dime con otras palabras qué quieres hacer.",
+    );
+    expect(turn.answer.text).not.toMatch(/more specific question/);
+  });
+});

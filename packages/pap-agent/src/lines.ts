@@ -950,6 +950,29 @@ export const LINES = {
     fr: (p) =>
       `C'est pour ${list("fr", p.names, "or")} ? ${{ none: "Votre message ne dit pas laquelle.", both: "Les deux pourraient avoir ce que vous cherchez.", each: "Chacune pourrait avoir ce que vous cherchez." }[p.why]}`,
   }),
+  /**
+   * The model wrote no answer, even asked once more: what was done at the
+   * Companies (`names`), by reading there, asking their agent, or with a
+   * change it proposed, and what the User can do next.
+   */
+  noAnswer: line<Names & { did: "nothing" | "read" | "agent" | "proposed" }>({
+    en: (p) =>
+      p.did === "proposed"
+        ? `${list("en", p.names)} ${p.names.length > 1 ? "have" : "has"} the change ready, and its exact terms wait below for you to approve or decline.`
+        : `${{ nothing: "I couldn't put an answer together this time.", read: `I looked this up at ${list("en", p.names)}, but couldn't put an answer together from it.`, agent: `I asked ${list("en", p.names)} about this, but couldn't put an answer together from the reply.` }[p.did]} Ask me again, or tell me in other words what you'd like done.`,
+    es: (p) =>
+      p.did === "proposed"
+        ? `${list("es", p.names)} ${p.names.length > 1 ? "tienen" : "tiene"} el cambio listo; sus condiciones exactas te esperan abajo para que las apruebes o rechaces.`
+        : `${{ nothing: "Esta vez no he podido darte una respuesta.", read: `Lo he consultado en ${list("es", p.names)}, pero no he podido darte una respuesta con eso.`, agent: `Se lo he preguntado a ${list("es", p.names)}, pero no he podido darte una respuesta con lo que ha dicho.` }[p.did]} Pregúntamelo otra vez, o dime con otras palabras qué quieres hacer.`,
+    ca: (p) =>
+      p.did === "proposed"
+        ? `${list("ca", p.names)} ${p.names.length > 1 ? "tenen" : "té"} el canvi a punt; les condicions exactes t'esperen a sota perquè les aprovis o les rebutgis.`
+        : `${{ nothing: "Aquest cop no t'he pogut donar una resposta.", read: `Ho he consultat a ${list("ca", p.names)}, però no t'he pogut donar una resposta amb això.`, agent: `Ho he preguntat a ${list("ca", p.names)}, però no t'he pogut donar una resposta amb el que ha dit.` }[p.did]} Torna-m'ho a preguntar, o digues-me amb altres paraules què vols fer.`,
+    fr: (p) =>
+      p.did === "proposed"
+        ? `${list("fr", p.names)} ${p.names.length > 1 ? "ont" : "a"} préparé la modification ; ses conditions exactes vous attendent ci-dessous pour que vous les approuviez ou les refusiez.`
+        : `${{ nothing: "Je n'ai pas pu vous donner de réponse cette fois.", read: `J'ai consulté ${list("fr", p.names)}, mais je n'ai pas pu en tirer de réponse.`, agent: `J'ai posé la question à ${list("fr", p.names)}, mais je n'ai pas pu tirer de réponse de ce qui a été dit.` }[p.did]} Redemandez-moi, ou dites-moi autrement ce que vous voulez faire.`,
+  }),
   noCompanyToAsk: line<Names>({
     en: (p) =>
       `This conversation has no company yet, so I haven't sent your request anywhere. Connect one first: ${list("en", p.names, "or")} from the lab, or another by typing its address in the address box.`,

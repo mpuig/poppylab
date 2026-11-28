@@ -117,6 +117,13 @@ export function deliveredView(account: string, refunds: Refund[]) {
   };
 }
 
+/** What the agent handles, said to whoever reads it. */
+export const HANDLES =
+  "I'm Lantern's automated agent. I can tell you our opening hours, delivery slots and fee, and how your orders stand, and refund a dish missing from a delivery or an order that never arrived. Your agent reads the menu and changes your orders with Lantern directly. To talk to a person, ask for one.";
+/** Said first, to a message in words. */
+export const FREE_TEXT =
+  "I can't read written messages, only the requests I handle.";
+
 /** What each scope lets the agent do, in the consent page's plain words. */
 const permissions: Record<string, string> = {
   "orders:read": "see your scheduled orders",
@@ -151,10 +158,14 @@ export function lanternAgent(deps: Deps): ConversationHandler {
     };
   };
 
+  /**
+   * What it handles, in words a person reads too (the Personal Agent may
+   * show it to the User as Lantern's words), with the requests as data.
+   */
   const catalogue = (note?: string): TurnResult => ({
     replies: [
       {
-        text: `${note ? `${note} ` : ""}Lantern's automated agent answers structured requests: send one in data.request. To reach a person, ask for a handoff.`,
+        text: `${note ? `${note} ` : ""}${HANDLES}`,
         data: {
           requests: agentRequests,
           handoff: "POST {conversation}/handoff",
@@ -520,11 +531,7 @@ export function lanternAgent(deps: Deps): ConversationHandler {
     switch (request) {
       case undefined:
       case "help":
-        return catalogue(
-          turn.message.text && !request
-            ? "I don't read free text, only structured requests."
-            : undefined,
-        );
+        return catalogue(turn.message.text && !request ? FREE_TEXT : undefined);
       case "opening_hours":
         return {
           replies: [
