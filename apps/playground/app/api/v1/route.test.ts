@@ -187,6 +187,17 @@ it("returns one safe error shape for malformed conversation input", async () => 
   });
   expect(JSON.stringify(malformed)).not.toContain("sentinel-api-key-7a3f");
 
+  const tooLong = await call("POST", `/conversations/${id}/messages`, {
+    text: "m".repeat(2001),
+  });
+  expect(tooLong).toEqual({
+    status: 400,
+    data: {
+      code: "invalid_request",
+      error: "text must be a string of at most 2,000 characters.",
+    },
+  });
+
   const access = await call("POST", `/conversations/${id}/sign-ins`, {
     company: "https://company.example",
     access: "admin",

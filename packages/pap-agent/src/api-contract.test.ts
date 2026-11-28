@@ -6,6 +6,7 @@ import {
   defineOperation,
   modelChoiceMessages,
   modelChoiceSchema,
+  operationIdSchema,
   parsePublicInput,
   sendMessageInputSchema,
   signInTicketSchema,
@@ -84,12 +85,24 @@ describe("public API input", () => {
       expect(modelChoiceSchema.safeParse(choice).success).toBe(false);
   });
 
-  it("uses the actual formats of conversation IDs and sign-in tickets", () => {
+  it("uses the actual formats of public path IDs", () => {
     expect(conversationIdSchema.safeParse("a".repeat(16)).success).toBe(true);
     expect(conversationIdSchema.safeParse("a".repeat(64)).success).toBe(true);
     expect(conversationIdSchema.safeParse("a".repeat(65)).success).toBe(false);
+    expect(operationIdSchema.safeParse("_revision").success).toBe(true);
+    expect(operationIdSchema.safeParse("-".repeat(256)).success).toBe(true);
+    expect(operationIdSchema.safeParse("a".repeat(257)).success).toBe(false);
     expect(signInTicketSchema.safeParse("a".repeat(43)).success).toBe(true);
     expect(signInTicketSchema.safeParse("run_1").success).toBe(false);
+  });
+
+  it("limits user messages to 2,000 characters", () => {
+    expect(
+      sendMessageInputSchema.safeParse({ text: "m".repeat(2000) }).success,
+    ).toBe(true);
+    expect(
+      sendMessageInputSchema.safeParse({ text: "m".repeat(2001) }).success,
+    ).toBe(false);
   });
 
   it("never returns or logs submitted secrets", () => {

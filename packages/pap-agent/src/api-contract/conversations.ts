@@ -56,7 +56,7 @@ export const startConversationInputSchema = z.object({
 });
 
 export const sendMessageInputSchema = z.object({
-  text: z.string(),
+  text: z.string().max(2000),
   company: companyInputSchema.optional(),
   model: modelChoiceSchema.optional(),
 });
@@ -89,7 +89,7 @@ const messages = {
     company: "company must be a non-empty string of at most 2,048 characters.",
   },
   sendMessage: {
-    text: "text must be a string.",
+    text: "text must be a string of at most 2,000 characters.",
     company: "company must be a non-empty string of at most 2,048 characters.",
     model: "model must be an object.",
     ...prefixValidationMessages("model", modelChoiceMessages),
@@ -102,7 +102,7 @@ const messages = {
   decideProposal: {
     company: "company must be a non-empty string of at most 2,048 characters.",
     revision:
-      "revision must be a URL-safe operation ID of at most 128 characters.",
+      "revision must be a URL-safe operation ID of at most 256 characters.",
     decision: "decision must be approve or decline.",
   },
   startSignIn: {

@@ -265,7 +265,8 @@
                 "properties": {
                   "text": {
                     "type": "string",
-                    "description": "User message text."
+                    "description": "User message text.",
+                    "maxLength": 2000
                   },
                   "company": {
                     "type": "string",
@@ -489,7 +490,7 @@
             "required": true,
             "schema": {
               "type": "string",
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$"
+              "pattern": "^[A-Za-z0-9_-]{1,256}$"
             },
             "description": "Proposal (operation) ID."
           }
@@ -508,7 +509,7 @@
                   "revision": {
                     "type": "string",
                     "description": "Exact `revision` token from the proposal shown to the user.",
-                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$"
+                    "pattern": "^[A-Za-z0-9_-]{1,256}$"
                   },
                   "decision": {
                     "type": "string",
@@ -2280,11 +2281,13 @@
           },
           "proposal": {
             "type": "string",
-            "description": "Unique proposal ID issued by the Company."
+            "description": "Unique proposal ID issued by the Company.",
+            "pattern": "^[A-Za-z0-9_-]{1,256}$"
           },
           "revision": {
             "type": "string",
-            "description": "Exact revision token shown to the user for approval."
+            "description": "Exact revision token shown to the user for approval.",
+            "pattern": "^[A-Za-z0-9_-]{1,256}$"
           }
         },
         "required": [

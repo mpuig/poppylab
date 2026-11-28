@@ -23,6 +23,10 @@ const int = (description?: string): Schema => ({
   ...(description ? { description } : {}),
 });
 const string: Schema = { type: "string" };
+const operationIdString = (description?: string): Schema => ({
+  ...str(description),
+  pattern: "^[A-Za-z0-9_-]{1,256}$",
+});
 const array = (items: Schema, description?: string): Schema => ({
   type: "array",
   items,
@@ -53,8 +57,10 @@ const schemas: Record<string, Schema> = {
   ProposalRef: object(
     {
       company: str("Origin URL of the Company holding the proposal."),
-      proposal: str("Unique proposal ID issued by the Company."),
-      revision: str("Exact revision token shown to the user for approval."),
+      proposal: operationIdString("Unique proposal ID issued by the Company."),
+      revision: operationIdString(
+        "Exact revision token shown to the user for approval.",
+      ),
     },
     ["company", "proposal", "revision"],
     "References a specific proposal at an exact revision. Approvals bind strictly to `revision`.",
@@ -707,10 +713,7 @@ const conversationId: Schema = {
   type: "string",
   pattern: "^[A-Za-z0-9_-]{16,64}$",
 };
-const operationId: Schema = {
-  type: "string",
-  pattern: "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
-};
+const operationId = operationIdString();
 const signInTicket: Schema = {
   type: "string",
   pattern: "^[A-Za-z0-9_-]{43}$",
@@ -878,7 +881,10 @@ export function openApiDocument() {
           requestBody: body(
             object(
               {
-                text: str("User message text."),
+                text: {
+                  ...str("User message text."),
+                  maxLength: 2000,
+                },
                 company: str(
                   "Optional target Company origin URL to scope this turn.",
                 ),
@@ -936,12 +942,9 @@ export function openApiDocument() {
           requestBody: body(
             object({
               company: str("Origin URL of the Company holding the proposal."),
-              revision: {
-                ...str(
-                  "Exact `revision` token from the proposal shown to the user.",
-                ),
-                pattern: "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
-              },
+              revision: operationIdString(
+                "Exact `revision` token from the proposal shown to the user.",
+              ),
               decision: {
                 type: "string",
                 enum: ["approve", "decline"],

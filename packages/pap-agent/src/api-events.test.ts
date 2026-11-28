@@ -136,10 +136,10 @@ it("routes each path of /api/v1 to one operation, with its names", () => {
     names: {},
   });
   expect(
-    match("POST", `/api/v1/conversations/${id}/proposals/op_9/decision`),
+    match("POST", `/api/v1/conversations/${id}/proposals/_proposal/decision`),
   ).toEqual({
     operation: "decideProposal",
-    names: { id, proposal: "op_9" },
+    names: { id, proposal: "_proposal" },
   });
   expect(match("GET", `/api/v1/conversations/${id}/messages`)).toBeUndefined();
   expect(match("GET", "/api/v1/conversations/a%2Fb")).toBeUndefined();

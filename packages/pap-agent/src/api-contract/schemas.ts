@@ -17,10 +17,8 @@ export const conversationIdSchema = z.string().regex(/^[A-Za-z0-9_-]{16,64}$/);
 /** A one-use app sign-in ticket: also 32 random bytes in base64url. */
 export const signInTicketSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 
-/** An Operations v3 operation or revision ID. */
-export const operationIdSchema = z
-  .string()
-  .regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/);
+/** An Operations v3 operation or revision ID (§8.2 ID format). */
+export const operationIdSchema = z.string().regex(/^[A-Za-z0-9_-]{1,256}$/);
 
 /** A Company address as accepted before discovery checks the URL itself. */
 export const companyInputSchema = z
