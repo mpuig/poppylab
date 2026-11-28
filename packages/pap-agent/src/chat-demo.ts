@@ -76,7 +76,7 @@ export async function demoReply(
           data: { request: "order_not_delivered", order_id: order },
         })
       : status;
-    text = `Protocol demo (no LLM). ${order ? `Told the Company's agent that order ${order} never arrived.` : "Asked the Company's agent for your orders first."} ${fromAgent(result)}\n\nIf the Company asks to talk with you, accept or decline with the buttons above the message box.`;
+    text = `Protocol demo (no LLM). ${order ? `Told the Company's agent that order ${order} never arrived.` : "Asked the Company's agent for your orders first."} ${fromAgent(result)}\n\nIf the Company asks to talk with you, ${agentName()} asks you in the conversation: answer with the buttons under the question, or in words.`;
   } else if (change || aside) {
     // A change the demo can prepare comes first, whatever else the message
     // says: "for the quarterly report" in a payment is its memo, not

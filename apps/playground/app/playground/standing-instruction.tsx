@@ -13,7 +13,7 @@ import {
 /**
  * One rule the User can write for this Company: approve exchanges up to an
  * amount without asking. Anything larger, or that the check cannot settle,
- * still waits in Needs you.
+ * still waits for the User, on its card.
  */
 export function StandingInstruction({
   instruction,

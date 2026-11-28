@@ -21,7 +21,7 @@ import type { Playground } from "./use-playground";
 
 /**
  * The time, read again when the next waiting proposal runs out. The guide
- * and the "Needs you" panel take it from here, so both change at the moment
+ * and the count of what waits take it from here, so both change at the moment
  * the proposal's card turns to Expired.
  */
 export function useProposalClock(operations: GuideOperation[]) {
