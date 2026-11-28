@@ -8,7 +8,8 @@ Both changes cost money. Northwind sets each price and its conditions, and it
 makes each change after Elena has read the terms and approved them.
 
 This page follows those requests screen by screen, on Iris's side and on
-Northwind's. Every screenshot is from the live lab, taken on 26 November 2026.
+Northwind's. Every screenshot is from the live lab at
+[poppylab.dev](https://poppylab.dev), taken on 26 and 28 November 2026.
 
 ## Who does what
 
@@ -89,8 +90,9 @@ an upgrade offer for 248 dollars, for that flight only, refundable only if
 Northwind cancels the flight.
 
 Iris answered by reading and asked Northwind for nothing else. Elena has
-already allowed change proposals, as the line under the answer says, and her
-question still bought nothing and put nothing in front of her to approve.
+already allowed change proposals, as the block above the answer says, and
+her question still bought nothing and put nothing in front of her to
+approve.
 
 The lab runs here in demo mode, which answers its guided examples without an
 AI model, so the answer is the whole booking set out as plain lines. With a model connected Iris would answer
@@ -101,6 +103,8 @@ in a sentence, from the same data.
 
 ```text
 Started a Poppy Session, signed in
+Read /poppy/tasks
+Company Agent conversations at https://airline-demo.poppylab.dev/poppy/conversations
 Found 15 API tools at the Company
 Read /api/account/bookings
 ```
@@ -123,7 +127,7 @@ The offer, as Northwind sent it inside the booking:
 
 ### 4. Ask for the upgrade
 
-![Elena asks to upgrade flight NA 118. Iris says it asked Northwind to accept the offer, and a panel titled Needs you has appeared](../../../apps/playground/public/learn-media/how-it-works/changing-a-trip/04-iris-asks-for-the-upgrade.webp "Northwind has not upgraded anything. It answered with terms that wait for Elena.")
+![Elena asks to upgrade flight NA 118. The answer says Northwind is holding the change, Iris asks whether to approve it, and a card from Northwind Air below reads Waiting for you, with the amount due of 248 dollars and an Approve button](../../../apps/playground/public/learn-media/how-it-works/changing-a-trip/04-iris-asks-for-the-upgrade.webp "Northwind has not upgraded anything. It answered with terms that wait for Elena.")
 
 Now Elena asks for it: "Upgrade my NA 118 flight to Business." Iris reads the
 booking again, finds Northwind's offer for that flight and asks Northwind to
@@ -131,7 +135,9 @@ accept it.
 
 Northwind does not upgrade her yet. It answers that this change needs the
 customer's approval and sends back the terms it would apply. Iris shows them
-in a panel called Needs you.
+as a card in the conversation, where the proposal arrived, and asks: "Northwind
+Air wants to change your booking: the cabin from Economy to Business. Amount
+due: $248.00. It expires in 10 minutes. Shall I approve it?"
 
 <details>
 <summary>What travelled</summary>
@@ -171,9 +177,9 @@ answer, as Iris received it:
 
 ### 5. Read the price and the conditions
 
-![The approval panel: amount due 248 dollars, Northwind's description of the upgrade, the cabin from Economy to Business, the booking reference, the refund terms, the payment, and a button that reads Approve 248 dollars](../../../apps/playground/public/learn-media/how-it-works/changing-a-trip/05-terms-of-the-upgrade.webp "The price and the conditions come from Northwind. Iris shows them as it received them.")
+![The proposal card: amount due 248 dollars, Northwind's description of the upgrade, the cabin from Economy to Business, the booking reference, the refund terms, the payment, and a button that reads Approve 248 dollars](../../../apps/playground/public/learn-media/how-it-works/changing-a-trip/05-terms-of-the-upgrade.webp "The price and the conditions come from Northwind. Iris shows them as it received them.")
 
-The panel shows what Northwind will do if Elena approves. The amount due
+The card shows what Northwind will do if Elena approves. The amount due
 comes first, 248 dollars, and the button repeats it: "Approve $248.00". The
 sentence that begins "Northwind Air says" is the airline's own description:
 flight NA 118, Business, refundable only if Northwind cancels the flight.
@@ -202,14 +208,16 @@ part of that answer.
 
 ### 6. Approve the upgrade
 
-![The proposal is now a finished entry in the conversation. It reads Completed, with Northwind's confirmation, upgrade accepted for 248 dollars, and the line Approved by you](../../../apps/playground/public/learn-media/how-it-works/changing-a-trip/06-upgrade-approved.webp "Northwind upgraded the flight when the approval arrived, and said so.")
+![The card now reads Approved by you, with Northwind's confirmation, upgrade accepted for 248 dollars. Below it Elena's answer yes, and Iris: Done. You approved the 248 dollar change at Northwind Air, and Northwind Air has carried it out](../../../apps/playground/public/learn-media/how-it-works/changing-a-trip/06-upgrade-approved.webp "Northwind upgraded the flight when the approval arrived, and said so.")
 
-Elena presses the Approve button. Answering "yes" to Iris's question, which
-names the upgrade and its 248 dollars, would do the same. Iris sends Northwind
+Elena answers "yes" to Iris's question, which names the upgrade and its 248
+dollars. Pressing the Approve button would do the same. Iris sends Northwind
 the same request again, this time with her approval attached. Northwind checks that the
 approval matches the terms it offered, upgrades the flight and confirms it:
-upgrade accepted for 248 dollars. The proposal stays in the conversation as a
-finished entry, with that confirmation and the line "Approved by you."
+upgrade accepted for 248 dollars. The card stays where the proposal arrived,
+with that confirmation and the line "Approved by you", and Iris says: "Done.
+You approved the $248.00 change at Northwind Air, and Northwind Air has
+carried it out."
 
 The lab charges nothing. The terms say so themselves, in the line "Simulated
 card on file".
@@ -241,6 +249,9 @@ question.
 <summary>What travelled</summary>
 
 ```text
+Started a Poppy Session, signed in
+Company Agent conversations at https://airline-demo.poppylab.dev/poppy/conversations
+Found 15 API tools at the Company
 Read /api/account/bookings
 ```
 
@@ -257,15 +268,17 @@ Northwind as a request for a change.
 
 ### 8. Name the flight
 
-![Elena writes: add a bag to NA 402. Below the answer, the finished upgrade is listed as Completed and a new proposal waits: one checked bag on NA 402 for 45 dollars](../../../apps/playground/public/learn-media/how-it-works/changing-a-trip/08-bag-on-na-402.webp "A second proposal with its own terms. The upgrade above it is already completed.")
+![Elena writes: add a bag to NA 402. The answer says Northwind is holding the change, Iris asks whether to approve the 45 dollars due, and a new card from Northwind Air waits: one checked bag on NA 402 for 45 dollars](../../../apps/playground/public/learn-media/how-it-works/changing-a-trip/08-bag-on-na-402.webp "A second proposal with its own terms and its own card.")
 
 Elena answers: "Add a bag to NA 402." Iris asks Northwind for one more checked
 bag on that flight, and Northwind answers with new terms: 45 dollars,
 refundable until 24 hours before departure.
 
 This is a second proposal, separate from the first, with its own amount due
-and its own Approve button. The upgrade Elena approved is listed above it as
-Completed, and that approval does not extend to the bag. Each paid change
+and its own Approve button, and Iris asks again: "Northwind Air wants to
+change your booking. Amount due: $45.00. It expires in 10 minutes. Shall I
+approve it?" The upgrade's card, higher in the conversation, reads Approved
+by you, and that approval does not extend to the bag. Each paid change
 waits for an approval of its own.
 
 <details>
@@ -306,12 +319,12 @@ Iris sent the flight and the number of bags. Northwind's answer:
 
 ### 9. Approve the bag
 
-![Two proposals in the conversation, both Completed: the upgrade for 248 dollars and the checked bag for 45 dollars, each with Northwind's confirmation](../../../apps/playground/public/learn-media/how-it-works/changing-a-trip/09-two-approvals.webp "Each change has its own approval and its own confirmation from Northwind.")
+![The bag's card now reads Approved by you, with Northwind's confirmation that it added one checked bag for 45 dollars, and Iris says it has been carried out](../../../apps/playground/public/learn-media/how-it-works/changing-a-trip/09-two-approvals.webp "Each change has its own approval and its own confirmation from Northwind.")
 
-Elena approves, and Northwind confirms that it added one checked bag for 45
-dollars. The conversation now holds two finished proposals. Each one shows the
-confirmation Northwind sent and the line "Approved by you", and opens to the
-terms Northwind set.
+Elena answers "yes", and Northwind confirms that it added one checked bag for
+45 dollars. The conversation now holds two approved cards, each where its
+proposal arrived. Each one shows the confirmation Northwind sent and the line
+"Approved by you", and opens to the terms Northwind set.
 
 While the bag was waiting for her decision, Northwind's website listed it as
 awaiting approval, said until when it would wait, and still showed one bag on
