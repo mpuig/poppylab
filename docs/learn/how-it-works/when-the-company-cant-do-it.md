@@ -8,7 +8,8 @@ passes on the other way Lantern suggests.
 
 This page follows that request screen by screen, on Iris's side and on
 Lantern's, and ends with how another company answers a report. Every
-screenshot is from the live lab, taken on 26 November 2026.
+screenshot is from the live lab at [poppylab.dev](https://poppylab.dev), taken
+on 26 and 28 November 2026.
 
 ## Who does what
 
@@ -22,7 +23,7 @@ screenshot is from the live lab, taken on 26 November 2026.
 
 ### 1. See what Lantern leaves out
 
-![Iris lists two tasks Lantern does not offer to agents: cancelling an order, with a suggestion to move it, and changing the delivery address](../../../apps/playground/public/learn-media/how-it-works/when-the-company-cant-do-it/01-excluded-tasks.webp "Lantern publishes the tasks it chose to leave out, and for one of them it suggests something else.")
+![Above, a block reads Signed in at Lantern Noodle Bar, read only, and another offers change permission. Iris lists two tasks Lantern does not offer to agents: cancelling an order, with a suggestion to move it, and changing the delivery address](../../../apps/playground/public/learn-media/how-it-works/when-the-company-cant-do-it/01-excluded-tasks.webp "Lantern publishes the tasks it chose to leave out, and for one of them it suggests something else.")
 
 A company decides what a customer's agent can do with it, and it can also say
 what it decided to leave out. Lantern lists two such tasks. An order cannot be
@@ -40,12 +41,13 @@ way to do an unusual task.
 <summary>What travelled</summary>
 
 Iris opened a session with Lantern and read the address Lantern publishes for
-its tasks. No account was involved, because the list describes Lantern and
-says nothing about a customer.
+its tasks. Elena was signed in, but the list describes Lantern and says
+nothing about a customer.
 
 ```text
-Started a Poppy Session, signed out
+Started a Poppy Session, signed in
 Read /poppy/tasks
+Company Agent conversations at https://food-demo.poppylab.dev/poppy/conversations
 Found 5 API tools at the Company
 ```
 
@@ -79,7 +81,7 @@ shows the request itself.
 
 ### 2. Ask for something Lantern can't do
 
-![Elena asks to pay for her order with a gift card. Iris answers that a report was sent and that Lantern handles gift cards by phone](../../../apps/playground/public/learn-media/how-it-works/when-the-company-cant-do-it/02-gift-card-report.webp "Iris could not do it, told Lantern, and passed on what Lantern answered.")
+![Elena asks to pay for her order with a gift card. Lantern's answer, marked Company content, says gift cards are handled by phone, and Iris's answer below says the feedback report was sent and Lantern answered with another way to do it](../../../apps/playground/public/learn-media/how-it-works/when-the-company-cant-do-it/02-gift-card-report.webp "Iris could not do it, told Lantern, and passed on what Lantern answered.")
 
 Elena has signed in at Lantern, as in
 [Changing an order](changing-an-order.md), and asks Iris to pay for her order
@@ -90,8 +92,8 @@ said that it leaves the task out.
 Iris does two things. It tells Elena that it cannot do this at Lantern, and it
 sends Lantern a short report of the task. Lantern answers the report with
 another way to do it: gift cards are handled by phone. Iris shows that answer
-as Lantern's words. The line "Untrusted company content" marks it as something
-the company wrote, which Iris passes on and does not take as an instruction.
+as Lantern's words, in a block marked Company content: something the company
+wrote, which Iris passes on and does not take as an instruction.
 
 In demo mode the report is a fixed one, sent as soon as the message mentions a
 gift card. With a model connected, Iris reports a task only after it has tried
@@ -99,7 +101,7 @@ the tools Lantern offers.
 
 ### 3. Read what Iris told Lantern
 
-![The same answer with its details open: five steps, the last one a request to Lantern's feedback address, and Lantern's reply as data](../../../apps/playground/public/learn-media/how-it-works/when-the-company-cant-do-it/03-what-iris-sent.webp "Under the answer, Iris lists what it did and shows Lantern's reply as it arrived.")
+![The same answer with its details open: four steps, the last one a request to Lantern's feedback address, and Lantern's reply as data](../../../apps/playground/public/learn-media/how-it-works/when-the-company-cant-do-it/03-what-iris-sent.webp "Under the answer, Iris lists what it did and shows Lantern's reply as it arrived.")
 
 Under each answer Iris lists what it did. The last line here is the report: one
 request to an address Lantern gave for this purpose.
