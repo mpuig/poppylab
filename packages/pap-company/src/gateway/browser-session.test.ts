@@ -368,6 +368,8 @@ it("stops showing the agent user's copy when the Session ends", async () => {
   const x = await setup({ isolation: "visitor", store: load() }, site);
   const mine = await copyOf(x);
   const b = browser(x);
+  // A change gives this browser a persisted copy of its own to return to.
+  await b.post("/site/notes");
   const own = (await b.state()).copy;
   expect((await join(x, b)).status).toBe(303);
   expect((await b.state()).copy).toBe(mine);

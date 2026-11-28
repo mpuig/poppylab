@@ -26,9 +26,18 @@ import {
   viewOf,
 } from "./types.ts";
 
+const BROWSER_PREFIX = "browser:";
+const GUEST_TENANT = "guest:";
+const isBrowserTenant = (key: string) => key.startsWith(BROWSER_PREFIX);
+const isAgentTenant = (key: string) =>
+  key !== SHARED_TENANT && !isBrowserTenant(key);
+const isReadOnly = (method: string) =>
+  method === "GET" || method === "HEAD" || method === "OPTIONS";
+
 export function createTenancy(ctx: Ctx) {
   const { def, deploy, origin, state, isolated } = ctx;
   const maxTenants = deploy.maxTenants ?? 500,
+    maxBrowserTenants = Math.min(maxTenants, 200),
     idleMs = deploy.tenantIdleMs ?? 86400000;
   const ownerOf = (c: Context) => {
     const s = ctx.sessionFor(c);
@@ -149,6 +158,59 @@ export function createTenancy(ctx: Ctx) {
     converse?: ConversationHandler;
   };
   const apps = new Map<string, Entry>();
+  let guest: Entry | undefined;
+  function mountEntry(key: string, tenant: Tenant): Entry {
+    tenant.operations ??= {};
+    const kept = (tenant.activity ??= activityOf(tenant.operations));
+    const sub = new Hono();
+    const created: Entry = {
+      app: sub,
+      engine: approvals(tenant.operations, {
+        finished: (entry) => keepActivity(kept, entry),
+      }),
+      tenant,
+    };
+    def.mount(sub, {
+      sessionFor: ctx.sessionFor,
+      state: tenant.business,
+      gate,
+      refused,
+      grants: grantsOf(key),
+      grantFor: grantFor(key),
+      origin,
+      operations: () => tenant.operations,
+      activity: (account) =>
+        agentActivity(
+          account,
+          tenant.operations,
+          kept,
+          Date.now(),
+          reaches(key),
+        ),
+      converse: (handler) => {
+        created.converse = handler;
+      },
+      feedback: () => tenant.feedback ?? [],
+      // Only on this tenant's own requests, as `grantFor`.
+      browser: (c) =>
+        (ctx.tenantKeys.get(c.req.raw) ?? SHARED_TENANT) === key
+          ? browserJoin(ctx, c)
+          : undefined,
+    });
+    return created;
+  }
+  /**
+   * Ephemeral read-only tenant app for unauthenticated read-only website
+   * requests when a browser has neither a linked tenant nor an existing
+   * `browser:` tenant yet. Never persisted in `state.tenants`.
+   */
+  function guestApp() {
+    return (guest ??= mountEntry(GUEST_TENANT, {
+      business: {},
+      operations: {},
+      used: 0,
+    }));
+  }
   /** The request's tenant (created or renewed), recorded for persistence. */
   function enter(request: Request) {
     const key = ctx.tenantKeys.get(request) ?? SHARED_TENANT;
@@ -170,16 +232,23 @@ export function createTenancy(ctx: Ctx) {
       tenant = undefined;
     }
     if (!tenant) {
-      const keys = Object.keys(state.tenants);
-      if (keys.length >= maxTenants) {
-        // Evict the least recently used visitors (idle ones first).
-        const order = keys
-          .filter((k) => k !== SHARED_TENANT)
-          .sort((a, b) => state.tenants[a]!.used - state.tenants[b]!.used);
-        for (const k of order.slice(0, keys.length - maxTenants + 1)) {
-          delete state.tenants[k];
-          apps.delete(k);
-          ctx.removed.push(k);
+      if (key !== SHARED_TENANT) {
+        const browserTenant = isBrowserTenant(key);
+        const cap = browserTenant ? maxBrowserTenants : maxTenants;
+        // Evict only within the same pool: `browser:` tenants never evict
+        // agent-user tenants, and neither evicts `SHARED_TENANT`.
+        const pool = Object.keys(state.tenants).filter((k) =>
+          browserTenant ? isBrowserTenant(k) : isAgentTenant(k),
+        );
+        if (pool.length >= cap) {
+          const order = pool.sort(
+            (a, b) => state.tenants[a]!.used - state.tenants[b]!.used,
+          );
+          for (const k of order.slice(0, pool.length - cap + 1)) {
+            delete state.tenants[k];
+            apps.delete(k);
+            ctx.removed.push(k);
+          }
         }
       }
       tenant = state.tenants[key] = { business: {}, operations: {}, used: now };
@@ -188,47 +257,10 @@ export function createTenancy(ctx: Ctx) {
     // Persist the idle clock hourly, not on every read.
     if (now - tenant.used > 3600000) ctx.markDirty(request);
     tenant.used = now;
-    tenant.operations ??= {};
-    const kept = (tenant.activity ??= activityOf(tenant.operations));
     let entry = apps.get(key);
     if (!entry) {
-      const sub = new Hono();
-      const created: Entry = {
-        app: sub,
-        engine: approvals(tenant.operations, {
-          finished: (entry) => keepActivity(kept, entry),
-        }),
-        tenant,
-      };
-      entry = created;
-      apps.set(key, created);
-      def.mount(sub, {
-        sessionFor: ctx.sessionFor,
-        state: tenant.business,
-        gate,
-        refused,
-        grants: grantsOf(key),
-        grantFor: grantFor(key),
-        origin,
-        operations: () => tenant.operations,
-        activity: (account) =>
-          agentActivity(
-            account,
-            tenant.operations,
-            kept,
-            Date.now(),
-            reaches(key),
-          ),
-        converse: (handler) => {
-          created.converse = handler;
-        },
-        feedback: () => tenant.feedback ?? [],
-        // Only on this tenant's own requests, as `grantFor`.
-        browser: (c) =>
-          (ctx.tenantKeys.get(c.req.raw) ?? SHARED_TENANT) === key
-            ? browserJoin(ctx, c)
-            : undefined,
-      });
+      entry = mountEntry(key, tenant);
+      apps.set(key, entry);
     }
     return entry;
   }
@@ -259,7 +291,8 @@ export function createTenancy(ctx: Ctx) {
       const path = new URL(c.req.url).pathname;
       let cookie: string | undefined,
         own: string | undefined,
-        browser: string | undefined;
+        browser: string | undefined,
+        ephemeral = false;
       // §6: a browser joined to a Session sees the copy of that Session's
       // agent user while the Session's cookie works, whatever it saw before
       // and will see again after. It is given no cookie of its own for that.
@@ -277,11 +310,21 @@ export function createTenancy(ctx: Ctx) {
         }
         const linked = state.links?.[browser];
         if (linked) linked.used = Date.now();
-        own = `browser:${browser}`;
-        ctx.tenantKeys.set(c.req.raw, linked?.tenant ?? own);
+        own = `${BROWSER_PREFIX}${browser}`;
+        if (linked) {
+          ctx.tenantKeys.set(c.req.raw, linked.tenant);
+        } else {
+          const existing = Object.hasOwn(state.tenants, own)
+            ? state.tenants[own]
+            : undefined;
+          const active = !!existing && Date.now() - existing.used <= idleMs;
+          if (active || !isReadOnly(c.req.method))
+            ctx.tenantKeys.set(c.req.raw, own);
+          else ephemeral = true;
+        }
       }
-      const entry = enter(c.req.raw);
-      if (own) follow(c.req.raw, own, entry.tenant);
+      const entry = ephemeral ? guestApp() : enter(c.req.raw);
+      if (own && !ephemeral) follow(c.req.raw, own, entry.tenant);
       const response = await viewer.run(browser, () =>
         entry.app.fetch(c.req.raw),
       );
