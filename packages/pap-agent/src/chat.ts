@@ -50,7 +50,7 @@ import { directState } from "./direct-state";
 import { admitFreeTurn, modelProvider, type FreeTurn } from "./free-model";
 import { keepLines } from "./inspector-log";
 import { labCompanies, nameable } from "./lab-companies";
-import { languageOf, noteLanguage } from "./language";
+import { languageOf, noteLanguage, type Language } from "./language";
 import { noAnswer } from "./no-answer";
 import { say } from "./lines";
 import { conversationEnded, overBudget } from "./limits";
@@ -68,10 +68,13 @@ import { shownSkills, shownTasks } from "./shown-tasks";
 import { spokenText } from "./spoken";
 import {
   accountsIn,
+  beginTurn,
+  endTurn,
   forgetLostAccount,
   recordAsked,
   recordDirect,
   recordTurn,
+  shownTranscript,
   turnAccounts,
 } from "./transcript";
 import { UserFacingError } from "./user-error";
@@ -92,6 +95,10 @@ let windowStart = Date.now();
 type Outcome = {
   /** The conversation the turn was in. */
   id?: string;
+  /** The transcript entries this turn added, captured under the run lock. */
+  entries?: ReturnType<typeof shownTranscript>;
+  /** The conversation's language at the end of the turn. */
+  language?: Language;
   /** Why the conversation couldn't be saved after the turn, if it wasn't. */
   unsaved?: unknown;
 };
@@ -109,7 +116,13 @@ export type ChatInput = {
   stream?: TurnStream | undefined;
 };
 /** The answer, and the conversation it was in (new or the one named). */
-export type ChatTurn = Reply & { conversation?: string };
+export type ChatTurn = Reply & {
+  conversation?: string;
+  /** The transcript entries this turn added, captured under the run lock. */
+  entries?: ReturnType<typeof shownTranscript>;
+  /** The conversation's language at the end of the turn. */
+  language?: Language;
+};
 /**
  * A turn of the chat, for any channel. A turn whose conversation couldn't
  * be saved is answered as that and not with its answer: a reload wouldn't
@@ -130,6 +143,9 @@ export async function chatTurn(
         )
       : answer),
     ...(started.id ? { conversation: started.id } : {}),
+    ...(!failed && started.entries !== undefined
+      ? { entries: started.entries, language: started.language }
+      : {}),
   };
 }
 /**
@@ -232,6 +248,7 @@ async function reply(
   let held: Held | undefined;
   let visitor: string | undefined;
   let free: FreeTurn | undefined;
+  let turnTag: symbol | undefined;
   try {
     const request = checkChatBody(await input.read(), caller);
     if ("refused" in request) return request.refused;
@@ -306,6 +323,7 @@ async function reply(
     if (!held) throw new Error("No conversation for the turn");
     started.id = held.id;
     const run = (scope.run = held.run);
+    turnTag = beginTurn(run);
     // What the User said: their words, or the label of the button they
     // pressed, which the page showed as their line. The label is worked
     // out again here: nothing a button sends is ever taken as words.
@@ -568,6 +586,10 @@ async function reply(
     for (const part of parts)
       if (run && part.connection !== connection)
         forgetLostAccount(run, part.connection, part.knewLost);
+    if (run && turnTag) {
+      started.entries = endTurn(run, turnTag);
+      started.language = languageOf(run);
+    }
     if (held && visitor)
       await releaseRun(visitor, held).catch((error: unknown) => {
         started.unsaved = error;

@@ -424,16 +424,19 @@ async function turn(
   if (done.status !== 200) return failure(done);
   const state = await getConversation(caller, done.conversation ?? id);
   if (!state.ok) return state;
-  // The turn's own entries: from the User's line it added, to the end.
-  const messages = state.value.messages;
-  let last = messages.length - 1;
-  while (last >= 0 && messages[last]!.from !== "user") last--;
+  const doneBody = done.body && typeof done.body === "object" ? done.body : {};
+  const replaced = "history" in doneBody;
+  const language = done.language ?? "en";
+  const messages =
+    done.entries !== undefined
+      ? done.entries.map((entry) => messageOf(entry, language))
+      : state.value.messages;
   return {
     ok: true,
     value: {
       conversation: state.value.id,
-      messages: last < 0 ? [] : messages.slice(last),
-      replaced: "history" in (done.body as object),
+      messages,
+      replaced,
       state: state.value,
     },
   };

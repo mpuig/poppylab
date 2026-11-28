@@ -11,6 +11,26 @@ vi.hoisted(() => {
   vi.stubEnv("NODE_ENV", "development");
   vi.stubEnv("PAP_ALLOW_PRIVATE_NETWORK", "true");
 });
+const papMocks = vi.hoisted(() => ({
+  discoverCompany: undefined as
+    ((...args: unknown[]) => Promise<unknown>) | undefined,
+  protocolRequest: undefined as
+    ((...args: unknown[]) => Promise<unknown>) | undefined,
+}));
+vi.mock("@poppy-lab/pap-client", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@poppy-lab/pap-client")>();
+  return {
+    ...actual,
+    discoverCompany: ((...args: Parameters<typeof actual.discoverCompany>) =>
+      papMocks.discoverCompany
+        ? papMocks.discoverCompany(...args)
+        : actual.discoverCompany(...args)) as typeof actual.discoverCompany,
+    protocolRequest: ((...args: Parameters<typeof actual.protocolRequest>) =>
+      papMocks.protocolRequest
+        ? papMocks.protocolRequest(...args)
+        : actual.protocolRequest(...args)) as typeof actual.protocolRequest,
+  };
+});
 // The browser's cookies: its visitor's, and an account's once one signs in.
 const browser = vi.hoisted(() => new Map<string, string>());
 vi.mock("next/headers", () => ({
@@ -35,6 +55,7 @@ import {
   seedRun,
 } from "@poppy-lab/pap-agent/runs";
 import type { Run } from "@poppy-lab/pap-agent/runtime";
+import { TRANSCRIPT_LIMITS } from "@poppy-lab/pap-agent/transcript";
 import { softwareAuthenticator } from "@poppy-lab/pap-agent/webauthn-fixture";
 import two from "../account/fixtures/stored-two-companies.json";
 import { DELETE, GET, POST } from "./[...path]/route";
@@ -149,6 +170,9 @@ beforeEach(() => {
 });
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllGlobals();
+  papMocks.discoverCompany = undefined;
+  papMocks.protocolRequest = undefined;
 });
 
 it("describes every route it serves, and serves every route it describes", async () => {
@@ -319,6 +343,294 @@ describe("a new conversation in demo mode", () => {
     expect(own.map((d) => d.text).join("")).toBe(answer.text);
   });
 
+  it("returns and streams only the current turn's messages across multiple turns", async () => {
+    const started = await call("POST", "/conversations", {});
+    const id = started.data.id as string;
+
+    const first = await call("POST", `/conversations/${id}/messages`, {
+      text: "first turn question",
+    });
+    expect(first.status).toBe(200);
+    fits("sendMessage", first);
+    const firstMessages = first.data.messages as Array<{
+      from: string;
+      text: string;
+    }>;
+    expect(firstMessages).toHaveLength(2);
+    expect(firstMessages[0]).toEqual({
+      from: "user",
+      text: "first turn question",
+    });
+
+    // Second turn over SSE: only the second turn's messages and deltas come back.
+    const response = await POST(
+      new Request(`${agent}/api/v1/conversations/${id}/messages`, {
+        method: "POST",
+        headers: {
+          origin: agent,
+          "Content-Type": "application/json",
+          Accept: "text/event-stream",
+        },
+        body: JSON.stringify({ text: "second turn question" }),
+      }),
+    );
+    expect(response.headers.get("Content-Type")).toContain("text/event-stream");
+    const events = (await response.text())
+      .split("\n\n")
+      .filter(Boolean)
+      .map((block) => {
+        const [name, data] = block.split("\n");
+        const event = JSON.parse(data!.slice(6)) as { type: string };
+        expect(name).toBe(`event: ${event.type}`);
+        return event as Record<string, unknown> & { type: string };
+      });
+    const schema = (
+      document.paths["/api/v1/conversations/{id}/messages"] as {
+        post: {
+          responses: {
+            "200": { content: Record<string, { schema: Schema }> };
+          };
+        };
+      }
+    ).post.responses["200"].content["text/event-stream"]!.schema;
+    for (const event of events) expect(mismatches(event, schema)).toEqual([]);
+
+    expect(events.at(-1)!.type).toBe("turn");
+    const deltas = events.slice(0, -1);
+    const result = events.at(-1)!.result as {
+      replaced: boolean;
+      messages: Array<{ from: string; text: string; id?: string }>;
+      state: { messages: Array<{ from: string; text: string }> };
+    };
+    expect(result.replaced).toBe(false);
+    expect(result.messages).toHaveLength(2);
+    expect(result.messages[0]).toEqual({
+      from: "user",
+      text: "second turn question",
+    });
+    expect(result.messages.some((m) => m.text === "first turn question")).toBe(
+      false,
+    );
+    expect(result.state.messages).toHaveLength(4);
+
+    const agentMessages = result.messages.filter((m) => m.from === "agent");
+    expect(agentMessages).toHaveLength(1);
+    expect(new Set(deltas.map((d) => d.message))).toEqual(
+      new Set([agentMessages[0]!.id]),
+    );
+    expect(deltas.map((d) => d.text).join("")).toBe(agentMessages[0]!.text);
+  });
+
+  it("returns and streams only the current turn's messages for repeated identical lines, including at front-eviction cap", async () => {
+    const started = await call("POST", "/conversations", {});
+    const id = started.data.id as string;
+
+    const first = await call("POST", `/conversations/${id}/messages`, {
+      text: "yes",
+    });
+    expect(first.status).toBe(200);
+    fits("sendMessage", first);
+    const firstMessages = first.data.messages as Array<{
+      from: string;
+      text: string;
+    }>;
+    expect(firstMessages).toHaveLength(2);
+    const repeatedReply = firstMessages[1]!.text;
+
+    // Immediate identical second turn: returns only the 2 new messages.
+    const second = await call("POST", `/conversations/${id}/messages`, {
+      text: "yes",
+    });
+    expect(second.status).toBe(200);
+    fits("sendMessage", second);
+    const secondMessages = second.data.messages as Array<{
+      from: string;
+      text: string;
+    }>;
+    expect(secondMessages.map((m) => [m.from, m.text])).toEqual([
+      ["user", "yes"],
+      ["agent", repeatedReply],
+    ]);
+    expect(
+      (second.data.state as { messages: unknown[] }).messages,
+    ).toHaveLength(4);
+
+    // Fill the transcript to the exact entry limit with identical user/agent pairs,
+    // then send the same line again over SSE so front eviction drops the oldest pair.
+    const cappedId = "c".repeat(43);
+    await seedRun("t".repeat(43), cappedId, {
+      protocol: "1.0",
+      expires: Date.now() + 60_000,
+      calls: 0,
+      busy: false,
+      connections: [],
+      history: [],
+      transcript: Array.from({ length: TRANSCRIPT_LIMITS.entries / 2 }, () => [
+        {
+          role: "user" as const,
+          content: "yes",
+          signedOut: true as const,
+          accounts: [],
+        },
+        {
+          role: "assistant" as const,
+          content: repeatedReply,
+          signedOut: true as const,
+          accounts: [],
+        },
+      ]).flat(),
+    });
+
+    const response = await POST(
+      new Request(`${agent}/api/v1/conversations/${cappedId}/messages`, {
+        method: "POST",
+        headers: {
+          origin: agent,
+          "Content-Type": "application/json",
+          Accept: "text/event-stream",
+        },
+        body: JSON.stringify({ text: "yes" }),
+      }),
+    );
+    expect(response.status).toBe(200);
+    const events = (await response.text())
+      .split("\n\n")
+      .filter(Boolean)
+      .map((block) => {
+        const [, data] = block.split("\n");
+        return JSON.parse(data!.slice(6)) as Record<string, unknown> & {
+          type: string;
+        };
+      });
+    expect(events.at(-1)!.type).toBe("turn");
+    const deltas = events.slice(0, -1);
+    const result = events.at(-1)!.result as {
+      replaced: boolean;
+      messages: Array<{ from: string; text: string; id?: string }>;
+      state: { messages: Array<{ from: string; text: string }> };
+    };
+    expect(result.replaced).toBe(false);
+    expect(result.state.messages).toHaveLength(TRANSCRIPT_LIMITS.entries);
+    expect(result.messages.map((m) => [m.from, m.text])).toEqual([
+      ["user", "yes"],
+      ["agent", repeatedReply],
+    ]);
+    expect(new Set(deltas.map((d) => d.message))).toEqual(
+      new Set([result.messages[1]!.id]),
+    );
+    expect(deltas.map((d) => d.text).join("")).toBe(repeatedReply);
+  });
+
+  it("returns only the current turn's messages when front eviction drops older turns", async () => {
+    const cappedId = "e".repeat(43);
+    const pairs = TRANSCRIPT_LIMITS.entries / 2;
+    await seedRun("t".repeat(43), cappedId, {
+      protocol: "1.0",
+      expires: Date.now() + 60_000,
+      calls: 0,
+      busy: false,
+      connections: [],
+      history: [],
+      // Two identical early pairs at the front: evicting the first leaves an
+      // identical entry at index 0, which fools a before/after head comparison.
+      transcript: Array.from({ length: pairs }, (_, i) => [
+        {
+          role: "user" as const,
+          content: i < 2 ? "yes" : `older user ${i}`,
+          signedOut: true as const,
+          accounts: [],
+        },
+        {
+          role: "assistant" as const,
+          content: i < 2 ? "Got it." : `older reply ${i}`,
+          signedOut: true as const,
+          accounts: [],
+        },
+      ]).flat(),
+    });
+
+    const sent = await call("POST", `/conversations/${cappedId}/messages`, {
+      text: "fresh turn after cap",
+    });
+    expect(sent.status).toBe(200);
+    fits("sendMessage", sent);
+    const messages = sent.data.messages as Array<{
+      from: string;
+      text: string;
+    }>;
+    const state = sent.data.state as {
+      messages: Array<{ from: string; text: string }>;
+    };
+    expect(sent.data.replaced).toBe(false);
+    expect(state.messages).toHaveLength(TRANSCRIPT_LIMITS.entries);
+    expect(state.messages[0]!.text).toBe("yes");
+    expect(state.messages[2]!.text).toBe("older user 2");
+    expect(messages).toHaveLength(2);
+    expect(messages[0]).toEqual({
+      from: "user",
+      text: "fresh turn after cap",
+    });
+    expect(messages[1]!.from).toBe("agent");
+  });
+
+  it("never counts another tab's concurrent turn finishing before the run lock is taken", async () => {
+    const inner = memoryBackend();
+    let reads = 0;
+    let injected = false;
+    let targetKey = "";
+    const wrapped: typeof inner = {
+      ...inner,
+      async get(visitor, key) {
+        if (targetKey && key === targetKey) {
+          reads++;
+          // First read is `api.ts`'s unlocked check; second read is `chatTurn`'s
+          // `acquireRun`. Simulate another tab completing a turn in between.
+          if (reads === 2 && !injected) {
+            injected = true;
+            await call("POST", `/conversations/${id}/messages`, {
+              text: "other tab turn",
+            });
+          }
+        }
+        const current = await inner.get(visitor, key);
+        return current ? structuredClone(current) : undefined;
+      },
+      async put(visitor, key, value, expected, expires) {
+        return inner.put(
+          visitor,
+          key,
+          structuredClone(value),
+          expected,
+          expires,
+        );
+      },
+    };
+    configureBackend(wrapped);
+
+    const started = await call("POST", "/conversations", {});
+    expect(started.status).toBe(201);
+    const id = started.data.id as string;
+    targetKey = `run:${id}`;
+
+    const own = await call("POST", `/conversations/${id}/messages`, {
+      text: "this tab turn",
+    });
+    expect(own.status).toBe(200);
+    fits("sendMessage", own);
+    const ownMessages = own.data.messages as Array<{
+      from: string;
+      text: string;
+    }>;
+    const stateMessages = (
+      own.data.state as { messages: Array<{ from: string; text: string }> }
+    ).messages;
+    expect(injected).toBe(true);
+    expect(stateMessages).toHaveLength(4);
+    expect(ownMessages).toHaveLength(2);
+    expect(ownMessages[0]).toEqual({ from: "user", text: "this tab turn" });
+    expect(ownMessages.some((m) => m.text === "other tab turn")).toBe(false);
+  });
+
   it("refuses what isn't the user's own, and what isn't there", async () => {
     expect(
       (
@@ -485,6 +797,195 @@ describe("a conversation stored before the core was a package", () => {
     );
     expect(mismatches(data, answerOf("conversationEvents", 200))).toEqual([]);
     expect(data.state.id).toBe(two.id);
+  });
+
+  it("returns and streams only current-turn messages when a turn adds no user line", async () => {
+    vi.useFakeTimers({ now: two.capturedAt, toFake: ["Date"] });
+    const run = structuredClone(two.run) as unknown as Run;
+    const lantern = run.connections[0]!;
+    const company = lantern.company!;
+    const origin = "http://noodles.localhost:4200";
+    delete lantern.conversation!.direct;
+    lantern.conversation!.invitation = {
+      event: "evt_invite_1",
+      reason: "Check your delivery slot",
+    };
+    await seedRun("t".repeat(43), two.id, run);
+
+    papMocks.discoverCompany = async () => company;
+    papMocks.protocolRequest = async (url) => {
+      const target = String(url);
+      if (target.endsWith("/poppy/tasks")) return { tasks: [] };
+      if (target.endsWith("/openapi.json"))
+        return {
+          openapi: "3.1.0",
+          paths: {
+            "/api/menu": {
+              get: {
+                operationId: "menu",
+                summary: "Menu",
+                responses: { "200": { description: "OK" } },
+              },
+            },
+          },
+        };
+      if (target.includes("/poppy/conversations"))
+        return {
+          conversation_id: "cnv_direct_new",
+          working: false,
+          handoff: "none",
+          responder: "human",
+          closed: false,
+          cursor: "evt_direct_1",
+          events: [
+            {
+              id: "evt_direct_1",
+              type: "message",
+              message: {
+                role: "assistant",
+                author: { type: "human", name: "Maya" },
+                text: "Hi! I can update your delivery slot directly.",
+              },
+            },
+          ],
+        };
+      throw new Error(`Unexpected protocolRequest: ${target}`);
+    };
+
+    const priorCount = (
+      (await call("GET", `/conversations/${two.id}`)).data.messages as unknown[]
+    ).length;
+
+    const response = await POST(
+      new Request(`${agent}/api/v1/conversations/${two.id}/answers`, {
+        method: "POST",
+        headers: {
+          origin: agent,
+          "Content-Type": "application/json",
+          Accept: "text/event-stream",
+        },
+        body: JSON.stringify({
+          answer: {
+            invitation: {
+              company: origin,
+              accept: true,
+            },
+          },
+        }),
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Type")).toContain("text/event-stream");
+    const events = (await response.text())
+      .split("\n\n")
+      .filter(Boolean)
+      .map((block) => {
+        const [name, data] = block.split("\n");
+        const event = JSON.parse(data!.slice(6)) as { type: string };
+        expect(name).toBe(`event: ${event.type}`);
+        return event as Record<string, unknown> & { type: string };
+      });
+    const schema = (
+      document.paths["/api/v1/conversations/{id}/answers"] as {
+        post: {
+          responses: {
+            "200": { content: Record<string, { schema: Schema }> };
+          };
+        };
+      }
+    ).post.responses["200"].content["text/event-stream"]!.schema;
+    for (const event of events) expect(mismatches(event, schema)).toEqual([]);
+
+    expect(events.at(-1)!.type).toBe("turn");
+    const deltas = events.slice(0, -1);
+    const result = events.at(-1)!.result as {
+      replaced: boolean;
+      messages: Array<{ from: string; text: string; id?: string }>;
+      state: { messages: Array<{ from: string; text: string }> };
+    };
+    expect(result.replaced).toBe(false);
+    // Accepting an invitation adds no user line: prior turns must not repeat.
+    expect(result.messages.map((m) => m.from)).toEqual(["company", "agent"]);
+    expect(result.messages[0]!.text).toContain("delivery slot directly");
+    expect(result.messages[1]!.text).toContain("Lantern Noodle Bar");
+    expect(result.state.messages).toHaveLength(
+      priorCount + result.messages.length,
+    );
+    expect(new Set(deltas.map((d) => d.message))).toEqual(
+      new Set([result.messages[1]!.id]),
+    );
+    expect(deltas.map((d) => d.text).join("")).toBe(result.messages[1]!.text);
+  });
+
+  it("returns and streams only current-turn messages when earlier history is replaced", async () => {
+    vi.useFakeTimers({ now: two.capturedAt, toFake: ["Date"] });
+    const run = structuredClone(two.run) as unknown as Run;
+    run.removing = { remove: ["http://noodles.localhost:4200"] };
+    await seedRun("t".repeat(43), two.id, run);
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(null, { status: 200 })),
+    );
+
+    const response = await POST(
+      new Request(`${agent}/api/v1/conversations/${two.id}/answers`, {
+        method: "POST",
+        headers: {
+          origin: agent,
+          "Content-Type": "application/json",
+          Accept: "text/event-stream",
+        },
+        body: JSON.stringify({
+          answer: { remove: ["http://noodles.localhost:4200"] },
+        }),
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Type")).toContain("text/event-stream");
+    const events = (await response.text())
+      .split("\n\n")
+      .filter(Boolean)
+      .map((block) => {
+        const [name, data] = block.split("\n");
+        const event = JSON.parse(data!.slice(6)) as { type: string };
+        expect(name).toBe(`event: ${event.type}`);
+        return event as Record<string, unknown> & { type: string };
+      });
+    const schema = (
+      document.paths["/api/v1/conversations/{id}/answers"] as {
+        post: {
+          responses: {
+            "200": { content: Record<string, { schema: Schema }> };
+          };
+        };
+      }
+    ).post.responses["200"].content["text/event-stream"]!.schema;
+    for (const event of events) expect(mismatches(event, schema)).toEqual([]);
+
+    expect(events.at(-1)!.type).toBe("turn");
+    const deltas = events.slice(0, -1);
+    const result = events.at(-1)!.result as {
+      replaced: boolean;
+      messages: Array<{ from: string; text: string; id?: string }>;
+      state: { messages: Array<{ from: string; text: string }> };
+    };
+    expect(result.replaced).toBe(true);
+    // Surviving signed-out messages stay in `state.messages`, never in the turn delta.
+    expect(result.state.messages.length).toBeGreaterThan(
+      result.messages.length,
+    );
+    expect(result.messages.map((m) => m.from)).toEqual(["user", "agent"]);
+    expect(result.messages.some((m) => m.text === "What's on the menu?")).toBe(
+      false,
+    );
+    expect(deltas.some((d) => String(d.text).includes("Shoyu ramen"))).toBe(
+      false,
+    );
+    expect(new Set(deltas.map((d) => d.message))).toEqual(
+      new Set([result.messages[1]!.id]),
+    );
+    expect(deltas.map((d) => d.text).join("")).toBe(result.messages[1]!.text);
   });
 });
 

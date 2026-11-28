@@ -103,6 +103,63 @@ describe("a turn's answer as it is written", () => {
     expect(messages[1]!.id).not.toBe(sent[0]!.message);
   });
 
+  it("drops an unflushed streamed fragment when the turn result does not keep it", () => {
+    const sent: MessageDelta[] = [];
+    const said = answerStream((delta) => sent.push(delta));
+    said.stream.text("Private balance $5000");
+    expect(sent).toEqual([]);
+    const messages = said.finish([]);
+    expect(messages).toEqual([]);
+    expect(sent).toEqual([]);
+  });
+
+  it("never misassociates IDs on blank text, bare ellipsis, or repeated agent lines", () => {
+    const sent: MessageDelta[] = [];
+    const said = answerStream((delta) => sent.push(delta));
+    said.stream.line("Done.");
+    said.stream.text("Working on it");
+    const messages = said.finish([
+      { from: "agent", text: "   " },
+      { from: "agent", text: "…" },
+      { from: "agent", text: "Done." },
+      { from: "agent", text: "Done." },
+      { from: "agent", text: "Working on it" },
+    ]);
+    expect("id" in messages[0]!).toBe(false);
+    const ids = messages.slice(1).map((m) => m.id);
+    expect(ids.every((id) => typeof id === "string")).toBe(true);
+    expect(new Set(ids).size).toBe(4);
+    expect(messages[2]!.id).toBe(sent[0]!.message);
+    expect(messages[3]!.id).not.toBe(messages[2]!.id);
+    expect(messages[1]!.id).not.toBe(messages[4]!.id);
+    expect(sent.filter((d) => d.message === messages[4]!.id)).toEqual([
+      {
+        type: "message.delta",
+        message: messages[4]!.id,
+        index: 0,
+        text: "Working on it",
+        spoken: "Working on it.",
+      },
+    ]);
+  });
+
+  it("streams only current-turn agent messages when a turn has no user line", () => {
+    const sent: MessageDelta[] = [];
+    const said = answerStream((delta) => sent.push(delta));
+    const messages = said.finish([
+      { from: "company", text: "Hi, I'm Maya at Lantern." },
+      {
+        from: "agent",
+        text: "You're talking directly with Lantern Noodle Bar now.",
+      },
+    ]);
+    expect("id" in messages[0]!).toBe(false);
+    expect(messages[1]!.id).toBe(sent[0]!.message);
+    expect(sent.map((d) => d.text)).toEqual([
+      "You're talking directly with Lantern Noodle Bar now.",
+    ]);
+  });
+
   it("is asked for with Accept", () => {
     const asking = (accept?: string) =>
       wantsEvents(

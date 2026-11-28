@@ -765,3 +765,71 @@ describe("uncertain approvals survive account resets", () => {
     },
   );
 });
+
+describe("tracking one turn's own entries", () => {
+  it("returns only the current turn's entries for repeated identical lines and leaves no tag behind", () => {
+    const r = started();
+    const firstTag = transcript.beginTurn(r);
+    recordTurn(r, "yes", "Got it.");
+    const first = transcript.endTurn(r, firstTag);
+    expect(first.map((e) => [e.role, e.content])).toEqual([
+      ["user", "yes"],
+      ["assistant", "Got it."],
+    ]);
+
+    const secondTag = transcript.beginTurn(r);
+    recordTurn(r, "yes", "Got it.");
+    const second = transcript.endTurn(r, secondTag);
+    expect(second.map((e) => [e.role, e.content])).toEqual([
+      ["user", "yes"],
+      ["assistant", "Got it."],
+    ]);
+    expect(r.transcript).toHaveLength(4);
+    for (const entry of r.transcript!)
+      expect(Object.getOwnPropertySymbols(entry)).toEqual([]);
+  });
+
+  it("keeps exact turn boundaries under front eviction at the entry limit, even with identical lines", () => {
+    const r = started();
+    for (let i = 0; i < TRANSCRIPT_LIMITS.entries / 2; i++)
+      recordTurn(r, "yes", "Got it.");
+    expect(r.transcript).toHaveLength(TRANSCRIPT_LIMITS.entries);
+
+    const tag = transcript.beginTurn(r);
+    recordTurn(r, "yes", "Got it.");
+    const added = transcript.endTurn(r, tag);
+    expect(r.transcript).toHaveLength(TRANSCRIPT_LIMITS.entries);
+    expect(added.map((e) => [e.role, e.content])).toEqual([
+      ["user", "yes"],
+      ["assistant", "Got it."],
+    ]);
+  });
+
+  it("preserves turn membership across offerChoices and drops entries removed by forgetLostAccount", () => {
+    const r = started();
+    recordTurn(r, "earlier", "earlier answer");
+
+    const choiceTag = transcript.beginTurn(r);
+    transcript.recordOwn(r, undefined, "pick", "Which one?");
+    transcript.offerChoices(r, "Which one?", [
+      { label: "Lantern", answer: { company: "https://lantern.example" } },
+    ]);
+    const withChoices = transcript.endTurn(r, choiceTag);
+    expect(withChoices).toHaveLength(2);
+    expect(withChoices[1]!.choices).toHaveLength(1);
+
+    at(r).accountToken = "held";
+    const lostTag = transcript.beginTurn(r);
+    recordTurn(r, "private", "secret answer");
+    at(r).accountUnavailable = true;
+    forgetLostAccount(r, false);
+    const afterLoss = transcript.endTurn(r, lostTag);
+    expect(afterLoss).toEqual([]);
+    expect(r.transcript?.map((e) => e.content)).toEqual([
+      "earlier",
+      "earlier answer",
+      "pick",
+      "Which one?",
+    ]);
+  });
+});

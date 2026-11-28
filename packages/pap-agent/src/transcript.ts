@@ -265,6 +265,47 @@ export const turnAccounts = (
   context: readonly Turn[] = [],
 ) => [...new Set(turn.flatMap((c) => accountsIn(run, c, context)))];
 
+const TURN_TAG = Symbol("turnTag");
+type TaggedTranscriptEntry = TranscriptEntry & { [TURN_TAG]?: symbol };
+const activeTurns = new WeakMap<Run, symbol>();
+
+/**
+ * Starts marking the entries this turn appends to `run.transcript` while
+ * the turn holds the run lock. The tag is a private Symbol so `bounded()`'s
+ * byte accounting and JSON serialization ignore it, while spread copies
+ * (`clipped`, `withoutChoices`, `offerChoices`, `bounded`) preserve it.
+ */
+export function beginTurn(run: Run): symbol {
+  const tag = Symbol("turn");
+  activeTurns.set(run, tag);
+  return tag;
+}
+
+function withoutTurnTag(entry: TranscriptEntry): TranscriptEntry {
+  if (!(TURN_TAG in entry)) return entry;
+  const clean = { ...entry } as TaggedTranscriptEntry;
+  delete clean[TURN_TAG];
+  return clean;
+}
+
+/**
+ * Finishes the turn started with `beginTurn`: strips the private tag from
+ * `run.transcript` and returns the surviving entries added during this turn,
+ * shaped exactly as `shownTranscript` shapes them.
+ */
+export function endTurn(run: Run, tag: symbol, now = Date.now()) {
+  if (activeTurns.get(run) === tag) activeTurns.delete(run);
+  const transcript = run.transcript;
+  if (!transcript?.length) return [];
+  const added: TranscriptEntry[] = [];
+  for (let i = 0; i < transcript.length; i++) {
+    const entry = transcript[i] as TaggedTranscriptEntry;
+    if (entry[TURN_TAG] === tag) added.push(entry);
+    if (TURN_TAG in entry) transcript[i] = withoutTurnTag(entry);
+  }
+  return shownEntries(run, added, now);
+}
+
 /**
  * Adds entries to the transcript the page shows, and not to the model's.
  * `connection` is the Company the turn was with, and `accounts` the
@@ -278,6 +319,7 @@ function show(
   ...entries: TranscriptEntry[]
 ) {
   const signedOut = accounts.length ? {} : { signedOut: true as const };
+  const tag = activeTurns.get(run);
   run.transcript = bounded([
     // A question is answered, or passed by, once anything follows it.
     ...(run.transcript ?? run.history).map(withoutChoices),
@@ -288,6 +330,7 @@ function show(
       // with several, Company content says which one it came from.
       ...(connection && entry.company === undefined ? from(connection) : {}),
       accounts: [...accounts],
+      ...(tag ? { [TURN_TAG]: tag } : {}),
     })),
   ]);
 }
@@ -314,6 +357,25 @@ export function offerChoices(run: Run, answer: string, choices: Choice[]) {
   ]);
 }
 
+const shownEntries = (
+  run: Pick<
+    Run,
+    "transcript" | "history" | "connections" | "former" | "language"
+  >,
+  entries: readonly TranscriptEntry[],
+  now = Date.now(),
+) =>
+  forPage<TranscriptEntry>(
+    run,
+    entries.map((entry) =>
+      withoutTurnTag(
+        goesOn(run, entry, now) ? entry : noLongerAsked(run, entry),
+      ),
+    ),
+  ).map(({ using, ...entry }) =>
+    using ? { ...entry, using: using.map((o) => companyRef(run, o)) } : entry,
+  );
+
 /**
  * The transcript as the page gets it: what it showed, or the model's turns
  * in a run that has no transcript yet, each with the Company it came from.
@@ -324,15 +386,7 @@ export const shownTranscript = (
     "transcript" | "history" | "connections" | "former" | "language"
   >,
   now = Date.now(),
-) =>
-  forPage<TranscriptEntry>(
-    run,
-    (run.transcript ?? run.history).map((entry: TranscriptEntry) =>
-      goesOn(run, entry, now) ? entry : noLongerAsked(run, entry),
-    ),
-  ).map(({ using, ...entry }) =>
-    using ? { ...entry, using: using.map((o) => companyRef(run, o)) } : entry,
-  );
+) => shownEntries(run, run.transcript ?? run.history, now);
 
 /**
  * Whether a question to go on can still be answered with its button: the
