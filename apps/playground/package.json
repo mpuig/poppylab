@@ -22,7 +22,7 @@
     "@poppy-lab/pap-core": "workspace:*",
     "@simplewebauthn/browser": "14.0.0",
     "jose": "^6.2.18",
-    "lucide-react": "^0.468.0",
+    "lucide-react": "^1.73.0",
     "marked": "^18.3.0",
     "next": "^16.4.6",
     "react": "^19.2.4",
@@ -30,11 +30,11 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261124.1",
-    "@types/node": "^24.10.0",
+    "@types/node": "^26.6.6",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "typescript": "^5.9.3",
-    "vitest": "^4.0.18",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0",
     "wrangler": "^4.167.0"
   }
 }
