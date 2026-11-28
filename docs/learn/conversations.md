@@ -65,7 +65,7 @@ HTTP/1.1 201 Created
         "role": "company",
         "author": { "type": "agent", "name": "Lantern's automated agent" }, // (1)
         "as_of_request": "req_1",
-        "text": "Lantern's automated agent answers structured requests: send one in data.request. To reach a person, ask for a handoff.", // (2)
+        "text": "I'm Lantern's automated agent. I can tell you our opening hours, delivery slots and fee, and how your orders stand, and refund a dish missing from a delivery or an order that never arrived. Your agent reads the menu and changes your orders with Lantern directly. To talk to a person, ask for one.", // (2)
         "data": {
           "requests": [
             { "request": "opening_hours", "scopes": [] },
