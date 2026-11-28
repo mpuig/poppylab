@@ -64,6 +64,8 @@ function groups() {
 }
 
 export async function figures(only) {
+  if (only && only.length === 0)
+    throw new Error("--only requires at least one figure name");
   const found = [];
   const names = new Set();
   for (const group of groups())
@@ -84,7 +86,50 @@ export async function figures(only) {
       names.add(figure.name);
       found.push({ ...figure, out: group.out, from: group.from });
     }
+  if (only) {
+    const missing = [...new Set(only)].filter((name) => !names.has(name));
+    if (missing.length)
+      throw new Error(
+        `Unknown figure${missing.length === 1 ? "" : "s"} in --only: ${missing.join(", ")}`,
+      );
+  }
   return found;
+}
+
+/** Reject unsafe markup and non-finite coordinates before writing or checking an SVG. */
+export function validateSvg(text, name, variant) {
+  // The renderer sets a drawing into the page, where ids would collide.
+  if (
+    /<script|<foreignObject|\son[a-z]+\s*=|\sid\s*=|<style|\sclass\s*=/i.test(
+      text,
+    )
+  )
+    throw new Error(
+      `${name} (${variant}) has an id, a class, a style or a script`,
+    );
+  const nonFinite = text.match(/-?Infinity|NaN/);
+  if (nonFinite)
+    throw new Error(
+      `${name} (${variant}) contains non-finite value (${nonFinite[0]})`,
+    );
+}
+
+/** Parse `--only a,b` (or `--only=a,b`), failing closed on missing or empty values. */
+export function parseOnly(args) {
+  const index = args.findIndex(
+    (arg) => arg === "--only" || arg.startsWith("--only="),
+  );
+  if (index === -1) return undefined;
+  const value =
+    args[index] === "--only"
+      ? args[index + 1]
+      : args[index].slice("--only=".length);
+  if (!value || value.startsWith("-"))
+    throw new Error("--only requires a comma-separated list of figure names");
+  const names = value.split(",").map((name) => name.trim());
+  if (names.some((name) => !name))
+    throw new Error("--only contains an empty figure name");
+  return names;
 }
 
 /** Every file the figures draw: its path and its text. */
@@ -96,15 +141,7 @@ export async function files(only) {
       ["narrow", ".narrow"],
     ]) {
       const text = figure.draw(variant);
-      // The renderer sets a drawing into the page, where ids would collide.
-      if (
-        /<script|<foreignObject|\son[a-z]+\s*=|\sid\s*=|<style|\sclass\s*=/i.test(
-          text,
-        )
-      )
-        throw new Error(
-          `${figure.name} (${variant}) has an id, a class, a style or a script`,
-        );
+      validateSvg(text, figure.name, variant);
       out.push({ file: `${figure.out}${figure.name}${suffix}.svg`, text });
     }
   return out;
@@ -136,9 +173,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     const check = args.includes("--check");
     // `--only a,b` draws just those figures, so one author is not stopped by
     // another's figure that is half written.
-    const only = args.includes("--only")
-      ? args[args.indexOf("--only") + 1].split(",")
-      : undefined;
+    const only = parseOnly(args);
     const drawn = await files(only);
     let stale = 0;
     for (const { file, text } of drawn) {

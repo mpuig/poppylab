@@ -18,7 +18,7 @@
   <path d="M485 28L477 32.5L477 23.5Z" fill="#0d5c4a"/>
   <path d="M329 156L453 156Q461 156 461 148L461 100Q461 92 469 92L477 92" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
   <path d="M485 92L477 96.5L477 87.5Z" fill="#0d5c4a"/>
-  <path d="M329 156L461 156Q461 156 NaN NaNLNaN NaNQ461 156 461 156L477 156" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M329 156L453 156Q461 156 469 156L477 156" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
   <path d="M485 156L477 160.5L477 151.5Z" fill="#0d5c4a"/>
   <path d="M329 156L453 156Q461 156 461 164L461 212Q461 220 469 220L477 220" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
   <path d="M485 220L477 224.5L477 215.5Z" fill="#0d5c4a"/>

@@ -2,7 +2,7 @@
   <line x1="121" y1="119" x2="312" y2="119" stroke="#0d5c4a" stroke-width="1.5"/>
   <path d="M312 119L312 45Q312 37 320 37L451 37" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
   <path d="M459 37L451 41.5L451 32.5Z" fill="#0d5c4a"/>
-  <path d="M312 119LNaN NaNQ312 119 312 119L451 119" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M312 119L451 119" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
   <path d="M459 119L451 123.5L451 114.5Z" fill="#0d5c4a"/>
   <path d="M312 119L312 193Q312 201 320 201L451 201" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
   <path d="M459 201L451 205.5L451 196.5Z" fill="#0d5c4a"/>
