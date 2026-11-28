@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { afterEach, expect, it, vi } from "vitest";
 import { createIdentity } from "@poppy-lab/pap-client/core";
@@ -1167,4 +1168,81 @@ it("account script focuses the live editor select and preserves open drafts on R
       .get("activity-list")!
       .find((el) => el.textContent.includes("Add matcha ice cream")),
   ).toBeTruthy();
+});
+
+it("requires both orders:read and orders:write to propose an order change, while GET works with orders:read", async () => {
+  const x = await setup();
+  const verifier = "w".repeat(64);
+  const page = await inject(
+    `/oauth/authorize?${new URLSearchParams({
+      client_id: client,
+      redirect_uri: redirect,
+      response_type: "code",
+      state: "s".repeat(32),
+      scope: "orders:write",
+      code_challenge_method: "S256",
+      code_challenge: createHash("sha256").update(verifier).digest("base64url"),
+    })}`,
+  );
+  const cookie = String(page.headers["set-cookie"]).split(";")[0]!;
+  const consent = await inject({
+    method: "POST",
+    url: "/oauth/authorize",
+    headers: { cookie, origin },
+    payload: {
+      nonce: cookie.split("=")[1],
+      decision: "approve",
+      account: "elena",
+      write: "yes",
+    },
+  });
+  const code = new URL(String(consent.headers.location)).searchParams.get(
+    "code",
+  )!;
+  const writeOnly = await x.token({
+    grant_type: "authorization_code",
+    code,
+    code_verifier: verifier,
+    redirect_uri: redirect,
+  });
+  expect(writeOnly.scope).toBe("orders:write");
+
+  const url = "/api/account/orders/ord_LNB1001/changes";
+  const body = { slot_id: "sat-1900" };
+  const denied = await x.call(writeOnly.access_token, "POST", url, body);
+  expect(denied.statusCode).toBe(403);
+  expect(denied.json()).toEqual({ error: "insufficient_scope" });
+  expect(denied.headers["www-authenticate"]).toBe(
+    'DPoP error="insufficient_scope", scope="orders:read orders:write"',
+  );
+  for (const leaked of [
+    "approval_required",
+    "Elena Maren",
+    "ord_LNB1001",
+    "Shoyu Ramen",
+    "Edamame",
+    "from_items",
+  ])
+    expect(denied.body).not.toContain(leaked);
+
+  // GET still works with a read-only grant.
+  const readOnly = await x.sign("elena", false);
+  expect(readOnly.scope).toBe("orders:read");
+  const orders = await x.call(
+    readOnly.access_token,
+    "GET",
+    "/api/account/orders",
+  );
+  expect(orders.statusCode).toBe(200);
+  expect(orders.json().orders[0].id).toBe("ord_LNB1001");
+
+  // A read+write grant proceeds to the approval_required proposal.
+  const readWrite = await x.sign("elena", true);
+  const proposal = await x.call(readWrite.access_token, "POST", url, body);
+  expect(proposal.statusCode).toBe(403);
+  expect(proposal.json().error).toBe("approval_required");
+  expect(proposal.json().operation.terms).toMatchObject({
+    order_id: "ord_LNB1001",
+    to_slot: "sat-1900",
+  });
 });
