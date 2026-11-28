@@ -20,14 +20,14 @@
     "@poppy-lab/pap-client": "workspace:*",
     "@poppy-lab/pap-company": "workspace:*",
     "@poppy-lab/pap-core": "workspace:*",
-    "hono": "^4.13.21"
+    "hono": "^4.13.22"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20261124.1",
-    "@types/node": "^24.10.0",
+    "@cloudflare/workers-types": "^5.20261125.1",
+    "@types/node": "^24.19.3",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18",
-    "wrangler": "^4.167.0"
+    "wrangler": "^4.168.0"
   }
 }

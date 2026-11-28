@@ -16,11 +16,11 @@
   },
   "dependencies": {
     "@poppy-lab/pap-client": "workspace:*",
-    "hono": "^4.13.21",
+    "hono": "^4.13.22",
     "jose": "^6.2.18"
   },
   "devDependencies": {
-    "@types/node": "^24.10.0",
+    "@types/node": "^24.19.3",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
   }
