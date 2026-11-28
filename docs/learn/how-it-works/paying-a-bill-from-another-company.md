@@ -9,7 +9,7 @@ Elena has approved the exact terms.
 
 This page follows that payment across the two companies, and says what Iris
 takes from one to the other. Every screenshot is from the live lab at
-[poppylab.dev](https://poppylab.dev), taken on 27 November 2026. Neither
+[poppylab.dev](https://poppylab.dev), taken on 27 and 28 November 2026. Neither
 company is real, and no money or electricity exists.
 
 ## Who does what
@@ -37,6 +37,8 @@ because the payment happens at the bank.
 
 ### 2. Ask Iris to pay it
 
+![Three blocks at the top say Elena is signed in at Harborline Bank, read only, has given change permission there, and is signed in at Fernwick Power & Light. Her message Pay my Fernwick bill from checking is answered with what the demo read at each company and what Iris sent the bank. Iris asks whether to approve the payment, and Harborline's card below reads Waiting for you: 183.78 dollars, the memo Bill for October 2026, the reference FPL-2041-7731-202610 and an Approve 183.78 dollars button](../../../apps/playground/public/learn-media/how-it-works/paying-a-bill-from-another-company/02-iris-asks-for-the-payment.webp "Iris read the bill at one company and asked the other to pay it.")
+
 Elena has both companies in one conversation in Iris, and she has signed in
 at each on its own page: at Fernwick to read her bills, and at Harborline to
 read her accounts and propose payments. She types "Pay my Fernwick bill from
@@ -49,10 +51,11 @@ reference must have. Iris asks Harborline to pay that recipient 183.78
 dollars from Operating checking, with the bill's reference and "Bill for
 October 2026" as the memo.
 
-Harborline does not pay yet. It answers with the terms it would apply, and
-Iris asks in its own words: Harborline proposes a payment of 183.78 dollars
-to Fernwick Power & Light, approve it? Iris's answer also says, in one line,
-what it took from Fernwick for the bank.
+Harborline does not pay yet. It answers with the terms it would apply, shown
+as a card where the proposal arrived, and Iris asks: "Harborline Bank wants to
+pay Fernwick Power & Light $183.78. It expires in 10 minutes. Shall I approve
+it?" The answer above also says, in one line, what Iris took from Fernwick for
+the bank.
 
 <details>
 <summary>What travelled</summary>
@@ -109,10 +112,13 @@ to it without a reference in that shape is refused with `invalid_reference`:
 
 ### 3. Approve the payment
 
+![Harborline's card now reads Approved by you, with the bank's confirmation that it sent 183.78 dollars to Fernwick Power & Light. Below it Elena's answer yes, and Iris: Done. You approved the 183.78 dollar payment at Harborline Bank, and Harborline Bank has carried it out](../../../apps/playground/public/learn-media/how-it-works/paying-a-bill-from-another-company/03-payment-approved.webp "Harborline paid when the approval arrived, and said so.")
+
 Elena answers "yes". She could also press the Approve button on Harborline's
 terms. Iris sends Harborline the same request again with her approval
-attached, Harborline sends the money and confirms it, and Iris says that she
-approved the payment and that Harborline performed it.
+attached, Harborline sends the money and confirms it, and Iris says: "Done.
+You approved the $183.78 payment at Harborline Bank, and Harborline Bank has
+carried it out."
 
 ### 4. The payment at Harborline
 
