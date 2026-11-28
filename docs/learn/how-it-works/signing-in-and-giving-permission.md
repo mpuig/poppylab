@@ -22,7 +22,7 @@ live lab at [poppylab.dev](https://poppylab.dev), taken from 26 to 28 November 2
 
 ### 1. Before signing in
 
-![Iris's conversation, marked Public access and 1 waiting, with two suggested questions and a block: Iris can read your Juniper Market account once you sign in, read only, on Juniper Market's own page, with a green button: Sign in to Juniper Market, read only](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/01-before-signing-in.webp "Iris can ask Juniper public questions. Elena's account is closed to it.")
+![Iris's conversation, marked Public access, with two suggested questions and a block: Iris can read your Juniper Market account once you sign in, read only, on Juniper Market's own page, with a green button: Sign in to Juniper Market, read only](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/01-before-signing-in.webp "Iris can ask Juniper public questions. Elena's account is closed to it.")
 
 Iris has found Juniper and can ask what any visitor could ask, such as what
 the shop sells. The conversation is marked Public access. Elena's deliveries
@@ -30,8 +30,7 @@ and orders belong to her account, and Iris has no access to it.
 [Connecting to a company](connecting-to-a-company.md) covers this first
 contact.
 
-The sign-in sits in the conversation as a block of its own, and the heading
-counts it among what waits for Elena. Its green button says what Iris will
+The sign-in sits in the conversation as a block of its own. Its green button says what Iris will
 ask for: access to read, and nothing more. Above the conversation, the lab's
 hint says Elena can also answer "yes" when Iris asks her in the chat. Before
 she presses it, Elena asks what the shop sells, and Iris answers with
