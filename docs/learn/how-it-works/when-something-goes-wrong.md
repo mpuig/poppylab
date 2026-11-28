@@ -9,7 +9,8 @@ before she approves, or the bank refuses.
 
 The page shows what Elena sees in Iris each time and, where the company keeps
 a record of it, what the company's own website says afterwards. Every
-screenshot is from the live lab, taken on 26 November 2026.
+screenshot is from the live lab at [poppylab.dev](https://poppylab.dev), taken
+on 26 and 28 November 2026.
 
 ## Who does what
 
@@ -23,7 +24,7 @@ screenshot is from the live lab, taken on 26 November 2026.
 
 ### 1. Ask for a change that cannot be made
 
-![Elena asks to remove the pork gyoza. Iris answers that it is not in her order and lists what the order has. The steps show two reads and no request for a change](../../../apps/playground/public/learn-media/how-it-works/when-something-goes-wrong/01-change-that-cannot-be-prepared.webp "Iris read the order, saw the dish was not in it, and asked Lantern for nothing.")
+![Elena asks to remove the pork gyoza. Iris answers that it is not in her order and lists what the order has. The steps, opened, end with two reads and no request for a change](../../../apps/playground/public/learn-media/how-it-works/when-something-goes-wrong/01-change-that-cannot-be-prepared.webp "Iris read the order, saw the dish was not in it, and asked Lantern for nothing.")
 
 Elena asks Iris to remove the pork gyoza from her Friday order at Lantern. The
 order has no pork gyoza. Iris reads the menu and the order, sees that, and
@@ -31,7 +32,7 @@ tells her what the order does contain.
 
 Iris sends Lantern no request for a change, so there is nothing for Elena to
 approve and nothing for Lantern to refuse. The list of steps under the answer
-shows two reads and stops there.
+ends with two reads and stops there.
 
 <details>
 <summary>What travelled</summary>
@@ -48,16 +49,17 @@ Read /api/account/orders
 
 ### 2. Decline a proposal
 
-![The line above the conversation reads: You declined the last proposal, so nothing was sent to Lantern Noodle Bar. Under Lantern's terms, the closed card reads Declined and says the same](../../../apps/playground/public/learn-media/how-it-works/when-something-goes-wrong/02-declined.webp "Elena pressed Decline. Iris says in two places that nothing was sent to Lantern.")
+![The line above the conversation reads: You declined the last proposal, so Iris sent no approval to Lantern Noodle Bar and nothing was done. Ask for the change again if you still want it. Under Iris's question, the closed card reads Declined by you and says the same](../../../apps/playground/public/learn-media/how-it-works/when-something-goes-wrong/02-declined.webp "Elena pressed Decline. Iris says in two places that it sent Lantern no approval.")
 
 Elena then asks for a change Lantern can make: add a matcha ice cream and move
 the order to Sunday lunchtime. Lantern answers with its terms, 43 dollars in
 place of 37, and waits. This time Elena presses Decline. Answering "no" to
 Iris's question about the terms would do the same.
 
-The card closes with the word Declined and says what that means: Elena
-declined it, and nothing was sent to Lantern. The line above the conversation
-says the same, and both add that she can ask again. Declining happens in Iris.
+The card closes, reads "Declined by you" and says what that means: "You
+declined this, so Iris sent no approval to Lantern Noodle Bar and nothing was
+done." The line above the conversation says the same, and both add that she
+can ask for the change again. Declining happens in Iris.
 Lantern had changed nothing while it waited, so there is nothing for it to
 undo.
 
@@ -88,7 +90,7 @@ step 5.
 
 ### 4. Let an approval run out
 
-![The line above the conversation reads: The last proposal expired before it was approved, so nothing was performed. Under Lantern's terms for adding a matcha ice cream, the card reads Expired, with the line: This proposal ran out before it was approved, so nothing was done. Ask for the change again to get new terms](../../../apps/playground/public/learn-media/how-it-works/when-something-goes-wrong/04-expired.webp "Ten minutes after Lantern offered these terms, the card can no longer be approved.")
+![The line above the conversation reads: The last proposal expired before it was approved, so nothing was performed. Ask for the change again to get fresh terms. Under Iris's question, Lantern's card for adding a matcha ice cream reads Expired, with the line: This proposal ran out before it was approved, so nothing was done. Ask for the change again to get new terms](../../../apps/playground/public/learn-media/how-it-works/when-something-goes-wrong/04-expired.webp "Ten minutes after Lantern offered these terms, the card can no longer be approved.")
 
 Every proposal carries a time limit set by the company. Elena asks to add a
 matcha ice cream, Lantern offers its terms, and she leaves the card open
@@ -142,7 +144,7 @@ order as it was before her edit.
 
 ### 7. Approve terms that are out of date
 
-![The card now shows four dishes on Sunday, a previous total and a new total of 51 dollars, and a button that reads Approve this change. Above the buttons a note reads: Lantern Noodle Bar returned these new terms instead of performing the ones you approved. Nothing was performed](../../../apps/playground/public/learn-media/how-it-works/when-something-goes-wrong/07-new-terms.webp "Lantern did not move the order on the old terms. It sent new ones for Elena to read.")
+![The card, waiting again: the delivery slot from Friday at 18:30 to Sunday at 13:00, Lantern's description with four dishes, a previous total and a new total of 51 dollars, and a note above the buttons: Lantern Noodle Bar returned these new terms instead of performing the ones you approved. Nothing was performed. The button reads Approve this change](../../../apps/playground/public/learn-media/how-it-works/when-something-goes-wrong/07-new-terms.webp "Lantern did not move the order on the old terms. It sent new ones for Elena to read.")
 
 Back in Iris, Elena presses Approve. Iris sends her approval, and Lantern
 compares it with the order as it is now. The terms she approved no longer
@@ -189,7 +191,7 @@ agent had no part in it.
 
 ### 9. Ask the bank to pay someone it does not pay
 
-![Elena asks to pay her old landlord 900 dollars. Iris asks who should be paid and names her one active saved recipient](../../../apps/playground/public/learn-media/how-it-works/when-something-goes-wrong/09-recipient-not-found.webp "Iris found no active recipient that matches, and asked Harborline to pay nobody.")
+![Elena asks to pay her old landlord 900 dollars. Iris asks who should be paid and names her active saved recipients, Beacon Studio LLC and Fernwick Power & Light. The steps, opened, end with two reads](../../../apps/playground/public/learn-media/how-it-works/when-something-goes-wrong/09-recipient-not-found.webp "Iris found no active recipient that matches, and asked Harborline to pay nobody.")
 
 At Harborline Bank, Elena asks Iris to pay her old landlord 900 dollars. An
 agent at Harborline can pay only a recipient the customer has already saved at
@@ -202,7 +204,7 @@ would refuse.
 
 ### 10. Approve a payment the balance no longer covers
 
-![The panel counts two requests. A closed line reads Review Company proposal, Approval required, Amount $500.00. Under it the card for a payment of 4,000 dollars to Beacon Studio is open and still waits. Above its buttons a note reads: Harborline Bank refused this request (HTTP 409, insufficient_funds; available balance: $2,845.00). Nothing was performed](../../../apps/playground/public/learn-media/how-it-works/when-something-goes-wrong/10-bank-refuses.webp "Harborline refused the approved payment and gave its reason as a code and a balance. No money moved.")
+![The card for a payment of 4,000 dollars to Beacon Studio still waits. Above its buttons a note reads: Harborline Bank refused this request (HTTP 409, insufficient_funds; available balance: $2,845.00). Nothing was performed. The terms still wait for you](../../../apps/playground/public/learn-media/how-it-works/when-something-goes-wrong/10-bank-refuses.webp "Harborline refused the approved payment and gave its reason as a code and a balance. No money moved.")
 
 Elena asks for a payment of 4,000 dollars to Beacon Studio for November's
 design work. Harborline answers with its terms and moves no money. The terms
@@ -211,18 +213,18 @@ the 12,845 dollars it holds at that moment. Elena leaves the card waiting, and
 in the same conversation she asks for two other payments of 5,000 dollars each
 and approves those. The account is down to 2,845 dollars.
 
-Several proposals can wait at once. The panel keeps one card open and lists
-each of the others as a closed line with its amount, and opening a line closes
-the open card. Elena opens each payment of 5,000 dollars that way to approve
-it. The line for 500 dollars is a transfer to her savings account that she
-asked for as well and has not decided yet.
+Several proposals can wait at once, each on its own card where it arrived.
+With two waiting, Iris asks which one to approve and names each by its amount,
+and each time Elena replies "approve the $5,000 payment". She also asks for a
+transfer of 500 dollars to her savings account and leaves it undecided.
 
 Then she approves the payment of 4,000 dollars. Iris sends her approval, and
 Harborline checks the account as it is now. The balance does not cover the
 payment, so the bank refuses and names its reason: `insufficient_funds`. Iris
-puts the refusal on the card, above the buttons, with the bank's name, its
-code and the balance the bank reported, and adds what it means for Elena:
-nothing was performed. She can approve again once there is money in the
+puts the refusal on the card, above the buttons, and says it in the
+conversation too, with the bank's name, its code and the balance the bank
+reported, and what it means for Elena: nothing was performed, and the terms
+still wait for her. She can approve again once there is money in the
 account, or let the card run out.
 
 An approval is permission for the company to do what it offered. It does not
@@ -244,7 +246,7 @@ POST /api/account/payments · refused by the Company · HTTP 409 insufficient_fu
 
 ### 11. Check the bank's record
 
-![Harborline's Agent activity: the payment of 4,000 dollars marked Awaiting approval, a transfer of 500 dollars marked Applied once, the same payment of 4,000 dollars marked Not applied with the bank's reason, and two payments of 5,000 dollars each marked Applied once](../../../apps/playground/public/learn-media/how-it-works/when-something-goes-wrong/11-harborline-record.webp "Harborline's own record: three changes applied once each, and the refused payment listed as not applied while its proposal still waits.")
+![Harborline's Agent activity: a transfer of 500 dollars and the payment of 4,000 dollars, both marked Awaiting approval, the same payment of 4,000 dollars marked Not applied with the bank's reason, and two payments of 5,000 dollars each marked Applied once](../../../apps/playground/public/learn-media/how-it-works/when-something-goes-wrong/11-harborline-record.webp "Harborline's own record: three changes applied once each, and the refused payment listed as not applied while its proposal still waits.")
 
 Harborline's website lists what Elena's agent asked for. The two payments of
 5,000 dollars are each marked Applied once, with the time and the line that
@@ -257,10 +259,8 @@ she approved, less than the payment. The other is the proposal itself, which
 shows as awaiting approval until its time runs out. After that it leaves the
 list, and the Not applied entry stays.
 
-The transfer of 500 dollars is the closed line in the panel in step 10. Its
-first terms quoted a balance that the two payments made out of date. When
-Elena approved it, Harborline returned new terms as Lantern did in step 7, and
-it made the transfer once she approved those. The list shows it once.
+The transfer of 500 dollars, which Elena asked for after the two payments,
+still awaits approval. Harborline has moved nothing for it.
 
 ## When the answer is lost
 
