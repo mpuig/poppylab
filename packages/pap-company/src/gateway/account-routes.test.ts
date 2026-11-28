@@ -8,7 +8,12 @@ import type { Context } from "hono";
 import { describe, expect, it } from "vitest";
 import { newSessionId } from "@poppy-lab/pap-client/core";
 import { origin, setup } from "./test-company.ts";
-import type { CompanyDefinition, GrantView } from "./types.ts";
+import {
+  MCP_PATH,
+  SHARED_TENANT,
+  type CompanyDefinition,
+  type GrantView,
+} from "./types.ts";
 
 const DATA = { name: "example.com/data", version: "1" };
 
@@ -368,5 +373,152 @@ describe("refused consent", () => {
     // Scopes the hook doesn't cover still sign in without resources.
     const plain = signedIn(await x.signIn("things:read", { resources: "" }));
     expect(plain.access_token).toEqual(expect.any(String));
+  });
+});
+
+describe("canonical routed paths and default write scopes", () => {
+  it("enforces session, extension, scope, tenancy and MCP guards on percent-encoded paths without decoding %2F", async () => {
+    let saves = 0;
+    const x = await setup(
+      { isolation: "visitor" },
+      {
+        scopes: ["things:read", "things:write", "data:read"],
+        accountPrefixes: ["/api/account", "/data/v1/"],
+        discovery: (at) => ({
+          apis: [{ type: "mcp", url: `${at}${MCP_PATH}` }],
+        }),
+        requiredScopes: ({ path }) => {
+          if (path === "/api/account/secret") return ["things:write"];
+          if (/^\/api\/account\/items\/[^/]+\/secret$/.test(path))
+            return ["things:write"];
+          if (path.startsWith("/data/v1/")) return ["data:read"];
+          return ["things:read"];
+        },
+        requiredExtension: ({ path }) =>
+          path.startsWith("/data/") ? DATA : undefined,
+        mount: (app, ctx) => {
+          app.get("/api/public", (c) => c.json({ ok: true }));
+          app.get("/api/account/secret", (c) => c.json({ secret: true }));
+          app.get("/api/account/items/:id", (c) =>
+            c.json({ item: c.req.param("id") }),
+          );
+          app.get("/api/account/items/:id/secret", (c) =>
+            c.json({ secretItem: c.req.param("id") }),
+          );
+          app.get("/data/v1/records", (c) => c.json({ records: [] }));
+          app.get("/site/hello", (c) =>
+            c.json({ note: ctx.state.note ?? null }),
+          );
+          app.post("/site/hello", (c) => {
+            ctx.state.note = "visitor-only";
+            return c.json({ saved: true });
+          });
+        },
+      },
+    );
+
+    // Percent-encoded `/api/public` still requires a Poppy-Session header.
+    const encodedPublic = await x.app.request("/%61pi/public");
+    expect(encodedPublic.status).toBe(400);
+    expect(await encodedPublic.json()).toEqual({ error: "invalid_session" });
+
+    // Percent-encoded `/data/v1/records` still requires the declared extension.
+    const encodedExt = await x.call("/%64ata/v1/records");
+    expect(encodedExt.status).toBe(403);
+    expect(await encodedExt.json()).toEqual({
+      error: "extension_required",
+      extension: DATA.name,
+    });
+
+    // Percent-encoded static segment `/api/account/%73ecret` requires `things:write`.
+    const readOnly = signedIn(await x.signIn("things:read"));
+    const encodedSecret = await x.call("/api/account/%73ecret", {
+      access: readOnly.access_token,
+    });
+    expect(encodedSecret.status).toBe(403);
+    expect(encodedSecret.headers.get("www-authenticate")).toContain(
+      'scope="things:write"',
+    );
+    const encodedNestedSecret = await x.call("/api/account/items/a/%73ecret", {
+      access: readOnly.access_token,
+    });
+    expect(encodedNestedSecret.status).toBe(403);
+    expect(encodedNestedSecret.headers.get("www-authenticate")).toContain(
+      'scope="things:write"',
+    );
+
+    // `%2F` is NOT decoded into an extra path segment: it stays inside `:id`
+    // and never routes to `/api/account/items/:id/secret`.
+    const encodedSlash = await x.call("/api/account/items/a%2Fsecret", {
+      access: readOnly.access_token,
+    });
+    expect(encodedSlash.status).toBe(200);
+    expect(await encodedSlash.json()).toEqual({ item: "a/secret" });
+
+    // Percent-encoded `/%73ite/hello` still receives visitor tenancy isolation.
+    const siteGet = await x.app.request("/%73ite/hello");
+    expect(siteGet.status).toBe(200);
+    const browserCookie = siteGet.headers
+      .getSetCookie()
+      .find((entry) => entry.includes("pap_browser="))
+      ?.split(";")[0];
+    expect(browserCookie).toBeDefined();
+    expect(x.store.value.tenants[SHARED_TENANT]).toBeUndefined();
+    const sitePost = await x.app.request("/%73ite/hello", {
+      method: "POST",
+      headers: { cookie: browserCookie!, origin },
+    });
+    expect(sitePost.status).toBe(200);
+    expect(x.store.value.tenants[SHARED_TENANT]).toBeUndefined();
+    const otherVisitor = await x.app.request("/site/hello");
+    expect(await otherVisitor.json()).toEqual({ note: null });
+
+    // Percent-encoded `/%6dcp` without Poppy-Session skips persistence writes like `/mcp`.
+    const originalSave = x.store.save.bind(x.store);
+    x.store.save = (changes) => {
+      saves++;
+      return originalSave(changes);
+    };
+    const mcpInit = await x.app.request("/%6dcp", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize" }),
+    });
+    expect(mcpInit.status).toBe(200);
+    expect(saves).toBe(0);
+  });
+
+  it("defaults PUT, PATCH and DELETE on account routes to readScope and writeScope when requiredScopes is absent", async () => {
+    const x = await setup(
+      {},
+      {
+        mount: (app) => {
+          app.get("/api/account/item", (c) => c.json({ ok: "get" }));
+          app.put("/api/account/item", (c) => c.json({ ok: "put" }));
+          app.patch("/api/account/item", (c) => c.json({ ok: "patch" }));
+          app.delete("/api/account/item", (c) => c.json({ ok: "delete" }));
+        },
+      },
+    );
+    const readOnly = signedIn(await x.signIn("things:read"));
+    for (const method of ["PUT", "PATCH", "DELETE"] as const) {
+      const denied = await x.call("/api/account/item", {
+        method,
+        access: readOnly.access_token,
+      });
+      expect(denied.status).toBe(403);
+      expect(denied.headers.get("www-authenticate")).toContain(
+        'scope="things:read things:write"',
+      );
+    }
+    const writer = signedIn(await x.signIn("things:read things:write"));
+    for (const method of ["PUT", "PATCH", "DELETE"] as const) {
+      const allowed = await x.call("/api/account/item", {
+        method,
+        access: writer.access_token,
+        session: newSessionId(),
+      });
+      expect(allowed.status).toBe(200);
+    }
   });
 });

@@ -184,7 +184,7 @@ export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
     // a nonce retry or a sign-in in front of it would be wasted, and a
     // refused request touches no grant or Session. Operations v3 on account
     // POSTs keeps its own check below, after the scopes, as before.
-    const path = new URL(c.req.url).pathname;
+    const path = c.req.path;
     const extension = def.requiredExtension?.({ path, method: c.req.method });
     if (extension && !declares(declared, extension))
       return c.json(
@@ -327,7 +327,7 @@ export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
     return first ? { kind: "replay", body: first } : undefined;
   }
   app.use("*", async (c, next) => {
-    const path = new URL(c.req.url).pathname;
+    const path = c.req.path;
     if (!sessionDestination(ctx, path)) return next();
     const refused = await verify(c);
     if (refused) return refused;

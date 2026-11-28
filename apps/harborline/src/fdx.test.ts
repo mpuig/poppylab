@@ -879,4 +879,36 @@ describe("Harborline FDX-shaped API", () => {
     const page = await h.authorize("robin", ["accounts:read"]);
     expect(page.page.body).not.toContain("FDX-shaped API</legend>");
   });
+
+  it("enforces extension and cluster scopes on percent-encoded FDX paths and fails closed on unknown FDX routes", async () => {
+    const basic = await h.sign("elena", ["fdx:ACCOUNT_BASIC"]);
+    const transactions = await get(
+      basic.access_token,
+      "/fdx/v6/accounts/acc_HLB_A100/%74ransactions",
+    );
+    expect(transactions.statusCode).toBe(403);
+    expect(transactions.headers["www-authenticate"]).toContain(
+      'scope="fdx:TRANSACTIONS"',
+    );
+    const statements = await get(
+      basic.access_token,
+      "/fdx/v6/accounts/acc_HLB_A100/%73tatements",
+    );
+    expect(statements.statusCode).toBe(403);
+    expect(statements.headers["www-authenticate"]).toContain(
+      'scope="fdx:STATEMENTS"',
+    );
+    const withoutExt = await h.call(
+      basic.access_token,
+      "GET",
+      "/%66dx/v6/accounts",
+    );
+    expect([withoutExt.statusCode, withoutExt.json()]).toEqual([
+      403,
+      { error: "extension_required", extension: "poppylab.dev/fdx" },
+    ]);
+    const unknown = await get(basic.access_token, "/fdx/v6/unknown");
+    expect(unknown.statusCode).toBe(403);
+    expect(unknown.headers["www-authenticate"]).toContain("fdx:TRANSACTIONS");
+  });
 });

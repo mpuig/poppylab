@@ -60,8 +60,7 @@ export function mountPersistence(app: Hono, ctx: Ctx) {
       });
     const request = c.req.raw;
     if (
-      (c.req.method !== "GET" &&
-        !(ctx.mcp && new URL(c.req.url).pathname === MCP_PATH)) ||
+      (c.req.method !== "GET" && !(ctx.mcp && c.req.path === MCP_PATH)) ||
       c.req.header("poppy-session")
     )
       ctx.markDirty(request);

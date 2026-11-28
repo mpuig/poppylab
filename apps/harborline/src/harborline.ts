@@ -43,7 +43,12 @@ import { browserSignInHint, browserSignInScope } from "@poppy-lab/pap-core";
 import { mountPortal } from "./portal.ts";
 import { harborlineAgent } from "./agent.ts";
 import { skills } from "./skills.ts";
-import { isFdxScope, scopes, type HarborlineScope } from "./scopes.ts";
+import {
+  fdxScopes,
+  isFdxScope,
+  scopes,
+  type HarborlineScope,
+} from "./scopes.ts";
 import { FDX, FDX_BASE, FDX_OPENAPI, mountFdx } from "./fdx.ts";
 import { fdxOpenApi } from "./fdx-openapi.ts";
 
@@ -461,6 +466,10 @@ export const bankPaths: Record<string, unknown> = {
   },
 };
 
+const OWN_ACCOUNT_SCOPES = scopes.filter(
+  (scope) => !isFdxScope(scope) && scope !== "offline_access",
+);
+
 const routeScopes = ({
   path,
   method,
@@ -468,33 +477,50 @@ const routeScopes = ({
   path: string;
   method: string;
 }): string[] => {
-  // FDX-shaped routes: one data cluster each. A consent is read or revoked
-  // with any token issued under it, which the route itself checks.
-  if (path.startsWith(`${FDX_BASE}/consents/`)) return [];
-  if (/^\/fdx\/v6\/accounts\/[^/]+\/transactions$/.test(path))
-    return ["fdx:TRANSACTIONS"];
-  if (/^\/fdx\/v6\/accounts\/[^/]+\/statements(\/[^/]+)?$/.test(path))
-    return ["fdx:STATEMENTS"];
-  if (path === `${FDX_BASE}/customers/current`) return ["fdx:CUSTOMER_CONTACT"];
-  if (path.startsWith("/fdx/")) return ["fdx:ACCOUNT_BASIC"];
-  if (method === "GET") {
-    if (path.endsWith("/accounts")) return ["accounts:read"];
-    if (path.endsWith("/transactions")) return ["transactions:read"];
-    if (path.endsWith("/cards")) return ["cards:read"];
-    if (path.endsWith("/recipients")) return ["recipients:read"];
-    if (path.endsWith("/budgets")) return ["budgets:read"];
+  const isGet = method === "GET" || method === "HEAD";
+  if (path.startsWith("/fdx/")) {
+    // FDX-shaped routes: one data cluster each. A consent is read or revoked
+    // with any token issued under it, which the route itself checks.
+    if (
+      (isGet && /^\/fdx\/v6\/consents\/[^/]+$/.test(path)) ||
+      (method === "PUT" &&
+        /^\/fdx\/v6\/consents\/[^/]+\/revocation$/.test(path))
+    )
+      return [];
+    if (isGet) {
+      if (/^\/fdx\/v6\/accounts(?:\/[^/]+)?$/.test(path))
+        return ["fdx:ACCOUNT_BASIC"];
+      if (/^\/fdx\/v6\/accounts\/[^/]+\/transactions$/.test(path))
+        return ["fdx:TRANSACTIONS"];
+      if (/^\/fdx\/v6\/accounts\/[^/]+\/statements(?:\/[^/]+)?$/.test(path))
+        return ["fdx:STATEMENTS"];
+      if (path === `${FDX_BASE}/customers/current`)
+        return ["fdx:CUSTOMER_CONTACT"];
+      return [...fdxScopes];
+    }
+    return [...fdxScopes, ...OWN_ACCOUNT_SCOPES];
   }
-  if (path.endsWith("/payments"))
-    return ["accounts:read", "recipients:read", "payments:request"];
-  if (path.endsWith("/transfers"))
-    return ["accounts:read", "transfers:request"];
-  if (/\/cards\/[^/]+\/status$/.test(path))
-    return ["cards:read", "cards:write"];
-  if (/\/transactions\/[^/]+\/category$/.test(path))
-    return ["transactions:read", "transactions:write"];
-  if (/\/budgets(?:\/[^/]+)?$/.test(path))
-    return ["budgets:read", "budgets:write"];
-  return ["accounts:read"];
+  if (isGet) {
+    if (path === "/api/account/accounts") return ["accounts:read"];
+    if (path === "/api/account/transactions") return ["transactions:read"];
+    if (path === "/api/account/cards") return ["cards:read"];
+    if (path === "/api/account/recipients") return ["recipients:read"];
+    if (path === "/api/account/budgets") return ["budgets:read"];
+  }
+  if (method === "POST") {
+    if (path === "/api/account/payments")
+      return ["accounts:read", "recipients:read", "payments:request"];
+    if (path === "/api/account/transfers")
+      return ["accounts:read", "transfers:request"];
+    if (/^\/api\/account\/cards\/[^/]+\/status$/.test(path))
+      return ["cards:read", "cards:write"];
+    if (/^\/api\/account\/transactions\/[^/]+\/category$/.test(path))
+      return ["transactions:read", "transactions:write"];
+    if (/^\/api\/account\/budgets(?:\/[^/]+)?$/.test(path))
+      return ["budgets:read", "budgets:write"];
+  }
+  // Fail closed: unmatched account routes never downgrade to a weaker scope.
+  return [...OWN_ACCOUNT_SCOPES];
 };
 
 function mount(app: Hono, ctx: Parameters<CompanyDefinition["mount"]>[1]) {

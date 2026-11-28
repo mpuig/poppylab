@@ -4,6 +4,7 @@ import {
   restartingStore,
   SHARED_TENANT,
 } from "@poppy-lab/pap-company";
+import { harborline } from "./harborline.ts";
 import { scopes } from "./scopes.ts";
 import { inject, lab, origin, setup } from "./test-harness.ts";
 
@@ -1580,5 +1581,55 @@ describe("Harborline Bank", () => {
         .getSetCookie()
         .some((entry) => entry.startsWith("harborline_login=;")),
     ).toBe(true);
+  });
+
+  it("enforces scopes on percent-encoded paths and fails closed on unmatched account routes", async () => {
+    const { sign, call } = await setup();
+    const accountsOnly = await sign("elena", ["accounts:read"]);
+    const transactions = await call(
+      accountsOnly.access_token,
+      "GET",
+      "/api/account/%74ransactions",
+    );
+    expect(transactions.statusCode).toBe(403);
+    expect(transactions.headers["www-authenticate"]).toContain(
+      'scope="transactions:read"',
+    );
+    const payments = await call(
+      accountsOnly.access_token,
+      "POST",
+      "/api/account/%70ayments",
+      {
+        source_account_id: "acc_HLB_A100",
+        recipient_id: "rcp_electric",
+        amount_cents: 500,
+        memo: "test",
+        idempotency_key: "encoded-pay-0001",
+      },
+    );
+    expect(payments.statusCode).toBe(403);
+    expect(payments.headers["www-authenticate"]).toContain("payments:request");
+    for (const [method, url] of [
+      ["GET", "/api/account/unknown"],
+      ["POST", "/api/account/unknown"],
+    ] as const) {
+      const unmatched = await call(accountsOnly.access_token, method, url);
+      expect(unmatched.statusCode).toBe(403);
+      expect(unmatched.headers["www-authenticate"]).toContain(
+        "payments:request",
+      );
+    }
+    expect(
+      harborline.requiredScopes?.({
+        path: "/api/account/accounts",
+        method: "HEAD",
+      }),
+    ).toEqual(["accounts:read"]);
+    expect(
+      harborline.requiredScopes?.({
+        path: "/fdx/v6/accounts",
+        method: "HEAD",
+      }),
+    ).toEqual(["fdx:ACCOUNT_BASIC"]);
   });
 });

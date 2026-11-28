@@ -1340,3 +1340,84 @@ it("serves responsive website, consent and account scripts with honest notices",
     render(readFileSync(source, "utf8")),
   );
 });
+
+it("enforces scopes on percent-encoded account paths and fails closed on unmatched routes", async () => {
+  const x = await setup();
+  const bookingsOnly = await x.sign("elena", false, "bookings:read");
+  const loyalty = await x.call(
+    bookingsOnly.access_token,
+    "GET",
+    "/api/account/%6coyalty",
+  );
+  expect(loyalty.statusCode).toBe(403);
+  expect(loyalty.headers["www-authenticate"]).toContain('scope="profile:read"');
+
+  const preferences = await x.call(
+    bookingsOnly.access_token,
+    "GET",
+    "/api/account/%70references",
+  );
+  expect(preferences.statusCode).toBe(403);
+  expect(preferences.headers["www-authenticate"]).toContain(
+    'scope="profile:read"',
+  );
+
+  const seat = await x.call(
+    bookingsOnly.access_token,
+    "POST",
+    "/api/account/bookings/NW7K2P/%73eat",
+    { flight_id: "flt_na274_20270603", seat: "12C" },
+  );
+  expect(seat.statusCode).toBe(403);
+  expect(seat.headers["www-authenticate"]).toContain(
+    'scope="bookings:read preferences:write"',
+  );
+
+  const prefWrite = await x.call(
+    bookingsOnly.access_token,
+    "POST",
+    "/api/account/bookings/NW7K2P/%70references",
+    { meal: "vegetarian", assistance: "none" },
+  );
+  expect(prefWrite.statusCode).toBe(403);
+  expect(prefWrite.headers["www-authenticate"]).toContain(
+    'scope="bookings:read profile:read preferences:write"',
+  );
+
+  const unmatched = await x.call(
+    bookingsOnly.access_token,
+    "GET",
+    "/api/account/unknown",
+  );
+  expect(unmatched.statusCode).toBe(403);
+  expect(unmatched.headers["www-authenticate"]).toContain("bookings:change");
+
+  const prefsOnly = await x.sign(
+    "elena",
+    true,
+    "bookings:read preferences:write",
+  );
+  const cancel = await x.call(
+    prefsOnly.access_token,
+    "POST",
+    "/api/account/bookings/NW7K2P/%63ancel",
+    {},
+  );
+  expect(cancel.statusCode).toBe(403);
+  expect(cancel.headers["www-authenticate"]).toContain(
+    'scope="bookings:read bookings:change"',
+  );
+
+  expect(
+    northwind.requiredScopes?.({
+      path: "/api/account/bookings",
+      method: "HEAD",
+    }),
+  ).toEqual(["bookings:read"]);
+  expect(
+    northwind.requiredScopes?.({
+      path: "/api/account/loyalty",
+      method: "HEAD",
+    }),
+  ).toEqual(["profile:read"]);
+});

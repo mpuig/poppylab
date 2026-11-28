@@ -198,7 +198,7 @@ export async function setup(
   const call = async (
     path: string,
     options: {
-      method?: "GET" | "POST" | "PUT";
+      method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
       access?: string;
       extensions?: string;
       user?: string;

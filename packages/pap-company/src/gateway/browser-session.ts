@@ -159,7 +159,7 @@ export function browserJoin(ctx: Ctx, c: Context): BrowserJoin | undefined {
 export function mountBrowserGuard(app: Hono, ctx: Ctx) {
   const text = `This browser belongs to an agent's session, so it can't change anything at ${ctx.def.name}. Changes are made through the agent and wait for your approval there. Nothing has changed.`;
   app.use("*", async (c, next) => {
-    const path = new URL(c.req.url).pathname;
+    const path = c.req.path;
     if (
       ["GET", "HEAD", "OPTIONS"].includes(c.req.method) ||
       path === BROWSER_SESSION_PATH ||
