@@ -1,8 +1,8 @@
 /**
  * The Personal Agent's core: conversations with Companies over PAP 1.0,
  * for any channel (docs/pap-agent.md). This entry is the channel-neutral
- * API; each module is also its own entry point
- * (`@poppy-lab/pap-agent/<module>`), so a page imports only what it shows.
+ * API. The package also exposes an explicit set of entry points for the
+ * parts used by the playground, without exposing every source module.
  */
 export * from "./api";
 export * from "./api-events";
