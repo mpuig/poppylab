@@ -183,6 +183,109 @@ describe("account prefixes", () => {
         setup({}, { ...company(), accountPrefixes }),
       ).rejects.toThrow(/accountPrefixes/);
   });
+
+  it("defaults write methods on account routes to both readScope and writeScope when requiredScopes is omitted", async () => {
+    const x = await setup(
+      {},
+      {
+        mount: (app, ctx) => {
+          app.get("/api/account/things", (c) =>
+            c.json({ account: ctx.sessionFor(c).account, item: "secret-lamp" }),
+          );
+          app.post("/api/account/things", (c) =>
+            ctx.gate(c, {
+              key: "thing:1",
+              terms: { current: "secret-lamp", next: "new-lamp" },
+              summary: "Replace secret-lamp with new-lamp",
+              perform: () => ({ summary: "Replaced", data: { ok: true } }),
+              stale: () => false,
+            }),
+          );
+          app.put("/api/account/things", (c) => c.json({ updated: true }));
+        },
+      },
+    );
+    const ops = '"operations";v="3"';
+    const getChallenge = await x.call("/api/account/things");
+    expect(getChallenge.status).toBe(401);
+    expect(getChallenge.headers.get("www-authenticate")).toBe(
+      'DPoP scope="things:read"',
+    );
+    const postChallenge = await x.call("/api/account/things", {
+      method: "POST",
+      extensions: ops,
+    });
+    expect(postChallenge.status).toBe(401);
+    expect(postChallenge.headers.get("www-authenticate")).toBe(
+      'DPoP scope="things:read things:write"',
+    );
+    const putChallenge = await x.call("/api/account/things", {
+      method: "PUT",
+    });
+    expect(putChallenge.status).toBe(401);
+    expect(putChallenge.headers.get("www-authenticate")).toBe(
+      'DPoP scope="things:read things:write"',
+    );
+
+    const writeOnly = signedIn(await x.signIn("things:write"));
+    expect(writeOnly.scope).toBe("things:write");
+    const deniedPost = await x.call("/api/account/things", {
+      method: "POST",
+      extensions: ops,
+      access: writeOnly.access_token,
+    });
+    expect(deniedPost.status).toBe(403);
+    expect(await deniedPost.json()).toEqual({ error: "insufficient_scope" });
+    expect(deniedPost.headers.get("www-authenticate")).toBe(
+      'DPoP error="insufficient_scope", scope="things:read things:write"',
+    );
+
+    const deniedPut = await x.call("/api/account/things", {
+      method: "PUT",
+      access: writeOnly.access_token,
+    });
+    expect(deniedPut.status).toBe(403);
+    expect(await deniedPut.json()).toEqual({ error: "insufficient_scope" });
+    expect(deniedPut.headers.get("www-authenticate")).toBe(
+      'DPoP error="insufficient_scope", scope="things:read things:write"',
+    );
+
+    const readOnly = signedIn(await x.signIn("things:read"));
+    expect(
+      (
+        await x.call("/api/account/things", {
+          access: readOnly.access_token,
+        })
+      ).status,
+    ).toBe(200);
+    const readOnlyPost = await x.call("/api/account/things", {
+      method: "POST",
+      extensions: ops,
+      access: readOnly.access_token,
+    });
+    expect(readOnlyPost.status).toBe(403);
+    expect(readOnlyPost.headers.get("www-authenticate")).toBe(
+      'DPoP error="insufficient_scope", scope="things:read things:write"',
+    );
+
+    const readWrite = signedIn(await x.signIn("things:read things:write"));
+    const proposal = await x.call("/api/account/things", {
+      method: "POST",
+      extensions: ops,
+      access: readWrite.access_token,
+    });
+    expect(proposal.status).toBe(403);
+    expect(await proposal.json()).toMatchObject({
+      error: "approval_required",
+      operation: { terms: { current: "secret-lamp", next: "new-lamp" } },
+    });
+    const updated = await x.call("/api/account/things", {
+      method: "PUT",
+      access: readWrite.access_token,
+    });
+    expect(updated.status).toBe(200);
+    expect(await updated.json()).toEqual({ updated: true });
+  });
 });
 
 describe("token response fields", () => {

@@ -718,7 +718,7 @@ describe("tool calls", () => {
     expect(short.status).toBe(403);
     expect(await short.json()).toEqual({ error: "insufficient_scope" });
     expect(short.headers.get("www-authenticate")).toBe(
-      both('error="insufficient_scope", scope="things:write"'),
+      both('error="insufficient_scope", scope="things:read things:write"'),
     );
   });
 
@@ -927,7 +927,7 @@ describe("tools from the OpenAPI operations", () => {
     expect(mcpToolsOf(def).map((t) => [t.name, t.scopes])).toEqual([
       ["list_things", undefined],
       ["thing", ["r"]],
-      ["add_thing", ["w"]],
+      ["add_thing", ["r", "w"]],
       ["extra", undefined],
     ]);
     expect(() =>

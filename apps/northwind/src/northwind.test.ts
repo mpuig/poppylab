@@ -124,7 +124,185 @@ it("enforces booking and profile read scopes independently", async () => {
   );
   expect(seat.statusCode).toBe(403);
   expect(seat.json().error).toBe("insufficient_scope");
-  expect(seat.headers["www-authenticate"]).toContain("preferences:write");
+  expect(seat.headers["www-authenticate"]).toBe(
+    'DPoP error="insufficient_scope", scope="bookings:read preferences:write"',
+  );
+});
+
+it("requires matching read and write scopes on every account proposal route", async () => {
+  const x = await setup();
+  const bookingsWriteOnly = await x.sign("elena", true, "bookings:change");
+  expect(bookingsWriteOnly.scope).toBe("bookings:change");
+  const prefsWriteOnly = await x.sign("elena", true, "preferences:write");
+  expect(prefsWriteOnly.scope).toBe("preferences:write");
+  const bookingsReadChange = await x.sign(
+    "elena",
+    true,
+    "bookings:read bookings:change",
+  );
+  const bookingsReadPrefsWrite = await x.sign(
+    "elena",
+    true,
+    "bookings:read preferences:write",
+  );
+  const profileReadPrefsWrite = await x.sign(
+    "elena",
+    true,
+    "profile:read preferences:write",
+  );
+  const robinChangeOnly = await x.sign("robin", true, "bookings:change");
+  const robinReadChange = await x.sign(
+    "robin",
+    true,
+    "bookings:read bookings:change",
+  );
+
+  const leakedBookingDetails = [
+    "approval_required",
+    "Elena Maren",
+    "Robin Ito",
+    "NW7K2P",
+    "NW4D8R",
+    "Gale Flex",
+    "Breeze Saver",
+    "62000",
+    "18A",
+    "27D",
+    "upg_elena_1",
+    "24800",
+    "NA 402",
+    "NA 118",
+    "NA 274",
+  ];
+  const leakedPreferenceDetails = [
+    "approval_required",
+    "Elena Maren",
+    "psg_elena",
+    "vegetarian",
+  ];
+
+  const bookingProposals: Array<[string, string, Record<string, unknown>]> = [
+    [
+      bookingsWriteOnly.access_token,
+      "/api/account/bookings/NW7K2P/baggage",
+      { flight_id: "flt_na402_20270518", additional_pieces: 1 },
+    ],
+    [
+      bookingsWriteOnly.access_token,
+      "/api/account/bookings/NW7K2P/upgrade",
+      { offer_id: "upg_elena_1" },
+    ],
+    [bookingsWriteOnly.access_token, "/api/account/bookings/NW7K2P/cancel", {}],
+    [
+      robinChangeOnly.access_token,
+      "/api/account/bookings/NW4D8R/change-flight",
+      toNa278,
+    ],
+  ];
+
+  for (const [access, url, payload] of bookingProposals) {
+    const denied = await x.call(access, "POST", url, payload);
+    expect(denied.statusCode).toBe(403);
+    expect(denied.json()).toEqual({ error: "insufficient_scope" });
+    expect(denied.headers["www-authenticate"]).toBe(
+      'DPoP error="insufficient_scope", scope="bookings:read bookings:change"',
+    );
+    for (const leaked of leakedBookingDetails)
+      expect(denied.body).not.toContain(leaked);
+  }
+
+  // /seat returns current seat and booking details: needs bookings:read + preferences:write.
+  for (const access of [
+    prefsWriteOnly.access_token,
+    profileReadPrefsWrite.access_token,
+  ]) {
+    const denied = await x.call(
+      access,
+      "POST",
+      "/api/account/bookings/NW7K2P/seat",
+      { flight_id: "flt_na402_20270518", seat: "14A" },
+    );
+    expect(denied.statusCode).toBe(403);
+    expect(denied.json()).toEqual({ error: "insufficient_scope" });
+    expect(denied.headers["www-authenticate"]).toBe(
+      'DPoP error="insufficient_scope", scope="bookings:read preferences:write"',
+    );
+    for (const leaked of leakedBookingDetails)
+      expect(denied.body).not.toContain(leaked);
+  }
+
+  // /preferences returns saved passenger preferences: needs profile:read + preferences:write.
+  for (const access of [
+    prefsWriteOnly.access_token,
+    bookingsReadPrefsWrite.access_token,
+  ]) {
+    const denied = await x.call(
+      access,
+      "POST",
+      "/api/account/bookings/NW7K2P/preferences",
+      { meal: "vegan", assistance: "visual_guidance" },
+    );
+    expect(denied.statusCode).toBe(403);
+    expect(denied.json()).toEqual({ error: "insufficient_scope" });
+    expect(denied.headers["www-authenticate"]).toBe(
+      'DPoP error="insufficient_scope", scope="profile:read preferences:write"',
+    );
+    for (const leaked of leakedPreferenceDetails)
+      expect(denied.body).not.toContain(leaked);
+  }
+
+  // Read+write tokens proceed to approval_required proposals.
+  const seatProposal = await x.call(
+    bookingsReadPrefsWrite.access_token,
+    "POST",
+    "/api/account/bookings/NW7K2P/seat",
+    { flight_id: "flt_na402_20270518", seat: "14A" },
+  );
+  expect(seatProposal.statusCode).toBe(403);
+  expect(seatProposal.json().error).toBe("approval_required");
+  expect(seatProposal.json().operation.terms).toMatchObject({
+    from_seat: "18A",
+    to_seat: "14A",
+  });
+
+  const prefProposal = await x.call(
+    profileReadPrefsWrite.access_token,
+    "POST",
+    "/api/account/bookings/NW7K2P/preferences",
+    { meal: "vegan", assistance: "visual_guidance" },
+  );
+  expect(prefProposal.statusCode).toBe(403);
+  expect(prefProposal.json().error).toBe("approval_required");
+  expect(prefProposal.json().operation.terms).toMatchObject({
+    from: { meal: "vegetarian", assistance: "none" },
+    to: { meal: "vegan", assistance: "visual_guidance" },
+  });
+
+  const bagProposal = await x.call(
+    bookingsReadChange.access_token,
+    "POST",
+    "/api/account/bookings/NW7K2P/baggage",
+    { flight_id: "flt_na402_20270518", additional_pieces: 1 },
+  );
+  expect(bagProposal.statusCode).toBe(403);
+  expect(bagProposal.json().error).toBe("approval_required");
+  expect(bagProposal.json().operation.terms).toMatchObject({
+    current_checked_bags: 1,
+    new_checked_bags: 2,
+  });
+
+  const changeProposal = await x.call(
+    robinReadChange.access_token,
+    "POST",
+    "/api/account/bookings/NW4D8R/change-flight",
+    toNa278,
+  );
+  expect(changeProposal.statusCode).toBe(403);
+  expect(changeProposal.json().error).toBe("approval_required");
+  expect(changeProposal.json().operation.terms).toMatchObject({
+    booking_reference: "NW4D8R",
+    amount_due_cents: 10500,
+  });
 });
 
 it("chooses a seat only after approval and replays the first result", async () => {
@@ -759,7 +937,43 @@ it("serves a detailed OpenAPI contract suitable for Iris", async () => {
     spec.paths["/api/account/bookings/{booking_reference}/change-flight"].post;
   expect(change.operationId).toBe("change_flight");
   expect(change["x-poppy-proposal"]).toBe(true);
-  expect(change.security).toEqual([{ dpop: ["bookings:change"] }]);
+  expect(change["x-poppy-scopes"]).toEqual([
+    "bookings:read",
+    "bookings:change",
+  ]);
+  expect(change.security).toEqual([
+    { dpop: ["bookings:read", "bookings:change"] },
+  ]);
+  for (const [path, expected] of [
+    [
+      "/api/account/bookings/{booking_reference}/seat",
+      ["bookings:read", "preferences:write"],
+    ],
+    [
+      "/api/account/bookings/{booking_reference}/preferences",
+      ["profile:read", "preferences:write"],
+    ],
+    [
+      "/api/account/bookings/{booking_reference}/baggage",
+      ["bookings:read", "bookings:change"],
+    ],
+    [
+      "/api/account/bookings/{booking_reference}/cancel",
+      ["bookings:read", "bookings:change"],
+    ],
+    [
+      "/api/account/bookings/{booking_reference}/upgrade",
+      ["bookings:read", "bookings:change"],
+    ],
+    [
+      "/api/account/bookings/{booking_reference}/change-flight",
+      ["bookings:read", "bookings:change"],
+    ],
+  ] as const) {
+    const op = spec.paths[path].post;
+    expect(op["x-poppy-scopes"]).toEqual(expected);
+    expect(op.security).toEqual([{ dpop: expected }]);
+  }
   expect(
     change.requestBody.content["application/json"].schema.required,
   ).toEqual(["old_flight_id", "new_flight_id"]);
