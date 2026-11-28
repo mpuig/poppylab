@@ -29,8 +29,36 @@ describe("safe provider errors", () => {
       modelError({ cause: { code: "SELF_SIGNED_CERT_IN_CHAIN" } }).code,
     ).toBe("provider_tls");
   });
-  it("identifies timeouts", () => {
+  it("identifies timeouts and aborts for standard and free providers", () => {
     expect(modelError({ name: "TimeoutError" }).code).toBe("provider_timeout");
+    const timeoutException = new DOMException(
+      "The operation was aborted due to timeout",
+      "TimeoutError",
+    );
+    const abortException = new DOMException(
+      "The operation was aborted.",
+      "AbortError",
+    );
+    expect(modelError(timeoutException)).toMatchObject({
+      code: "provider_timeout",
+    });
+    expect(modelError(abortException)).toMatchObject({
+      code: "provider_timeout",
+    });
+    expect(modelError({ cause: timeoutException }).code).toBe(
+      "provider_timeout",
+    );
+    expect(modelError(timeoutException, "workers-ai")).toMatchObject({
+      code: "provider_timeout",
+      message:
+        "The free model took too long to answer. Try again, or ask for something smaller.",
+    });
+    expect(modelError(abortException, "workers-ai")).toMatchObject({
+      code: "provider_timeout",
+    });
+    expect(modelError({ cause: abortException }, "workers-ai").code).toBe(
+      "provider_timeout",
+    );
   });
   it("does not echo unknown errors", () => {
     const result = modelError(new Error("private-error-details"));
