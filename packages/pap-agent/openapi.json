@@ -1313,7 +1313,9 @@
                 "properties": {
                   "refreshToken": {
                     "type": "string",
-                    "description": "Current refresh token from `SessionTokens`."
+                    "description": "Current refresh token from `SessionTokens`.",
+                    "maxLength": 200,
+                    "pattern": "^poppy_rt\\.[A-Za-z0-9_-]{22}\\.[A-Za-z0-9_-]{22}\\.[A-Za-z0-9_-]{43}$"
                   }
                 },
                 "required": [
@@ -1610,7 +1612,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{22}$"
             },
             "description": "Passkey ID from `Account.passkeys`."
           }
@@ -1847,7 +1850,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{22}$"
             },
             "description": "Device session ID from `GET /api/v1/account/sessions`."
           }
@@ -2133,15 +2137,19 @@
                 "properties": {
                   "channel": {
                     "type": "string",
-                    "description": "Configured external channel identifier."
+                    "description": "Configured external channel identifier.",
+                    "maxLength": 32
                   },
                   "user": {
                     "type": "string",
-                    "description": "User identifier within that channel."
+                    "description": "User identifier within that channel.",
+                    "minLength": 1,
+                    "maxLength": 256
                   },
                   "code": {
                     "type": "string",
-                    "description": "8-character one-time link code provided by the user."
+                    "description": "8-character one-time link code provided by the user.",
+                    "maxLength": 32
                   }
                 },
                 "required": [
@@ -3287,7 +3295,8 @@
         "properties": {
           "ceremony": {
             "type": "string",
-            "description": "Opaque single-use ceremony ID to echo back within 5 minutes."
+            "description": "Opaque single-use ceremony ID to echo back within 5 minutes.",
+            "pattern": "^[A-Za-z0-9_-]{22}$"
           },
           "options": {
             "type": "object",
@@ -3305,7 +3314,8 @@
         "properties": {
           "ceremony": {
             "type": "string",
-            "description": "Opaque single-use ceremony ID to echo back within 5 minutes."
+            "description": "Opaque single-use ceremony ID to echo back within 5 minutes.",
+            "pattern": "^[A-Za-z0-9_-]{22}$"
           },
           "options": {
             "type": "object",
@@ -3323,7 +3333,8 @@
         "properties": {
           "ceremony": {
             "type": "string",
-            "description": "Ceremony ID received from the corresponding `/options` call."
+            "description": "Ceremony ID received from the corresponding `/options` call.",
+            "pattern": "^[A-Za-z0-9_-]{22}$"
           },
           "credential": {
             "type": "object",

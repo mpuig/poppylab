@@ -24,12 +24,9 @@ import {
   type TurnResult,
 } from "./api";
 import {
+  accountOperations,
   conversationOperations,
-  invalidRequest,
-  parsePublicInput,
   pathSegmentSchema,
-  type ParsedInput,
-  type ValidationMessages,
 } from "./api-contract/index.ts";
 import { answerStream, turnEvents, wantsEvents } from "./answer-stream";
 import {
@@ -52,13 +49,13 @@ import { sessionOfAccessToken, stillSignedIn } from "./api-sessions";
 import { apiSessionCaller } from "./identity";
 import { serving } from "./deployment";
 import { openApiDocument } from "./openapi";
+import { readPublicInput } from "./public-input";
 import { storage } from "./runs";
 import { createSignInLink, openSignInLink } from "./sign-in-links";
 import { UserFacingError } from "./user-error";
 import {
   accountCookie,
   browserCaller,
-  readJson,
   toResponse,
   type Caller,
   type CookieStore,
@@ -141,7 +138,7 @@ export const ROUTES = [
 ] as const;
 type Operation = (typeof ROUTES)[number]["operation"];
 
-const CONVERSATION_PARAMETERS: Partial<Record<Operation, ZodType>> = {
+const ROUTE_PARAMETERS: Partial<Record<Operation, ZodType>> = {
   getConversation: conversationOperations.getConversation.parameters,
   sendMessage: conversationOperations.sendMessage.parameters,
   answerChoice: conversationOperations.answerChoice.parameters,
@@ -149,6 +146,8 @@ const CONVERSATION_PARAMETERS: Partial<Record<Operation, ZodType>> = {
   startSignIn: conversationOperations.startSignIn.parameters,
   conversationEvents: conversationOperations.conversationEvents.parameters,
   openSignInLink: conversationOperations.openSignInLink.parameters,
+  removePasskey: accountOperations.removePasskey.parameters,
+  revokeSession: accountOperations.revokeSession.parameters,
 };
 
 const headers = { "Cache-Control": "no-store" };
@@ -178,41 +177,12 @@ export function match(method: string, pathname: string) {
         return true;
       })
     ) {
-      const parameters = CONVERSATION_PARAMETERS[route.operation];
+      const parameters = ROUTE_PARAMETERS[route.operation];
       if (parameters && !parameters.safeParse(names).success) continue;
       return { operation: route.operation, names };
     }
   }
   return undefined;
-}
-
-const BODY_FAILURES: Record<string, string> = {
-  "Use JSON": "Use JSON.",
-  "Missing request": "Send a JSON object.",
-  "Request timed out": "The request timed out.",
-  "Request too large": "The request is too large.",
-};
-
-/** Reads and validates one public JSON body without exposing submitted data. */
-async function input<T>(
-  request: Request,
-  schema: ZodType<T>,
-  messages: ValidationMessages = {},
-): Promise<ParsedInput<T>> {
-  let read: unknown;
-  try {
-    read = await readJson(request, 6000);
-  } catch (failure) {
-    const message =
-      failure instanceof UserFacingError
-        ? (BODY_FAILURES[failure.message] ?? "The request couldn't be read.")
-        : "Send a JSON object.";
-    return { ok: false, error: invalidRequest(message) };
-  }
-  return parsePublicInput(schema, read, {
-    messages,
-    fallback: "Send a JSON object with the documented fields.",
-  });
 }
 
 const isOpen = (operation: Operation): operation is OpenOperation =>
@@ -336,7 +306,12 @@ async function serve(
         return events(caller, id, request, cookies);
       case "startConversation": {
         const contract = conversationOperations.startConversation;
-        const parsed = await input(request, contract.body, contract.messages);
+        const parsed = await readPublicInput(
+          request,
+          6000,
+          contract.body,
+          contract.messages,
+        );
         if (!parsed.ok) return error(parsed.error);
         return answer(
           await startConversation(
@@ -350,7 +325,12 @@ async function serve(
       }
       case "sendMessage": {
         const contract = conversationOperations.sendMessage;
-        const parsed = await input(request, contract.body, contract.messages);
+        const parsed = await readPublicInput(
+          request,
+          6000,
+          contract.body,
+          contract.messages,
+        );
         if (!parsed.ok) return error(parsed.error);
         const message = {
           text: parsed.value.text,
@@ -367,7 +347,12 @@ async function serve(
       }
       case "answerChoice": {
         const contract = conversationOperations.answerChoice;
-        const parsed = await input(request, contract.body, contract.messages);
+        const parsed = await readPublicInput(
+          request,
+          6000,
+          contract.body,
+          contract.messages,
+        );
         if (!parsed.ok) return error(parsed.error);
         const choice = {
           answer: parsed.value.answer,
@@ -381,7 +366,12 @@ async function serve(
       }
       case "decideProposal": {
         const contract = conversationOperations.decideProposal;
-        const parsed = await input(request, contract.body, contract.messages);
+        const parsed = await readPublicInput(
+          request,
+          6000,
+          contract.body,
+          contract.messages,
+        );
         if (!parsed.ok) return error(parsed.error);
         return answer(
           await decideProposal(caller, id, {
@@ -392,7 +382,12 @@ async function serve(
       }
       case "startSignIn": {
         const contract = conversationOperations.startSignIn;
-        const parsed = await input(request, contract.body, contract.messages);
+        const parsed = await readPublicInput(
+          request,
+          6000,
+          contract.body,
+          contract.messages,
+        );
         if (!parsed.ok) return error(parsed.error);
         const access = parsed.value.access ?? "read";
         // The Company's consent page comes back to a browser, which binds

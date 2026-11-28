@@ -17,6 +17,15 @@ export const conversationIdSchema = z.string().regex(/^[A-Za-z0-9_-]{16,64}$/);
 /** A one-use app sign-in ticket: also 32 random bytes in base64url. */
 export const signInTicketSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 
+/** An account, passkey, session or ceremony ID: 16 random bytes. */
+export const opaqueIdSchema = z.string().regex(/^[A-Za-z0-9_-]{22}$/);
+
+/** A native app's rotating refresh token. */
+export const refreshTokenSchema = z
+  .string()
+  .max(200)
+  .regex(/^poppy_rt\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}$/);
+
 /** An Operations v3 operation or revision ID (§8.2 ID format). */
 export const operationIdSchema = z.string().regex(/^[A-Za-z0-9_-]{1,256}$/);
 

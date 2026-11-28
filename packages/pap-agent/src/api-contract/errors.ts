@@ -41,10 +41,12 @@ const messageFor = (
   messages: ValidationMessages,
   fallback: string,
 ) => {
-  const key = path.every((part) => typeof part === "string")
-    ? path.join(".")
-    : "";
-  return (key && messages[key]) || fallback;
+  if (!path.every((part) => typeof part === "string")) return fallback;
+  for (let length = path.length; length > 0; length--) {
+    const message = messages[path.slice(0, length).join(".")];
+    if (message) return message;
+  }
+  return fallback;
 };
 
 /**

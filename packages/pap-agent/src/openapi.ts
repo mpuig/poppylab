@@ -27,6 +27,10 @@ const operationIdString = (description?: string): Schema => ({
   ...str(description),
   pattern: "^[A-Za-z0-9_-]{1,256}$",
 });
+const opaqueIdString = (description?: string): Schema => ({
+  ...str(description),
+  pattern: "^[A-Za-z0-9_-]{22}$",
+});
 const array = (items: Schema, description?: string): Schema => ({
   type: "array",
   items,
@@ -587,7 +591,7 @@ const schemas: Record<string, Schema> = {
   ),
   CreationOptions: object(
     {
-      ceremony: str(
+      ceremony: opaqueIdString(
         "Opaque single-use ceremony ID to echo back within 5 minutes.",
       ),
       options: {
@@ -601,7 +605,7 @@ const schemas: Record<string, Schema> = {
   ),
   RequestOptions: object(
     {
-      ceremony: str(
+      ceremony: opaqueIdString(
         "Opaque single-use ceremony ID to echo back within 5 minutes.",
       ),
       options: {
@@ -615,7 +619,7 @@ const schemas: Record<string, Schema> = {
   ),
   PasskeyAnswer: object(
     {
-      ceremony: str(
+      ceremony: opaqueIdString(
         "Ceremony ID received from the corresponding `/options` call.",
       ),
       credential: {
@@ -1089,14 +1093,14 @@ const passkeyId = {
   name: "passkey",
   in: "path",
   required: true,
-  schema: string,
+  schema: opaqueIdString(),
   description: "Passkey ID from `Account.passkeys`.",
 };
 const sessionId = {
   name: "session",
   in: "path",
   required: true,
-  schema: string,
+  schema: opaqueIdString(),
   description: "Device session ID from `GET /api/v1/account/sessions`.",
 };
 
@@ -1216,7 +1220,12 @@ function accountPaths() {
           "Exchanges a native app's refresh token for a fresh access and refresh token pair. Each refresh token is single-use; replaying a spent token revokes the entire session (`session_revoked`).",
         requestBody: body(
           object({
-            refreshToken: str("Current refresh token from `SessionTokens`."),
+            refreshToken: {
+              ...str("Current refresh token from `SessionTokens`."),
+              maxLength: 200,
+              pattern:
+                "^poppy_rt\\.[A-Za-z0-9_-]{22}\\.[A-Za-z0-9_-]{22}\\.[A-Za-z0-9_-]{43}$",
+            },
           }),
         ),
         responses: {
@@ -1386,9 +1395,19 @@ function accountPaths() {
           "Called by a configured external channel backend (using its channel authentication) to redeem a user's one-time code and link the channel user ID to the account.",
         requestBody: body(
           object({
-            channel: str("Configured external channel identifier."),
-            user: str("User identifier within that channel."),
-            code: str("8-character one-time link code provided by the user."),
+            channel: {
+              ...str("Configured external channel identifier."),
+              maxLength: 32,
+            },
+            user: {
+              ...str("User identifier within that channel."),
+              minLength: 1,
+              maxLength: 256,
+            },
+            code: {
+              ...str("8-character one-time link code provided by the user."),
+              maxLength: 32,
+            },
           }),
         ),
         responses: {

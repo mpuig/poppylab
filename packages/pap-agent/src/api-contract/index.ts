@@ -11,8 +11,10 @@ export {
   conversationIdSchema,
   modelChoiceMessages,
   modelChoiceSchema,
+  opaqueIdSchema,
   operationIdSchema,
   pathSegmentSchema,
+  refreshTokenSchema,
   signInTicketSchema,
   type ModelChoiceInput,
 } from "./schemas.ts";
@@ -31,6 +33,21 @@ export {
   type AnswerInput,
   type ConversationOperation,
 } from "./conversations.ts";
+export {
+  accountOperations,
+  accountOptionsInputSchema,
+  addPasskeyInputSchema,
+  authenticationCredentialSchema,
+  createAccountInputSchema,
+  emptyInputSchema,
+  passkeyPathSchema,
+  redeemLinkCodeInputSchema,
+  refreshSessionInputSchema,
+  registrationCredentialSchema,
+  sessionPathSchema,
+  signInInputSchema,
+  type AccountOperationContract,
+} from "./accounts.ts";
 export {
   defineOperation,
   type ApiMethod,

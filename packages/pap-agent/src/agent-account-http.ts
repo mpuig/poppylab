@@ -15,6 +15,10 @@
  * A request from another origin is refused before anything is read.
  */
 import {
+  accountOperations,
+  type InvalidRequest,
+} from "./api-contract/index.ts";
+import {
   addOptions,
   addPasskey,
   claimedAccount,
@@ -39,13 +43,12 @@ import {
   startSession,
 } from "./api-sessions";
 import { createLinkCode, isChannelName, redeemLinkCode } from "./link-codes";
+import { readPublicInput } from "./public-input";
 import { listConversations, moveConversations, visitorOf } from "./runs";
-import { UserFacingError } from "./user-error";
 import {
   accountCookie,
   accountCookieOptions,
   clientAddress,
-  readJson,
   type Caller,
   type CookieStore,
   type Reply,
@@ -57,6 +60,8 @@ const answer = (body: unknown, status = 200) =>
 export const refuse = (status: number, code: string, error: string) =>
   answer({ code, error }, status);
 const refused = (r: Refusal) => refuse(r.status, r.code, r.error);
+const invalid = (failure: InvalidRequest) =>
+  refuse(failure.status, failure.code, failure.error);
 const fromReply = (reply: Reply) =>
   Response.json(reply.body, {
     status: reply.status,
@@ -116,21 +121,6 @@ async function view(
         }
       : {}),
   };
-}
-
-/** A JSON object body, or why it isn't one. */
-async function body(request: Request): Promise<Record<string, unknown>> {
-  let read: unknown;
-  try {
-    read = await readJson(request, 16000);
-  } catch (failure) {
-    throw failure instanceof UserFacingError
-      ? failure
-      : new UserFacingError("Send a JSON object.");
-  }
-  if (!read || typeof read !== "object" || Array.isArray(read))
-    throw new UserFacingError("Send a JSON object.");
-  return read as Record<string, unknown>;
 }
 
 /** The page's own request, or an app's: anything else was refused before. */
@@ -215,17 +205,31 @@ export async function openOperation(
     case "accountOptions": {
       const over = await budget("create", request);
       if (over) return over;
-      const input = await body(request);
-      return answer(await createOptions(rp, { label: input.label }));
+      const contract = accountOperations.accountOptions;
+      const parsed = await readPublicInput(
+        request,
+        16000,
+        contract.body,
+        contract.messages,
+      );
+      if (!parsed.ok) return invalid(parsed.error);
+      return answer(await createOptions(rp, parsed.value));
     }
     case "createAccount": {
       const over = await budget("createAnswer", request);
       if (over) return over;
-      const input = await body(request);
-      const device = deviceLabel(input.device);
+      const contract = accountOperations.createAccount;
+      const parsed = await readPublicInput(
+        request,
+        16000,
+        contract.body,
+        contract.messages,
+      );
+      if (!parsed.ok) return invalid(parsed.error);
+      const device = deviceLabel(parsed.value.device);
       const created = await createWithPasskey(rp, {
-        ceremony: input.ceremony,
-        credential: input.credential,
+        ceremony: parsed.value.ceremony,
+        credential: parsed.value.credential,
         device,
       });
       if ("status" in created) return refused(created);
@@ -241,20 +245,33 @@ export async function openOperation(
     case "signInOptions": {
       const over = await budget("signIn", request);
       if (over) return over;
+      const contract = accountOperations.signInOptions;
+      const parsed = await readPublicInput(request, 16000, contract.body);
+      if (!parsed.ok) return invalid(parsed.error);
       return answer(await signInOptions(rp));
     }
     case "signIn": {
-      const input = await body(request);
+      const contract = accountOperations.signIn;
+      const parsed = await readPublicInput(
+        request,
+        16000,
+        contract.body,
+        contract.messages,
+      );
+      if (!parsed.ok) {
+        const over = await budget("signIn", request);
+        return over ?? invalid(parsed.error);
+      }
       const over = await budget(
         "signIn",
         request,
-        claimedAccount(input.credential),
+        claimedAccount(parsed.value.credential),
         true,
       );
       if (over) return over;
       const proved = await verifySignIn(rp, {
-        ceremony: input.ceremony,
-        credential: input.credential,
+        ceremony: parsed.value.ceremony,
+        credential: parsed.value.credential,
       });
       if ("status" in proved) return refused(proved);
       return signedIn(
@@ -262,20 +279,30 @@ export async function openOperation(
         cookies,
         proved.account,
         proved.passkey,
-        deviceLabel(input.device),
+        deviceLabel(parsed.value.device),
         201,
       );
     }
     case "refreshSession": {
-      const input = await body(request);
+      const contract = accountOperations.refreshSession;
+      const parsed = await readPublicInput(
+        request,
+        16000,
+        contract.body,
+        contract.messages,
+      );
+      if (!parsed.ok) {
+        const over = await budget("refresh", request);
+        return over ?? invalid(parsed.error);
+      }
       const over = await budget(
         "refresh",
         request,
-        refreshAccount(input.refreshToken),
+        refreshAccount(parsed.value.refreshToken),
         true,
       );
       if (over) return over;
-      const refreshed = await refreshSession(input.refreshToken);
+      const refreshed = await refreshSession(parsed.value.refreshToken);
       if (!refreshed.ok)
         return refreshed.code === "session_revoked"
           ? refuse(
@@ -334,15 +361,25 @@ export async function accountOperation(
     case "getAccount":
       return answer(await shown(account));
     case "passkeyOptions": {
+      const contract = accountOperations.passkeyOptions;
+      const parsed = await readPublicInput(request, 16000, contract.body);
+      if (!parsed.ok) return invalid(parsed.error);
       const options = await addOptions(relyingParty(caller.origin), account);
       return "status" in options ? refused(options) : answer(options);
     }
     case "addPasskey": {
-      const input = await body(request);
+      const contract = accountOperations.addPasskey;
+      const parsed = await readPublicInput(
+        request,
+        16000,
+        contract.body,
+        contract.messages,
+      );
+      if (!parsed.ok) return invalid(parsed.error);
       const added = await addPasskey(relyingParty(caller.origin), account, {
-        ceremony: input.ceremony,
-        credential: input.credential,
-        device: deviceLabel(input.device),
+        ceremony: parsed.value.ceremony,
+        credential: parsed.value.credential,
+        device: deviceLabel(parsed.value.device),
       });
       if ("status" in added) return refused(added);
       return answer(
@@ -381,11 +418,17 @@ export async function accountOperation(
       return answer({ revoked });
     }
     case "signOut": {
+      const contract = accountOperations.signOut;
+      const parsed = await readPublicInput(request, 16000, contract.body);
+      if (!parsed.ok) return invalid(parsed.error);
       await revokeSession(account.id, signed.session);
       if (browser) cookies.set(accountCookie(), "", accountCookieOptions(0));
       return answer({ revoked: 1 });
     }
     case "claimConversations": {
+      const contract = accountOperations.claimConversations;
+      const parsed = await readPublicInput(request, 16000, contract.body);
+      if (!parsed.ok) return invalid(parsed.error);
       // The visitor is the browser's own; an app has none to bring.
       const visitor = browser ? visitorOf(cookies) : undefined;
       if (!browser)
@@ -399,8 +442,12 @@ export async function accountOperation(
         : { moved: 0, skipped: 0 };
       return answer({ ...moved, account: await shown(account) });
     }
-    case "createLinkCode":
+    case "createLinkCode": {
+      const contract = accountOperations.createLinkCode;
+      const parsed = await readPublicInput(request, 16000, contract.body);
+      if (!parsed.ok) return invalid(parsed.error);
       return answer(await createLinkCode(account), 201);
+    }
   }
 }
 
@@ -430,10 +477,16 @@ export function forgetLinkingChannels() {
 
 /** `POST /api/v1/link-codes/redeem`, from a channel. */
 export async function redeemOverHttp(request: Request): Promise<Response> {
-  const input = await body(request);
-  const name = input.channel;
-  const channel = isChannelName(name)
-    ? global.papLinkingChannels?.get(name)
+  const contract = accountOperations.redeemLinkCode;
+  const parsed = await readPublicInput(
+    request,
+    16000,
+    contract.body,
+    contract.messages,
+  );
+  if (!parsed.ok) return invalid(parsed.error);
+  const channel = isChannelName(parsed.value.channel)
+    ? global.papLinkingChannels?.get(parsed.value.channel)
     : undefined;
   if (!channel || !(await channel.authenticate(request)))
     return refuse(
@@ -441,13 +494,16 @@ export async function redeemOverHttp(request: Request): Promise<Response> {
       "channel_unauthenticated",
       "Only a channel this deployment knows can redeem a link code.",
     );
-  const user = typeof input.user === "string" ? input.user : "";
-  const over = await budget("redeem", request, `${channel.name}\n${user}`);
+  const over = await budget(
+    "redeem",
+    request,
+    `${channel.name}\n${parsed.value.user}`,
+  );
   if (over) return over;
   const redeemed = await redeemLinkCode({
     channel: channel.name,
-    user,
-    code: typeof input.code === "string" ? input.code : "",
+    user: parsed.value.user,
+    code: parsed.value.code,
   });
   if (!redeemed.ok)
     return refuse(
