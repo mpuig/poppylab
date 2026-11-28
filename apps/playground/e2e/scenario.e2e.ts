@@ -27,33 +27,6 @@ const FERNWICK = "Fernwick Power & Light";
 const LANTERN = "Lantern Noodle Bar";
 
 /**
- * Bugs this scenario finds that are not fixed yet. Each check of one
- * asserts what should happen and is expected to fail until the fix lands;
- * once it passes, `expectedToFail` fails, so the mark goes with the fix.
- */
-const LOST_TURN =
-  "A turn with a second Company, asked while signed out there, is dropped when the User signs in there while another Company is signed in: keepSignedOutTranscript (pap-agent transcript.ts) keeps an entry of that Company only when it has signedOut, which an entry gets only when no account at all was in it. The sign-in's ask then lands after the next turn.";
-const UNCOUNTED_QUESTION =
-  "Iris's question whether to go on after a change permission (¿Sigo con…?) is not counted as waiting: it reaches the page from the conversation's history, as an Agent message, and openQuestion (typed.ts) reads only an Own one.";
-async function expectedToFail(bug: string, check: () => Promise<void>) {
-  try {
-    await check();
-  } catch {
-    const info = test.info();
-    if (!info.annotations.some((a) => a.description === bug)) {
-      info.annotations.push({ type: "expected to fail", description: bug });
-      console.warn(`Expected to fail until fixed: ${bug}`);
-    }
-    return;
-  }
-  throw new Error(
-    `This passes now, so the bug is fixed: ${bug} Remove its expectedToFail mark.`,
-  );
-}
-/** How long a check expected to fail waits: what it reads has settled. */
-const SETTLED = 2000;
-
-/**
  * The transcript as a list of what it shows, in order: `you: <words>`,
  * `iris` (or `iris?` for one of Iris's questions), `company`, `error`;
  * `card <Company> open|folded`; `ask <kind> <Company> open|waiting|done`.
@@ -112,41 +85,11 @@ async function expectRows(page: Page, expected: string[], view = whole) {
     .toBe("as expected");
 }
 
-/** The turn that `LOST_TURN` drops, and the ask it moves. */
-const LANTERN_MENU = "you: Enséñame el menú de Lantern.";
-const LANTERN_SIGNED_IN = "ask signin Lantern done";
-const withoutLostTurn: View = (list) => {
-  const at = list.indexOf(LANTERN_MENU);
-  // The User's words, the Company's reply and Iris's answer.
-  const kept = at === -1 ? list : [...list.slice(0, at), ...list.slice(at + 3)];
-  return kept.filter((row) => row !== LANTERN_SIGNED_IN);
-};
-/**
- * The transcript once the Lantern sign-in has happened: everything but
- * what `LOST_TURN` touches, which must hold now, then all of it, expected
- * to fail until the fix.
- */
-async function expectRowsAfterLanternSignIn(
-  page: Page,
-  expected: string[],
-  view = whole,
-) {
-  await expectRows(page, expected, (list) => view(withoutLostTurn(list)));
-  await expectedToFail(LOST_TURN, async () => {
-    expect(view(await rows(page))).toEqual(view(expected));
-  });
-}
-
 /** What the heading counts as waiting for the person: 0 when it shows none. */
-async function expectWaiting(page: Page, count: number, timeout?: number) {
+async function expectWaiting(page: Page, count: number) {
   const toggle = page.locator(".pending-toggle");
-  if (count === 0)
-    await expect(toggle).toHaveCount(0, timeout ? { timeout } : {});
-  else
-    await expect(toggle).toHaveText(
-      `${count} waiting`,
-      timeout ? { timeout } : {},
-    );
+  if (count === 0) await expect(toggle).toHaveCount(0);
+  else await expect(toggle).toHaveText(`${count} waiting`);
 }
 
 /** "Talk to … yourself" names the Company the conversation is with now. */
@@ -286,7 +229,7 @@ test("one long conversation keeps everything where it arose", async ({
   await expectWaiting(page, 0);
 
   await send(page, "Enséñame el menú de Lantern.");
-  lantern.push(LANTERN_MENU, "company", "iris");
+  lantern.push("you: Enséñame el menú de Lantern.", "company", "iris");
   await expectRows(page, [...fernwick, ...lantern, "ask signin Lantern open"]);
   await expectWaiting(page, 0);
   await expectTalkTo(page, LANTERN);
@@ -296,12 +239,8 @@ test("one long conversation keeps everything where it arose", async ({
     () => askButton(page, "signin", "noodles").click(),
     "read",
   );
-  lantern.push(LANTERN_SIGNED_IN);
-  await expectRowsAfterLanternSignIn(page, [
-    ...fernwick,
-    ...lantern,
-    "ask write Lantern open",
-  ]);
+  lantern.push("ask signin Lantern done");
+  await expectRows(page, [...fernwick, ...lantern, "ask write Lantern open"]);
   await expectWaiting(page, 0);
   await expectTalkTo(page, LANTERN);
 
@@ -313,7 +252,7 @@ test("one long conversation keeps everything where it arose", async ({
     "iris",
     "iris?",
   );
-  await expectRowsAfterLanternSignIn(page, [...fernwick, ...lantern]);
+  await expectRows(page, [...fernwick, ...lantern]);
   await expectWaiting(page, 1);
 
   await consent(
@@ -334,18 +273,12 @@ test("one long conversation keeps everything where it arose", async ({
     "iris",
     "iris?",
   );
-  await expectRowsAfterLanternSignIn(page, [...fernwick, ...lantern]);
-  await expectedToFail(UNCOUNTED_QUESTION, () =>
-    expectWaiting(page, 1, SETTLED),
-  );
+  await expectRows(page, [...fernwick, ...lantern]);
+  await expectWaiting(page, 1);
 
   await send(page, "sí");
   lantern.push("you: sí", "iris", "iris?");
-  await expectRowsAfterLanternSignIn(page, [
-    ...fernwick,
-    ...lantern,
-    "card Lantern open",
-  ]);
+  await expectRows(page, [...fernwick, ...lantern, "card Lantern open"]);
   await expectWaiting(page, 1);
 
   // Approved on the card, from the keyboard: the message box has the
@@ -360,7 +293,7 @@ test("one long conversation keeps everything where it arose", async ({
   await expect(messageBox(page)).toBeEnabled();
   await expect(messageBox(page)).toBeFocused();
   lantern.push("card Lantern folded");
-  await expectRowsAfterLanternSignIn(page, [...fernwick, ...lantern]);
+  await expectRows(page, [...fernwick, ...lantern]);
   await expectWaiting(page, 0);
   await expectTalkTo(page, LANTERN);
 
@@ -369,7 +302,7 @@ test("one long conversation keeps everything where it arose", async ({
   // The asks are the page's own and a reload doesn't bring them back; the
   // messages and the folded cards come back in the same places.
   const noAsks: View = (list) => list.filter((row) => !row.startsWith("ask "));
-  await expectRowsAfterLanternSignIn(page, [...fernwick, ...lantern], noAsks);
+  await expectRows(page, [...fernwick, ...lantern], noAsks);
   await expect(page.locator(".ask-block:not(.done)")).toHaveCount(0);
   await expect(card(page, "fernwick")).not.toHaveAttribute("open");
   await expect(card(page, "noodles")).not.toHaveAttribute("open");

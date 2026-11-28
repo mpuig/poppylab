@@ -89,23 +89,36 @@ async function ready({ name, child }: Started, url: string) {
   }
 }
 
-async function stop({ child }: Started) {
-  if (child.exitCode !== null || child.pid === undefined) return;
-  const exited = new Promise((resolve) => child.once("exit", resolve));
+/** Whether any process of the group is left. */
+const alive = (group: number) => {
   try {
-    process.kill(-child.pid, "SIGTERM");
+    process.kill(-group, 0);
+    return true;
   } catch {
-    return;
+    return false;
   }
-  const timer = setTimeout(() => {
-    try {
-      process.kill(-child.pid!, "SIGKILL");
-    } catch {
-      // Gone already.
+};
+
+/**
+ * Stops a server and everything it started, and waits until all of it is
+ * gone: `next dev` serves from a child process, which can hold the port a
+ * moment after the parent exits, and a retry starts new servers at once.
+ */
+async function stop({ child }: Started) {
+  const group = child.pid;
+  if (group === undefined || !alive(group)) return;
+  process.kill(-group, "SIGTERM");
+  const until = Date.now() + 10_000;
+  while (alive(group)) {
+    if (Date.now() > until) {
+      try {
+        process.kill(-group, "SIGKILL");
+      } catch {
+        // Gone in the meantime.
+      }
     }
-  }, 5000);
-  await exited;
-  clearTimeout(timer);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
 }
 
 /** Starts everything and answers how to stop it all again. */
