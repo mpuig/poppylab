@@ -90,9 +90,9 @@ an upgrade offer for 248 dollars, for that flight only, refundable only if
 Northwind cancels the flight.
 
 Iris answered by reading and asked Northwind for nothing else. Elena has
-already allowed change proposals, as the block above the answer says, and
-her question still bought nothing and put nothing in front of her to
-approve.
+already allowed change proposals, and Iris's question about the upgrade she
+asked for before that consent is still open above. Her question bought
+nothing and put nothing in front of her to approve.
 
 The lab runs here in demo mode, which answers its guided examples without an
 AI model, so the answer is the whole booking set out as plain lines. With a model connected Iris would answer
@@ -208,7 +208,7 @@ part of that answer.
 
 ### 6. Approve the upgrade
 
-![The card now reads Approved by you, with Northwind's confirmation, upgrade accepted for 248 dollars. Below it Elena's answer yes, and Iris: Done. You approved the 248 dollar change at Northwind Air, and Northwind Air has carried it out](../../../apps/playground/public/learn-media/how-it-works/changing-a-trip/06-upgrade-approved.webp "Northwind upgraded the flight when the approval arrived, and said so.")
+![The card now reads Approved by you, with Northwind's confirmation, upgrade accepted for 248 dollars. Below it Elena's answer yes, and Iris: Done. You approved the 248 dollar change at Northwind Air, and it has been carried out](../../../apps/playground/public/learn-media/how-it-works/changing-a-trip/06-upgrade-approved.webp "Northwind upgraded the flight when the approval arrived, and said so.")
 
 Elena answers "yes" to Iris's question, which names the upgrade and its 248
 dollars. Pressing the Approve button would do the same. Iris sends Northwind
@@ -216,8 +216,7 @@ the same request again, this time with her approval attached. Northwind checks t
 approval matches the terms it offered, upgrades the flight and confirms it:
 upgrade accepted for 248 dollars. The card stays where the proposal arrived,
 with that confirmation and the line "Approved by you", and Iris says: "Done.
-You approved the $248.00 change at Northwind Air, and Northwind Air has
-carried it out."
+You approved the $248.00 change at Northwind Air, and it has been carried out."
 
 The lab charges nothing. The terms say so themselves, in the line "Simulated
 card on file".
