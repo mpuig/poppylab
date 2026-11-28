@@ -54,6 +54,25 @@ function fallbackNeurons(usage?: {
   return Math.max(FALLBACK_MIN_NEURONS, Math.ceil(tokens / 10));
 }
 
+function neuronsOf(raw: unknown): number {
+  const usage = (
+    raw && typeof raw === "object"
+      ? (raw as { usage?: unknown }).usage
+      : undefined
+  ) as
+    | {
+        neurons?: unknown;
+        prompt_tokens?: unknown;
+        completion_tokens?: unknown;
+      }
+    | undefined;
+  return typeof usage?.neurons === "number" &&
+    Number.isFinite(usage.neurons) &&
+    usage.neurons > 0
+    ? usage.neurons
+    : fallbackNeurons(usage);
+}
+
 /**
  * The binding's stream as the OpenAI-compatible provider reads it. The
  * binding sends OpenAI's `chat.completion.chunk` events, each with the
@@ -150,6 +169,60 @@ function relayed(
   });
 }
 
+function abortError(signal: AbortSignal): Error {
+  const { reason } = signal;
+  if (
+    reason instanceof Error ||
+    (typeof DOMException === "function" && reason instanceof DOMException)
+  ) {
+    return reason;
+  }
+  return new DOMException(
+    typeof reason === "string" && reason
+      ? reason
+      : "The operation was aborted.",
+    "AbortError",
+  );
+}
+
+/**
+ * Race a promise that does not accept an `AbortSignal` (such as
+ * `env.AI.run`) against `signal`. Removes the listener on settle; when the
+ * signal wins, hands any late resolution to `onLate` and suppresses
+ * unhandled rejections.
+ */
+function raceWithSignal<T>(
+  promise: Promise<T>,
+  signal: AbortSignal | null | undefined,
+  onLate?: (value: T) => unknown,
+): Promise<T> {
+  if (!signal) return promise;
+  const discard = () => {
+    promise.then((value) => onLate?.(value)).catch(() => {});
+  };
+  if (signal.aborted) {
+    discard();
+    return Promise.reject(abortError(signal));
+  }
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => {
+      discard();
+      reject(abortError(signal));
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(
+      (value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      },
+      (error: unknown) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(error);
+      },
+    );
+  });
+}
+
 /**
  * A `fetch` for the OpenAI-compatible provider that hands each request to
  * the Workers AI binding instead of the network. `thinking` is off for a
@@ -161,6 +234,8 @@ function workersAiFetch(
   thinking: boolean,
 ): typeof fetch {
   return async (_url, init) => {
+    const signal = init?.signal;
+    if (signal?.aborted) throw abortError(signal);
     const body = JSON.parse(String(init?.body ?? "{}")) as {
       model: string;
       messages?: Array<Record<string, unknown>>;
@@ -184,7 +259,14 @@ function workersAiFetch(
     };
     let raw: Record<string, unknown>;
     try {
-      const answered = await ai.binding.run(body.model, input);
+      const answered = await raceWithSignal(
+        ai.binding.run(body.model, input),
+        signal,
+        (late) => {
+          if (late instanceof ReadableStream) return late.cancel();
+          ai.onUsage?.(neuronsOf(late));
+        },
+      );
       if (streaming) {
         if (!(answered instanceof ReadableStream))
           return Response.json(
@@ -200,6 +282,7 @@ function workersAiFetch(
       }
       raw = answered as Record<string, unknown>;
     } catch (error) {
+      if (signal?.aborted) throw abortError(signal);
       // The binding throws with its code in the message: 4006 is the
       // account's daily free allocation used up, 3040 no capacity now.
       const message = error instanceof Error ? error.message : "";
@@ -208,20 +291,7 @@ function workersAiFetch(
         : 502;
       return Response.json({ error: { message: "Workers AI" } }, { status });
     }
-    const usage = raw?.usage as
-      | {
-          neurons?: unknown;
-          prompt_tokens?: unknown;
-          completion_tokens?: unknown;
-        }
-      | undefined;
-    const neurons =
-      typeof usage?.neurons === "number" &&
-      Number.isFinite(usage.neurons) &&
-      usage.neurons > 0
-        ? usage.neurons
-        : fallbackNeurons(usage);
-    ai.onUsage?.(neurons);
+    ai.onUsage?.(neuronsOf(raw));
     return Response.json({
       id: "workers-ai",
       object: "chat.completion",
@@ -392,10 +462,8 @@ export async function runModel(
         ),
         execute: async (input) => {
           used = true;
-          return JSON.stringify(await definition.execute(input)).slice(
-            0,
-            16000,
-          );
+          const result = await definition.execute(input);
+          return (JSON.stringify(result) ?? "null").slice(0, 16000);
         },
       }),
     ]),
@@ -460,12 +528,37 @@ export async function runModel(
     return said([text, late]);
   };
   const whole = async () => {
-    const response = await generateText({
-      ...options,
-      abortSignal: AbortSignal.timeout(60000),
-    }).catch((error: unknown) => {
-      throw modelError(error, provider);
-    });
+    const timeoutSignal = AbortSignal.timeout(60000);
+    const completed: Array<{ text: string; called: boolean }> = [];
+    let response;
+    try {
+      response = await generateText({
+        ...options,
+        abortSignal: timeoutSignal,
+        onStepEnd: (step) => {
+          completed.push({
+            text: step.text,
+            called: step.toolCalls.length > 0,
+          });
+        },
+      });
+    } catch (error: unknown) {
+      const failed = modelError(
+        timeoutSignal.aborted ? abortError(timeoutSignal) : error,
+        provider,
+      );
+      // A turn never ends without an answer: once tools have already run,
+      // a timeout finishes with what was written plus `unanswered()` (with
+      // no further model call); keep `provider_timeout` for a timeout before
+      // any tool ran.
+      if (
+        failed.code === "provider_timeout" &&
+        (used || completed.some((s) => s.called))
+      ) {
+        return said([...completed.map((s) => s.text), unanswered()]);
+      }
+      throw failed;
+    }
     return finish(
       response.steps.map((step) => ({
         text: step.text,
@@ -485,15 +578,21 @@ export async function runModel(
     !used && !step.trim() && !written.some((t) => t.text.trim());
   // The messages each step made, once the stream is over, for `finish`.
   let made: (() => PromiseLike<ModelMessage[]>) | undefined;
+  const timeoutSignal = AbortSignal.timeout(60000);
   try {
     const result = streamText({
       ...options,
-      abortSignal: AbortSignal.timeout(60000),
+      abortSignal: timeoutSignal,
     });
     made = async () =>
       (await result.steps).flatMap((step) => step.response.messages);
     for await (const part of result.fullStream) {
       if (part.type === "error") throw part.error;
+      if (part.type === "abort") {
+        throw timeoutSignal.aborted
+          ? abortError(timeoutSignal)
+          : new DOMException("The operation was aborted.", "AbortError");
+      }
       if (part.type === "text-delta" && part.text) {
         step += part.text;
         onText(part.text);
@@ -508,8 +607,29 @@ export async function runModel(
         called = false;
       }
     }
+    if (timeoutSignal.aborted) {
+      throw abortError(timeoutSignal);
+    }
   } catch (error) {
-    const failed = modelError(error, provider);
+    const failed = modelError(
+      timeoutSignal.aborted ? abortError(timeoutSignal) : error,
+      provider,
+    );
+    // A turn never ends without an answer: once tools have already run,
+    // a timeout finishes with what was written plus `unanswered()` (with
+    // no further model call); keep `provider_timeout` for a timeout before
+    // any tool ran.
+    if (
+      failed.code === "provider_timeout" &&
+      (used || called || written.some((s) => s.called))
+    ) {
+      const late = unanswered();
+      if (late) {
+        if (step.trim()) onText("\n\n");
+        onText(late);
+      }
+      return said([...written.map((s) => s.text), step, late]);
+    }
     // A stream that failed before anything was said or done is asked
     // again as a whole answer: a provider may not stream, or not here.
     // One the provider refused, or that ran out of time, is not.
@@ -615,7 +735,10 @@ export async function askModel(
         abortSignal: deadline,
         maxRetries: 0,
       }).catch((error: unknown) => {
-        throw modelError(error, provider);
+        throw modelError(
+          deadline.aborted ? abortError(deadline) : error,
+          provider,
+        );
       }),
     };
   };

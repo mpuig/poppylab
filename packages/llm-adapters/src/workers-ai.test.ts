@@ -2,8 +2,12 @@
  * The free model's provider: the AI SDK's OpenAI-compatible model with
  * every call handed to a Workers AI binding, here a fake one.
  */
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { askModel, runModel, WORKERS_AI_MODEL } from "./server";
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 type Input = {
   messages: Array<{ role: string; content: unknown }>;
@@ -335,5 +339,324 @@ describe("Workers AI through its binding", () => {
     await expect(
       askModel("workers-ai", { system: "s", prompt: "p" }),
     ).rejects.toThrow(/runs only on the deployed site/);
+  });
+
+  it("aborts a hanging binding call on timeout without unhandled rejection", async () => {
+    let rejectLate: ((error: Error) => void) | undefined;
+    const binding = {
+      run: vi.fn(
+        () =>
+          new Promise((_resolve, reject) => {
+            rejectLate = reject;
+          }),
+      ),
+    };
+    const onUsage = vi.fn();
+    const error = await askModel(
+      "workers-ai",
+      { system: "s", prompt: "p" },
+      { workersAi: { binding, onUsage } },
+      { timeout: 25, maxOutputTokens: 400 },
+    ).catch((err: Error & { code?: string }) => err);
+    expect(error).toMatchObject({ code: "provider_timeout" });
+    expect(onUsage).not.toHaveBeenCalled();
+    // Settling the losing binding promise later must not cause an unhandled rejection.
+    rejectLate?.(new Error("binding failed after timeout"));
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  });
+
+  it("counts late non-streaming Neurons and cancels a late stream after timeout", async () => {
+    let resolveLateCompletion: ((value: unknown) => void) | undefined;
+    const nonStreamingBinding = {
+      run: vi.fn(
+        () =>
+          new Promise((resolve) => {
+            resolveLateCompletion = resolve;
+          }),
+      ),
+    };
+    const onUsage = vi.fn();
+    const askError = await askModel(
+      "workers-ai",
+      { system: "s", prompt: "p" },
+      { workersAi: { binding: nonStreamingBinding, onUsage } },
+      { timeout: 25, maxOutputTokens: 400 },
+    ).catch((err: Error & { code?: string }) => err);
+    expect(askError).toMatchObject({ code: "provider_timeout" });
+    expect(onUsage).not.toHaveBeenCalled();
+
+    resolveLateCompletion?.(completion({ content: "late" }, 37.5));
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(onUsage.mock.calls).toEqual([[37.5]]);
+
+    const controller = new AbortController();
+    vi.spyOn(AbortSignal, "timeout").mockReturnValue(controller.signal);
+    let resolveLateStream: ((value: unknown) => void) | undefined;
+    const streamingBinding = {
+      run: vi.fn(
+        () =>
+          new Promise((resolve) => {
+            resolveLateStream = resolve;
+            queueMicrotask(() =>
+              controller.abort(
+                new DOMException(
+                  "The operation was aborted due to timeout",
+                  "TimeoutError",
+                ),
+              ),
+            );
+          }),
+      ),
+    };
+    const streamUsage = vi.fn();
+    const streamError = await runModel(
+      "workers-ai",
+      [{ role: "user", content: "Hello?" }],
+      {},
+      {
+        workersAi: { binding: streamingBinding, onUsage: streamUsage },
+        onText: () => {},
+      },
+    ).catch((err: Error & { code?: string }) => err);
+    expect(streamError).toMatchObject({ code: "provider_timeout" });
+
+    const cancel = vi.fn();
+    resolveLateStream?.(new ReadableStream<Uint8Array>({ cancel }));
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(streamUsage).not.toHaveBeenCalled();
+  });
+
+  it("removes the abort listener added for the binding when it settles normally", async () => {
+    const controller = new AbortController();
+    const origAdd = controller.signal.addEventListener.bind(controller.signal);
+    const origRemove = controller.signal.removeEventListener.bind(
+      controller.signal,
+    );
+    const active = new Set<EventListenerOrEventListenerObject>();
+    const addedForBinding: EventListenerOrEventListenerObject[] = [];
+    let bindingStarted = false;
+    vi.spyOn(controller.signal, "addEventListener").mockImplementation(
+      (type, listener, options) => {
+        if (type === "abort" && listener) {
+          active.add(listener);
+          if (bindingStarted) addedForBinding.push(listener);
+        }
+        origAdd(type, listener, options);
+      },
+    );
+    vi.spyOn(controller.signal, "removeEventListener").mockImplementation(
+      (type, listener, options) => {
+        if (type === "abort" && listener) active.delete(listener);
+        origRemove(type, listener, options);
+      },
+    );
+    vi.spyOn(AbortSignal, "timeout").mockReturnValue(controller.signal);
+    const binding = {
+      run: vi.fn(() => {
+        bindingStarted = true;
+        return new Promise((resolve) =>
+          queueMicrotask(() => resolve(completion({ content: "ok" }))),
+        );
+      }),
+    };
+    const answer = await askModel(
+      "workers-ai",
+      { system: "s", prompt: "p" },
+      { workersAi: { binding } },
+    );
+    expect(answer).toBe("ok");
+    expect(addedForBinding).toHaveLength(1);
+    expect(active.has(addedForBinding[0]!)).toBe(false);
+    expect(active.size).toBe(0);
+  });
+
+  it("aborts a hanging non-streaming runModel call on timeout", async () => {
+    const controller = new AbortController();
+    vi.spyOn(AbortSignal, "timeout").mockReturnValue(controller.signal);
+    const binding = {
+      run: vi.fn(
+        () =>
+          new Promise(() => {
+            queueMicrotask(() =>
+              controller.abort(
+                new DOMException(
+                  "The operation was aborted due to timeout",
+                  "TimeoutError",
+                ),
+              ),
+            );
+          }),
+      ),
+    };
+    const error = await runModel(
+      "workers-ai",
+      [{ role: "user", content: "Hello?" }],
+      {},
+      { workersAi: { binding } },
+    ).catch((err: Error & { code?: string }) => err);
+    expect(error).toMatchObject({ code: "provider_timeout" });
+    expect(binding.run).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not invoke the binding when the signal is already aborted", async () => {
+    vi.spyOn(AbortSignal, "timeout").mockReturnValue(
+      AbortSignal.abort(
+        new DOMException(
+          "The operation was aborted due to timeout",
+          "TimeoutError",
+        ),
+      ),
+    );
+    const binding = {
+      run: vi.fn(async () => completion({ content: "never" })),
+    };
+    const error = await askModel(
+      "workers-ai",
+      { system: "s", prompt: "p" },
+      { workersAi: { binding } },
+    ).catch((err: Error & { code?: string }) => err);
+    expect(error).toMatchObject({ code: "provider_timeout" });
+    expect(binding.run).not.toHaveBeenCalled();
+  });
+
+  it("throws provider_timeout on a streaming abort before any output instead of falling back to whole", async () => {
+    const controller = new AbortController();
+    vi.spyOn(AbortSignal, "timeout").mockReturnValue(controller.signal);
+    const binding = {
+      run: vi.fn(
+        () =>
+          new Promise(() => {
+            queueMicrotask(() =>
+              controller.abort(
+                new DOMException(
+                  "The operation was aborted due to timeout",
+                  "TimeoutError",
+                ),
+              ),
+            );
+          }),
+      ),
+    };
+    const error = await runModel(
+      "workers-ai",
+      [{ role: "user", content: "Hello?" }],
+      {},
+      { workersAi: { binding }, onText: () => {} },
+    ).catch((err: Error & { code?: string }) => err);
+    expect(error).toMatchObject({ code: "provider_timeout" });
+    expect(binding.run).toHaveBeenCalledTimes(1);
+  });
+
+  it("ends with what was written plus unanswered when a streaming turn times out after a tool call", async () => {
+    const controller = new AbortController();
+    vi.spyOn(AbortSignal, "timeout").mockReturnValue(controller.signal);
+    let calls = 0;
+    const binding = {
+      run: vi.fn(async () => {
+        calls++;
+        if (calls === 1) {
+          return streamed([
+            { content: "Let me look." },
+            { tool_calls: call("list_products").tool_calls },
+          ]);
+        }
+        // Step 2 returns a stream that hangs until the timeout signal aborts it.
+        return new ReadableStream<Uint8Array>({
+          start() {
+            queueMicrotask(() =>
+              controller.abort(
+                new DOMException(
+                  "The operation was aborted due to timeout",
+                  "TimeoutError",
+                ),
+              ),
+            );
+          },
+        });
+      }),
+    };
+    const execute = vi.fn(async () => ({ products: ["Apples"] }));
+    const pieces: string[] = [];
+    const text = await runModel(
+      "workers-ai",
+      [{ role: "user", content: "What do you sell?" }],
+      { list_products: { description: "List products", execute } },
+      {
+        workersAi: { binding },
+        onText: (t) => pieces.push(t),
+        unanswered: () => "Stopped after checking.",
+      },
+    );
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(binding.run).toHaveBeenCalledTimes(2);
+    expect(text).toBe("Let me look.\n\nStopped after checking.");
+    expect(pieces.join("").trim()).toBe(text);
+  });
+
+  it("ends with what was written plus unanswered when a non-streaming turn times out after a tool call", async () => {
+    const controller = new AbortController();
+    vi.spyOn(AbortSignal, "timeout").mockReturnValue(controller.signal);
+    let calls = 0;
+    const binding = {
+      run: vi.fn(() => {
+        calls++;
+        if (calls === 1) {
+          return Promise.resolve(
+            completion({
+              content: "Let me look.",
+              tool_calls: call("list_products").tool_calls,
+            }),
+          );
+        }
+        return new Promise(() => {
+          queueMicrotask(() =>
+            controller.abort(
+              new DOMException(
+                "The operation was aborted due to timeout",
+                "TimeoutError",
+              ),
+            ),
+          );
+        });
+      }),
+    };
+    const execute = vi.fn(async () => ({ products: ["Apples"] }));
+    const text = await runModel(
+      "workers-ai",
+      [{ role: "user", content: "What do you sell?" }],
+      { list_products: { description: "List products", execute } },
+      {
+        workersAi: { binding },
+        unanswered: () => "Stopped after checking.",
+      },
+    );
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(binding.run).toHaveBeenCalledTimes(2);
+    expect(text).toBe("Let me look.\n\nStopped after checking.");
+  });
+
+  it("serializes a tool returning undefined as null instead of failing the tool call", async () => {
+    const inputs: Input[] = [];
+    const binding = {
+      run: vi.fn(async (_model: string, input: Record<string, unknown>) => {
+        inputs.push(input as Input);
+        return inputs.length === 1
+          ? completion(call("void_tool"))
+          : completion({ content: "Done." });
+      }),
+    };
+    const execute = vi.fn(async () => undefined);
+    const text = await runModel(
+      "workers-ai",
+      [{ role: "user", content: "Run the tool." }],
+      { void_tool: { description: "Returns nothing", execute } },
+      { workersAi: { binding } },
+    );
+    expect(text).toBe("Done.");
+    expect(execute).toHaveBeenCalledTimes(1);
+    const toolMessage = inputs[1]!.messages.find((m) => m.role === "tool");
+    expect(toolMessage).toBeDefined();
+    expect(toolMessage!.content).toBe("null");
   });
 });
