@@ -120,6 +120,28 @@ export function noteOperationAccounts(
 }
 
 /**
+ * Clears a connection's proposals except approvals that were sent and whose
+ * outcome isn't known (`state === "uncertain"`), along with the account
+ * taint entries listed for those that stay. Used by every account reset so
+ * an in-flight approval isn't lost and asked for a second time
+ * (Operations v3 §7).
+ */
+export function keepUncertainOperations(
+  connection: Pick<Connection, "operations" | "operationAccounts">,
+) {
+  const unknown = Object.entries(connection.operations ?? {}).filter(
+    ([, op]) => op.state === "uncertain",
+  );
+  connection.operations = Object.fromEntries(unknown);
+  const accounts = connection.operationAccounts;
+  const listed = Object.fromEntries(
+    unknown.flatMap(([id]) => (accounts?.[id] ? [[id, accounts[id]]] : [])),
+  );
+  if (Object.keys(listed).length) connection.operationAccounts = listed;
+  else delete connection.operationAccounts;
+}
+
+/**
  * New terms that answer an approval hold what the approved ones held: the
  * Company wrote them for the same request. Under the same operation ID
  * they are listed already; under another, they are listed as the first.

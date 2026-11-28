@@ -30,6 +30,7 @@ import { extensionByKey } from "./domain-extension";
 import { keepLines } from "./inspector-log";
 import { conversationEnded, overBudget } from "./limits";
 import { removeCompany } from "./removing";
+import { notSaved } from "./run-size";
 import {
   acquireRun,
   createRun,
@@ -161,6 +162,15 @@ export async function account(request: Request, cookies: CookieStore) {
   return response;
 }
 
+/** What an account request is answered when its conversation couldn't be saved. */
+function notSavedReply(error: unknown): Reply {
+  const { status, code, error: words } = notSaved(error);
+  return json(
+    { code, error: words, trace: [] },
+    { status, headers: { "Cache-Control": "no-store" } },
+  );
+}
+
 /**
  * The account route's guard, the same for every action: served here, from
  * the playground's own origin, within the budgets, with the conversation
@@ -228,7 +238,11 @@ async function letIn(
   try {
     body = (await input.read()) as Action;
   } catch {
-    await releaseRun(visitor, held).catch(() => {});
+    try {
+      await releaseRun(visitor, held);
+    } catch (error) {
+      return { refused: notSavedReply(error) };
+    }
     return {
       refused: json(
         {
@@ -253,7 +267,11 @@ async function letIn(
     body.company ?? (shown && connectionAt(run, shown) ? shown : undefined),
   );
   if ("code" in connection) {
-    await releaseRun(visitor, held).catch(() => {});
+    try {
+      await releaseRun(visitor, held);
+    } catch (error) {
+      return { refused: notSavedReply(error) };
+    }
     return {
       refused: json(connection, {
         status: 400,
@@ -278,29 +296,37 @@ async function act(
   if ("refused" in allowed) return allowed.refused;
   const { visitor, held, body, connection } = allowed;
   const run = held.run;
-  if (body.action === "remove") {
-    // The User takes this Company out of the conversation, which goes on
-    // with the others. Any Company can be removed, whether or not this
-    // playground may sign in to it.
-    try {
+  let reply: Reply | undefined;
+  let caught: unknown;
+  let threw = false;
+  try {
+    if (body.action === "remove") {
+      // The User takes this Company out of the conversation, which goes on
+      // with the others. Any Company can be removed, whether or not this
+      // playground may sign in to it.
       const removal = await removeCompany(run, connection);
-      if (removal.refused)
-        return json(
-          { ...removal.refused, operations: removal.operations },
-          { status: 409, headers: { "Cache-Control": "no-store" } },
-        );
-      return json(removal, {
-        headers: { "Cache-Control": "no-store" },
-      });
-    } finally {
-      await releaseRun(visitor, held).catch(() => {});
+      reply = removal.refused
+        ? json(
+            { ...removal.refused, operations: removal.operations },
+            { status: 409, headers: { "Cache-Control": "no-store" } },
+          )
+        : json(removal, {
+            headers: { "Cache-Control": "no-store" },
+          });
+    } else {
+      reply = await actOn(run, connection, body, caller);
     }
+  } catch (error) {
+    threw = true;
+    caught = error;
   }
   try {
-    return await actOn(run, connection, body, caller);
-  } finally {
-    await releaseRun(visitor, held).catch(() => {});
+    await releaseRun(visitor, held);
+  } catch (error) {
+    return notSavedReply(error);
   }
+  if (threw) throw caught;
+  return reply!;
 }
 
 /**

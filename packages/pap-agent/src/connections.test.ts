@@ -190,7 +190,7 @@ describe("a sign-in at one Company that may be for another account", () => {
       ...lanternPublic,
       ...lanternAccount,
     ]);
-    expect(a.operations).toEqual({});
+    expect(Object.keys(a.operations!)).toEqual(["sent"]);
     expect(JSON.stringify([run.transcript, run.log, run.history])).not.toMatch(
       /Elena|deliveries/,
     );

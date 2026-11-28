@@ -163,14 +163,23 @@ export async function signInCallback(request: Request, cookies: CookieStore) {
       ? connectionForState(held.run, state)
       : undefined;
   if (!held || held === "busy" || !visitor || !connection) {
-    if (held && held !== "busy" && visitor)
-      await releaseRun(visitor, held).catch(() => {});
+    if (held && held !== "busy" && visitor) {
+      try {
+        await releaseRun(visitor, held);
+      } catch {
+        return leave("failed");
+      }
+    }
     return leave("failed");
   }
   if (app) {
     const consumed = await appSignIn(state!);
     if (!consumed) {
-      await releaseRun(visitor, held).catch(() => {});
+      try {
+        await releaseRun(visitor, held);
+      } catch {
+        return leave("failed");
+      }
       return leave("failed");
     }
   }
@@ -184,9 +193,15 @@ export async function signInCallback(request: Request, cookies: CookieStore) {
     url.searchParams.has("error") ||
     !url.searchParams.get("code")
   ) {
-    await releaseRun(visitor, held).catch(() => {});
+    try {
+      await releaseRun(visitor, held);
+    } catch {
+      return leave("failed");
+    }
     return leave("failed");
   }
+  let replaced: string | undefined;
+  let done: Response | undefined;
   try {
     const clientId = clientFor(connection),
       agentOrigin = agentFor(connection);
@@ -233,7 +248,7 @@ export async function signInCallback(request: Request, cookies: CookieStore) {
     const result = tokenResponse(raw, pending.scopes, !!dpop, true);
     // Asked while the connection still holds the sign-in this one replaces.
     const used = await usedThisAccount(connection);
-    const replaced = connection.accountToken;
+    replaced = connection.accountToken;
     // The sign-in being replaced, as the Session check below needs it.
     const earlier = {
       sessionId: connection.sessionId,
@@ -299,10 +314,6 @@ export async function signInCallback(request: Request, cookies: CookieStore) {
       if (replaced) keepEarlierSignIn(run, connection);
       else backToPublic(run, connection);
     }
-    // §4.7: revoke the refresh token the new sign-in replaced (best effort;
-    // revoking a replaced token isn't sign-out).
-    if (replaced)
-      void revokeRefreshToken(connection, replaced).catch(() => undefined);
     // The Inspector's line for it, which the page lists once it sees the
     // sign-in is complete. It says only that a sign-in happened, and how:
     // nothing an account holds. So it is kept as a line written signed
@@ -321,15 +332,24 @@ export async function signInCallback(request: Request, cookies: CookieStore) {
     // The request that stopped for this sign-in: the agent asks whether to
     // go on with it, and sends nothing until the User says so.
     askToResume(run, connection);
-    return leave(
+    done = leave(
       "done",
       labCompanies(caller.origin).find(
         (c) => originOf(c) === originOf(connection),
       )?.id,
     );
   } catch {
-    return leave("failed");
-  } finally {
-    await releaseRun(visitor, held).catch(() => {});
+    done = undefined;
   }
+  try {
+    await releaseRun(visitor, held);
+  } catch {
+    return leave("failed");
+  }
+  if (!done) return leave("failed");
+  // §4.7: revoke the refresh token the new sign-in replaced (best effort;
+  // revoking a replaced token isn't sign-out).
+  if (replaced)
+    void revokeRefreshToken(connection, replaced).catch(() => undefined);
+  return done;
 }
