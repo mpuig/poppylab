@@ -178,7 +178,9 @@ it("returns specific token errors and API challenges", async () => {
       "/api/account/checkout",
       {},
     );
-    expect(denied.headers["www-authenticate"]).toContain('scope="poppy:write"');
+    expect(denied.headers["www-authenticate"]).toContain(
+      'scope="poppy:read poppy:write"',
+    );
   } finally {
     await x.app.close();
   }

@@ -92,6 +92,9 @@ export type RouteAnswer =
   | { kind: "extension_required"; extension: string }
   | { kind: "replay"; body: unknown };
 
+const isReadMethod = (method: string) =>
+  method === "GET" || method === "HEAD" || method === "OPTIONS";
+
 /** The scopes an account route needs, or `undefined` for another route. */
 export const routeScopes = (
   def: CompanyDefinition,
@@ -101,9 +104,10 @@ export const routeScopes = (
   (def.accountPrefixes ?? ["/api/account"]).some((prefix) =>
     path.startsWith(prefix),
   )
-    ? (def.requiredScopes?.({ path, method }) ?? [
-        method === "POST" ? def.writeScope : def.readScope,
-      ])
+    ? (def.requiredScopes?.({ path, method }) ??
+      (isReadMethod(method)
+        ? [def.readScope]
+        : [...new Set([def.readScope, def.writeScope])]))
     : undefined;
 
 export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {

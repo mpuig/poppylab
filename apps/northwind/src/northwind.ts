@@ -545,7 +545,7 @@ export const northwindPaths = {
   "/api/account/bookings/{booking_reference}/seat": post(
     "choose_seat",
     "Choose or change a no-fee standard seat on one booked segment.",
-    ["preferences:write"],
+    ["bookings:read", "preferences:write"],
     {
       type: "object",
       properties: {
@@ -559,7 +559,7 @@ export const northwindPaths = {
   "/api/account/bookings/{booking_reference}/baggage": post(
     "add_baggage",
     "Add one or two checked bags to one booked segment for an exact price.",
-    ["bookings:change"],
+    ["bookings:read", "bookings:change"],
     {
       type: "object",
       properties: {
@@ -573,7 +573,7 @@ export const northwindPaths = {
   "/api/account/bookings/{booking_reference}/preferences": post(
     "set_travel_preferences",
     "Set a meal and a supported non-medical assistance preference.",
-    ["preferences:write"],
+    ["bookings:read", "profile:read", "preferences:write"],
     {
       type: "object",
       properties: {
@@ -598,13 +598,13 @@ export const northwindPaths = {
   "/api/account/bookings/{booking_reference}/cancel": post(
     "cancel_booking",
     "Cancel the entire fictional booking with exact fee and refund terms.",
-    ["bookings:change"],
+    ["bookings:read", "bookings:change"],
     { type: "object", properties: {}, additionalProperties: false },
   ),
   "/api/account/bookings/{booking_reference}/upgrade": post(
     "accept_upgrade",
     "Accept the booking's current fictional business-cabin upgrade offer.",
-    ["bookings:change"],
+    ["bookings:read", "bookings:change"],
     {
       type: "object",
       properties: { offer_id: { type: "string", maxLength: 80 } },
@@ -615,7 +615,7 @@ export const northwindPaths = {
   "/api/account/bookings/{booking_reference}/change-flight": post(
     "change_flight",
     "Move one segment to another listed flight with exact fare difference, change fee and refund or amount due.",
-    ["bookings:change"],
+    ["bookings:read", "bookings:change"],
     {
       type: "object",
       properties: {
@@ -1384,9 +1384,10 @@ export const northwind: CompanyDefinition = {
         path.startsWith("/api/account/preferences")
         ? ["profile:read"]
         : ["bookings:read"];
-    if (path.endsWith("/seat") || path.endsWith("/preferences"))
-      return ["preferences:write"];
-    return ["bookings:change"];
+    if (path.endsWith("/seat")) return ["bookings:read", "preferences:write"];
+    if (path.endsWith("/preferences"))
+      return ["bookings:read", "profile:read", "preferences:write"];
+    return ["bookings:read", "bookings:change"];
   },
   consent: consentPage,
   consentExpired: consentExpiredPage,

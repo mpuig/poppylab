@@ -203,7 +203,7 @@ export const noodlePaths = {
       summary:
         "Propose changing a scheduled order: move it to another slot_id, add dishes (add: dish_id and quantity) or remove dishes (remove: dish_ids). Read the order and menu first. The user approves the exact new total; a price increase is charged (simulated).",
       "x-poppy-scopes": ["orders:read", "orders:write"],
-      security: [{ dpop: ["orders:write"] }],
+      security: [{ dpop: ["orders:read", "orders:write"] }],
       "x-poppy-proposal": true,
       parameters: [orderId],
       requestBody: {

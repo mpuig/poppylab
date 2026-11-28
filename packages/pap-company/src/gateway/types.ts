@@ -522,7 +522,10 @@ export type CompanyDefinition = {
    * out of the metadata and refuses the grant.
    */
   deviceSignIn?: boolean;
-  /** Default scopes for account reads and changes (legacy two-scope Companies). */
+  /**
+   * Default scopes for account routes when `requiredScopes` is omitted: reads
+   * need `readScope`, and changes need both `readScope` and `writeScope`.
+   */
   readScope: string;
   writeScope: string;
   /** Every OAuth scope this Company accepts. Defaults to readScope/writeScope. */
