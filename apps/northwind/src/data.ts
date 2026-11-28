@@ -146,6 +146,9 @@ export type SeedBooking = {
   flight_ids: string[];
   fare: FareCode;
   paid_cents: number;
+  fare_paid_cents?: number;
+  baggage_paid_cents?: Record<string, number>;
+  upgrade_paid_cents?: Record<string, number>;
   seats: Record<string, string>;
   baggage: Record<string, number>;
   preference: PassengerPreference;
@@ -170,6 +173,9 @@ export const customers = [
       flight_ids: ["flt_na402_20270518", "flt_na118_20270518"],
       fare: "FLEX",
       paid_cents: 62000,
+      fare_paid_cents: 62000,
+      baggage_paid_cents: {},
+      upgrade_paid_cents: {},
       seats: { flt_na402_20270518: "18A", flt_na118_20270518: "22C" },
       baggage: { flt_na402_20270518: 1, flt_na118_20270518: 1 },
       preference: {
@@ -202,6 +208,9 @@ export const customers = [
       flight_ids: ["flt_na274_20270603"],
       fare: "SAVER",
       paid_cents: 25900,
+      fare_paid_cents: 25900,
+      baggage_paid_cents: {},
+      upgrade_paid_cents: {},
       seats: { flt_na274_20270603: "27D" },
       baggage: { flt_na274_20270603: 0 },
       preference: {

@@ -520,6 +520,236 @@ it("accepts an upgrade and cancels a booking once after exact approval", async (
   expect(cancelled.json().summary).toContain("simulated refund USD 570.00");
 });
 
+it("does not refund Elena's accepted upgrade on passenger cancellation and keeps replayed approval idempotent", async () => {
+  const x = await setup();
+  const elena = await x.sign("elena", true);
+  const upgraded = await approve(
+    x,
+    elena.access_token,
+    "/api/account/bookings/NW7K2P/upgrade",
+    { offer_id: "upg_elena_1" },
+  );
+  expect(upgraded.done.statusCode).toBe(200);
+  expect(upgraded.done.json().data.fare.paid_cents).toBe(86800);
+
+  const cancelUrl = "/api/account/bookings/NW7K2P/cancel";
+  const proposal = await x.call(elena.access_token, "POST", cancelUrl, {});
+  expect(proposal.statusCode).toBe(403);
+  const operation = proposal.json().operation;
+  expect(operation.terms).toMatchObject({
+    paid_cents: 86800,
+    fare_paid_cents: 62000,
+    baggage_paid_cents: 0,
+    upgrade_paid_cents: 24800,
+    cancellation_fee_cents: 5000,
+    fare_refund_cents: 57000,
+    baggage_refund_cents: 0,
+    upgrade_refund_cents: 0,
+    refund_cents: 57000,
+  });
+  expect(operation.terms.upgrade_refund_terms).toContain(
+    "only if Northwind Air cancels",
+  );
+  expect(operation.summary).toContain("Refund USD 570.00");
+  expect(operation.summary).toContain(
+    "USD 248.00 upgrade is non-refundable on passenger cancellation",
+  );
+
+  const done = await x.call(
+    elena.access_token,
+    "POST",
+    cancelUrl,
+    {},
+    operation,
+  );
+  expect(done.statusCode).toBe(200);
+  expect(done.json().summary).toContain("simulated refund USD 570.00");
+  expect(done.json().data).toMatchObject({
+    status: "cancelled",
+    cancellation: {
+      paid_cents: 86800,
+      fare_paid_cents: 62000,
+      baggage_paid_cents: 0,
+      upgrade_paid_cents: 24800,
+      cancellation_fee_cents: 5000,
+      fare_refund_cents: 57000,
+      baggage_refund_cents: 0,
+      upgrade_refund_cents: 0,
+      refund_cents: 57000,
+      currency: "USD",
+    },
+  });
+
+  const versionAfterCancel = business().bookings.elena![0]!.version;
+  const businessSeatsAfterCancel =
+    business().inventory.flt_na118_20270518!.business_available;
+  const replay = await x.call(
+    elena.access_token,
+    "POST",
+    cancelUrl,
+    {},
+    operation,
+  );
+  expect(replay.statusCode).toBe(200);
+  expect(replay.json()).toEqual(done.json());
+  expect(business().bookings.elena![0]!.version).toBe(versionAfterCancel);
+  expect(business().inventory.flt_na118_20270518!.business_available).toBe(
+    businessSeatsAfterCancel,
+  );
+});
+
+it("refunds Robin's paid baggage on a SAVER booking only when cancelled at least 24 hours before departure", async () => {
+  // NA 274 departs 2027-06-03T09:45:00-04:00 (2027-06-03T13:45:00.000Z).
+  vi.useFakeTimers({ toFake: ["Date"] });
+  try {
+    // 24 hours and 1 minute before departure: bag is refundable + USD 42.00 fare tax refund.
+    vi.setSystemTime(new Date("2027-06-02T13:44:00.000Z"));
+    const xEarly = await setup();
+    const robinEarly = await xEarly.sign("robin", true);
+    await approve(
+      xEarly,
+      robinEarly.access_token,
+      "/api/account/bookings/NW4D8R/baggage",
+      { flight_id: "flt_na274_20270603", additional_pieces: 1 },
+    );
+    const cancelUrl = "/api/account/bookings/NW4D8R/cancel";
+    const earlyOp = (
+      await xEarly.call(robinEarly.access_token, "POST", cancelUrl, {})
+    ).json().operation;
+    expect(earlyOp.terms).toMatchObject({
+      paid_cents: 30400,
+      fare_paid_cents: 25900,
+      baggage_paid_cents: 4500,
+      upgrade_paid_cents: 0,
+      cancellation_fee_cents: 21700,
+      fare_refund_cents: 4200,
+      baggage_refund_cents: 4500,
+      upgrade_refund_cents: 0,
+      refund_cents: 8700,
+    });
+    expect(earlyOp.summary).toContain("Refund USD 87.00");
+    expect(earlyOp.summary).toContain("USD 42.00 unused taxes");
+    expect(earlyOp.summary).toContain("USD 45.00 refundable baggage");
+
+    const earlyDone = await xEarly.call(
+      robinEarly.access_token,
+      "POST",
+      cancelUrl,
+      {},
+      earlyOp,
+    );
+    expect(earlyDone.statusCode).toBe(200);
+    expect(earlyDone.json().summary).toContain("simulated refund USD 87.00");
+    expect(earlyDone.json().data.cancellation).toMatchObject({
+      fare_refund_cents: 4200,
+      baggage_refund_cents: 4500,
+      upgrade_refund_cents: 0,
+      refund_cents: 8700,
+    });
+    // Replaying the approved cancellation returns the exact first response.
+    const earlyReplay = await xEarly.call(
+      robinEarly.access_token,
+      "POST",
+      cancelUrl,
+      {},
+      earlyOp,
+    );
+    expect(earlyReplay.statusCode).toBe(200);
+    expect(earlyReplay.json()).toEqual(earlyDone.json());
+
+    // Crossing the 24-hour cutoff invalidates an earlier proposal and quotes USD 42.00 only.
+    vi.setSystemTime(new Date("2027-06-02T13:44:00.000Z"));
+    const xLate = await setup();
+    const robinLate = await xLate.sign("robin", true);
+    await approve(
+      xLate,
+      robinLate.access_token,
+      "/api/account/bookings/NW4D8R/baggage",
+      { flight_id: "flt_na274_20270603", additional_pieces: 1 },
+    );
+    const beforeCutoff = (
+      await xLate.call(robinLate.access_token, "POST", cancelUrl, {})
+    ).json().operation;
+    expect(beforeCutoff.terms.refund_cents).toBe(8700);
+
+    // 23 hours and 59 minutes before departure: bag is no longer refundable, fare tax refund stays USD 42.00.
+    vi.setSystemTime(new Date("2027-06-02T13:46:00.000Z"));
+    const stale = await xLate.call(
+      robinLate.access_token,
+      "POST",
+      cancelUrl,
+      {},
+      beforeCutoff,
+    );
+    expect(stale.statusCode).toBe(403);
+    const lateOp = stale.json().operation;
+    expect(lateOp.revision).not.toBe(beforeCutoff.revision);
+    expect(lateOp.terms).toMatchObject({
+      paid_cents: 30400,
+      fare_paid_cents: 25900,
+      baggage_paid_cents: 4500,
+      upgrade_paid_cents: 0,
+      cancellation_fee_cents: 21700,
+      fare_refund_cents: 4200,
+      baggage_refund_cents: 0,
+      upgrade_refund_cents: 0,
+      refund_cents: 4200,
+    });
+    expect(lateOp.summary).toContain("Refund USD 42.00");
+    expect(lateOp.summary).toContain("non-refundable within 24 hours");
+
+    const lateDone = await xLate.call(
+      robinLate.access_token,
+      "POST",
+      cancelUrl,
+      {},
+      lateOp,
+    );
+    expect(lateDone.statusCode).toBe(200);
+    expect(lateDone.json().summary).toContain("simulated refund USD 42.00");
+    expect(lateDone.json().data.cancellation).toMatchObject({
+      fare_refund_cents: 4200,
+      baggage_refund_cents: 0,
+      upgrade_refund_cents: 0,
+      refund_cents: 4200,
+    });
+    expect(
+      (
+        await xLate.call(robinLate.access_token, "POST", cancelUrl, {}, lateOp)
+      ).json(),
+    ).toEqual(lateDone.json());
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it("defaults payment breakdown from paid_cents for existing bookings without separate payment fields", async () => {
+  const x = await setup();
+  const elena = await x.sign("elena", true);
+  await x.call(elena.access_token, "GET", "/api/account/bookings");
+  const legacy = business().bookings.elena![0]!;
+  delete legacy.fare_paid_cents;
+  delete legacy.baggage_paid_cents;
+  delete legacy.upgrade_paid_cents;
+  const cancel = (
+    await x.call(
+      elena.access_token,
+      "POST",
+      "/api/account/bookings/NW7K2P/cancel",
+      {},
+    )
+  ).json().operation;
+  expect(cancel.terms).toMatchObject({
+    paid_cents: 62000,
+    fare_paid_cents: 62000,
+    baggage_paid_cents: 0,
+    upgrade_paid_cents: 0,
+    cancellation_fee_cents: 5000,
+    fare_refund_cents: 57000,
+    refund_cents: 57000,
+  });
+});
+
 it("serves a detailed OpenAPI contract suitable for Iris", async () => {
   await setup();
   const spec = (await inject("/openapi.json")).json();
