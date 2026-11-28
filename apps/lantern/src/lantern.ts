@@ -343,6 +343,13 @@ function mount(
       from_slot: o.slot,
       to_slot: next.slot,
       lines: next.lines,
+      // The dishes by name, before and after: what a person reads to see
+      // what the change adds or takes away.
+      from_items: before.items.map(({ name, quantity }) => ({
+        name,
+        quantity,
+      })),
+      to_items: after.items.map(({ name, quantity }) => ({ name, quantity })),
       before_total_cents: before.total_cents,
       new_total_cents: after.total_cents,
       price_difference_cents: difference,

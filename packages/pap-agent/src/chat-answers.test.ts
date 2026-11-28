@@ -140,12 +140,12 @@ describe("a typed answer to Iris's question about a proposal", () => {
       input: "typed",
     });
     expect(textOf(answered)).toBe(
-      "Done. You approved the $88.00 change at Lantern Noodle Bar, and Lantern Noodle Bar has carried it out.",
+      "Done. You approved the $88.00 change at Lantern Noodle Bar, and it has been carried out.",
     );
     // Kept as the User's line and Iris's, for a reload.
     expect(run.transcript?.slice(-2).map((e) => e.content)).toEqual([
       "yes",
-      "Done. You approved the $88.00 change at Lantern Noodle Bar, and Lantern Noodle Bar has carried it out.",
+      "Done. You approved the $88.00 change at Lantern Noodle Bar, and it has been carried out.",
     ]);
   });
 
@@ -299,22 +299,22 @@ describe("answers and lines in the conversation's language", () => {
     [
       "es",
       "sí, apruébalo",
-      "Hecho. Has aprobado el cambio de $88.00 en Lantern Noodle Bar y Lantern Noodle Bar ya lo ha hecho.",
+      "Hecho. Has aprobado el cambio de $88.00 en Lantern Noodle Bar y ya está hecho.",
     ],
     [
       "es",
       "vale",
-      "Hecho. Has aprobado el cambio de $88.00 en Lantern Noodle Bar y Lantern Noodle Bar ya lo ha hecho.",
+      "Hecho. Has aprobado el cambio de $88.00 en Lantern Noodle Bar y ya está hecho.",
     ],
     [
       "ca",
       "d'acord",
-      "Fet. Has aprovat el canvi de $88.00 a Lantern Noodle Bar i Lantern Noodle Bar ja l'ha fet.",
+      "Fet. Has aprovat el canvi de $88.00 a Lantern Noodle Bar i ja està fet.",
     ],
     [
       "fr",
       "oui",
-      "C'est fait. Vous avez approuvé la modification de $88.00 chez Lantern Noodle Bar, et Lantern Noodle Bar s'en est chargé.",
+      "C'est fait. Vous avez approuvé la modification de $88.00 chez Lantern Noodle Bar, et c'est chose faite.",
     ],
   ] as const)("approves on a %s yes: %s", async (language, typed, said) => {
     const op = order();

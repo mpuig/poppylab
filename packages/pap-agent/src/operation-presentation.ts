@@ -93,12 +93,63 @@ export function termValue(
       .join("; ");
   return String(value);
 }
+/** A list of `{ name, quantity }` in the terms, by name; none when it isn't one. */
+function itemList(value: unknown) {
+  if (!Array.isArray(value)) return undefined;
+  const items = new Map<string, number>();
+  for (const item of value.slice(0, 50)) {
+    if (!item || typeof item !== "object") return undefined;
+    const { name, quantity } = item as Record<string, unknown>;
+    if (
+      typeof name !== "string" ||
+      !name.trim() ||
+      typeof quantity !== "number" ||
+      !Number.isInteger(quantity) ||
+      quantity < 0
+    )
+      return undefined;
+    const key = name.trim().slice(0, 80);
+    items.set(key, (items.get(key) ?? 0) + quantity);
+  }
+  return items;
+}
+
+/**
+ * What an order change adds, takes away or changes the quantity of, from
+ * the terms' own dishes before and after (`from_items`, `to_items`), each
+ * by the Company's name for it. Nothing when the terms don't list both.
+ */
+export function itemChanges(op: ReviewOperation) {
+  const t = op.terms ?? {};
+  const before = itemList(t.from_items),
+    after = itemList(t.to_items);
+  if (!before || !after) return [];
+  const names = [...new Set([...before.keys(), ...after.keys()])];
+  return names
+    .map((name) => ({
+      name,
+      before: before.get(name) ?? 0,
+      after: after.get(name) ?? 0,
+    }))
+    .filter((item) => item.before !== item.after)
+    .slice(0, 8);
+}
+
 export function changes(op: ReviewOperation) {
   const t = op.terms ?? {};
   if (typeof t.from_slot === "string" && typeof t.to_slot === "string")
-    return t.from_slot === t.to_slot
-      ? []
-      : [{ label: "Delivery slot", before: t.from_slot, after: t.to_slot }];
+    return [
+      // Each dish added, taken away or changed, by the Company's name.
+      ...itemChanges(op).map((item) => ({
+        label: item.name,
+        before: item.before ? String(item.before) : "Not in the order",
+        after: item.after ? String(item.after) : "Removed",
+        item: true as const,
+      })),
+      ...(t.from_slot === t.to_slot
+        ? []
+        : [{ label: "Delivery slot", before: t.from_slot, after: t.to_slot }]),
+    ];
   if (
     t.kind === "support_resolution" &&
     typeof t.from_status === "string" &&

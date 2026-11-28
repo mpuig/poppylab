@@ -60,6 +60,14 @@ export const SAYS_YES = {
     ...words("inicia sessio, iniciar sessio, permet, permetre"),
     ...words(`connecte moi, connectez moi, me connecter, se connecter,
       autorise, autoriser`),
+    // Asking for the permission the question is about, in so many words.
+    ...words(`ask for permission, ask for it, request permission, request
+      it, get permission, ask them`),
+    ...words(`pide permiso, pide el permiso, pidelo, pideselo, pidele
+      permiso, pedir permiso, solicita permiso, solicitalo`),
+    ...words("demana permis, demana el permis, demana ho, demanar permis"),
+    ...words(`demande la permission, demande lautorisation, demande la,
+      demandez lautorisation, demandez la`),
   ],
   signout: [
     ...words("sign out, sign me out, log out, log me out"),

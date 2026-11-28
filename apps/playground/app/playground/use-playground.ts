@@ -27,7 +27,7 @@ import {
   missingExtensionScopes,
 } from "@poppy-lab/pap-agent/account-permissions";
 import { domainExtension } from "@poppy-lab/pap-agent/domain-extension";
-import { isLanguage } from "@poppy-lab/pap-agent/language";
+import { isLanguage, type Language } from "@poppy-lab/pap-agent/language";
 import { say as sayLine } from "@poppy-lab/pap-agent/lines";
 import {
   applyingLine,
@@ -123,6 +123,8 @@ type ChatReply = ChatAnswer &
     former?: unknown;
     history?: unknown;
     log?: unknown;
+    /** The conversation's language, as the server keeps it. */
+    language?: unknown;
   };
 
 /** §8.10: the User's own actions on a Direct Conversation. */
@@ -201,6 +203,14 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
   const [task, setTask] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   /**
+   * The language the conversation goes on in, as the server keeps it: the
+   * page's own blocks in the transcript are said in it.
+   */
+  const [language, setLanguage] = useState<Language>("en");
+  const takeLanguage = (value: unknown) => {
+    if (isLanguage(value)) setLanguage(value);
+  };
+  /**
    * What went wrong with the person's last decision on a proposal's card,
    * by the card's key (`<origin> <operation ID>`): the card says it.
    */
@@ -265,6 +275,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     setCompanies((before) => companiesFrom(data.connections, before));
     setFormer(formerFrom(data.former));
     if (!words) return;
+    takeLanguage(data.language);
     const shown = historyToMessages(data.history);
     setMessages(shown);
     // The Company the last turn was with, still connected.
@@ -415,6 +426,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
             // A sign-in may be for another account: the page shows what the
             // conversation still shows, and the lines that follow it.
             setMessages(historyToMessages(data.history));
+            takeLanguage(data.language);
             setChatLog(keptLines(data.log));
             setFormer(formerFrom(data.former));
           }
@@ -462,9 +474,11 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
       former?: unknown;
       history?: unknown;
       log?: unknown;
+      language?: unknown;
     },
     said: Message[] = [],
   ) {
+    takeLanguage(data.language);
     if (Array.isArray(data.connections)) {
       const views = data.connections as Array<{ origin: string }>;
       // A Company just connected is the one the conversation is with now,
@@ -583,6 +597,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
           return;
         throw new Error(data.error);
       }
+      takeLanguage(data.language);
       if (data.url) {
         const signingIn = () =>
           setCompanies((all) =>
@@ -638,6 +653,10 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
         addTrace(data.trace, refOf(origin));
       }
       if (data.operation) showOperations(origin, data.operation);
+      // An approval on the standing instruction answered Iris's question
+      // about it: the server says what the conversation shows now.
+      if (action === "approve" && Array.isArray(data.history))
+        setMessages(historyToMessages(data.history));
     } catch (caught) {
       popup?.close();
       const text =
@@ -1356,6 +1375,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
       }
       // The answer, in the place of what was written of it.
       setMessages((old) => [...withoutStreamed(old), ...turnMessages(data)]);
+      takeLanguage(data.language);
       addAnswerLines(data, from);
       if (from) {
         setLastTurn(from.origin);
@@ -1419,6 +1439,8 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
 
   return {
     conversation,
+    /** The conversation's language, for the page's own lines in it. */
+    language,
     readOnly: !!ended,
     keptUntil: ended?.keptUntil,
     missing,

@@ -15,7 +15,11 @@ import {
   notCovered,
   parseInstruction,
 } from "./standing-instructions";
-import { recordOutcome } from "./transcript";
+import { proposalName } from "./approval-question";
+import { companyName, originOf } from "./connections";
+import { languageOf } from "./language";
+import { say } from "./lines";
+import { recordOutcome, settleQuestion, shownTranscript } from "./transcript";
 import { json } from "./web";
 
 /**
@@ -527,10 +531,27 @@ export async function decide(request: AccountRequest) {
     "performed",
     `Company operation succeeded: ${op.result.summary}`,
   );
+  // Iris's question about it, asked a moment ago, was answered by the
+  // User's standing instruction: it no longer asks, it says what Iris did.
+  const settled =
+    approver === "agent" &&
+    settleQuestion(
+      run,
+      (ref) => {
+        const other = run.connections.find((c) => originOf(c) === ref.company);
+        const asked = other?.operations?.[ref.proposal];
+        return !!asked && asked.state !== "proposed";
+      },
+      say(languageOf(run), "approvedOnInstruction", {
+        what: proposalName(op, companyName(connection), languageOf(run)),
+      }),
+    );
   return json(
     {
       operation: op,
       trace: said(`Operation ${op.state} · revision ${op.revision}`),
+      // What the page shows now, with that question's words changed.
+      ...(settled ? { history: shownTranscript(run) } : {}),
     },
     { headers: { "Cache-Control": "no-store" } },
   );

@@ -202,6 +202,8 @@ export function ownAnswer(
       // The agent's own words, under no name of its own: the page reads
       // `"iris"`, what it was before, the same until 31 January 2027.
       mode: "own",
+      // The conversation's language, for the page's own lines in it.
+      language: languageOf(conversation),
       ...(choices.length ? { choices } : {}),
       ...turnState(conversation.connections[0]),
       company: [],

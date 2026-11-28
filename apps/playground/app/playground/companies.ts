@@ -130,6 +130,11 @@ export type Message = {
   /** §8.10: said in the User's Direct Conversation with the Company. */
   direct?: boolean;
   /**
+   * Shown with an earlier sign-in at this Company, which a later one
+   * wasn't shown to continue: the page says so on it.
+   */
+  earlier?: CompanyRef;
+  /**
    * An answer still being written, by the ID its sentences come under:
    * the turn's answer takes its place when it comes (`answer-events.ts`).
    */
@@ -197,7 +202,9 @@ export const historyToMessages = (
   (history ?? []).flatMap((m): Message[] => {
     const earlier = earlierTurn(m);
     if (earlier) return earlier;
-    const direct = m.direct ? { direct: true } : {};
+    // Kept from an earlier sign-in at its Company (`keepEarlierSignIn`).
+    const signIn = m.earlier && m.from ? { earlier: m.from } : {};
+    const direct = { ...(m.direct ? { direct: true } : {}), ...signIn };
     const data = m.data ? { data: m.data } : {};
     const from = m.from ? { from: m.from } : {};
     if (m.role === "company")
@@ -217,6 +224,7 @@ export const historyToMessages = (
       {
         role: m.demo ? "Demo" : "Agent",
         text: m.content,
+        ...signIn,
         ...data,
         ...(m.steps?.length ? { steps: m.steps } : {}),
         // An answer to a turn with a Company has its steps. One without

@@ -12,6 +12,8 @@
  * Plain data: `nextAsks` reads the page's state and the asks it showed
  * before, and says what to show now.
  */
+import type { Language } from "@poppy-lab/pap-agent/language";
+import { say } from "@poppy-lab/pap-agent/lines";
 import { mayChange, type CompanyState } from "./company-state";
 
 export type AskKind =
@@ -31,11 +33,15 @@ export type Ask = {
   ended?: string;
 };
 
-/** How an ask ended, in one line. */
-export function endedWords(kind: AskKind, c: CompanyState) {
+/** How an ask ended, in one line, in the conversation's language. */
+export function endedWords(
+  kind: AskKind,
+  c: CompanyState,
+  language: Language = "en",
+) {
   return kind === "write"
-    ? `Change permission given at ${c.name}`
-    : `Signed in at ${c.name} · ${mayChange(c) ? "can propose changes" : "read only"}`;
+    ? say(language, "askDoneWrite", { name: c.name })
+    : say(language, "askDoneSignIn", { name: c.name, write: mayChange(c) });
 }
 
 /** What the page knows that decides the asks, Company by Company. */
@@ -52,6 +58,8 @@ export type AskState = {
   /** Iris's open question asks for a sign-in or an answer there already. */
   askedAt: (origin: string) => boolean;
   readOnly: boolean;
+  /** The conversation's language, for how an ask ended. */
+  language?: Language;
 };
 
 const keyOf = (kind: AskKind, origin: string) => `ask ${kind} ${origin}`;
@@ -125,6 +133,15 @@ export function nextAsks(
     shown.delete(key);
     arrivals.delete(key);
   };
+  /**
+   * A sign-in or a permission that was done no longer applies once that
+   * Company is signed out: its line goes, as what was shown with the
+   * account goes from the transcript.
+   */
+  const over = (ask: Ask) => {
+    const c = s.companies.find((x) => x.origin === ask.origin);
+    return ask.phase === "done" && !!c && !c.signedIn && !c.signingIn;
+  };
   for (const c of s.companies) {
     let carried = false;
     for (const kind of [...KINDS, "signing" as const]) {
@@ -159,16 +176,21 @@ export function nextAsks(
       ) {
         carried = true;
         keep({ ...latest, phase: "underway" });
-      } else if (latest?.phase === "done") keep(latest);
+      } else if (latest?.phase === "done" && !over(latest)) keep(latest);
       else if (latest && done(kind, c, s))
         // How it ended, as it was then: a later permission doesn't change it.
-        keep({ ...latest, phase: "done", ended: endedWords(kind, c) });
+        keep({
+          ...latest,
+          phase: "done",
+          ended: endedWords(kind, c, s.language),
+        });
       else drop(key);
     }
   }
   for (const [key, ask] of shown) {
     // A Company that left the conversation takes its asks with it.
-    if (!s.companies.some((c) => c.origin === ask.origin)) drop(key);
+    if (!s.companies.some((c) => c.origin === ask.origin) || over(ask))
+      drop(key);
     // The ones kept as they ended.
     else if (key.includes(" #")) asks.push(ask);
   }

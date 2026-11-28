@@ -122,6 +122,15 @@ function waitingProposals(run: Run, now = Date.now()) {
     .sort((a, b) => (a.op.changed ?? 0) - (b.op.changed ?? 0));
 }
 
+/**
+ * The proposals a turn brought that wait for the User: the ones the
+ * agent's question after its answer asks about (`askAfter`).
+ */
+export const freshProposals = (run: Run, was: Before) =>
+  waitingProposals(run)
+    .filter(({ connection, op }) => !was.proposals.has(keyOf(connection, op)))
+    .map(({ op }) => op);
+
 const refOf = (connection: Connection, op: Operation): ProposalRef => ({
   company: originOf(connection),
   proposal: op.operation_id,
@@ -216,14 +225,22 @@ const signsIn = (connection: Connection) =>
 /** What a turn stopped for at this Company: a sign-in, or change permission. */
 function stoppedFor(connection: Connection, trace: readonly string[]) {
   const unsent = trace.filter((line) => /^Not sent\b/.test(line));
-  if (!unsent.length || !signsIn(connection)) return undefined;
+  // §8.11: the Company's own agent asked for an account permission. Signed
+  // out, that is the sign-in; signed in, it is a permission the sign-in
+  // lacks, whatever the Company's words around it say.
+  const authorization = trace.some((line) =>
+    /^Conversation authorization event\b/.test(line),
+  );
+  if ((!unsent.length && !authorization) || !signsIn(connection))
+    return undefined;
   if (
-    unsent.some((line) => line.endsWith("sign-in needed")) &&
+    (unsent.some((line) => line.endsWith("sign-in needed")) || authorization) &&
     !connection.accountToken
   )
     return "read" as const;
   if (
-    unsent.some((line) => line.endsWith("permission not granted")) &&
+    (unsent.some((line) => line.endsWith("permission not granted")) ||
+      authorization) &&
     connection.accountToken &&
     !connection.accountUnavailable &&
     canRequestChanges(

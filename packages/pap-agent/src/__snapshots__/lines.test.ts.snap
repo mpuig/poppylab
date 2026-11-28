@@ -18,16 +18,16 @@ exports[`the agent's own lines > are all in every language, as the table shows t
   ],
   "alreadyApproved": [
     {
-      "ca": "Ja s'havia aprovat the $88.00 change at Lantern Noodle Bar i Lantern Noodle Bar ja l'ha fet. No he enviat res més.",
-      "en": "The $88.00 change at Lantern Noodle Bar was already approved, and Lantern Noodle Bar has carried it out. I sent nothing more.",
-      "es": "Ya se había aprobado the $88.00 change at Lantern Noodle Bar y Lantern Noodle Bar ya lo ha hecho. No he enviado nada más.",
-      "fr": "L'approbation de the $88.00 change at Lantern Noodle Bar était déjà faite, et Lantern Noodle Bar s'en est chargé. Je n'ai rien envoyé de plus.",
+      "ca": "Ja s'havia aprovat the $88.00 change at Lantern Noodle Bar i ja està fet. No he enviat res més.",
+      "en": "The $88.00 change at Lantern Noodle Bar was already approved, and it has been carried out. I sent nothing more.",
+      "es": "Ya se había aprobado the $88.00 change at Lantern Noodle Bar y ya está hecho. No he enviado nada más.",
+      "fr": "L'approbation de the $88.00 change at Lantern Noodle Bar était déjà faite, et c'est chose faite. Je n'ai rien envoyé de plus.",
     },
     {
-      "ca": "Ja havia aprovat the $88.00 change at Lantern Noodle Bar segons la teva instrucció permanent i Lantern Noodle Bar ja l'ha fet. No he enviat res més.",
-      "en": "I already approved the $88.00 change at Lantern Noodle Bar on your standing instruction, and Lantern Noodle Bar has carried it out. I sent nothing more.",
-      "es": "Ya aprobé the $88.00 change at Lantern Noodle Bar según tu instrucción permanente y Lantern Noodle Bar ya lo ha hecho. No he enviado nada más.",
-      "fr": "J'avais déjà approuvé the $88.00 change at Lantern Noodle Bar selon votre instruction permanente, et Lantern Noodle Bar s'en est chargé. Je n'ai rien envoyé de plus.",
+      "ca": "Ja havia aprovat the $88.00 change at Lantern Noodle Bar segons la teva instrucció permanent i ja està fet. No he enviat res més.",
+      "en": "I already approved the $88.00 change at Lantern Noodle Bar on your standing instruction, and it has been carried out. I sent nothing more.",
+      "es": "Ya aprobé the $88.00 change at Lantern Noodle Bar según tu instrucción permanente y ya está hecho. No he enviado nada más.",
+      "fr": "J'avais déjà approuvé the $88.00 change at Lantern Noodle Bar selon votre instruction permanente, et c'est chose faite. Je n'ai rien envoyé de plus.",
     },
   ],
   "alreadyConnected": [
@@ -40,10 +40,10 @@ exports[`the agent's own lines > are all in every language, as the table shows t
   ],
   "alreadyDeclined": [
     {
-      "ca": "Ja vas rebutjar the $88.00 change at Lantern Noodle Bar, així que no s'ha enviat res a Lantern Noodle Bar.",
-      "en": "You already declined the $88.00 change at Lantern Noodle Bar, so nothing was sent to Lantern Noodle Bar.",
-      "es": "Ya rechazaste the $88.00 change at Lantern Noodle Bar, así que no se ha enviado nada a Lantern Noodle Bar.",
-      "fr": "Vous aviez déjà refusé the $88.00 change at Lantern Noodle Bar, donc rien n'a été envoyé à Lantern Noodle Bar.",
+      "ca": "Ja vas rebutjar the $88.00 change at Lantern Noodle Bar, així que no he enviat res.",
+      "en": "You already declined the $88.00 change at Lantern Noodle Bar, so I sent nothing.",
+      "es": "Ya rechazaste the $88.00 change at Lantern Noodle Bar, así que no he enviado nada.",
+      "fr": "Vous aviez déjà refusé the $88.00 change at Lantern Noodle Bar, donc je n'ai rien envoyé.",
     },
   ],
   "alreadySignedIn": [
@@ -70,6 +70,58 @@ exports[`the agent's own lines > are all in every language, as the table shows t
       "fr": "Approuver $88.00",
     },
   ],
+  "approvedOnInstruction": [
+    {
+      "ca": "La teva instrucció permanent cobreix the $88.00 change at Lantern Noodle Bar, així que he donat l'aprovació per tu.",
+      "en": "Your standing instruction covers the $88.00 change at Lantern Noodle Bar, so I approved it for you.",
+      "es": "Tu instrucción permanente cubre the $88.00 change at Lantern Noodle Bar, así que he dado la aprobación por ti.",
+      "fr": "Votre instruction permanente couvre the $88.00 change at Lantern Noodle Bar, j'ai donc donné l'approbation pour vous.",
+    },
+  ],
+  "askDoneSignIn": [
+    {
+      "ca": "Sessió iniciada a Lantern Noodle Bar · només lectura",
+      "en": "Signed in at Lantern Noodle Bar · read only",
+      "es": "Sesión iniciada en Lantern Noodle Bar · solo lectura",
+      "fr": "Connexion à Lantern Noodle Bar faite · lecture seule",
+    },
+    {
+      "ca": "Sessió iniciada a Lantern Noodle Bar · pot proposar canvis",
+      "en": "Signed in at Lantern Noodle Bar · can propose changes",
+      "es": "Sesión iniciada en Lantern Noodle Bar · puede proponer cambios",
+      "fr": "Connexion à Lantern Noodle Bar faite · peut proposer des modifications",
+    },
+  ],
+  "askDoneWrite": [
+    {
+      "ca": "Permís de canvis donat a Lantern Noodle Bar",
+      "en": "Change permission given at Lantern Noodle Bar",
+      "es": "Permiso de cambios dado en Lantern Noodle Bar",
+      "fr": "Autorisation de modifier donnée chez Lantern Noodle Bar",
+    },
+  ],
+  "askInvitation": [
+    {
+      "ca": "Lantern Noodle Bar demana parlar amb tu directament. Jo no hi llegeixo ni hi responc; pots sortir quan vulguis.",
+      "en": "Lantern Noodle Bar asks to talk with you directly. I won't read or answer there; you can leave at any time.",
+      "es": "Lantern Noodle Bar pide hablar contigo directamente. Yo no leo ni respondo allí; puedes salir cuando quieras.",
+      "fr": "Lantern Noodle Bar demande à vous parler directement. Je n'y lis ni n'y réponds ; vous pouvez partir à tout moment.",
+    },
+    {
+      "ca": "Lantern Noodle Bar demana parlar amb tu directament: About your refund Jo no hi llegeixo ni hi responc; pots sortir quan vulguis.",
+      "en": "Lantern Noodle Bar asks to talk with you directly: About your refund I won't read or answer there; you can leave at any time.",
+      "es": "Lantern Noodle Bar pide hablar contigo directamente: About your refund Yo no leo ni respondo allí; puedes salir cuando quieras.",
+      "fr": "Lantern Noodle Bar demande à vous parler directement : About your refund Je n'y lis ni n'y réponds ; vous pouvez partir à tout moment.",
+    },
+  ],
+  "askLost": [
+    {
+      "ca": "Lantern Noodle Bar ja no accepta la teva sessió. Torna a iniciar sessió per continuar amb el teu compte.",
+      "en": "Lantern Noodle Bar no longer takes your sign-in. Sign in again to go on with your account there.",
+      "es": "Lantern Noodle Bar ya no acepta tu sesión. Vuelve a iniciar sesión para seguir con tu cuenta allí.",
+      "fr": "Lantern Noodle Bar n'accepte plus votre connexion. Reconnectez-vous pour continuer avec votre compte.",
+    },
+  ],
   "askNow": [
     {
       "ca": "Ja li pots preguntar alguna cosa.",
@@ -82,6 +134,38 @@ exports[`the agent's own lines > are all in every language, as the table shows t
       "en": "You can ask them something now.",
       "es": "Ya puedes preguntarles algo.",
       "fr": "Vous pouvez leur demander quelque chose maintenant.",
+    },
+  ],
+  "askSignIn": [
+    {
+      "ca": "Puc llegir el teu compte de Lantern Noodle Bar quan hi iniciïs sessió, només de lectura, a la pàgina de Lantern Noodle Bar. L'accés al compte és opcional; connecta només comptes en què confiïs.",
+      "en": "I can read your Lantern Noodle Bar account once you sign in, read only, on Lantern Noodle Bar's own page. Account access is optional; only connect accounts you trust.",
+      "es": "Puedo leer tu cuenta de Lantern Noodle Bar cuando inicies sesión, solo lectura, en la propia página de Lantern Noodle Bar. El acceso a la cuenta es opcional; conecta solo cuentas en las que confíes.",
+      "fr": "Je peux lire votre compte Lantern Noodle Bar une fois que vous vous connectez, en lecture seule, sur la page de Lantern Noodle Bar. L'accès au compte est facultatif ; ne connectez que des comptes de confiance.",
+    },
+  ],
+  "askUnderway": [
+    {
+      "ca": "Acaba d'iniciar sessió a la pàgina de Lantern Noodle Bar, a la seva pestanya. Mai no veig la teva contrasenya.",
+      "en": "Finish signing in on Lantern Noodle Bar's own page, in its tab. I never see your password.",
+      "es": "Termina de iniciar sesión en la página de Lantern Noodle Bar, en su pestaña. Nunca veo tu contraseña.",
+      "fr": "Terminez la connexion sur la page de Lantern Noodle Bar, dans son onglet. Je ne vois jamais votre mot de passe.",
+    },
+  ],
+  "askWrite": [
+    {
+      "ca": "Per demanar un canvi a Lantern Noodle Bar, necessito permís per fer-hi canvis. Es torna a obrir la pàgina de consentiment de Lantern Noodle Bar, i el canvi l'aproves a part.",
+      "en": "To ask Lantern Noodle Bar for a change, I need change permission there. It opens Lantern Noodle Bar's consent page again, and you approve the change itself separately.",
+      "es": "Para pedir un cambio a Lantern Noodle Bar, necesito permiso para hacer cambios allí. Se vuelve a abrir la página de consentimiento de Lantern Noodle Bar, y el cambio en sí lo apruebas aparte.",
+      "fr": "Pour demander une modification à Lantern Noodle Bar, il me faut l'autorisation de modifier. La page de consentement de Lantern Noodle Bar s'ouvre à nouveau, et vous approuvez la modification elle-même à part.",
+    },
+  ],
+  "changeReady": [
+    {
+      "ca": "He demanat el canvi, i aquí el tens.",
+      "en": "I asked for the change, and here it is.",
+      "es": "He pedido el cambio, y aquí lo tienes.",
+      "fr": "J'ai demandé la modification, la voici.",
     },
   ],
   "chatFailed": [
@@ -204,6 +288,14 @@ exports[`the agent's own lines > are all in every language, as the table shows t
       "en": "You're talking with Lantern Noodle Bar directly now. I don't read or answer here: what you type goes to Lantern Noodle Bar as your own words.",
       "es": "Ahora hablas directamente con Lantern Noodle Bar. Aquí no leo ni respondo: lo que escribas le llega a Lantern Noodle Bar como tus propias palabras.",
       "fr": "Vous parlez maintenant directement avec Lantern Noodle Bar. Je ne lis ni ne réponds ici : ce que vous tapez arrive à Lantern Noodle Bar comme vos propres mots.",
+    },
+  ],
+  "earlierSignIn": [
+    {
+      "ca": "De la teva sessió anterior a Lantern Noodle Bar",
+      "en": "From your earlier sign-in at Lantern Noodle Bar",
+      "es": "De tu sesión anterior en Lantern Noodle Bar",
+      "fr": "De votre connexion précédente chez Lantern Noodle Bar",
     },
   ],
   "expired": [
@@ -492,20 +584,28 @@ exports[`the agent's own lines > are all in every language, as the table shows t
       "fr": "Il n'y a aucune entreprise dans cette conversation où se connecter.",
     },
   ],
+  "openPageAgain": [
+    {
+      "ca": "Tornar a obrir la pàgina de Lantern Noodle Bar",
+      "en": "Open Lantern Noodle Bar's page again",
+      "es": "Volver a abrir la página de Lantern Noodle Bar",
+      "fr": "Rouvrir la page de Lantern Noodle Bar",
+    },
+  ],
   "outcomeUnknown": [
     {
-      "ca": "Es va aprovar the $88.00 change at Lantern Noodle Bar, però Lantern Noodle Bar no ha dit si s'ha fet. Torna a provar la mateixa aprovació des de la seva targeta; no he enviat res de nou.",
-      "en": "The $88.00 change at Lantern Noodle Bar was approved, but Lantern Noodle Bar hasn't said whether it was carried out. Retry the same approval on its card; I sent nothing new.",
-      "es": "Se aprobó the $88.00 change at Lantern Noodle Bar, pero Lantern Noodle Bar no ha dicho si se ha llevado a cabo. Reintenta la misma aprobación desde su tarjeta; no he enviado nada nuevo.",
-      "fr": "L'approbation de the $88.00 change at Lantern Noodle Bar a été envoyée, mais Lantern Noodle Bar n'a pas dit si c'était fait. Relancez la même approbation depuis sa carte ; je n'ai rien envoyé de nouveau.",
+      "ca": "Es va aprovar the $88.00 change at Lantern Noodle Bar, però encara no se sap si s'ha fet. Torna a provar la mateixa aprovació des de la seva targeta; no he enviat res de nou.",
+      "en": "The $88.00 change at Lantern Noodle Bar was approved, but there's no word yet on whether it was carried out. Retry the same approval on its card; I sent nothing new.",
+      "es": "Se aprobó the $88.00 change at Lantern Noodle Bar, pero aún no se sabe si se ha llevado a cabo. Reintenta la misma aprobación desde su tarjeta; no he enviado nada nuevo.",
+      "fr": "L'approbation de the $88.00 change at Lantern Noodle Bar a été envoyée, mais on ne sait pas encore si c'est fait. Relancez la même approbation depuis sa carte ; je n'ai rien envoyé de nouveau.",
     },
   ],
   "performed": [
     {
-      "ca": "Fet. Has aprovat the $88.00 change at Lantern Noodle Bar i Lantern Noodle Bar ja l'ha fet.",
-      "en": "Done. You approved the $88.00 change at Lantern Noodle Bar, and Lantern Noodle Bar has carried it out.",
-      "es": "Hecho. Has aprobado the $88.00 change at Lantern Noodle Bar y Lantern Noodle Bar ya lo ha hecho.",
-      "fr": "C'est fait. Vous avez approuvé the $88.00 change at Lantern Noodle Bar, et Lantern Noodle Bar s'en est chargé.",
+      "ca": "Fet. Has aprovat the $88.00 change at Lantern Noodle Bar i ja està fet.",
+      "en": "Done. You approved the $88.00 change at Lantern Noodle Bar, and it has been carried out.",
+      "es": "Hecho. Has aprobado the $88.00 change at Lantern Noodle Bar y ya está hecho.",
+      "fr": "C'est fait. Vous avez approuvé the $88.00 change at Lantern Noodle Bar, et c'est chose faite.",
     },
   ],
   "proposalAt": [
@@ -598,6 +698,14 @@ exports[`the agent's own lines > are all in every language, as the table shows t
       "fr": "J'ai retiré Lantern Noodle Bar de cette conversation et révoqué l'accès que vous m'aviez donné là-bas.",
     },
   ],
+  "requestChangeButton": [
+    {
+      "ca": "Demanar permís de canvis",
+      "en": "Request change permission",
+      "es": "Pedir permiso de cambios",
+      "fr": "Demander l'autorisation de modifier",
+    },
+  ],
   "restAfter": [
     {
       "ca": "Després pregunto la resta del teu missatge.",
@@ -644,6 +752,14 @@ exports[`the agent's own lines > are all in every language, as the table shows t
       "en": "The Company refused this signed-out Poppy 1.0 Session. It may implement another version of the protocol; check its discovery in the Inspector.",
       "es": "La empresa ha rechazado esta sesión de Poppy 1.0 sin cuenta. Puede que implemente otra versión del protocolo; revisa su descubrimiento en el Inspector.",
       "fr": "L'entreprise a refusé cette session Poppy 1.0 sans compte. Elle implémente peut-être une autre version du protocole ; vérifiez sa découverte dans l'Inspector.",
+    },
+  ],
+  "signInAgainButton": [
+    {
+      "ca": "Tornar a iniciar sessió a Lantern Noodle Bar",
+      "en": "Sign in to Lantern Noodle Bar again",
+      "es": "Volver a iniciar sesión en Lantern Noodle Bar",
+      "fr": "Se reconnecter à Lantern Noodle Bar",
     },
   ],
   "signInAsk": [
@@ -848,6 +964,14 @@ exports[`the agent's own lines > are all in every language, as the table shows t
       "en": "this change",
       "es": "este cambio",
       "fr": "cette modification",
+    },
+  ],
+  "waitingForYou": [
+    {
+      "ca": "T'espera",
+      "en": "Waiting for you",
+      "es": "Te espera",
+      "fr": "Vous attend",
     },
   ],
   "whichIsItFor": [

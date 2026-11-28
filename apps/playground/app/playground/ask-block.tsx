@@ -1,5 +1,6 @@
 "use client";
 import { Check } from "lucide-react";
+import { say } from "@poppy-lab/pap-agent/lines";
 import { GRANT_WORDS } from "./account-row";
 import { endedWords, type Ask } from "./asks";
 import { CompanyMark } from "./company-mark";
@@ -31,6 +32,8 @@ export function AskBlock({
   onPressed?: (keyboard: boolean) => void;
 }) {
   const { busy } = p;
+  // A page made before it knew the conversation's language says English.
+  const language = p.language ?? "en";
   const extension = extensionOf(c);
   const id = askId(ask.key);
   const mark = named ? <CompanyMark origin={c.origin} /> : null;
@@ -39,7 +42,7 @@ export function AskBlock({
       <p className="ask-block done" id={id} tabIndex={-1}>
         <Check size={14} strokeWidth={2.5} aria-hidden="true" />
         {mark}
-        {ask.ended ?? endedWords(ask.kind, c)}
+        {ask.ended ?? endedWords(ask.kind, c, language)}
       </p>
     );
   const signIn = (access: "read" | "write") => () =>
@@ -53,8 +56,8 @@ export function AskBlock({
       <div className="ask-block waiting" id={id} tabIndex={-1}>
         <p>
           {mark}
-          <span className="waits">Waiting for you</span> · Finish signing in on{" "}
-          {c.name}&apos;s own page, in its tab. Iris never sees your password.
+          <span className="waits">{say(language, "waitingForYou")}</span> ·{" "}
+          {say(language, "askUnderway", { name: c.name })}
         </p>
         <div className="ask-actions">
           <button
@@ -63,7 +66,7 @@ export function AskBlock({
             disabled={busy}
             onClick={signIn(ask.kind === "write" ? "write" : "read")}
           >
-            Open {c.name}&apos;s page again
+            {say(language, "openPageAgain", { name: c.name })}
           </button>
         </div>
       </div>
@@ -77,22 +80,24 @@ export function AskBlock({
     >
       <p>
         {mark}
-        {waits && <span className="waits">Waiting for you</span>}
+        {waits && (
+          <span className="waits">{say(language, "waitingForYou")}</span>
+        )}
         {waits && " · "}
-        {ask.kind === "signin" &&
-          `Iris can read your ${c.name} account once you sign in, read only, on ${c.name}'s own page. Account access is optional; only connect accounts you trust.`}
-        {ask.kind === "write" &&
-          `To ask ${c.name} for a change, Iris needs change permission there. It opens ${c.name}'s consent page again, and you approve the change itself separately.`}
+        {ask.kind === "signin" && say(language, "askSignIn", { name: c.name })}
+        {ask.kind === "write" && say(language, "askWrite", { name: c.name })}
         {ask.kind === "lost" &&
           (c.grantRevoked && extension
             ? `${GRANT_WORDS[extension.key][c.grantRevoked === "revoked" ? "revoked" : "ended"](c.name)}`
-            : (c.recovery ??
-              `${c.name} no longer takes your sign-in. Sign in again to go on with your account there.`))}
+            : (c.recovery ?? say(language, "askLost", { name: c.name })))}
         {ask.kind === "extension" &&
           extension &&
           `Use ${extension.label} is on, and your sign-in at ${c.name} doesn't share it yet.`}
         {ask.kind === "invitation" &&
-          `${c.name} asks to talk with you directly${c.direct.invitation ? `: ${c.direct.invitation}` : "."} Iris won't read or answer there; you can leave at any time.`}
+          say(language, "askInvitation", {
+            name: c.name,
+            reason: c.direct.invitation || undefined,
+          })}
       </p>
       <div className="ask-actions">
         {ask.kind === "invitation" ? (
@@ -103,7 +108,7 @@ export function AskBlock({
               disabled={busy}
               onClick={press(() => p.directAction("accept", c.origin))}
             >
-              Talk to {c.name}
+              {say(language, "talkButton", { name: c.name })}
             </button>
             <button
               type="button"
@@ -111,7 +116,7 @@ export function AskBlock({
               disabled={busy}
               onClick={press(() => p.directAction("decline", c.origin))}
             >
-              Not now
+              {say(language, "notNowButton")}
             </button>
           </>
         ) : (
@@ -126,12 +131,12 @@ export function AskBlock({
             )}
           >
             {ask.kind === "write"
-              ? "Request change permission"
+              ? say(language, "requestChangeButton")
               : ask.kind === "extension" && extension
                 ? GRANT_WORDS[extension.key].again
                 : ask.kind === "lost"
-                  ? `Sign in to ${c.name} again`
-                  : `Sign in to ${c.name} · read only`}
+                  ? say(language, "signInAgainButton", { name: c.name })
+                  : say(language, "signInButton", { name: c.name })}
           </button>
         )}
       </div>

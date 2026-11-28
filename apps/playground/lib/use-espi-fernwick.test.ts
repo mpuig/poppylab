@@ -384,6 +384,8 @@ describe("Use ESPI against Fernwick, end to end", () => {
       // What the conversation still shows: nothing, with its one Company.
       history: [],
       log: [],
+      // The conversation went on in Spanish, the User's last question's.
+      language: "es",
     });
     // Exactly one request, the DELETE; the dead refresh token isn't revoked.
     const sent = net.seen.slice(from);

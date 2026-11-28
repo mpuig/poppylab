@@ -3445,6 +3445,7 @@ describe("Revoking the ESPI authorization (poppylab.dev/espi v1)", () => {
       // What the conversation still shows: nothing, with its one Company.
       history: [],
       log: [],
+      language: "en",
     });
     signedOut();
     expect((await restored()).espiAuthorization).toBeUndefined();

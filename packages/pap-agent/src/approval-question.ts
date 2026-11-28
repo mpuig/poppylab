@@ -18,6 +18,7 @@ import {
   amountToApprove,
   approvalTotal,
   changes,
+  itemChanges,
   money,
   ownLayout,
   termRows,
@@ -141,9 +142,37 @@ function changed(op: ReviewOperation) {
   return rows
     .filter(
       (row) =>
-        !/balance/i.test(row.label) && row.before !== row.after && row.after,
+        !("item" in row) &&
+        !/balance/i.test(row.label) &&
+        row.before !== row.after &&
+        row.after,
     )
     .slice(0, 2);
+}
+
+/** The verbs for a dish a change adds or takes away. */
+const ITEM_VERBS: Record<Language, { add: string; remove: string }> = {
+  en: { add: "add", remove: "remove" },
+  es: { add: "añadir", remove: "quitar" },
+  ca: { add: "afegir", remove: "treure" },
+  fr: { add: "ajouter", remove: "retirer" },
+};
+
+/**
+ * Each dish the terms add, take away or change the quantity of, in the
+ * Company's own name for it: "add 1 × Matcha ice cream".
+ */
+function itemPhrases(op: ReviewOperation, language: Language) {
+  const verbs = ITEM_VERBS[language];
+  return itemChanges(op)
+    .slice(0, 4)
+    .map((item) =>
+      !item.before
+        ? `${verbs.add} ${item.after} × ${item.name}`
+        : !item.after
+          ? `${verbs.remove} ${item.before} × ${item.name}`
+          : `${item.name} ${fromTo(language, String(item.before), String(item.after))}`,
+    );
 }
 
 const lower = (label: string) =>
@@ -440,21 +469,32 @@ function proposed(
   // One change that is the very thing named: said once.
   if (
     spokenRows.length === 1 &&
+    !itemChanges(op).length &&
     subject &&
     SUBJECTS.en[subject] === `your ${lower(spokenRows[0]!.label)}`
   )
     return `${lead} ${what} ${fromTo(language, spokenRows[0]!.before, spokenRows[0]!.after)}${when}`;
-  const details = spokenRows.map(
-    (row, i) =>
-      `${labelIn(language, row.label, !what && i === 0)} ${fromTo(language, row.before, row.after)}`,
-  );
+  // The dishes first, as the card lists them; a voice says the total.
+  const items = voice && !spokenRows.length ? [] : itemPhrases(op, language);
+  const details = [
+    ...items,
+    ...spokenRows.map(
+      (row, i) =>
+        `${labelIn(language, row.label, !what && !items.length && i === 0)} ${fromTo(language, row.before, row.after)}`,
+    ),
+  ];
   const and = { en: ", and ", es: ", y ", ca: ", i ", fr: ", et " }[language];
+  // "a, b, and c": the last one with "and".
+  const all =
+    details.length > 1
+      ? `${details.slice(0, -1).join(", ")}${and}${details.at(-1)}`
+      : (details[0] ?? "");
   if (!what)
     return details.length
-      ? `${lead} ${details.join(and)}${when}`
+      ? `${lead} ${all}${when}`
       : `${company} ${v.wants} ${v.make}${when}`;
   if (!details.length) return `${lead} ${what}${when}`;
-  return `${lead} ${what}${language === "fr" ? " :" : ":"} ${details.join(and)}${when}`;
+  return `${lead} ${what}${language === "fr" ? " :" : ":"} ${all}${when}`;
 }
 
 /**
@@ -825,4 +865,57 @@ export function whichQuestion(
     fr: "Vous pouvez dire l'entreprise ou le montant.",
   }[language];
   return { text: `${q(written)} ${hint}`, spoken: q(spoken) };
+}
+
+/** Money as a model writes it: "$43.00", "43,00 €", "43 dollars". */
+const MONEY =
+  /[$€£]\s?\d|\d(?:[.,]\d{2})?\s?(?:[$€£]|usd\b|eur\b|gbp\b|dollars?\b|d[oó]lar(?:e?s)?\b|euros?\b|pounds?\b|libras?\b|lliures?\b|livres?\b)/i;
+/** A request to approve, in the four languages. */
+const APPROVE = /\b(?:approv|aprob|aprueb|aprov|approuv)/i;
+/** A time of day: "13:00", "13.00", "13h00". */
+const TIME = /\b\d{1,2}[:.h]\d{2}\b/;
+
+/**
+ * A model's answer for a turn whose proposals the agent's own question asks
+ * about next, without the sentences that restate their terms (an amount,
+ * a dish the change adds or takes away, a time or value the terms change
+ * to) or that ask the User to approve them: the question says those,
+ * exactly, with the card. What else the model said stays, in its words.
+ * Empty when nothing else was said.
+ */
+export function withoutTerms(
+  answer: string,
+  ops: readonly ReviewOperation[],
+  language: Language = "en",
+) {
+  const named = ops.flatMap((op) => [
+    ...itemChanges(op).map((item) => item.name.toLowerCase()),
+    ...changed(op).flatMap((row) =>
+      [valueIn(language, row.after), valueIn("en", row.after), row.after]
+        .map((value) => value.toLowerCase())
+        .filter((value) => value.length > 3),
+    ),
+  ]);
+  const changesSomething = ops.some((op) => changed(op).length > 0);
+  const restates = (sentence: string) => {
+    const lower = sentence.toLowerCase();
+    return (
+      MONEY.test(sentence) ||
+      APPROVE.test(sentence) ||
+      (changesSomething && TIME.test(sentence)) ||
+      named.some((words) => lower.includes(words))
+    );
+  };
+  return answer
+    .split(/\n+/)
+    .map((paragraph) =>
+      paragraph
+        // A sentence ends at its mark and a space, not in "$43.00".
+        .split(/(?<=[.!?…]["»”)]?)\s+/)
+        .filter((sentence) => sentence.trim() && !restates(sentence))
+        .join(" ")
+        .trim(),
+    )
+    .filter(Boolean)
+    .join("\n\n");
 }

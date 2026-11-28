@@ -1898,6 +1898,16 @@ footer .lab-links a:hover {
   font-size: 12px;
   font-weight: 600;
 }
+/* Kept from an earlier sign-in at the Company: quieter than the words. */
+.earlier-badge {
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+}
 .log-note {
   margin: 10px 0 4px;
   font-size: 13px;

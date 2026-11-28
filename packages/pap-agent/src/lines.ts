@@ -102,6 +102,98 @@ export const LINES = {
     fr: (p) => `Garder ${list("fr", p.names)}`,
   }),
 
+  // ── The page's blocks about an account, in the conversation ────────
+  askSignIn: line<Name>({
+    en: (p) =>
+      `I can read your ${p.name} account once you sign in, read only, on ${p.name}'s own page. Account access is optional; only connect accounts you trust.`,
+    es: (p) =>
+      `Puedo leer tu cuenta de ${p.name} cuando inicies sesión, solo lectura, en la propia página de ${p.name}. El acceso a la cuenta es opcional; conecta solo cuentas en las que confíes.`,
+    ca: (p) =>
+      `Puc llegir el teu compte de ${p.name} quan hi iniciïs sessió, només de lectura, a la pàgina de ${p.name}. L'accés al compte és opcional; connecta només comptes en què confiïs.`,
+    fr: (p) =>
+      `Je peux lire votre compte ${p.name} une fois que vous vous connectez, en lecture seule, sur la page de ${p.name}. L'accès au compte est facultatif ; ne connectez que des comptes de confiance.`,
+  }),
+  askWrite: line<Name>({
+    en: (p) =>
+      `To ask ${p.name} for a change, I need change permission there. It opens ${p.name}'s consent page again, and you approve the change itself separately.`,
+    es: (p) =>
+      `Para pedir un cambio a ${p.name}, necesito permiso para hacer cambios allí. Se vuelve a abrir la página de consentimiento de ${p.name}, y el cambio en sí lo apruebas aparte.`,
+    ca: (p) =>
+      `Per demanar un canvi a ${p.name}, necessito permís per fer-hi canvis. Es torna a obrir la pàgina de consentiment de ${p.name}, i el canvi l'aproves a part.`,
+    fr: (p) =>
+      `Pour demander une modification à ${p.name}, il me faut l'autorisation de modifier. La page de consentement de ${p.name} s'ouvre à nouveau, et vous approuvez la modification elle-même à part.`,
+  }),
+  waitingForYou: line({
+    en: () => "Waiting for you",
+    es: () => "Te espera",
+    ca: () => "T'espera",
+    fr: () => "Vous attend",
+  }),
+  askUnderway: line<Name>({
+    en: (p) =>
+      `Finish signing in on ${p.name}'s own page, in its tab. I never see your password.`,
+    es: (p) =>
+      `Termina de iniciar sesión en la página de ${p.name}, en su pestaña. Nunca veo tu contraseña.`,
+    ca: (p) =>
+      `Acaba d'iniciar sessió a la pàgina de ${p.name}, a la seva pestanya. Mai no veig la teva contrasenya.`,
+    fr: (p) =>
+      `Terminez la connexion sur la page de ${p.name}, dans son onglet. Je ne vois jamais votre mot de passe.`,
+  }),
+  askLost: line<Name>({
+    en: (p) =>
+      `${p.name} no longer takes your sign-in. Sign in again to go on with your account there.`,
+    es: (p) =>
+      `${p.name} ya no acepta tu sesión. Vuelve a iniciar sesión para seguir con tu cuenta allí.`,
+    ca: (p) =>
+      `${p.name} ja no accepta la teva sessió. Torna a iniciar sessió per continuar amb el teu compte.`,
+    fr: (p) =>
+      `${p.name} n'accepte plus votre connexion. Reconnectez-vous pour continuer avec votre compte.`,
+  }),
+  askInvitation: line<Name & { reason?: string | undefined }>({
+    en: (p) =>
+      `${p.name} asks to talk with you directly${p.reason ? `: ${p.reason}` : "."} I won't read or answer there; you can leave at any time.`,
+    es: (p) =>
+      `${p.name} pide hablar contigo directamente${p.reason ? `: ${p.reason}` : "."} Yo no leo ni respondo allí; puedes salir cuando quieras.`,
+    ca: (p) =>
+      `${p.name} demana parlar amb tu directament${p.reason ? `: ${p.reason}` : "."} Jo no hi llegeixo ni hi responc; pots sortir quan vulguis.`,
+    fr: (p) =>
+      `${p.name} demande à vous parler directement${p.reason ? ` : ${p.reason}` : "."} Je n'y lis ni n'y réponds ; vous pouvez partir à tout moment.`,
+  }),
+  openPageAgain: line<Name>({
+    en: (p) => `Open ${p.name}'s page again`,
+    es: (p) => `Volver a abrir la página de ${p.name}`,
+    ca: (p) => `Tornar a obrir la pàgina de ${p.name}`,
+    fr: (p) => `Rouvrir la page de ${p.name}`,
+  }),
+  requestChangeButton: line({
+    en: () => "Request change permission",
+    es: () => "Pedir permiso de cambios",
+    ca: () => "Demanar permís de canvis",
+    fr: () => "Demander l'autorisation de modifier",
+  }),
+  signInAgainButton: line<Name>({
+    en: (p) => `Sign in to ${p.name} again`,
+    es: (p) => `Volver a iniciar sesión en ${p.name}`,
+    ca: (p) => `Tornar a iniciar sessió a ${p.name}`,
+    fr: (p) => `Se reconnecter à ${p.name}`,
+  }),
+  askDoneWrite: line<Name>({
+    en: (p) => `Change permission given at ${p.name}`,
+    es: (p) => `Permiso de cambios dado en ${p.name}`,
+    ca: (p) => `Permís de canvis donat a ${p.name}`,
+    fr: (p) => `Autorisation de modifier donnée chez ${p.name}`,
+  }),
+  askDoneSignIn: line<Name & { write: boolean }>({
+    en: (p) =>
+      `Signed in at ${p.name} · ${p.write ? "can propose changes" : "read only"}`,
+    es: (p) =>
+      `Sesión iniciada en ${p.name} · ${p.write ? "puede proponer cambios" : "solo lectura"}`,
+    ca: (p) =>
+      `Sessió iniciada a ${p.name} · ${p.write ? "pot proposar canvis" : "només lectura"}`,
+    fr: (p) =>
+      `Connexion à ${p.name} faite · ${p.write ? "peut proposer des modifications" : "lecture seule"}`,
+  }),
+
   // ── Sign-in, and going on after it ─────────────────────────────────
   signInAsk: line<Name & { request?: string | undefined }>({
     en: (p) =>
@@ -204,6 +296,12 @@ export const LINES = {
       `Ja has iniciat sessió a ${p.name}. Continuo amb ${q("ca", p.request)}?`,
     fr: (p) =>
       `La connexion à ${p.name} est faite. Je continue ${q("fr", p.request)} ?`,
+  }),
+  earlierSignIn: line<Name>({
+    en: (p) => `From your earlier sign-in at ${p.name}`,
+    es: (p) => `De tu sesión anterior en ${p.name}`,
+    ca: (p) => `De la teva sessió anterior a ${p.name}`,
+    fr: (p) => `De votre connexion précédente chez ${p.name}`,
   }),
   resumeAskSpoken: line<Name>({
     en: (p) =>
@@ -466,12 +564,27 @@ export const LINES = {
       `${p.name} a modifié les conditions après ma question, donc rien n'a été ${done.fr(p)}.`,
   }),
   performed: line<Name & { what: string }>({
-    en: (p) =>
-      `Done. You approved ${p.what}, and ${p.name} has carried it out.`,
-    es: (p) => `Hecho. Has aprobado ${p.what} y ${p.name} ya lo ha hecho.`,
-    ca: (p) => `Fet. Has aprovat ${p.what} i ${p.name} ja l'ha fet.`,
+    en: (p) => `Done. You approved ${p.what}, and it has been carried out.`,
+    es: (p) => `Hecho. Has aprobado ${p.what} y ya está hecho.`,
+    ca: (p) => `Fet. Has aprovat ${p.what} i ja està fet.`,
     fr: (p) =>
-      `C'est fait. Vous avez approuvé ${p.what}, et ${p.name} s'en est chargé.`,
+      `C'est fait. Vous avez approuvé ${p.what}, et c'est chose faite.`,
+  }),
+  changeReady: line({
+    en: () => "I asked for the change, and here it is.",
+    es: () => "He pedido el cambio, y aquí lo tienes.",
+    ca: () => "He demanat el canvi, i aquí el tens.",
+    fr: () => "J'ai demandé la modification, la voici.",
+  }),
+  approvedOnInstruction: line<{ what: string }>({
+    en: (p) =>
+      `Your standing instruction covers ${p.what}, so I approved it for you.`,
+    es: (p) =>
+      `Tu instrucción permanente cubre ${p.what}, así que he dado la aprobación por ti.`,
+    ca: (p) =>
+      `La teva instrucció permanent cobreix ${p.what}, així que he donat l'aprovació per tu.`,
+    fr: (p) =>
+      `Votre instruction permanente couvre ${p.what}, j'ai donc donné l'approbation pour vous.`,
   }),
   approvalRefused: line<Name>({
     en: (p) => `${p.name} declined the approval and did nothing.`,
@@ -519,40 +632,36 @@ export const LINES = {
   alreadyApproved: line<Name & { what: string; byAgent: boolean }>({
     en: (p) =>
       p.byAgent
-        ? `I already approved ${p.what} on your standing instruction, and ${p.name} has carried it out. I sent nothing more.`
-        : `${capital(p.what)} was already approved, and ${p.name} has carried it out. I sent nothing more.`,
+        ? `I already approved ${p.what} on your standing instruction, and it has been carried out. I sent nothing more.`
+        : `${capital(p.what)} was already approved, and it has been carried out. I sent nothing more.`,
     es: (p) =>
       p.byAgent
-        ? `Ya aprobé ${p.what} según tu instrucción permanente y ${p.name} ya lo ha hecho. No he enviado nada más.`
-        : `Ya se había aprobado ${p.what} y ${p.name} ya lo ha hecho. No he enviado nada más.`,
+        ? `Ya aprobé ${p.what} según tu instrucción permanente y ya está hecho. No he enviado nada más.`
+        : `Ya se había aprobado ${p.what} y ya está hecho. No he enviado nada más.`,
     ca: (p) =>
       p.byAgent
-        ? `Ja havia aprovat ${p.what} segons la teva instrucció permanent i ${p.name} ja l'ha fet. No he enviat res més.`
-        : `Ja s'havia aprovat ${p.what} i ${p.name} ja l'ha fet. No he enviat res més.`,
+        ? `Ja havia aprovat ${p.what} segons la teva instrucció permanent i ja està fet. No he enviat res més.`
+        : `Ja s'havia aprovat ${p.what} i ja està fet. No he enviat res més.`,
     fr: (p) =>
       p.byAgent
-        ? `J'avais déjà approuvé ${p.what} selon votre instruction permanente, et ${p.name} s'en est chargé. Je n'ai rien envoyé de plus.`
-        : `L'approbation de ${p.what} était déjà faite, et ${p.name} s'en est chargé. Je n'ai rien envoyé de plus.`,
+        ? `J'avais déjà approuvé ${p.what} selon votre instruction permanente, et c'est chose faite. Je n'ai rien envoyé de plus.`
+        : `L'approbation de ${p.what} était déjà faite, et c'est chose faite. Je n'ai rien envoyé de plus.`,
   }),
   alreadyDeclined: line<Name & { what: string }>({
-    en: (p) =>
-      `You already declined ${p.what}, so nothing was sent to ${p.name}.`,
-    es: (p) =>
-      `Ya rechazaste ${p.what}, así que no se ha enviado nada a ${p.name}.`,
-    ca: (p) =>
-      `Ja vas rebutjar ${p.what}, així que no s'ha enviat res a ${p.name}.`,
-    fr: (p) =>
-      `Vous aviez déjà refusé ${p.what}, donc rien n'a été envoyé à ${p.name}.`,
+    en: (p) => `You already declined ${p.what}, so I sent nothing.`,
+    es: (p) => `Ya rechazaste ${p.what}, así que no he enviado nada.`,
+    ca: (p) => `Ja vas rebutjar ${p.what}, així que no he enviat res.`,
+    fr: (p) => `Vous aviez déjà refusé ${p.what}, donc je n'ai rien envoyé.`,
   }),
   outcomeUnknown: line<Name & { what: string }>({
     en: (p) =>
-      `${capital(p.what)} was approved, but ${p.name} hasn't said whether it was carried out. Retry the same approval on its card; I sent nothing new.`,
+      `${capital(p.what)} was approved, but there's no word yet on whether it was carried out. Retry the same approval on its card; I sent nothing new.`,
     es: (p) =>
-      `Se aprobó ${p.what}, pero ${p.name} no ha dicho si se ha llevado a cabo. Reintenta la misma aprobación desde su tarjeta; no he enviado nada nuevo.`,
+      `Se aprobó ${p.what}, pero aún no se sabe si se ha llevado a cabo. Reintenta la misma aprobación desde su tarjeta; no he enviado nada nuevo.`,
     ca: (p) =>
-      `Es va aprovar ${p.what}, però ${p.name} no ha dit si s'ha fet. Torna a provar la mateixa aprovació des de la seva targeta; no he enviat res de nou.`,
+      `Es va aprovar ${p.what}, però encara no se sap si s'ha fet. Torna a provar la mateixa aprovació des de la seva targeta; no he enviat res de nou.`,
     fr: (p) =>
-      `L'approbation de ${p.what} a été envoyée, mais ${p.name} n'a pas dit si c'était fait. Relancez la même approbation depuis sa carte ; je n'ai rien envoyé de nouveau.`,
+      `L'approbation de ${p.what} a été envoyée, mais on ne sait pas encore si c'est fait. Relancez la même approbation depuis sa carte ; je n'ai rien envoyé de nouveau.`,
   }),
   expired: line<{ what: string } & Done>({
     en: (p) =>

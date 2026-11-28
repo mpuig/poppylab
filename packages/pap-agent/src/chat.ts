@@ -9,7 +9,14 @@ import {
   wantsEvents,
   type TurnStream,
 } from "./answer-stream";
-import { answerQuestion, askAfter, before, withoutModel } from "./chat-answers";
+import { withoutTerms } from "./approval-question";
+import {
+  answerQuestion,
+  askAfter,
+  before,
+  freshProposals,
+  withoutModel,
+} from "./chat-answers";
 import { checkChatBody } from "./chat-body";
 import { chooseCompany } from "./chat-companies";
 import { demoReply } from "./chat-demo";
@@ -430,7 +437,7 @@ async function reply(
     const from = companyRef(run, originOf(connection));
     if (direct) return await directReply(turn, connection, direct, shown);
     // A model's answer keeps what each tool it called answered.
-    const { text, raw } =
+    const { text: modelText, raw } =
       turn.provider === "demo"
         ? await demoReply(turn, connection, tools)
         : await modelReply(
@@ -442,6 +449,17 @@ async function reply(
           );
     const exact =
       raw !== undefined ? JSON.stringify(raw).slice(0, 20000) : undefined;
+    // The agent's question about the proposals this turn brought says
+    // their terms exactly, with their cards: a model's answer doesn't say
+    // them again. What else it said stays, in its words.
+    const brought =
+      turn.provider === "demo" || use.question
+        ? []
+        : freshProposals(run, scope.before!);
+    const text = brought.length
+      ? withoutTerms(modelText, brought, languageOf(run)) ||
+        say(languageOf(run), "changeReady")
+      : modelText;
     // The model's context gets the two turns. The page's transcript also
     // keeps what this turn shows, to show it again after a reload.
     recordTurn(run, connection, turn.asked, text, {
@@ -466,6 +484,8 @@ async function reply(
       {
         text,
         spoken: spokenText(text, languageOf(run)),
+        // The conversation's language, for the page's own lines in it.
+        language: languageOf(run),
         ...(question ? { question } : {}),
         ...(exact !== undefined ? { data: exact } : {}),
         trace,

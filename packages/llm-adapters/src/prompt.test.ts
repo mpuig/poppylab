@@ -90,6 +90,7 @@ describe("the model's instructions", () => {
       'first send {"request":"help"}',
       "company_agent_handoff",
       "Use money, currency and units accurately.",
+      "Don't repeat its amounts, dishes, times or other terms",
     ])
       expect(tools).toContain(words);
   });

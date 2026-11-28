@@ -321,7 +321,7 @@ describe("Iris asks, and the User answers in words", () => {
     expect(turn.data.operations).toHaveLength(1);
     const op = turn.data.operations[0] as Operation;
     expect(turn.data.question.text).toMatch(
-      /^Lantern Noodle Bar wants to change your order: the delivery slot from [A-Z][a-z]+day at \d\d:\d\d to Sunday at 13:00\. The new total is \$\d+\.\d\d, \$\d+\.\d\d more than before\. It expires in 10 minutes\. Shall I approve it\?$/,
+      /^Lantern Noodle Bar wants to change your order: add 1 × Matcha ice cream, and the delivery slot from [A-Z][a-z]+day at \d\d:\d\d to Sunday at 13:00\. The new total is \$\d+\.\d\d, \$\d+\.\d\d more than before\. It expires in 10 minutes\. Shall I approve it\?$/,
     );
     // Iris's words, never the Company's summary.
     expect(turn.data.question.text).not.toContain(op.summary!.slice(0, 20));
@@ -366,7 +366,7 @@ describe("Iris asks, and the User answers in words", () => {
     const approved = await say("approve the Lantern one");
     expect(approved.status).toBe(200);
     expect(approved.data.text).toBe(
-      `Done. You approved the ${total} change at Lantern Noodle Bar, and Lantern Noodle Bar has carried it out. The $500.00 transfer at Harborline Bank is still waiting for you. Shall I approve that one too?`,
+      `Done. You approved the ${total} change at Lantern Noodle Bar, and it has been carried out. The $500.00 transfer at Harborline Bank is still waiting for you. Shall I approve that one too?`,
     );
     const sent = at(from, food);
     expect(sent.map((r) => [r.method, new URL(r.url).pathname])).toContainEqual(
@@ -456,7 +456,7 @@ describe("Iris asks, and the User answers in words", () => {
     });
     expect(approved.status).toBe(200);
     expect(approved.data.text).toBe(
-      "Done. You approved the $25.00 transfer at Harborline Bank, and Harborline Bank has carried it out.",
+      "Done. You approved the $25.00 transfer at Harborline Bank, and it has been carried out.",
     );
     expect(model.asked).toBe(before);
     expect(at(from, bank).some((r) => r.headers["poppy-approval"])).toBe(true);

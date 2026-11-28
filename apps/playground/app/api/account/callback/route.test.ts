@@ -636,6 +636,15 @@ describe("what the page shows of the conversation after a sign-in", () => {
     { role: "company", content: "Private order ord_1", author: "Lantern" },
     { role: "assistant", content: "Private order details", data: '{"o":1}' },
   ];
+  /**
+   * What the page keeps after a later sign-in that may be another
+   * account's: all it showed, as it showed it, with what the earlier
+   * sign-in showed marked as that sign-in's, and no buttons.
+   */
+  const seen = () => [
+    ...before,
+    ...withAccount.map((entry) => ({ ...entry, earlier: true })),
+  ];
   const publicTurns = [
     { role: "user" as const, content: "When do you deliver?" },
     {
@@ -661,30 +670,41 @@ describe("what the page shows of the conversation after a sign-in", () => {
     expect(s.run.history).toEqual(publicTurns);
   });
 
-  it("keeps only that part on a later consent, never what an account showed", async () => {
+  it("keeps what the page showed on a later consent, marking the earlier sign-in's, and gives the model only the public part", async () => {
     s.connection.publicHistory = structuredClone(publicTurns);
     s.run.history = [
       ...publicTurns,
       { role: "assistant", content: "Private order details" },
     ];
-    run.transcript = structuredClone([...before, ...withAccount]);
+    run.transcript = structuredClone([
+      ...before,
+      ...withAccount.slice(0, -1),
+      // Iris's question, with its buttons, was the last thing said.
+      {
+        ...withAccount.at(-1)!,
+        choices: [{ label: "Yes, go on", answer: { resume: "x" } }],
+      },
+    ]);
     expect((await GET(req())).status).toBe(303);
-    expect(run.transcript).toEqual(before);
+    // The User's own view: nothing of it reaches a Company or a model.
+    expect(run.transcript).toEqual(seen());
+    // The model is never sent what the earlier sign-in read.
     expect(s.run.history).toEqual(publicTurns);
-    expect(JSON.stringify([run.transcript, s.run.history])).not.toContain(
-      "Private",
-    );
+    expect(JSON.stringify(s.run.history)).not.toContain("Private");
   });
 
-  it("drops a transcript stored before entries said when they were shown", async () => {
+  it("keeps a transcript stored before entries said when they were shown, as the earlier sign-in's", async () => {
     s.connection.publicHistory = structuredClone(publicTurns);
     run.transcript = [
       ...publicTurns,
       { role: "assistant", content: "Private order details" },
     ];
     expect((await GET(req())).status).toBe(303);
-    // The page then shows the public history, as it did before.
-    expect(run.transcript).toBeUndefined();
+    // It can't tell which were shown signed out: each is marked.
+    expect(run.transcript).toEqual([
+      ...publicTurns.map((turn) => ({ ...turn, earlier: true })),
+      { role: "assistant", content: "Private order details", earlier: true },
+    ]);
     expect(s.run.history).toEqual(publicTurns);
   });
 
@@ -702,34 +722,32 @@ describe("what the page shows of the conversation after a sign-in", () => {
       delete titled.title;
     });
 
-    it("no longer lists it under a request the sign-in removed", async () => {
-      // Everything was said with the account: nothing of it is left.
-      titled.title = "Show my orders";
-      s.run.history = structuredClone(withAccount.slice(0, 1)) as never;
-      run.transcript = structuredClone(withAccount);
-      expect((await GET(req())).status).toBe(303);
-      expect(run.transcript).toBeUndefined();
-      expect(titled.title).toBeUndefined();
-      // Listed as the empty conversation it now is, while it runs…
-      const item = await listed();
-      expect(item).toMatchObject({ active: true });
-      expect(item).not.toHaveProperty("title");
-      // …and not at all once it has ended with nothing to read.
-      s.run.expires = Date.now() - 1;
-      try {
-        expect(await listed()).toBeUndefined();
-      } finally {
-        s.run.expires = Date.now() + 60000;
-        await seedRun("v".repeat(43), "run_fixture_0001", s.run as never);
-      }
-    });
-
-    it("lists it under the first request still shown", async () => {
+    it("still lists it under its first request after a later consent, which keeps what the page showed", async () => {
       titled.title = "my orders";
       s.connection.publicHistory = structuredClone(publicTurns);
       run.transcript = structuredClone([...withAccount, ...before]);
       expect((await GET(req())).status).toBe(303);
-      expect(titled.title).toBe("When do you deliver?");
+      expect(titled.title).toBe("my orders");
+      expect(await listed()).toMatchObject({ title: "my orders" });
+    });
+
+    it("no longer lists it under a request that a lost access removed", async () => {
+      // Everything was said with the account: nothing of it is left once
+      // the Company no longer takes the sign-in (`forgetLostAccount`).
+      const { forgetLostAccount } =
+        await import("@poppy-lab/pap-agent/transcript");
+      titled.title = "Show my orders";
+      s.run.history = structuredClone(withAccount.slice(0, 1)) as never;
+      run.transcript = structuredClone(withAccount);
+      Object.assign(s.connection, { accountUnavailable: true });
+      try {
+        forgetLostAccount(s.run as never, s.connection as never, false);
+      } finally {
+        delete (s.connection as { accountUnavailable?: true })
+          .accountUnavailable;
+      }
+      expect(run.transcript).toBeUndefined();
+      expect(titled.title).toBeUndefined();
     });
   });
 
@@ -761,17 +779,17 @@ describe("what the page shows of the conversation after a sign-in", () => {
     afterEach(() => {
       delete talking.conversation;
     });
-    /** The conversation as a sign-in leaves it when it may be another's. */
+    /**
+     * The conversation as a sign-in leaves it when it may be another's: the
+     * page keeps what it showed, the earlier sign-in's marked as such; the
+     * model gets the public part, and the proposals go.
+     */
     const reset = () => {
-      expect(run.transcript).toEqual(before);
+      expect(run.transcript).toEqual(seen());
       expect(s.run.history).toEqual(publicTurns);
       expect(s.connection.operations).toEqual({});
       expect(
-        JSON.stringify([
-          run.transcript,
-          s.run.history,
-          s.connection.operations,
-        ]),
+        JSON.stringify([s.run.history, s.connection.operations]),
       ).not.toMatch(/Private|op_1/);
     };
 

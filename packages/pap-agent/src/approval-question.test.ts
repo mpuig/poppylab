@@ -4,9 +4,10 @@ import {
   proposalName,
   spokenProposal,
   whichQuestion,
+  withoutTerms,
 } from "./approval-question";
 import type { Language } from "./language";
-import type { ReviewOperation } from "./operation-presentation";
+import { changes, type ReviewOperation } from "./operation-presentation";
 
 const now = Date.parse("2026-11-27T12:00:00Z");
 const in10 = new Date(now + 10 * 60000).toISOString();
@@ -317,5 +318,73 @@ describe("a delivery slot, said as its day and time", () => {
     expect(ask(friday, "Lantern Noodle Bar", "es").text).toContain(
       "del viernes a las 18:30 al domingo a las 13:00",
     );
+  });
+});
+
+describe("an order change that adds or takes away dishes", () => {
+  const dishes = op({
+    order_id: "ord_LNB1001",
+    order_version: 3,
+    from_slot: "fri-1830",
+    to_slot: "sun-1300",
+    lines: { "shoyu-ramen": 2, edamame: 1, "matcha-ice": 1 },
+    from_items: [
+      { name: "Shoyu ramen", quantity: 2 },
+      { name: "Salted edamame", quantity: 1 },
+      { name: "Pork gyoza", quantity: 1 },
+    ],
+    to_items: [
+      { name: "Shoyu ramen", quantity: 2 },
+      { name: "Salted edamame", quantity: 1 },
+      { name: "Matcha ice cream", quantity: 1 },
+    ],
+    before_total_cents: 3700,
+    new_total_cents: 4300,
+    currency: "USD",
+  });
+
+  it("names each dish it adds or takes away, in the Company's words, in every language", () => {
+    const text = (language: Language) =>
+      approvalQuestion(
+        [{ op: dishes, company: "Lantern Noodle Bar" }],
+        [],
+        now,
+        language,
+      )!.text;
+    expect(text("en")).toMatch(
+      /^Lantern Noodle Bar wants to change your order: remove 1 × Pork gyoza, add 1 × Matcha ice cream, and the delivery slot from Friday at 18:30 to Sunday at 13:00\./,
+    );
+    expect(text("es")).toContain(
+      "quitar 1 × Pork gyoza, añadir 1 × Matcha ice cream, y la franja de entrega",
+    );
+    expect(text("ca")).toContain("afegir 1 × Matcha ice cream");
+    expect(text("fr")).toContain("ajouter 1 × Matcha ice cream");
+    // The card lists them too, before and after.
+    expect(changes(dishes)).toEqual([
+      expect.objectContaining({
+        label: "Pork gyoza",
+        before: "1",
+        after: "Removed",
+      }),
+      expect.objectContaining({
+        label: "Matcha ice cream",
+        before: "Not in the order",
+        after: "1",
+      }),
+      expect.objectContaining({ label: "Delivery slot" }),
+    ]);
+  });
+
+  it("leaves out of a model's answer what restates the terms, and keeps the rest", () => {
+    expect(
+      withoutTerms(
+        "Lantern Noodle Bar tiene listo el cambio: añade un Matcha ice cream y pasa el pedido al domingo a las 13:00. El total sube de $37.00 a $43.00; aprueba estos términos si te parecen bien. Lo lleva el mismo repartidor.",
+        [dishes],
+        "es",
+      ),
+    ).toBe("Lo lleva el mismo repartidor.");
+    expect(
+      withoutTerms("The new total is $43.00. Shall I approve it?", [dishes]),
+    ).toBe("");
   });
 });

@@ -49,7 +49,10 @@ export function usePendingElsewhere(
 
 /**
  * The inbox's items in order: this conversation's first, as the page
- * holds them, then the others', each run out ones left out.
+ * holds them, then the others' proposals, each run out ones left out.
+ * Iris's questions in another conversation, and a sign-in to do there,
+ * are answered only in that conversation and lapse with it: a person who
+ * left it for a new one isn't waited for, so they aren't counted here.
  */
 export function inboxItems(
   here: readonly InboxItem[],
@@ -58,7 +61,10 @@ export function inboxItems(
 ): InboxItem[] {
   const live = (item: PendingItem) =>
     !item.expiresAt || Date.parse(item.expiresAt) > now;
-  return [...here, ...elsewhere].filter(live);
+  return [
+    ...here,
+    ...elsewhere.filter((item) => item.kind === "proposal"),
+  ].filter(live);
 }
 
 /**

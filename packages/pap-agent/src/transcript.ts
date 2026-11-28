@@ -75,6 +75,12 @@ export type TranscriptEntry = {
    * decided. Unlike `choices`, kept when the next entry comes.
    */
   proposals?: ProposalRef[];
+  /**
+   * Shown with an earlier sign-in at its Company, which a later one wasn't
+   * shown to continue (`keepEarlierSignIn`): kept for the User to read, and
+   * never sent to a model again.
+   */
+  earlier?: true;
 };
 
 /** What a turn put on the page besides the words. */
@@ -447,6 +453,39 @@ export function backToPublic(run: Run, connection: Connection) {
   return withdrawProposals(run, connection);
 }
 
+/**
+ * A later sign-in at a Company that its answers don't show to be for the
+ * same account (`signInCallback`). The model's context and the proposals
+ * go back to before any access to the account, as `backToPublic` does: a
+ * model signed in to another account is never sent what it read with the
+ * earlier one, and the earlier sign-in's proposals and their mention at
+ * other Companies (`withdrawProposals`) go. The transcript is the User's own
+ * view of what they saw, which no Company is sent, so it stays as they saw
+ * it. What was shown with that account is marked `earlier`, and its buttons
+ * go: the page says those entries are from the earlier sign-in. A sign-out
+ * or a lost access still takes them away (`holdsAccount`). Returns whether
+ * proposals at other Companies went.
+ */
+export function keepEarlierSignIn(run: Run, connection: Connection) {
+  run.history = [
+    ...structuredClone(connection.publicHistory ?? []),
+    ...run.history.filter((turn) => !ofCompany(turn, connection)),
+  ];
+  if (run.transcript)
+    run.transcript = run.transcript.map((entry) => {
+      const shownWithAccount =
+        holdsAccount(entry, connection) ||
+        (cameFrom(entry, connection) && !entry.signedOut);
+      return shownWithAccount
+        ? { ...withoutChoices(entry), earlier: true as const }
+        : entry;
+    });
+  keepSignedOutLines(run, connection);
+  connection.operations = {};
+  delete connection.operationAccounts;
+  return withdrawProposals(run, connection);
+}
+
 /** From this Company, or with its account in it. */
 const ofCompany = (entry: FromCompany, connection: Connection) =>
   cameFrom(entry, connection) || holdsAccount(entry, connection);
@@ -719,6 +758,38 @@ export function recordAsked(
       ...(asked.proposals?.length ? { proposals: asked.proposals } : {}),
     },
   );
+}
+
+/**
+ * Iris's question about proposals, when what it asked was decided before
+ * the User answered it: its standing instruction approved them. The
+ * question is the last thing said and asks about nothing that still
+ * waits, so its words become `said`, what Iris did, and its buttons go.
+ * The cards stay where they arrived. Returns whether it changed anything:
+ * a question something follows, or one about a proposal that still waits,
+ * stays as it was.
+ */
+export function settleQuestion(
+  run: Run,
+  decided: (ref: ProposalRef) => boolean,
+  said: string,
+) {
+  const asking = run.asking;
+  const last = run.transcript?.at(-1);
+  if (
+    !asking ||
+    !("approve" in asking) ||
+    !asking.approve.length ||
+    !asking.approve.every(decided) ||
+    last?.role !== "assistant" ||
+    !last.proposals?.some(decided)
+  )
+    return false;
+  const rest = withoutChoices({ ...last, content: said });
+  delete rest.spoken;
+  run.transcript = [...run.transcript!.slice(0, -1), clipped(rest)];
+  delete run.asking;
+  return true;
 }
 
 /**

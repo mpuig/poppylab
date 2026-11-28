@@ -6,6 +6,7 @@ import { waitsAgain } from "@poppy-lab/pap-agent/operation-presentation";
 import { pendingItems, type OpenAsk } from "@poppy-lab/pap-agent/pending";
 import { demoChangeReplyNow } from "@poppy-lab/pap-agent/demo-changes";
 import { hideLinkSecrets } from "@poppy-lab/pap-agent/link-display";
+import { say } from "@poppy-lab/pap-agent/lines";
 import { OperationReview } from "../operation-review";
 import { leftOutAt } from "./account-row";
 import { AskBlock, askId } from "./ask-block";
@@ -172,6 +173,7 @@ export function Conversation({
               ?.company === origin,
         ),
       readOnly: p.readOnly,
+      language: p.language ?? "en",
     },
     shownAsks,
     arrivals,
@@ -397,6 +399,13 @@ export function Conversation({
           <span className="company-badge">Company content</span>
         )}
         {m.direct && <span className="direct-badge">Direct, without Iris</span>}
+        {m.earlier && (
+          <span className="earlier-badge">
+            {say(p.language ?? "en", "earlierSignIn", {
+              name: m.earlier.name,
+            })}
+          </span>
+        )}
       </h3>
       {m.text && (
         <div className="message-text">

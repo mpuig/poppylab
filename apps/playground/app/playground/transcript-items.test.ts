@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 import { discovered } from "@poppy-lab/pap-agent/company-fixture";
 import { lanternUrl, type Message } from "./companies";
 import { companyFromView, type CompanyState } from "./company-state";
-import { nextAsks, waitsForPerson, type Ask, type AskState } from "./asks";
+import {
+  endedWords,
+  nextAsks,
+  waitsForPerson,
+  type Ask,
+  type AskState,
+} from "./asks";
 import { focusGoesBack, type Focused } from "./focus-return";
 import { inboxItems } from "./pending-inbox";
 import { askOfChoices } from "./conversation";
@@ -111,6 +117,33 @@ describe("asks about an account", () => {
       "signin:done",
       "write:open",
     ]);
+  });
+
+  it("says how a sign-in and a change permission ended in the conversation's language, and drops both at sign-out", () => {
+    const shown = new Map<string, Ask>();
+    const arrivals: Arrivals = new Map();
+    const es = (c: CompanyState, step: number) => ({
+      ...state(c, step),
+      language: "es" as const,
+    });
+    nextAsks(es(company(), 1), shown, arrivals);
+    nextAsks(
+      es(company({ signingIn: { baseline: 0, since: 0 } }), 1),
+      shown,
+      arrivals,
+    );
+    const done = company({ signedIn: true, scopes: "poppy:read" });
+    const ended = nextAsks(es(done, 2), shown, arrivals);
+    expect(ended.find((a) => a.phase === "done")?.ended).toBe(
+      "Sesión iniciada en Lantern Noodle Bar · solo lectura",
+    );
+    expect(endedWords("write", done, "es")).toBe(
+      "Permiso de cambios dado en Lantern Noodle Bar",
+    );
+    // Signed out from the Companies bar: it no longer applies.
+    const out = nextAsks(es(company(), 2), shown, arrivals);
+    expect(out.some((a) => a.phase === "done")).toBe(false);
+    expect([...shown.values()].some((a) => a.phase === "done")).toBe(false);
   });
 
   it("drops a suggestion nobody took once it is no longer made", () => {
@@ -228,5 +261,33 @@ describe("the inbox", () => {
         now,
       ).map((i) => i.conversation),
     ).toEqual(["here", "other"]);
+  });
+
+  it("counts only what waits: no question or sign-in left in another conversation", () => {
+    const now = Date.parse("2026-11-27T12:00:00Z");
+    // Two conversations left for this one, each with Iris's question open.
+    const left = [
+      {
+        conversation: "earlier",
+        kind: "signin" as const,
+        text: "Sign in, read only, to go on",
+      },
+      {
+        conversation: "before",
+        kind: "question" as const,
+        text: "Say whether to go on with your request",
+        expiresAt: "2026-11-27T12:20:00Z",
+      },
+    ];
+    const proposal = {
+      conversation: "here",
+      kind: "proposal" as const,
+      text: "Approve or decline the $43.00 change",
+      expiresAt: "2026-11-27T12:10:00Z",
+      target: "proposal-x",
+    };
+    expect(inboxItems([proposal], left, now)).toHaveLength(1);
+    // Approved: nothing waits, whatever the others left open.
+    expect(inboxItems([], left, now)).toEqual([]);
   });
 });

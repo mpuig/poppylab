@@ -23,7 +23,11 @@ import { keepTokenFields, tokenResponse } from "./token-response";
 import { serving } from "./deployment";
 import { acquireRun, releaseRun, runForState } from "./runs";
 import { browserCaller, type CookieStore } from "./web";
-import { backToPublic, keepPublicHistory } from "./transcript";
+import {
+  backToPublic,
+  keepEarlierSignIn,
+  keepPublicHistory,
+} from "./transcript";
 import { keepLines } from "./inspector-log";
 import { askToResume } from "./chat-answers";
 
@@ -255,13 +259,18 @@ export async function signInCallback(request: Request, cookies: CookieStore) {
     // account had used it.
     const same = !!replaced && (await sameOwner(connection));
     if (replaced && !same) delete connection.conversation;
-    // What Iris read and showed with the account, and the proposals it
-    // got, stay only for a sign-in the Company's answers show to be for
+    // What Iris read with the account, and the proposals it got, stay for
+    // the model only for a sign-in the Company's answers show to be for
     // the same account: the conversation had used it, and still takes this
-    // one. Any other may be someone else's, or there is no way to tell,
-    // and the conversation goes back to what it was before any account
-    // access. The page keeps that public part as it showed it.
-    if (!(used && same)) backToPublic(run, connection);
+    // one. Any other may be someone else's, or there is no way to tell:
+    // the model's context goes back to what it was before any access, and
+    // the proposals go. The page's transcript, the User's own view, stays,
+    // with what the earlier sign-in showed marked as its (`earlier`). A
+    // first sign-in has no earlier one: what it replaces was signed out.
+    if (!(used && same)) {
+      if (replaced) keepEarlierSignIn(run, connection);
+      else backToPublic(run, connection);
+    }
     // §4.7: revoke the refresh token the new sign-in replaced (best effort;
     // revoking a replaced token isn't sign-out).
     if (replaced)

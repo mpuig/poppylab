@@ -7,6 +7,7 @@
 import { accountUnavailableNotice } from "./account-recovery";
 import { companyRef, originOf, type CompanyRef } from "./connections";
 import { directState } from "./direct-state";
+import { languageOf } from "./language";
 import { shownLog } from "./inspector-log";
 import {
   espiAuthorizationTarget,
@@ -111,6 +112,8 @@ export function companiesView(run: Run): {
 export const wordsView = (run: Run) => ({
   history: shownTranscript(run),
   log: shownLog(run),
+  // The language the conversation goes on in, for the page's own lines.
+  language: languageOf(run),
 });
 
 /**

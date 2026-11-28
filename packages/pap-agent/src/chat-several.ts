@@ -21,7 +21,8 @@ import {
   type Part,
 } from "./several";
 import { recordTurn } from "./transcript";
-import { askAfter, before } from "./chat-answers";
+import { withoutTerms } from "./approval-question";
+import { askAfter, before, freshProposals } from "./chat-answers";
 import {
   companiesNow,
   turnAddressed,
@@ -29,6 +30,7 @@ import {
   type HeldTurn,
 } from "./chat-turn";
 import { languageOf } from "./language";
+import { say } from "./lines";
 import { spokenText } from "./spoken";
 import { json } from "./web";
 
@@ -148,11 +150,20 @@ export async function severalTurn(
 function severalAnswer(
   turn: HeldTurn,
   at: Connection,
-  text: string,
+  answered: string,
   calls: Call[],
   demo: boolean,
 ) {
   const { scope, conversation } = turn;
+  // The question about the proposals the turn brought says their terms,
+  // with their cards: a model's answer doesn't say them again.
+  const fresh = demo
+    ? []
+    : freshProposals(conversation, scope.before ?? before(conversation));
+  const text = fresh.length
+    ? withoutTerms(answered, fresh, languageOf(conversation)) ||
+      say(languageOf(conversation), "changeReady")
+    : answered;
   const { parts, trace } = scope;
   const exact = calls.length
     ? JSON.stringify(calls).slice(0, 20000)
@@ -198,6 +209,7 @@ function severalAnswer(
     {
       text,
       spoken: spokenText(text, languageOf(conversation)),
+      language: languageOf(conversation),
       ...(question ? { question } : {}),
       ...(exact !== undefined ? { data: exact } : {}),
       trace: [...trace, ...parts.flatMap((part) => part.trace)],
