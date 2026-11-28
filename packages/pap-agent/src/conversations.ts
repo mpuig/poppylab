@@ -657,11 +657,17 @@ export const approvalRequestId = (approval: Approval) =>
     .digest("base64url")
     .slice(0, 24)}`;
 
+const MAX_APPROVAL_PAGES = 3;
+const MAX_APPROVAL_POLLS = 3;
+
 /**
  * Operations v3 in a conversation (§6): sends the User's approval in
- * `extensions.operations.approval`. Returns the Company's reply as the
- * result. New terms come back as `approval_required`, and a decline, or an
- * error in answer to the approval, as `approval_declined`, as at an API.
+ * `extensions.operations.approval`. Follows `has_more` pages and brief
+ * `working` reads until a conclusive reply for this approval arrives. New
+ * terms come back as `approval_required`, and a decline, or an error in
+ * answer to the approval, as `approval_declined`, as at an API. If the
+ * Company is still working, has unread pages, or returned no conclusive
+ * reply, throws a retryable 503 so the operation stays `uncertain`.
  */
 export async function approveInConversation(
   connection: Connection,
@@ -684,9 +690,86 @@ export async function approveInConversation(
   const thread: Thread | undefined =
     s.id === target.id ? s : s.direct?.id === target.id ? s.direct : undefined;
   const requestId = approvalRequestId(approval);
+  let cursor = thread?.cursor;
+  const seen = thread ?? { seen: [] as string[] };
+  let matched = false;
+  let matchedByRequestId = false;
+  let summary: string | undefined;
+
+  const inspect = (read: ReturnType<typeof parseRead>) => {
+    if (read.cursor) {
+      cursor = read.cursor;
+      if (thread) thread.cursor = read.cursor;
+    }
+    for (const e of read.events) {
+      if (seen.seen.includes(e.id as string)) continue;
+      seen.seen = [...seen.seen, e.id as string].slice(-200);
+      if (e.type !== "message" || !object(e.message)) continue;
+      const m = e.message;
+      if (m.role === "user") {
+        // Any unattributed Company message seen before our own approval
+        // message isn't a reply to this approval.
+        if (m.id === requestId && !matchedByRequestId) {
+          matched = false;
+          summary = undefined;
+        }
+        continue;
+      }
+      // §8.4: a reply to another request, such as the proposal itself, isn't
+      // the answer to this approval.
+      if (m.as_of_request !== undefined && m.as_of_request !== requestId)
+        continue;
+      const ext = object(m.extensions) ? m.extensions.operations : undefined;
+      const next = object(ext) ? ext.operation : undefined;
+      const declined = object(ext) ? ext.declined : undefined;
+      // A decline: nothing performed; this approval is never sent again (§6).
+      if (object(declined))
+        throw new ProtocolError(
+          403,
+          "approval_declined",
+          undefined,
+          undefined,
+          undefined,
+          typeof declined.reason === "string"
+            ? { reason: declined.reason.slice(0, 500) }
+            : {},
+        );
+      // New terms: never approved for the User (§6).
+      if (next !== undefined)
+        throw new ProtocolError(
+          403,
+          "approval_required",
+          undefined,
+          undefined,
+          next,
+        );
+      // An error in `data`, as the lab's Company Agents answer a stale or
+      // missing proposal: not a result. Nothing was performed (a Company that
+      // doesn't know says so, §7), and this approval isn't sent again, as
+      // with a decline. What the Company said goes to the User as the reason.
+      if (object(m.data) && m.data.error) {
+        const reason = clip(m.text, 500);
+        throw new ProtocolError(
+          403,
+          "approval_declined",
+          undefined,
+          undefined,
+          undefined,
+          reason ? { reason } : {},
+        );
+      }
+      const text = clip(m.text, 2000);
+      if (text || object(m.data)) {
+        matched = true;
+        if (m.as_of_request === requestId) matchedByRequestId = true;
+        summary = text ?? summary;
+      }
+    }
+  };
+
   const url = new URL(`${target.endpoint}/${target.id}/messages`);
   url.searchParams.set("wait", "10");
-  if (thread?.cursor) url.searchParams.set("cursor", thread.cursor);
+  if (cursor) url.searchParams.set("cursor", cursor);
   const value = await request(connection, url.href, "POST", {
     id: requestId,
     message: {
@@ -698,64 +781,53 @@ export async function approveInConversation(
       extensions: { operations: { approval } },
     },
   });
-  const read = parseRead(value);
-  const seen = thread ?? { seen: [] as string[] };
-  let summary: string | undefined;
-  for (const e of read.events) {
-    if (seen.seen.includes(e.id as string)) continue;
-    seen.seen = [...seen.seen, e.id as string].slice(-200);
-    if (e.type !== "message" || !object(e.message) || e.message.role === "user")
-      continue;
-    const m = e.message;
-    // §8.4: a reply to another request, such as the proposal itself, isn't
-    // the answer to this approval.
-    if (typeof m.as_of_request === "string" && m.as_of_request !== requestId)
-      continue;
-    const ext = object(m.extensions) ? m.extensions.operations : undefined;
-    const next = object(ext) ? ext.operation : undefined;
-    const declined = object(ext) ? ext.declined : undefined;
-    // A decline: nothing performed; this approval is never sent again (§6).
-    if (object(declined))
-      throw new ProtocolError(
-        403,
-        "approval_declined",
-        undefined,
-        undefined,
-        undefined,
-        typeof declined.reason === "string"
-          ? { reason: declined.reason.slice(0, 500) }
-          : {},
-      );
-    // New terms: never approved for the User (§6).
-    if (next !== undefined)
-      throw new ProtocolError(
-        403,
-        "approval_required",
-        undefined,
-        undefined,
-        next,
-      );
-    // An error in `data`, as the lab's Company Agents answer a stale or
-    // missing proposal: not a result. Nothing was performed (a Company that
-    // doesn't know says so, §7), and this approval isn't sent again, as
-    // with a decline. What the Company said goes to the User as the reason.
-    if (object(m.data) && m.data.error) {
-      const reason = clip(m.text, 500);
-      throw new ProtocolError(
-        403,
-        "approval_declined",
-        undefined,
-        undefined,
-        undefined,
-        reason ? { reason } : {},
-      );
+  let read = parseRead(value);
+  inspect(read);
+
+  const readMore = async (wait: boolean) => {
+    const nextUrl = new URL(`${target.endpoint}/${target.id}/events`);
+    if (wait) nextUrl.searchParams.set("wait", "10");
+    if (cursor) nextUrl.searchParams.set("cursor", cursor);
+    try {
+      return parseRead(await request(connection, nextUrl.href, "GET"));
+    } catch (error) {
+      if (
+        error instanceof ProtocolError &&
+        (error.status >= 500 || error.status === 429 || error.status === 408)
+      )
+        throw error;
+      // The approval POST was already accepted; any failure reading its reply
+      // leaves the outcome unknown rather than "nothing performed".
+      throw new ProtocolError(503, undefined);
     }
-    summary = clip(m.text, 2000) ?? summary;
+  };
+
+  let pages = 0;
+  let polls = 0;
+  while (true) {
+    if (read.hasMore) {
+      if (!cursor || pages >= MAX_APPROVAL_PAGES) break;
+      pages++;
+      read = await readMore(false);
+      inspect(read);
+      continue;
+    }
+    if (read.working) {
+      if (polls >= MAX_APPROVAL_POLLS) break;
+      polls++;
+      read = await readMore(true);
+      inspect(read);
+      continue;
+    }
+    break;
   }
-  if (thread && read.cursor) thread.cursor = read.cursor;
+
+  if (read.working || read.hasMore || !matched)
+    throw new ProtocolError(503, undefined);
+
   return {
     summary:
       summary ??
-      `${connection.company?.document.organization.name ?? "The Company"} recorded the approval and added no reply: it had already performed this operation.`,
+      `${connection.company?.document.organization.name ?? "The Company"} performed the approved operation.`,
   };
 }

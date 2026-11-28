@@ -421,11 +421,11 @@ describe("conversations (§8) in Iris", () => {
     expect(approvalRequestId(approval)).toBe(
       approvalRequestId({ ...approval }),
     );
-    // A repeated approval adds no reply: already performed.
+    // An empty read with no matching reply doesn't claim the operation succeeded.
     const quiet = vi.fn(async () => read([]));
-    expect(
-      (await approveInConversation(newRun(), op, approval, quiet)).summary,
-    ).toContain("already performed");
+    await expect(
+      approveInConversation(newRun(), op, approval, quiet),
+    ).rejects.toMatchObject({ status: 503 });
     // New terms come back as approval_required, never approved for the user.
     const terms = vi.fn(async () =>
       read([
@@ -593,6 +593,138 @@ describe("conversations (§8) in Iris", () => {
         }),
       ),
     ).resolves.toEqual({ summary: "Refunded USD 8.00." });
+  });
+
+  it("follows has_more pages on approval until the matching as_of_request reply arrives and updates the cursor", async () => {
+    const run = newRun();
+    run.conversation = { endpoint, id: "cnv_1", cursor: "e7", seen: ["e7"] };
+    const op = {
+      ...operation,
+      state: "proposed" as const,
+      request: { conversation: { endpoint, id: "cnv_1" } },
+    };
+    const reqId = approvalRequestId(approval);
+    const request = vi.fn(
+      async (_r: Connection, url: string, method: string) => {
+        if (method === "POST")
+          return read(
+            [said("e8", { as_of_request: "req_earlier", text: "Earlier." })],
+            { has_more: true },
+          );
+        expect(url).toBe(`${endpoint}/cnv_1/events?cursor=e8`);
+        return read(
+          [said("e9", { as_of_request: reqId, text: "Refunded USD 8.00." })],
+          { has_more: false },
+        );
+      },
+    );
+    await expect(
+      approveInConversation(run, op, approval, request),
+    ).resolves.toEqual({ summary: "Refunded USD 8.00." });
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(run.conversation.cursor).toBe("e9");
+    expect(run.conversation.seen).toContain("e8");
+    expect(run.conversation.seen).toContain("e9");
+  });
+
+  it("polls briefly while working is true and throws a retryable error if no matching reply finishes", async () => {
+    const op = {
+      ...operation,
+      state: "proposed" as const,
+      request: { conversation: { endpoint, id: "cnv_1" } },
+    };
+    const reqId = approvalRequestId(approval);
+
+    // Finishes on a follow-up GET poll with a matching reply.
+    const finishedRun = newRun();
+    finishedRun.conversation = {
+      endpoint,
+      id: "cnv_1",
+      cursor: "e7",
+      seen: [],
+    };
+    let pollCalls = 0;
+    const finishes = vi.fn(
+      async (_r: Connection, url: string, method: string) => {
+        pollCalls++;
+        if (method === "POST") return read([], { cursor: "e8", working: true });
+        expect(url).toBe(`${endpoint}/cnv_1/events?wait=10&cursor=e8`);
+        return read(
+          [said("e9", { as_of_request: reqId, text: "Refunded USD 8.00." })],
+          { working: false },
+        );
+      },
+    );
+    await expect(
+      approveInConversation(finishedRun, op, approval, finishes),
+    ).resolves.toEqual({ summary: "Refunded USD 8.00." });
+    expect(pollCalls).toBe(2);
+    expect(finishedRun.conversation.cursor).toBe("e9");
+
+    // Stays working with no matching reply -> throws retryable 503 (uncertain).
+    const workingRun = newRun();
+    workingRun.conversation = { endpoint, id: "cnv_1", cursor: "e7", seen: [] };
+    const stillWorking = vi.fn(async () =>
+      read([], { cursor: "e8", working: true }),
+    );
+    const error = await approveInConversation(
+      workingRun,
+      op,
+      approval,
+      stillWorking,
+    ).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ProtocolError);
+    expect(error).toMatchObject({ status: 503 });
+    expect(stillWorking).toHaveBeenCalledTimes(4);
+    expect(workingRun.conversation.cursor).toBe("e8");
+  });
+
+  it("does not treat unrelated as_of_request replies or unexhausted has_more as approval success", async () => {
+    const op = {
+      ...operation,
+      state: "proposed" as const,
+      request: { conversation: { endpoint, id: "cnv_1" } },
+    };
+
+    const unrelatedRun = newRun();
+    const unrelated = vi.fn(async () =>
+      read([
+        said("e8", {
+          as_of_request: "req_other",
+          text: "Answer to another request.",
+        }),
+      ]),
+    );
+    const unrelatedError = await approveInConversation(
+      unrelatedRun,
+      op,
+      approval,
+      unrelated,
+    ).catch((e: unknown) => e);
+    expect(unrelatedError).toBeInstanceOf(ProtocolError);
+    expect(unrelatedError).toMatchObject({ status: 503 });
+    expect(unrelatedRun.conversation?.cursor).toBe("e8");
+    expect(unrelatedRun.conversation?.seen).toContain("e8");
+
+    // Unexhausted has_more after bounded pages -> throws retryable 503.
+    const pagedRun = newRun();
+    let page = 0;
+    const endlessPages = vi.fn(async () =>
+      read(
+        [said(`e${++page}`, { as_of_request: "req_other", text: "Page." })],
+        { has_more: true },
+      ),
+    );
+    const pagedError = await approveInConversation(
+      pagedRun,
+      op,
+      approval,
+      endlessPages,
+    ).catch((e: unknown) => e);
+    expect(pagedError).toBeInstanceOf(ProtocolError);
+    expect(pagedError).toMatchObject({ status: 503 });
+    expect(endlessPages).toHaveBeenCalledTimes(4);
+    expect(pagedRun.conversation?.cursor).toBe("e4");
   });
 
   it("reads the four state fields, treats unknown values safely, and withdraws a handoff", async () => {
