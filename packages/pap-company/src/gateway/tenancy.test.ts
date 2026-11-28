@@ -229,3 +229,44 @@ it("serves an idle-expired browser tenant as signed out on read-only requests wi
   expect(state.account).toBeNull();
   expect(x.store.saves).toBe(saves);
 });
+
+it("does not keep a browser tenant for cross-origin or rejected website POSTs", async () => {
+  const x = await setup(
+    { isolation: "visitor" },
+    {
+      mount: (app, ctx) => {
+        app.post("/site/login", (c) => {
+          if (c.req.header("x-allow") !== "yes")
+            return c.json({ error: "forbidden" }, 403);
+          const sessions = (ctx.state.webSessions ??= {}) as Record<
+            string,
+            { account: string; expires: number }
+          >;
+          sessions.ok = { account: "elena", expires: Date.now() + 60_000 };
+          return c.body(null, 204);
+        });
+      },
+    },
+  );
+  // Cross-origin POST is served ephemerally and creates no browser tenant.
+  const cross = await x.app.request("/site/login", {
+    method: "POST",
+    headers: {
+      origin: "https://other.example",
+      cookie: `__Host-pap_browser=${randomId()}`,
+    },
+  });
+  expect(cross.status).toBe(403);
+  expect(browserTenants(x.store.value.tenants)).toHaveLength(0);
+
+  // Same-origin rejected POST does not leave an empty browser tenant behind.
+  const rejected = await x.app.request("/site/login", {
+    method: "POST",
+    headers: {
+      origin: "https://shop.example",
+      cookie: `__Host-pap_browser=${randomId()}`,
+    },
+  });
+  expect(rejected.status).toBe(403);
+  expect(browserTenants(x.store.value.tenants)).toHaveLength(0);
+});

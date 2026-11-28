@@ -35,6 +35,20 @@ type NodeBindings = {
   incoming?: { socket?: { remoteAddress?: unknown } };
 };
 
+export class ClientLookupBusy extends Error {
+  constructor() {
+    super("temporarily_unavailable");
+  }
+}
+export const isClientBusy = (e: unknown): e is ClientLookupBusy =>
+  e instanceof ClientLookupBusy;
+
+export const clientBusyResponse = (c: Context) =>
+  c.json({ error: "temporarily_unavailable" }, 503, {
+    "Retry-After": "5",
+    "Cache-Control": "no-store",
+  });
+
 export type ClientInfo = {
   keys: JWK[];
   redirects: string[];
@@ -206,7 +220,12 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
           ? process.env.POPPY_TRUSTED_PROXY_HEADER?.trim()
           : undefined;
       if (header && HEADER_NAME.test(header)) {
-        address = c.req.header(header)?.split(",")[0]?.trim();
+        address = c.req
+          .header(header)
+          ?.split(",")
+          .map((part) => part.trim())
+          .filter(Boolean)
+          .at(-1);
       }
       if (!address) {
         const remote = (c.env as NodeBindings | undefined)?.incoming?.socket
@@ -235,6 +254,7 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
   // ---- Client metadata (CIMD) --------------------------------------------
   const clients = new Map<string, ClientInfo>();
   const inflight = new Map<string, Promise<ClientInfo>>();
+  const MAX_INFLIGHT = 20;
   const failed = new Map<string, number>();
   const FAILED_TTL_MS = 15000;
   /** A URL from client metadata, unless it doesn't parse or has credentials. */
@@ -284,6 +304,7 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
     }
     const pending = inflight.get(id);
     if (pending) return pending;
+    if (inflight.size >= MAX_INFLIGHT) throw new ClientLookupBusy();
     const load = async (): Promise<ClientInfo> => {
       try {
         const metadata = (await deploy.fetchJson(id)) as {

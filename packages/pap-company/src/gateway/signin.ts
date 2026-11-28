@@ -16,6 +16,8 @@ import {
 import {
   assertionKey,
   attemptLimit,
+  clientBusyResponse,
+  isClientBusy,
   type ClientInfo,
   type Ctx,
 } from "./context.ts";
@@ -112,7 +114,8 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
     let info;
     try {
       info = await ctx.client(q.client_id);
-    } catch {
+    } catch (e) {
+      if (isClientBusy(e)) return { error: "temporarily_unavailable" } as const;
       return { error: "invalid_client" } as const;
     }
     // A redirect_uri from the client's own metadata (§4.2).
@@ -157,10 +160,14 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
         return c.json({ error: "use_dpop_nonce" }, 400, {
           "DPoP-Nonce": e.nonce,
         });
+      if (isClientBusy(e)) return clientBusyResponse(c);
       return c.json({ error: "invalid_client" }, 401);
     }
     const checked = await check(body);
-    if ("error" in checked) return c.json({ error: checked.error }, 400);
+    if ("error" in checked)
+      return checked.error === "temporarily_unavailable"
+        ? clientBusyResponse(c)
+        : c.json({ error: checked.error }, 400);
     // RFC 9449 §10: a DPoP proof here binds the code to that key.
     let dpop: string | undefined;
     if (c.req.header("dpop"))
@@ -282,7 +289,10 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
     from?: Pushed,
   ) {
     const checked = await check(q);
-    if ("error" in checked) return c.json({ error: checked.error }, 400);
+    if ("error" in checked)
+      return checked.error === "temporarily_unavailable"
+        ? clientBusyResponse(c)
+        : c.json({ error: checked.error }, 400);
     const { info, scopes, client, redirect, state, challenge } = checked;
     let nonce = from?.consent;
     if (nonce) {

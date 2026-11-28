@@ -13,7 +13,13 @@ import {
   tokenHash,
   verifyAssertion,
 } from "@poppy-lab/pap-client/core";
-import { assertionKey, attemptLimit, type Ctx } from "./context.ts";
+import {
+  assertionKey,
+  attemptLimit,
+  clientBusyResponse,
+  isClientBusy,
+  type Ctx,
+} from "./context.ts";
 import {
   CODE_LENGTH,
   CODE_LETTERS,
@@ -82,6 +88,7 @@ export function mountDevice(app: Hono, ctx: Ctx, signIn: SignIn) {
         return c.json({ error: "use_dpop_nonce" }, 400, {
           "DPoP-Nonce": e.nonce,
         });
+      if (isClientBusy(e)) return clientBusyResponse(c);
       return c.json({ error: "invalid_client" }, 401);
     }
     const scopes = signIn.scopesOf(body.scope);

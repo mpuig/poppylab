@@ -318,16 +318,37 @@ export function createTenancy(ctx: Ctx) {
             ? state.tenants[own]
             : undefined;
           const active = !!existing && Date.now() - existing.used <= idleMs;
-          if (active || !isReadOnly(c.req.method))
+          const crossOrigin =
+            c.req.header("origin") !== undefined &&
+            c.req.header("origin") !== origin;
+          if (active || (!isReadOnly(c.req.method) && !crossOrigin))
             ctx.tenantKeys.set(c.req.raw, own);
           else ephemeral = true;
         }
       }
+      const createdBrowser =
+        !!own &&
+        !ephemeral &&
+        ctx.tenantKeys.get(c.req.raw) === own &&
+        !Object.hasOwn(state.tenants, own);
       const entry = ephemeral ? guestApp() : enter(c.req.raw);
       if (own && !ephemeral) follow(c.req.raw, own, entry.tenant);
       const response = await viewer.run(browser, () =>
         entry.app.fetch(c.req.raw),
       );
+      if (
+        createdBrowser &&
+        response.status >= 400 &&
+        !Object.keys(entry.tenant.operations).length &&
+        !Object.keys(
+          (entry.tenant.business.webSessions as
+            Record<string, unknown> | undefined) ?? {},
+        ).length
+      ) {
+        delete state.tenants[own!];
+        apps.delete(own!);
+        ctx.tenantsTouched.delete(c.req.raw);
+      }
       if (!cookie) return response;
       const copy = new Response(response.body, response);
       copy.headers.append("Set-Cookie", cookie);

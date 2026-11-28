@@ -14,7 +14,7 @@ import {
   tokenHash,
   verifySessionHeader,
 } from "@poppy-lab/pap-client/core";
-import type { Ctx } from "./context.ts";
+import { clientBusyResponse, isClientBusy, type Ctx } from "./context.ts";
 import {
   BROWSER_SESSION_PATH,
   declares,
@@ -155,7 +155,8 @@ export function mountSessions(app: Hono, ctx: Ctx, tenancy: Tenancy) {
           ...(scheme !== "DPoP" ? { replay } : {}),
         },
       );
-    } catch {
+    } catch (e) {
+      if (isClientBusy(e)) return clientBusyResponse(c);
       return c.json({ error: "invalid_session" }, 400);
     }
     const now = Date.now();

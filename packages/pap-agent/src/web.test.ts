@@ -82,7 +82,8 @@ describe("the client's address", () => {
 
   it("reads POPPY_TRUSTED_PROXY_HEADER on Node when configured", async () => {
     vi.stubEnv("POPPY_TRUSTED_PROXY_HEADER", "X-Forwarded-For");
-    const proxied = from(" 203.0.113.9 , 10.0.0.1 ", "x-forwarded-for");
+    // Takes the rightmost non-empty entry appended by the proxy.
+    const proxied = from(" 198.51.100.1 , 203.0.113.9 ", "x-forwarded-for");
     expect(clientAddress(proxied)).toBe("203.0.113.9");
     expect((await browserCaller(proxied, none)).ip).toBe("203.0.113.9");
     expect(
@@ -92,7 +93,7 @@ describe("the client's address", () => {
         id: "s",
       } as ApiSession).ip,
     ).toBe("203.0.113.9");
-    expect(clientAddress(from(" , 10.0.0.1 ", "x-forwarded-for"))).toBeNull();
+    expect(clientAddress(from(" , , ", "x-forwarded-for"))).toBeNull();
     expect(clientAddress(from("203.0.113.9", "cf-connecting-ip"))).toBeNull();
   });
 

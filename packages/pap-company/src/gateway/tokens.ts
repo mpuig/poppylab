@@ -17,7 +17,12 @@ import {
   tokenHash,
   verifyAssertion,
 } from "@poppy-lab/pap-client/core";
-import { assertionKey, type Ctx } from "./context.ts";
+import {
+  assertionKey,
+  clientBusyResponse,
+  isClientBusy,
+  type Ctx,
+} from "./context.ts";
 import {
   DEVICE_GRANT,
   GRANT_MS,
@@ -270,6 +275,7 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
         return c.json({ error: "use_dpop_nonce" }, 400, {
           "DPoP-Nonce": e.nonce,
         });
+      if (isClientBusy(e)) return clientBusyResponse(c);
       const code =
         e instanceof Error &&
         [
@@ -316,6 +322,7 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
         return c.json({ error: "use_dpop_nonce" }, 400, {
           "DPoP-Nonce": e.nonce,
         });
+      if (isClientBusy(e)) return clientBusyResponse(c);
       return c.json({ error: "invalid_client" }, 401);
     }
   });

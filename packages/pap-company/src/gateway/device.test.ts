@@ -370,14 +370,15 @@ it("resolves source addresses from deploy.sourceAddress, Node socket, or POPPY_T
       },
       { incoming: { socket: { remoteAddress: "127.0.0.1" } } },
     );
+  // Takes the rightmost proxy-appended IP, ignoring spoofed leftmost entries.
   for (let i = 0; i < 10; i++)
-    await enterProxied("CCCC-CCCC", "198.51.100.5, 10.0.0.1");
+    await enterProxied("CCCC-CCCC", `192.0.2.${i + 1}, 198.51.100.5`);
   expect(
-    (await enterProxied(proxied.device.user_code, "198.51.100.5, 10.0.0.2"))
+    (await enterProxied(proxied.device.user_code, "192.0.2.99, 198.51.100.5"))
       .status,
   ).toBe(429);
   expect(
-    (await enterProxied(proxied.device.user_code, "198.51.100.6, 10.0.0.1"))
+    (await enterProxied(proxied.device.user_code, "192.0.2.1, 198.51.100.6"))
       .status,
   ).toBe(200);
 

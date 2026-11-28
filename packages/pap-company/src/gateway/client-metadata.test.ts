@@ -255,3 +255,51 @@ it("negatively caches failed client lookups for the TTL and retries after expiry
   expect(await open()).toBe(200);
   expect(fetched).toEqual([id, id, jwks]);
 });
+
+it("caps concurrent in-flight lookups for distinct clients", async () => {
+  const gates: Array<() => void> = [];
+  const fetched: string[] = [];
+  const x = await setup({
+    fetchJson: async (url) => {
+      fetched.push(url);
+      if (url.endsWith("/client.json")) {
+        await new Promise<void>((resolve) => {
+          gates.push(resolve);
+        });
+        return {
+          client_id: url,
+          jwks_uri: url.replace("/client.json", "/jwks.json"),
+          redirect_uris: [url.replace("/client.json", "/cb")],
+        };
+      }
+      return { keys: [] };
+    },
+  });
+  const open = async (n: number) =>
+    (
+      await x.app.request(
+        `/oauth/authorize?${new URLSearchParams({
+          response_type: "code",
+          client_id: `https://agent-${n}.example/client.json`,
+          redirect_uri: `https://agent-${n}.example/cb`,
+          scope: "things:read",
+          state: "state_value_1234567890",
+          code_challenge: "a".repeat(43),
+          code_challenge_method: "S256",
+        })}`,
+      )
+    ).status;
+  const inflight = Array.from({ length: 20 }, (_, i) => open(i));
+  await Promise.resolve();
+  expect(gates).toHaveLength(20);
+  // 21st distinct client gets a fast 503 without starting a fetch.
+  expect(await open(20)).toBe(503);
+  expect(fetched).toHaveLength(20);
+  for (const release of gates) release();
+  expect(await Promise.all(inflight)).toEqual(Array(20).fill(200));
+  // Once settled, new clients can be fetched again.
+  const after = open(21);
+  await Promise.resolve();
+  gates[20]!();
+  expect(await after).toBe(200);
+});
