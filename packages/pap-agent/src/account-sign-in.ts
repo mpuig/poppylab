@@ -20,6 +20,7 @@ import { answerLabel } from "./company-commands";
 import { languageOf } from "./language";
 import { say } from "./lines";
 import { companyName, originOf } from "./connections";
+import { keepUncertainOperations } from "./operation-store";
 import { forgetCompany, recordAsked } from "./transcript";
 import { json } from "./web";
 
@@ -44,8 +45,7 @@ export function signedOutLocally(run: Run, connection: Connection) {
   delete connection.espiResourceUri;
   delete connection.espiAuthorizationUri;
   delete connection.auth;
-  connection.operations = {};
-  delete connection.operationAccounts;
+  keepUncertainOperations(connection);
   // A request that waited for a sign-in here, and the agent's question
   // about anything here, go with the account.
   delete connection.resume;

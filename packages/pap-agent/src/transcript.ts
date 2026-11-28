@@ -18,7 +18,7 @@ import {
 import { dropLines, keepSignedOutLines } from "./inspector-log";
 import { languageOf } from "./language";
 import { say } from "./lines";
-import { operationAccounts } from "./operation-store";
+import { keepUncertainOperations, operationAccounts } from "./operation-store";
 import { logEntry } from "./protocol-log";
 import type { Connection, Operation, Run, Turn } from "./runtime";
 
@@ -528,10 +528,10 @@ function withdrawProposals(run: Run, connection: Connection) {
 /**
  * The conversation as it was before any access to this Company's account:
  * the model's turns with it from then, what the page showed from it while
- * signed out, and no proposal of its own. For a sign-in that may be for
- * another account, and for an access the Company took back. The turns the
- * model still has with other Companies follow those that come back, less
- * the ones this Company's account could be in. Another Company's
+ * signed out, and only approvals whose outcome isn't known. For a sign-in
+ * that may be for another account, and for an access the Company took back.
+ * The turns the model still has with other Companies follow those that come
+ * back, less the ones this Company's account could be in. Another Company's
  * proposals that this account could be in go too (`withdrawProposals`):
  * returns whether any did.
  */
@@ -541,8 +541,7 @@ export function backToPublic(run: Run, connection: Connection) {
     ...run.history.filter((turn) => !ofCompany(turn, connection)),
   ];
   keepSignedOutTranscript(run, connection);
-  connection.operations = {};
-  delete connection.operationAccounts;
+  keepUncertainOperations(connection);
   return withdrawProposals(run, connection);
 }
 
@@ -551,8 +550,9 @@ export function backToPublic(run: Run, connection: Connection) {
  * same account (`signInCallback`). The model's context and the proposals
  * go back to before any access to the account, as `backToPublic` does: a
  * model signed in to another account is never sent what it read with the
- * earlier one, and the earlier sign-in's proposals and their mention at
- * other Companies (`withdrawProposals`) go. The transcript is the User's own
+ * earlier one, and the earlier sign-in's proposals (except any approval
+ * whose outcome isn't known) and their mention at other Companies
+ * (`withdrawProposals`) go. The transcript is the User's own
  * view of what they saw, which no Company is sent, so it stays as they saw
  * it. What was shown with that account is marked `earlier`, and its buttons
  * go: the page says those entries are from the earlier sign-in. A sign-out
@@ -574,8 +574,7 @@ export function keepEarlierSignIn(run: Run, connection: Connection) {
         : entry;
     });
   keepSignedOutLines(run, connection);
-  connection.operations = {};
-  delete connection.operationAccounts;
+  keepUncertainOperations(connection);
   return withdrawProposals(run, connection);
 }
 
@@ -665,20 +664,10 @@ export function forgetLostAccount(
 ) {
   if (knewBefore || !connection.accountToken || !connection.accountUnavailable)
     return;
-  const unknown = Object.entries(connection.operations ?? {}).filter(
-    ([, op]) => op.state === "uncertain",
-  );
-  const accounts = connection.operationAccounts;
   const withdrew = backToPublic(run, connection);
-  connection.operations = Object.fromEntries(unknown);
-  // What is listed for the approvals that stay, stays with them.
-  const listed = Object.fromEntries(
-    unknown.flatMap(([id]) => (accounts?.[id] ? [[id, accounts[id]]] : [])),
-  );
-  if (Object.keys(listed).length) connection.operationAccounts = listed;
   return {
     history: shownTranscript(run),
-    operations: Object.values(connection.operations),
+    operations: Object.values(connection.operations ?? {}),
     withdrew,
   };
 }

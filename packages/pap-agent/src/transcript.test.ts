@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { signedOutLocally } from "./account-sign-in";
 import type { CompanyEntry } from "./conversations";
 import { onlyConnection as at } from "./connections";
-import type { Connection, Run, Turn } from "./runtime";
+import type { Connection, Operation, Run, Turn } from "./runtime";
 import * as transcript from "./transcript";
 import { keepSignedOutTranscript, TRANSCRIPT_LIMITS } from "./transcript";
 
@@ -674,4 +675,93 @@ describe("a sign-in at a second Company, with another signed in", () => {
     expect(JSON.stringify(r.transcript)).not.toContain("PRIVATE");
     expect(r.transcript).toHaveLength(2);
   });
+});
+
+describe("uncertain approvals survive account resets", () => {
+  const other = "https://other.example";
+  const op = (id: string, state: Operation["state"]): Operation => ({
+    operation_id: id,
+    revision: "r1",
+    state,
+    expires_at: "2030-01-01T00:00:00Z",
+    request: { url: `https://company.example/api/${id}`, body: { id } },
+    ...(state === "uncertain"
+      ? { approval: { approved_at: 1, reference: "apr_uncertain" } }
+      : {}),
+  });
+
+  const withOperations = () => {
+    const r = started({
+      accountToken: "refresh_1",
+      token: "access_1",
+      tokenType: "Bearer",
+      tokenExpires: Date.now() + 60_000,
+      scopes: "orders:write",
+      resourceTokens: {
+        orders: {
+          value: "res_1",
+          type: "Bearer",
+          expires: Date.now() + 60_000,
+        },
+      },
+      operations: {
+        op_uncertain: op("op_uncertain", "uncertain"),
+        op_proposed: op("op_proposed", "proposed"),
+        op_succeeded: op("op_succeeded", "succeeded"),
+        op_refused: op("op_refused", "refused"),
+        op_expired: op("op_expired", "expired"),
+      },
+      operationAccounts: {
+        op_uncertain: [other, "https://company.example"],
+        op_proposed: [other],
+        op_succeeded: [other],
+      },
+    });
+    return { r, c: at(r) };
+  };
+
+  it.each([
+    ["signedOutLocally", signedOutLocally],
+    ["backToPublic", transcript.backToPublic],
+    ["keepEarlierSignIn", transcript.keepEarlierSignIn],
+  ] as const)(
+    "%s keeps uncertain operations and their operationAccounts while clearing other states",
+    (name, reset) => {
+      const { r, c } = withOperations();
+      reset(r, c);
+
+      expect(Object.keys(c.operations ?? {})).toEqual(["op_uncertain"]);
+      expect(c.operations!.op_uncertain).toMatchObject({
+        operation_id: "op_uncertain",
+        state: "uncertain",
+        approval: { approved_at: 1, reference: "apr_uncertain" },
+      });
+      expect(c.operationAccounts).toEqual({
+        op_uncertain: [other, "https://company.example"],
+      });
+
+      if (name === "signedOutLocally") {
+        expect(c.accountToken).toBeUndefined();
+        expect(c.token).toBeUndefined();
+        expect(c.resourceTokens).toBeUndefined();
+        expect(c.scopes).toBeUndefined();
+      }
+    },
+  );
+
+  it.each([
+    ["signedOutLocally", signedOutLocally],
+    ["backToPublic", transcript.backToPublic],
+    ["keepEarlierSignIn", transcript.keepEarlierSignIn],
+  ] as const)(
+    "%s drops operationAccounts when no uncertain operation is listed",
+    (_name, reset) => {
+      const { r, c } = withOperations();
+      delete c.operationAccounts!.op_uncertain;
+      reset(r, c);
+
+      expect(Object.keys(c.operations ?? {})).toEqual(["op_uncertain"]);
+      expect(c.operationAccounts).toBeUndefined();
+    },
+  );
 });
