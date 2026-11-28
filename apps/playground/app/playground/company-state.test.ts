@@ -42,15 +42,15 @@ describe("the conversation's Companies as the page holds them", () => {
     expect(companies[0]!.operations).toEqual([]);
   });
 
-  it("keeps a consent tab open at one Company until a sign-in completes there", () => {
+  it("keeps a consent tab open at one Company until a sign-in completes there, preserving its requested access", () => {
     const before = [
       {
         ...companyFromView(view(lantern)),
-        signingIn: { baseline: 1, since: 0 },
+        signingIn: { baseline: 1, since: 0, access: "write" as const },
       },
       {
         ...companyFromView(view(harborline)),
-        signingIn: { baseline: 0, since: 0 },
+        signingIn: { baseline: 0, since: 0, access: "read" as const },
       },
     ];
     // Harborline's sign-in completed; Lantern's is still under way.
@@ -61,7 +61,11 @@ describe("the conversation's Companies as the page holds them", () => {
       ],
       before,
     );
-    expect(after[0]!.signingIn).toEqual({ baseline: 1, since: 0 });
+    expect(after[0]!.signingIn).toEqual({
+      baseline: 1,
+      since: 0,
+      access: "write",
+    });
     expect(after[1]!.signingIn).toBeUndefined();
     expect(stateWords(after[0]!)).toBe("Sign-in under way");
   });

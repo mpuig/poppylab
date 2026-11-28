@@ -8,6 +8,7 @@ import {
   ceremonyFailure,
   createAccount,
   passkeysWork,
+  readAccount,
   readSessions,
   removePasskey,
   revokeAll,
@@ -33,6 +34,26 @@ const when = (time: number) =>
   });
 const count = (n: number) =>
   n === 1 ? "1 conversation" : `${n} conversations`;
+
+/**
+ * Removes a passkey and reads the account again: removing the passkey this
+ * device signed in with signs this device out too, and removing another may
+ * sign out other devices, so the sessions list is refreshed while signed in.
+ */
+export async function removePasskeyAndRefresh(
+  id: string,
+  onChange: (account: AccountView | null) => void,
+  refreshSessions: () => void,
+  io: {
+    remove: typeof removePasskey;
+    read: typeof readAccount;
+  } = { remove: removePasskey, read: readAccount },
+) {
+  const updated = await io.remove(id);
+  const next = await io.read().catch(() => updated);
+  onChange(next);
+  if (next) refreshSessions();
+}
 
 /**
  * The person's agent account, at the top of the Identity view: create one
@@ -234,8 +255,8 @@ export function AccountPanel({
                 className="ghost-button"
                 disabled={!!working}
                 onClick={() =>
-                  void act("Removing the passkey", async () =>
-                    onChange(await removePasskey(passkey.id)),
+                  void act("Removing the passkey", () =>
+                    removePasskeyAndRefresh(passkey.id, onChange, loadSessions),
                   )
                 }
               >

@@ -76,7 +76,7 @@ describe("the Companies bar", () => {
             scopes: "orders:read",
           }),
           at(harborline, "Harborline Bank", {
-            signingIn: { baseline: 0, since: 0 },
+            signingIn: { baseline: 0, since: 0, access: "read" },
           }),
         ],
       }),
@@ -360,7 +360,7 @@ describe("what waits, where it arose in the transcript", () => {
       page({
         companies: [
           at(harborline, "Harborline Bank", {
-            signingIn: { baseline: 1, since: 0 },
+            signingIn: { baseline: 1, since: 0, access: "read" },
           }),
         ],
         messages: later,

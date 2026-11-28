@@ -74,7 +74,7 @@ export type CompanyState = CompanyRef & {
   /** §8.10 with this Company. */
   direct: ReturnType<typeof directView>;
   /** The page's own: a consent tab it opened, and the sign-ins before it. */
-  signingIn?: { baseline: number; since: number };
+  signingIn?: { baseline: number; since: number; access: "read" | "write" };
   /** The grant's record as the Company last returned it. */
   grantRecord?: GrantRecord;
   /** The User revoked the grant, or found it had ended. */

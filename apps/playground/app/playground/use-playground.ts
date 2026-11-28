@@ -47,6 +47,7 @@ import {
   loadInstruction,
   recordApproval,
   saveInstruction,
+  type Approval,
   type Instruction,
 } from "@poppy-lab/pap-agent/standing-instructions";
 import {
@@ -137,6 +138,105 @@ export const extensionOf = (company: CompanyState) =>
     company.company ? companyProfile(company.company) : undefined,
   );
 
+/**
+ * What an Error row remembers of the action that produced it: the failed
+ * user bubble to drop on retry, and the typed words to put back in the
+ * composer (never a button's label or a Direct Conversation action).
+ */
+export type RetryOrigin = {
+  text?: string;
+  said?: Message;
+};
+export type PageMessage = Message & { retry?: RetryOrigin };
+
+/** Computes the retry provenance attached to an Error row for a chat post. */
+export function retryOriginFor(
+  request: { message?: string; answer?: Choice["answer"] },
+  said: readonly Message[],
+): RetryOrigin | undefined {
+  const bubble = said[0];
+  if (!bubble) return undefined;
+  // Only what the User sent as words goes back to the composer; never a
+  // quick-reply button's label.
+  return request.message !== undefined
+    ? { text: request.message, said: bubble }
+    : { said: bubble };
+}
+
+/**
+ * Applies "Try again" on an Error row: removes the Error row and, only
+ * when this error owns a failed user bubble, drops that exact bubble and
+ * returns its typed text (when any) for the composer.
+ */
+export function applyRetryMessage(
+  messages: readonly PageMessage[],
+  index: number,
+): { messages: PageMessage[]; task?: string } {
+  const entry = messages[index];
+  if (!entry || entry.role !== "Error") return { messages: [...messages] };
+  const retry = entry.retry;
+  return {
+    messages: messages.filter(
+      (m, i) => i !== index && (!retry?.said || m !== retry.said),
+    ),
+    ...(retry?.text !== undefined ? { task: retry.text } : {}),
+  };
+}
+
+/**
+ * Finds the next standing-instruction step across all Companies: the first
+ * proposal to approve or note on the server, recording any allowance-held
+ * proposals already noted along the way so later Companies still run.
+ */
+export function pickAutoApproval(
+  companies: readonly CompanyState[],
+  instructions: Record<string, Instruction | undefined>,
+  busy: boolean,
+  decidedAt: (origin: string) => Set<string>,
+  recentAt: (origin: string) => Approval[],
+) {
+  const heldBack: Array<{ key: string; reason: string }> = [];
+  for (const c of companies) {
+    const instruction = instructions[c.origin];
+    const next = nextAutoApproval({
+      operations: c.operations,
+      instruction,
+      signedIn: c.signedIn,
+      busy,
+      decided: decidedAt(c.origin),
+      recent: recentAt(c.origin),
+    });
+    if (!next) continue;
+    if (next.kind === "left") {
+      const { op, reason, allowance } = next;
+      if (allowance)
+        heldBack.push({
+          key: `${c.origin} ${op.operation_id}:${op.revision}`,
+          reason,
+        });
+      // After a reload the conversation already keeps this reason's line.
+      if (op.notApplied !== reason)
+        return {
+          heldBack,
+          action: { kind: "left" as const, company: c, op, allowance },
+        };
+      continue;
+    }
+    return {
+      heldBack,
+      action: {
+        kind: "approve" as const,
+        company: c,
+        op: next.op,
+        covered: next.covered,
+        cents: next.cents,
+        instruction: instruction!,
+      },
+    };
+  }
+  return { heldBack, action: undefined };
+}
+
 export function usePlayground(options: { onConnected?: () => void } = {}) {
   const [companyUrl, setCompanyUrl] = useState(exampleUrl);
   /** The address form is open: another Company's address. */
@@ -202,7 +302,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
   const [barNote, setBarNote] = useState("");
   const [failedTrace, setFailedTrace] = useState<DiscoveryTraceStep[]>([]);
   const [task, setTask] = useState("");
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<PageMessage[]>([]);
   /**
    * The language the conversation goes on in, as the server keeps it: the
    * page's own blocks in the transcript are said in it.
@@ -257,6 +357,37 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     companies.find((c) => c.origin === origin)?.name ?? "the company";
 
   /**
+   * The conversation this page showed is no longer available to this browser
+   * (for example, after signing out of the account that owns it): clear
+   * everything shown for it so no stale transcript or controls stay behind.
+   */
+  function markMissing() {
+    current.current = undefined;
+    setConversation(undefined);
+    setEnded(undefined);
+    setMissing(true);
+    setPanel(undefined);
+    setAddressOpen(false);
+    setCompanies([]);
+    setFormer([]);
+    setLastTurn(undefined);
+    setError("");
+    setAddError("");
+    setRemoveError(undefined);
+    setBarNote("");
+    setFailedTrace([]);
+    setTask("");
+    setMessages([]);
+    setLanguage("en");
+    setCardError(undefined);
+    setChatLog([]);
+    setStartingDirect(undefined);
+    setHeldBack({});
+    decided.current.clear();
+    grantRead.current.clear();
+  }
+
+  /**
    * Shows the conversation as the server keeps it: its Companies, its words
    * and its Inspector lines. A reload, History and a page moved to another
    * conversation all read it.
@@ -267,12 +398,11 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     );
     if (id !== current.current) return;
     if (data.missing) {
-      current.current = undefined;
-      setConversation(undefined);
-      setMissing(true);
+      markMissing();
       return;
     }
     if (data.readOnly) setEnded({ keptUntil: data.keptUntil });
+    else setEnded(undefined);
     setCompanies((before) => companiesFrom(data.connections, before));
     setFormer(formerFrom(data.former));
     if (!words) return;
@@ -333,7 +463,12 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     try {
       const response = await fetch(`/api/account?conversation=${id}`);
       const data = await response.json();
-      if (id !== current.current || !data.readOnly) return;
+      if (id !== current.current) return;
+      if (data.missing) {
+        markMissing();
+        return;
+      }
+      if (!data.readOnly) return;
       setEnded({ keptUntil: data.keptUntil });
       setCompanies((before) =>
         companiesFrom(data.connections, before).map((c) => {
@@ -383,6 +518,10 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
         .then((r) => r.json())
         .then((data) => {
           if (cancelled) return;
+          if (data.missing) {
+            markMissing();
+            return;
+          }
           const views: Array<{
             origin: string;
             signedIn: boolean;
@@ -548,7 +687,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
      */
     said?: string | true,
   ) {
-    if (busy || ended) return;
+    if (busy || ended || missing) return;
     const company = companies.find((c) => c.origin === origin);
     if (!company) return;
     // One tab for each Company, so two sign-ins can be under way at once.
@@ -606,6 +745,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
               signingIn: {
                 baseline: data.consentVersion ?? 0,
                 since: Date.now(),
+                access,
               },
             }),
           );
@@ -681,7 +821,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
    * the server refuses while an approval sent there has an unknown outcome.
    */
   async function removeCompany(origin: string) {
-    if (busy || ended) return;
+    if (busy || ended || missing) return;
     setAccountBusy(true);
     setRemoveError(undefined);
     setBarNote("");
@@ -731,7 +871,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
   async function chooseExtension(origin: string, enabled: boolean) {
     const company = companies.find((c) => c.origin === origin);
     const extension = company && extensionOf(company);
-    if (busy || ended || !extension) return;
+    if (busy || ended || missing || !extension) return;
     const { key, label } = extension;
     setAccountBusy(true);
     setError("");
@@ -779,7 +919,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
   // Each grant's status and what it shares, read once for each id.
   const grantRead = useRef(new Map<string, string>());
   useEffect(() => {
-    if (busy || ended) return;
+    if (busy || ended || missing) return;
     const c = companies.find(
       (c) => grantShown(c) && grantRead.current.get(c.origin) !== c.grantId,
     );
@@ -817,7 +957,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
       )
       .finally(() => setAccountBusy(false));
     // grantCall is recreated each render and reads current state.
-  }, [companies, busy, ended]);
+  }, [companies, busy, ended, missing]);
 
   /**
    * The User revokes the FDX consent or the ESPI authorization at one
@@ -827,7 +967,15 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
   async function revokeGrant(origin: string) {
     const company = companies.find((c) => c.origin === origin);
     const extension = company && extensionOf(company);
-    if (busy || ended || !company || !grantShown(company) || !extension) return;
+    if (
+      busy ||
+      ended ||
+      missing ||
+      !company ||
+      !grantShown(company) ||
+      !extension
+    )
+      return;
     const grants = GRANTS[extension.key];
     setAccountBusy(true);
     setError("");
@@ -869,7 +1017,8 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
   /** Lists the shared accounts' statements (poppylab.dev/fdx v1). */
   async function listFdxStatements(origin: string) {
     const company = companies.find((c) => c.origin === origin);
-    if (busy || ended || !company || !statementsShown(company)) return;
+    if (busy || ended || missing || !company || !statementsShown(company))
+      return;
     setAccountBusy(true);
     setError("");
     try {
@@ -905,7 +1054,8 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     statementId: string,
   ) {
     const company = companies.find((c) => c.origin === origin);
-    if (busy || ended || !company || !statementsShown(company)) return;
+    if (busy || ended || missing || !company || !statementsShown(company))
+      return;
     setAccountBusy(true);
     setError("");
     try {
@@ -1011,52 +1161,45 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
   // for the User on its card in the transcript, which says why
   // (`leftToUser`), and the Inspector says it too.
   useEffect(() => {
-    for (const c of companies) {
-      const instruction = instructions[c.origin];
-      const next = nextAutoApproval({
-        operations: c.operations,
-        instruction,
-        signedIn: c.signedIn,
-        busy,
-        decided: decidedAt(c.origin),
-        recent: loadApprovals(c.origin),
-      });
-      if (!next) continue;
-      if (next.kind === "left") {
-        const { op, reason, allowance } = next;
-        if (allowance)
-          setHeldBack((old) => ({
-            ...old,
-            [`${c.origin} ${op.operation_id}:${op.revision}`]: reason,
-          }));
-        // After a reload the conversation already keeps this reason's line.
-        if (op.notApplied !== reason)
-          void noteLeftToUser(c.origin, op, allowance);
-        return;
-      }
-      // The next line of the log says how the Company answered. The server
-      // keeps this one in the same words when its own check agrees.
-      addTrace([applyingLine(next.covered)], refOf(c.origin));
-      const { cents } = next;
-      const origin = c.origin;
-      void accountAction(
-        "approve",
-        origin,
-        next.op,
-        "read",
-        instruction,
-        (answer) => {
-          // Only an approval that was performed, or may have been, uses up
-          // the hour's allowance: a refusal or a decline costs nothing.
-          if (usesAllowance(answer))
-            recordApproval(origin, { at: Date.now(), cents });
-        },
-      );
+    if (ended || missing) return;
+    const { heldBack: held, action } = pickAutoApproval(
+      companies,
+      instructions,
+      busy,
+      decidedAt,
+      loadApprovals,
+    );
+    if (held.length)
+      setHeldBack((old) => ({
+        ...old,
+        ...Object.fromEntries(held.map((h) => [h.key, h.reason])),
+      }));
+    if (!action) return;
+    if (action.kind === "left") {
+      void noteLeftToUser(action.company.origin, action.op, action.allowance);
       return;
     }
+    // The next line of the log says how the Company answered. The server
+    // keeps this one in the same words when its own check agrees.
+    addTrace([applyingLine(action.covered)], refOf(action.company.origin));
+    const { cents, instruction } = action;
+    const origin = action.company.origin;
+    void accountAction(
+      "approve",
+      origin,
+      action.op,
+      "read",
+      instruction,
+      (answer) => {
+        // Only an approval that was performed, or may have been, uses up
+        // the hour's allowance: a refusal or a decline costs nothing.
+        if (usesAllowance(answer))
+          recordApproval(origin, { at: Date.now(), cents });
+      },
+    );
     // accountAction is recreated each render and reads current state, so it
     // is deliberately not a dependency.
-  }, [companies, instructions, busy]);
+  }, [companies, instructions, busy, ended, missing]);
 
   const discover = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -1120,7 +1263,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
    * before anything is sent, as the server would refuse it.
    */
   async function addCompany(url: string) {
-    if (busy || ended || !current.current) return;
+    if (busy || ended || missing || !current.current) return;
     setAddError("");
     setBarNote("");
     const origin = originOf(url.trim());
@@ -1233,7 +1376,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
 
   /** One of Iris's buttons: its answer goes as it came, its label is shown. */
   async function choose(choice: Choice) {
-    if (busy || ended) return;
+    if (busy || ended || missing) return;
     const said: Message[] = [{ role: "You", text: choice.label }];
     setMessages((old) => [...old, ...said]);
     // A sign-in opens the Company's page now, in this click.
@@ -1264,7 +1407,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     action: "accept" | "decline" | "close",
     origin: string,
   ) {
-    if (busy || ended) return;
+    if (busy || ended || missing) return;
     const label = {
       accept: "Talk to the Company directly",
       decline: "Not now",
@@ -1288,6 +1431,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
     setSending(true);
     setError("");
     setBarNote("");
+    const retry = retryOriginFor(request, said);
     try {
       // The free model's turn carries a Turnstile token of its own.
       const turnstile =
@@ -1328,7 +1472,11 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
         else
           setMessages((old) => [
             ...old,
-            { role: "Error", text: "Chat failed. Please try again." },
+            {
+              role: "Error",
+              text: "Chat failed. Please try again.",
+              ...(retry ? { retry } : {}),
+            },
           ]);
         return;
       }
@@ -1372,6 +1520,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
                 ? data.error
                 : "Chat failed. Please try again.",
             ...(from ? { from } : {}),
+            ...(retry ? { retry } : {}),
           },
         ]);
         return;
@@ -1406,6 +1555,7 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
             caught instanceof Error && caught.message
               ? caught.message
               : "Chat failed.",
+          ...(retry ? { retry } : {}),
         },
       ]);
     } finally {
@@ -1415,13 +1565,9 @@ export function usePlayground(options: { onConnected?: () => void } = {}) {
 
   /** Puts the message that failed back in the composer and drops it and the error. */
   function retryMessage(index: number) {
-    let from = index - 1;
-    while (from >= 0 && messages[from]?.role !== "You") from--;
-    const failed = messages[from];
-    if (failed) setTask(failed.text);
-    setMessages((old) =>
-      old.filter((_, i) => i !== index && (!failed || i !== from)),
-    );
+    const next = applyRetryMessage(messages, index);
+    if (next.task !== undefined) setTask(next.task);
+    setMessages(next.messages);
   }
   const removeMessage = (index: number) =>
     setMessages((old) => old.filter((_, i) => i !== index));

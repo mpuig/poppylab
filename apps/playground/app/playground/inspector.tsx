@@ -96,7 +96,7 @@ export function Inspector({
     document.body.appendChild(link);
     link.click();
     link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 0);
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
     setSaved(true);
   }
   return (

@@ -106,7 +106,9 @@ describe("asks about an account", () => {
     expect(phases(nextAsks(state(company()), shown, arrivals))).toEqual([
       "signin:open",
     ]);
-    const signing = company({ signingIn: { baseline: 0, since: 0 } });
+    const signing = company({
+      signingIn: { baseline: 0, since: 0, access: "read" },
+    });
     const underway = nextAsks(state(signing), shown, arrivals);
     expect(phases(underway)).toEqual(["signin:underway"]);
     expect(underway.every(waitsForPerson)).toBe(true);
@@ -128,7 +130,7 @@ describe("asks about an account", () => {
     });
     nextAsks(es(company(), 1), shown, arrivals);
     nextAsks(
-      es(company({ signingIn: { baseline: 0, since: 0 } }), 1),
+      es(company({ signingIn: { baseline: 0, since: 0, access: "read" } }), 1),
       shown,
       arrivals,
     );

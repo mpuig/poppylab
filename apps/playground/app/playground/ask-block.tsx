@@ -64,7 +64,13 @@ export function AskBlock({
             type="button"
             className="ghost-button"
             disabled={busy}
-            onClick={signIn(ask.kind === "write" ? "write" : "read")}
+            onClick={signIn(
+              c.signingIn?.access ??
+                (ask.kind === "write" ||
+                (ask.kind === "extension" && mayChange(c))
+                  ? "write"
+                  : "read"),
+            )}
           >
             {say(language, "openPageAgain", { name: c.name })}
           </button>
