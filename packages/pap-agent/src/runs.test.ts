@@ -13,6 +13,7 @@ import {
   releaseRun,
   resetDemo,
   runForState,
+  snapshotRows,
   visitorOf,
   type Backend,
 } from "./runs";
@@ -773,4 +774,156 @@ it("partially claims conversations up to the destination's remaining active and 
   expect(keptB).not.toBe("busy");
   expect(keptB).toBeDefined();
   await releaseRun(visitorB, keptB as Taken);
+});
+
+it("honors expires in memoryBackend get, list, and CAS put, and deletes empty buckets", async () => {
+  const start = 1_000_000;
+  vi.useFakeTimers({ now: start });
+  const store = memoryBackend();
+
+  expect(await store.put("b1", "ephemeral", "v1", null, start + 5000)).toBe(
+    true,
+  );
+  expect(await store.put("b1", "permanent", "keep", null)).toBe(true);
+  expect(await store.put("b2", "only", "gone", null, start + 5000)).toBe(true);
+
+  expect(await store.get("b1", "ephemeral")).toEqual({
+    value: "v1",
+    version: 1,
+  });
+  expect(await store.list("b1", "")).toEqual([
+    ["ephemeral", { value: "v1", version: 1 }],
+    ["permanent", { value: "keep", version: 1 }],
+  ]);
+
+  // At expiry, get/list treat expired entries as absent and purge empty buckets.
+  vi.setSystemTime(start + 5000);
+  expect(await store.get("b2", "only")).toBeUndefined();
+  expect(store.data.has("b2")).toBe(false);
+  expect(await store.list("b1", "")).toEqual([
+    ["permanent", { value: "keep", version: 1 }],
+  ]);
+  expect(store.data.get("b1")?.has("ephemeral")).toBe(false);
+
+  // CAS sees an expired entry as absent (expected version 1 fails; expected null succeeds).
+  expect(await store.put("b3", "cas", "first", null, start + 8000)).toBe(true);
+  vi.setSystemTime(start + 8000);
+  expect(await store.put("b3", "cas", "stale", 1)).toBe(false);
+  expect(store.data.has("b3")).toBe(false);
+  expect(await store.put("b3", "cas", "fresh", null, start + 20_000)).toBe(
+    true,
+  );
+  expect(await store.get("b3", "cas")).toEqual({ value: "fresh", version: 1 });
+
+  // Writing an already-expired entry drops it and cleans up the empty bucket.
+  expect(await store.put("b3", "cas", "done", 1, start + 8000)).toBe(true);
+  expect(await store.get("b3", "cas")).toBeUndefined();
+  expect(store.data.has("b3")).toBe(false);
+});
+
+it("deletes empty buckets from memoryBackend on remove and failed absent CAS", async () => {
+  const store = memoryBackend();
+
+  expect(await store.put("absent", "k", "v", 1)).toBe(false);
+  expect(store.data.has("absent")).toBe(false);
+
+  expect(await store.put("b", "k1", 1, null)).toBe(true);
+  expect(await store.put("b", "k2", 2, null)).toBe(true);
+  await store.remove("b", "k1");
+  expect(store.data.has("b")).toBe(true);
+  await store.remove("b", "k2");
+  expect(store.data.has("b")).toBe(false);
+});
+
+it("sweeps expired entries in untouched buckets and excludes expired entries from snapshotRows", async () => {
+  const start = 1_000_000;
+  vi.useFakeTimers({ now: start });
+  const store = memoryBackend();
+
+  expect(
+    await store.put("ceremony:1", "ceremony", { c: 1 }, null, start + 5000),
+  ).toBe(true);
+  expect(
+    await store.put("ceremony:2", "ceremony", { c: 2 }, null, start + 5000),
+  ).toBe(true);
+  expect(
+    await store.put("channel:telegram", "user:u1", { user: "acct" }, null),
+  ).toBe(true);
+  expect(
+    await store.put(
+      "channel:temp",
+      "user:u2",
+      { user: "exp" },
+      null,
+      start + 5000,
+    ),
+  ).toBe(true);
+
+  // snapshotRows ignores entries already expired at `now` even before a sweep runs.
+  expect(snapshotRows(store.data, start + 5000)).toEqual([
+    ["channel:telegram", "user:u1", { user: "acct" }],
+  ]);
+
+  // Later unrelated backend activity sweeps untouched expired buckets without removing live ones.
+  vi.setSystemTime(start + 5000);
+  expect(await store.put("other", "k", "v", null)).toBe(true);
+  expect(store.data.has("ceremony:1")).toBe(false);
+  expect(store.data.has("ceremony:2")).toBe(false);
+  expect(store.data.has("channel:temp")).toBe(false);
+  expect(store.data.has("channel:telegram")).toBe(true);
+
+  // Counters also expire and reset cleanly after their window passes.
+  expect(await store.count("ip:a", "k", 1000)).toBe(1);
+  expect(await store.count("ip:a", "k", 1000)).toBe(2);
+  vi.setSystemTime(start + 6000);
+  expect(await store.count("ip:b", "k", 1000)).toBe(1);
+  expect(await store.count("ip:a", "k", 1000)).toBe(1);
+});
+
+it("throttles memoryBackend full sweeps to once a minute while expiring lazily", async () => {
+  const start = 1_000_000;
+  vi.useFakeTimers({ now: start });
+  const store = memoryBackend();
+
+  // First sweep runs at start + 5000.
+  expect(await store.put("first", "k", "v", null, start + 5000)).toBe(true);
+  expect(await store.put("untouched", "k", "v", null, start + 10_000)).toBe(
+    true,
+  );
+  expect(await store.put("lazy-get", "k", "v", null, start + 10_000)).toBe(
+    true,
+  );
+  expect(await store.put("lazy-list", "k", "v", null, start + 10_000)).toBe(
+    true,
+  );
+  expect(await store.put("lazy-put", "k", "v", null, start + 10_000)).toBe(
+    true,
+  );
+
+  vi.setSystemTime(start + 5000);
+  expect(await store.put("trigger", "k", "v", null)).toBe(true);
+  expect(store.data.has("first")).toBe(false);
+
+  // Within a minute of the last sweep, unrelated activity does not re-scan untouched buckets,
+  // while get/list/put still expire entries lazily on access.
+  vi.setSystemTime(start + 10_000);
+  expect(await store.put("trigger2", "k", "v", null)).toBe(true);
+  expect(store.data.has("untouched")).toBe(true);
+
+  expect(await store.get("lazy-get", "k")).toBeUndefined();
+  expect(store.data.has("lazy-get")).toBe(false);
+  expect(await store.list("lazy-list", "")).toEqual([]);
+  expect(store.data.has("lazy-list")).toBe(false);
+  expect(await store.put("lazy-put", "k", "stale", 1)).toBe(false);
+  expect(store.data.has("lazy-put")).toBe(false);
+
+  // Still throttled before the full minute elapses.
+  vi.setSystemTime(start + 64_999);
+  expect(await store.get("trigger", "k")).toEqual({ value: "v", version: 1 });
+  expect(store.data.has("untouched")).toBe(true);
+
+  // Once a minute has passed since the previous sweep, the next operation sweeps untouched buckets.
+  vi.setSystemTime(start + 65_000);
+  expect(await store.get("trigger", "k")).toEqual({ value: "v", version: 1 });
+  expect(store.data.has("untouched")).toBe(false);
 });

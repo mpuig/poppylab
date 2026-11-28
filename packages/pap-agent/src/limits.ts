@@ -40,7 +40,12 @@ const budgets = {
   },
 };
 
-/** 429 when over budget (public mode only), otherwise undefined. */
+/**
+ * 429 when over budget (public mode only), otherwise undefined.
+ * Per-IP and per-visitor limits are checked before the shared global
+ * counter, so requests refused for a source or visitor don't spend
+ * global quota.
+ */
 export async function overBudget(
   /** The client's address (`Caller.ip`), when the channel knows it. */
   ip: string | null,
@@ -50,12 +55,12 @@ export async function overBudget(
   if (!publicMode()) return undefined;
   const b = budgets[kind];
   const ok =
-    (await allow(visitor, { visitor: b.visitor, global: b.global })) &&
     (!ip ||
       (await allow(
         `ip:${createHash("sha256").update(addressKey(ip)).digest("base64url")}`,
         { visitor: b.ip },
-      )));
+      ))) &&
+    (await allow(visitor, { visitor: b.visitor, global: b.global }));
   if (ok) return undefined;
   return json(
     { error: "Too many requests. Wait a minute and try again." },

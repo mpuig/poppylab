@@ -61,8 +61,13 @@ const budgets = {
     account: [l("acct-refresh:a", 30, minute)],
     global: [l("acct-refresh:g", 1200, minute)],
   },
+  /**
+   * Redeeming a link code from an authenticated channel server: many
+   * users share the channel's IP, so count per authenticated channel
+   * user and globally rather than per source address.
+   */
   redeem: {
-    source: [l("acct-redeem:m", 10, minute)],
+    source: [],
     account: [l("acct-redeem:a", 10, minute)],
     global: [l("acct-redeem:g", 600, minute)],
   },
@@ -117,7 +122,7 @@ export async function overAccountBudget(
         : who.account
       : undefined;
   const refused =
-    (who.ip
+    (who.ip && b.source.length
       ? await over(`ip:${hashed(addressKey(who.ip))}`, b.source)
       : undefined) ??
     (accountKey

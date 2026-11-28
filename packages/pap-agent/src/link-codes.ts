@@ -7,8 +7,8 @@
  *
  * A code is eight characters from an alphabet without look-alikes, lasts
  * five minutes and is kept only as a hash. Redeeming is counted per
- * channel user and per source (`account-limits.ts`), so guessing one in
- * its five minutes doesn't pay.
+ * channel user (`account-limits.ts`), so guessing one in its five
+ * minutes doesn't pay.
  */
 import { createHash, randomBytes, randomInt } from "node:crypto";
 import {
