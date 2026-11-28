@@ -3,14 +3,15 @@ import {
   createIdentity,
   deriveOperatorKey,
   onWorkers,
+  stateDirectory,
   type OperatorKey,
 } from "@poppy-lab/pap-client";
-import { isLocalCompany } from "@poppy-lab/pap-core";
+import { isLocalCompany, LOCAL_AGENT_ORIGIN } from "@poppy-lab/pap-core";
 import type { JWK } from "jose";
 import type { Connection } from "./run-types";
 
 export const agentOrigin = (
-  process.env.AGENT_PUBLIC_ORIGIN ?? "http://localhost:3000"
+  process.env.AGENT_PUBLIC_ORIGIN ?? LOCAL_AGENT_ORIGIN
 ).replace(/\/$/, "");
 if (
   new URL(agentOrigin).origin !== agentOrigin ||
@@ -22,7 +23,7 @@ if (
 export const clientId = `${agentOrigin}/agent/client.json`;
 export function agentFor(connection: Connection) {
   return isLocalCompany(new URL(connection.url).origin)
-    ? "http://localhost:3000"
+    ? LOCAL_AGENT_ORIGIN
     : agentOrigin;
 }
 export function clientFor(connection: Connection) {
@@ -64,7 +65,7 @@ export function identity() {
     if (onWorkers()) throw Error("Set the POPPY_IDENTITY secret");
     const { mkdir, readFile, writeFile } = await import("node:fs/promises");
     const path = await import("node:path");
-    const directory = path.join(process.cwd(), ".poppy");
+    const directory = stateDirectory();
     const filename = path.join(directory, "identity.json");
     await mkdir(directory, { recursive: true, mode: 0o700 });
     try {

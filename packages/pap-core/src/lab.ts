@@ -6,6 +6,7 @@
  * to the localhost addresses.
  */
 import { escapeHtml } from "./html.ts";
+import { LOCAL_ORIGINS } from "./local.ts";
 import { SPEC_URL } from "./spec-links.ts";
 
 export type LabSite =
@@ -46,13 +47,13 @@ export function labSites(origin: string) {
     {
       id: "home" as const,
       label: "Poppy Lab",
-      url: local ? "http://localhost:3000" : "https://poppylab.dev",
+      url: local ? LOCAL_ORIGINS.playground : "https://poppylab.dev",
     },
     {
       id: "playground" as const,
       label: "Playground",
       url: local
-        ? "http://localhost:3000/playground"
+        ? `${LOCAL_ORIGINS.playground}/playground`
         : "https://poppylab.dev/playground",
     },
     {
@@ -66,32 +67,26 @@ export function labSites(origin: string) {
         "supermarché",
         "épicerie",
       ],
-      url: local
-        ? "http://juniper.localhost:4100"
-        : "https://grocery-demo.poppylab.dev",
+      url: local ? LOCAL_ORIGINS.juniper : "https://grocery-demo.poppylab.dev",
     },
     {
       id: "lantern" as const,
       label: "Lantern Noodle Bar",
       words: ["restaurant", "noodle bar", "restaurante"],
-      url: local
-        ? "http://noodles.localhost:4200"
-        : "https://food-demo.poppylab.dev",
+      url: local ? LOCAL_ORIGINS.lantern : "https://food-demo.poppylab.dev",
     },
     {
       id: "harborline" as const,
       label: "Harborline Bank",
       words: ["bank", "banco", "banc", "banque"],
-      url: local
-        ? "http://harbor.localhost:4300"
-        : "https://bank-demo.poppylab.dev",
+      url: local ? LOCAL_ORIGINS.harborline : "https://bank-demo.poppylab.dev",
     },
     {
       id: "northwind" as const,
       label: "Northwind Air",
       words: ["airline", "aerolínea", "aerolínia", "compagnie aérienne"],
       url: local
-        ? "http://northwind.localhost:4400"
+        ? LOCAL_ORIGINS.northwind
         : "https://airline-demo.poppylab.dev",
     },
     {
@@ -105,9 +100,7 @@ export function labSites(origin: string) {
         "companyia elèctrica",
         "fournisseur d’électricité",
       ],
-      url: local
-        ? "http://fernwick.localhost:4500"
-        : "https://energy-demo.poppylab.dev",
+      url: local ? LOCAL_ORIGINS.fernwick : "https://energy-demo.poppylab.dev",
     },
   ];
 }

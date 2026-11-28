@@ -15,13 +15,14 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { protocolRequest, vault } from "@poppy-lab/pap-client";
 import { createCompany, emptyState } from "@poppy-lab/pap-company";
+import { LOCAL_AGENT_ORIGIN, LOCAL_ORIGINS } from "@poppy-lab/pap-core";
 import { juniperCompany } from "./juniper.js";
 import { dpopNonces } from "./dpop-nonce.js";
 
-const port = Number(process.env.PORT ?? 4100);
+const port = Number(process.env.PORT ?? new URL(LOCAL_ORIGINS.juniper).port);
 const domain = process.env.PUBLIC_DOMAIN ?? "juniper.localhost";
 const origin = process.env.PUBLIC_ORIGIN ?? `http://${domain}:${port}`;
-const local = origin === "http://juniper.localhost:4100";
+const local = origin === LOCAL_ORIGINS.juniper;
 const passwordHash = process.env.JUNIPER_PASSWORD_HASH;
 if (passwordHash && !/^[a-f0-9]{32}:[a-f0-9]{128}$/.test(passwordHash))
   throw new Error("Invalid JUNIPER_PASSWORD_HASH");
@@ -34,9 +35,9 @@ const app = createCompany(juniperCompany({ portal: local }), {
     ? { isolation: "visitor" as const }
     : {}),
   fetchJson: (url) =>
-    protocolRequest(url, {}, local ? ["http://localhost:3000"] : []),
+    protocolRequest(url, {}, local ? [LOCAL_AGENT_ORIGIN] : []),
   ...(local
-    ? { httpClients: ["http://localhost:3000/agent/client.json"] }
+    ? { httpClients: [`${LOCAL_AGENT_ORIGIN}/agent/client.json`] }
     : {}),
   ...(passwordHash ? { passwordHash } : {}),
   ...(process.env.JUNIPER_DPOP_NONCE === "required"

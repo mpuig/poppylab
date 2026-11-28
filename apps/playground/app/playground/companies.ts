@@ -1,4 +1,4 @@
-import { isLocalCompany } from "@poppy-lab/pap-core";
+import { isLocalCompany, LOCAL_ORIGINS } from "@poppy-lab/pap-core";
 import type { AgentStep } from "@poppy-lab/pap-agent/agent-steps";
 import { isSandbox } from "@poppy-lab/pap-agent/company-policy";
 import { DEMO_SUGGESTIONS } from "@poppy-lab/pap-agent/demo-examples";
@@ -7,15 +7,15 @@ import type { TranscriptEntry } from "@poppy-lab/pap-agent/transcript";
 
 // Inlined at build time: local Companies in development, poppylab.dev when deployed.
 export const exampleUrl =
-  process.env.NEXT_PUBLIC_JUNIPER_URL ?? "http://juniper.localhost:4100";
+  process.env.NEXT_PUBLIC_JUNIPER_URL ?? LOCAL_ORIGINS.juniper;
 export const lanternUrl =
-  process.env.NEXT_PUBLIC_LANTERN_URL ?? "http://noodles.localhost:4200";
+  process.env.NEXT_PUBLIC_LANTERN_URL ?? LOCAL_ORIGINS.lantern;
 export const harborlineUrl =
-  process.env.NEXT_PUBLIC_HARBORLINE_URL ?? "http://harbor.localhost:4300";
+  process.env.NEXT_PUBLIC_HARBORLINE_URL ?? LOCAL_ORIGINS.harborline;
 export const northwindUrl =
-  process.env.NEXT_PUBLIC_NORTHWIND_URL ?? "http://northwind.localhost:4400";
+  process.env.NEXT_PUBLIC_NORTHWIND_URL ?? LOCAL_ORIGINS.northwind;
 export const fernwickUrl =
-  process.env.NEXT_PUBLIC_FERNWICK_URL ?? "http://fernwick.localhost:4500";
+  process.env.NEXT_PUBLIC_FERNWICK_URL ?? LOCAL_ORIGINS.fernwick;
 /** Shows the sign-in control; the server decides (PAP_ACCOUNT_ORIGINS). */
 export const accountCompany = (origin: string) =>
   isLocalCompany(origin) ||

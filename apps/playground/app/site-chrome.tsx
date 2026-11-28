@@ -4,6 +4,7 @@ import {
   LAB_AUTHOR,
   SPEC_URL,
   labFootGroups,
+  LOCAL_ORIGINS,
   type LabFootGroup,
 } from "@poppy-lab/pap-core";
 import { SITE_NAME } from "@/lib/site";
@@ -11,16 +12,13 @@ import { BarNav } from "./bar-nav";
 import { specLink } from "./spec-ref";
 
 // Inlined at build time: local Companies in development, poppylab.dev when deployed.
-const juniper =
-  process.env.NEXT_PUBLIC_JUNIPER_URL ?? "http://juniper.localhost:4100";
-const lantern =
-  process.env.NEXT_PUBLIC_LANTERN_URL ?? "http://noodles.localhost:4200";
+const juniper = process.env.NEXT_PUBLIC_JUNIPER_URL ?? LOCAL_ORIGINS.juniper;
+const lantern = process.env.NEXT_PUBLIC_LANTERN_URL ?? LOCAL_ORIGINS.lantern;
 const harborline =
-  process.env.NEXT_PUBLIC_HARBORLINE_URL ?? "http://harbor.localhost:4300";
+  process.env.NEXT_PUBLIC_HARBORLINE_URL ?? LOCAL_ORIGINS.harborline;
 const northwind =
-  process.env.NEXT_PUBLIC_NORTHWIND_URL ?? "http://northwind.localhost:4400";
-const fernwick =
-  process.env.NEXT_PUBLIC_FERNWICK_URL ?? "http://fernwick.localhost:4500";
+  process.env.NEXT_PUBLIC_NORTHWIND_URL ?? LOCAL_ORIGINS.northwind;
+const fernwick = process.env.NEXT_PUBLIC_FERNWICK_URL ?? LOCAL_ORIGINS.fernwick;
 
 export { DEMOS_URL, SPEC_URL };
 
