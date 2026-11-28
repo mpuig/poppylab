@@ -8,7 +8,7 @@ at no point does Iris hold her password or decide for her.
 
 This page follows that request screen by screen, on Iris's side and on
 Lantern's. Every screenshot is from the live lab at
-[poppylab.dev](https://poppylab.dev), taken on 26 and 27 November 2026.
+[poppylab.dev](https://poppylab.dev), taken from 26 to 28 November 2026.
 
 ## Who does what
 
@@ -49,12 +49,12 @@ shows the responses in full.
 
 ### 2. Ask what is public
 
-![Iris lists Lantern's six dishes and the delivery charge](../../../apps/playground/public/learn-media/how-it-works/changing-an-order/02-menu-without-an-account.webp "The menu is public, so Iris can read it before Elena signs in.")
+![At the top of the conversation a block offers to sign in to Lantern Noodle Bar, read only. Below it Iris lists Lantern's six dishes and the delivery charge](../../../apps/playground/public/learn-media/how-it-works/changing-an-order/02-menu-without-an-account.webp "The menu is public, so Iris can read it before Elena signs in.")
 
 Before she signs in, Elena asks what is on the menu. Lantern answers, because
 it decided that the menu and the delivery slots are public. Iris has no access
-to her account yet, and the green button under the answer is how she would
-give it.
+to her account yet, and the green button in the sign-in block at the top of
+the conversation is how she would give it.
 
 The lab runs here in demo mode, which answers its guided examples without an
 AI model, so the answer is the company's data set out as plain lines. With a
@@ -108,15 +108,16 @@ and Iris exchanged the code for an access token bound to its own key.
 
 ### 4. Iris reads the order
 
-![Iris shows order ord_LNB1001: Friday, two shoyu ramen and salted edamame, 37 dollars](../../../apps/playground/public/learn-media/how-it-works/changing-an-order/04-iris-reads-the-order.webp "With read-only access Iris can see the order and cannot propose a change to it.")
+![A block says that to ask Lantern Noodle Bar for a change Iris needs change permission there, with a Request change permission button. Below it Iris shows order ord_LNB1001: Friday, two shoyu ramen and salted edamame, 37 dollars](../../../apps/playground/public/learn-media/how-it-works/changing-an-order/04-iris-reads-the-order.webp "With read-only access Iris can see the order and cannot propose a change to it.")
 
 Back in the conversation, Elena asks for her orders and Iris reads them from
 Lantern: one order for Friday evening, 37 dollars.
 
-The line under the answer states what Iris may do at this point: read-only
-access. To change anything Elena has to give a second, separate permission,
-which is what the Request change permission button asks for. After that
-consent, Iris asks whether to go on with any request that waited for it.
+The Companies bar above the conversation shows what Iris may do at this
+point: signed in, read only. To change anything Elena has to give a second,
+separate permission, which is what the Request change permission button in
+the block asks for. After that consent, Iris asks whether to go on with any
+request that waited for it.
 
 <details>
 <summary>What travelled</summary>
@@ -152,17 +153,19 @@ A bank or an airline would draw the lines elsewhere.
 
 ### 7. Ask for the change
 
-![Iris has asked Lantern for the change, and a panel titled Needs you has appeared](../../../apps/playground/public/learn-media/how-it-works/changing-an-order/07-iris-proposes-the-change.webp "Lantern has not changed anything. It answered with terms that wait for Elena.")
+![Elena asks for the change. The answer says what the demo read and asked for, Iris asks whether to approve the new total of 43 dollars, and a card from Lantern Noodle Bar below reads Waiting for you, with the total, the slot from Friday at 18:30 to Sunday at 13:00, and an Approve 43 dollars button](../../../apps/playground/public/learn-media/how-it-works/changing-an-order/07-iris-proposes-the-change.webp "Lantern has not changed anything. It answered with terms that wait for Elena.")
 
 Elena types what she wants: "Add a matcha ice cream and move it to Sunday
 lunchtime." Iris reads the menu, the delivery slots and the order, works out
 which dish and which slot she means, and asks Lantern for that change.
 
 Lantern does not make it. It answers that the change needs the customer's
-approval and sends back the terms it would apply. Iris shows them in a panel
-called Needs you, and asks in the conversation, in its own words from the
-terms: the new total is 43 dollars, 6 dollars more, the terms expire in ten
-minutes, approve it?
+approval and sends back the terms it would apply. Iris shows them as a card
+in the conversation, where the proposal arrived, and the heading counts it as
+waiting. Iris asks in its own words, from the terms: "Lantern Noodle Bar wants
+to change your order: the delivery slot from Friday at 18:30 to Sunday at
+13:00. The new total is $43.00, $6.00 more than before. It expires in 10
+minutes. Shall I approve it?"
 
 <details>
 <summary>What travelled</summary>
@@ -206,9 +209,9 @@ Lantern's answer to the request, as Iris received it:
 
 ### 8. Read what you are approving
 
-![The approval panel: total 43 dollars, Lantern's description of the change, the delivery slot before and after, and an Approve button](../../../apps/playground/public/learn-media/how-it-works/changing-an-order/08-exact-terms.webp "The terms come from Lantern. Iris shows them and adds nothing of its own.")
+![The proposal card: total 43 dollars, the delivery slot before and after, Lantern's description of the change, the previous total, the difference and the new total, and the buttons Approve 43 dollars and Decline](../../../apps/playground/public/learn-media/how-it-works/changing-an-order/08-exact-terms.webp "The terms come from Lantern. Iris shows them and adds nothing of its own.")
 
-The panel shows what Lantern will do if Elena approves: the new delivery
+The card shows what Lantern will do if Elena approves: the new delivery
 slot, the dishes, the new total and the difference from the old one. The
 paragraph that begins "Lantern Noodle Bar says" is the company's own
 description, shown as written.
@@ -227,13 +230,15 @@ in step 7, and they stay on Elena's screen until she decides.
 
 ### 9. Approve
 
-![The proposal is now a finished entry in the conversation. It reads Completed, with Lantern's confirmation that the order was changed and the line Approved by you](../../../apps/playground/public/learn-media/how-it-works/changing-an-order/09-approved.webp "Lantern made the change when the approval arrived, and said so.")
+![The card now reads Approved by you, with Lantern's confirmation that the order was changed. Below it Elena's answer yes, and Iris: Done. You approved the 43 dollar change at Lantern Noodle Bar, and Lantern Noodle Bar has carried it out](../../../apps/playground/public/learn-media/how-it-works/changing-an-order/09-approved.webp "Lantern made the change when the approval arrived, and said so.")
 
 Elena presses Approve, or answers "yes" to Iris's question. Iris sends
 Lantern the same request again, this time with her approval attached. Lantern checks that the approval matches the
 terms it offered, makes the change and confirms it: the order is now for
-Sunday and costs 43 dollars. The proposal stays in the conversation as a
-finished entry, with Lantern's confirmation and the line "Approved by you."
+Sunday and costs 43 dollars. The card stays where the proposal arrived,
+with Lantern's confirmation and the line "Approved by you", and Iris says:
+"Done. You approved the $43.00 change at Lantern Noodle Bar, and Lantern
+Noodle Bar has carried it out."
 
 The approval is something only Elena gives: the button, or her own answer
 to the question Iris asked about these terms. Iris reads that answer by fixed
