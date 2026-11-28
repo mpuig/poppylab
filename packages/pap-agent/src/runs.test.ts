@@ -879,3 +879,51 @@ it("sweeps expired entries in untouched buckets and excludes expired entries fro
   expect(await store.count("ip:b", "k", 1000)).toBe(1);
   expect(await store.count("ip:a", "k", 1000)).toBe(1);
 });
+
+it("throttles memoryBackend full sweeps to once a minute while expiring lazily", async () => {
+  const start = 1_000_000;
+  vi.useFakeTimers({ now: start });
+  const store = memoryBackend();
+
+  // First sweep runs at start + 5000.
+  expect(await store.put("first", "k", "v", null, start + 5000)).toBe(true);
+  expect(await store.put("untouched", "k", "v", null, start + 10_000)).toBe(
+    true,
+  );
+  expect(await store.put("lazy-get", "k", "v", null, start + 10_000)).toBe(
+    true,
+  );
+  expect(await store.put("lazy-list", "k", "v", null, start + 10_000)).toBe(
+    true,
+  );
+  expect(await store.put("lazy-put", "k", "v", null, start + 10_000)).toBe(
+    true,
+  );
+
+  vi.setSystemTime(start + 5000);
+  expect(await store.put("trigger", "k", "v", null)).toBe(true);
+  expect(store.data.has("first")).toBe(false);
+
+  // Within a minute of the last sweep, unrelated activity does not re-scan untouched buckets,
+  // while get/list/put still expire entries lazily on access.
+  vi.setSystemTime(start + 10_000);
+  expect(await store.put("trigger2", "k", "v", null)).toBe(true);
+  expect(store.data.has("untouched")).toBe(true);
+
+  expect(await store.get("lazy-get", "k")).toBeUndefined();
+  expect(store.data.has("lazy-get")).toBe(false);
+  expect(await store.list("lazy-list", "")).toEqual([]);
+  expect(store.data.has("lazy-list")).toBe(false);
+  expect(await store.put("lazy-put", "k", "stale", 1)).toBe(false);
+  expect(store.data.has("lazy-put")).toBe(false);
+
+  // Still throttled before the full minute elapses.
+  vi.setSystemTime(start + 64_999);
+  expect(await store.get("trigger", "k")).toEqual({ value: "v", version: 1 });
+  expect(store.data.has("untouched")).toBe(true);
+
+  // Once a minute has passed since the previous sweep, the next operation sweeps untouched buckets.
+  vi.setSystemTime(start + 65_000);
+  expect(await store.get("trigger", "k")).toEqual({ value: "v", version: 1 });
+  expect(store.data.has("untouched")).toBe(false);
+});

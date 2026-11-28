@@ -45,9 +45,7 @@ export interface Backend {
 }
 
 type Entry = { value: unknown; version: number; expires?: number };
-const MEMORY_SWEEP_MS = 60_000,
-  MEMORY_SWEEP_IMMEDIATE = 1000,
-  MEMORY_SWEEP_CAP = 50_000;
+const MEMORY_SWEEP_MS = 60_000;
 /** In-process backend. Values are kept by reference (single process). */
 export function memoryBackend(persist?: () => void) {
   const data = new Map<string, Map<string, Entry>>();
@@ -81,13 +79,7 @@ export function memoryBackend(persist?: () => void) {
   };
   const sweepEntries = (now: number) => {
     if (now < nextExpiry) return;
-    if (
-      expiringBuckets.size > MEMORY_SWEEP_IMMEDIATE &&
-      expiringBuckets.size <= MEMORY_SWEEP_CAP &&
-      now >= lastEntrySweep &&
-      now - lastEntrySweep < MEMORY_SWEEP_MS
-    )
-      return;
+    if (now >= lastEntrySweep && now - lastEntrySweep < MEMORY_SWEEP_MS) return;
     let earliest = Infinity;
     for (const visitor of expiringBuckets) {
       const b = data.get(visitor);
@@ -112,12 +104,7 @@ export function memoryBackend(persist?: () => void) {
   };
   const sweepCounters = (now: number) => {
     if (now < nextCounterExpiry) return;
-    if (
-      counters.size > MEMORY_SWEEP_IMMEDIATE &&
-      counters.size <= MEMORY_SWEEP_CAP &&
-      now >= lastCounterSweep &&
-      now - lastCounterSweep < MEMORY_SWEEP_MS
-    )
+    if (now >= lastCounterSweep && now - lastCounterSweep < MEMORY_SWEEP_MS)
       return;
     let earliest = Infinity;
     for (const [k, v] of counters) {
