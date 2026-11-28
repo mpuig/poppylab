@@ -92,6 +92,17 @@ describe("the reference", () => {
       expect(page).toContain(`id="${eventAnchor(type)}"`);
   });
 
+  it("reads the committed openapi.json directly without importing the OpenAPI generator", () => {
+    const source = readFileSync(
+      new URL("./api-reference.ts", import.meta.url),
+      "utf8",
+    );
+    expect(source).toContain("@poppy-lab/pap-agent/openapi.json");
+    expect(source).not.toMatch(/from\s+["']@poppy-lab\/pap-agent\/openapi["']/);
+    expect(source).not.toContain("openApiDocument(");
+    expect(apiReference().document).toEqual(document);
+  });
+
   it("links the document the API serves", () => {
     expect(page).toContain('href="/api/v1/openapi.json"');
     expect(page).toContain(

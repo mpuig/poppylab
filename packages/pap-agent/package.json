@@ -38,6 +38,7 @@
     "./lines": "./src/lines.ts",
     "./link-display": "./src/link-display.ts",
     "./openapi": "./src/openapi.ts",
+    "./openapi.json": "./openapi.json",
     "./operation-presentation": "./src/operation-presentation.ts",
     "./operation-store": "./src/operation-store.ts",
     "./pending": "./src/pending.ts",

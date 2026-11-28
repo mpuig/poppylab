@@ -87,3 +87,82 @@ it("derives path parameters and request bodies for every api-contract operation"
     }
   }
 });
+
+it("documents every request parameter and property in the generated OpenAPI document", () => {
+  const document = openApiDocument();
+  const schemas = document.components.schemas as Record<
+    string,
+    Record<string, unknown>
+  >;
+  const undocumented: string[] = [];
+  const visitedRefs = new Set<string>();
+
+  const hasDescription = (node: Record<string, unknown>) =>
+    typeof node.description === "string" && node.description.trim().length > 0;
+
+  const walk = (schema: unknown, location: string) => {
+    if (!schema || typeof schema !== "object" || Array.isArray(schema)) return;
+    const node = schema as Record<string, unknown>;
+    if (typeof node.$ref === "string") {
+      const name = node.$ref.split("/").at(-1)!;
+      if (visitedRefs.has(name)) return;
+      visitedRefs.add(name);
+      walk(schemas[name], `components.schemas.${name}`);
+      return;
+    }
+    if (
+      node.properties &&
+      typeof node.properties === "object" &&
+      !Array.isArray(node.properties)
+    ) {
+      for (const [name, child] of Object.entries(
+        node.properties as Record<string, Record<string, unknown>>,
+      )) {
+        const childLocation = `${location}.${name}`;
+        if (!hasDescription(child)) undocumented.push(childLocation);
+        walk(child, childLocation);
+      }
+    }
+    if (node.items) walk(node.items, `${location}[]`);
+    for (const key of ["oneOf", "anyOf", "allOf"] as const) {
+      const branches = node[key];
+      if (Array.isArray(branches))
+        branches.forEach((branch, index) =>
+          walk(branch, `${location}.${key}[${index}]`),
+        );
+    }
+  };
+
+  for (const pathItem of Object.values(document.paths)) {
+    for (const operation of Object.values(
+      pathItem as Record<
+        string,
+        {
+          operationId: string;
+          parameters?: Array<Record<string, unknown> & { name: string }>;
+          requestBody?: {
+            content?: Record<string, { schema?: unknown }>;
+          };
+        }
+      >,
+    )) {
+      for (const parameter of operation.parameters ?? []) {
+        if (!hasDescription(parameter))
+          undocumented.push(
+            `${operation.operationId}.parameters.${parameter.name}`,
+          );
+      }
+      for (const media of Object.values(operation.requestBody?.content ?? {})) {
+        if (media.schema)
+          walk(media.schema, `${operation.operationId}.requestBody`);
+      }
+    }
+  }
+
+  expect(undocumented.sort()).toEqual([
+    "components.schemas.AuthenticationCredential.response",
+    "components.schemas.AuthenticationCredential.type",
+    "components.schemas.RegistrationCredential.response",
+    "components.schemas.RegistrationCredential.type",
+  ]);
+});
