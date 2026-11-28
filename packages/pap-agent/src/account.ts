@@ -38,7 +38,7 @@ import {
   releaseRun,
   type Held,
 } from "./runs";
-import type { Run } from "./run-types";
+import type { Operation, Run } from "./run-types";
 import { forgetLostAccount } from "./transcript";
 const issuer = "http://juniper.localhost:4100";
 
@@ -163,10 +163,18 @@ export async function account(request: Request, cookies: CookieStore) {
 }
 
 /** What an account request is answered when its conversation couldn't be saved. */
-function notSavedReply(error: unknown): Reply {
+function notSavedReply(
+  error: unknown,
+  operationState?: Operation["state"],
+): Reply {
   const { status, code, error: words } = notSaved(error);
   return json(
-    { code, error: words, trace: [] },
+    {
+      code,
+      error: words,
+      trace: [],
+      ...(operationState ? { operationState } : {}),
+    },
     { status, headers: { "Cache-Control": "no-store" } },
   );
 }
@@ -296,6 +304,7 @@ async function act(
   if ("refused" in allowed) return allowed.refused;
   const { visitor, held, body, connection } = allowed;
   const run = held.run;
+  const sent: { requested?: boolean } = {};
   let reply: Reply | undefined;
   let caught: unknown;
   let threw = false;
@@ -314,7 +323,7 @@ async function act(
             headers: { "Cache-Control": "no-store" },
           });
     } else {
-      reply = await actOn(run, connection, body, caller);
+      reply = await actOn(run, connection, body, caller, sent);
     }
   } catch (error) {
     threw = true;
@@ -323,7 +332,13 @@ async function act(
   try {
     await releaseRun(visitor, held);
   } catch (error) {
-    return notSavedReply(error);
+    const operationState =
+      sent.requested &&
+      (body.action === "approve" || body.action === "retry") &&
+      body.id
+        ? connection.operations?.[body.id]?.state
+        : undefined;
+    return notSavedReply(error, operationState);
   }
   if (threw) throw caught;
   return reply!;
@@ -342,6 +357,7 @@ export async function actOn(
   connection: AccountRequest["connection"],
   body: Action,
   caller: Caller,
+  sent?: { requested?: boolean },
 ): Promise<Reply> {
   if (!isAccountCompany(new URL(connection.url).origin))
     return json(
@@ -430,6 +446,7 @@ export async function actOn(
       },
     );
   } finally {
+    if (sent && request.operationRequested) sent.requested = true;
     keepLines(
       run,
       connection,

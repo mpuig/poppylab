@@ -26,8 +26,10 @@ export const unsettled = (connection: Pick<Connection, "operations">) =>
   );
 
 /** Why a Company can't be removed yet, in words the page can show. */
-const unsettledRefusal = (name: string) =>
-  `An approval sent to ${name} has an unknown outcome, so ${name} can't be removed yet. Retry that approval first: it is performed at most once. Without ${name} there would be no way to retry it, and the same change could be asked for twice.`;
+const unsettledRefusal = (name: string, signedIn: boolean) =>
+  signedIn
+    ? `An approval sent to ${name} has an unknown outcome, so ${name} can't be removed yet. Retry that approval first: it is performed at most once. Without ${name} there would be no way to retry it, and the same change could be asked for twice.`
+    : `An approval sent to ${name} has an unknown outcome, so ${name} can't be removed yet. Sign in to ${name} first and retry that approval to settle it: it is performed at most once. Without ${name} there would be no way to retry it, and the same change could be asked for twice.`;
 
 /** What to say when the Company's grant couldn't be revoked on the way out. */
 const notRevokedNotice = (name: string) =>
@@ -68,7 +70,10 @@ export function removalRefusal(
     ? {
         refused: {
           code: "approval_unsettled",
-          error: unsettledRefusal(companyName(connection)),
+          error: unsettledRefusal(
+            companyName(connection),
+            !!connection.accountToken,
+          ),
         },
         operations: waiting,
       }
