@@ -288,7 +288,7 @@ export function createTenancy(ctx: Ctx) {
   }
   function mountDispatch(app: Hono) {
     app.all("*", async (c) => {
-      const path = new URL(c.req.url).pathname;
+      const path = c.req.path;
       let cookie: string | undefined,
         own: string | undefined,
         browser: string | undefined,

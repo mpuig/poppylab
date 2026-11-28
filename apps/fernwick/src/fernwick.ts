@@ -38,6 +38,7 @@ import { cannotSwitch, estimate, switchAction } from "./plans.ts";
 import { howItWorksPage, type AgentGuide } from "./how-it-works.ts";
 import { ESPI, ESPI_BASE, mountEspi } from "./espi.ts";
 import {
+  espiScopes,
   isEspiScope,
   meterScopes,
   scopeDescriptions,
@@ -206,27 +207,59 @@ export const accountPaths: Record<string, unknown> = {
   },
 };
 
-const routeScopes = ({ path }: { path: string; method: string }): string[] => {
+const routeScopes = ({
+  path,
+  method,
+}: {
+  path: string;
+  method: string;
+}): string[] => {
+  const isGet = method === "GET" || method === "HEAD";
   if (path.startsWith(ESPI_BASE)) {
     const rest = path.slice(ESPI_BASE.length);
     // Read or ended with any token of its grant, which the route checks.
-    if (/^\/Authorization(\/|$)/.test(rest)) return [];
-    if (/^\/(Batch\/)?RetailCustomer(\/|$)/.test(rest))
-      return ["espi:customer"];
     if (
-      /^\/Subscription\/[^/]+\/UsagePoint\/[^/]+\/UsageSummary(\/|$)/.test(rest)
-    )
-      return ["espi:summary"];
-    // espi:usage or espi:summary, which the route checks (`espi.ts`).
-    if (
-      /^\/Subscription\/[^/]+\/UsagePoint(\/[^/]+)?$/.test(rest) ||
-      /^\/LocalTimeParameters(\/[^/]+)?$/.test(rest)
+      (isGet && /^\/Authorization(?:\/[^/]+)?$/.test(rest)) ||
+      (method === "DELETE" && /^\/Authorization\/[^/]+$/.test(rest))
     )
       return [];
-    return ["espi:usage"];
+    if (isGet) {
+      if (
+        /^\/Batch\/RetailCustomer\/[^/]+$/.test(rest) ||
+        /^\/RetailCustomer\/[^/]+\/(Customer|ServiceLocation)$/.test(rest)
+      )
+        return ["espi:customer"];
+      if (
+        /^\/Subscription\/[^/]+\/UsagePoint\/[^/]+\/UsageSummary(?:\/[^/]+)?$/.test(
+          rest,
+        )
+      )
+        return ["espi:summary"];
+      // espi:usage or espi:summary, which the route checks (`espi.ts`).
+      if (
+        /^\/Subscription\/[^/]+\/UsagePoint(?:\/[^/]+)?$/.test(rest) ||
+        /^\/LocalTimeParameters(?:\/[^/]+)?$/.test(rest)
+      )
+        return [];
+      if (
+        /^\/Batch\/Subscription\/[^/]+$/.test(rest) ||
+        /^\/Subscription\/[^/]+\/UsagePoint\/[^/]+\/MeterReading(?:\/[^/]+(?:\/IntervalBlock(?:\/[^/]+)?)?)?$/.test(
+          rest,
+        ) ||
+        /^\/ReadingType(?:\/[^/]+)?$/.test(rest)
+      )
+        return ["espi:usage"];
+      return [...espiScopes];
+    }
+    return [...espiScopes, "plan:write"];
   }
-  if (path === "/api/account/plan") return ["account:read", "plan:write"];
-  return ["account:read"];
+  if (
+    isGet &&
+    (path === "/api/account/account" || path === "/api/account/bills")
+  )
+    return ["account:read"];
+  // Fail closed: plan changes and any unmatched account route need write scope.
+  return ["account:read", "plan:write"];
 };
 
 function mount(app: Hono, ctx: Parameters<CompanyDefinition["mount"]>[1]) {

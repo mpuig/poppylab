@@ -4,6 +4,7 @@
  * (approval_required → approved → performed once, replay, idempotency).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { fernwick } from "./fernwick.ts";
 import { scopes } from "./scopes.ts";
 import { inject, origin, setup } from "./test-harness.ts";
 
@@ -349,5 +350,45 @@ describe("Fernwick Power & Light", () => {
       await h.call(tokens.access_token, "GET", "/api/account/account")
     ).json();
     expect(account.meters).toHaveLength(1);
+  });
+
+  it("enforces plan:write on percent-encoded /api/account/%70lan and fails closed on unmatched account routes", async () => {
+    const readOnly = await h.sign("elena", ["account:read"]);
+    const encodedPlan = await h.call(
+      readOnly.access_token,
+      "POST",
+      "/api/account/%70lan",
+      {
+        usage_point_id: "UP-E1",
+        plan: "time-of-use",
+        idempotency_key: "encoded-plan-0001",
+      },
+    );
+    expect(encodedPlan.statusCode).toBe(403);
+    expect(encodedPlan.headers["www-authenticate"]).toContain(
+      'scope="account:read plan:write"',
+    );
+    for (const [method, url] of [
+      ["GET", "/api/account/unknown"],
+      ["POST", "/api/account/unknown"],
+    ] as const) {
+      const unmatched = await h.call(readOnly.access_token, method, url);
+      expect(unmatched.statusCode).toBe(403);
+      expect(unmatched.headers["www-authenticate"]).toContain(
+        'scope="account:read plan:write"',
+      );
+    }
+    expect(
+      fernwick.requiredScopes?.({
+        path: "/api/account/bills",
+        method: "HEAD",
+      }),
+    ).toEqual(["account:read"]);
+    expect(
+      fernwick.requiredScopes?.({
+        path: "/espi/1_1/resource/ReadingType",
+        method: "HEAD",
+      }),
+    ).toEqual(["espi:usage"]);
   });
 });

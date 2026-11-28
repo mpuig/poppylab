@@ -1379,15 +1379,37 @@ export const northwind: CompanyDefinition = {
     );
   },
   requiredScopes: ({ path, method }) => {
-    if (method === "GET")
-      return path.startsWith("/api/account/loyalty") ||
-        path.startsWith("/api/account/preferences")
-        ? ["profile:read"]
-        : ["bookings:read"];
-    if (path.endsWith("/seat")) return ["bookings:read", "preferences:write"];
-    if (path.endsWith("/preferences"))
-      return ["bookings:read", "profile:read", "preferences:write"];
-    return ["bookings:read", "bookings:change"];
+    if (method === "GET" || method === "HEAD") {
+      if (
+        path === "/api/account/bookings" ||
+        /^\/api\/account\/bookings\/[^/]+$/.test(path)
+      )
+        return ["bookings:read"];
+      if (
+        path === "/api/account/loyalty" ||
+        path === "/api/account/preferences"
+      )
+        return ["profile:read"];
+    }
+    if (method === "POST") {
+      if (/^\/api\/account\/bookings\/[^/]+\/seat$/.test(path))
+        return ["bookings:read", "preferences:write"];
+      if (/^\/api\/account\/bookings\/[^/]+\/preferences$/.test(path))
+        return ["bookings:read", "profile:read", "preferences:write"];
+      if (
+        /^\/api\/account\/bookings\/[^/]+\/(baggage|cancel|upgrade|change-flight)$/.test(
+          path,
+        )
+      )
+        return ["bookings:read", "bookings:change"];
+    }
+    // Fail closed: unmatched account routes never downgrade to a weaker scope.
+    return [
+      "bookings:read",
+      "profile:read",
+      "preferences:write",
+      "bookings:change",
+    ];
   },
   consent: consentPage,
   consentExpired: consentExpiredPage,
