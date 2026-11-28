@@ -89,7 +89,7 @@ export interface DiscoveryOptions {
 
 function metadataUrlForIssuer(issuer: string): URL {
   const url = new URL(issuer);
-  const issuerPath = url.pathname === "/" ? "" : url.pathname;
+  const issuerPath = url.pathname.replace(/\/+$/, "");
   url.pathname = `/.well-known/oauth-authorization-server${issuerPath}`;
   url.search = "";
   url.hash = "";
