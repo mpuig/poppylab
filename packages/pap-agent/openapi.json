@@ -206,7 +206,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,64}$"
             },
             "description": "Conversation ID."
           }
@@ -249,7 +250,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,64}$"
             },
             "description": "Conversation ID."
           }
@@ -263,7 +265,8 @@
                 "properties": {
                   "text": {
                     "type": "string",
-                    "description": "User message text."
+                    "description": "User message text.",
+                    "maxLength": 2000
                   },
                   "company": {
                     "type": "string",
@@ -364,7 +367,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,64}$"
             },
             "description": "Conversation ID."
           }
@@ -475,7 +479,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,64}$"
             },
             "description": "Conversation ID."
           },
@@ -484,7 +489,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,256}$"
             },
             "description": "Proposal (operation) ID."
           }
@@ -502,7 +508,8 @@
                   },
                   "revision": {
                     "type": "string",
-                    "description": "Exact `revision` token from the proposal shown to the user."
+                    "description": "Exact `revision` token from the proposal shown to the user.",
+                    "pattern": "^[A-Za-z0-9_-]{1,256}$"
                   },
                   "decision": {
                     "type": "string",
@@ -600,7 +607,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,64}$"
             },
             "description": "Conversation ID."
           }
@@ -738,7 +746,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{43}$"
             },
             "description": "One-time ticket from `SignIn.url`."
           }
@@ -772,7 +781,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,64}$"
             },
             "description": "Conversation ID."
           }
@@ -2271,11 +2281,13 @@
           },
           "proposal": {
             "type": "string",
-            "description": "Unique proposal ID issued by the Company."
+            "description": "Unique proposal ID issued by the Company.",
+            "pattern": "^[A-Za-z0-9_-]{1,256}$"
           },
           "revision": {
             "type": "string",
-            "description": "Exact revision token shown to the user for approval."
+            "description": "Exact revision token shown to the user for approval.",
+            "pattern": "^[A-Za-z0-9_-]{1,256}$"
           }
         },
         "required": [
@@ -2994,15 +3006,18 @@
           },
           "apiKey": {
             "type": "string",
-            "description": "Provider API key for `openai-compatible` or `anthropic`. Sent per request and never stored."
+            "description": "Provider API key for `openai-compatible` or `anthropic`. Sent per request and never stored.",
+            "maxLength": 2048
           },
           "model": {
             "type": "string",
-            "description": "Optional model identifier for bring-your-own-key providers."
+            "description": "Optional model identifier for bring-your-own-key providers.",
+            "maxLength": 256
           },
           "turnstile": {
             "type": "string",
-            "description": "Single-use Cloudflare Turnstile token required for `free` turns, made by the deployment's widget on its own host for the action `chat`. Missing, invalid, or over-quota turns fall back to `demo` with an explanatory note."
+            "description": "Single-use Cloudflare Turnstile token required for `free` turns, made by the deployment's widget on its own host for the action `chat`. Missing, invalid, or over-quota turns fall back to `demo` with an explanatory note.",
+            "maxLength": 2048
           }
         },
         "required": [

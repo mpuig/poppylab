@@ -9,6 +9,7 @@
  * (`sign-in-links.ts`). The account's own routes are
  * `agent-account-http.ts`.
  */
+import type { ZodType } from "zod";
 import {
   answerChoice,
   decideProposal,
@@ -22,6 +23,14 @@ import {
   type TurnOptions,
   type TurnResult,
 } from "./api";
+import {
+  conversationOperations,
+  invalidRequest,
+  parsePublicInput,
+  pathSegmentSchema,
+  type ParsedInput,
+  type ValidationMessages,
+} from "./api-contract/index.ts";
 import { answerStream, turnEvents, wantsEvents } from "./answer-stream";
 import {
   conversationEvents,
@@ -132,6 +141,16 @@ export const ROUTES = [
 ] as const;
 type Operation = (typeof ROUTES)[number]["operation"];
 
+const CONVERSATION_PARAMETERS: Partial<Record<Operation, ZodType>> = {
+  getConversation: conversationOperations.getConversation.parameters,
+  sendMessage: conversationOperations.sendMessage.parameters,
+  answerChoice: conversationOperations.answerChoice.parameters,
+  decideProposal: conversationOperations.decideProposal.parameters,
+  startSignIn: conversationOperations.startSignIn.parameters,
+  conversationEvents: conversationOperations.conversationEvents.parameters,
+  openSignInLink: conversationOperations.openSignInLink.parameters,
+};
+
 const headers = { "Cache-Control": "no-store" };
 const error = (failure: ApiError) =>
   Response.json(
@@ -153,31 +172,48 @@ export function match(method: string, pathname: string) {
     if (
       want.every((part, i) => {
         if (!part.startsWith("{")) return part === parts[i];
-        names[part.slice(1, -1)] = decodeURIComponent(parts[i]!);
-        return /^[A-Za-z0-9_-]{1,128}$/.test(parts[i]!);
+        const value = parts[i] ?? "";
+        if (!pathSegmentSchema.safeParse(value).success) return false;
+        names[part.slice(1, -1)] = value;
+        return true;
       })
-    )
-      return { operation: route.operation as Operation, names };
+    ) {
+      const parameters = CONVERSATION_PARAMETERS[route.operation];
+      if (parameters && !parameters.safeParse(names).success) continue;
+      return { operation: route.operation, names };
+    }
   }
   return undefined;
 }
 
-/** A JSON object body, or why it isn't one. */
-async function body(request: Request): Promise<Record<string, unknown>> {
+const BODY_FAILURES: Record<string, string> = {
+  "Use JSON": "Use JSON.",
+  "Missing request": "Send a JSON object.",
+  "Request timed out": "The request timed out.",
+  "Request too large": "The request is too large.",
+};
+
+/** Reads and validates one public JSON body without exposing submitted data. */
+async function input<T>(
+  request: Request,
+  schema: ZodType<T>,
+  messages: ValidationMessages = {},
+): Promise<ParsedInput<T>> {
   let read: unknown;
   try {
     read = await readJson(request, 6000);
   } catch (failure) {
-    throw failure instanceof UserFacingError
-      ? failure
-      : new UserFacingError("Send a JSON object.");
+    const message =
+      failure instanceof UserFacingError
+        ? (BODY_FAILURES[failure.message] ?? "The request couldn't be read.")
+        : "Send a JSON object.";
+    return { ok: false, error: invalidRequest(message) };
   }
-  if (!read || typeof read !== "object" || Array.isArray(read))
-    throw new UserFacingError("Send a JSON object.");
-  return read as Record<string, unknown>;
+  return parsePublicInput(schema, read, {
+    messages,
+    fallback: "Send a JSON object with the documented fields.",
+  });
 }
-const text = (value: unknown) =>
-  typeof value === "string" ? value : undefined;
 
 const isOpen = (operation: Operation): operation is OpenOperation =>
   (OPEN_OPERATIONS as readonly string[]).includes(operation);
@@ -299,53 +335,66 @@ async function serve(
       case "conversationEvents":
         return events(caller, id, request, cookies);
       case "startConversation": {
-        const input = await body(request);
-        const company = text(input.company);
+        const contract = conversationOperations.startConversation;
+        const parsed = await input(request, contract.body, contract.messages);
+        if (!parsed.ok) return error(parsed.error);
         return answer(
-          await startConversation(caller, company ? { company } : {}),
+          await startConversation(
+            caller,
+            parsed.value.company === undefined
+              ? {}
+              : { company: parsed.value.company },
+          ),
           201,
         );
       }
       case "sendMessage": {
-        const input = await body(request);
+        const contract = conversationOperations.sendMessage;
+        const parsed = await input(request, contract.body, contract.messages);
+        if (!parsed.ok) return error(parsed.error);
+        const message = {
+          text: parsed.value.text,
+          ...(parsed.value.company === undefined
+            ? {}
+            : { company: parsed.value.company }),
+          ...(parsed.value.model === undefined
+            ? {}
+            : { model: parsed.value.model }),
+        };
         return turned(request, (options) =>
-          sendMessage(
-            caller,
-            id,
-            {
-              text: text(input.text) ?? "",
-              ...(text(input.company) ? { company: text(input.company)! } : {}),
-              ...model(input.model),
-            },
-            options,
-          ),
+          sendMessage(caller, id, message, options),
         );
       }
       case "answerChoice": {
-        const input = await body(request);
+        const contract = conversationOperations.answerChoice;
+        const parsed = await input(request, contract.body, contract.messages);
+        if (!parsed.ok) return error(parsed.error);
+        const choice = {
+          answer: parsed.value.answer,
+          ...(parsed.value.model === undefined
+            ? {}
+            : { model: parsed.value.model }),
+        };
         return turned(request, (options) =>
-          answerChoice(
-            caller,
-            id,
-            { answer: input.answer as never, ...model(input.model) },
-            options,
-          ),
+          answerChoice(caller, id, choice, options),
         );
       }
       case "decideProposal": {
-        const input = await body(request);
+        const contract = conversationOperations.decideProposal;
+        const parsed = await input(request, contract.body, contract.messages);
+        if (!parsed.ok) return error(parsed.error);
         return answer(
           await decideProposal(caller, id, {
             proposal: route.names.proposal ?? "",
-            company: text(input.company) ?? "",
-            revision: text(input.revision) ?? "",
-            decision: input.decision as "approve" | "decline",
+            ...parsed.value,
           }),
         );
       }
       case "startSignIn": {
-        const input = await body(request);
-        const access = input.access === "write" ? "write" : "read";
+        const contract = conversationOperations.startSignIn;
+        const parsed = await input(request, contract.body, contract.messages);
+        if (!parsed.ok) return error(parsed.error);
+        const access = parsed.value.access ?? "read";
         // The Company's consent page comes back to a browser, which binds
         // the sign-in to itself with a cookie. An app's session has none,
         // so it is given a link that starts the sign-in in the browser it
@@ -353,13 +402,13 @@ async function serve(
         if (caller.account?.via === "bearer")
           return answer(
             await createSignInLink(caller, id, {
-              ...(text(input.company) ? { company: text(input.company)! } : {}),
+              company: parsed.value.company,
               access,
             }),
           );
         return answer(
           await startSignIn(caller, id, {
-            company: text(input.company) ?? "",
+            company: parsed.value.company,
             access,
           }),
         );
@@ -416,21 +465,6 @@ async function turned(
     };
   });
 }
-
-const model = (value: unknown) => {
-  if (!value || typeof value !== "object") return {};
-  const m = value as Record<string, unknown>;
-  return {
-    model: {
-      provider: (text(m.provider) ?? "demo") as "demo",
-      ...(text(m.apiKey) !== undefined ? { apiKey: text(m.apiKey)! } : {}),
-      ...(text(m.model) !== undefined ? { model: text(m.model)! } : {}),
-      ...(text(m.turnstile) !== undefined
-        ? { turnstile: text(m.turnstile)! }
-        : {}),
-    },
-  };
-};
 
 /**
  * The conversation's events as Server-Sent Events: `state` first, then

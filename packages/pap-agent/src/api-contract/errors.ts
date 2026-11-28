@@ -16,6 +16,18 @@ export type ParsedInput<T> =
  */
 export type ValidationMessages = Readonly<Record<string, string>>;
 
+/** Places a reusable schema's messages below the field that contains it. */
+export const prefixValidationMessages = (
+  prefix: string,
+  messages: ValidationMessages,
+): ValidationMessages =>
+  Object.fromEntries(
+    Object.entries(messages).map(([path, message]) => [
+      path ? `${prefix}.${path}` : prefix,
+      message,
+    ]),
+  );
+
 const FALLBACK = "The request is invalid.";
 
 export const invalidRequest = (error = FALLBACK): InvalidRequest => ({

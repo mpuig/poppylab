@@ -9,12 +9,17 @@ import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import {
+  conversationOperations,
+  modelChoiceSchema,
+} from "@poppy-lab/pap-agent/api-contract";
 import { openApiDocument } from "@poppy-lab/pap-agent/openapi";
 import { spokenText } from "@poppy-lab/pap-agent/spoken";
 import ApiReference from "../app/developers/api/page";
 import NativeClient from "../app/developers/native-client/page";
 import { exampleText } from "../app/developers/api-parts";
-import { EXAMPLES } from "./api-examples";
+import { EXAMPLES, type ApiExample } from "./api-examples";
+import { chatModels, freeModel, initialModel } from "./model-options";
 import {
   ERROR_CODES,
   EVENT_NOTES,
@@ -191,6 +196,59 @@ describe("the native-client guide", () => {
         expect(ex.path?.[name!], `${key} {${name}}`).toBeDefined();
       expect(guide).toContain(`href="/developers/api#${op.id}"`);
     }
+  });
+
+  it("fits the runtime schemas used by the conversation routes", () => {
+    type RuntimeSchema = {
+      safeParse(value: unknown): { success: boolean };
+    };
+    const bodies: Record<string, RuntimeSchema> = {
+      startConversation: conversationOperations.startConversation.body,
+      sendMessage: conversationOperations.sendMessage.body,
+      answerChoice: conversationOperations.answerChoice.body,
+      decideProposal: conversationOperations.decideProposal.body,
+      startSignIn: conversationOperations.startSignIn.body,
+    };
+    const parameters: Record<string, RuntimeSchema> = {
+      getConversation: conversationOperations.getConversation.parameters,
+      sendMessage: conversationOperations.sendMessage.parameters,
+      answerChoice: conversationOperations.answerChoice.parameters,
+      decideProposal: conversationOperations.decideProposal.parameters,
+      startSignIn: conversationOperations.startSignIn.parameters,
+      conversationEvents: conversationOperations.conversationEvents.parameters,
+      openSignInLink: conversationOperations.openSignInLink.parameters,
+    };
+    for (const [key, example] of Object.entries(EXAMPLES)) {
+      const clientExample: ApiExample = example;
+      const body = bodies[clientExample.operation];
+      if (body)
+        expect(
+          body.safeParse(clientExample.request).success,
+          `${key} runtime body`,
+        ).toBe(true);
+      const path = parameters[clientExample.operation];
+      if (path)
+        expect(
+          path.safeParse(clientExample.path).success,
+          `${key} runtime path`,
+        ).toBe(true);
+    }
+  });
+
+  it("accepts every model choice the playground can send", () => {
+    const choices = [
+      initialModel,
+      freeModel,
+      ...chatModels.map((choice) => ({
+        provider: choice.id,
+        apiKey: choice.id === "demo" || choice.id === "free" ? "" : "key",
+        model: choice.model,
+      })),
+    ];
+    for (const choice of choices)
+      expect(modelChoiceSchema.safeParse(choice).success, choice.provider).toBe(
+        true,
+      );
   });
 
   it("streams only events the document has", () => {
