@@ -16,7 +16,7 @@
   <text x="15" y="269" font-size="15" font-weight="600" fill="#171a1f">Iris does it</text>
   <text x="15" y="288" font-size="14" font-weight="400" fill="#5b626c">with an approval when it</text>
   <text x="15" y="306" font-size="14" font-weight="400" fill="#5b626c">changes something</text>
-  <path d="M360 77L360 101Q360 101 NaN NaNLNaN NaNQ360 101 360 101L360 117" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
+  <path d="M360 77L360 93Q360 101 360 109L360 117" fill="none" stroke="#0d5c4a" stroke-width="1.5"/>
   <path d="M360 125L355.5 117L364.5 117Z" fill="#0d5c4a"/>
   <rect x="246" y="125" width="228" height="94" rx="6" fill="#ffffff" stroke="#0d5c4a" stroke-width="1.2"/>
   <text x="260" y="151" font-size="15" font-weight="600" fill="#171a1f">Excluded on purpose</text>

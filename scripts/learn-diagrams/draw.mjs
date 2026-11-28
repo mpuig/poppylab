@@ -118,20 +118,27 @@ export function arrow({
   both = false,
   radius = 8,
 }) {
+  const dedupe = (pts) =>
+    pts.filter(
+      (pt, i) => i === 0 || pt[0] !== pts[i - 1][0] || pt[1] !== pts[i - 1][1],
+    );
+  const pts = dedupe(points);
+  if (pts.length < 2)
+    throw new Error("arrow() requires at least two distinct points");
   const unit = (a, b) => {
     const d = Math.hypot(b[0] - a[0], b[1] - a[1]);
     return [(b[0] - a[0]) / d, (b[1] - a[1]) / d];
   };
-  const first = unit(points[0], points[1]);
-  const last = unit(points[points.length - 2], points[points.length - 1]);
-  const start = [...points[0]];
-  const end = [...points[points.length - 1]];
+  const first = unit(pts[0], pts[1]);
+  const last = unit(pts[pts.length - 2], pts[pts.length - 1]);
+  const start = [...pts[0]];
+  const end = [...pts[pts.length - 1]];
   // The stroke stops at the base of each triangle.
   const from = both
     ? [start[0] + first[0] * 8, start[1] + first[1] * 8]
     : start;
   const to = [end[0] - last[0] * 8, end[1] - last[1] * 8];
-  const way = [from, ...points.slice(1, -1), to];
+  const way = dedupe([from, ...pts.slice(1, -1), to]);
   let d = `M${n(way[0][0])} ${n(way[0][1])}`;
   for (let i = 1; i < way.length; i++) {
     const [px, py] = way[i - 1];
