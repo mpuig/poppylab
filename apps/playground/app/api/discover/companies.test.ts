@@ -22,7 +22,7 @@ vi.mock("next/headers", () => ({
   }),
 }));
 import { PapDiscoveryError } from "@poppy-lab/pap-core";
-import { connected, discovered } from "@poppy-lab/pap-agent/company-fixture";
+import { connected, discovered } from "@poppy-lab/pap-agent/testing";
 import { bytesOf, RUN_LIMITS } from "@poppy-lab/pap-agent/run-size";
 import {
   configureBackend,

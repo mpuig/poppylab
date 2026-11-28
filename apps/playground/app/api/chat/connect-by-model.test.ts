@@ -51,7 +51,7 @@ vi.mock("@poppy-lab/pap-agent/deployment", async (importOriginal) => ({
   // Fernwick's feedback address is on this machine, as in development.
   localOrigins: ["http://fernwick.localhost:4500"],
 }));
-import { connected, discovered } from "@poppy-lab/pap-agent/company-fixture";
+import { connected, discovered } from "@poppy-lab/pap-agent/testing";
 import { seedRun } from "@poppy-lab/pap-agent/runs";
 import type { Run } from "@poppy-lab/pap-agent/runtime";
 import { POST } from "./route";

@@ -53,7 +53,7 @@ vi.mock("@poppy-lab/pap-agent/deployment", async (importOriginal) => ({
 import { createIdentity } from "@poppy-lab/pap-client";
 import { PapDiscoveryError } from "@poppy-lab/pap-core";
 import { labCompanies as cards } from "@/app/playground/companies";
-import { connected, discovered } from "@poppy-lab/pap-agent/company-fixture";
+import { connected, discovered } from "@poppy-lab/pap-agent/testing";
 import { demoGuidedReply } from "@poppy-lab/pap-agent/demo-examples";
 import { seedRun } from "@poppy-lab/pap-agent/runs";
 import type { Run } from "@poppy-lab/pap-agent/runtime";

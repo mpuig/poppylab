@@ -44,7 +44,7 @@ vi.mock("@poppy-lab/pap-agent/deployment", async (importOriginal) => ({
   proposalsAllowed: () => true,
 }));
 import { createIdentity, ProtocolError } from "@poppy-lab/pap-client";
-import { connected, discovered } from "@poppy-lab/pap-agent/company-fixture";
+import { connected, discovered } from "@poppy-lab/pap-agent/testing";
 import {
   forgetCompany,
   shownTranscript,

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
-import { discovered } from "@poppy-lab/pap-agent/company-fixture";
+import { discovered } from "@poppy-lab/pap-agent/testing";
 import { AskBlock } from "./ask-block";
 import type { Ask } from "./asks";
 import { harborlineUrl, lanternUrl } from "./companies";
