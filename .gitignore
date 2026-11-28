@@ -14,6 +14,8 @@ coverage/
 .dev.vars
 .dev.vars.*
 .poppy/
+# `pnpm phrases` reports: a model's answers, for a person to read
+scripts/model-phrases/reports/
 *.pem
 *.key
 

@@ -1,0 +1,10 @@
+# The phrase runner's Workers AI binding (`pnpm phrases --model free`), run
+# with `wrangler dev --remote` by the runner and never deployed. It has no
+# route and no secret: the runner passes a fresh token with `--var`.
+name = "poppy-model-phrases-ai"
+main = "worker.ts"
+compatibility_date = "2026-10-01"
+workers_dev = false
+
+[ai]
+binding = "AI"
