@@ -194,8 +194,8 @@ haven't allowed this agent to propose changes to your orders." The event that
 comes with it names the two permissions the request needs. Elena has given the
 first, and the block higher in the conversation that offers change permission
 is where she would give the second. Elena decides not to
-give it for the moment. If she gives it later, the answers Iris got since she
-signed in leave the conversation, as in
+give it for the moment. If she gives it later, the answers Iris got before
+stay in the conversation, marked as from her earlier sign-in, as in
 [Signing in and giving permission](signing-in-and-giving-permission.md).
 
 <details>

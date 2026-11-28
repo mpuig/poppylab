@@ -163,9 +163,9 @@ Lantern does not make it. It answers that the change needs the customer's
 approval and sends back the terms it would apply. Iris shows them as a card
 in the conversation, where the proposal arrived, and the heading counts it as
 waiting. Iris asks in its own words, from the terms: "Lantern Noodle Bar wants
-to change your order: the delivery slot from Friday at 18:30 to Sunday at
-13:00. The new total is $43.00, $6.00 more than before. It expires in 10
-minutes. Shall I approve it?"
+to change your order: add 1 × Matcha ice cream, and the delivery slot from
+Friday at 18:30 to Sunday at 13:00. The new total is $43.00, $6.00 more than
+before. It expires in 10 minutes. Shall I approve it?"
 
 <details>
 <summary>What travelled</summary>
@@ -195,6 +195,15 @@ Lantern's answer to the request, as Iris received it:
     "from_slot": "fri-1830",
     "to_slot": "sun-1300",
     "lines": { "shoyu-ramen": 2, "edamame": 1, "matcha-ice": 1 },
+    "from_items": [
+      { "name": "Shoyu ramen", "quantity": 2 },
+      { "name": "Salted edamame", "quantity": 1 }
+    ],
+    "to_items": [
+      { "name": "Shoyu ramen", "quantity": 2 },
+      { "name": "Salted edamame", "quantity": 1 },
+      { "name": "Matcha ice cream", "quantity": 1 }
+    ],
     "before_total_cents": 3700,
     "new_total_cents": 4300,
     "price_difference_cents": 600,
@@ -209,7 +218,7 @@ Lantern's answer to the request, as Iris received it:
 
 ### 8. Read what you are approving
 
-![The proposal card: total 43 dollars, the delivery slot before and after, Lantern's description of the change, the previous total, the difference and the new total, and the buttons Approve 43 dollars and Decline](../../../apps/playground/public/learn-media/how-it-works/changing-an-order/08-exact-terms.webp "The terms come from Lantern. Iris shows them and adds nothing of its own.")
+![The proposal card: total 43 dollars, a row for the matcha ice cream, not in the order before and 1 after, the delivery slot before and after, Lantern's description of the change, the previous total, the difference and the new total, and the buttons Approve 43 dollars and Decline](../../../apps/playground/public/learn-media/how-it-works/changing-an-order/08-exact-terms.webp "The terms come from Lantern. Iris shows them and adds nothing of its own.")
 
 The card shows what Lantern will do if Elena approves: the new delivery
 slot, the dishes, the new total and the difference from the old one. The
@@ -230,15 +239,14 @@ in step 7, and they stay on Elena's screen until she decides.
 
 ### 9. Approve
 
-![The card now reads Approved by you, with Lantern's confirmation that the order was changed. Below it Elena's answer yes, and Iris: Done. You approved the 43 dollar change at Lantern Noodle Bar, and Lantern Noodle Bar has carried it out](../../../apps/playground/public/learn-media/how-it-works/changing-an-order/09-approved.webp "Lantern made the change when the approval arrived, and said so.")
+![The card now reads Approved by you, with Lantern's confirmation that the order was changed. Below it Elena's answer yes, and Iris: Done. You approved the 43 dollar change at Lantern Noodle Bar, and it has been carried out](../../../apps/playground/public/learn-media/how-it-works/changing-an-order/09-approved.webp "Lantern made the change when the approval arrived, and said so.")
 
 Elena presses Approve, or answers "yes" to Iris's question. Iris sends
 Lantern the same request again, this time with her approval attached. Lantern checks that the approval matches the
 terms it offered, makes the change and confirms it: the order is now for
 Sunday and costs 43 dollars. The card stays where the proposal arrived,
 with Lantern's confirmation and the line "Approved by you", and Iris says:
-"Done. You approved the $43.00 change at Lantern Noodle Bar, and Lantern
-Noodle Bar has carried it out."
+"Done. You approved the $43.00 change at Lantern Noodle Bar, and it has been carried out."
 
 The approval is something only Elena gives: the button, or her own answer
 to the question Iris asked about these terms. Iris reads that answer by fixed

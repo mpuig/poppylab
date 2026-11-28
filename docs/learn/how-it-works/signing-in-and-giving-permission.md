@@ -215,16 +215,16 @@ entry Juniper lists for Iris afterwards, with both permissions.
 
 ### 7. Iris asks to go on
 
-![Iris says: Juniper Market's own page is open in a new tab for the change permission. Sign in there; I never see your password. Then: You're signed in at Juniper Market. Shall I go on with Move my recurring delivery to Saturday? A button reads Yes, go on, and a block below reads Change permission given at Juniper Market](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/07-iris-asks-to-go-on.webp "Iris waits for Elena's word before it sends the request it held back.")
+![Elena's line Request change permission at Juniper Market, then a block: Change permission given at Juniper Market. Iris says: Juniper Market's own page is open in a new tab for the change permission. Sign in there; I never see your password. Then: You're signed in at Juniper Market. Shall I go on with Move my recurring delivery to Saturday? A button reads Yes, go on](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/07-iris-asks-to-go-on.webp "Iris waits for Elena's word before it sends the request it held back.")
 
 Back in the conversation, a block reads "Change permission given at Juniper
 Market", and Iris says: "You're signed in at Juniper Market. Shall I go on
 with 'Move my recurring delivery to Saturday'?" It does not send the request
 by itself.
 
-When the access changed, what had been said since the first sign-in left the
-conversation: her deliveries, her orders and the request Iris had not sent.
-Her question from before that sign-in stayed, with its answer.
+What was said before the change permission stays in the conversation: her
+deliveries, her orders and the request Iris had not sent each carry the label
+"From your earlier sign-in at Juniper Market".
 
 ### 8. Go on with the request
 
@@ -276,13 +276,12 @@ Juniper's answer to the request, as Iris received it:
 
 ### 9. Approve
 
-![The card Change delivery day now reads Approved by you, with Juniper's confirmation that the delivery repeats weekly on Saturday. Below it Elena's answer approve, and Iris: Done. You approved the change at Juniper Market, and Juniper Market has carried it out](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/09-approved.webp "Juniper made the change when the approval arrived, and said so.")
+![The card Change delivery day now reads Approved by you, with Juniper's confirmation that the delivery repeats weekly on Saturday. Below it Elena's answer approve, and Iris: Done. You approved the change at Juniper Market, and it has been carried out](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/09-approved.webp "Juniper made the change when the approval arrived, and said so.")
 
 Elena answers "approve". Pressing Approve this change on the card does the
 same. Iris sends Juniper the same request again, this time with her approval
 attached, and Juniper confirms: the delivery now repeats weekly on Saturday.
-Iris says: "Done. You approved the change at Juniper Market, and Juniper
-Market has carried it out." The card stays where it arrived and reads
+Iris says: "Done. You approved the change at Juniper Market, and it has been carried out." The card stays where it arrived and reads
 Approved by you.
 
 The permission from step 6 allowed Iris to ask for the change. Elena's
