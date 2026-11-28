@@ -1,4 +1,4 @@
-import { ArrowUpRight, Heart } from "lucide-react";
+import { ArrowUpRight, createLucideIcon } from "lucide-react";
 import {
   DEMOS_URL,
   LAB_AUTHOR,
@@ -19,6 +19,18 @@ const harborline =
 const northwind =
   process.env.NEXT_PUBLIC_NORTHWIND_URL ?? LOCAL_ORIGINS.northwind;
 const fernwick = process.env.NEXT_PUBLIC_FERNWICK_URL ?? LOCAL_ORIGINS.fernwick;
+
+// The footer's heart as Lucide drew it before 1.x (Lucide, ISC licence);
+// Lucide 1.x reshaped its `Heart`.
+const Heart = createLucideIcon("heart", [
+  [
+    "path",
+    {
+      d: "M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z",
+      key: "heart",
+    },
+  ],
+]);
 
 export { DEMOS_URL, SPEC_URL };
 
