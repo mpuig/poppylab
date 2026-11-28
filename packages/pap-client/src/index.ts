@@ -325,8 +325,16 @@ async function fetchJsonSafely(
             await reader.cancel().catch(() => {});
           }
         if (!reader) {
-          if (!response.ok)
-            throw new ProtocolError(response.status, undefined, retryAt);
+          if (!response.ok) {
+            const authenticate = response.headers.get("www-authenticate");
+            const challenge = authenticate?.match(/error="([a-z_]+)"/);
+            throw new ProtocolError(
+              response.status,
+              errorCode(challenge?.[1]),
+              retryAt,
+              response.headers.get("dpop-nonce") ?? undefined,
+            );
+          }
           if (options.acceptEmpty && response.status === 200)
             return {
               value: null,
@@ -336,6 +344,7 @@ async function fetchJsonSafely(
           throw new Error("Empty discovery response");
         }
         let size = 0;
+        let oversized = false;
         const chunks: Uint8Array[] = [];
         try {
           while (true) {
@@ -350,8 +359,13 @@ async function fetchJsonSafely(
                 : response.status === 403
                   ? 65536
                   : 4096)
-            )
-              throw new Error("Document is too large");
+            ) {
+              if (response.ok) throw new Error("Document is too large");
+              // Stop reading an oversized error body, but still report the
+              // response status and protocol headers without body fields.
+              oversized = true;
+              break;
+            }
             chunks.push(value);
             if (sse) {
               streamed = sseRpc(Buffer.concat(chunks).toString("utf8"));
@@ -359,7 +373,7 @@ async function fetchJsonSafely(
             }
           }
         } finally {
-          await reader.cancel();
+          await reader.cancel().catch(() => {});
         }
         if (!response.ok) {
           let code: unknown,
@@ -367,28 +381,30 @@ async function fetchJsonSafely(
             declined: { reason?: string } | undefined,
             conversationId: string | undefined,
             parsed: unknown;
-          try {
-            const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
-            parsed = body;
-            code = body.error;
-            if (response.status === 403 && code === "approval_required")
-              operation = body.operation;
-            // Operations v3 §6: a decline's reason is for the User, bounded.
-            if (response.status === 403 && code === "approval_declined")
-              declined =
-                typeof body.reason === "string"
-                  ? { reason: body.reason.slice(0, 500) }
-                  : {};
-            // §8.13: the open Direct Conversation, only if it's an ID (§8.2).
-            if (
-              response.status === 409 &&
-              code === "direct_conversation_open" &&
-              typeof body.conversation_id === "string" &&
-              /^[A-Za-z0-9_-]{1,256}$/.test(body.conversation_id)
-            )
-              conversationId = body.conversation_id;
-          } catch {
-            /* Untrusted error bodies are never surfaced. */
+          if (!oversized) {
+            try {
+              const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+              parsed = body;
+              code = body.error;
+              if (response.status === 403 && code === "approval_required")
+                operation = body.operation;
+              // Operations v3 §6: a decline's reason is for the User, bounded.
+              if (response.status === 403 && code === "approval_declined")
+                declined =
+                  typeof body.reason === "string"
+                    ? { reason: body.reason.slice(0, 500) }
+                    : {};
+              // §8.13: the open Direct Conversation, only if it's an ID (§8.2).
+              if (
+                response.status === 409 &&
+                code === "direct_conversation_open" &&
+                typeof body.conversation_id === "string" &&
+                /^[A-Za-z0-9_-]{1,256}$/.test(body.conversation_id)
+              )
+                conversationId = body.conversation_id;
+            } catch {
+              /* Untrusted error bodies are never surfaced. */
+            }
           }
           const authenticate = response.headers.get("www-authenticate");
           const challenge = authenticate?.match(/error="([a-z_]+)"/);

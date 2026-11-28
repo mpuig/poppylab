@@ -126,6 +126,56 @@ describe("Company discovery", () => {
       }),
     ).rejects.toThrow("too large");
   });
+  it("stops reading oversized error streams and preserves HTTP status", async () => {
+    let pulls = 0;
+    let cancelled = false;
+    const oversized404 = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulls += 1;
+        controller.enqueue(new Uint8Array(2048).fill(0x78));
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    const result = await discoverCompany("company.example", {
+      fetchImpl: fetcher(
+        Response.json(company),
+        new Response(oversized404, { status: 404 }),
+      ),
+    });
+    expect(result.document.organization.name).toBe("Test Company");
+    expect(cancelled).toBe(true);
+    expect(pulls).toBeLessThanOrEqual(5);
+  });
+  it("preserves Retry-After on an oversized error response during discovery", async () => {
+    let pulls = 0;
+    let cancelled = false;
+    const oversized429 = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulls += 1;
+        controller.enqueue(new Uint8Array(2048).fill(0x78));
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    const mock = fetcher(
+      new Response(oversized429, {
+        status: 429,
+        headers: { "Retry-After": "30" },
+      }),
+    );
+    await expect(
+      discoverCompany("oversized-retry.example", { fetchImpl: mock }),
+    ).rejects.toThrow(/HTTP 429.*retry after/);
+    expect(cancelled).toBe(true);
+    expect(pulls).toBeLessThanOrEqual(5);
+    await expect(
+      discoverCompany("oversized-retry.example", { fetchImpl: mock }),
+    ).rejects.toThrow(/HTTP 429.*rate_limited/);
+    expect(mock).toHaveBeenCalledTimes(1);
+  });
   it("rejects HTTP redirect downgrades", async () => {
     await expect(
       discoverCompany("company.example", {

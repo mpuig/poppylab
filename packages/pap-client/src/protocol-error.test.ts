@@ -358,3 +358,229 @@ it("reads a document's bytes with binary, bounded, and still parses its errors a
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 });
+
+it("preserves ProtocolError status and headers when an error body exceeds the read limit", async () => {
+  let calls = 0,
+    status = 401,
+    headers: Record<string, string> = {
+      "content-type": "application/json",
+      "Retry-After": "30",
+      "DPoP-Nonce": "fresh-nonce",
+      "WWW-Authenticate": 'DPoP error="use_dpop_nonce"',
+    },
+    payload = JSON.stringify({ error: "invalid_grant", pad: "x".repeat(5000) });
+  const server = createServer((_req, res) => {
+    calls++;
+    res.writeHead(status, headers);
+    res.end(payload);
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const origin = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+  const send = (errorBody = false) =>
+    protocolRequest(
+      origin + "/action",
+      { method: "POST" },
+      [origin],
+      undefined,
+      errorBody ? { errorBody } : undefined,
+    ).then(
+      () => {
+        throw Error("expected error");
+      },
+      (e: unknown) => e,
+    );
+  try {
+    const challenge = (await send(true)) as ProtocolError;
+    expect(challenge).toBeInstanceOf(ProtocolError);
+    expect(challenge).toMatchObject({
+      status: 401,
+      code: "use_dpop_nonce",
+      nonce: "fresh-nonce",
+    });
+    expect(challenge.retryAt).toBeGreaterThan(Date.now());
+    expect(challenge.body).toBeUndefined();
+    expect(challenge.companyCode).toBeUndefined();
+    expect(challenge.operation).toBeUndefined();
+    expect(challenge.declined).toBeUndefined();
+    expect(challenge.conversationId).toBeUndefined();
+
+    // Retry-After from the oversized error response still enforces cooldown.
+    const callsBeforeCooldown = calls;
+    const blocked = (await send()) as ProtocolError;
+    expect(blocked).toBeInstanceOf(ProtocolError);
+    expect(blocked).toMatchObject({ status: 429, code: "rate_limited" });
+    expect(calls).toBe(callsBeforeCooldown);
+
+    // Advance past the 30s cooldown for the remaining checks on this origin.
+    vi.spyOn(Date, "now").mockReturnValue(Date.now() + 31_000);
+
+    // Oversized 400 drops body-derived fields even when errorBody is requested.
+    status = 400;
+    headers = { "content-type": "application/json" };
+    payload = JSON.stringify({
+      error: "insufficient_funds",
+      pad: "x".repeat(5000),
+    });
+    const badRequest = (await send(true)) as ProtocolError;
+    expect(badRequest).toBeInstanceOf(ProtocolError);
+    expect(badRequest.status).toBe(400);
+    expect(badRequest.code).toBeUndefined();
+    expect(badRequest.companyCode).toBeUndefined();
+    expect(badRequest.body).toBeUndefined();
+
+    // Oversized 403 (>64 KiB) also falls back to status/headers without body fields.
+    status = 403;
+    payload = JSON.stringify({
+      error: "approval_required",
+      operation: { id: "op_1" },
+      pad: "x".repeat(70_000),
+    });
+    const forbidden = (await send(true)) as ProtocolError;
+    expect(forbidden).toBeInstanceOf(ProtocolError);
+    expect(forbidden.status).toBe(403);
+    expect(forbidden.code).toBeUndefined();
+    expect(forbidden.operation).toBeUndefined();
+    expect(forbidden.companyCode).toBeUndefined();
+
+    // Oversized 2xx responses still fail as plain Error("Document is too large").
+    status = 200;
+    payload = "x".repeat(512_001);
+    const oversizedOk = (await send()) as Error;
+    expect(oversizedOk).toBeInstanceOf(Error);
+    expect(oversizedOk).not.toBeInstanceOf(ProtocolError);
+    expect(oversizedOk.message).toBe("Document is too large");
+  } finally {
+    vi.restoreAllMocks();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+});
+
+it("caps Retry-After durations to one hour for both delta-seconds and HTTP-dates", () => {
+  const now = Date.parse("2030-01-01T00:00:00Z");
+  const maxMs = 3_600_000;
+  const deltaOrigin = "https://cap-delta.invalid";
+  expect(recordCooldown(deltaOrigin, "86400", now)).toBe(now + maxMs);
+  expect(() => checkCooldown(deltaOrigin, now + maxMs - 1)).toThrow(
+    ProtocolError,
+  );
+  expect(() => checkCooldown(deltaOrigin, now + maxMs)).not.toThrow();
+
+  const hugeOrigin = "https://cap-huge.invalid";
+  expect(recordCooldown(hugeOrigin, "9".repeat(400), now)).toBe(now + maxMs);
+  expect(() => checkCooldown(hugeOrigin, now + maxMs - 1)).toThrow(
+    ProtocolError,
+  );
+  expect(() => checkCooldown(hugeOrigin, now + maxMs)).not.toThrow();
+
+  const dateOrigin = "https://cap-date.invalid";
+  expect(recordCooldown(dateOrigin, "Wed, 01 Jan 2040 00:00:00 GMT", now)).toBe(
+    now + maxMs,
+  );
+  expect(() => checkCooldown(dateOrigin, now + maxMs - 1)).toThrow(
+    ProtocolError,
+  );
+  expect(() => checkCooldown(dateOrigin, now + maxMs)).not.toThrow();
+});
+
+it("keeps cooldowns strictly per-origin when the 1,000-origin map overflows", async () => {
+  vi.resetModules();
+  const mod = await vi.importActual<typeof import("./protocol-error.js")>(
+    "./protocol-error.js",
+  );
+  const store = {
+    value: { until: 0, entries: [] as Array<[string, number]> },
+    save: vi.fn(),
+  };
+  mod.configureRetryStore(store);
+
+  // First, verify expired entries are purged before any active entry is evicted.
+  const t0 = Date.parse("2030-01-01T00:00:00Z");
+  for (let i = 0; i < 500; i++)
+    mod.recordCooldown(`https://expired-${i}.invalid`, "10", t0);
+  for (let i = 0; i < 500; i++)
+    mod.recordCooldown(`https://active-${i}.invalid`, "60", t0);
+  mod.recordCooldown("https://new-after-purge.invalid", "60", t0 + 15_000);
+  expect(() =>
+    mod.checkCooldown("https://active-0.invalid", t0 + 15_000),
+  ).toThrow(mod.ProtocolError);
+  expect(() =>
+    mod.checkCooldown("https://new-after-purge.invalid", t0 + 15_000),
+  ).toThrow(mod.ProtocolError);
+  expect(() =>
+    mod.checkCooldown("https://unrelated.invalid", t0 + 15_000),
+  ).not.toThrow();
+  expect(store.value.until).toBe(0);
+
+  // Next, fill all 1,000 slots with active entries and overflow with a 1,001st origin.
+  const t1 = t0 + 120_000;
+  mod.recordCooldown("https://earliest.invalid", "5", t1);
+  for (let i = 1; i < 1000; i++)
+    mod.recordCooldown(`https://origin-${i}.invalid`, "60", t1);
+  const recorded = mod.recordCooldown(
+    "https://overflow-1001.invalid",
+    "999999",
+    t1,
+  );
+  expect(recorded).toBe(t1 + 3_600_000);
+  // The earliest-expiring entry was evicted, active peers stay, and unrelated origins are never blocked.
+  expect(() => mod.checkCooldown("https://earliest.invalid", t1)).not.toThrow();
+  expect(() => mod.checkCooldown("https://origin-1.invalid", t1)).toThrow(
+    mod.ProtocolError,
+  );
+  expect(() => mod.checkCooldown("https://origin-999.invalid", t1)).toThrow(
+    mod.ProtocolError,
+  );
+  expect(() => mod.checkCooldown("https://overflow-1001.invalid", t1)).toThrow(
+    mod.ProtocolError,
+  );
+  expect(() =>
+    mod.checkCooldown("https://overflow-1001.invalid", t1 + 3_600_000),
+  ).not.toThrow();
+  expect(() =>
+    mod.checkCooldown("https://unrelated.invalid", t1),
+  ).not.toThrow();
+  expect(store.value.until).toBe(0);
+  expect(store.value.entries).toHaveLength(1000);
+});
+
+it("ignores legacy persisted global until and clamps legacy persisted entries", async () => {
+  const now = Date.parse("2030-06-01T00:00:00Z");
+  vi.spyOn(Date, "now").mockReturnValue(now);
+  try {
+    vi.resetModules();
+    const mod = await vi.importActual<typeof import("./protocol-error.js")>(
+      "./protocol-error.js",
+    );
+    const store = {
+      value: {
+        until: Number.MAX_SAFE_INTEGER,
+        entries: [
+          ["https://legacy-clamped.invalid", now + 86_400_000] as [
+            string,
+            number,
+          ],
+          ["https://legacy-expired.invalid", now - 1000] as [string, number],
+        ],
+      },
+      save: vi.fn(),
+    };
+    mod.configureRetryStore(store);
+    expect(store.value.until).toBe(0);
+    // Unrelated origin is not blocked by the legacy global `until`.
+    expect(() =>
+      mod.checkCooldown("https://unrelated.invalid", now),
+    ).not.toThrow();
+    // Expired legacy entry is dropped; far-future legacy entry is clamped to 1 hour.
+    expect(() =>
+      mod.checkCooldown("https://legacy-expired.invalid", now),
+    ).not.toThrow();
+    expect(() =>
+      mod.checkCooldown("https://legacy-clamped.invalid", now + 3_599_999),
+    ).toThrow(mod.ProtocolError);
+    expect(() =>
+      mod.checkCooldown("https://legacy-clamped.invalid", now + 3_600_000),
+    ).not.toThrow();
+  } finally {
+    vi.restoreAllMocks();
+  }
+});

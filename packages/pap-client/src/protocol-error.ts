@@ -75,25 +75,63 @@ export function companyErrorCode(value: unknown) {
     ? value
     : undefined;
 }
+/** Maximum accepted `Retry-After` cooldown (1 hour), so one origin cannot pin requests indefinitely. */
+const MAX_COOLDOWN_MS = 3_600_000;
+/** Maximum tracked per-origin cooldowns kept in memory and persisted state. */
+const MAX_COOLDOWN_ORIGINS = 1000;
 const cooldowns = new Map<string, number>();
-let globalUntil = 0;
 export type RetryState = { until: number; entries: Array<[string, number]> };
 let retryStore: { value: RetryState; save: () => void } | undefined;
+
+function purgeExpiredCooldowns(now: number) {
+  for (const [key, time] of cooldowns) if (time <= now) cooldowns.delete(key);
+}
+
+function setOriginCooldown(origin: string, until: number, now: number) {
+  const existing = cooldowns.get(origin);
+  if (existing !== undefined) {
+    const next = Math.max(existing, until);
+    cooldowns.set(origin, next);
+    return next;
+  }
+  if (cooldowns.size >= MAX_COOLDOWN_ORIGINS) {
+    purgeExpiredCooldowns(now);
+    if (cooldowns.size >= MAX_COOLDOWN_ORIGINS) {
+      let earliestOrigin: string | undefined;
+      let earliestUntil = Infinity;
+      for (const [key, time] of cooldowns) {
+        if (time < earliestUntil) {
+          earliestUntil = time;
+          earliestOrigin = key;
+        }
+      }
+      if (earliestOrigin !== undefined) cooldowns.delete(earliestOrigin);
+    }
+  }
+  cooldowns.set(origin, until);
+  return until;
+}
+
 // Hosts opt in to their own single-writer durable store. No credentials or paths.
 export function configureRetryStore(store: {
   value: RetryState;
   save: () => void;
 }) {
-  globalUntil = Math.max(globalUntil, store.value.until);
+  const now = Date.now();
+  const maxUntil = now + MAX_COOLDOWN_MS;
+  // Legacy global `until` is ignored so cooldowns stay strictly per-origin.
+  store.value.until = 0;
+  purgeExpiredCooldowns(now);
   for (const [origin, time] of store.value.entries) {
-    if (time > Date.now())
-      cooldowns.set(origin, Math.max(cooldowns.get(origin) ?? 0, time));
+    if (typeof origin !== "string" || !Number.isFinite(time) || time <= now)
+      continue;
+    setOriginCooldown(origin, Math.min(time, maxUntil), now);
   }
   retryStore = store;
 }
 export function checkCooldown(origin: string, now = Date.now()) {
-  for (const [key, time] of cooldowns) if (time <= now) cooldowns.delete(key);
-  const until = Math.max(globalUntil, cooldowns.get(origin) ?? 0);
+  purgeExpiredCooldowns(now);
+  const until = cooldowns.get(origin) ?? 0;
   if (until > now) throw new ProtocolError(429, "rate_limited", until);
 }
 export function recordCooldown(
@@ -103,23 +141,22 @@ export function recordCooldown(
 ) {
   if (!header) return;
   const value = header.trim();
-  const until = /^\d+$/.test(value)
-    ? Math.min(Number.MAX_SAFE_INTEGER, now + Number(value) * 1000)
+  const parsed = /^\d+$/.test(value)
+    ? now + Math.min(Number(value) * 1000, MAX_COOLDOWN_MS)
     : /^[A-Z][a-z]{2}, \d{2} [A-Z][a-z]{2} \d{4} \d{2}:\d{2}:\d{2} GMT$/.test(
           value,
         )
       ? Date.parse(value)
       : NaN;
+  const until = Math.min(parsed, now + MAX_COOLDOWN_MS);
   if (!Number.isFinite(until) || until <= now) return;
-  if (cooldowns.size >= 1000 && !cooldowns.has(origin))
-    globalUntil = Math.max(globalUntil, until);
-  else cooldowns.set(origin, Math.max(cooldowns.get(origin) ?? 0, until));
+  const recorded = setOriginCooldown(origin, until, now);
   if (retryStore) {
-    retryStore.value.until = globalUntil;
+    retryStore.value.until = 0;
     retryStore.value.entries = [...cooldowns].filter(([, time]) => time > now);
     retryStore.save();
   }
-  return Math.max(globalUntil, cooldowns.get(origin) ?? until);
+  return recorded;
 }
 
 /** Operations v3 §6: an approval of one revision, and who approved it. */
