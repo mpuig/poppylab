@@ -54,11 +54,30 @@ export type FlightInventory = {
   status: string;
   gate: string;
 };
-export type Booking = Omit<SeedBooking, "preference"> & {
+export type BookingCancellation = {
+  paid_cents: number;
+  fare_paid_cents: number;
+  baggage_paid_cents: number;
+  upgrade_paid_cents: number;
+  cancellation_fee_cents: number;
+  fare_refund_cents: number;
+  baggage_refund_cents: number;
+  upgrade_refund_cents: number;
+  refund_cents: number;
+  currency: "USD";
+};
+export type Booking = Omit<
+  SeedBooking,
+  "preference" | "fare_paid_cents" | "baggage_paid_cents" | "upgrade_paid_cents"
+> & {
   version: number;
   status: "confirmed" | "cancelled";
   preference: PassengerPreference;
   cabins: Record<string, "Economy" | "Business">;
+  fare_paid_cents?: number;
+  baggage_paid_cents?: Record<string, number>;
+  upgrade_paid_cents?: Record<string, number>;
+  cancellation?: BookingCancellation;
 };
 type State = {
   bookings?: Record<string, Booking[]>;
@@ -71,6 +90,9 @@ const usd = (cents: number) => `USD ${(cents / 100).toFixed(2)}`;
 /** The refund terms of an upgrade: in the proposal the passenger approves, and on "How it works". */
 const UPGRADE_REFUND_TERMS =
   "The fictional upgrade is refundable only if Northwind Air cancels this segment.";
+const BAGGAGE_REFUND_CUTOFF_MS = 24 * 60 * 60 * 1000;
+const SAVER_TAX_REFUND_CENTS = 4200;
+const FLEX_CANCELLATION_FEE_CENTS = 5000;
 const dateOf = (iso: string) => iso.slice(0, 10);
 const flightById = (id: string) =>
   flightSchedule.find((flight) => flight.id === id);
@@ -79,6 +101,122 @@ const airportByCode = (code: string) =>
 /** The inventory count that a passenger in this cabin takes a seat from. */
 const seatsLeft = (cabin: "Economy" | "Business") =>
   cabin === "Business" ? "business_available" : "economy_available";
+
+function bookingPayments(booking: Booking) {
+  const baggageByFlight = booking.baggage_paid_cents ?? {};
+  const upgradeByFlight = booking.upgrade_paid_cents ?? {};
+  const baggagePaidCents = Object.values(baggageByFlight).reduce(
+    (sum, cents) => sum + cents,
+    0,
+  );
+  const upgradePaidCents = Object.values(upgradeByFlight).reduce(
+    (sum, cents) => sum + cents,
+    0,
+  );
+  const farePaidCents =
+    booking.fare_paid_cents ??
+    Math.max(0, booking.paid_cents - baggagePaidCents - upgradePaidCents);
+  return {
+    farePaidCents,
+    baggageByFlight,
+    baggagePaidCents,
+    upgradeByFlight,
+    upgradePaidCents,
+  };
+}
+
+function cancellationQuote(
+  booking: Booking,
+  inventory: Record<string, FlightInventory>,
+  now: number,
+) {
+  const {
+    farePaidCents,
+    baggageByFlight,
+    baggagePaidCents,
+    upgradeByFlight,
+    upgradePaidCents,
+  } = bookingPayments(booking);
+  const fareRefundCents =
+    booking.fare === "SAVER"
+      ? Math.min(farePaidCents, SAVER_TAX_REFUND_CENTS)
+      : booking.fare === "FLEX"
+        ? Math.max(0, farePaidCents - FLEX_CANCELLATION_FEE_CENTS)
+        : farePaidCents;
+  const cancellationFeeCents = farePaidCents - fareRefundCents;
+  let baggageRefundCents = 0;
+  for (const [flightId, cents] of Object.entries(baggageByFlight)) {
+    if (cents <= 0) continue;
+    const flight = flightById(flightId);
+    if (
+      flight &&
+      Date.parse(flight.departure) - now >= BAGGAGE_REFUND_CUTOFF_MS
+    )
+      baggageRefundCents += cents;
+  }
+  let upgradeRefundCents = 0;
+  for (const [flightId, cents] of Object.entries(upgradeByFlight)) {
+    if (cents <= 0) continue;
+    if (
+      booking.flight_ids.includes(flightId) &&
+      inventory[flightId]?.status === "cancelled"
+    )
+      upgradeRefundCents += cents;
+  }
+  const refundCents = fareRefundCents + baggageRefundCents + upgradeRefundCents;
+  return {
+    farePaidCents,
+    baggagePaidCents,
+    upgradePaidCents,
+    cancellationFeeCents,
+    fareRefundCents,
+    baggageRefundCents,
+    upgradeRefundCents,
+    refundCents,
+  };
+}
+
+function cancellationSummary(
+  booking: Booking,
+  quote: ReturnType<typeof cancellationQuote>,
+  finality: string,
+) {
+  if (quote.baggagePaidCents === 0 && quote.upgradePaidCents === 0)
+    return `Cancel booking ${booking.reference}. Refund ${usd(quote.refundCents)} after a ${usd(quote.cancellationFeeCents)} fee. ${finality} ${FICTION_NOTICE}`;
+  const fareName = fareBrands[booking.fare].name;
+  const parts: string[] = [
+    booking.fare === "SAVER"
+      ? `${usd(quote.fareRefundCents)} unused taxes from the non-refundable ${fareName} fare`
+      : quote.cancellationFeeCents > 0
+        ? `${usd(quote.fareRefundCents)} from the ${fareName} fare after a ${usd(quote.cancellationFeeCents)} cancellation fee`
+        : `${usd(quote.fareRefundCents)} from the ${fareName} fare`,
+  ];
+  if (quote.baggagePaidCents > 0) {
+    if (quote.baggageRefundCents === quote.baggagePaidCents)
+      parts.push(`${usd(quote.baggageRefundCents)} refundable baggage`);
+    else if (quote.baggageRefundCents === 0)
+      parts.push(
+        `${usd(quote.baggagePaidCents)} paid baggage is non-refundable within 24 hours of departure`,
+      );
+    else
+      parts.push(
+        `${usd(quote.baggageRefundCents)} refundable baggage (${usd(quote.baggagePaidCents - quote.baggageRefundCents)} non-refundable within 24 hours of departure)`,
+      );
+  }
+  if (quote.upgradePaidCents > 0) {
+    if (quote.upgradeRefundCents === quote.upgradePaidCents)
+      parts.push(`${usd(quote.upgradeRefundCents)} refunded upgrade`);
+    else if (quote.upgradeRefundCents === 0)
+      parts.push(
+        `${usd(quote.upgradePaidCents)} upgrade is non-refundable on passenger cancellation`,
+      );
+    else
+      parts.push(
+        `${usd(quote.upgradeRefundCents)} refunded upgrade (${usd(quote.upgradePaidCents - quote.upgradeRefundCents)} non-refundable on passenger cancellation)`,
+      );
+  }
+  return `Cancel booking ${booking.reference}. Refund ${usd(quote.refundCents)} (${parts.join("; ")}). ${finality} ${FICTION_NOTICE}`;
+}
 
 const initialSeats = [
   "12A",
@@ -115,8 +253,24 @@ function seedInventory(): Record<string, FlightInventory> {
   );
 }
 function seedBooking(seed: SeedBooking): Booking {
+  const baggage_paid_cents = { ...seed.baggage_paid_cents };
+  const upgrade_paid_cents = { ...seed.upgrade_paid_cents };
+  const baggageTotal = Object.values(baggage_paid_cents).reduce(
+    (sum, cents) => sum + cents,
+    0,
+  );
+  const upgradeTotal = Object.values(upgrade_paid_cents).reduce(
+    (sum, cents) => sum + cents,
+    0,
+  );
+  const fare_paid_cents =
+    seed.fare_paid_cents ??
+    Math.max(0, seed.paid_cents - baggageTotal - upgradeTotal);
   return {
     ...seed,
+    fare_paid_cents,
+    baggage_paid_cents,
+    upgrade_paid_cents,
     passenger: { ...seed.passenger },
     flight_ids: [...seed.flight_ids],
     seats: { ...seed.seats },
@@ -204,6 +358,7 @@ function bookingView(
               "Upgrade applies to the named fictional segment only and is refundable only if Northwind Air cancels that segment.",
           }
         : null,
+    ...(booking.cancellation ? { cancellation: booking.cancellation } : {}),
     note: FICTION_NOTICE,
   };
 }
@@ -783,7 +938,14 @@ function mount(
       terms,
       summary: `Add ${pieces} checked ${pieces === 1 ? "bag" : "bags"} to ${flightById(flightId)!.number} for ${usd(price)}. ${terms.refund_terms}`,
       perform: () => {
+        const payments = bookingPayments(booking);
         booking.baggage[flightId] = terms.new_checked_bags;
+        booking.fare_paid_cents = payments.farePaidCents;
+        booking.baggage_paid_cents = {
+          ...payments.baggageByFlight,
+          [flightId]: (payments.baggageByFlight[flightId] ?? 0) + price,
+        };
+        booking.upgrade_paid_cents = { ...payments.upgradeByFlight };
         booking.paid_cents += price;
         booking.version++;
         return {
@@ -862,29 +1024,48 @@ function mount(
       input = await body(c);
     if (!input || Object.keys(input).length)
       return c.json({ error: "empty_object_required" }, 400);
-    const fee =
-      booking.fare === "SAVER"
-        ? booking.paid_cents - 4200
-        : booking.fare === "FLEX"
-          ? 5000
-          : 0;
-    const refund = booking.fare === "SAVER" ? 4200 : booking.paid_cents - fee;
+    const quote = cancellationQuote(booking, inventory, Date.now());
+    const finality =
+      "Cancelling removes every segment from this fictional booking and cannot be undone. A new booking would need new terms.";
     const terms = {
       booking_reference: booking.reference,
       booking_version: booking.version,
       fare: fareBrands[booking.fare].name,
       paid_cents: booking.paid_cents,
-      cancellation_fee_cents: fee,
-      refund_cents: refund,
+      fare_paid_cents: quote.farePaidCents,
+      baggage_paid_cents: quote.baggagePaidCents,
+      upgrade_paid_cents: quote.upgradePaidCents,
+      cancellation_fee_cents: quote.cancellationFeeCents,
+      fare_refund_cents: quote.fareRefundCents,
+      baggage_refund_cents: quote.baggageRefundCents,
+      upgrade_refund_cents: quote.upgradeRefundCents,
+      refund_cents: quote.refundCents,
       currency: "USD",
       refund_method: "Simulated return to the card on file",
-      finality:
-        "Cancelling removes every segment from this fictional booking and cannot be undone. A new booking would need new terms.",
+      ...(quote.baggagePaidCents > 0
+        ? {
+            baggage_refund_terms:
+              quote.baggageRefundCents === quote.baggagePaidCents
+                ? "Paid extra baggage is refunded because cancellation is at least 24 hours before departure."
+                : quote.baggageRefundCents === 0
+                  ? "Paid extra baggage is not refunded because cancellation is within 24 hours of departure."
+                  : "Paid extra baggage is refunded only for segments at least 24 hours before departure.",
+          }
+        : {}),
+      ...(quote.upgradePaidCents > 0
+        ? {
+            upgrade_refund_terms:
+              quote.upgradeRefundCents > 0
+                ? "The fictional upgrade is refunded because Northwind Air cancelled that segment."
+                : UPGRADE_REFUND_TERMS,
+          }
+        : {}),
+      finality,
     };
     return ctx.gate(c, {
       key: `cancel:${booking.reference}:${booking.version}`,
       terms,
-      summary: `Cancel booking ${booking.reference}. Refund ${usd(refund)} after a ${usd(fee)} fee. ${terms.finality} ${FICTION_NOTICE}`,
+      summary: cancellationSummary(booking, quote, finality),
       perform: () => {
         // Each segment's seat and its place in the cabin go back on sale.
         for (const id of booking.flight_ids) {
@@ -898,13 +1079,27 @@ function mount(
           stock.version++;
         }
         booking.status = "cancelled";
+        booking.cancellation = {
+          paid_cents: booking.paid_cents,
+          fare_paid_cents: quote.farePaidCents,
+          baggage_paid_cents: quote.baggagePaidCents,
+          upgrade_paid_cents: quote.upgradePaidCents,
+          cancellation_fee_cents: quote.cancellationFeeCents,
+          fare_refund_cents: quote.fareRefundCents,
+          baggage_refund_cents: quote.baggageRefundCents,
+          upgrade_refund_cents: quote.upgradeRefundCents,
+          refund_cents: quote.refundCents,
+          currency: "USD",
+        };
         booking.version++;
         return {
-          summary: `Booking ${booking.reference} cancelled; simulated refund ${usd(refund)}. ${FICTION_NOTICE}`,
+          summary: `Booking ${booking.reference} cancelled; simulated refund ${usd(quote.refundCents)}. ${FICTION_NOTICE}`,
           data: bookingView(booking, inventory),
         };
       },
-      stale: (approved) => booking.version !== approved.booking_version,
+      stale: (approved) =>
+        booking.version !== approved.booking_version ||
+        quote.refundCents !== approved.refund_cents,
     });
   });
 
@@ -942,10 +1137,19 @@ function mount(
       terms,
       summary: `Upgrade ${flightById(offer.flight_id)!.number} to Business for ${usd(offer.price_cents)}. ${terms.refund_terms}`,
       perform: () => {
+        const payments = bookingPayments(booking);
         stock.business_available--;
         stock.economy_available++;
         stock.version++;
         booking.cabins[offer.flight_id] = "Business";
+        booking.fare_paid_cents = payments.farePaidCents;
+        booking.baggage_paid_cents = { ...payments.baggageByFlight };
+        booking.upgrade_paid_cents = {
+          ...payments.upgradeByFlight,
+          [offer.flight_id]:
+            (payments.upgradeByFlight[offer.flight_id] ?? 0) +
+            offer.price_cents,
+        };
         booking.paid_cents += offer.price_cents;
         delete booking.upgrade_offer;
         booking.version++;
@@ -1064,12 +1268,25 @@ function mount(
             );
             booking.seats[newId] = newSeat;
           }
+          const payments = bookingPayments(booking);
+          const baggageByFlight = { ...payments.baggageByFlight };
+          if (baggageByFlight[oldId]) {
+            baggageByFlight[newId] =
+              (baggageByFlight[newId] ?? 0) + baggageByFlight[oldId];
+            delete baggageByFlight[oldId];
+          }
           booking.baggage[newId] = booking.baggage[oldId] ?? 0;
           delete booking.baggage[oldId];
           booking.cabins[newId] = newCabin;
           delete booking.cabins[oldId];
           if (booking.upgrade_offer?.flight_id === oldId)
             delete booking.upgrade_offer;
+          booking.fare_paid_cents = Math.max(
+            0,
+            payments.farePaidCents + due - refund,
+          );
+          booking.baggage_paid_cents = baggageByFlight;
+          booking.upgrade_paid_cents = { ...payments.upgradeByFlight };
           booking.paid_cents += due - refund;
           booking.version++;
           oldStock[seatsLeft(oldCabin)]++;
