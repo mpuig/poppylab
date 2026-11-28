@@ -348,8 +348,10 @@ export async function signInCallback(request: Request, cookies: CookieStore) {
   }
   if (!done) return leave("failed");
   // §4.7: revoke the refresh token the new sign-in replaced (best effort;
-  // revoking a replaced token isn't sign-out).
+  // revoking a replaced token isn't sign-out). Awaited: on Workers a request
+  // still pending when the response is returned may never be sent, which
+  // would leave the replaced grant alive at the Company.
   if (replaced)
-    void revokeRefreshToken(connection, replaced).catch(() => undefined);
+    await revokeRefreshToken(connection, replaced).catch(() => undefined);
   return done;
 }

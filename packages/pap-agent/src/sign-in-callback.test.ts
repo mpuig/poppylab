@@ -176,4 +176,37 @@ describe("signInCallback persistence failure handling", () => {
       "old_refresh",
     );
   });
+
+  it("finishes revoking the replaced refresh token before it answers", async () => {
+    const store = copyingBackend();
+    configureBackend(store);
+    const cookies = makeCookies("state_revoke_wait");
+    const visitor = visitorOf(cookies)!;
+    const held = await createRun(visitor, COMPANY);
+    const conn = held.run.connections[0]!;
+    conn.accountToken = "old_refresh";
+    conn.auth = {
+      state: "state_revoke_wait",
+      verifier: "verifier_1",
+      issuer: COMPANY,
+      scopes: "orders:read",
+      expires: Date.now() + 60_000,
+    };
+    await releaseRun(visitor, held);
+
+    // On Workers, work still pending after the response may never run.
+    let revoked = false;
+    state.revokeRefreshToken.mockImplementationOnce(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      revoked = true;
+    });
+
+    const response = await signInCallback(
+      callbackRequest("state_revoke_wait"),
+      cookies,
+    );
+
+    expect(response.status).toBe(303);
+    expect(revoked).toBe(true);
+  });
 });
