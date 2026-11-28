@@ -663,11 +663,13 @@ const MAX_APPROVAL_POLLS = 3;
 /**
  * Operations v3 in a conversation (§6): sends the User's approval in
  * `extensions.operations.approval`. Follows `has_more` pages and brief
- * `working` reads until a conclusive reply for this approval arrives. New
- * terms come back as `approval_required`, and a decline, or an error in
+ * `working` reads until a conclusive reply for this approval arrives
+ * (bounded to ~40s: `wait=10` on the POST plus up to 3 `working` reads).
+ * New terms come back as `approval_required`, and a decline, or an error in
  * answer to the approval, as `approval_declined`, as at an API. If the
- * Company is still working, has unread pages, or returned no conclusive
- * reply, throws a retryable 503 so the operation stays `uncertain`.
+ * Company is still working without a matching `as_of_request` reply, has
+ * unread pages, or returned no conclusive reply, restores the pre-approval
+ * read position and throws a retryable 503 so the operation stays `uncertain`.
  */
 export async function approveInConversation(
   connection: Connection,
@@ -690,6 +692,14 @@ export async function approveInConversation(
   const thread: Thread | undefined =
     s.id === target.id ? s : s.direct?.id === target.id ? s.direct : undefined;
   const requestId = approvalRequestId(approval);
+  const savedCursor = thread?.cursor;
+  const savedSeen = thread ? [...thread.seen] : undefined;
+  const restore = () => {
+    if (!thread) return;
+    if (savedCursor === undefined) delete thread.cursor;
+    else thread.cursor = savedCursor;
+    thread.seen = [...savedSeen!];
+  };
   let cursor = thread?.cursor;
   const seen = thread ?? { seen: [] as string[] };
   let matched = false;
@@ -791,6 +801,7 @@ export async function approveInConversation(
     try {
       return parseRead(await request(connection, nextUrl.href, "GET"));
     } catch (error) {
+      restore();
       if (
         error instanceof ProtocolError &&
         (error.status >= 500 || error.status === 429 || error.status === 408)
@@ -802,9 +813,12 @@ export async function approveInConversation(
     }
   };
 
+  // §8.4: a reply whose `as_of_request` matches this approval settles it
+  // without waiting for `working` to be false; Operations §7 guarantees a
+  // retry with the same ID gets the original response.
   let pages = 0;
   let polls = 0;
-  while (true) {
+  while (!matchedByRequestId) {
     if (read.hasMore) {
       if (!cursor || pages >= MAX_APPROVAL_PAGES) break;
       pages++;
@@ -822,8 +836,10 @@ export async function approveInConversation(
     break;
   }
 
-  if (read.working || read.hasMore || !matched)
+  if (!matchedByRequestId && (read.working || read.hasMore || !matched)) {
+    restore();
     throw new ProtocolError(503, undefined);
+  }
 
   return {
     summary:
