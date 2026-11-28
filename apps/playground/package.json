@@ -21,7 +21,7 @@
     "@poppy-lab/pap-client": "workspace:*",
     "@poppy-lab/pap-core": "workspace:*",
     "@simplewebauthn/browser": "14.0.0",
-    "jose": "^6.2.12",
+    "jose": "^6.2.18",
     "lucide-react": "^0.468.0",
     "marked": "^18.3.0",
     "next": "^16.4.6",
@@ -35,6 +35,6 @@
     "@types/react-dom": "^19.2.3",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18",
-    "wrangler": "^4.156.0"
+    "wrangler": "^4.167.0"
   }
 }
