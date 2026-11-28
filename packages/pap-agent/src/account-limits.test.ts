@@ -123,4 +123,32 @@ describe("overAccountBudget", () => {
       )?.status,
     ).toBe(429);
   });
+
+  it("budgets redeem per authenticated channel user without sharing a per-IP bucket", async () => {
+    for (let i = 0; i < 10; i++)
+      expect(
+        await overAccountBudget("redeem", {
+          ip: "198.51.100.5",
+          account: "telegram\nuser-a",
+        }),
+      ).toBeUndefined();
+
+    expect(
+      (
+        await overAccountBudget("redeem", {
+          ip: "198.51.100.5",
+          account: "telegram\nuser-a",
+        })
+      )?.status,
+    ).toBe(429);
+
+    // Another user from the same channel server IP still has their own budget.
+    for (let i = 0; i < 10; i++)
+      expect(
+        await overAccountBudget("redeem", {
+          ip: "198.51.100.5",
+          account: "telegram\nuser-b",
+        }),
+      ).toBeUndefined();
+  });
 });

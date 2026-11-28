@@ -44,46 +44,160 @@ export interface Backend {
   count(visitor: string, key: string, windowMs: number): Promise<number>;
 }
 
-type Entry = { value: unknown; version: number };
+type Entry = { value: unknown; version: number; expires?: number };
+const MEMORY_SWEEP_MS = 60_000,
+  MEMORY_SWEEP_IMMEDIATE = 1000,
+  MEMORY_SWEEP_CAP = 50_000;
 /** In-process backend. Values are kept by reference (single process). */
 export function memoryBackend(persist?: () => void) {
   const data = new Map<string, Map<string, Entry>>();
   const counters = new Map<string, { n: number; until: number }>();
+  const expiringBuckets = new Set<string>();
+  let nextExpiry = Infinity,
+    lastEntrySweep = -Infinity,
+    nextCounterExpiry = Infinity,
+    lastCounterSweep = -Infinity;
   const bucket = (visitor: string) => {
     let b = data.get(visitor);
     if (!b) data.set(visitor, (b = new Map()));
     return b;
   };
+  const drop = (visitor: string, b: Map<string, Entry>, key: string) => {
+    b.delete(key);
+    if (!b.size) {
+      data.delete(visitor);
+      expiringBuckets.delete(visitor);
+    }
+  };
+  const live = (visitor: string, key: string, now: number) => {
+    const b = data.get(visitor);
+    const entry = b?.get(key);
+    if (!entry) return undefined;
+    if (entry.expires !== undefined && entry.expires <= now) {
+      drop(visitor, b!, key);
+      return undefined;
+    }
+    return entry;
+  };
+  const sweepEntries = (now: number) => {
+    if (now < nextExpiry) return;
+    if (
+      expiringBuckets.size > MEMORY_SWEEP_IMMEDIATE &&
+      expiringBuckets.size <= MEMORY_SWEEP_CAP &&
+      now >= lastEntrySweep &&
+      now - lastEntrySweep < MEMORY_SWEEP_MS
+    )
+      return;
+    let earliest = Infinity;
+    for (const visitor of expiringBuckets) {
+      const b = data.get(visitor);
+      if (!b) {
+        expiringBuckets.delete(visitor);
+        continue;
+      }
+      let hasExpiring = false;
+      for (const [k, entry] of b) {
+        if (entry.expires === undefined) continue;
+        if (entry.expires <= now) b.delete(k);
+        else {
+          hasExpiring = true;
+          if (entry.expires < earliest) earliest = entry.expires;
+        }
+      }
+      if (!b.size) data.delete(visitor);
+      if (!b.size || !hasExpiring) expiringBuckets.delete(visitor);
+    }
+    nextExpiry = earliest;
+    lastEntrySweep = now;
+  };
+  const sweepCounters = (now: number) => {
+    if (now < nextCounterExpiry) return;
+    if (
+      counters.size > MEMORY_SWEEP_IMMEDIATE &&
+      counters.size <= MEMORY_SWEEP_CAP &&
+      now >= lastCounterSweep &&
+      now - lastCounterSweep < MEMORY_SWEEP_MS
+    )
+      return;
+    let earliest = Infinity;
+    for (const [k, v] of counters) {
+      if (v.until <= now) counters.delete(k);
+      else if (v.until < earliest) earliest = v.until;
+    }
+    nextCounterExpiry = earliest;
+    lastCounterSweep = now;
+  };
+  const sweepAll = (now: number) => {
+    sweepEntries(now);
+    sweepCounters(now);
+  };
   const backend: Backend & { data: typeof data } = {
     data,
     async get(visitor, key) {
-      return data.get(visitor)?.get(key);
+      const now = Date.now();
+      sweepAll(now);
+      const entry = live(visitor, key, now);
+      return entry ? { value: entry.value, version: entry.version } : undefined;
     },
-    async put(visitor, key, value, expected) {
-      const b = bucket(visitor);
-      const current = b.get(key);
+    async put(visitor, key, value, expected, expires) {
+      const now = Date.now();
+      sweepAll(now);
+      const current = live(visitor, key, now);
       if ((current?.version ?? null) !== expected) return false;
-      b.set(key, { value, version: (current?.version ?? 0) + 1 });
+      if (expires !== undefined && expires <= now) {
+        const b = data.get(visitor);
+        if (b) drop(visitor, b, key);
+        persist?.();
+        return true;
+      }
+      const b = bucket(visitor);
+      b.set(key, {
+        value,
+        version: (current?.version ?? 0) + 1,
+        ...(expires !== undefined ? { expires } : {}),
+      });
+      if (expires !== undefined) {
+        expiringBuckets.add(visitor);
+        if (expires < nextExpiry) nextExpiry = expires;
+      }
       persist?.();
       return true;
     },
     async remove(visitor, key) {
-      data.get(visitor)?.delete(key);
+      sweepAll(Date.now());
+      const b = data.get(visitor);
+      if (b) drop(visitor, b, key);
       persist?.();
     },
     async list(visitor, prefix) {
-      return [...(data.get(visitor) ?? [])].filter(([k]) =>
-        k.startsWith(prefix),
-      );
+      const now = Date.now();
+      sweepAll(now);
+      const b = data.get(visitor);
+      if (!b) return [];
+      const out: Array<[string, Versioned]> = [];
+      for (const [k, entry] of b) {
+        if (entry.expires !== undefined && entry.expires <= now) {
+          b.delete(k);
+          continue;
+        }
+        if (k.startsWith(prefix))
+          out.push([k, { value: entry.value, version: entry.version }]);
+      }
+      if (!b.size) {
+        data.delete(visitor);
+        expiringBuckets.delete(visitor);
+      }
+      return out;
     },
     async count(visitor, key, windowMs) {
       const id = `${visitor}\n${key}`,
         now = Date.now();
+      sweepAll(now);
       let c = counters.get(id);
       if (!c || c.until <= now) {
-        if (counters.size > 50000)
-          for (const [k, v] of counters) if (v.until <= now) counters.delete(k);
-        counters.set(id, (c = { n: 0, until: now + windowMs }));
+        const until = now + windowMs;
+        counters.set(id, (c = { n: 0, until }));
+        if (until < nextCounterExpiry) nextCounterExpiry = until;
       }
       return ++c.n;
     },
@@ -194,6 +308,7 @@ export function snapshotRows(
   const rows: Row[] = [];
   for (const [bucket, entries] of data)
     for (const [key, entry] of entries) {
+      if (entry.expires !== undefined && entry.expires <= now) continue;
       if (bucket.startsWith("account:")) {
         const value = lastingOfAccount(key, entry.value, now);
         if (value !== undefined) rows.push([bucket, key, value]);

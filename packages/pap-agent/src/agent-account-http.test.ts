@@ -1294,4 +1294,106 @@ describe("linking a channel with a one-time code", () => {
       ).status,
     ).toBe(400);
   });
+
+  it("budgets authenticated channel redemptions per channel user and globally, not by shared channel IP", async () => {
+    onWorkers();
+    const channelIp = "203.0.113.50";
+    configureLinkingChannel({
+      name: "telegram",
+      authenticate: (request) =>
+        request.headers.get("x-channel-secret") === "s3cret",
+    });
+    const redeem = (body: object, secret?: string, ip = channelIp) =>
+      v1(
+        new Request(`${site}/api/v1/link-codes/redeem`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "cf-connecting-ip": ip,
+            ...(secret ? { "x-channel-secret": secret } : {}),
+          },
+          body: JSON.stringify(body),
+        }),
+        jar(),
+      );
+
+    const created = await create({});
+    const token = created.data.tokens!.accessToken as string;
+    const issued = await call("POST", "/account/link-codes", {
+      token,
+      body: {},
+    });
+    expect(issued.status).toBe(201);
+    const code = issued.data.code as string;
+
+    // Unauthenticated callers are rejected with 401 before spending any budget.
+    for (let i = 0; i < 15; i++) {
+      expect(
+        (
+          await redeem(
+            { channel: "telegram", user: "chat-victim", code: "AAAA-BBBB" },
+            "wrong",
+          )
+        ).status,
+      ).toBe(401);
+    }
+
+    // One noisy user exhausts their own 10/min budget and keeps retrying from the same channel IP.
+    for (let i = 0; i < 10; i++) {
+      expect(
+        (
+          await redeem(
+            { channel: "telegram", user: "chat-noisy", code: "AAAA-BBBB" },
+            "s3cret",
+          )
+        ).status,
+      ).toBe(400);
+    }
+    for (let i = 0; i < 15; i++) {
+      expect(
+        (
+          await redeem(
+            { channel: "telegram", user: "chat-noisy", code: "AAAA-BBBB" },
+            "s3cret",
+          )
+        ).status,
+      ).toBe(429);
+    }
+
+    // Another user on the same channel server IP is unaffected and redeems cleanly.
+    const linked = await redeem(
+      { channel: "telegram", user: "chat-victim", code },
+      "s3cret",
+    );
+    expect(linked.status).toBe(200);
+    expect(await linked.json()).toEqual({
+      account: (created.data.account as { id: string }).id,
+      linked: true,
+    });
+
+    // Global 600/min cap still holds across distinct users on the same channel IP.
+    // 11 allowed attempts so far (10 from chat-noisy + 1 from chat-victim).
+    for (let i = 0; i < 589; i++) {
+      expect(
+        (
+          await redeem(
+            {
+              channel: "telegram",
+              user: `chat-bulk-${Math.floor(i / 10)}`,
+              code: "AAAA-BBBB",
+            },
+            "s3cret",
+          )
+        ).status,
+      ).toBe(400);
+    }
+    expect(
+      (
+        await redeem(
+          { channel: "telegram", user: "chat-global-over", code: "AAAA-BBBB" },
+          "s3cret",
+        )
+      ).status,
+    ).toBe(429);
+  });
 });

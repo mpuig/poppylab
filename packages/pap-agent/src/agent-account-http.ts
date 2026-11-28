@@ -494,12 +494,11 @@ export async function redeemOverHttp(request: Request): Promise<Response> {
       "channel_unauthenticated",
       "Only a channel this deployment knows can redeem a link code.",
     );
-  const over = await budget(
-    "redeem",
-    request,
-    `${channel.name}\n${parsed.value.user}`,
-  );
-  if (over) return over;
+  const over = await overAccountBudget("redeem", {
+    ip: null,
+    account: `${channel.name}\n${parsed.value.user}`,
+  });
+  if (over) return fromReply(over);
   const redeemed = await redeemLinkCode({
     channel: channel.name,
     user: parsed.value.user,
