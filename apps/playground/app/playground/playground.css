@@ -2284,7 +2284,7 @@ footer .lab-links a:hover {
   background: var(--surface);
 }
 .messages .operation-review.waiting {
-  border-left: 3px solid var(--wait);
+  border-color: var(--wait);
 }
 .messages .operation-review,
 .ask-block,
@@ -2398,8 +2398,7 @@ footer .lab-links a:hover {
   color: var(--ink-soft);
 }
 .ask-block.waiting {
-  border-color: var(--line-strong);
-  border-left: 3px solid var(--wait);
+  border-color: var(--wait);
 }
 .ask-block p {
   margin: 0;
