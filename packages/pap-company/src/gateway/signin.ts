@@ -24,6 +24,7 @@ import {
 import { answeredPage, deviceNotice } from "./device-pages.ts";
 import {
   BROWSER_SIGN_IN,
+  hash,
   isChallenge,
   ObjectMap,
   type Code,
@@ -36,6 +37,13 @@ import {
 const REQUEST_URI = "urn:ietf:params:oauth:request_uri:";
 /** Resources one consent may grant (`selectResources`). */
 const MAX_RESOURCES = 100;
+/** Unanswered consent pages kept across all clients. */
+const MAX_PENDING = 500;
+/** Unanswered consent pages one source may hold open for a client at once. */
+const MAX_PENDING_PER_SOURCE = 10;
+/** New consent pages one source, and all sources together, may open in a minute. */
+const OPEN_PER_SOURCE = 30,
+  OPEN_IN_ALL = 500;
 
 /**
  * §4.2: a requested redirect URI is a registered one exactly, except for
@@ -73,6 +81,12 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
    * for all.
    */
   const failures = attemptLimit(10, 60000, 100);
+  /**
+   * New consent pages: thirty a minute from one source (`sourceOf`, else one
+   * bucket), so a flood from one source gets 429 without blocking others or
+   * filling a client's share, and a backstop for all.
+   */
+  const opens = attemptLimit(OPEN_PER_SOURCE, 60000, OPEN_IN_ALL);
   /** The demo password's salt and scrypt hash, checked once, here. */
   const password = deploy.passwordHash?.match(/^([^:]+):([0-9a-f]{128})$/i);
   if (deploy.passwordHash !== undefined && !password)
@@ -314,7 +328,8 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
         expires: Date.now() + 300000,
         ...(from?.dpop ? { dpop: from.dpop } : {}),
       });
-      if (!nonce) return c.json({ error: "rate_limited" }, 429);
+      if (!nonce)
+        return c.json({ error: "rate_limited" }, 429, { "Retry-After": "60" });
       // Used from here on: this is the only consent page it will make.
       if (from) from.consent = nonce;
     }
@@ -323,15 +338,31 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
 
   /**
    * A new consent page for this browser: its nonce, and the cookies that
-   * tie it to the browser. `undefined` when the client has too many open.
+   * tie it to the browser. Rate-limited per source (and globally), and
+   * capped per source within a client, per client share, and globally so one
+   * source gets 429 without affecting other sources or evicting anyone else's
+   * unanswered pages.
    */
   function open(c: Context, consent: Consent) {
-    for (const [id, p] of pending)
-      if (p.expires < Date.now()) pending.delete(id);
-    if (ctx.overShare(pending.values(), consent.client, 500)) return undefined;
+    const source = ctx.sourceOf(c) ?? "unknown";
+    if (opens.blocked(source)) return undefined;
+    const sourceHash = hash(source);
+    const now = Date.now();
+    let ownFromSource = 0;
+    for (const [id, p] of pending) {
+      if (p.expires < now) pending.delete(id);
+      else if (p.client === consent.client && p.source === sourceHash)
+        ownFromSource++;
+    }
+    if (
+      ownFromSource >= MAX_PENDING_PER_SOURCE ||
+      ctx.overShare(pending.values(), consent.client, MAX_PENDING)
+    )
+      return undefined;
+    opens.count(source);
     ctx.markDirty(c.req.raw);
     const nonce = randomId();
-    pending.set(nonce, consent);
+    pending.set(nonce, { ...consent, source: sourceHash });
     // Isolated deployments remember which browser approved (website link).
     if (isolated && !ctx.browserOf(c))
       c.header("Set-Cookie", ctx.browserCookie(randomId()), { append: true });
@@ -400,7 +431,8 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
       expires: Math.min(Date.now() + 300000, device.expires),
       device: key,
     });
-    if (!nonce) return c.json({ error: "rate_limited" }, 429);
+    if (!nonce)
+      return c.json({ error: "rate_limited" }, 429, { "Retry-After": "60" });
     device.consent = nonce;
     return render(
       c,

@@ -458,3 +458,51 @@ it("sweeps expired unread streams cleanly without breaking new streams", async (
   expect((await s.read(1)).length).toBeGreaterThanOrEqual(1);
   await s.cancel();
 });
+
+it("closes the SSE stream controller when end() is triggered externally via abort signal", async () => {
+  const x = await lab();
+  const controller = new AbortController();
+  const response = await x.app.request(
+    new Request(`${origin}${x.events}`, {
+      headers: {
+        "Poppy-Version": "1.0",
+        "Poppy-Session": await signSessionHeader({
+          key: x.sessionKey,
+          clientId: client,
+          audience: origin,
+          sessionId: x.sessionId,
+          userId: "usr_test",
+          method: "GET",
+          url: `${origin}${x.events}`,
+        }),
+        Accept: "text/event-stream",
+      },
+      signal: controller.signal,
+    }),
+  );
+  expect(response.status).toBe(200);
+  const s = listen(response);
+  // Drain the initial backlog so pull() is now awaiting new events.
+  expect(await s.read(2)).toHaveLength(2);
+  expect(s.state.done).toBe(false);
+
+  // Triggering end() externally via abort must close the stream instead of hanging.
+  const ending = s.end(1000);
+  await sleep(10);
+  controller.abort();
+  expect(await ending).toBe(true);
+});
+
+it("closes an active SSE stream controller when end() is triggered externally by the expiry sweep", async () => {
+  const x = await lab({ streamMs: 40 });
+  const res = await x.call(x.events, { headers: STREAM });
+  expect(res.status).toBe(200);
+  // Wait for expiry before starting to read, then let a new stream sweep call end().
+  await sleep(60);
+  const second = await x.call(x.events, { headers: STREAM });
+  expect(second.status).toBe(200);
+  // The first stream had end() called externally before pull(); reading it must close cleanly.
+  const s = listen(res);
+  expect(await s.end(1000)).toBe(true);
+  await second.body?.cancel();
+});

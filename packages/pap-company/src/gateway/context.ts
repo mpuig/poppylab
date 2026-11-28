@@ -43,6 +43,14 @@ export class ClientLookupBusy extends Error {
 export const isClientBusy = (e: unknown): e is ClientLookupBusy =>
   e instanceof ClientLookupBusy;
 
+class ClientFetchError extends Error {
+  override readonly cause: unknown;
+  constructor(cause: unknown) {
+    super("client_fetch_failed", { cause });
+    this.cause = cause;
+  }
+}
+
 export const clientBusyResponse = (c: Context) =>
   c.json({ error: "temporarily_unavailable" }, 503, {
     "Retry-After": "5",
@@ -255,8 +263,12 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
   const clients = new Map<string, ClientInfo>();
   const inflight = new Map<string, Promise<ClientInfo>>();
   const MAX_INFLIGHT = 20;
-  const failed = new Map<string, number>();
+  const failed = new Map<string, { until: number; fetchFailed: boolean }>();
   const FAILED_TTL_MS = 15000;
+  /** Maximum time past `until` a cached entry may still be served on fetch failure or saturation. */
+  const MAX_STALE_MS = 60 * 60 * 1000;
+  const usableStale = (entry: ClientInfo | undefined, now = Date.now()) =>
+    entry && entry.until + MAX_STALE_MS > now ? entry : undefined;
   /** A URL from client metadata, unless it doesn't parse or has credentials. */
   const urlOf = (value: string) => {
     try {
@@ -286,8 +298,11 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
    * Extensions aren't read from it: requests declare them (§3.4).
    */
   async function client(id: string): Promise<ClientInfo> {
+    const now = Date.now();
     const cached = clients.get(id);
-    if (cached && cached.until > Date.now()) return cached;
+    if (cached && cached.until > now) return cached;
+    const stale = usableStale(cached, now);
+    if (cached && !stale) clients.delete(id);
     // Every Session, token, grant and sign-in keeps it, so its length is
     // bounded for the protocol state to fit its rows (`split-store.ts`).
     if (id.length > MAX_CLIENT_ID) throw new Error("invalid_client");
@@ -297,17 +312,30 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
       (url.protocol !== "https:" && !(deploy.httpClients ?? []).includes(id))
     )
       throw new Error("invalid_client");
-    const retryAt = failed.get(id);
-    if (retryAt !== undefined) {
-      if (retryAt > Date.now()) throw new Error("invalid_client");
+    const failure = failed.get(id);
+    if (failure !== undefined) {
+      if (failure.until > now) {
+        if (failure.fetchFailed && stale) return stale;
+        throw new Error("invalid_client");
+      }
       failed.delete(id);
     }
     const pending = inflight.get(id);
     if (pending) return pending;
-    if (inflight.size >= MAX_INFLIGHT) throw new ClientLookupBusy();
+    if (inflight.size >= MAX_INFLIGHT) {
+      if (stale) return stale;
+      throw new ClientLookupBusy();
+    }
+    const fetchDoc = async (target: string) => {
+      try {
+        return await deploy.fetchJson(target);
+      } catch (cause) {
+        throw new ClientFetchError(cause);
+      }
+    };
     const load = async (): Promise<ClientInfo> => {
       try {
-        const metadata = (await deploy.fetchJson(id)) as {
+        const metadata = (await fetchDoc(id)) as {
           client_id?: unknown;
           client_name?: unknown;
           jwks_uri?: unknown;
@@ -320,10 +348,13 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
           !Array.isArray(metadata.redirect_uris)
         )
           throw new Error("invalid_client");
-        const jwks = (await deploy.fetchJson(metadata.jwks_uri)) as {
+        const jwks = (await fetchDoc(metadata.jwks_uri)) as {
           keys?: JWK[];
         };
-        if (!Array.isArray(jwks?.keys) || jwks.keys.some((k) => "d" in k))
+        if (
+          !Array.isArray(jwks?.keys) ||
+          jwks.keys.some((k) => !k || typeof k !== "object" || "d" in k)
+        )
           throw new Error("invalid_client");
         const info: ClientInfo = {
           keys: jwks.keys.slice(0, 8),
@@ -347,9 +378,17 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
         clients.set(id, info);
         return info;
       } catch (e) {
+        const fetchFailed = e instanceof ClientFetchError;
         failed.delete(id);
         if (failed.size >= 200) failed.delete(failed.keys().next().value!);
-        failed.set(id, Date.now() + FAILED_TTL_MS);
+        failed.set(id, { until: Date.now() + FAILED_TTL_MS, fetchFailed });
+        if (fetchFailed) {
+          const fallback = usableStale(stale);
+          if (fallback) return fallback;
+          clients.delete(id);
+          throw e.cause;
+        }
+        clients.delete(id);
         throw e;
       }
     };

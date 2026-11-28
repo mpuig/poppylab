@@ -157,6 +157,8 @@ export type Consent = {
   scopes: string;
   challenge: string;
   expires: number;
+  /** SHA-256 hash of the source that opened this page (never the raw IP). */
+  source?: string;
   /** RFC 9449 §10: the code is bound to this DPoP key (from PAR). */
   dpop?: string;
   /**
