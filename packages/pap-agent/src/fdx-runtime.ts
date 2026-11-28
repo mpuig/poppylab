@@ -38,10 +38,14 @@ export function fdxShaped(
     servers?: Array<{ url?: unknown }>;
     paths?: unknown;
   } | null;
-  const server = described?.servers?.[0]?.url;
+  const servers = described?.servers;
+  const server = Array.isArray(servers) ? servers[0]?.url : undefined;
   let base: URL;
   try {
-    base = new URL(typeof server === "string" ? server : new URL(url).origin);
+    base =
+      typeof server === "string"
+        ? new URL(server, url)
+        : new URL(new URL(url).origin);
   } catch {
     return false;
   }

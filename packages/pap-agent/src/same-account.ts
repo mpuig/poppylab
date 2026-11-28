@@ -18,18 +18,31 @@ export function checkTarget(
   described: unknown,
   issuer: string,
   scopes: readonly string[],
+  specUrl = issuer,
 ) {
   const origin = new URL(issuer).origin;
   const spec = described as {
     servers?: Array<{ url?: unknown }>;
     paths?: Record<string, Record<string, unknown>>;
   };
-  const server = spec?.servers?.[0]?.url;
-  const base = (typeof server === "string" ? server : origin).replace(
-    /\/$/,
-    "",
-  );
-  if (new URL(base).origin !== origin) return undefined;
+  const servers = spec?.servers;
+  const server = Array.isArray(servers) ? servers[0]?.url : undefined;
+  let resolved: URL;
+  try {
+    resolved =
+      typeof server === "string" ? new URL(server, specUrl) : new URL(origin);
+  } catch {
+    return undefined;
+  }
+  if (
+    resolved.origin !== origin ||
+    resolved.username ||
+    resolved.password ||
+    resolved.search ||
+    resolved.hash
+  )
+    return undefined;
+  const base = resolved.href.replace(/\/$/, "");
   const reads = Object.entries(spec?.paths ?? {}).flatMap(([path, item]) => {
     const get = item?.get as
       | {
@@ -62,6 +75,7 @@ async function sessionCheckTarget(
     await protocolRequest(api.url, {}, localOrigins),
     issuer,
     scopes,
+    api.url,
   );
 }
 

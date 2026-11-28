@@ -154,6 +154,7 @@ export function signingAlgorithm(jwk: JWK) {
 
 const CLOCK_TOLERANCE_SECONDS = 5;
 const REPLAY_MARGIN_SECONDS = 5;
+const PROOF_MAX_AGE_SECONDS = 65;
 
 export async function verifyAssertion(
   jwt: string,
@@ -215,7 +216,7 @@ export async function verifyProof(
     await importJWK(header.jwk, "ES256"),
     {
       algorithms: ["ES256"],
-      maxTokenAge: "65s",
+      maxTokenAge: `${PROOF_MAX_AGE_SECONDS}s`,
       clockTolerance: CLOCK_TOLERANCE_SECONDS,
     },
   );
@@ -232,9 +233,14 @@ export async function verifyProof(
   )
     throw new Error("Invalid proof binding");
   validateNonce?.(payload.nonce, thumbprint);
+  const now = Math.floor(Date.now() / 1000);
+  const iat = typeof payload.iat === "number" ? payload.iat : now;
   replay.accept(
     `proof:${thumbprint}:${payload.jti}`,
-    Math.floor(Date.now() / 1000) + 70,
+    Math.max(now, iat) +
+      PROOF_MAX_AGE_SECONDS +
+      CLOCK_TOLERANCE_SECONDS +
+      REPLAY_MARGIN_SECONDS,
   );
   return thumbprint;
 }
