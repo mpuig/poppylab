@@ -4,7 +4,7 @@
  * 1. Fernwick: a question connects it; sign in as Elena, read only, then
  *    give change permission from the guide's suggestion; ask for the plan
  *    switch; approve it by typing "sí".
- * 2. Lantern: a question connects it; ask it something; sign in read
+ * 2. Lantern: a question connects it and is asked there; sign in read
  *    only; ask for an order change that needs change permission; give it
  *    from Iris's question; go on with "sí"; approve on the card, from the
  *    keyboard.
@@ -223,13 +223,16 @@ test("one long conversation keeps everything where it arose", async ({
   // 2. Lantern ----------------------------------------------------------
   const lantern: string[] = [];
   await send(page, "¿Qué hay en el menú de Lantern?");
-  // With Fernwick connected, the model connects Lantern with Iris's tool.
-  lantern.push("you: ¿Qué hay en el menú de Lantern?", "iris");
-  await expectRows(page, [...fernwick, ...lantern]);
-  await expectWaiting(page, 0);
-
-  await send(page, "Enséñame el menú de Lantern.");
-  lantern.push("you: Enséñame el menú de Lantern.", "company", "iris");
+  // With Fernwick connected, Iris connects Lantern, says so, and asks the
+  // question there: its agent answers, then Iris does. This turn, shown
+  // signed out at Lantern while Fernwick is signed in, has to stay where
+  // it is through the sign-in that follows.
+  lantern.push(
+    "you: ¿Qué hay en el menú de Lantern?",
+    "iris",
+    "company",
+    "iris",
+  );
   await expectRows(page, [...fernwick, ...lantern, "ask signin Lantern open"]);
   await expectWaiting(page, 0);
   await expectTalkTo(page, LANTERN);

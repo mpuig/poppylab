@@ -10,10 +10,9 @@
  *
  * - Iris's routing question ("which Company is this message for?"): the
  *   Company the message names, else the last turn's, else `unsure`.
- * - A turn that names one of the scenario's Companies while it isn't
- *   connected: Iris's own `connect_company` tool, then one line.
- * - Any other turn: the rule whose words the User's message has, by how many tool
- *   results the turn has had so far: a tool call to make, then the answer.
+ * - A turn: the rule whose words the User's message has, by how many
+ *   tool results the turn has had so far: a tool call to make, then the
+ *   answer.
  *   A message no rule knows is answered in one line.
  *
  * Plain Node, no dependencies, so it runs as it is (`node fake-model.ts`
@@ -41,7 +40,10 @@ const lastUser = (messages: Message[]) =>
   messages[messages.map((m) => m.role).lastIndexOf("user")];
 /** Lower case, without accents, for matching words. */
 const plain = (text: string) =>
-  text.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
 
 /** The routing question's answer: one origin, or `unsure`. */
 function route(prompt: string): string {
@@ -123,15 +125,6 @@ const rules: Rule[] = [
   },
 ];
 
-/**
- * The scenario's Companies, by the word the User names each with: its
- * name, and a tool only it offers, which says whether it is connected.
- */
-const companies: Record<string, { name: string; tool: string }> = {
-  fernwick: { name: "Fernwick Power & Light", tool: "change_plan" },
-  lantern: { name: "Lantern Noodle Bar", tool: "change_order" },
-};
-
 /** The reply to one request, by the rules above. */
 export function replyTo(request: Request): Reply {
   const messages = request.messages ?? [];
@@ -147,19 +140,6 @@ export function replyTo(request: Request): Reply {
   const tools = (request.tools ?? []).flatMap((t) =>
     t.function?.name ? [t.function.name] : [],
   );
-  // A Company the message names that isn't connected: Iris's own tool
-  // connects it, and the next message can ask it.
-  const absent = Object.entries(companies).find(
-    ([word, c]) =>
-      asked.includes(word) && !tools.some((t) => t.endsWith(c.tool)),
-  )?.[1];
-  if (absent && tools.includes("connect_company"))
-    return done
-      ? { text: `He conectado ${absent.name} a esta conversación.` }
-      : {
-          call: "connect_company",
-          args: { company: absent.name, action: "connect" },
-        };
   const rule = rules.find((r) => r.words.test(asked));
   if (!rule) return { text: "De acuerdo." };
   const next = rule.calls[done];
