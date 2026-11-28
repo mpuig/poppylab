@@ -37,7 +37,7 @@ vi.mock("@poppy-lab/pap-agent/deployment", async (importOriginal) => ({
   isAccountCompany: (origin: string) => !policy.noAccount.includes(origin),
   proposalsAllowed: () => true,
 }));
-import { connected, discovered } from "@poppy-lab/pap-agent/company-fixture";
+import { connected, discovered } from "@poppy-lab/pap-agent/testing";
 import { keepLines } from "@poppy-lab/pap-agent/inspector-log";
 import { seedRun } from "@poppy-lab/pap-agent/runs";
 import type { Operation, Run } from "@poppy-lab/pap-agent/runtime";

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { discovered } from "@poppy-lab/pap-agent/company-fixture";
+import { discovered } from "@poppy-lab/pap-agent/testing";
 import { lanternUrl, type Message } from "./companies";
 import { companyFromView, type CompanyState } from "./company-state";
 import {

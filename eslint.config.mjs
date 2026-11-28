@@ -1,6 +1,28 @@
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 
+const restrictedInternalDynamicImport = {
+  selector:
+    "ImportExpression[source.value=/^@poppy-lab\\/pap-(?:agent|company)\\/src(?:\\/|$)/]",
+  message:
+    "Import from the package's public entry points instead of internal src/ paths.",
+};
+
+const restrictedBoundaryCasts = [
+  {
+    selector:
+      "TSAsExpression[typeAnnotation.type='TSNeverKeyword'], TSTypeAssertion[typeAnnotation.type='TSNeverKeyword']",
+    message:
+      "Avoid `as never` boundary casts; use the validated api-contract types instead.",
+  },
+  {
+    selector:
+      "TSAsExpression[typeAnnotation.type='TSAnyKeyword'], TSTypeAssertion[typeAnnotation.type='TSAnyKeyword']",
+    message:
+      "Avoid `as any` boundary casts; use the validated api-contract types instead.",
+  },
+];
+
 export default tseslint.config(
   {
     ignores: [
@@ -39,6 +61,46 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-vars": [
         "error",
         { argsIgnorePattern: "^_" },
+      ],
+    },
+  },
+  {
+    files: [
+      "**/*.ts",
+      "**/*.tsx",
+      "**/*.js",
+      "**/*.jsx",
+      "**/*.mjs",
+      "**/*.cjs",
+    ],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              regex: "^@poppy-lab/pap-(?:agent|company)/src(?:/|$)",
+              message:
+                "Import from the package's public entry points instead of internal src/ paths.",
+            },
+          ],
+        },
+      ],
+      "no-restricted-syntax": ["error", restrictedInternalDynamicImport],
+    },
+  },
+  {
+    files: [
+      "packages/pap-agent/src/api-http.ts",
+      "packages/pap-agent/src/agent-account-http.ts",
+      "packages/pap-agent/src/api-contract/**",
+    ],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "error",
+      "no-restricted-syntax": [
+        "error",
+        restrictedInternalDynamicImport,
+        ...restrictedBoundaryCasts,
       ],
     },
   },

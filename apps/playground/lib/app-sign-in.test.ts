@@ -60,7 +60,7 @@ import { createIdentity } from "@poppy-lab/pap-client";
 import { loadAccount } from "@poppy-lab/pap-agent/account-store";
 import { acquireRun, releaseRun } from "@poppy-lab/pap-agent/runs";
 import { peekAppSignIn } from "@poppy-lab/pap-agent/sign-in-cookie";
-import { softwareAuthenticator } from "@poppy-lab/pap-agent/webauthn-fixture";
+import { softwareAuthenticator } from "@poppy-lab/pap-agent/testing";
 import * as harborline from "../../harborline/src/test-harness";
 import { GET as callback } from "../app/api/account/callback/route";
 import { GET, POST } from "../app/api/v1/[...path]/route";

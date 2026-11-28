@@ -49,7 +49,7 @@ import {
   ProtocolError,
   type ApiTool,
 } from "@poppy-lab/pap-client";
-import { connected, discovered } from "@poppy-lab/pap-agent/company-fixture";
+import { connected, discovered } from "@poppy-lab/pap-agent/testing";
 import { seedRun } from "@poppy-lab/pap-agent/runs";
 import type { Run } from "@poppy-lab/pap-agent/runtime";
 import { backToPublic } from "@poppy-lab/pap-agent/transcript";

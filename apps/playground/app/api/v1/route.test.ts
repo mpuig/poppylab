@@ -56,7 +56,7 @@ import {
 } from "@poppy-lab/pap-agent/runs";
 import type { Run } from "@poppy-lab/pap-agent/runtime";
 import { TRANSCRIPT_LIMITS } from "@poppy-lab/pap-agent/transcript";
-import { softwareAuthenticator } from "@poppy-lab/pap-agent/webauthn-fixture";
+import { softwareAuthenticator } from "@poppy-lab/pap-agent/testing";
 import two from "../account/fixtures/stored-two-companies.json";
 import { DELETE, GET, POST } from "./[...path]/route";
 

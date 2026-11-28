@@ -18,7 +18,6 @@
     "./approval-question": "./src/approval-question.ts",
     "./auto-approval": "./src/auto-approval.ts",
     "./chat": "./src/chat.ts",
-    "./company-fixture": "./src/company-fixture.ts",
     "./company-names": "./src/company-names.ts",
     "./company-policy": "./src/company-policy.ts",
     "./connect-command": "./src/connect-command.ts",
@@ -53,9 +52,9 @@
     "./spec-sections": "./src/spec-sections.ts",
     "./spoken": "./src/spoken.ts",
     "./standing-instructions": "./src/standing-instructions.ts",
+    "./testing": "./src/testing.ts",
     "./transcript": "./src/transcript.ts",
     "./typed-answers": "./src/typed-answers.ts",
-    "./webauthn-fixture": "./src/webauthn-fixture.ts",
     "./words": "./src/words.ts"
   },
   "scripts": {
