@@ -112,6 +112,7 @@ pnpm format:check          # Prettier formatting check
 pnpm typecheck             # TypeScript checks across all workspaces + smoke scripts
 pnpm test                  # Vitest unit & integration test suites
 pnpm scenarios             # End-to-end multi-company protocol scenarios
+pnpm e2e                   # One long conversation in Chromium (Playwright); not part of pnpm test
 pnpm learn:diagrams:check  # Verify generated Learn & Post SVG diagrams are up to date
 pnpm spec:drift            # Check pinned spec/1.0/ against personalagentprotocol.org
 pnpm build                 # Build all apps and packages
