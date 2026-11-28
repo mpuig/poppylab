@@ -405,10 +405,11 @@ it("opens a second consent on the customer this browser allowed this agent befor
 });
 
 it("evicts a client's oldest unanswered consent page when it hits its share instead of locking out sign-ins", async () => {
-  const x = await setup();
-  const open = async () => {
+  const x = await setup({ sourceAddress: (c) => c.req.header("x-real-ip") });
+  const open = async (ip: string) => {
     const r = await x.app.request(
       `/oauth/authorize?${new URLSearchParams({ ...request, client_id: client })}`,
+      { headers: { "x-real-ip": ip } },
     );
     const cookie = r.headers.getSetCookie()[0]?.split(";")[0];
     return { status: r.status, cookie };
@@ -420,17 +421,17 @@ it("evicts a client's oldest unanswered consent page when it hits its share inst
       { cookie, origin },
     );
 
-  // Fill the client's default share (20% of 500 = 100 pending consent pages).
+  // Fill the client's default share (20% of 500 = 100 pending consent pages) across distinct sources.
   const pages: string[] = [];
   for (let i = 0; i < 100; i++) {
-    const page = await open();
+    const page = await open(`198.51.100.${i + 1}`);
     expect(page.status).toBe(200);
     pages.push(page.cookie!);
   }
   expect(Object.keys(x.store.value.consents!)).toHaveLength(100);
 
   // The 101st request succeeds and evicts only the oldest unanswered page.
-  const newest = await open();
+  const newest = await open("198.51.100.101");
   expect(newest.status).toBe(200);
   expect(Object.keys(x.store.value.consents!)).toHaveLength(100);
 
@@ -438,6 +439,52 @@ it("evicts a client's oldest unanswered consent page when it hits its share inst
   expect((await approve(pages[0]!)).status).toBe(400);
   expect((await approve(pages[1]!)).status).toBe(302);
   expect((await approve(newest.cookie!)).status).toBe(302);
+});
+
+it("rate-limits consent page floods per source with Retry-After without locking out other sources", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  const x = await setup({ sourceAddress: (c) => c.req.header("x-real-ip") });
+  const authorize = (ip?: string) =>
+    x.app.request(
+      `/oauth/authorize?${new URLSearchParams({ ...request, client_id: client })}`,
+      ip ? { headers: { "x-real-ip": ip } } : {},
+    );
+
+  // One source opens 30 consent pages in a minute; the 31st gets 429 with Retry-After: 60.
+  for (let i = 0; i < 30; i++)
+    expect((await authorize("198.51.100.1")).status).toBe(200);
+  const saves = x.store.saves;
+  const blocked = await authorize("198.51.100.1");
+  expect(blocked.status).toBe(429);
+  expect(blocked.headers.get("retry-after")).toBe("60");
+  expect(await error(blocked)).toBe("rate_limited");
+  expect(x.store.saves).toBe(saves);
+
+  // Another source can still open and approve a consent page for the same client.
+  const legitimate = await authorize("198.51.100.2");
+  expect(legitimate.status).toBe(200);
+  const cookie = legitimate.headers.getSetCookie()[0]!.split(";")[0]!;
+  const approved = await x.form(
+    "/oauth/authorize",
+    { nonce: cookie.split("=")[1]!, decision: "approve", account: "elena" },
+    { cookie, origin, "x-real-ip": "198.51.100.2" },
+  );
+  expect(approved.status).toBe(302);
+
+  // After the one-minute window passes, the blocked source can open pages again.
+  vi.setSystemTime(Date.now() + 61000);
+  expect((await authorize("198.51.100.1")).status).toBe(200);
+
+  // Without a configured source address, flooding still hits 429 with Retry-After: 60.
+  const fallback = await setup();
+  let last!: Response;
+  for (let i = 0; i < 31; i++)
+    last = await fallback.app.request(
+      `/oauth/authorize?${new URLSearchParams({ ...request, client_id: client })}`,
+    );
+  expect(last.status).toBe(429);
+  expect(last.headers.get("retry-after")).toBe("60");
+  expect(await error(last)).toBe("rate_limited");
 });
 
 it("keeps other clients' consent pages intact during per-client eviction and enforces the global 500 cap", async () => {

@@ -38,6 +38,9 @@ const REQUEST_URI = "urn:ietf:params:oauth:request_uri:";
 const MAX_RESOURCES = 100;
 /** Unanswered consent pages kept across all clients. */
 const MAX_PENDING = 500;
+/** New consent pages one source, and all sources together, may open in a minute. */
+const OPEN_PER_SOURCE = 30,
+  OPEN_IN_ALL = 500;
 
 /**
  * §4.2: a requested redirect URI is a registered one exactly, except for
@@ -75,6 +78,12 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
    * for all.
    */
   const failures = attemptLimit(10, 60000, 100);
+  /**
+   * New consent pages: thirty a minute from one source (`sourceOf`, else one
+   * bucket), so a flood from one source gets 429 without blocking others or
+   * filling a client's share, and a backstop for all.
+   */
+  const opens = attemptLimit(OPEN_PER_SOURCE, 60000, OPEN_IN_ALL);
   /** The demo password's salt and scrypt hash, checked once, here. */
   const password = deploy.passwordHash?.match(/^([^:]+):([0-9a-f]{128})$/i);
   if (deploy.passwordHash !== undefined && !password)
@@ -325,11 +334,15 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
 
   /**
    * A new consent page for this browser: its nonce, and the cookies that
-   * tie it to the browser. When a client reaches its share, its oldest
-   * unanswered page is evicted so flooding a public `client_id` cannot lock
-   * new sign-ins out; returns `undefined` only when the global cap is full.
+   * tie it to the browser. Rate-limited per source (and globally) so a single
+   * flooder gets 429 without locking out others. When a client reaches its
+   * share across sources, its oldest unanswered page is evicted so flooding a
+   * public `client_id` cannot lock new sign-ins out; returns `undefined` when
+   * rate-limited or when the global cap is full.
    */
   function open(c: Context, consent: Consent) {
+    const source = ctx.sourceOf(c) ?? "unknown";
+    if (opens.blocked(source)) return undefined;
     const now = Date.now();
     const own: string[] = [];
     for (const [id, p] of pending) {
@@ -348,6 +361,7 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
       }
     }
     if (pending.size >= MAX_PENDING) return undefined;
+    opens.count(source);
     ctx.markDirty(c.req.raw);
     const nonce = randomId();
     pending.set(nonce, consent);
