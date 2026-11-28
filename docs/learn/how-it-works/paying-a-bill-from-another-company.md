@@ -52,7 +52,7 @@ dollars from Operating checking, with the bill's reference and "Bill for
 October 2026" as the memo.
 
 Harborline does not pay yet. It answers with the terms it would apply, shown
-as a card where the proposal arrived, and Iris asks: "Harborline Bank wants to
+as a card where the proposal arrived, and Iris says: "Harborline Bank wants to
 pay Fernwick Power & Light $183.78. It expires in 10 minutes. Shall I approve
 it?" The answer above also says, in one line, what Iris took from Fernwick for
 the bank.

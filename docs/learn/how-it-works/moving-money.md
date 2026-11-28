@@ -218,7 +218,7 @@ reads her accounts and her saved recipients, finds Beacon Studio LLC among
 them, and asks Harborline for the payment from checking. Her words after
 "for" travel as the memo.
 
-Harborline answers with terms again, and Iris asks: "Harborline Bank wants
+Harborline answers with terms again, and Iris says: "Harborline Bank wants
 to pay Beacon Studio LLC $125.00. It expires in 10 minutes. Shall I approve
 it?" The card sets the terms out as rows: the
 amount, the balance before and after, the memo, the recipient by name with the

@@ -135,7 +135,7 @@ accept it.
 
 Northwind does not upgrade her yet. It answers that this change needs the
 customer's approval and sends back the terms it would apply. Iris shows them
-as a card in the conversation, where the proposal arrived, and asks: "Northwind
+as a card in the conversation, where the proposal arrived, and says: "Northwind
 Air wants to change your booking: the cabin from Economy to Business. Amount
 due: $248.00. It expires in 10 minutes. Shall I approve it?"
 

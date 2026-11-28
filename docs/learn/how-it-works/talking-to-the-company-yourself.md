@@ -83,7 +83,7 @@ talk:
 ![Iris says: Lantern Noodle Bar would like to talk with you directly. I won't read or answer there, and you can leave at any time. Talk with Lantern Noodle Bar? Two buttons read Talk to Lantern Noodle Bar and Not now](../../../apps/playground/public/learn-media/how-it-works/talking-to-the-company-yourself/02-invitation.webp "The invitation comes as Iris's question in the conversation, and Elena chooses.")
 
 The invitation is a block of its own in the conversation, under Lantern's
-answer, which gives Lantern's reason in its words. Iris asks: "Lantern Noodle
+answer, which gives Lantern's reason in its words. Iris says: "Lantern Noodle
 Bar would like to talk with you directly. I won't read or answer there, and
 you can leave at any time. Talk with Lantern Noodle Bar?"
 

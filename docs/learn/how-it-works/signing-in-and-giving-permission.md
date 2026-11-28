@@ -154,7 +154,7 @@ permission, and Elena gave only the one to read. Nothing changed: Juniper's
 website still showed Thursday and no proposal from the agent.
 
 The answer says what is missing and what happened: the request needs the
-change permission, and Iris didn't send it to Juniper. Then Iris asks: "Ask
+change permission, and Iris didn't send it to Juniper. Then Iris says: "Ask
 Juniper Market for change permission to go on with 'Move my recurring
 delivery to Saturday'? Juniper Market's page opens again, and nothing changes
 until you approve the change itself."
@@ -218,7 +218,7 @@ entry Juniper lists for Iris afterwards, with both permissions.
 ![Iris says: Juniper Market's own page is open in a new tab for the change permission. Sign in there; I never see your password. Then: You're signed in at Juniper Market. Shall I go on with Move my recurring delivery to Saturday? A button reads Yes, go on, and a block below reads Change permission given at Juniper Market](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/07-iris-asks-to-go-on.webp "Iris waits for Elena's word before it sends the request it held back.")
 
 Back in the conversation, a block reads "Change permission given at Juniper
-Market", and Iris asks: "You're signed in at Juniper Market. Shall I go on
+Market", and Iris says: "You're signed in at Juniper Market. Shall I go on
 with 'Move my recurring delivery to Saturday'?" It does not send the request
 by itself.
 
