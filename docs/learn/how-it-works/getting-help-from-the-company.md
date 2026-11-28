@@ -40,7 +40,7 @@ her. It is empty.
 
 ### 2. Ask for the company's agent
 
-![Elena types customer service, and Iris shows an answer marked as content from Lantern Noodle Bar's automated agent](../../../apps/playground/public/learn-media/how-it-works/getting-help-from-the-company/02-ask-for-the-company-agent.webp "Iris opens a conversation with Lantern's own agent and shows its answer as Lantern's.")
+![At the top of the conversation a block offers to sign in to Lantern Noodle Bar, read only. Elena types customer service, and Iris shows an answer marked as content from Lantern Noodle Bar's automated agent](../../../apps/playground/public/learn-media/how-it-works/getting-help-from-the-company/02-ask-for-the-company-agent.webp "Iris opens a conversation with Lantern's own agent and shows its answer as Lantern's.")
 
 Elena asks Iris for customer service. Iris opens a conversation with Lantern's
 agent, at an address Lantern publishes next to its API, and asks what it can
@@ -181,7 +181,7 @@ page and what travels when Elena allows it.
 
 ### 6. The order, from Lantern's agent
 
-![After signing in, Elena repeats her message. Lantern's agent answers with her scheduled orders and her last delivery, then says the report needs more access, and a Request change permission button appears](../../../apps/playground/public/learn-media/how-it-works/getting-help-from-the-company/06-order-status-from-the-agent.webp "Lantern's agent answers the first request and asks for one more permission before the second.")
+![After signing in, Elena repeats her message. Lantern's agent answers with her scheduled orders and her last delivery, its Data opened at order ord_LNB0907, then says she hasn't allowed this agent to propose changes, and Lantern's event names the permissions orders:read and orders:write](../../../apps/playground/public/learn-media/how-it-works/getting-help-from-the-company/06-order-status-from-the-agent.webp "Lantern's agent answers the first request and asks for one more permission before the second.")
 
 Back in the conversation, Elena says it again. This time Lantern's agent
 answers with her scheduled order and her last delivery. The Data under its
@@ -189,12 +189,14 @@ answer is opened in the screenshot: order ord_LNB0907, delivered, nothing
 refunded. It is the record Lantern's website showed in step 1.
 
 Iris then reports that this order never arrived. Lantern's agent answers that
-this request needs more than Elena has allowed. Its sentence says "Sign in"
-although Elena is already signed in. The event that comes with it names the
-two permissions the request needs. Elena has given the first, so Iris shows
-its Request change permission button for the second. Elena decides not to
-give it for the moment. If she presses it later and allows it as the same
-customer, this conversation stays on the screen with its answers.
+this request needs more than Elena has allowed: "You're signed in, but you
+haven't allowed this agent to propose changes to your orders." The event that
+comes with it names the two permissions the request needs. Elena has given the
+first, and the block higher in the conversation that offers change permission
+is where she would give the second. Elena decides not to
+give it for the moment. If she gives it later, the answers Iris got since she
+signed in leave the conversation, as in
+[Signing in and giving permission](signing-in-and-giving-permission.md).
 
 <details>
 <summary>What travelled</summary>
