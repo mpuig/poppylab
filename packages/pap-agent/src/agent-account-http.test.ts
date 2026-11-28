@@ -799,6 +799,54 @@ describe("what is kept and said", () => {
     }
   });
 
+  it("never returns or logs malformed credentials, tokens or link codes", async () => {
+    const said: string[] = [];
+    const spies = (["log", "info", "warn", "error", "debug"] as const).map(
+      (level) =>
+        vi
+          .spyOn(console, level)
+          .mockImplementation(
+            (...args: unknown[]) => void said.push(args.map(String).join(" ")),
+          ),
+    );
+    const sentinels = [
+      "sentinel-passkey-credential-4187",
+      "sentinel-refresh-token-2901",
+      "sentinel-link-code-7734",
+    ];
+    try {
+      const responses = [
+        await call("POST", "/accounts", {
+          body: {
+            ceremony: "c".repeat(22),
+            credential: { id: { submitted: sentinels[0] } },
+          },
+        }),
+        await call("POST", "/sessions/refresh", {
+          body: { refreshToken: { submitted: sentinels[1] } },
+        }),
+        await call("POST", "/link-codes/redeem", {
+          body: {
+            channel: "telegram",
+            user: "user-1",
+            code: { submitted: sentinels[2] },
+          },
+        }),
+      ];
+      for (const response of responses) {
+        expect(response.status).toBe(400);
+        expect(response.data.code).toBe("invalid_request");
+      }
+      const shown = JSON.stringify(responses);
+      for (const sentinel of sentinels) {
+        expect(shown).not.toContain(sentinel);
+        for (const line of said) expect(line).not.toContain(sentinel);
+      }
+    } finally {
+      for (const spy of spies) spy.mockRestore();
+    }
+  });
+
   it("counts ceremonies and refreshes per source, and says when to wait", async () => {
     onWorkers();
     let last = 0;
@@ -827,7 +875,7 @@ describe("what is kept and said", () => {
         ).status,
       );
     expect(refused.at(-1)).toBe(429);
-    expect(refused[0]).toBe(401);
+    expect(refused[0]).toBe(400);
   });
 
   it("keeps a ceremony or a link code only as long as it can be used", async () => {
@@ -884,7 +932,7 @@ describe("what is kept and said", () => {
       body: { ceremony: "x", credential: {} },
       ip: "203.0.113.1",
     });
-    expect(answer.data.code).toBe("ceremony_expired");
+    expect(answer.data.code).toBe("invalid_request");
   });
 
   it("counts tries at an account per address, so naming it doesn't lock its owner out", async () => {

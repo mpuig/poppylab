@@ -27,6 +27,10 @@ const operationIdString = (description?: string): Schema => ({
   ...str(description),
   pattern: "^[A-Za-z0-9_-]{1,256}$",
 });
+const opaqueIdString = (description?: string): Schema => ({
+  ...str(description),
+  pattern: "^[A-Za-z0-9_-]{22}$",
+});
 const array = (items: Schema, description?: string): Schema => ({
   type: "array",
   items,
@@ -587,7 +591,7 @@ const schemas: Record<string, Schema> = {
   ),
   CreationOptions: object(
     {
-      ceremony: str(
+      ceremony: opaqueIdString(
         "Opaque single-use ceremony ID to echo back within 5 minutes.",
       ),
       options: {
@@ -601,7 +605,7 @@ const schemas: Record<string, Schema> = {
   ),
   RequestOptions: object(
     {
-      ceremony: str(
+      ceremony: opaqueIdString(
         "Opaque single-use ceremony ID to echo back within 5 minutes.",
       ),
       options: {
@@ -613,13 +617,101 @@ const schemas: Record<string, Schema> = {
     undefined,
     "Challenge and WebAuthn request options for usernameless passkey sign-in.",
   ),
+  RegistrationCredential: object(
+    {
+      id: { ...str("Credential ID in base64url."), maxLength: 2048 },
+      rawId: { ...str("Credential raw ID in base64url."), maxLength: 2048 },
+      type: { type: "string", enum: ["public-key"] },
+      authenticatorAttachment: {
+        type: ["string", "null"],
+        enum: ["cross-platform", "platform", null],
+        description: "Authenticator attachment, when the platform reports it.",
+      },
+      clientExtensionResults: {
+        type: "object",
+        additionalProperties: true,
+        description:
+          "WebAuthn client extension results. Optional; omitted means an empty object.",
+      },
+      response: object(
+        {
+          clientDataJSON: {
+            ...str("Base64url client data JSON."),
+            maxLength: 16000,
+          },
+          attestationObject: {
+            ...str("Base64url attestation object."),
+            maxLength: 16000,
+          },
+          transports: {
+            type: "array",
+            items: { type: "string", maxLength: 32 },
+            maxItems: 16,
+            description: "Authenticator transports reported by the platform.",
+          },
+          publicKey: {
+            ...str("Base64url credential public key, when supplied."),
+            maxLength: 16000,
+          },
+          publicKeyAlgorithm: int(
+            "COSE algorithm identifier, when supplied by the platform.",
+          ),
+        },
+        ["clientDataJSON", "attestationObject"],
+      ),
+    },
+    ["id", "rawId", "type", "response"],
+    "WebAuthn registration response returned after creating a passkey.",
+  ),
+  AuthenticationCredential: object(
+    {
+      id: { ...str("Credential ID in base64url."), maxLength: 2048 },
+      rawId: { ...str("Credential raw ID in base64url."), maxLength: 2048 },
+      type: { type: "string", enum: ["public-key"] },
+      authenticatorAttachment: {
+        type: ["string", "null"],
+        enum: ["cross-platform", "platform", null],
+        description: "Authenticator attachment, when the platform reports it.",
+      },
+      clientExtensionResults: {
+        type: "object",
+        additionalProperties: true,
+        description:
+          "WebAuthn client extension results. Optional; omitted means an empty object.",
+      },
+      response: object(
+        {
+          clientDataJSON: {
+            ...str("Base64url client data JSON."),
+            maxLength: 16000,
+          },
+          authenticatorData: {
+            ...str("Base64url authenticator data."),
+            maxLength: 16000,
+          },
+          signature: {
+            ...str("Base64url authenticator signature."),
+            maxLength: 16000,
+          },
+          userHandle: {
+            type: ["string", "null"],
+            maxLength: 2048,
+            description: "Discoverable credential user handle, when supplied.",
+          },
+        },
+        ["clientDataJSON", "authenticatorData", "signature"],
+      ),
+    },
+    ["id", "rawId", "type", "response"],
+    "WebAuthn authentication response returned after proving a passkey.",
+  ),
   PasskeyAnswer: object(
     {
-      ceremony: str(
+      ceremony: opaqueIdString(
         "Ceremony ID received from the corresponding `/options` call.",
       ),
       credential: {
-        type: "object",
+        oneOf: [ref("RegistrationCredential"), ref("AuthenticationCredential")],
         description:
           "Authenticator response (`RegistrationResponseJSON` or `AuthenticationResponseJSON`).",
       },
@@ -1089,14 +1181,14 @@ const passkeyId = {
   name: "passkey",
   in: "path",
   required: true,
-  schema: string,
+  schema: opaqueIdString(),
   description: "Passkey ID from `Account.passkeys`.",
 };
 const sessionId = {
   name: "session",
   in: "path",
   required: true,
-  schema: string,
+  schema: opaqueIdString(),
   description: "Device session ID from `GET /api/v1/account/sessions`.",
 };
 
@@ -1216,7 +1308,12 @@ function accountPaths() {
           "Exchanges a native app's refresh token for a fresh access and refresh token pair. Each refresh token is single-use; replaying a spent token revokes the entire session (`session_revoked`).",
         requestBody: body(
           object({
-            refreshToken: str("Current refresh token from `SessionTokens`."),
+            refreshToken: {
+              ...str("Current refresh token from `SessionTokens`."),
+              maxLength: 200,
+              pattern:
+                "^poppy_rt\\.[A-Za-z0-9_-]{22}\\.[A-Za-z0-9_-]{22}\\.[A-Za-z0-9_-]{43}$",
+            },
           }),
         ),
         responses: {
@@ -1386,9 +1483,19 @@ function accountPaths() {
           "Called by a configured external channel backend (using its channel authentication) to redeem a user's one-time code and link the channel user ID to the account.",
         requestBody: body(
           object({
-            channel: str("Configured external channel identifier."),
-            user: str("User identifier within that channel."),
-            code: str("8-character one-time link code provided by the user."),
+            channel: {
+              ...str("Configured external channel identifier."),
+              maxLength: 32,
+            },
+            user: {
+              ...str("User identifier within that channel."),
+              minLength: 1,
+              maxLength: 256,
+            },
+            code: {
+              ...str("8-character one-time link code provided by the user."),
+              maxLength: 32,
+            },
           }),
         ),
         responses: {

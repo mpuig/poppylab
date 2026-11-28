@@ -143,6 +143,14 @@ it("routes each path of /api/v1 to one operation, with its names", () => {
   });
   expect(match("GET", `/api/v1/conversations/${id}/messages`)).toBeUndefined();
   expect(match("GET", "/api/v1/conversations/a%2Fb")).toBeUndefined();
+  const opaque = "p".repeat(22);
+  expect(match("DELETE", `/api/v1/account/passkeys/${opaque}`)).toEqual({
+    operation: "removePasskey",
+    names: { passkey: opaque },
+  });
+  expect(
+    match("DELETE", `/api/v1/account/sessions/${opaque.slice(1)}`),
+  ).toBeUndefined();
   expect(new Set(ROUTES.map((r) => r.operation)).size).toBe(ROUTES.length);
 });
 

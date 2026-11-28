@@ -10,6 +10,7 @@ import path from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
+  accountOperations,
   conversationOperations,
   modelChoiceSchema,
 } from "@poppy-lab/pap-agent/api-contract";
@@ -198,11 +199,22 @@ describe("the native-client guide", () => {
     }
   });
 
-  it("fits the runtime schemas used by the conversation routes", () => {
+  it("fits the runtime schemas used by the public routes", () => {
     type RuntimeSchema = {
       safeParse(value: unknown): { success: boolean };
     };
     const bodies: Record<string, RuntimeSchema> = {
+      accountOptions: accountOperations.accountOptions.body,
+      createAccount: accountOperations.createAccount.body,
+      signInOptions: accountOperations.signInOptions.body,
+      signIn: accountOperations.signIn.body,
+      refreshSession: accountOperations.refreshSession.body,
+      passkeyOptions: accountOperations.passkeyOptions.body,
+      addPasskey: accountOperations.addPasskey.body,
+      signOut: accountOperations.signOut.body,
+      claimConversations: accountOperations.claimConversations.body,
+      createLinkCode: accountOperations.createLinkCode.body,
+      redeemLinkCode: accountOperations.redeemLinkCode.body,
       startConversation: conversationOperations.startConversation.body,
       sendMessage: conversationOperations.sendMessage.body,
       answerChoice: conversationOperations.answerChoice.body,
@@ -210,6 +222,8 @@ describe("the native-client guide", () => {
       startSignIn: conversationOperations.startSignIn.body,
     };
     const parameters: Record<string, RuntimeSchema> = {
+      removePasskey: accountOperations.removePasskey.parameters,
+      revokeSession: accountOperations.revokeSession.parameters,
       getConversation: conversationOperations.getConversation.parameters,
       sendMessage: conversationOperations.sendMessage.parameters,
       answerChoice: conversationOperations.answerChoice.parameters,
@@ -235,7 +249,7 @@ describe("the native-client guide", () => {
     }
   });
 
-  it("accepts every model choice the playground can send", () => {
+  it("accepts the account and model inputs the playground can send", () => {
     const choices = [
       initialModel,
       freeModel,

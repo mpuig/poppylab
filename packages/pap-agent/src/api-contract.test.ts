@@ -1,13 +1,16 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import {
+  accountOperations,
   conversationIdSchema,
   conversationOperations,
   defineOperation,
   modelChoiceMessages,
   modelChoiceSchema,
+  opaqueIdSchema,
   operationIdSchema,
   parsePublicInput,
+  refreshTokenSchema,
   sendMessageInputSchema,
   signInTicketSchema,
 } from "./api-contract/index.ts";
@@ -76,6 +79,90 @@ describe("public API input", () => {
     });
   });
 
+  it("drops unknown account request fields", () => {
+    expect(
+      parsePublicInput(
+        accountOperations.accountOptions.body,
+        { label: "Home", ignored: "not part of the contract" },
+        { messages: accountOperations.accountOptions.messages },
+      ),
+    ).toEqual({ ok: true, value: { label: "Home" } });
+  });
+
+  it("accepts a long WebAuthn credential ID inside the credential body", () => {
+    const credentialId = "a".repeat(1364);
+    expect(
+      accountOperations.createAccount.body.safeParse({
+        ceremony: "c".repeat(22),
+        credential: {
+          id: credentialId,
+          rawId: credentialId,
+          type: "public-key",
+          response: {
+            clientDataJSON: "client-data",
+            attestationObject: "attestation",
+          },
+          clientExtensionResults: {},
+        },
+      }).success,
+    ).toBe(true);
+  });
+
+  it("defaults omitted WebAuthn extension results to an empty object", () => {
+    const registration = accountOperations.createAccount.body.safeParse({
+      ceremony: "c".repeat(22),
+      credential: {
+        id: "credential",
+        rawId: "credential",
+        type: "public-key",
+        response: {
+          clientDataJSON: "client-data",
+          attestationObject: "attestation",
+        },
+      },
+    });
+    expect(registration.success).toBe(true);
+    if (registration.success)
+      expect(registration.data.credential.clientExtensionResults).toEqual({});
+
+    const authentication = accountOperations.signIn.body.safeParse({
+      ceremony: "c".repeat(22),
+      credential: {
+        id: "credential",
+        rawId: "credential",
+        type: "public-key",
+        response: {
+          clientDataJSON: "client-data",
+          authenticatorData: "authenticator-data",
+          signature: "signature",
+        },
+      },
+    });
+    expect(authentication.success).toBe(true);
+    if (authentication.success)
+      expect(authentication.data.credential.clientExtensionResults).toEqual({});
+  });
+
+  it("uses a parent field's safe message for a nested failure", () => {
+    const parsed = parsePublicInput(
+      accountOperations.createAccount.body,
+      {
+        ceremony: "c".repeat(22),
+        credential: { id: { submitted: "credential-secret" } },
+      },
+      { messages: accountOperations.createAccount.messages },
+    );
+    expect(parsed).toEqual({
+      ok: false,
+      error: {
+        status: 400,
+        code: "invalid_request",
+        error: "credential must be a valid WebAuthn response object.",
+      },
+    });
+    expect(JSON.stringify(parsed)).not.toContain("credential-secret");
+  });
+
   it("bounds model credentials and names", () => {
     for (const choice of [
       { provider: "anthropic", apiKey: "k".repeat(2049) },
@@ -94,6 +181,13 @@ describe("public API input", () => {
     expect(operationIdSchema.safeParse("a".repeat(257)).success).toBe(false);
     expect(signInTicketSchema.safeParse("a".repeat(43)).success).toBe(true);
     expect(signInTicketSchema.safeParse("run_1").success).toBe(false);
+    expect(opaqueIdSchema.safeParse("a".repeat(22)).success).toBe(true);
+    expect(opaqueIdSchema.safeParse("a".repeat(23)).success).toBe(false);
+    expect(
+      refreshTokenSchema.safeParse(
+        `poppy_rt.${"a".repeat(22)}.${"b".repeat(22)}.${"c".repeat(43)}`,
+      ).success,
+    ).toBe(true);
   });
 
   it("limits user messages to 2,000 characters", () => {
