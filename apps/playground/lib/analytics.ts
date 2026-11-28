@@ -28,10 +28,12 @@ export function analyticsToken(
  * instructions live in the browser's storage, so the page may load code
  * only from itself and send data only to itself: the model providers are
  * called from the server. The one exception is the analytics beacon, when
- * a token is set. Next writes its page data as inline scripts and the
- * home, /developers and /learn are prerendered, so a per-request nonce
- * isn't possible and inline scripts stay allowed. Development adds eval,
- * which React's dev build uses.
+ * a token is set. Next writes its Turbopack/RSC Flight payload as inline
+ * scripts on every page; dropping `'unsafe-inline'` without forcing SSR on
+ * the prerendered routes needs per-route build-time SHA-256 hashes for the
+ * static pages plus per-request nonces or hashing on the dynamic
+ * `/playground/[id]` route (see `docs/portable-runtime.md`). Development
+ * adds eval, which React's dev build uses.
  *
  * Cloudflare Turnstile, which guards the free model, loads its script and
  * its frame from `TURNSTILE_ORIGIN`. Only the playground shows the widget,
