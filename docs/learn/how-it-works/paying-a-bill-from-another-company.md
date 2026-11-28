@@ -112,13 +112,12 @@ to it without a reference in that shape is refused with `invalid_reference`:
 
 ### 3. Approve the payment
 
-![Harborline's card now reads Approved by you, with the bank's confirmation that it sent 183.78 dollars to Fernwick Power & Light. Below it Elena's answer yes, and Iris: Done. You approved the 183.78 dollar payment at Harborline Bank, and Harborline Bank has carried it out](../../../apps/playground/public/learn-media/how-it-works/paying-a-bill-from-another-company/03-payment-approved.webp "Harborline paid when the approval arrived, and said so.")
+![Harborline's card now reads Approved by you, with the bank's confirmation that it sent 183.78 dollars to Fernwick Power & Light. Below it Elena's answer yes, and Iris: Done. You approved the 183.78 dollar payment at Harborline Bank, and it has been carried out](../../../apps/playground/public/learn-media/how-it-works/paying-a-bill-from-another-company/03-payment-approved.webp "Harborline paid when the approval arrived, and said so.")
 
 Elena answers "yes". She could also press the Approve button on Harborline's
 terms. Iris sends Harborline the same request again with her approval
 attached, Harborline sends the money and confirms it, and Iris says: "Done.
-You approved the $183.78 payment at Harborline Bank, and Harborline Bank has
-carried it out."
+You approved the $183.78 payment at Harborline Bank, and it has been carried out."
 
 ### 4. The payment at Harborline
 
