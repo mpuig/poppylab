@@ -88,6 +88,21 @@ export const holdsAccount = (
 ) => !!entry.accounts?.includes(originOf(connection));
 
 /**
+ * Whether something the conversation keeps was shown while no account at
+ * this Company could be in it. What lists its accounts says so itself:
+ * another Company's account may be in it (a model's answer can repeat
+ * what it read there) and it was still shown signed out here. Only what
+ * was stored without that list goes by its `signedOut` mark.
+ */
+export const signedOutAt = (
+  entry: FromCompany & { signedOut?: true },
+  connection: Pick<Connection, "url">,
+) =>
+  entry.accounts === undefined
+    ? !!entry.signedOut
+    : !holdsAccount(entry, connection);
+
+/**
  * The name of the Company an entry came from: the connected one's, or the
  * name it had when it was removed from the conversation, or else its host.
  */

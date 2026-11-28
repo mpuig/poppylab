@@ -83,6 +83,10 @@ describe("the question to go on after a sign-in", () => {
     expect(shown.filter((entry) => entry.content === first.text)).toHaveLength(
       1,
     );
+    // The older one keeps its place, with nothing to show: what the page
+    // placed after it, the permission given, stays before the newer one.
+    expect(shown.at(-3)).toMatchObject({ content: "", replaced: true });
+    expect(shown.at(-3)?.choices).toBeUndefined();
     expect(shown.at(-1)).toMatchObject({
       content: again.text,
       choices: again.choices,

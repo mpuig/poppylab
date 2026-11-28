@@ -249,5 +249,9 @@ describe("a conversation restored from its transcript", () => {
         { role: "assistant", content: text, noLongerAsked: true },
       ]),
     ).toEqual([{ role: "Agent", text, noLongerAsked: true }]);
+    // One a newer question replaced keeps its place, to be shown as nothing.
+    expect(
+      historyToMessages([{ role: "assistant", content: "", replaced: true }]),
+    ).toEqual([{ role: "Agent", text: "", replaced: true }]);
   });
 });

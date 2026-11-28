@@ -617,3 +617,61 @@ describe("what stays when the Company takes the access back (§5.5)", () => {
     expect(r.history).toHaveLength(2);
   });
 });
+
+describe("a sign-in at a second Company, with another signed in", () => {
+  const fernwick = "https://fernwick.example";
+  const lantern = "https://lantern.example";
+  /**
+   * Fernwick signed in, Lantern connected and signed out. A model's answer
+   * at Lantern can hold what it read with Fernwick's account, so its
+   * `accounts` name Fernwick, and never Lantern.
+   */
+  const twoCompanies = (): Run => {
+    const r: Run = {
+      expires: Date.now() + 60000,
+      calls: 0,
+      busy: false,
+      history: [],
+      connections: [
+        { url: fernwick, user: "", accountToken: "held" },
+        { url: lantern, user: "" },
+      ],
+    };
+    transcript.recordAsked(r, r.connections[1], [fernwick], {
+      said: "Enséñame el menú de Lantern.",
+      text: "Lantern tiene seis platos.",
+    });
+    return r;
+  };
+  const words = (r: Run) => r.transcript?.map((e) => e.content);
+
+  it("keeps what was shown signed out there, whatever another Company's account put in it", () => {
+    const r = twoCompanies();
+    keepSignedOutTranscript(r, r.connections[1]!);
+    expect(words(r)).toEqual([
+      "Enséñame el menú de Lantern.",
+      "Lantern tiene seis platos.",
+    ]);
+  });
+
+  it("doesn't mark it as from an earlier sign-in there", () => {
+    const r = twoCompanies();
+    transcript.keepEarlierSignIn(r, r.connections[1]!);
+    expect(words(r)).toEqual([
+      "Enséñame el menú de Lantern.",
+      "Lantern tiene seis platos.",
+    ]);
+    expect(r.transcript?.some((e) => e.earlier)).toBe(false);
+  });
+
+  it("still drops what was shown with that Company's account", () => {
+    const r = twoCompanies();
+    transcript.recordAsked(r, r.connections[1], [lantern, fernwick], {
+      said: "my orders",
+      text: "Order ord_PRIVATE_1.",
+    });
+    keepSignedOutTranscript(r, r.connections[1]!);
+    expect(JSON.stringify(r.transcript)).not.toContain("PRIVATE");
+    expect(r.transcript).toHaveLength(2);
+  });
+});

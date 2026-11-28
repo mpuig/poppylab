@@ -473,7 +473,9 @@ describe("a model's answer with one Company that repeats what it read with anoth
     b.accountToken = "refresh-lantern";
     backToPublic(run, b);
     expect(told(run)).not.toContain(repeated[1]);
-    expect(words(run)).not.toContain(repeated[1]);
+    // The page keeps it as it showed it: signed out at Lantern, so no
+    // Lantern account is in it, and Juniper's sign-in hasn't changed.
+    expect(words(run)).toContain(repeated[1]);
   });
 
   it("follows it into the next answer that was sent it, with a third Company", () => {

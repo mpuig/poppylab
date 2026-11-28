@@ -1,5 +1,11 @@
 import { agentName } from "./agent";
-import { cameFrom, forPage, from, holdsAccount } from "./connections";
+import {
+  cameFrom,
+  forPage,
+  from,
+  holdsAccount,
+  signedOutAt,
+} from "./connections";
 import { logEntry, type ProtocolEntry } from "./protocol-log";
 import type { Connection, Run } from "./runtime";
 
@@ -110,7 +116,7 @@ export function keepSignedOutLines(run: Run, connection: Connection) {
     run,
     (line) =>
       !holdsAccount(line, connection) &&
-      (!cameFrom(line, connection) || !!line.signedOut),
+      (!cameFrom(line, connection) || signedOutAt(line, connection)),
   );
 }
 

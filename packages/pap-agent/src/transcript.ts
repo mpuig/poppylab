@@ -12,6 +12,7 @@ import {
   holdsAccount,
   noteFormer,
   originOf,
+  signedOutAt,
   type FromCompany,
 } from "./connections";
 import { dropLines, keepSignedOutLines } from "./inspector-log";
@@ -94,6 +95,13 @@ export type TranscriptEntry = {
    * words say so, and the page shows it as a muted line.
    */
   noLongerAsked?: true;
+  /**
+   * A question to go on that a newer one about the same request replaced
+   * (`replaceGoOn`). The page shows nothing for it; it is kept so what the
+   * page placed after it (a sign-in done, a permission given) stays where
+   * it arose, before the newer question.
+   */
+  replaced?: true;
 };
 
 /** What a turn put on the page besides the words. */
@@ -343,6 +351,14 @@ function goesOn(
   return !!waiting && entry.goOn.until >= now;
 }
 
+/** A question to go on that a newer one replaced: no words, no buttons. */
+function replacedBy(entry: TranscriptEntry): TranscriptEntry {
+  const rest = withoutChoices(entry);
+  delete rest.goOn;
+  delete rest.spoken;
+  return { ...rest, content: "", replaced: true };
+}
+
 /** A question to go on, folded to a line that says it is no longer asked. */
 function noLongerAsked(
   run: Pick<Run, "language">,
@@ -364,9 +380,10 @@ function noLongerAsked(
  * Iris asks again whether to go on (`askToResume`), and only the newest
  * question can be answered. An earlier one the User never answered (no
  * words of theirs follow it) is passed by: about the same request at the
- * same Company it goes, as the new one takes its place; about another
- * request it folds to a line saying it is no longer asked. One the User
- * answered stays as it was asked, with their answer after it.
+ * same Company it goes, as the new one takes its place (`replaced`: the
+ * page no longer shows it); about another request it folds to a line
+ * saying it is no longer asked. One the User answered stays as it was
+ * asked, with their answer after it.
  */
 export function replaceGoOn(run: Run, company: string, request: string) {
   const shown = run.transcript;
@@ -376,7 +393,7 @@ export function replaceGoOn(run: Run, company: string, request: string) {
     !entry.goOn || index < lastSaid
       ? [entry]
       : entry.company === company && entry.goOn.request === request
-        ? []
+        ? [replacedBy(entry)]
         : [noLongerAsked(run, entry)],
   );
 }
@@ -418,7 +435,7 @@ export function keepSignedOutTranscript(run: Run, connection: Connection) {
     run,
     (entry) =>
       !holdsAccount(entry, connection) &&
-      (!cameFrom(entry, connection) || !!entry.signedOut),
+      (!cameFrom(entry, connection) || signedOutAt(entry, connection)),
   );
   // The Inspector's lines follow the same rule.
   keepSignedOutLines(run, connection);
@@ -551,7 +568,7 @@ export function keepEarlierSignIn(run: Run, connection: Connection) {
     run.transcript = run.transcript.map((entry) => {
       const shownWithAccount =
         holdsAccount(entry, connection) ||
-        (cameFrom(entry, connection) && !entry.signedOut);
+        (cameFrom(entry, connection) && !signedOutAt(entry, connection));
       return shownWithAccount
         ? { ...withoutChoices(entry), earlier: true as const }
         : entry;

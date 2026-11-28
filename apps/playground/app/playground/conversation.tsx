@@ -593,8 +593,11 @@ export function Conversation({
           </div>
         )}
         {rows.map((row) => {
-          if (row.kind === "message")
+          if (row.kind === "message") {
+            // A question a newer one replaced keeps its place, unseen.
+            if (messages[row.index]!.replaced) return null;
             return message(messages[row.index]!, row.index);
+          }
           if (row.item.held) return card(row.item.held);
           const c = companies.find((x) => x.origin === row.item.ask!.origin);
           return c ? (

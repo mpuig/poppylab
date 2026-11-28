@@ -136,6 +136,8 @@ export type Message = {
   earlier?: CompanyRef;
   /** Iris's question to go on, no longer asked: a muted line. */
   noLongerAsked?: true;
+  /** Iris's question to go on that a newer one replaced: not shown. */
+  replaced?: true;
   /**
    * An answer still being written, by the ID its sentences come under:
    * the turn's answer takes its place when it comes (`answer-events.ts`).
@@ -241,6 +243,7 @@ export const historyToMessages = (
         // The proposals it brought, whose cards follow it.
         ...(m.proposals?.length ? { proposals: m.proposals } : {}),
         ...(m.noLongerAsked ? { noLongerAsked: true as const } : {}),
+        ...(m.replaced ? { replaced: true as const } : {}),
       },
     ];
   });

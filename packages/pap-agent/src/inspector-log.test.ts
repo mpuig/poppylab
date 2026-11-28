@@ -161,3 +161,26 @@ it("resets the lines wherever a sign-in resets the conversation", () => {
     "GET /api/products · Poppy Session",
   ]);
 });
+
+it("keeps a line written signed out at a Company that another Company's account could be in", () => {
+  // Fernwick signed in; the request to Lantern was made signed out there,
+  // by a model that had read Fernwick's account.
+  const fernwick = "https://fernwick.example";
+  const kept = run();
+  keepLines(kept, at(kept), ["GET /api/menu · Poppy Session"], 1000, false, [
+    fernwick,
+  ]);
+  at(kept).accountToken = "refresh-1";
+  keepLines(
+    kept,
+    at(kept),
+    ["GET /api/account/orders · Poppy Session"],
+    2000,
+    true,
+    [fernwick],
+  );
+  keepSignedOutLines(kept, at(kept));
+  expect(kept.log!.map((line) => line.text)).toEqual([
+    "GET /api/menu · Poppy Session",
+  ]);
+});
