@@ -383,7 +383,11 @@ describe("strict XML parser: what it refuses", () => {
     refused("<a>\u0008</a>", "character not allowed");
     refused("<a>\uFFFF</a>", "character not allowed");
     refused("<a>\uD800</a>", "character not allowed");
+    refused("<a>￾</a>", "character not allowed");
     refused('<a v="\u001B"/>', "character not allowed");
+    // The edges of the allowed ranges.
+    for (const allowed of ["퟿", "", "�", "\u{10000}", "\u{10FFFF}"])
+      expect(() => parseXml(`<a>${allowed}</a>`)).not.toThrow();
     // Invalid UTF-8 (an overlong encoding, a lone continuation byte).
     refused(
       new Uint8Array([0x3c, 0x61, 0x3e, 0xc0, 0xaf, 0x3c, 0x2f, 0x61, 0x3e]),

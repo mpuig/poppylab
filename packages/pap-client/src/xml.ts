@@ -80,7 +80,7 @@ function fail(message: string): never {
 }
 
 /** Characters XML 1.0 doesn't allow, lone surrogates included. */
-const INVALID_CHAR = /[^\t\n\x20-퟿-�\u{10000}-\u{10FFFF}]/u;
+const INVALID_CHAR = /[^\t\n\x20-\uD7FF\uE000-\uFFFD\u{10000}-\u{10FFFF}]/u;
 const NAME =
   /(?:([A-Za-z_][A-Za-z0-9._-]{0,63}):)?([A-Za-z_][A-Za-z0-9._-]{0,63})/y;
 const SPACE = /[ \t\n]+/y;
