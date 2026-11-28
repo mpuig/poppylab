@@ -66,7 +66,7 @@ the previous total or a fee, has to be within the limit as well.
 
 ### 3. Ask for a small change
 
-![Elena asks to add a matcha ice cream. The answer says that Iris approved the change on the standing instruction. Under the instruction a new line reads: approved by Iris, 43 dollars within your limit of 50 dollars, and the entry for the change reads Completed](../../../apps/playground/public/learn-media/how-it-works/letting-the-agent-approve-for-you/03-iris-approves-under-the-instruction.webp "Lantern asked for an approval as usual. This time Iris gave it.")
+![Elena asks to add a matcha ice cream. The answer says that Lantern held the change until it was approved and that Iris approved it on the standing instruction. Iris then says: Your standing instruction covers the 43 dollar change at Lantern Noodle Bar, so I approved it for you. The card reads Approved by Iris on your standing instruction](../../../apps/playground/public/learn-media/how-it-works/letting-the-agent-approve-for-you/03-iris-approves-under-the-instruction.webp "Lantern asked for an approval as usual. This time Iris gave it.")
 
 Elena types "Add a matcha ice cream". Iris asks Lantern for the change, and
 Lantern answers as it does for any change: with the terms it would apply and a
@@ -75,9 +75,11 @@ request for approval. The new total would be 43 dollars.
 Iris checks those terms against the instruction. The total is within 50
 dollars, so Iris approves, and Lantern makes the change. A line under the
 instruction records it: approved by Iris, 43 dollars within the limit of 50,
-with a reference. The answer above it says that Lantern held the change until
-it was approved, that Iris approved it on the standing instruction, and that
-there is nothing for Elena to approve.
+with a reference. The answer says that Lantern held the change until it was
+approved and that Iris approved it on the standing instruction, and Iris adds:
+"Your standing instruction covers the $43.00 change at Lantern Noodle Bar, so
+I approved it for you." There is nothing for Elena to approve, and Iris asks
+her nothing.
 
 The check is fixed code that reads the numbers in Lantern's terms. The model
 does not decide whether an instruction applies.
@@ -105,6 +107,15 @@ The terms in Lantern's answer, which Iris compared with the limit:
   "from_slot": "fri-1830",
   "to_slot": "fri-1830",
   "lines": { "shoyu-ramen": 2, "edamame": 1, "matcha-ice": 1 },
+  "from_items": [
+    { "name": "Shoyu ramen", "quantity": 2 },
+    { "name": "Salted edamame", "quantity": 1 }
+  ],
+  "to_items": [
+    { "name": "Shoyu ramen", "quantity": 2 },
+    { "name": "Salted edamame", "quantity": 1 },
+    { "name": "Matcha ice cream", "quantity": 1 }
+  ],
   "before_total_cents": 3700,
   "new_total_cents": 4300,
   "price_difference_cents": 600,
@@ -153,10 +164,13 @@ Harborline does in step 9.
 
 ### 6. A change over the limit
 
-![Elena asks to add two pork gyoza. The new total is 59 dollars, and the change waits on its card with the reason, over your limit of 50 dollars, and a button: Approve 59 dollars](../../../apps/playground/public/learn-media/how-it-works/letting-the-agent-approve-for-you/06-over-the-limit.webp "Above the limit, the change waits for Elena, and the card says why.")
+![Elena asks to add two pork gyoza. Iris asks whether to approve the change, which adds 2 pork gyoza for a new total of 59 dollars, and the card waits with a row for the dish, a note that the standing instruction did not apply because the new total, 59 dollars, is over the limit of 50 dollars, and a button: Approve 59 dollars](../../../apps/playground/public/learn-media/how-it-works/letting-the-agent-approve-for-you/06-over-the-limit.webp "Above the limit, the change waits for Elena, and the card says why.")
 
 Elena types "Add 2 pork gyoza". Lantern's terms put the new total at 59
-dollars, which is over the limit, so Iris does not approve. The change waits
+dollars, which is over the limit, so Iris does not approve. It says: "Lantern
+Noodle Bar wants to change your order: add 2 × Pork gyoza (6). The new total
+is $59.00, $16.00 more than before. It expires in 10 minutes. Shall I approve
+it?" The change waits
 on its card in the conversation, and the card says why: the new total, 59 dollars, is
 over her limit of 50. Elena declined this one, and the order stayed as it was.
 
@@ -189,7 +203,7 @@ for her too, whatever its amount.
 
 ### 8. The list of what Iris approved
 
-![The standing instruction with four entries below it: three approved by Iris, each with the amount against the limit and a reference, and the move to Sunday, left to you with the reason](../../../apps/playground/public/learn-media/how-it-works/letting-the-agent-approve-for-you/08-ledger.webp "Every approval Iris gave on the instruction, with the reference Lantern received, and the change it left to Elena.")
+![The standing instruction, opened in the Companies bar, with its rule and one entry below it: Lantern's description of the change, approved by Iris, 43 dollars within your limit of 50 dollars, and a reference](../../../apps/playground/public/learn-media/how-it-works/letting-the-agent-approve-for-you/08-ledger.webp "Every approval Iris gave on the instruction, with the reference Lantern received, and the change it left to Elena.")
 
 Under the instruction Iris keeps a list of every approval it gave on it:
 Lantern's description of the change, the amount against the limit, and the
@@ -198,11 +212,11 @@ Lantern's record in step 5. A change that waits for her is in the list too,
 with the reason Iris left it to her.
 
 The refund she approved herself and the change she declined are not in the
-list.
+list. The screenshot shows the list after the first change of step 3.
 
 ### 9. The same instruction at Harborline
 
-![At Harborline, with a standing instruction up to 50 dollars, a transfer of 25 dollars is back on its card, waiting for Elena, with a note that Harborline Bank declined the approval Iris sent, the bank's reason and a button: Approve 25 dollars](../../../apps/playground/public/learn-media/how-it-works/letting-the-agent-approve-for-you/09-harborline-declines-the-agent.webp "Iris approved on the instruction. Harborline declined the agent's approval and did nothing.")
+![At Harborline, with a standing instruction up to 50 dollars, Iris asks whether to approve a transfer of 25 dollars. Its card waits for Elena, with a note that Harborline Bank declined the approval Iris sent on the standing instruction, the bank's reason in its words, and a button: Approve 25 dollars](../../../apps/playground/public/learn-media/how-it-works/letting-the-agent-approve-for-you/09-harborline-declines-the-agent.webp "Iris approved on the instruction. Harborline declined the agent's approval and did nothing.")
 
 Elena writes the same instruction for Harborline Bank and asks Iris to
 transfer 25 dollars from checking to savings. Harborline answers with terms,
@@ -242,11 +256,13 @@ is final for that approval, and the agent does not send it again.
 
 ### 10. Elena approves it herself
 
-![The transfer of 25 dollars now reads Completed and Approved by you. Under the instruction its line reads: declined by the company, left to you](../../../apps/playground/public/learn-media/how-it-works/letting-the-agent-approve-for-you/10-elena-approves-herself.webp "The same terms, approved by Elena this time, and Harborline made the transfer.")
+![Elena answers yes. The card for the transfer of 25 dollars reads Approved by you, and Iris says: Done. You approved the 25 dollar transfer at Harborline Bank, and it has been carried out](../../../apps/playground/public/learn-media/how-it-works/letting-the-agent-approve-for-you/10-elena-approves-herself.webp "The same terms, approved by Elena this time, and Harborline made the transfer.")
 
-Elena presses Approve $25.00, or answers "yes" to Iris's question. Iris sends
-the same request once more, this time with her approval, and Harborline makes the transfer. The entry reads
-Completed and "Approved by you".
+Elena answers "yes" to Iris's question, or presses Approve $25.00. Iris sends
+the same request once more, this time with her approval, and Harborline makes
+the transfer. The card reads "Approved by you", and Iris says: "Done. You
+approved the $25.00 transfer at Harborline Bank, and it has been carried
+out."
 
 Under the instruction, the line for this transfer says that the company
 declined and that it was left to her. Iris does not try the instruction on it
@@ -254,7 +270,7 @@ again.
 
 ### 11. What Harborline recorded
 
-![Harborline's record of the agent's activity: the transfer of 25 dollars applied once and approved by you in your agent, and below it the same transfer marked Not applied, with the bank's reason, approved by your agent on a standing instruction](../../../apps/playground/public/learn-media/how-it-works/letting-the-agent-approve-for-you/11-harborline-records-both.webp "Harborline's website lists the approval it declined and the one it acted on.")
+![Harborline's record of the agent's activity: the transfer of 25 dollars applied once on 28 November at 08:25 UTC and approved by you in your agent, and below it the same transfer marked Not applied, with the bank's reason, approved by your agent on a standing instruction](../../../apps/playground/public/learn-media/how-it-works/letting-the-agent-approve-for-you/11-harborline-records-both.webp "Harborline's website lists the approval it declined and the one it acted on.")
 
 Harborline's website lists both attempts under Agent activity. One is marked
 Not applied, with the bank's reason and the line "Approved by your agent, on a
