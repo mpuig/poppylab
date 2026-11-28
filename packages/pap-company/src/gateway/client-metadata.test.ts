@@ -445,3 +445,197 @@ it("serves stale cached metadata when refresh fails and refreshes after backoff"
   expect(await open(updatedRedirect)).toBe(200);
   expect(fetched).toEqual([id, jwks, id, id, jwks]);
 });
+
+it("stops serving stale metadata once past the one-hour stale ceiling on fetch failure or backoff", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  const id = "https://known.example/client.json";
+  const jwks = "https://known.example/jwks.json";
+  const redirect = "https://known.example/cb";
+  let fail = false;
+  const x = await setup({
+    fetchJson: async (url) => {
+      if (fail) throw new Error("HTTP 503");
+      return url === id
+        ? { client_id: id, jwks_uri: jwks, redirect_uris: [redirect] }
+        : { keys: [] };
+    },
+  });
+  const open = async () => {
+    const r = await x.app.request(
+      `/oauth/authorize?${new URLSearchParams({
+        response_type: "code",
+        client_id: id,
+        redirect_uri: redirect,
+        scope: "things:read",
+        state: "state_value_1234567890",
+        code_challenge: "a".repeat(43),
+        code_challenge_method: "S256",
+      })}`,
+    );
+    return r.status === 200
+      ? 200
+      : ((await r.json()) as { error?: string }).error;
+  };
+
+  // Warm cache: until = start + 60_000; stale ceiling = start + 60_000 + 3_600_000.
+  const start = Date.now();
+  expect(await open()).toBe(200);
+
+  // Just before the 1-hour stale ceiling: fetch failure still serves stale and starts 15s backoff.
+  fail = true;
+  vi.setSystemTime(start + 60_000 + 3_600_000 - 1000);
+  expect(await open()).toBe(200);
+
+  // Past the 1-hour stale ceiling (even still within the 15s backoff): stale is no longer served.
+  vi.setSystemTime(start + 60_000 + 3_600_000);
+  expect(await open()).toBe("invalid_client");
+
+  // Past the backoff and past the stale ceiling: a failing refresh still refuses instead of serving stale.
+  vi.setSystemTime(start + 60_000 + 3_600_000 + 20_000);
+  expect(await open()).toBe("invalid_client");
+});
+
+it("stops serving stale metadata once past the one-hour stale ceiling when lookup slots are busy", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  const knownId = "https://known.example/client.json";
+  const knownJwks = "https://known.example/jwks.json";
+  const knownRedirect = "https://known.example/cb";
+  const gates: Array<() => void> = [];
+  const x = await setup({
+    fetchJson: async (url) => {
+      if (url === knownId)
+        return {
+          client_id: knownId,
+          jwks_uri: knownJwks,
+          redirect_uris: [knownRedirect],
+        };
+      if (url === knownJwks) return { keys: [] };
+      if (url.endsWith("/client.json")) {
+        await new Promise<void>((resolve) => {
+          gates.push(resolve);
+        });
+        return {
+          client_id: url,
+          jwks_uri: url.replace("/client.json", "/jwks.json"),
+          redirect_uris: [url.replace("/client.json", "/cb")],
+        };
+      }
+      return { keys: [] };
+    },
+  });
+  const open = async (clientId: string, redirectUri: string) =>
+    (
+      await x.app.request(
+        `/oauth/authorize?${new URLSearchParams({
+          response_type: "code",
+          client_id: clientId,
+          redirect_uri: redirectUri,
+          scope: "things:read",
+          state: "state_value_1234567890",
+          code_challenge: "a".repeat(43),
+          code_challenge_method: "S256",
+        })}`,
+      )
+    ).status;
+
+  const start = Date.now();
+  expect(await open(knownId, knownRedirect)).toBe(200);
+
+  // Saturate all 20 in-flight slots with slow unknown clients.
+  const inflight = Array.from({ length: 20 }, (_, i) =>
+    open(
+      `https://slow-${i}.example/client.json`,
+      `https://slow-${i}.example/cb`,
+    ),
+  );
+  await Promise.resolve();
+  expect(gates).toHaveLength(20);
+
+  // Just before the 1-hour stale ceiling: stale entry is still served while busy.
+  vi.setSystemTime(start + 60_000 + 3_600_000 - 1000);
+  expect(await open(knownId, knownRedirect)).toBe(200);
+
+  // Once past the 1-hour stale ceiling: saturated slots return 503 instead of serving stale.
+  vi.setSystemTime(start + 60_000 + 3_600_000);
+  expect(await open(knownId, knownRedirect)).toBe(503);
+
+  for (const release of gates) release();
+  expect(await Promise.all(inflight)).toEqual(Array(20).fill(200));
+});
+
+it("never serves stale metadata when a refresh fetches an invalid metadata or JWKS document", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  const id = "https://known.example/client.json";
+  const jwks = "https://known.example/jwks.json";
+  const redirect = "https://known.example/cb";
+
+  const cases: Array<{
+    name: string;
+    badMetadata?: Record<string, unknown>;
+    badJwks?: Record<string, unknown>;
+  }> = [
+    {
+      name: "rejected metadata document",
+      badMetadata: {
+        client_id: "https://other.example/client.json",
+        jwks_uri: jwks,
+        redirect_uris: [redirect],
+      },
+    },
+    {
+      name: "rejected JWKS with private key",
+      badJwks: { keys: [{ kty: "OKP", crv: "Ed25519", x: "pub", d: "priv" }] },
+    },
+    {
+      name: "rejected JWKS with non-array keys",
+      badJwks: { keys: "not-an-array" },
+    },
+  ];
+
+  for (const tc of cases) {
+    let invalid = false;
+    const x = await setup({
+      fetchJson: async (url) => {
+        if (url === id) {
+          if (invalid && tc.badMetadata) return tc.badMetadata;
+          return { client_id: id, jwks_uri: jwks, redirect_uris: [redirect] };
+        }
+        if (invalid && tc.badJwks) return tc.badJwks;
+        return { keys: [] };
+      },
+    });
+    const open = async () => {
+      const r = await x.app.request(
+        `/oauth/authorize?${new URLSearchParams({
+          response_type: "code",
+          client_id: id,
+          redirect_uri: redirect,
+          scope: "things:read",
+          state: "state_value_1234567890",
+          code_challenge: "a".repeat(43),
+          code_challenge_method: "S256",
+        })}`,
+      );
+      return r.status === 200
+        ? 200
+        : ((await r.json()) as { error?: string }).error;
+    };
+
+    const start = Date.now();
+    expect(await open(), tc.name).toBe(200);
+
+    // Cache expires within the 1-hour stale window, and refresh returns a rejected document.
+    vi.setSystemTime(start + 61_000);
+    invalid = true;
+    expect(await open(), tc.name).toBe("invalid_client");
+
+    // During the 15s backoff, stale metadata is still NOT served.
+    vi.setSystemTime(start + 65_000);
+    expect(await open(), tc.name).toBe("invalid_client");
+
+    // Once the client fixes the document and backoff expires, lookup recovers.
+    invalid = false;
+    vi.setSystemTime(start + 77_000);
+    expect(await open(), tc.name).toBe(200);
+  }
+});
