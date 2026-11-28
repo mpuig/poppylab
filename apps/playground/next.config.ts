@@ -17,12 +17,19 @@ const nextConfig: NextConfig = {
   // inlined, so every page, prerendered or not, has the build's value. So is
   // the number of posts, which the site's header and footer read, the
   // error page's in the browser too (`app/site-chrome.tsx`); `next dev`
-  // counts them when it starts.
+  // counts them when it starts. The local ports' offset is inlined so the
+  // page and the server agree on the local addresses (`pap-core` `local.ts`).
   env: {
     AGENT_NAME,
     CF_WEB_ANALYTICS_TOKEN: analytics ?? "",
     POPPY_POSTS: String(postFiles().length),
+    POPPY_LOCAL_PORT_OFFSET: process.env.POPPY_LOCAL_PORT_OFFSET ?? "",
   },
+  // The browser scenario (`pnpm e2e`) builds into a folder of its own, so
+  // it runs beside a developer's `next dev`, which holds `.next/dev`.
+  ...(process.env.POPPY_NEXT_DIST_DIR
+    ? { distDir: process.env.POPPY_NEXT_DIST_DIR }
+    : {}),
   poweredByHeader: false,
   // Local state and secrets anywhere in the workspace, whichever app or
   // package they belong to; build-worker refuses a bundle that has any.

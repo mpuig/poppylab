@@ -5,6 +5,7 @@ import {
   labBarHtml,
   labFootCss,
   labFootHtml,
+  LOCAL_ORIGINS,
 } from "@poppy-lab/pap-core";
 import { scryptSync, timingSafeEqual } from "node:crypto";
 import {
@@ -147,7 +148,7 @@ export function website(
     "create" | "reply" | "updateProfile" | "updateBasket" | "updateDelivery"
   >,
   /** The demo portal (shared fictional personas): local by default. */
-  portal = ctx.origin === "http://juniper.localhost:4100",
+  portal = ctx.origin === LOCAL_ORIGINS.juniper,
   /** Wrong passwords, shared by every visitor's copy of the website. */
   logins = loginLimit(),
 ) {

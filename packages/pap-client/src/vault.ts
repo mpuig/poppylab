@@ -21,17 +21,24 @@ function sync(file: string) {
     closeSync(fd);
   }
 }
+/**
+ * Where a Node process keeps its local state: `.poppy` in the folder it
+ * runs from, or `POPPY_STATE_DIR`, so a second playground can run from the
+ * same folder without writing over the first one's vault (`pnpm e2e`).
+ */
+export const stateDirectory = () =>
+  process.env.POPPY_STATE_DIR
+    ? path.resolve(process.env.POPPY_STATE_DIR)
+    : path.join(process.cwd(), ".poppy");
+
 /** Local single-writer encrypted snapshots. A key beside the data is local protection,
  * not a substitute for an external KMS or encrypted backups in production. */
 export function vault<T>(
   name: string,
   initial: () => T,
-  directory = path.join(process.cwd(), ".poppy"),
+  directory = stateDirectory(),
 ) {
-  if (
-    process.env.NODE_ENV === "test" &&
-    directory === path.join(process.cwd(), ".poppy")
-  )
+  if (process.env.NODE_ENV === "test" && directory === stateDirectory())
     return { value: initial(), save: () => {} };
   mkdirSync(directory, { recursive: true, mode: 0o700 });
   chmodSync(directory, 0o700);

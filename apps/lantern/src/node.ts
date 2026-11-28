@@ -15,14 +15,15 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { protocolRequest, vault } from "@poppy-lab/pap-client";
 import { createCompany, emptyState } from "@poppy-lab/pap-company";
+import { LOCAL_AGENT_ORIGIN, LOCAL_ORIGINS } from "@poppy-lab/pap-core";
 import { lantern } from "./lantern.ts";
 
-const port = Number(process.env.PORT ?? 4200);
+const port = Number(process.env.PORT ?? new URL(LOCAL_ORIGINS.lantern).port);
 const domain = process.env.PUBLIC_DOMAIN ?? "noodles.localhost";
 const origin = process.env.PUBLIC_ORIGIN ?? `http://${domain}:${port}`;
-const local = origin === "http://noodles.localhost:4200";
+const local = origin === LOCAL_ORIGINS.lantern;
 // Development only: the local Poppy identity over plain HTTP.
-const allowed = local ? ["http://localhost:3000"] : [];
+const allowed = local ? [LOCAL_AGENT_ORIGIN] : [];
 const app = createCompany(lantern, {
   origin,
   store: vault("lantern", emptyState),
@@ -33,7 +34,7 @@ const app = createCompany(lantern, {
     : {}),
   fetchJson: (url) => protocolRequest(url, {}, allowed),
   ...(local
-    ? { httpClients: ["http://localhost:3000/agent/client.json"] }
+    ? { httpClients: [`${LOCAL_AGENT_ORIGIN}/agent/client.json`] }
     : {}),
   ...(process.env.LANTERN_PASSWORD_HASH
     ? { passwordHash: process.env.LANTERN_PASSWORD_HASH }

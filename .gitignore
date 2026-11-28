@@ -5,6 +5,8 @@ node_modules/
 .wrangler/
 dist/
 coverage/
+# The browser scenario's results, traces and server logs (pnpm e2e)
+test-results/
 *.tsbuildinfo
 
 # Secrets and local state: never committed

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { LOCAL_ORIGINS } from "./local.ts";
 
 // The playground's pages allow no eval (its Content-Security-Policy), and
 // Zod would try it to compile its parsers. On Workers it never does.
@@ -9,15 +10,15 @@ z.config({ jitless: true });
  * Lantern Noodle Bar, Harborline Bank, Northwind Air and Fernwick Power &
  * Light. Nothing else may use the private-network exception.
  */
-export const LOCAL_COMPANY_ORIGINS = [
-  "http://juniper.localhost:4100",
-  "http://noodles.localhost:4200",
-  "http://harbor.localhost:4300",
-  "http://northwind.localhost:4400",
-  "http://fernwick.localhost:4500",
-] as const;
+export const LOCAL_COMPANY_ORIGINS: readonly string[] = [
+  LOCAL_ORIGINS.juniper,
+  LOCAL_ORIGINS.lantern,
+  LOCAL_ORIGINS.harborline,
+  LOCAL_ORIGINS.northwind,
+  LOCAL_ORIGINS.fernwick,
+];
 export const isLocalCompany = (origin: string) =>
-  (LOCAL_COMPANY_ORIGINS as readonly string[]).includes(origin);
+  LOCAL_COMPANY_ORIGINS.includes(origin);
 
 const httpsUrl = z
   .url()
@@ -695,6 +696,7 @@ export class PapDiscoveryError extends Error {
   }
 }
 export * from "./html.ts";
+export * from "./local.ts";
 export * from "./lab.ts";
 export * from "./how-it-works.ts";
 export * from "./consent-sheet.ts";

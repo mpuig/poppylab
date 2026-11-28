@@ -4,6 +4,7 @@ dist
 *.tsbuildinfo
 pnpm-lock.yaml
 .open-next/
+test-results/
 spec/
 apps/juniper/src/site/app-script.ts
 apps/lantern/src/site/app-script.ts

@@ -14,7 +14,7 @@ export {
   configureRetryStore,
   type RetryState,
 } from "./protocol-error.ts";
-export { vault } from "./vault.ts";
+export { stateDirectory, vault } from "./vault.ts";
 export { addressKey } from "./address-key.ts";
 import { onWorkers } from "./on-workers.ts";
 export { onWorkers };

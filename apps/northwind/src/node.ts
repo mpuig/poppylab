@@ -8,13 +8,14 @@ try {
 import { serve } from "@hono/node-server";
 import { protocolRequest, vault } from "@poppy-lab/pap-client";
 import { createCompany, emptyState } from "@poppy-lab/pap-company";
+import { LOCAL_AGENT_ORIGIN, LOCAL_ORIGINS } from "@poppy-lab/pap-core";
 import { northwind } from "./northwind.ts";
 
-const port = Number(process.env.PORT ?? 4400);
+const port = Number(process.env.PORT ?? new URL(LOCAL_ORIGINS.northwind).port);
 const domain = process.env.PUBLIC_DOMAIN ?? "northwind.localhost";
 const origin = process.env.PUBLIC_ORIGIN ?? `http://${domain}:${port}`;
-const local = origin === "http://northwind.localhost:4400";
-const allowed = local ? ["http://localhost:3000"] : [];
+const local = origin === LOCAL_ORIGINS.northwind;
+const allowed = local ? [LOCAL_AGENT_ORIGIN] : [];
 const app = createCompany(northwind, {
   origin,
   store: vault("northwind", emptyState),
@@ -23,7 +24,7 @@ const app = createCompany(northwind, {
     : {}),
   fetchJson: (url) => protocolRequest(url, {}, allowed),
   ...(local
-    ? { httpClients: ["http://localhost:3000/agent/client.json"] }
+    ? { httpClients: [`${LOCAL_AGENT_ORIGIN}/agent/client.json`] }
     : {}),
   ...(process.env.NORTHWIND_PASSWORD_HASH
     ? { passwordHash: process.env.NORTHWIND_PASSWORD_HASH }

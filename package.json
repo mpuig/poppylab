@@ -15,6 +15,7 @@
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck && tsc -p scripts/smoke && tsc -p scripts/model-phrases",
     "test": "pnpm --workspace-concurrency=1 -r test --maxWorkers=2",
+    "e2e": "pnpm --filter @poppy-lab/playground e2e",
     "scenarios": "node scripts/scenarios.mjs",
     "lint": "eslint apps packages scripts eslint.config.mjs",
     "format": "prettier --write apps packages scripts docs .github *.json *.yaml *.md eslint.config.mjs",
