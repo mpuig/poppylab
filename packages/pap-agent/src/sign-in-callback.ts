@@ -30,6 +30,7 @@ import {
 } from "./transcript";
 import { keepLines } from "./inspector-log";
 import { askToResume } from "./chat-answers";
+import { sameBySession } from "./same-account";
 
 /** A thread's events from its saved cursor: a read that changes nothing here. */
 const events = (endpoint: string, thread: { id?: string; cursor?: string }) => {
@@ -233,6 +234,15 @@ export async function signInCallback(request: Request, cookies: CookieStore) {
     // Asked while the connection still holds the sign-in this one replaces.
     const used = await usedThisAccount(connection);
     const replaced = connection.accountToken;
+    // The sign-in being replaced, as the Session check below needs it.
+    const earlier = {
+      sessionId: connection.sessionId,
+      token: connection.token,
+      tokenType: connection.tokenType,
+      tokenExpires: connection.tokenExpires,
+      dpop: connection.dpop,
+      scopes: connection.scopes,
+    };
     // Preserve the conversation from public access, including across later
     // consent. Account-specific turns and approvals cannot cross accounts.
     if (!connection.accountToken) keepPublicHistory(run, connection);
@@ -262,12 +272,30 @@ export async function signInCallback(request: Request, cookies: CookieStore) {
     // What Iris read with the account, and the proposals it got, stay for
     // the model only for a sign-in the Company's answers show to be for
     // the same account: the conversation had used it, and still takes this
-    // one. Any other may be someone else's, or there is no way to tell:
-    // the model's context goes back to what it was before any access, and
-    // the proposals go. The page's transcript, the User's own view, stays,
-    // with what the earlier sign-in showed marked as its (`earlier`). A
-    // first sign-in has no earlier one: what it replaces was signed out.
-    if (!(used && same)) {
+    // one; or the Session the earlier sign-in used takes this one's token
+    // (`sameBySession`). Any other may be someone else's, or there is no
+    // way to tell: the model's context goes back to what it was before any
+    // access, and the proposals go. The page's transcript, the User's own
+    // view, stays, with what the earlier sign-in showed marked as its
+    // (`earlier`). A first sign-in has no earlier one: what it replaces was
+    // signed out.
+    const bySession =
+      replaced && !(used && same)
+        ? await sameBySession(
+            connection,
+            earlier,
+            labCompanies(caller.origin).some(
+              (c) => originOf(c) === originOf(connection),
+            ),
+          )
+        : undefined;
+    const checked =
+      bySession === "same"
+        ? "Same account · the earlier sign-in's Session took the new token"
+        : bySession === "other"
+          ? "Another account · the earlier sign-in's Session refused the new token (session_ended)"
+          : undefined;
+    if (!(used && same) && bySession !== "same") {
       if (replaced) keepEarlierSignIn(run, connection);
       else backToPublic(run, connection);
     }
@@ -284,6 +312,8 @@ export async function signInCallback(request: Request, cookies: CookieStore) {
       connection,
       [
         `Direct Sign-In completed · PKCE + issuer validation · ${dpop ? "DPoP" : "Bearer"} account Session`,
+        // Whose it is, when the earlier Session said (`sameBySession`).
+        ...(checked ? [checked] : []),
       ],
       Date.now(),
       false,

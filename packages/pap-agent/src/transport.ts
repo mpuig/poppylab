@@ -169,6 +169,48 @@ function markAccountFailure(connection: Connection, error: unknown) {
  * `invalid_session` isn't retried: a new Session would fail the same way.
  * `version_unsupported` stops: this client implements 1.0 only (§3.4).
  */
+/**
+ * One GET in the connection's Session as it is, with exactly this access
+ * token: no renewal, no per-service token, and no new Session on
+ * `session_ended`, which `papRequest` would start. For a check whose
+ * answer is the Session's (§5.4), so its refusal is read, not retried.
+ * `accepted` is a success; `session_ended` the Company refusing the token
+ * in this Session; anything else, error or not, is `unknown`.
+ */
+export async function probeSession(
+  connection: Connection,
+  url: string,
+  token: { value: string; type: "DPoP" | "Bearer"; key?: JWK | undefined },
+): Promise<"accepted" | "session_ended" | "unknown"> {
+  try {
+    const headers = await sessionHeaders(connection, url, "GET", token);
+    await protocolRequest(
+      url,
+      { method: "GET", headers },
+      localOrigins,
+      token.type === "DPoP"
+        ? {
+            key: token.key!,
+            token: token.value,
+            resign: async () => {
+              const fresh = await sessionHeaders(connection, url, "GET", token);
+              return Object.fromEntries(
+                RESIGNED.flatMap((k) => (fresh[k] ? [[k, fresh[k]]] : [])),
+              );
+            },
+          }
+        : undefined,
+    );
+    return "accepted";
+  } catch (error) {
+    return error instanceof ProtocolError &&
+      error.status === 400 &&
+      error.code === "session_ended"
+      ? "session_ended"
+      : "unknown";
+  }
+}
+
 export async function papRequest(
   connection: Connection,
   url: string,

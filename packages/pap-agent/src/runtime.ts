@@ -71,6 +71,7 @@ export {
 export {
   approvalFor,
   papRequest,
+  probeSession,
   pushAuthorizationRequest,
   renewAccount,
   revokeRefreshToken,

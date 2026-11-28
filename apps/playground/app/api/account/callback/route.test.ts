@@ -41,6 +41,10 @@ const s = vi.hoisted(() => {
     /** The Company's answer to a request Iris sends at the connection. */
     pap: vi.fn(),
     revoke: vi.fn(async () => undefined),
+    /** How the earlier sign-in's Session answers each check (§5.4). */
+    probe: vi.fn(async () => "unknown"),
+    /** Whether the Company is one of the lab's, which refuse a second account. */
+    lab: true,
     set: vi.fn(),
     remove: vi.fn(),
     dpop: true,
@@ -71,8 +75,21 @@ vi.mock("@poppy-lab/pap-agent/runtime", () => {
     },
     revokeRefreshToken: s.revoke,
     papRequest: s.pap,
+    probeSession: s.probe,
   };
 });
+vi.mock("@poppy-lab/pap-agent/lab-companies", () => ({
+  labCompanies: () =>
+    s.lab
+      ? [
+          {
+            id: "lantern",
+            url: "https://food.papsandbox.com",
+            name: "Lantern Noodle Bar",
+          },
+        ]
+      : [],
+}));
 vi.mock("@poppy-lab/pap-client", async (original) => ({
   ...(await original<typeof import("@poppy-lab/pap-client")>()),
   assertion: async () => "assertion_test",
@@ -110,6 +127,8 @@ beforeEach(async () => {
   await seedRun("v".repeat(43), "run_fixture_0001", s.run as never);
   s.request.mockReset();
   s.revoke.mockClear();
+  s.probe.mockReset().mockResolvedValue("unknown");
+  s.lab = true;
   s.set.mockReset();
   s.dpop = true;
   Object.assign(s.run, {
@@ -886,5 +905,115 @@ describe("what the page shows of the conversation after a sign-in", () => {
         reset();
       },
     );
+  });
+
+  describe("when the earlier sign-in's Session says whose the new one is (§5.4)", () => {
+    const company = s.connection as typeof s.connection & {
+      company?: unknown;
+      tokenExpires?: number;
+      tokenType?: string;
+    };
+    const spec = {
+      servers: [{ url: "https://food.papsandbox.com" }],
+      paths: {
+        "/api/account/orders/{order_id}": { get: { "x-poppy-scopes": [] } },
+        "/api/account/orders": { get: { "x-poppy-scopes": ["orders:read"] } },
+        "/api/menu": { get: { "x-poppy-scopes": [] } },
+      },
+    };
+    const turns = [
+      ...publicTurns,
+      { role: "assistant" as const, content: "Private order details" },
+    ];
+    const proposal = { op_1: { operation_id: "op_1", state: "proposed" } };
+    beforeEach(() => {
+      company.company = {
+        document: {
+          apis: [
+            {
+              type: "openapi",
+              url: "https://food.papsandbox.com/openapi.json",
+            },
+          ],
+        },
+        profile: { issuer: "https://food.papsandbox.com" },
+      };
+      s.connection.token = "old-access";
+      company.tokenType = "DPoP";
+      company.tokenExpires = Date.now() + 600000;
+      s.connection.scopes = "orders:read";
+      s.connection.publicHistory = structuredClone(publicTurns);
+      s.run.history = structuredClone(turns);
+      run.transcript = structuredClone([...before, ...withAccount]);
+      s.connection.operations = structuredClone(proposal);
+      s.request.mockImplementation(async (url: string) =>
+        url.endsWith("/openapi.json") ? spec : success(),
+      );
+    });
+    afterEach(() => {
+      delete company.company;
+      delete company.tokenExpires;
+    });
+    const split = () => {
+      expect(run.transcript).toEqual(seen());
+      expect(s.run.history).toEqual(publicTurns);
+      expect(s.connection.operations).toEqual({});
+    };
+
+    it("keeps the whole conversation when that Session takes the new token: the same account", async () => {
+      s.probe
+        .mockResolvedValueOnce("accepted")
+        .mockResolvedValueOnce("accepted");
+      expect((await GET(req())).status).toBe(303);
+      expect(run.transcript).toEqual([...before, ...withAccount]);
+      expect(s.run.history).toEqual(turns);
+      expect(s.connection.operations).toEqual(proposal);
+      // A public read that changes nothing, in the earlier Session: first
+      // with the earlier token, which ties the Session to its account, then
+      // with the new one. Nothing of the User's is in it.
+      const calls = s.probe.mock.calls as unknown as Array<
+        [{ sessionId: string }, string, { value: string }]
+      >;
+      expect(
+        calls.map(([c, url, token]) => [c.sessionId, url, token.value]),
+      ).toEqual([
+        ["session_1", "https://food.papsandbox.com/api/menu", "old-access"],
+        ["session_1", "https://food.papsandbox.com/api/menu", "new-access"],
+      ]);
+      // The connection itself goes on in a new Session, with the new token.
+      expect(s.connection.sessionId).not.toBe("session_1");
+      expect(s.connection.token).toBe("new-access");
+    });
+
+    it("keeps the page and drops the model's account context and the proposals when that Session refuses it: another account", async () => {
+      s.probe
+        .mockResolvedValueOnce("accepted")
+        .mockResolvedValueOnce("session_ended");
+      expect((await GET(req())).status).toBe(303);
+      split();
+    });
+
+    it.each([
+      ["the earlier token isn't taken", ["unknown", "accepted"]],
+      ["the new token gets another error", ["accepted", "unknown"]],
+    ])("takes nothing as proof when %s", async (_name, answers) => {
+      for (const answer of answers) s.probe.mockResolvedValueOnce(answer);
+      expect((await GET(req())).status).toBe(303);
+      split();
+    });
+
+    it("never checks with an earlier token that has run out, so the earlier refresh token is never spent", async () => {
+      company.tokenExpires = Date.now() - 1;
+      expect((await GET(req())).status).toBe(303);
+      split();
+      expect(s.probe).not.toHaveBeenCalled();
+    });
+
+    it("never checks at a Company that may take any token in a Session", async () => {
+      s.lab = false;
+      expect((await GET(req())).status).toBe(303);
+      split();
+      expect(s.probe).not.toHaveBeenCalled();
+    });
   });
 });

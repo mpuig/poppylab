@@ -6,11 +6,13 @@
  * replaced: the model is a script that calls Lantern's own tools and
  * answers as a real one did.
  *
- * The change permission is a second consent. The Company's answers can't
- * show that it is for the same account, since Iris used only Lantern's
- * API. Every turn the person saw stays on the page, marked as the earlier
- * sign-in's, after the consent and after a reload; the model is sent only
- * what was said before any account access.
+ * The change permission is a second consent, and Lantern's page lets the
+ * person choose another customer. Iris used only Lantern's API, so no
+ * conversation with its agent can say whose the new sign-in is; the
+ * Session the earlier sign-in used does (§5.4). For Elena again, every
+ * turn stays as it was, for the page and the model. For Robin, every turn
+ * the person saw stays on the page, marked as the earlier sign-in's, and
+ * the model is sent only what was said before any account access.
  */
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 type App = {
@@ -201,9 +203,6 @@ describe("a change permission given after the sign-in, in Spanish", () => {
     net.apps[food] = lantern.lab.app;
     net.cookies.set("poppy_visitor", "l".repeat(43));
   });
-  afterAll(() => {
-    vi.unstubAllEnvs();
-  });
 
   /** Every line the page showed, up to the change permission. */
   const shownBefore: string[] = [];
@@ -261,7 +260,7 @@ describe("a change permission given after the sign-in, in Spanish", () => {
     shownBefore.push(...(await reload()).history.map((e) => e.content));
   });
 
-  it("keeps every turn the person saw once the change permission is given, after a reload too", async () => {
+  it("keeps the whole conversation once the change permission is given for the same customer, after a reload too", async () => {
     model.next.length = 0;
     const started = await post(act, "/api/account", {
       action: "signin",
@@ -282,12 +281,17 @@ describe("a change permission given after the sign-in, in Spanish", () => {
       "vale, pide el permiso",
     ])
       expect(shown.some((line) => line.includes(words))).toBe(true);
-    // What the read-only sign-in showed is marked as its, without buttons.
-    const resumeAsked = history.find((e) =>
-      e.content.startsWith("Ya has iniciado sesión"),
-    )!;
-    expect(resumeAsked).toMatchObject({ earlier: true });
-    expect(resumeAsked.choices).toBeUndefined();
+    // The Session Elena's first sign-in used took the new token: it is her
+    // account, and nothing is marked as another sign-in's.
+    expect(history.some((e) => e.earlier)).toBe(false);
+    const { log } = (await (
+      await account(
+        new Request(`${agent}/api/account?conversation=${conversation}`),
+      )
+    ).json()) as { log: Array<{ text: string }> };
+    expect(log.map((l) => l.text)).toContain(
+      "Same account · the earlier sign-in's Session took the new token",
+    );
     // The request that waited is asked about again, with its button.
     expect(history.at(-1)).toMatchObject({
       content:
@@ -297,7 +301,7 @@ describe("a change permission given after the sign-in, in Spanish", () => {
     expect(history.at(-1)!.earlier).toBeUndefined();
   });
 
-  it("sends the model only what was said before any account access", async () => {
+  it("goes on with the model's whole context, and says each term once", async () => {
     model.next.push(async (tools) => {
       await change(tools);
       return "Lantern Noodle Bar tiene listo el cambio: añade un Matcha ice cream y pasa el pedido al domingo a las 13:00. El total sube de $37.00 a $43.00; aprueba estos términos si te parecen bien.";
@@ -310,7 +314,7 @@ describe("a change permission given after the sign-in, in Spanish", () => {
     expect(turn.status).toBe(200);
     const sent = JSON.stringify(model.sent.at(-1));
     expect(sent).toContain("¿qué tiene Lantern Noodle Bar en el menú?");
-    expect(sent).not.toContain("Te falta el permiso");
+    expect(sent).toContain("Te falta el permiso");
     // Said once: the question names the terms, the answer doesn't.
     const op = turn.data.operations[0] as Operation;
     expect(op.state).toBe("proposed");
@@ -368,5 +372,62 @@ describe("a change permission given after the sign-in, in Spanish", () => {
     expect(JSON.stringify((await reload()).history)).not.toContain(
       turn.data.question.text,
     );
+  });
+});
+
+afterAll(() => {
+  vi.unstubAllEnvs();
+});
+
+describe("a change permission given as another customer", () => {
+  it("keeps what the page showed, marked as the earlier sign-in's, and sends the model only the public part", async () => {
+    net.cookies.set("poppy_visitor", "r".repeat(43));
+    conversation = "";
+    const found = await post(discover, "/api/discover", { url: food });
+    conversation = found.conversation!;
+    await say("hola, ¿qué tiene el menú?", async (tools) => {
+      await tools.menu!.execute({});
+      return "Tiene ramen shoyu y gyoza.";
+    });
+    const read = await post(act, "/api/account", {
+      action: "signin",
+      company: food,
+      access: "read",
+    });
+    await consent(read.data.url);
+    await say("¿cuándo llega mi pedido?", async (tools) => {
+      await tools.my_orders!.execute({});
+      return "Tu pedido llega el viernes a las 18:30.";
+    });
+    const write = await post(act, "/api/account", {
+      action: "signin",
+      company: food,
+      access: "write",
+    });
+    // Robin, not Elena, on Lantern's own page.
+    await consent(write.data.url, { write: "yes", account: "robin" });
+    const { history } = await reload();
+    const marked = (words: string) =>
+      history.find((e) => e.content.includes(words));
+    // The person's own view stays: the public turn as it was, the earlier
+    // sign-in's marked as its.
+    expect(marked("Tiene ramen shoyu")!.earlier).toBeUndefined();
+    expect(marked("¿cuándo llega mi pedido?")).toMatchObject({ earlier: true });
+    expect(marked("Tu pedido llega el viernes")).toMatchObject({
+      earlier: true,
+    });
+    const { log } = (await (
+      await account(
+        new Request(`${agent}/api/account?conversation=${conversation}`),
+      )
+    ).json()) as { log: Array<{ text: string }> };
+    expect(log.map((l) => l.text)).toContain(
+      "Another account · the earlier sign-in's Session refused the new token (session_ended)",
+    );
+    // The model is never sent what Elena's sign-in read.
+    await say("¿y ahora?", async () => "Dime qué necesitas.");
+    const sent = JSON.stringify(model.sent.at(-1));
+    expect(sent).toContain("hola, ¿qué tiene el menú?");
+    expect(sent).not.toContain("viernes a las 18:30");
   });
 });
