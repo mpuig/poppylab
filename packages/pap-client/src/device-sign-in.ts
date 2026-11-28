@@ -291,22 +291,24 @@ export async function waitForDeviceSignIn(
   client: DeviceClient,
   options: { signal?: AbortSignal } = {},
 ): Promise<Exclude<DevicePoll, { status: "pending" }>> {
+  const signal = options.signal;
   let current = pending;
   for (;;) {
+    signal?.throwIfAborted();
     const wait = current.nextPollAt - Date.now();
     if (wait > 0)
       await new Promise<void>((done, fail) => {
-        const timer = setTimeout(done, wait);
-        options.signal?.addEventListener(
-          "abort",
-          () => {
-            clearTimeout(timer);
-            fail(options.signal!.reason);
-          },
-          { once: true },
-        );
+        const onAbort = () => {
+          clearTimeout(timer);
+          fail(signal!.reason);
+        };
+        const timer = setTimeout(() => {
+          signal?.removeEventListener("abort", onAbort);
+          done();
+        }, wait);
+        signal?.addEventListener("abort", onAbort, { once: true });
       });
-    options.signal?.throwIfAborted();
+    signal?.throwIfAborted();
     const result = await pollDeviceSignIn(current, client);
     if (result.status !== "pending") return result;
     current = result.pending;

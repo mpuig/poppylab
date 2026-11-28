@@ -236,6 +236,63 @@ describe("FDX-shaped tools (poppylab.dev/fdx v1)", () => {
     expect(tiny.request).toHaveBeenCalledTimes(FDX_LIMITS.maxPages);
     expect(capped).toMatchObject({ truncated: true });
     expect(capped.transactions).toHaveLength(FDX_LIMITS.maxPages);
+
+    // A bank that ignores limit and returns > pageSize items without nextOffset
+    // still reports truncated: true for both transactions and statements.
+    const oversizedTxns = setup(
+      ok({
+        transactions: Array.from(
+          { length: FDX_LIMITS.pageSize + 1 },
+          (_, i) => ({
+            transactionId: `over_txn_${i}`,
+          }),
+        ),
+      }),
+    );
+    const overTxnsResult =
+      (await oversizedTxns.tools.fdx_list_transactions!.execute({
+        accountId: "a",
+      })) as { transactions: unknown[]; truncated: boolean };
+    expect(overTxnsResult.transactions).toHaveLength(FDX_LIMITS.pageSize);
+    expect(overTxnsResult.truncated).toBe(true);
+
+    const oversizedStmts = setup(
+      ok({
+        statements: Array.from({ length: FDX_LIMITS.pageSize + 1 }, (_, i) => ({
+          statementId: `over_stmt_${i}`,
+        })),
+      }),
+    );
+    const overStmtsResult =
+      (await oversizedStmts.tools.fdx_list_statements!.execute({
+        accountId: "a",
+      })) as { statements: unknown[]; truncated: boolean };
+    expect(overStmtsResult.statements).toHaveLength(FDX_LIMITS.pageSize);
+    expect(overStmtsResult.truncated).toBe(true);
+
+    // Sliced first page followed by a short final page without nextOffset still reports truncated: true.
+    const multiOversized = setup(
+      ok({
+        page: { nextOffset: "55" },
+        transactions: Array.from(
+          { length: FDX_LIMITS.pageSize + 5 },
+          (_, i) => ({
+            transactionId: `p1_${i}`,
+          }),
+        ),
+      }),
+      ok({
+        transactions: Array.from({ length: 5 }, (_, i) => ({
+          transactionId: `p2_${i}`,
+        })),
+      }),
+    );
+    const multiResult =
+      (await multiOversized.tools.fdx_list_transactions!.execute({
+        accountId: "a",
+      })) as { transactions: unknown[]; truncated: boolean };
+    expect(multiResult.transactions).toHaveLength(FDX_LIMITS.pageSize + 5);
+    expect(multiResult.truncated).toBe(true);
   });
 
   it("ends paging on a repeated or malformed nextOffset", async () => {

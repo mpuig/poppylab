@@ -653,6 +653,7 @@ export function fdxTools({
     const seen = new Set<string>();
     const used = new Set<string>();
     let offset: string | undefined;
+    let sliced = false;
     let notes: Json = {};
     let total: number | undefined;
     for (let page = 0; page < FDX_LIMITS.maxPages; page++) {
@@ -674,6 +675,7 @@ export function fdxTools({
         notes = notice(r.body);
         total = totalElements(r.body);
       }
+      if (list.length > FDX_LIMITS.pageSize) sliced = true;
       for (const item of list.slice(0, FDX_LIMITS.pageSize)) {
         const one = keep(item);
         if (!one || seen.has(one[id] as string)) continue;
@@ -688,7 +690,7 @@ export function fdxTools({
     return {
       accountId,
       [items]: kept.slice(0, max),
-      truncated: offset !== undefined || kept.length > max,
+      truncated: sliced || offset !== undefined || kept.length > max,
       ...(total === undefined ? {} : { totalElements: total }),
       ...notes,
     };

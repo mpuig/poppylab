@@ -32,11 +32,10 @@ export async function openApiConnect(
   const fdx = profile.extensions?.[FDX_EXTENSION];
   const espi = profile.extensions?.[ESPI_EXTENSION];
   // §4.5: the service is the URL in the description's servers.
-  const server = (spec as { servers?: Array<{ url?: unknown }> })?.servers?.[0]
-    ?.url;
-  connection.apiBase = new URL(
-    typeof server === "string" ? server : new URL(api.url).origin,
-  ).href.replace(/\/$/, "");
+  const servers = (spec as { servers?: unknown })?.servers;
+  const server = Array.isArray(servers)
+    ? (servers[0] as { url?: unknown } | undefined)?.url
+    : undefined;
   const tools = openApiTools(spec, api.url, {
     // Proposals need an allowlisted account Company listing Operations v3.
     allowProposals:
@@ -147,6 +146,11 @@ export async function openApiConnect(
   });
   if (!Object.keys(tools).length)
     throw new UserFacingError("No supported OpenAPI operations were found.");
+  connection.apiBase = (
+    typeof server === "string"
+      ? new URL(server, api.url)
+      : new URL(new URL(api.url).origin)
+  ).href.replace(/\/$/, "");
   trace.push(
     `Loaded ${Object.keys(tools).length} API tools; confirmation is never a model tool`,
   );
