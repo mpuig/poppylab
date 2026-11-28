@@ -4,6 +4,22 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import type { LearnStep } from "@/lib/learn";
 
+/** The step index named by a URL hash, or -1 if none or malformed. */
+export function stepIndexForHash(
+  steps: readonly Pick<LearnStep, "id">[],
+  hash: string,
+) {
+  const raw = hash.startsWith("#") ? hash.slice(1) : hash;
+  if (!raw) return -1;
+  let id: string;
+  try {
+    id = decodeURIComponent(raw);
+  } catch {
+    return -1;
+  }
+  return steps.findIndex((step) => step.id === id);
+}
+
 /**
  * A walk-through, one step at a time. The steps are the page's own HTML,
  * built from docs/learn at build time; this only chooses which one shows.
@@ -18,9 +34,7 @@ export function LearnSteps({ steps }: { steps: LearnStep[] }) {
   // A link to one step (its heading's own anchor) opens on that step.
   useEffect(() => {
     const open = () => {
-      const at = steps.findIndex(
-        (step) => step.id === decodeURIComponent(location.hash.slice(1)),
-      );
+      const at = stepIndexForHash(steps, location.hash);
       if (at >= 0) setIndex(at);
     };
     open();
