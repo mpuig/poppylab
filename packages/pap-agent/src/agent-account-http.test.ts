@@ -129,7 +129,7 @@ async function create(
 }
 /** Signs in with the authenticator's passkey. */
 async function signIn(
-  from: { origin?: string; cookies?: Jar },
+  from: { origin?: string; cookies?: Jar; ip?: string },
   authenticator: ReturnType<typeof softwareAuthenticator>,
   device = "iPhone",
 ) {
@@ -137,6 +137,7 @@ async function signIn(
     ...from,
     body: {},
   });
+  if (started.status !== 200) return started;
   const { ceremony, options } = started.data as {
     ceremony: string;
     options: { challenge: string };
@@ -953,10 +954,13 @@ describe("what is kept and said", () => {
   });
 
   it("counts sign-ins at an account from one address", async () => {
+    onWorkers();
     const created = await create({});
     const statuses: number[] = [];
     for (let i = 0; i < 21; i++)
-      statuses.push((await signIn({}, created.authenticator)).status);
+      statuses.push(
+        (await signIn({ ip: "198.51.100.7" }, created.authenticator)).status,
+      );
     expect(statuses.slice(0, 5).every((s) => s === 201)).toBe(true);
     expect(statuses).toContain(429);
   });

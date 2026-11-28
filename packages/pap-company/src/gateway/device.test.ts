@@ -22,6 +22,7 @@ const error = async (r: Response) =>
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 /** Behind Cloudflare, which sets `CF-Connecting-IP` itself. */
 const onWorkers = () =>
@@ -293,12 +294,121 @@ it("keeps checking codes from elsewhere while many places enter wrong ones", asy
 
 it("takes CF-Connecting-IP only on Workers, where Cloudflare sets it", async () => {
   // On Node anyone can send it, so it can't make ten wrong codes look like
-  // ten places: they come from the same browser.
+  // ten places: without a verified source address they share one bucket.
   const x = await started();
   for (let i = 1; i <= 10; i++)
     await x.enter("CCCC-CCCC", { "cf-connecting-ip": `192.0.2.${i}` });
   expect(
     (await x.enter(undefined, { "cf-connecting-ip": "192.0.2.11" })).status,
+  ).toBe(429);
+});
+
+it("resolves source addresses from deploy.sourceAddress, Node socket, or POPPY_TRUSTED_PROXY_HEADER, and ignores forged pap_browser cookies", async () => {
+  // 1) deploy.sourceAddress (normalized with addressKey)
+  const custom = await started("things:read", {
+    sourceAddress: (c) => c.req.header("x-custom-source"),
+  });
+  for (let i = 0; i < 10; i++)
+    await custom.enter("CCCC-CCCC", {
+      "x-custom-source": `2001:db8:1:2::${i + 1}`,
+    });
+  expect(
+    (
+      await custom.enter(undefined, {
+        "x-custom-source": "2001:db8:1:2:ffff::9",
+      })
+    ).status,
+  ).toBe(429);
+  expect(
+    (
+      await custom.enter(undefined, {
+        "x-custom-source": "2001:db8:1:3::1",
+      })
+    ).status,
+  ).toBe(200);
+
+  // 2) Node socket remoteAddress via Hono c.env.incoming.socket.remoteAddress
+  const socketApp = await started();
+  const enterWithSocket = (code: string, remoteAddress: string) =>
+    socketApp.app.request(
+      "/device",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/x-www-form-urlencoded",
+          origin,
+        },
+        body: new URLSearchParams({ user_code: code }).toString(),
+      },
+      { incoming: { socket: { remoteAddress } } },
+    );
+  for (let i = 0; i < 10; i++)
+    expect(
+      (await enterWithSocket("CCCC-CCCC", "::ffff:192.0.2.10")).status,
+    ).toBe(400);
+  expect(
+    (await enterWithSocket(socketApp.device.user_code, "192.0.2.10")).status,
+  ).toBe(429);
+  expect(
+    (await enterWithSocket(socketApp.device.user_code, "192.0.2.11")).status,
+  ).toBe(200);
+
+  // 3) Explicitly configured POPPY_TRUSTED_PROXY_HEADER on Node (takes precedence over proxy socket)
+  vi.stubEnv("POPPY_TRUSTED_PROXY_HEADER", "X-Forwarded-For");
+  const proxied = await started();
+  const enterProxied = (code: string, forwarded: string) =>
+    proxied.app.request(
+      "/device",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/x-www-form-urlencoded",
+          origin,
+          "x-forwarded-for": forwarded,
+        },
+        body: new URLSearchParams({ user_code: code }).toString(),
+      },
+      { incoming: { socket: { remoteAddress: "127.0.0.1" } } },
+    );
+  for (let i = 0; i < 10; i++)
+    await enterProxied("CCCC-CCCC", "198.51.100.5, 10.0.0.1");
+  expect(
+    (await enterProxied(proxied.device.user_code, "198.51.100.5, 10.0.0.2"))
+      .status,
+  ).toBe(429);
+  expect(
+    (await enterProxied(proxied.device.user_code, "198.51.100.6, 10.0.0.1"))
+      .status,
+  ).toBe(200);
+
+  // Invalid proxy header name is ignored
+  vi.stubEnv("POPPY_TRUSTED_PROXY_HEADER", "x-forwarded-for bad!");
+  const invalidHeader = await started();
+  for (let i = 1; i <= 10; i++)
+    await invalidHeader.enter("CCCC-CCCC", {
+      "x-forwarded-for": `198.51.100.${i}`,
+    });
+  expect(
+    (
+      await invalidHeader.enter(undefined, {
+        "x-forwarded-for": "198.51.100.99",
+      })
+    ).status,
+  ).toBe(429);
+  vi.unstubAllEnvs();
+
+  // 4) Forged pap_browser cookies do not split the source bucket on Node
+  const forged = await started();
+  for (let i = 1; i <= 10; i++) {
+    const cookie = `__Host-pap_browser=${"a".repeat(24)}${String(i).padStart(2, "0")}`;
+    expect((await forged.enter("CCCC-CCCC", { cookie })).status).toBe(400);
+  }
+  expect(
+    (
+      await forged.enter(undefined, {
+        cookie: `__Host-pap_browser=${"b".repeat(26)}`,
+      })
+    ).status,
   ).toBe(429);
 });
 

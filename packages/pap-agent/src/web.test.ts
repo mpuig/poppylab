@@ -49,10 +49,13 @@ describe("readJson", () => {
 });
 
 describe("the client's address", () => {
-  afterEach(() => vi.unstubAllGlobals());
-  const from = (address: string) =>
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+  const from = (address: string, header = "cf-connecting-ip") =>
     new Request("https://poppylab.dev/api/v1/account", {
-      headers: { "cf-connecting-ip": address },
+      headers: { [header]: address },
     });
   const none = { get: () => undefined, set: () => {} };
 
@@ -64,8 +67,9 @@ describe("the client's address", () => {
     );
   });
 
-  it("is taken from no header elsewhere, where any client can send one", async () => {
+  it("is taken from no header elsewhere when no proxy header is configured", async () => {
     expect(clientAddress(from("203.0.113.9"))).toBeNull();
+    expect(clientAddress(from("203.0.113.9", "x-forwarded-for"))).toBeNull();
     expect((await browserCaller(from("203.0.113.9"), none)).ip).toBeNull();
     expect(
       apiSessionCaller(from("203.0.113.9"), {
@@ -74,5 +78,42 @@ describe("the client's address", () => {
         id: "s",
       } as ApiSession).ip,
     ).toBeNull();
+  });
+
+  it("reads POPPY_TRUSTED_PROXY_HEADER on Node when configured", async () => {
+    vi.stubEnv("POPPY_TRUSTED_PROXY_HEADER", "X-Forwarded-For");
+    const proxied = from(" 203.0.113.9 , 10.0.0.1 ", "x-forwarded-for");
+    expect(clientAddress(proxied)).toBe("203.0.113.9");
+    expect((await browserCaller(proxied, none)).ip).toBe("203.0.113.9");
+    expect(
+      apiSessionCaller(proxied, {
+        user: "u",
+        account: "a",
+        id: "s",
+      } as ApiSession).ip,
+    ).toBe("203.0.113.9");
+    expect(clientAddress(from(" , 10.0.0.1 ", "x-forwarded-for"))).toBeNull();
+    expect(clientAddress(from("203.0.113.9", "cf-connecting-ip"))).toBeNull();
+  });
+
+  it("ignores invalid POPPY_TRUSTED_PROXY_HEADER names and prefers Cloudflare on Workers", () => {
+    vi.stubEnv("POPPY_TRUSTED_PROXY_HEADER", "x-forwarded-for invalid!");
+    expect(clientAddress(from("203.0.113.9", "x-forwarded-for"))).toBeNull();
+
+    vi.stubEnv("POPPY_TRUSTED_PROXY_HEADER", "");
+    expect(clientAddress(from("203.0.113.9", "x-forwarded-for"))).toBeNull();
+
+    vi.stubGlobal("navigator", { userAgent: "Cloudflare-Workers" });
+    vi.stubEnv("POPPY_TRUSTED_PROXY_HEADER", "x-forwarded-for");
+    expect(
+      clientAddress(
+        new Request("https://poppylab.dev/api/v1/account", {
+          headers: {
+            "cf-connecting-ip": "198.51.100.1",
+            "x-forwarded-for": "203.0.113.9",
+          },
+        }),
+      ),
+    ).toBe("198.51.100.1");
   });
 });

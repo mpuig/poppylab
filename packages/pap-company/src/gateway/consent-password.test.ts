@@ -10,7 +10,10 @@ import { client, origin, redirect, setup } from "./test-company.ts";
 const salt = "a".repeat(32);
 const passwordHash = `${salt}:${scryptSync("right", salt, 64).toString("hex")}`;
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+});
 
 /** A consent page, and its answer with `password` from `ip`. */
 async function lab() {
@@ -36,7 +39,7 @@ async function lab() {
       await x.form(
         "/oauth/authorize",
         {
-          nonce: cookie.split("=")[1]!,
+          nonce: cookie.split(";")[0]!.split("=")[1]!,
           decision: "approve",
           account: "elena",
           password,
@@ -80,13 +83,66 @@ it("counts an IPv6 source by its /64, and an IPv4 one by its address", async () 
   expect(await x.answer(four, "right", "198.51.100.8")).toBe(302);
 });
 
-it("limits wrong passwords per consent page where no address is known", async () => {
+it("limits wrong passwords per consent page where no address is known, ignoring forged pap_browser cookies", async () => {
   const x = await lab();
   const mine = await x.open();
-  for (let i = 0; i < 10; i++)
-    expect(await x.answer(mine, "wrong", `192.0.2.${i}`)).toBe(401);
-  expect(await x.answer(mine, "right", "192.0.2.99")).toBe(429);
+  for (let i = 0; i < 10; i++) {
+    const browser = `__Host-pap_browser=${"c".repeat(24)}${String(i).padStart(2, "0")}`;
+    expect(await x.answer(`${mine}; ${browser}`, "wrong", `192.0.2.${i}`)).toBe(
+      401,
+    );
+  }
+  expect(
+    await x.answer(
+      `${mine}; __Host-pap_browser=${"d".repeat(26)}`,
+      "right",
+      "192.0.2.99",
+    ),
+  ).toBe(429);
   expect(await x.answer(await x.open(), "right", "192.0.2.1")).toBe(302);
+});
+
+it("uses deploy.sourceAddress for consent password limits when provided", async () => {
+  const x = await setup({
+    passwordHash,
+    sourceAddress: (c) => c.req.header("x-real-ip"),
+  });
+  const open = async () => {
+    const page = await x.app.request(
+      `/oauth/authorize?${new URLSearchParams({
+        client_id: client,
+        redirect_uri: redirect,
+        response_type: "code",
+        scope: "things:read",
+        state: "s".repeat(32),
+        code_challenge: createHash("sha256")
+          .update("v".repeat(64))
+          .digest("base64url"),
+        code_challenge_method: "S256",
+      })}`,
+    );
+    return page.headers.getSetCookie()[0]!.split(";")[0]!;
+  };
+  const answer = async (cookie: string, password: string, ip: string) =>
+    (
+      await x.form(
+        "/oauth/authorize",
+        {
+          nonce: cookie.split("=")[1]!,
+          decision: "approve",
+          account: "elena",
+          password,
+        },
+        { cookie, origin, "x-real-ip": ip },
+      )
+    ).status;
+  const first = await open();
+  for (let i = 0; i < 10; i++)
+    expect(await answer(first, "wrong", "198.51.100.1")).toBe(401);
+  // Opening a fresh consent page from the same source address is still blocked.
+  expect(await answer(await open(), "right", "198.51.100.1")).toBe(429);
+  // A different source address is allowed.
+  expect(await answer(await open(), "right", "198.51.100.2")).toBe(302);
 });
 
 it("won't start with a passwordHash it can't check", async () => {

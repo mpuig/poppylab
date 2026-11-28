@@ -30,6 +30,11 @@ import {
 /** The longest `client_id` taken, in characters. */
 export const MAX_CLIENT_ID = 200;
 
+const HEADER_NAME = /^[a-z0-9-]+$/i;
+type NodeBindings = {
+  incoming?: { socket?: { remoteAddress?: unknown } };
+};
+
 export type ClientInfo = {
   keys: JWK[];
   redirects: string[];
@@ -183,13 +188,33 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
   };
   const holderOf = (client: string, user: string) => hash(`${client}\n${user}`);
   /**
-   * Where a request comes from, for attempt limits: the visitor's address
-   * (`addressKey`), which Cloudflare sets in front of a Worker and any
-   * client can send to Node, else this browser's cookie.
+   * Where a request comes from, for attempt limits: the deployment's
+   * `sourceAddress` hook if given, else Cloudflare's `cf-connecting-ip` on
+   * Workers, else on Node an explicitly configured trusted proxy header
+   * (`POPPY_TRUSTED_PROXY_HEADER`) or the socket's remote address. Normalized
+   * with `addressKey`; never falls back to client-controlled cookies.
    */
   const sourceOf = (c: Context) => {
-    const address = onWorkers() ? c.req.header("cf-connecting-ip") : undefined;
-    return address !== undefined ? addressKey(address) : browserOf(c);
+    let address: string | undefined;
+    if (deploy.sourceAddress) {
+      address = deploy.sourceAddress(c)?.trim();
+    } else if (onWorkers()) {
+      address = c.req.header("cf-connecting-ip")?.trim();
+    } else {
+      const header =
+        typeof process !== "undefined"
+          ? process.env.POPPY_TRUSTED_PROXY_HEADER?.trim()
+          : undefined;
+      if (header && HEADER_NAME.test(header)) {
+        address = c.req.header(header)?.split(",")[0]?.trim();
+      }
+      if (!address) {
+        const remote = (c.env as NodeBindings | undefined)?.incoming?.socket
+          ?.remoteAddress;
+        if (typeof remote === "string") address = remote.trim();
+      }
+    }
+    return address ? addressKey(address) : undefined;
   };
 
   /** Whether a client may add no more records under this cap (`shareOf`). */

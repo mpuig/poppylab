@@ -10,7 +10,8 @@
  * per account, with a global ceiling. An account named before anything
  * proved it (a sign-in's user handle, a refresh token's prefix) is
  * counted together with the source, so someone who knows an account's ID
- * can spend only their own tries at it, not its owner's. An address is
+ * can spend only their own tries at it, not its owner's; when no source
+ * address is known, that claimed bucket is skipped. An address is
  * hashed before it is a key. An IPv6 address counts by its /64
  * (`addressKey`), as in `limits.ts` and at the Companies.
  */
@@ -107,19 +108,20 @@ export async function overAccountBudget(
   who: { ip: string | null; account?: string; claimed?: boolean },
 ): Promise<Reply | undefined> {
   const b = budgets[kind];
+  const accountKey =
+    who.account && b.account.length
+      ? who.claimed
+        ? who.ip
+          ? `${addressKey(who.ip)}\n${who.account}`
+          : undefined
+        : who.account
+      : undefined;
   const refused =
     (who.ip
       ? await over(`ip:${hashed(addressKey(who.ip))}`, b.source)
       : undefined) ??
-    (who.account && b.account.length
-      ? await over(
-          `acct-budget:${hashed(
-            who.claimed
-              ? `${who.ip ? addressKey(who.ip) : ""}\n${who.account}`
-              : who.account,
-          )}`,
-          b.account,
-        )
+    (accountKey
+      ? await over(`acct-budget:${hashed(accountKey)}`, b.account)
       : undefined) ??
     (await over("global", b.global));
   if (!refused) return undefined;

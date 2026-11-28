@@ -39,14 +39,22 @@ export const toResponse = (reply: Reply) =>
         headers: reply.headers,
       });
 
+const HEADER_NAME = /^[a-z0-9-]+$/i;
+
 /**
  * The client's address, for budgets counted per source: Cloudflare's
- * `cf-connecting-ip`, which it sets in front of a Worker. Anywhere else
- * any client can send that header, so nothing is taken from it there, as
- * at the Companies' gateway.
+ * `cf-connecting-ip`, which it sets in front of a Worker, or on Node an
+ * explicitly configured trusted proxy header (`POPPY_TRUSTED_PROXY_HEADER`).
+ * Anywhere else any client can send proxy headers, so nothing is taken from
+ * them, as at the Companies' gateway.
  */
-export const clientAddress = (request: Request) =>
-  onWorkers() ? request.headers.get("cf-connecting-ip") : null;
+export const clientAddress = (request: Request): string | null => {
+  if (onWorkers()) return request.headers.get("cf-connecting-ip");
+  const header = process.env.POPPY_TRUSTED_PROXY_HEADER?.trim();
+  if (!header || !HEADER_NAME.test(header)) return null;
+  const first = request.headers.get(header)?.split(",")[0]?.trim();
+  return first || null;
+};
 
 /** A cookie jar as Next's `cookies()` and the core's tests give one. */
 export type CookieStore = {

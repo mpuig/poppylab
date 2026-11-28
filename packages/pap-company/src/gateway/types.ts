@@ -751,6 +751,11 @@ export type Deployment = {
    * milliseconds; less when the access token ends first. Default a minute.
    */
   streamMs?: number;
+  /**
+   * Resolves the client's address for attempt limits, overriding the
+   * default Cloudflare / Node resolution.
+   */
+  sourceAddress?: (c: Context) => string | undefined;
 };
 export const SHARED_TENANT = "shared";
 /** A Map view over a persisted plain object. */
