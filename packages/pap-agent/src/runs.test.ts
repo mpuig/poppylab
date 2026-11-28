@@ -606,3 +606,171 @@ it("moves a visitor's conversations to an account as they are, and leaves one an
     busy.id,
   ]);
 });
+
+it("skips active runs when the destination is at MAX_RUNS, while still moving archived runs", async () => {
+  configureBackend(memoryBackend());
+  const visitor = "visitor-max-runs",
+    account = "account-max-runs";
+  const start = Date.now();
+  vi.useFakeTimers({ now: start });
+
+  // Visitor starts one conversation that will expire and become archived.
+  const archived = await createRun(visitor, "https://shop.example");
+  archived.run.title = "Ended visitor chat";
+  await releaseRun(visitor, archived);
+
+  vi.setSystemTime(start + 31 * 60000);
+
+  // Account already holds MAX_RUNS (5) active runs.
+  for (let i = 0; i < 5; i++) {
+    const held = await createRun(account, "https://shop.example");
+    held.run.title = `Account active ${i}`;
+    await releaseRun(account, held);
+  }
+
+  // Visitor also holds 2 active runs.
+  const activeIds: string[] = [];
+  for (let i = 0; i < 2; i++) {
+    const held = await createRun(visitor, "https://shop.example");
+    held.run.title = `Visitor active ${i}`;
+    await releaseRun(visitor, held);
+    activeIds.push(held.id);
+  }
+
+  expect(await moveConversations(visitor, account)).toEqual({
+    moved: 1,
+    skipped: 2,
+  });
+
+  // Archived run moved into account; active runs stayed unlocked in visitor.
+  const accountList = await listConversations(account);
+  expect(accountList).toHaveLength(6);
+  expect(accountList.filter((c) => c.active)).toHaveLength(5);
+  expect(await readConversation(account, archived.id)).toMatchObject({
+    archived: true,
+    title: "Ended visitor chat",
+    busy: false,
+  });
+  expect(await readConversation(visitor, archived.id)).toBeUndefined();
+
+  expect((await listConversations(visitor)).map((c) => c.id).sort()).toEqual(
+    activeIds.sort(),
+  );
+  for (const id of activeIds) {
+    expect(await readConversation(account, id)).toBeUndefined();
+    const kept = await acquireRun(visitor, id);
+    expect(kept).not.toBe("busy");
+    expect(kept).toBeDefined();
+    await releaseRun(visitor, kept as Taken);
+  }
+});
+
+it("skips all runs and leaves them intact when the destination is at MAX_CONVERSATIONS", async () => {
+  configureBackend(memoryBackend());
+  const visitor = "visitor-max-conv",
+    account = "account-max-conv";
+  const start = Date.now();
+  vi.useFakeTimers({ now: start });
+
+  // Visitor has an ended conversation; account fills all 20 slots.
+  const visitorArchived = await createRun(visitor, "https://shop.example");
+  visitorArchived.run.title = "Visitor ended";
+  await releaseRun(visitor, visitorArchived);
+
+  for (let i = 0; i < 20; i++) {
+    vi.setSystemTime(start + i * 1000);
+    const held = await createRun(account, "https://shop.example");
+    held.run.title = `Account ${i}`;
+    await releaseRun(account, held);
+  }
+
+  // Advance past RUN_MS so all 20 account conversations are archived (0 active),
+  // verifying MAX_CONVERSATIONS blocks both active and archived moves even when
+  // active < MAX_RUNS.
+  vi.setSystemTime(start + 31 * 60000);
+  const visitorActive = await createRun(visitor, "https://shop.example");
+  visitorActive.run.title = "Visitor active";
+  await releaseRun(visitor, visitorActive);
+
+  expect(await moveConversations(visitor, account)).toEqual({
+    moved: 0,
+    skipped: 2,
+  });
+
+  const accountList = await listConversations(account);
+  expect(accountList).toHaveLength(20);
+  expect(accountList.map((c) => c.id)).not.toContain(visitorArchived.id);
+  expect(accountList.map((c) => c.id)).not.toContain(visitorActive.id);
+
+  expect((await listConversations(visitor)).map((c) => c.id).sort()).toEqual(
+    [visitorArchived.id, visitorActive.id].sort(),
+  );
+  expect(await readConversation(visitor, visitorArchived.id)).toMatchObject({
+    archived: true,
+    busy: false,
+  });
+  const kept = await acquireRun(visitor, visitorActive.id);
+  expect(kept).not.toBe("busy");
+  expect(kept).toBeDefined();
+  await releaseRun(visitor, kept as Taken);
+});
+
+it("partially claims conversations up to the destination's remaining active and total capacity", async () => {
+  configureBackend(memoryBackend());
+  const start = Date.now();
+  vi.useFakeTimers({ now: start });
+
+  // Part 1: room for 2 of 4 active runs (3 existing active -> MAX_RUNS = 5).
+  const visitorA = "visitor-partial-active",
+    accountA = "account-partial-active";
+  for (let i = 0; i < 3; i++) {
+    const held = await createRun(accountA, "https://shop.example");
+    held.run.title = `Existing ${i}`;
+    await releaseRun(accountA, held);
+  }
+  for (let i = 0; i < 4; i++) {
+    const held = await createRun(visitorA, "https://shop.example");
+    held.run.title = `Incoming ${i}`;
+    await releaseRun(visitorA, held);
+  }
+  expect(await moveConversations(visitorA, accountA)).toEqual({
+    moved: 2,
+    skipped: 2,
+  });
+  expect(await listConversations(accountA)).toHaveLength(5);
+  const remainingA = await listConversations(visitorA);
+  expect(remainingA).toHaveLength(2);
+  for (const { id } of remainingA) {
+    const kept = await acquireRun(visitorA, id);
+    expect(kept).not.toBe("busy");
+    expect(kept).toBeDefined();
+    await releaseRun(visitorA, kept as Taken);
+  }
+
+  // Part 2: room for 2 of 3 total conversations (18 existing archived -> MAX_CONVERSATIONS = 20).
+  const visitorB = "visitor-partial-total",
+    accountB = "account-partial-total";
+  for (let i = 0; i < 18; i++) {
+    vi.setSystemTime(start + i * 1000);
+    const held = await createRun(accountB, "https://shop.example");
+    held.run.title = `Archived ${i}`;
+    await releaseRun(accountB, held);
+  }
+  vi.setSystemTime(start + 31 * 60000);
+  for (let i = 0; i < 3; i++) {
+    const held = await createRun(visitorB, "https://shop.example");
+    held.run.title = `Visitor ${i}`;
+    await releaseRun(visitorB, held);
+  }
+  expect(await moveConversations(visitorB, accountB)).toEqual({
+    moved: 2,
+    skipped: 1,
+  });
+  expect(await listConversations(accountB)).toHaveLength(20);
+  const remainingB = await listConversations(visitorB);
+  expect(remainingB).toHaveLength(1);
+  const keptB = await acquireRun(visitorB, remainingB[0]!.id);
+  expect(keptB).not.toBe("busy");
+  expect(keptB).toBeDefined();
+  await releaseRun(visitorB, keptB as Taken);
+});

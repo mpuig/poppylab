@@ -772,16 +772,26 @@ export async function pendingSignIns(visitor: string) {
  * Moves one agent user's conversations to another: a visitor's into the
  * account they signed in to, when they ask for it. Each keeps its ID, its
  * words and its Companies, with the User ID each Company knows; one that
- * another request holds right now stays where it is and is counted. Over
- * the cap, the oldest ended ones go as the next list is read.
+ * another request holds right now, or that would put the destination over
+ * its active or total conversation limits, stays where it is and is
+ * counted.
  */
 export async function moveConversations(from: string, to: string) {
   const b = backend();
+  const existing = await sweep(to);
+  let total = existing.length;
+  let active = existing.filter((held) => !held.run.archived).length;
   let moved = 0,
     skipped = 0;
   for (const { id } of await sweep(from)) {
     const held = await acquireStored(from, id);
     if (!held) {
+      skipped++;
+      continue;
+    }
+    const isActive = !held.run.archived;
+    if (total >= MAX_CONVERSATIONS || (isActive && active >= MAX_RUNS)) {
+      await unlockStored(from, held);
       skipped++;
       continue;
     }
@@ -791,6 +801,8 @@ export async function moveConversations(from: string, to: string) {
     if (await b.put(to, `run:${id}`, run, null)) {
       await b.remove(from, `run:${id}`);
       moved++;
+      total++;
+      if (isActive) active++;
     } else {
       await unlockStored(from, held);
       skipped++;
