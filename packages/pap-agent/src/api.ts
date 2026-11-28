@@ -33,6 +33,7 @@ import {
   releaseRun,
 } from "./runs";
 import type { Operation, Run } from "./runtime";
+import { shownTranscript } from "./transcript";
 import type { Caller, Reply } from "./web";
 import { PapDiscoveryError } from "@poppy-lab/pap-core";
 
@@ -404,6 +405,72 @@ async function running(
   return undefined;
 }
 
+const sameMessage = (a: AgentMessage, b: AgentMessage) =>
+  a.from === b.from &&
+  a.text === b.text &&
+  a.company?.origin === b.company?.origin &&
+  a.author === b.author &&
+  a.direct === b.direct;
+
+/**
+ * The messages added during one turn, given the transcript before and after it.
+ * When `replaced` is false, entries are appended at the end (and at most
+ * evicted from the front when the transcript hits its storage bound). When
+ * `replaced` is true, earlier entries may have been dropped before the turn's
+ * own entries were appended after `historyLength`.
+ */
+function turnMessages(
+  before: readonly AgentMessage[],
+  after: readonly AgentMessage[],
+  replaced: boolean,
+  historyLength?: number,
+): AgentMessage[] {
+  if (!before.length) return after.slice();
+  if (!after.length) return [];
+  if (replaced) {
+    const limit = Math.min(historyLength ?? after.length, after.length);
+    let kept = 0;
+    let cursor = 0;
+    while (kept < limit) {
+      const next = after[kept]!;
+      let found = -1;
+      for (let j = cursor; j < before.length; j++) {
+        if (sameMessage(before[j]!, next)) {
+          found = j;
+          break;
+        }
+      }
+      if (found < 0) break;
+      cursor = found + 1;
+      kept++;
+    }
+    if (
+      historyLength !== undefined &&
+      historyLength < after.length &&
+      kept < limit &&
+      before.length === historyLength &&
+      kept === limit - 1
+    )
+      return after.slice(historyLength);
+    return after.slice(kept);
+  }
+  if (after.length >= before.length && sameMessage(before[0]!, after[0]!))
+    return after.slice(before.length);
+  for (let drop = 1; drop <= before.length; drop++) {
+    const kept = before.length - drop;
+    if (kept > after.length) continue;
+    let matches = true;
+    for (let i = 0; i < kept; i++) {
+      if (!sameMessage(before[drop + i]!, after[i]!)) {
+        matches = false;
+        break;
+      }
+    }
+    if (matches) return after.slice(kept);
+  }
+  return after.slice();
+}
+
 /** A turn of the chat, in the plainer terms: what it added, and the state. */
 async function turn(
   caller: Caller,
@@ -411,8 +478,13 @@ async function turn(
   body: Record<string, unknown>,
   options: TurnOptions = {},
 ): Promise<Result<TurnResult>> {
-  const gone = await running(caller, id);
-  if (gone) return gone;
+  const user = caller.user();
+  const existing = user ? await storedConversation(user, id) : undefined;
+  if (!existing) return NOT_FOUND;
+  const language = languageOf(existing);
+  const before = shownTranscript(existing).map((entry) =>
+    messageOf(entry, language),
+  );
   const done = await chatTurn(
     {
       read: async () => ({ ...body, companies: true }),
@@ -424,16 +496,26 @@ async function turn(
   if (done.status !== 200) return failure(done);
   const state = await getConversation(caller, done.conversation ?? id);
   if (!state.ok) return state;
-  // The turn's own entries: from the User's line it added, to the end.
-  const messages = state.value.messages;
-  let last = messages.length - 1;
-  while (last >= 0 && messages[last]!.from !== "user") last--;
+  const doneBody =
+    done.body && typeof done.body === "object"
+      ? (done.body as { history?: unknown })
+      : {};
+  const replaced = "history" in doneBody;
+  const messages =
+    state.value.id !== id
+      ? state.value.messages
+      : turnMessages(
+          before,
+          state.value.messages,
+          replaced,
+          Array.isArray(doneBody.history) ? doneBody.history.length : undefined,
+        );
   return {
     ok: true,
     value: {
       conversation: state.value.id,
-      messages: last < 0 ? [] : messages.slice(last),
-      replaced: "history" in (done.body as object),
+      messages,
+      replaced,
       state: state.value,
     },
   };

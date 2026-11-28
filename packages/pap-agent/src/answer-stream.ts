@@ -99,15 +99,25 @@ export function answerStream(send: (delta: MessageDelta) => void) {
     finish<M extends { from: string; text: string }>(
       messages: M[],
     ): Array<M & { id?: string }> {
-      close();
+      if (
+        open &&
+        messages.some(
+          (message) =>
+            message.from === "agent" && same(open!.text, message.text),
+        )
+      )
+        close();
+      else open = undefined;
       const left = said.slice();
       return messages.map((message) => {
-        if (message.from !== "agent") return message;
-        const at = left.findIndex((s) => same(s.text, message.text));
+        if (message.from !== "agent" || !message.text.trim()) return message;
+        const at = left.findIndex(
+          (s) => s.index > 0 && same(s.text, message.text),
+        );
         if (at >= 0) return { ...message, id: left.splice(at, 1)[0]!.id };
         const whole = begin(message.text);
         say(whole, sentencesOf(message.text));
-        return { ...message, id: whole.id };
+        return whole.index > 0 ? { ...message, id: whole.id } : message;
       });
     },
   };
@@ -117,7 +127,10 @@ export function answerStream(send: (delta: MessageDelta) => void) {
 const same = (streamed: string, kept: string) => {
   const a = streamed.trim();
   const b = kept.trim();
-  return a === b || (b.endsWith("…") && a.startsWith(b.slice(0, -1)));
+  if (!a || !b) return false;
+  return (
+    a === b || (b.length > 1 && b.endsWith("…") && a.startsWith(b.slice(0, -1)))
+  );
 };
 
 /** Whether a request asked for its answer as it is written. */
