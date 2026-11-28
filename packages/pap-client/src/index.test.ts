@@ -33,14 +33,30 @@ describe("RFC 8414 metadata paths", () => {
       "https://auth.example.com/.well-known/oauth-authorization-server",
     ],
     [
+      "https://auth.example.com/",
+      "https://auth.example.com/.well-known/oauth-authorization-server",
+    ],
+    [
+      "https://auth.example.com///",
+      "https://auth.example.com/.well-known/oauth-authorization-server",
+    ],
+    [
       "https://auth.example.com/shop-a",
       "https://auth.example.com/.well-known/oauth-authorization-server/shop-a",
     ],
     [
       "https://auth.example.com/shop-a/",
-      "https://auth.example.com/.well-known/oauth-authorization-server/shop-a/",
+      "https://auth.example.com/.well-known/oauth-authorization-server/shop-a",
     ],
-  ])("preserves the issuer path: %s", (issuer, expected) =>
+    [
+      "https://auth.example.com/shop-a/v1/",
+      "https://auth.example.com/.well-known/oauth-authorization-server/shop-a/v1",
+    ],
+    [
+      "https://auth.example.com/shop-a/v1///",
+      "https://auth.example.com/.well-known/oauth-authorization-server/shop-a/v1",
+    ],
+  ])("normalizes the issuer path: %s", (issuer, expected) =>
     expect(metadataUrlForIssuer(issuer).toString()).toBe(expected),
   );
 });
