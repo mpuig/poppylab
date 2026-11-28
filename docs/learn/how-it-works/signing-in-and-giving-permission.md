@@ -8,7 +8,7 @@ and later to propose changes. At the end she takes it back.
 
 This page follows the access from the first sign-in to the sign-out, in
 Iris's conversation and on Juniper's website. Every screenshot is from the
-live lab at [poppylab.dev](https://poppylab.dev), taken on 26 and 27 November 2026.
+live lab at [poppylab.dev](https://poppylab.dev), taken from 26 to 28 November 2026.
 
 ## Who does what
 
@@ -22,7 +22,7 @@ live lab at [poppylab.dev](https://poppylab.dev), taken on 26 and 27 November 20
 
 ### 1. Before signing in
 
-![Iris's conversation, marked Public access, with a green button: Sign in to Juniper Market, read only](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/01-before-signing-in.webp "Iris can ask Juniper public questions. Elena's account is closed to it.")
+![Iris's conversation, marked Public access and 1 waiting, with two suggested questions and a block: Iris can read your Juniper Market account once you sign in, read only, on Juniper Market's own page, with a green button: Sign in to Juniper Market, read only](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/01-before-signing-in.webp "Iris can ask Juniper public questions. Elena's account is closed to it.")
 
 Iris has found Juniper and can ask what any visitor could ask, such as what
 the shop sells. The conversation is marked Public access. Elena's deliveries
@@ -30,10 +30,12 @@ and orders belong to her account, and Iris has no access to it.
 [Connecting to a company](connecting-to-a-company.md) covers this first
 contact.
 
-The green button says what Iris will ask for: access to read, and nothing
-more. Above the conversation, the lab's hint says Elena can also answer "yes"
-when Iris asks her in the chat. Before she presses it, Elena asks what the shop sells, and Iris answers
-with Juniper's four products.
+The sign-in sits in the conversation as a block of its own, and the heading
+counts it among what waits for Elena. Its green button says what Iris will
+ask for: access to read, and nothing more. Above the conversation, the lab's
+hint says Elena can also answer "yes" when Iris asks her in the chat. Before
+she presses it, Elena asks what the shop sells, and Iris answers with
+Juniper's four products.
 
 ### 2. Sign in at Juniper
 
@@ -71,7 +73,7 @@ shows these requests.
 
 ### 3. Iris reads the account
 
-![Iris shows Elena's recurring delivery: every Thursday, oranges and coffee, 23 dollars 50. Juniper answers that she has no orders yet, and the line below reads Read-only access with a Request change permission button and Sign out](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/03-iris-reads-the-delivery.webp "With read-only access Iris can see the delivery and cannot propose a change to it.")
+![Iris shows Elena's recurring delivery: every Thursday, oranges and coffee, 23 dollars 50. Juniper answers that she has no orders yet. The heading reads Account connected](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/03-iris-reads-the-delivery.webp "With read-only access Iris can see the delivery and cannot propose a change to it.")
 
 The tab that held Juniper's page now shows a page of the lab that reads
 "Signed in to Juniper Market." and offers to close the tab. Back in the
@@ -79,10 +81,11 @@ conversation, Elena asks for her deliveries and Iris reads them from Juniper:
 one delivery every Thursday, with oranges and coffee. She asks for her orders
 too, and Juniper answers that there are none yet.
 
-The line under the answers states what Iris may do at this point: read-only
-access. Next to it are the two things Elena can do about that. She can ask
-for change permission, or sign out. A note says that after a new consent Iris
-asks whether to go on with the request that waited for it.
+The sign-in block at the top now reads "Signed in at Juniper Market · read
+only", and the Companies bar above the conversation shows the access: signed
+in, read only. Sign out is there too. In the conversation, a new block says
+that to ask Juniper for a change Iris needs change permission there, with a
+Request change permission button.
 
 <details>
 <summary>What travelled</summary>
@@ -143,7 +146,7 @@ would look for it. The Disconnect button ends the access from Juniper's side.
 
 ### 5. Ask for a change too early
 
-![Elena asks to move her recurring delivery to Saturday. The answer says this needs the change permission, which her sign-in to Juniper Market doesn't include, and that Iris didn't send the request. Below it Iris asks whether to ask Juniper Market for change permission, with a button for it](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/05-change-not-allowed-yet.webp "Reading and changing are separate permissions, and Iris holds only the first.")
+![Elena asks to move her recurring delivery to Saturday. The answer says this needs the change permission, which her sign-in to Juniper Market doesn't include, and that Iris didn't send the request. Below it Iris asks: Ask Juniper Market for change permission to go on with Move my recurring delivery to Saturday? with a button for it](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/05-change-not-allowed-yet.webp "Reading and changing are separate permissions, and Iris holds only the first.")
 
 Elena asks Iris to move the delivery to Saturday. Iris does not send the
 request. Juniper's API says that proposing a change needs a second
@@ -151,9 +154,10 @@ permission, and Elena gave only the one to read. Nothing changed: Juniper's
 website still showed Thursday and no proposal from the agent.
 
 The answer says what is missing and what happened: the request needs the
-change permission, and Iris didn't send it to Juniper. Then Iris asks whether
-to ask Juniper for that permission, so that it can go on with her request.
-Nothing changes until Elena approves the change itself.
+change permission, and Iris didn't send it to Juniper. Then Iris asks: "Ask
+Juniper Market for change permission to go on with 'Move my recurring
+delivery to Saturday'? Juniper Market's page opens again, and nothing changes
+until you approve the change itself."
 
 <details>
 <summary>What travelled</summary>
@@ -211,11 +215,12 @@ entry Juniper lists for Iris afterwards, with both permissions.
 
 ### 7. Iris asks to go on
 
-![Iris says Juniper Market's own page is open in a new tab for the change permission, then: You're signed in at Juniper Market. Shall Iris go on with Move my recurring delivery to Saturday? A button reads Yes, go on](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/07-iris-asks-to-go-on.webp "Iris waits for Elena's word before it sends the request it held back.")
+![Iris says: Juniper Market's own page is open in a new tab for the change permission. Sign in there; I never see your password. Then: You're signed in at Juniper Market. Shall I go on with Move my recurring delivery to Saturday? A button reads Yes, go on, and a block below reads Change permission given at Juniper Market](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/07-iris-asks-to-go-on.webp "Iris waits for Elena's word before it sends the request it held back.")
 
-Back in the conversation, Iris says that Elena is signed in at Juniper and
-asks whether to go on with "Move my recurring delivery to Saturday". It does
-not send the request by itself.
+Back in the conversation, a block reads "Change permission given at Juniper
+Market", and Iris asks: "You're signed in at Juniper Market. Shall I go on
+with 'Move my recurring delivery to Saturday'?" It does not send the request
+by itself.
 
 When the access changed, what had been said since the first sign-in left the
 conversation: her deliveries, her orders and the request Iris had not sent.
@@ -223,16 +228,17 @@ Her question from before that sign-in stayed, with its answer.
 
 ### 8. Go on with the request
 
-![Elena asks again. Iris says Juniper is holding the change, the access line reads Reading and change proposals, and a panel titled Needs you shows Thursday to Saturday with an Approve button](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/08-ask-again.webp "With the second permission Iris may ask. Juniper still waits for Elena.")
+![Elena answers yes. The answer says Juniper is holding the change, Iris asks whether to approve it, and below a card from Juniper Market reads Waiting for you: Change delivery day, from Thursday to Saturday, a change fee of 0 dollars, and the buttons Approve this change and Decline](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/08-ask-again.webp "With the second permission Iris may ask. Juniper still waits for Elena.")
 
 Elena answers "yes", and Iris sends the request. Juniper does not make the
 change. It answers that the change needs the customer's approval and sends
 back the terms it would apply: the delivery moves from Thursday to Saturday,
-at no charge. Iris shows them in a panel called Needs you.
+at no charge. Iris shows them as a card in the conversation, where the
+proposal arrived, and the heading counts it as waiting.
 
-Iris then asks in its own words, from the terms: Juniper Market proposes a
-change to her recurring delivery day, from Thursday to Saturday, the fee is
-$0.00, and the terms expire in 10 minutes. Approve it?
+Iris asks in its own words, from the terms: "Juniper Market wants to change
+your recurring delivery day from Thursday to Saturday. There's no fee. It
+expires in 10 minutes. Shall I approve it?"
 
 <details>
 <summary>What travelled</summary>
@@ -270,12 +276,14 @@ Juniper's answer to the request, as Iris received it:
 
 ### 9. Approve
 
-![The entry Change delivery day now reads Completed, with Juniper's confirmation that the delivery repeats weekly on Saturday and the line Approved by you](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/09-approved.webp "Juniper made the change when the approval arrived, and said so.")
+![The card Change delivery day now reads Approved by you, with Juniper's confirmation that the delivery repeats weekly on Saturday. Below it Elena's answer approve, and Iris: Done. You approved the change at Juniper Market, and Juniper Market has carried it out](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/09-approved.webp "Juniper made the change when the approval arrived, and said so.")
 
-Elena answers "approve". Pressing Approve this change in the panel does the
+Elena answers "approve". Pressing Approve this change on the card does the
 same. Iris sends Juniper the same request again, this time with her approval
 attached, and Juniper confirms: the delivery now repeats weekly on Saturday.
-Iris says that she approved the change and that Juniper performed it.
+Iris says: "Done. You approved the change at Juniper Market, and Juniper
+Market has carried it out." The card stays where it arrived and reads
+Approved by you.
 
 The permission from step 6 allowed Iris to ask for the change. Elena's
 approval is what allowed Juniper to make it. Iris takes that approval only
@@ -303,14 +311,15 @@ because the second consent replaced the first.
 
 ### 12. Sign out
 
-![After signing out, the conversation is marked Public access again. A request for the deliveries is answered: this needs your account at Juniper Market, you are not signed in, and Iris didn't send the request. Iris then asks whether to sign in again](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/12-signed-out.webp "After Sign out, Iris is back to what any visitor can ask.")
+![After signing out, the conversation is marked Public access again. A request for the deliveries is answered: this needs your account at Juniper Market, you are not signed in, and Iris didn't send the request. Iris then asks: Sign in on Juniper Market's own page to go on with Show my deliveries?](../../../apps/playground/public/learn-media/how-it-works/signing-in-and-giving-permission/12-signed-out.webp "After Sign out, Iris is back to what any visitor can ask.")
 
 Elena opens Juniper Market in the bar above the conversation, where its line
 reads "Reading and change proposals", and presses Sign out. The answers Iris
 got with her account leave the conversation, and it is marked Public access
 again. When she asks for her deliveries, Iris answers as it would have before
 she signed in: the request needs her account, she is not signed in, and Iris
-didn't send it to Juniper. Iris offers to sign in again.
+didn't send it to Juniper. Iris asks whether to sign in again to go on
+with the request.
 
 <details>
 <summary>What travelled</summary>

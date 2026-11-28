@@ -8,7 +8,7 @@ what an agent may see while no customer has signed in.
 
 This page follows that first contact screen by screen, on Juniper's website
 and in Iris's conversation. Every screenshot is from the live lab at
-[poppylab.dev](https://poppylab.dev), taken on 26 and 27 November 2026.
+[poppylab.dev](https://poppylab.dev), taken from 26 to 28 November 2026.
 
 ## Who does what
 
@@ -149,7 +149,7 @@ shows the two sign-in documents.
 
 ### 5. Ask what is public
 
-![Iris lists Juniper's four products with prices and stock](../../../apps/playground/public/learn-media/how-it-works/connecting-to-a-company/05-products-without-an-account.webp "The catalogue is public, so Iris can read it before Elena signs in.")
+![At the top of the conversation a block says Iris can read her Juniper Market account once she signs in, read only, with a green button. Below it Iris lists Juniper's four products with prices and stock](../../../apps/playground/public/learn-media/how-it-works/connecting-to-a-company/05-products-without-an-account.webp "The catalogue is public, so Iris can read it before Elena signs in.")
 
 Elena asks what Juniper sells. Juniper answers, because it decided that its
 catalogue is public. The four products and their prices are the ones on the
@@ -242,16 +242,17 @@ Read /api/delivery
 
 ### 7. Ask about the account
 
-![Elena asks for her orders. The answer says this needs her account at Juniper Market, that she is not signed in and that Iris didn't send the request. Below it Iris asks whether to sign in to Juniper Market to go on with Show my orders, with a button to sign in read only](../../../apps/playground/public/learn-media/how-it-works/connecting-to-a-company/07-orders-need-sign-in.webp "Orders belong to an account, and no account is connected yet.")
+![Elena asks for her orders. The answer says this needs her account at Juniper Market, that she is not signed in and that Iris didn't send the request. Below it Iris asks: Sign in on Juniper Market's own page to go on with Show my orders? It's read only, and I never see your password. The heading reads 1 waiting](../../../apps/playground/public/learn-media/how-it-works/connecting-to-a-company/07-orders-need-sign-in.webp "Orders belong to an account, and no account is connected yet.")
 
 Elena asks for her orders. This time there is no answer to give: orders
 belong to an account, and Iris has no permission to read hers. Iris says that
 the request needs her account at Juniper, that she is not signed in, and that
 it didn't send the request to the company.
 
-Then Iris asks a question of its own: sign in to Juniper Market to go on with
-"Show my orders"? Elena can press the button under the question or answer
-"yes" in the chat. Either way the sign-in happens on Juniper's own page, and
+Then Iris asks in its own words: "Sign in on Juniper Market's own page to go
+on with 'Show my orders'? It's read only, and I never see your password." The
+conversation's heading counts what waits for Elena. She can press the button
+under the question or answer "yes" in the chat. Either way the sign-in happens on Juniper's own page, and
 once it is done Iris can go on with her request.
 
 Juniper drew this line. In the description of its API, the catalogue and the
@@ -269,6 +270,7 @@ Inspector lists it as "Not sent · GET /api/account/orders · sign-in needed".
 
 ```text
 Started a Poppy Session, signed out
+Read /poppy/tasks
 Company Agent conversations at https://grocery-demo.poppylab.dev/poppy/conversations
 Found 19 API tools at the Company
 Did not send a request to /api/account/orders (sign-in needed)
