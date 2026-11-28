@@ -406,13 +406,22 @@ const schemas: Record<string, Schema> = {
         description:
           "Model backend: `demo` (scripted examples, no LLM), `free` (deployment's Workers AI model), or bring-your-own-key (`openai-compatible`, `anthropic`).",
       },
-      apiKey: str(
-        "Provider API key for `openai-compatible` or `anthropic`. Sent per request and never stored.",
-      ),
-      model: str("Optional model identifier for bring-your-own-key providers."),
-      turnstile: str(
-        "Single-use Cloudflare Turnstile token required for `free` turns, made by the deployment's widget on its own host for the action `chat`. Missing, invalid, or over-quota turns fall back to `demo` with an explanatory note.",
-      ),
+      apiKey: {
+        ...str(
+          "Provider API key for `openai-compatible` or `anthropic`. Sent per request and never stored.",
+        ),
+        maxLength: 2048,
+      },
+      model: {
+        ...str("Optional model identifier for bring-your-own-key providers."),
+        maxLength: 256,
+      },
+      turnstile: {
+        ...str(
+          "Single-use Cloudflare Turnstile token required for `free` turns, made by the deployment's widget on its own host for the action `chat`. Missing, invalid, or over-quota turns fall back to `demo` with an explanatory note.",
+        ),
+        maxLength: 2048,
+      },
     },
     ["provider"],
     "Selects which model handles a turn. Defaults to `demo` when omitted.",
@@ -694,11 +703,23 @@ const ok = (description: string, schema: Schema, status = "200") => ({
 const counted = object({ revoked: int("Number of sessions revoked.") }, [
   "revoked",
 ]);
+const conversationId: Schema = {
+  type: "string",
+  pattern: "^[A-Za-z0-9_-]{16,64}$",
+};
+const operationId: Schema = {
+  type: "string",
+  pattern: "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+};
+const signInTicket: Schema = {
+  type: "string",
+  pattern: "^[A-Za-z0-9_-]{43}$",
+};
 const id = {
   name: "id",
   in: "path",
   required: true,
-  schema: string,
+  schema: conversationId,
   description: "Conversation ID.",
 };
 const body = (schema: Schema) => ({ required: true, ...json(schema) });
@@ -908,16 +929,19 @@ export function openApiDocument() {
               name: "proposal",
               in: "path",
               required: true,
-              schema: string,
+              schema: operationId,
               description: "Proposal (operation) ID.",
             },
           ],
           requestBody: body(
             object({
               company: str("Origin URL of the Company holding the proposal."),
-              revision: str(
-                "Exact `revision` token from the proposal shown to the user.",
-              ),
+              revision: {
+                ...str(
+                  "Exact `revision` token from the proposal shown to the user.",
+                ),
+                pattern: "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+              },
               decision: {
                 type: "string",
                 enum: ["approve", "decline"],
@@ -989,7 +1013,7 @@ export function openApiDocument() {
               name: "ticket",
               in: "path",
               required: true,
-              schema: string,
+              schema: signInTicket,
               description: "One-time ticket from `SignIn.url`.",
             },
           ],

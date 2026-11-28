@@ -164,10 +164,46 @@ it("describes every route it serves, and serves every route it describes", async
   expect(await served.json()).toEqual(document);
 });
 
+it("returns one safe error shape for malformed conversation input", async () => {
+  const created = await call("POST", "/conversations", {
+    ignored: "unknown request members stay compatible",
+  });
+  expect(created.status).toBe(201);
+  const id = created.data.id as string;
+
+  const malformed = await call("POST", `/conversations/${id}/messages`, {
+    text: "Hello",
+    model: {
+      provider: "openai-compatible",
+      apiKey: { submitted: "sentinel-api-key-7a3f" },
+    },
+  });
+  expect(malformed).toEqual({
+    status: 400,
+    data: {
+      code: "invalid_request",
+      error: "model.apiKey must be a string of at most 2,048 characters.",
+    },
+  });
+  expect(JSON.stringify(malformed)).not.toContain("sentinel-api-key-7a3f");
+
+  const access = await call("POST", `/conversations/${id}/sign-ins`, {
+    company: "https://company.example",
+    access: "admin",
+  });
+  expect(access).toEqual({
+    status: 400,
+    data: {
+      code: "invalid_request",
+      error: "access must be read or write.",
+    },
+  });
+});
+
 it("serves nothing, and reads no body, on a deployment that isn't configured", async () => {
   vi.stubEnv("NODE_ENV", "production");
   try {
-    const refused = await call("GET", "/conversations/run_unknown_0001");
+    const refused = await call("GET", `/conversations/${"x".repeat(43)}`);
     expect(refused.status).toBe(403);
     expect(refused.data.code).toBe("disabled");
     const unread = await POST(
@@ -293,7 +329,7 @@ describe("a new conversation in demo mode", () => {
       status: 401,
       data: { code: "invalid_token" },
     });
-    const missing = await call("GET", "/conversations/run_not_here_000001");
+    const missing = await call("GET", `/conversations/${"z".repeat(43)}`);
     expect(missing.status).toBe(404);
     fits("getConversation", missing);
     expect((await call("GET", "/nothing")).status).toBe(404);

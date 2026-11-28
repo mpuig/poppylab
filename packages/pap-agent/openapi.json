@@ -206,7 +206,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,64}$"
             },
             "description": "Conversation ID."
           }
@@ -249,7 +250,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,64}$"
             },
             "description": "Conversation ID."
           }
@@ -364,7 +366,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,64}$"
             },
             "description": "Conversation ID."
           }
@@ -475,7 +478,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,64}$"
             },
             "description": "Conversation ID."
           },
@@ -484,7 +488,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$"
             },
             "description": "Proposal (operation) ID."
           }
@@ -502,7 +507,8 @@
                   },
                   "revision": {
                     "type": "string",
-                    "description": "Exact `revision` token from the proposal shown to the user."
+                    "description": "Exact `revision` token from the proposal shown to the user.",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$"
                   },
                   "decision": {
                     "type": "string",
@@ -600,7 +606,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,64}$"
             },
             "description": "Conversation ID."
           }
@@ -738,7 +745,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{43}$"
             },
             "description": "One-time ticket from `SignIn.url`."
           }
@@ -772,7 +780,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,64}$"
             },
             "description": "Conversation ID."
           }
@@ -2994,15 +3003,18 @@
           },
           "apiKey": {
             "type": "string",
-            "description": "Provider API key for `openai-compatible` or `anthropic`. Sent per request and never stored."
+            "description": "Provider API key for `openai-compatible` or `anthropic`. Sent per request and never stored.",
+            "maxLength": 2048
           },
           "model": {
             "type": "string",
-            "description": "Optional model identifier for bring-your-own-key providers."
+            "description": "Optional model identifier for bring-your-own-key providers.",
+            "maxLength": 256
           },
           "turnstile": {
             "type": "string",
-            "description": "Single-use Cloudflare Turnstile token required for `free` turns, made by the deployment's widget on its own host for the action `chat`. Missing, invalid, or over-quota turns fall back to `demo` with an explanatory note."
+            "description": "Single-use Cloudflare Turnstile token required for `free` turns, made by the deployment's widget on its own host for the action `chat`. Missing, invalid, or over-quota turns fall back to `demo` with an explanatory note.",
+            "maxLength": 2048
           }
         },
         "required": [

@@ -130,17 +130,18 @@ describe("what changed between two readings of a conversation", () => {
 });
 
 it("routes each path of /api/v1 to one operation, with its names", () => {
+  const id = "a".repeat(43);
   expect(match("POST", "/api/v1/conversations")).toEqual({
     operation: "startConversation",
     names: {},
   });
   expect(
-    match("POST", "/api/v1/conversations/run_1/proposals/op_9/decision"),
+    match("POST", `/api/v1/conversations/${id}/proposals/op_9/decision`),
   ).toEqual({
     operation: "decideProposal",
-    names: { id: "run_1", proposal: "op_9" },
+    names: { id, proposal: "op_9" },
   });
-  expect(match("GET", "/api/v1/conversations/run_1/messages")).toBeUndefined();
+  expect(match("GET", `/api/v1/conversations/${id}/messages`)).toBeUndefined();
   expect(match("GET", "/api/v1/conversations/a%2Fb")).toBeUndefined();
   expect(new Set(ROUTES.map((r) => r.operation)).size).toBe(ROUTES.length);
 });

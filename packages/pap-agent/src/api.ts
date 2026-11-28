@@ -10,6 +10,7 @@
  * `openapi.ts` describes these as HTTP (`api-http.ts`).
  */
 import { accountAction, accountReading } from "./account";
+import type { ModelChoiceInput } from "./api-contract/index.ts";
 import type { TurnStream } from "./answer-stream";
 import { chatTurn } from "./chat";
 import type { Answer, Choice } from "./company-commands";
@@ -173,12 +174,7 @@ export type TurnResult = {
  * but a Turnstile token for each turn; without a good one, or past its
  * limits, the turn runs in demo mode and says why.
  */
-export type ModelChoice = {
-  provider: "demo" | "free" | "openai-compatible" | "anthropic";
-  apiKey?: string;
-  model?: string;
-  turnstile?: string;
-};
+export type ModelChoice = ModelChoiceInput;
 
 // ---- Mapping ---------------------------------------------------------------
 
