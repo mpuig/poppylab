@@ -8,8 +8,8 @@ approved them. Later she asks for a payment her balance does not cover, and
 Harborline refuses it.
 
 This page follows those three requests screen by screen, on Iris's side and on
-Harborline's. Every screenshot is from the live lab, taken on
-26 November 2026. Harborline is fictional, and no real money exists or moves.
+Harborline's. Every screenshot is from the live lab at
+[poppylab.dev](https://poppylab.dev), taken on 26 and 28 November 2026. Harborline is fictional, and no real money exists or moves.
 
 ## Who does what
 
@@ -68,7 +68,7 @@ payments:request  transfers:request
 
 ### 3. Ask for the transfer
 
-![Iris has asked Harborline for the transfer, and a panel titled Needs you shows the amount, each balance before and after, and a button: Approve 1,000 dollars](../../../apps/playground/public/learn-media/how-it-works/moving-money/03-iris-proposes-the-transfer.webp "Harborline has moved nothing. It answered with terms that wait for Elena.")
+![Iris has asked Harborline for the transfer and asks whether to approve it. Below, a card from Harborline Bank reads Waiting for you, with the amount, each balance before and after, and a button: Approve 1,000 dollars](../../../apps/playground/public/learn-media/how-it-works/moving-money/03-iris-proposes-the-transfer.webp "Harborline has moved nothing. It answered with terms that wait for Elena.")
 
 Elena types "Transfer $1,000 from checking to savings." Iris reads her
 accounts, works out which two she means, and asks Harborline for that
@@ -76,10 +76,11 @@ transfer.
 
 Harborline does not make it. It answers that the transfer needs the customer's
 approval and sends back the terms it would apply, including the balance each
-account would have afterwards. Iris shows them in a panel called Needs you,
-with the amount first and each balance before and after. In the conversation
-Iris asks in its own words, from the terms: Harborline proposes a transfer of
-1,000 dollars from Operating checking to Reserve savings, approve it?
+account would have afterwards. Iris shows them as a card in the
+conversation, where the proposal arrived, with the amount first and each
+balance before and after. Iris asks in its own words, from the terms:
+"Harborline Bank wants to move $1,000.00 from Operating checking to Reserve
+savings. It expires in 10 minutes. Shall I approve it?"
 
 The lab runs here in demo mode, which answers its guided examples without an
 AI model, so the answer is the company's data set out as plain lines. With a model connected Iris would
@@ -129,14 +130,14 @@ Harborline's answer to the request, as Iris received it:
 
 ### 4. Read what you are approving
 
-![The approval panel: the amount in large type, each balance before and after, both accounts by name, under All exact terms the same facts as data, and at the foot the buttons Approve 1,000 dollars and Decline](../../../apps/playground/public/learn-media/how-it-works/moving-money/04-exact-terms.webp "The terms come from Harborline. Iris shows them and adds nothing of its own.")
+![The proposal card: the amount in large type, each balance before and after, both accounts by name, under All exact terms the same facts as data, and at the foot the buttons Approve 1,000 dollars and Decline](../../../apps/playground/public/learn-media/how-it-works/moving-money/04-exact-terms.webp "The terms come from Harborline. Iris shows them and adds nothing of its own.")
 
-The panel shows what Harborline will do if Elena approves, and it leads with
+The card shows what Harborline will do if Elena approves, and it leads with
 the amount. The paragraph that begins "Harborline Bank says" is the bank's own
 description, and the rows below it give each balance before and after and the
 two accounts by name. Harborline worked out the balances. Iris asked only for
-an amount and two accounts. The Approve and Decline buttons stay at the foot
-of the panel while the terms scroll above them.
+an amount and two accounts. The Approve and Decline buttons are at the foot
+of the card, under the terms.
 
 Under All exact terms are the same facts as data, with the amount in cents.
 The line called `idempotency_key` is a label Iris made up for this one
@@ -161,9 +162,9 @@ describes what a company checks when an approval arrives.
 
 ### 5. Nothing has moved yet
 
-![Harborline's website lists the transfer under Agent activity with the label Awaiting approval and the time until which it waits](../../../apps/playground/public/learn-media/how-it-works/moving-money/05-nothing-moved-yet.webp "While the panel waits in Iris, Harborline's website shows the request as a proposal.")
+![Harborline's website lists the transfer under Agent activity with the label Awaiting approval and the time until which it waits](../../../apps/playground/public/learn-media/how-it-works/moving-money/05-nothing-moved-yet.webp "While the card waits in Iris, Harborline's website shows the request as a proposal.")
 
-While the panel waits, Harborline's website lists the request under Agent
+While the card waits, Harborline's website lists the request under Agent
 activity as awaiting approval, and says until when it waits. The balances at
 the top of the same page are still 12,845 and 42,500 dollars.
 
@@ -180,7 +181,9 @@ Elena presses Approve $1,000.00, or answers "yes" to Iris's question. Iris
 sends Harborline the same request again, this time with her approval
 attached. Harborline checks that the
 approval matches the terms it offered, moves the money and confirms it. The
-entry in the conversation shows the bank's confirmation and who approved.
+card shows the bank's confirmation and who approved, and Iris says: "Done. You
+approved the $1,000.00 transfer at Harborline Bank, and Harborline Bank has
+carried it out."
 
 The approval is something only Elena gives: the button, or her own answer
 to the question Iris asked about these terms. Iris reads that answer by fixed
@@ -202,20 +205,22 @@ describes the header.
 ![Harborline's account page shows 11,845 dollars in checking, 43,500 dollars in savings, and the transfer in the recent transactions](../../../apps/playground/public/learn-media/how-it-works/moving-money/07-accounts-after.webp "The two balances Elena approved, on Harborline's website a few seconds later.")
 
 Harborline's website shows the accounts as they now stand: 11,845 dollars in
-checking and 43,500 dollars in savings, the two balances Elena read in the
-panel. The transfer appears twice in the recent transactions, once leaving
+checking and 43,500 dollars in savings, the two balances Elena read on the
+card. The transfer appears twice in the recent transactions, once leaving
 checking and once arriving in savings.
 
 ### 8. Ask for a payment
 
-![Iris has asked Harborline to send 125 dollars to Beacon Studio LLC, and the panel shows the amount, the balance before and after, the memo, the recipient and a fee of zero](../../../apps/playground/public/learn-media/how-it-works/moving-money/08-payment-proposed.webp "The terms of a payment name the recipient and repeat the memo in Elena's words.")
+![Iris has asked Harborline to send 125 dollars to Beacon Studio LLC and asks whether to approve it, and the card shows the amount, the balance before and after, the memo, the recipient and a fee of zero](../../../apps/playground/public/learn-media/how-it-works/moving-money/08-payment-proposed.webp "The terms of a payment name the recipient and repeat the memo in Elena's words.")
 
 Next Elena types "Send Beacon Studio $125 for the quarterly report." Iris
 reads her accounts and her saved recipients, finds Beacon Studio LLC among
 them, and asks Harborline for the payment from checking. Her words after
 "for" travel as the memo.
 
-Harborline answers with terms again, and the panel sets them out as rows: the
+Harborline answers with terms again, and Iris asks: "Harborline Bank wants
+to pay Beacon Studio LLC $125.00. It expires in 10 minutes. Shall I approve
+it?" The card sets the terms out as rows: the
 amount, the balance before and after, the memo, the recipient by name with the
 last four digits of its account, and a fee of zero. The balance that would
 remain is 11,720 dollars. Elena can check that the recipient and the memo are
@@ -272,7 +277,7 @@ the account's history, with the memo, and checking stands at 11,720 dollars.
 
 ### 10. When the bank says no
 
-![Elena asks to send Beacon Studio 4,500 dollars, and Iris shows an error: Harborline Bank answered insufficient funds, available balance 4,220 dollars, and nothing was retried](../../../apps/playground/public/learn-media/how-it-works/moving-money/10-bank-refuses.webp "Harborline refused the payment and gave its reason. Iris did not try again.")
+![Elena asks to send Beacon Studio 4,500 dollars, and Iris shows an error: Harborline Bank answered HTTP 409 insufficient_funds, available balance 4,220 dollars. I didn't retry anything; see the Inspector. Two buttons read Try again and Remove](../../../apps/playground/public/learn-media/how-it-works/moving-money/10-bank-refuses.webp "Harborline refused the payment and gave its reason. Iris did not try again.")
 
 By now Elena has paid Beacon Studio a larger invoice and moved more money to
 savings, and checking holds 4,220 dollars. She asks Iris to send Beacon
@@ -281,8 +286,9 @@ Studio 4,500 dollars.
 Harborline refuses. There are no terms to approve this time, because the bank
 does not offer a payment the account cannot cover. Iris shows the bank's
 answer as an error that names Harborline, its reason, `insufficient_funds`,
-and the balance that was available. It says that it did not try again, and
-nothing moved.
+and the balance that was available: "I didn't retry anything; see the
+Inspector." Nothing moved. Elena can try the request again herself, or remove
+the error.
 
 Harborline has limits of its own too. A payment of 6,000 dollars to Beacon
 Studio was refused with the reason `recipient_limit_exceeded` and that
@@ -303,12 +309,13 @@ POST /api/account/payments · refused by the Company · HTTP 409 insufficient_fu
 ```
 
 Harborline gave the same answer when Elena approved a payment of 4,000
-dollars after another transfer had left 3,220 dollars in checking. The
-proposal stayed in the panel, and under its terms the card carried the bank's
-answer:
+dollars after another transfer had left 3,220 dollars in checking. With the
+payment and the transfer both waiting, Iris had asked which one to approve,
+and Elena answered "approve the transfer", then "approve the payment". The
+proposal stayed waiting, and Iris said:
 
 ```text
-Harborline Bank refused this request (HTTP 409, insufficient_funds; available balance: $3,220.00). Nothing was performed.
+Harborline Bank refused this request (HTTP 409, insufficient_funds; available balance: $3,220.00). Nothing was performed. The terms still wait for you: approve them again once what stopped it is sorted out, or ask for the change again to get fresh terms.
 ```
 
 Step 11 shows Harborline's own record of that payment.
@@ -317,7 +324,7 @@ Step 11 shows Harborline's own record of that payment.
 
 ### 11. See what the agent did
 
-![Harborline's record of the agent's activity: a payment of 4,000 dollars awaiting approval, the same payment marked Not applied on 26 November at 08:32 UTC because checking had 3,220 dollars available, and a transfer of 1,000 dollars applied once, both approved by you in your agent](../../../apps/playground/public/learn-media/how-it-works/moving-money/11-agent-activity-at-harborline.webp "Harborline lists what the agent asked for, what became of each request and who approved it.")
+![Harborline's record of the agent's activity: a payment of 4,000 dollars awaiting approval, the same payment marked Not applied on 28 November at 07:28 UTC because checking had 3,220 dollars available, and a transfer of 1,000 dollars applied once, both approved by you in your agent](../../../apps/playground/public/learn-media/how-it-works/moving-money/11-agent-activity-at-harborline.webp "Harborline lists what the agent asked for, what became of each request and who approved it.")
 
 Lower on its account page, Harborline lists what Elena's agent asked for and
 what became of each request. A request it carried out is marked Applied once,
