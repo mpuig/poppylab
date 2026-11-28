@@ -73,6 +73,7 @@ export function mountPortal(app: Hono, ctx: Ctx, deps: Deps) {
       waiting: (until) =>
         `It waits for your approval in your agent until ${until}. If you decline it there or let it run out, nothing changes. Your agent does not tell us when you decline, so it shows as awaiting until then.`,
       unchanged: {
+        expired: "The proposal expired. Nothing changed.",
         declined: "Northwind declined this approval. Nothing changed.",
         refused:
           "Your booking had changed when this was approved. Nothing changed.",

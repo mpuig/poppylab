@@ -1,7 +1,11 @@
 import { it, expect, vi } from "vitest";
 import { openApiTools } from "@poppy-lab/pap-client";
 import { agentRequests } from "./agent.js";
-import { servicePaths, TOPIC_GUIDE } from "./service-openapi.js";
+import {
+  CASE_MESSAGE_MAX_LENGTH,
+  servicePaths,
+  TOPIC_GUIDE,
+} from "./service-openapi.js";
 it("advertises service reads and proposal-only support tools with declared permissions", async () => {
   const request = vi
     .fn<(...args: unknown[]) => Promise<unknown>>()
@@ -89,4 +93,13 @@ it("says what each support case topic covers, to the agent's model and at Junipe
   expect(report.fields.topic).toBe(
     `delivery | billing | profile | other. ${TOPIC_GUIDE}`,
   );
+  const message = (
+    tools.propose_support_case!.schema.properties as Record<
+      string,
+      { maxLength?: number }
+    >
+  ).message!;
+  expect(CASE_MESSAGE_MAX_LENGTH).toBe(2000);
+  expect(message.maxLength).toBe(CASE_MESSAGE_MAX_LENGTH);
+  expect(report.fields.message).toContain(String(CASE_MESSAGE_MAX_LENGTH));
 });

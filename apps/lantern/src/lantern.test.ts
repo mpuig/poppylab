@@ -942,3 +942,229 @@ it("customer website: shows the agent's feedback reports, newest first and escap
   expect(section).toMatch(/[A-Z][a-z]{2} \d{1,2}, \d{2}:\d{2} UTC/);
   expect(section).toContain("From localhost:3000");
 });
+
+it("account script focuses the live editor select and preserves open drafts on Refresh now", async () => {
+  const { runInNewContext } = await import("node:vm");
+  const { readFileSync } = await import("node:fs");
+  const { source } = await import("../scripts/site-script.mjs");
+  const script = readFileSync(source, "utf8");
+
+  class StubElement {
+    tag: string;
+    id = "";
+    className = "";
+    textContent = "";
+    title = "";
+    value = "";
+    type = "";
+    min = "";
+    max = "";
+    step = "";
+    htmlFor = "";
+    dateTime = "";
+    required = false;
+    selected = false;
+    disabled = false;
+    dataset: Record<string, string> = {};
+    attributes: Record<string, string> = {};
+    children: StubElement[] = [];
+    parent: StubElement | null = null;
+    listeners = new Map<string, Array<(e: unknown) => unknown>>();
+    focused = false;
+    constructor(tag: string) {
+      this.tag = tag.toLowerCase();
+    }
+    append(...nodes: Array<StubElement | string>) {
+      for (const item of nodes) {
+        if (typeof item === "string") {
+          this.textContent += item;
+        } else {
+          item.parent = this;
+          this.children.push(item);
+        }
+      }
+    }
+    replaceChildren(...nodes: Array<StubElement | string>) {
+      for (const child of this.children) child.parent = null;
+      this.children = [];
+      this.textContent = "";
+      this.append(...nodes);
+    }
+    setAttribute(name: string, val: string) {
+      this.attributes[name] = val;
+    }
+    addEventListener(event: string, fn: (e: unknown) => unknown) {
+      const list = this.listeners.get(event) ?? [];
+      list.push(fn);
+      this.listeners.set(event, list);
+    }
+    async dispatch(event: string, payload: Record<string, unknown> = {}) {
+      for (const fn of this.listeners.get(event) ?? []) await fn(payload);
+    }
+    focus() {
+      this.focused = true;
+      setFocused(this);
+    }
+    find(predicate: (el: StubElement) => boolean): StubElement | null {
+      for (const child of this.children) {
+        if (predicate(child)) return child;
+        const nested = child.find(predicate);
+        if (nested) return nested;
+      }
+      return null;
+    }
+    querySelector(selector: string): StubElement | null {
+      return this.find((el) => el.tag === selector.toLowerCase());
+    }
+    querySelectorAll(selector: string): StubElement[] {
+      const out: StubElement[] = [];
+      const walk = (node: StubElement) => {
+        for (const child of node.children) {
+          if (
+            selector === "button"
+              ? child.tag === "button"
+              : selector === "[data-dish]"
+                ? "dish" in child.dataset
+                : child.tag === selector.toLowerCase()
+          )
+            out.push(child);
+          walk(child);
+        }
+      };
+      walk(this);
+      return out;
+    }
+  }
+
+  let focusedElement: StubElement | null = null;
+  const setFocused = (el: StubElement) => {
+    focusedElement = el;
+  };
+  const root = new StubElement("main");
+  root.className = "account";
+  root.dataset.account = "elena";
+  const byId = new Map<string, StubElement>();
+  for (const id of [
+    "current-account",
+    "order-list",
+    "delivered-order",
+    "activity-list",
+    "access-list",
+    "access-status",
+    "content",
+    "status",
+    "refresh",
+    "logout",
+  ]) {
+    const el = new StubElement("div");
+    el.id = id;
+    byId.set(id, el);
+    root.append(el);
+  }
+
+  const baseState = {
+    account_id: "elena",
+    customer: "Elena Maren",
+    browser: null,
+    slots: [
+      { id: "fri-1830", label: "Friday 18:30–19:00" },
+      { id: "sat-1230", label: "Saturday 12:30–13:00" },
+    ],
+    menu: [{ id: "shoyu-ramen", name: "Shoyu ramen", price_cents: 1450 }],
+    orders: [
+      {
+        id: "ord_LNB1001",
+        version: 1,
+        slot: { id: "fri-1830", label: "Friday 18:30–19:00" },
+        items: [
+          {
+            dish_id: "shoyu-ramen",
+            name: "Shoyu ramen",
+            quantity: 2,
+            line_total_cents: 2900,
+          },
+        ],
+        subtotal_cents: 2900,
+        delivery_cents: 300,
+        total_cents: 3200,
+        recipient: "Elena Maren",
+        address: "12 Canal St",
+      },
+    ],
+    delivered: null,
+    activity: [] as Array<{ state: string; summary: string; result: string }>,
+    agents: [],
+  };
+  let currentState = structuredClone(baseState);
+  let stateRequests = 0;
+
+  const documentStub = {
+    hidden: false,
+    querySelector: (sel: string) => (sel === ".account" ? root : null),
+    getElementById: (id: string) =>
+      byId.get(id) ?? root.find((el) => el.id === id),
+    createElement: (tag: string) => new StubElement(tag),
+    addEventListener: () => {},
+  };
+  const windowStub = {
+    fetch: async () => {
+      stateRequests++;
+      return {
+        status: 200,
+        ok: true,
+        json: async () => structuredClone(currentState),
+      };
+    },
+  };
+  runInNewContext(script, {
+    window: windowStub,
+    document: documentStub,
+    location: { assign: () => {} },
+    Intl,
+    AbortSignal,
+    setInterval: () => 0,
+  });
+  await new Promise((r) => setTimeout(r, 0));
+  expect(stateRequests).toBe(1);
+
+  const orderList = byId.get("order-list")!;
+  const editButton = orderList.find(
+    (el) => el.tag === "button" && el.textContent === "Edit order",
+  )!;
+  expect(editButton).toBeTruthy();
+  await editButton.dispatch("click");
+
+  // Focus moves to the newly rendered live <select>, not the detached article.
+  const liveSelect = documentStub.getElementById("ord_LNB1001-slot");
+  expect(liveSelect).toBeTruthy();
+  expect(focusedElement).toBe(liveSelect);
+
+  // Modify the open editor's draft, then press "Refresh now" with updated server state.
+  liveSelect!.value = "sat-1230";
+  const quantityInput = documentStub.getElementById("ord_LNB1001-shoyu-ramen")!;
+  quantityInput.value = "5";
+  currentState = {
+    ...structuredClone(baseState),
+    activity: [
+      {
+        state: "proposed",
+        summary: "Add matcha ice cream",
+        result: "Waiting for approval",
+      },
+    ],
+  };
+  await byId.get("refresh")!.dispatch("click");
+  await new Promise((r) => setTimeout(r, 0));
+
+  expect(stateRequests).toBe(2);
+  // The open draft and DOM nodes are preserved.
+  expect(documentStub.getElementById("ord_LNB1001-slot")).toBe(liveSelect);
+  expect(liveSelect!.value).toBe("sat-1230");
+  expect(quantityInput.value).toBe("5");
+  // Other sections still refreshed.
+  expect(
+    byId
+      .get("activity-list")!
+      .find((el) => el.textContent.includes("Add matcha ice cream")),
+  ).toBeTruthy();
+});

@@ -522,6 +522,28 @@ it("asks for the write scope first, and sends no operation to a request that doe
     },
   });
   expect(direct.replies![0]!.operation).toBeUndefined();
+  // Whole-order refund in a Direct Conversation also refuses without operations.
+  const whole = agent({
+    conversation: "cnv_direct",
+    message: { author: "human", text: "yes" },
+    context: {},
+    direct: {
+      requested: true,
+      parent: { invite: { order_id: "ord_LNB0907" } },
+    },
+    account: "elena",
+    scopes: ["orders:read", "orders:write"],
+    memory: { asked: "ord_LNB0907" },
+    operations: false,
+    propose: () => {
+      throw Error("must not propose");
+    },
+  });
+  expect(whole.replies![0]!.data).toMatchObject({
+    error: "approval_unavailable",
+    phone: "+1 555-0142",
+  });
+  expect(whole.replies![0]!.operation).toBeUndefined();
 });
 
 it("hands off to nobody with a phone number, cancels nothing, then closes once", async () => {

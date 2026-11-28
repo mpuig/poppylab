@@ -13,7 +13,7 @@ import type {
   TurnResult,
 } from "@poppy-lab/pap-company";
 import { faqs } from "./customer-services.js";
-import { TOPIC_GUIDE } from "./service-openapi.js";
+import { CASE_MESSAGE_MAX_LENGTH, TOPIC_GUIDE } from "./service-openapi.js";
 
 export const PHONE = "+1 555-0117";
 export const PHONE_HOURS = "Monday to Saturday, 8am–7pm";
@@ -39,7 +39,7 @@ export const agentRequests = [
     fields: {
       topic: `${TOPICS.join(" | ")}. ${TOPIC_GUIDE}`,
       subject: "Short subject, up to 120 characters",
-      message: "What happened, up to 2000 characters",
+      message: `What happened, up to ${CASE_MESSAGE_MAX_LENGTH} characters`,
       order_id: "Optional: the order it is about",
     },
     scopes: ["poppy:read", "poppy:write"],
@@ -250,7 +250,7 @@ export function juniperAgent(
           subject.length > 120 ||
           typeof message !== "string" ||
           !message.trim() ||
-          message.length > 2000 ||
+          message.length > CASE_MESSAGE_MAX_LENGTH ||
           (order_id !== undefined &&
             (typeof order_id !== "string" || order_id.length > 100))
         )

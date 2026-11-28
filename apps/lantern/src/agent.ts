@@ -325,6 +325,16 @@ export function lanternAgent(deps: Deps): ConversationHandler {
   function wholeRefund(turn: ConversationTurn, orderId: string): TurnResult {
     const found = refundable(turn, orderId);
     if ("reply" in found) return found.reply;
+    if (!turn.operations)
+      // Operations v3 §2: no operations for an agent without the extension.
+      return {
+        replies: [
+          {
+            text: `A refund needs your approval, which your agent can't send. Call ${PHONE} instead.`,
+            data: { error: "approval_unavailable", phone: PHONE },
+          },
+        ],
+      };
     const { order, lines, amount, refunds } = found;
     turn.memory.pending = { kind: "whole", order_id: order.id };
     const outcome = turn.propose({

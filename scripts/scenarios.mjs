@@ -201,7 +201,7 @@ if (missing.length) {
   console.error(`Listed test files not found:\n${missing.join("\n")}`);
   process.exit(2);
 }
-const selected = process.argv.slice(2);
+const selected = process.argv.slice(2).filter((arg) => arg !== "--");
 if (selected.includes("--list")) {
   console.log(Object.keys(groups).join("\n"));
   process.exit(0);
@@ -222,6 +222,7 @@ for (const name of selected.length ? selected : Object.keys(groups)) {
   for (const [workspace, files] of groups[name]) {
     const output = path.join(directory, `${name}-${workspace}.json`);
     const started = Date.now();
+    const timeoutMs = 120000;
     const child = spawnSync(
       "pnpm",
       [
@@ -239,7 +240,7 @@ for (const name of selected.length ? selected : Object.keys(groups)) {
         cwd: root,
         env,
         encoding: "utf8",
-        timeout: 120000,
+        timeout: timeoutMs,
         maxBuffer: 8 * 1024 * 1024,
       },
     );
@@ -264,6 +265,27 @@ for (const name of selected.length ? selected : Object.keys(groups)) {
     console.log(
       `${passed ? "PASS" : "FAIL"} ${name}/${workspace} (${results.at(-1).passedTests}/${results.at(-1).tests})`,
     );
+    if (!passed) {
+      const causes = [];
+      if (child.error) {
+        causes.push(
+          child.error.code === "ETIMEDOUT"
+            ? `timed out after ${timeoutMs}ms (${child.error.message})`
+            : `spawn error: ${child.error.message}`,
+        );
+      }
+      if (child.signal) causes.push(`signal ${child.signal}`);
+      if (child.status !== null && child.status !== 0)
+        causes.push(`exit status ${child.status}`);
+      if (!report) causes.push("missing JSON test report");
+      else if (report.success === true && report.numPassedTests === 0)
+        causes.push("no tests passed");
+      if (causes.length) console.error(`  cause: ${causes.join("; ")}`);
+      const stderr = child.stderr?.trim();
+      if (stderr) console.error(stderr);
+      else if (!report && child.stdout?.trim())
+        console.error(child.stdout.trim());
+    }
   }
 }
 const report = path.join(directory, "summary.json");

@@ -104,27 +104,46 @@ for (const [company, items] of Object.entries(companies)) {
       output_compression: compression,
       n: 1,
     });
-    // A rate limit or a server error is worth a few patient tries; anything
-    // else (a bad key, an unknown model, a refused prompt) is not.
+    // A rate limit, server error, or transient network/timeout failure is
+    // worth a few patient tries; anything else (a bad key, an unknown model,
+    // a refused prompt) is not.
     let response;
+    let lastError;
     for (let attempt = 1; ; attempt++) {
-      response = await globalThis.fetch(
-        "https://api.openai.com/v1/images/generations",
-        {
-          method: "POST",
-          // A stuck request should fail the attempt, not hang the run.
-          signal: globalThis.AbortSignal.timeout(180_000),
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${key}`,
+      response = undefined;
+      lastError = undefined;
+      try {
+        response = await globalThis.fetch(
+          "https://api.openai.com/v1/images/generations",
+          {
+            method: "POST",
+            // A stuck request should fail the attempt, not hang the run.
+            signal: globalThis.AbortSignal.timeout(180_000),
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${key}`,
+            },
+            body,
           },
-          body,
-        },
-      );
+        );
+      } catch (error) {
+        lastError = error;
+        if (attempt === 3) break;
+        const message = error instanceof Error ? error.message : String(error);
+        console.log(`retrying ${company}/${id}: ${message}`);
+        await sleep(5000 * attempt);
+        continue;
+      }
       const retryable = response.status === 429 || response.status >= 500;
       if (response.ok || !retryable || attempt === 3) break;
       console.log(`retrying ${company}/${id}: ${response.status}`);
       await sleep(5000 * attempt);
+    }
+    if (!response) {
+      const message =
+        lastError instanceof Error ? lastError.message : String(lastError);
+      console.error(`failed   ${company}/${id}: ${message}`);
+      process.exit(1);
     }
     if (!response.ok) {
       const failure = await response.json().catch(() => ({}));

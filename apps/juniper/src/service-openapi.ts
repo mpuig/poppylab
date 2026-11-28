@@ -5,6 +5,8 @@
  */
 export const TOPIC_GUIDE =
   "delivery: an order or what arrived, such as a missing, wrong or damaged item or a late delivery, also when a refund is wanted. billing: an invoice or an amount charged. profile: contact details or the address. other: anything else.";
+/** Shared maximum character length for support-case messages and replies. */
+export const CASE_MESSAGE_MAX_LENGTH = 2000;
 const read = (
   operationId: string,
   summary: string,
@@ -104,7 +106,11 @@ export const servicePaths = {
         enum: ["delivery", "billing", "profile", "other"],
         description: TOPIC_GUIDE,
       },
-      message: { type: "string", minLength: 1, maxLength: 1000 },
+      message: {
+        type: "string",
+        minLength: 1,
+        maxLength: CASE_MESSAGE_MAX_LENGTH,
+      },
       order_id: { type: "string", minLength: 1, maxLength: 100 },
     },
     ["subject", "topic", "message"],
