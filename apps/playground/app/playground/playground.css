@@ -556,6 +556,11 @@ h2 {
 .message.error .message-text {
   color: var(--danger);
 }
+/* Iris's question to go on, once it is no longer asked. */
+.message.no-longer-asked .message-text {
+  color: var(--muted);
+  font-size: 14px;
+}
 .message-text {
   font-size: 15px;
   line-height: 1.65;

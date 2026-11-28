@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import { signedOutLocally } from "./account-sign-in";
 import { askToResume } from "./chat-answers";
 import { connected } from "./company-fixture";
-import { shownTranscript } from "./transcript";
+import { recordAsked, shownTranscript } from "./transcript";
 import type { Run } from "./runtime";
 
 const shop = "https://shop.example";
@@ -68,5 +68,103 @@ describe("the question to go on after a sign-in", () => {
     const shown = shownTranscript(run).map((entry) => entry.content);
     expect(shown).not.toContain(asked.text);
     expect(JSON.stringify(shownTranscript(run))).not.toContain("resume");
+  });
+
+  it("asks once per request: a newer question about it takes the older one's place", () => {
+    const run = signedIn();
+    const connection = run.connections[0]!;
+    const first = askToResume(run, connection)!;
+    // A change permission given before the User answered: the same
+    // request is asked about again, after the consent.
+    recordAsked(run, connection, [shop], { text: "Change permission given." });
+    const again = askToResume(run, connection)!;
+    expect(again.text).toBe(first.text);
+    const shown = shownTranscript(run);
+    expect(shown.filter((entry) => entry.content === first.text)).toHaveLength(
+      1,
+    );
+    expect(shown.at(-1)).toMatchObject({
+      content: again.text,
+      choices: again.choices,
+    });
+    expect(shown.some((entry) => entry.noLongerAsked)).toBe(false);
+  });
+
+  it("folds an older question about another request to a line saying it is no longer asked", () => {
+    const run = signedIn();
+    const connection = run.connections[0]!;
+    const first = askToResume(run, connection)!;
+    connection.resume = {
+      asked: "Show my orders",
+      access: "read",
+      at: Date.now(),
+    };
+    const next = askToResume(run, connection)!;
+    const shown = shownTranscript(run);
+    expect(shown.map((entry) => entry.content)).not.toContain(first.text);
+    const folded = shown.find((entry) => entry.noLongerAsked)!;
+    expect(folded).toMatchObject({
+      role: "assistant",
+      content: "I'm no longer asking whether to go on with “my deliveries”.",
+    });
+    expect(folded.choices).toBeUndefined();
+    expect(shown.at(-1)).toMatchObject({
+      content: next.text,
+      choices: next.choices,
+    });
+    // In the conversation's language.
+    const spanish = signedIn("es");
+    askToResume(spanish, spanish.connections[0]!);
+    spanish.connections[0]!.resume = {
+      asked: "otra cosa",
+      access: "read",
+      at: Date.now(),
+    };
+    askToResume(spanish, spanish.connections[0]!);
+    expect(
+      shownTranscript(spanish).find((entry) => entry.noLongerAsked)?.content,
+    ).toBe("Ya no pregunto si sigo con «my deliveries».");
+  });
+
+  it("loses its button once answered, and stays as it was asked", () => {
+    const run = signedIn();
+    const connection = run.connections[0]!;
+    const asked = askToResume(run, connection)!;
+    // "Yes, go on": the request goes, and its answer follows.
+    delete connection.resume;
+    recordAsked(run, connection, [shop], {
+      said: "Yes, go on",
+      text: "Your delivery is on Thursday.",
+    });
+    const entry = shownTranscript(run).find((e) => e.content === asked.text)!;
+    expect(entry.choices).toBeUndefined();
+    expect(entry.noLongerAsked).toBeUndefined();
+    // Asked again later about the same request: the answered one stays.
+    connection.resume = {
+      asked: "my deliveries",
+      access: "read",
+      at: Date.now(),
+    };
+    askToResume(run, connection);
+    const shown = shownTranscript(run);
+    expect(shown.filter((e) => e.content === asked.text)).toHaveLength(2);
+    expect(shown.some((e) => e.noLongerAsked)).toBe(false);
+  });
+
+  it("folds once the request no longer waits: it ran out, or went", () => {
+    const run = signedIn();
+    const connection = run.connections[0]!;
+    const asked = askToResume(run, connection)!;
+    expect(shownTranscript(run).at(-1)?.choices).toEqual(asked.choices);
+    // Half an hour later the request no longer goes on.
+    const later = Date.now() + 31 * 60000;
+    const expired = shownTranscript(run, later).at(-1)!;
+    expect(expired).toMatchObject({
+      noLongerAsked: true,
+      content: "I'm no longer asking whether to go on with “my deliveries”.",
+    });
+    expect(expired.choices).toBeUndefined();
+    delete connection.resume;
+    expect(shownTranscript(run).at(-1)?.noLongerAsked).toBe(true);
   });
 });

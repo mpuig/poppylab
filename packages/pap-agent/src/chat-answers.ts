@@ -50,7 +50,7 @@ import { say } from "./lines";
 import { spokenText } from "./spoken";
 import { operationAccounts } from "./operation-store";
 import type { Connection, Operation, Run } from "./runtime";
-import { recordAsked } from "./transcript";
+import { recordAsked, replaceGoOn } from "./transcript";
 import { readApproval, SAYS_YES, tryAgain, yesOrNo } from "./typed-answers";
 import type { Caller, Reply } from "./web";
 
@@ -379,18 +379,28 @@ export function askToResume(
   const origin = originOf(connection);
   const language = languageOf(run);
   const question: Question = {
-    text: say(language, "resumeAsk", { name, request: quoted(resume.asked) }),
+    text: say(language, "resumeAsk", {
+      name,
+      request: quoted(resume.asked),
+    }),
     spoken: say(language, "resumeAskSpoken", { name }),
     choices: [
       { label: say(language, "resumeButton"), answer: { resume: origin } },
     ],
   };
   run.asking = { resume: origin };
+  // One question per request, and only the newest can be answered: an
+  // earlier one about this request goes, one about another folds.
+  const request = quoted(resume.asked);
+  replaceGoOn(run, origin, request);
   // The User's own words, asked before this account was signed in. The
   // question is about the sign-in here, so it is kept as the account's:
   // signing out here, or losing the access, takes it away with the rest
   // (`forgetCompany`), and it no longer shows once it doesn't apply.
-  recordAsked(run, connection, [origin], question);
+  recordAsked(run, connection, [origin], {
+    ...question,
+    goOn: { request, until: resume.at + RESUME_MS },
+  });
   return question;
 }
 

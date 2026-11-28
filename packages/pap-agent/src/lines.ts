@@ -297,6 +297,13 @@ export const LINES = {
     fr: (p) =>
       `La connexion à ${p.name} est faite. Je continue ${q("fr", p.request)} ?`,
   }),
+  resumeNoLonger: line<{ request: string }>({
+    en: (p) =>
+      `I'm no longer asking whether to go on with ${q("en", p.request)}.`,
+    es: (p) => `Ya no pregunto si sigo con ${q("es", p.request)}.`,
+    ca: (p) => `Ja no pregunto si continuo amb ${q("ca", p.request)}.`,
+    fr: (p) => `Je ne demande plus si je continue ${q("fr", p.request)}.`,
+  }),
   earlierSignIn: line<Name>({
     en: (p) => `From your earlier sign-in at ${p.name}`,
     es: (p) => `De tu sesión anterior en ${p.name}`,

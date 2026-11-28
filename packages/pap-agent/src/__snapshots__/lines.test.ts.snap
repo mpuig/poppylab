@@ -746,6 +746,14 @@ exports[`the agent's own lines > are all in every language, as the table shows t
       "fr": "Oui, continuez",
     },
   ],
+  "resumeNoLonger": [
+    {
+      "ca": "Ja no pregunto si continuo amb «my orders».",
+      "en": "I'm no longer asking whether to go on with “my orders”.",
+      "es": "Ya no pregunto si sigo con «my orders».",
+      "fr": "Je ne demande plus si je continue « my orders ».",
+    },
+  ],
   "sessionRefused": [
     {
       "ca": "L'empresa ha rebutjat aquesta sessió de Poppy 1.0 sense compte. Potser implementa una altra versió del protocol; revisa'n el descobriment a l'Inspector.",

@@ -370,7 +370,7 @@ export function Conversation({
       key={`m${index}`}
       id={`message-${index}`}
       tabIndex={-1}
-      className={`message ${m.role.toLowerCase()}`}
+      className={`message ${m.role.toLowerCase()}${m.noLongerAsked ? " no-longer-asked" : ""}`}
     >
       <h3>
         {several && m.role === "Company" && m.from && (

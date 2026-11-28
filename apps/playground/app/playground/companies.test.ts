@@ -241,4 +241,13 @@ describe("a conversation restored from its transcript", () => {
       "Harborline Bank",
     ]);
   });
+
+  it("keeps a question to go on that is no longer asked as a folded line", () => {
+    const text = "I'm no longer asking whether to go on with “Show my orders”.";
+    expect(
+      historyToMessages([
+        { role: "assistant", content: text, noLongerAsked: true },
+      ]),
+    ).toEqual([{ role: "Agent", text, noLongerAsked: true }]);
+  });
 });

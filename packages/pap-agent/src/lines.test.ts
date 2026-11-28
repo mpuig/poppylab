@@ -47,6 +47,7 @@ const SAMPLES: { [K in LineKey]: Array<LineParams<K>> } = {
   signInLink: [lantern],
   resumeAsk: [{ ...lantern, request: "my orders" }],
   resumeAskSpoken: [lantern],
+  resumeNoLonger: [{ request: "my orders" }],
   earlierSignIn: [lantern],
   changeReady: [{}],
   approvedOnInstruction: [what],

@@ -15,6 +15,8 @@ import {
   type FromCompany,
 } from "./connections";
 import { dropLines, keepSignedOutLines } from "./inspector-log";
+import { languageOf } from "./language";
+import { say } from "./lines";
 import { operationAccounts } from "./operation-store";
 import { logEntry } from "./protocol-log";
 import type { Connection, Operation, Run, Turn } from "./runtime";
@@ -81,6 +83,17 @@ export type TranscriptEntry = {
    * never sent to a model again.
    */
   earlier?: true;
+  /**
+   * Iris's question whether to go on with a request that waited for a
+   * sign-in (`askToResume`): the request as the question quoted it, and
+   * until when it can go on.
+   */
+  goOn?: { request: string; until: number };
+  /**
+   * A question to go on that is no longer asked (`noLongerAsked`): its
+   * words say so, and the page shows it as a muted line.
+   */
+  noLongerAsked?: true;
 };
 
 /** What a turn put on the page besides the words. */
@@ -298,12 +311,75 @@ export function offerChoices(run: Run, answer: string, choices: Choice[]) {
  * in a run that has no transcript yet, each with the Company it came from.
  */
 export const shownTranscript = (
-  run: Pick<Run, "transcript" | "history" | "connections" | "former">,
+  run: Pick<
+    Run,
+    "transcript" | "history" | "connections" | "former" | "language"
+  >,
+  now = Date.now(),
 ) =>
-  forPage<TranscriptEntry>(run, run.transcript ?? run.history).map(
-    ({ using, ...entry }) =>
-      using ? { ...entry, using: using.map((o) => companyRef(run, o)) } : entry,
+  forPage<TranscriptEntry>(
+    run,
+    (run.transcript ?? run.history).map((entry: TranscriptEntry) =>
+      goesOn(run, entry, now) ? entry : noLongerAsked(run, entry),
+    ),
+  ).map(({ using, ...entry }) =>
+    using ? { ...entry, using: using.map((o) => companyRef(run, o)) } : entry,
   );
+
+/**
+ * Whether a question to go on can still be answered with its button: the
+ * request still waits at its Company, and hasn't run out. One already
+ * answered has no button, and stays as it was asked.
+ */
+function goesOn(
+  run: Pick<Run, "connections">,
+  entry: TranscriptEntry,
+  now: number,
+) {
+  if (!entry.goOn || !entry.choices) return true;
+  const waiting = run.connections.find(
+    (c) => originOf(c) === entry.company,
+  )?.resume;
+  return !!waiting && entry.goOn.until >= now;
+}
+
+/** A question to go on, folded to a line that says it is no longer asked. */
+function noLongerAsked(
+  run: Pick<Run, "language">,
+  entry: TranscriptEntry,
+): TranscriptEntry {
+  const rest = withoutChoices(entry);
+  delete rest.goOn;
+  delete rest.spoken;
+  return {
+    ...rest,
+    content: say(languageOf(run), "resumeNoLonger", {
+      request: entry.goOn?.request ?? "",
+    }),
+    noLongerAsked: true,
+  };
+}
+
+/**
+ * Iris asks again whether to go on (`askToResume`), and only the newest
+ * question can be answered. An earlier one the User never answered (no
+ * words of theirs follow it) is passed by: about the same request at the
+ * same Company it goes, as the new one takes its place; about another
+ * request it folds to a line saying it is no longer asked. One the User
+ * answered stays as it was asked, with their answer after it.
+ */
+export function replaceGoOn(run: Run, company: string, request: string) {
+  const shown = run.transcript;
+  if (!shown?.some((entry) => entry.goOn)) return;
+  const lastSaid = shown.map((entry) => entry.role).lastIndexOf("user");
+  run.transcript = shown.flatMap((entry, index) =>
+    !entry.goOn || index < lastSaid
+      ? [entry]
+      : entry.company === company && entry.goOn.request === request
+        ? []
+        : [noLongerAsked(run, entry)],
+  );
+}
 
 /**
  * History lists the conversation under its first request (`title`), which
@@ -741,6 +817,8 @@ export function recordAsked(
     choices?: Choice[] | undefined;
     /** The proposals the question brought: their cards go here. */
     proposals?: ProposalRef[] | undefined;
+    /** A question to go on: the request it quotes, and until when. */
+    goOn?: TranscriptEntry["goOn"];
   },
 ) {
   show(
@@ -756,6 +834,7 @@ export function recordAsked(
       ...(asked.spoken ? { spoken: asked.spoken } : {}),
       ...(asked.choices?.length ? { choices: asked.choices } : {}),
       ...(asked.proposals?.length ? { proposals: asked.proposals } : {}),
+      ...(asked.goOn ? { goOn: asked.goOn } : {}),
     },
   );
 }
