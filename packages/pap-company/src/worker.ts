@@ -13,9 +13,34 @@ import { splitStore, type KeyValue } from "./split-store.ts";
 
 const MAX_BYTES = 64 * 1024;
 
+/** Whether a canonical IPv4 literal falls outside public unicast space. */
+function isPrivateIpv4(hostname: string): boolean {
+  const parts = hostname.split(".");
+  if (parts.length !== 4 || !parts.every((p) => /^\d+$/.test(p))) return false;
+  const [a, b, c] = parts.map(Number) as [number, number, number, number];
+  return (
+    a === 0 ||
+    a === 10 ||
+    (a === 100 && b >= 64 && b <= 127) ||
+    a === 127 ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 &&
+      ((b === 0 && (c === 0 || c === 2)) ||
+        (b === 31 && c === 196) ||
+        (b === 52 && c === 193) ||
+        (b === 88 && c === 99) ||
+        b === 168 ||
+        (b === 175 && c === 48))) ||
+    (a === 198 && (b === 18 || b === 19 || (b === 51 && c === 100))) ||
+    (a === 203 && b === 0 && c === 113) ||
+    a >= 224
+  );
+}
+
 /**
- * HTTPS only, no redirects, bounded size and time (Workers can't reach
- * private networks). `devOrigin` is the one origin also reached over plain
+ * Public HTTPS hosts on the default port only, no credentials, no redirects,
+ * bounded size and time. `devOrigin` is the one origin also reached over plain
  * HTTP, in development.
  */
 export async function workerFetchJson(
@@ -23,8 +48,25 @@ export async function workerFetchJson(
   devOrigin?: string,
 ): Promise<unknown> {
   const parsed = new URL(url);
-  if (parsed.protocol !== "https:" && parsed.origin !== devOrigin)
-    throw new Error("HTTPS required");
+  if (parsed.username || parsed.password)
+    throw new Error("URLs with credentials are not allowed");
+  if (parsed.origin !== devOrigin) {
+    if (parsed.protocol !== "https:") throw new Error("HTTPS required");
+    if (parsed.port !== "") throw new Error("Default HTTPS port required");
+    const hostname = parsed.hostname
+      .replace(/^\[|\]$/g, "")
+      .replace(/\.+$/, "");
+    if (
+      /(^|\.)(localhost|local|internal|localdomain|home\.arpa)$/i.test(
+        hostname,
+      ) ||
+      !hostname.includes(".") ||
+      isPrivateIpv4(hostname)
+    )
+      throw new Error(
+        "Private, loopback, and link-local destinations are blocked",
+      );
+  }
   const response = await fetch(url, {
     redirect: "manual",
     headers: { Accept: "application/json" },

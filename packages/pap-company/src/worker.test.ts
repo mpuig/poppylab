@@ -186,6 +186,80 @@ it("refuses plain HTTP, except for the development origin", async () => {
   ).rejects.toThrow("HTTPS required");
 });
 
+it("refuses URLs with credentials, even for the development origin", async () => {
+  const calls = serve("{}");
+  for (const [url, devOrigin] of [
+    ["https://user:pass@agent.test/client.json", undefined],
+    ["https://user@agent.test/client.json", undefined],
+    [
+      "http://user:pass@localhost:3000/agent/client.json",
+      "http://localhost:3000",
+    ],
+  ] as const) {
+    await expect(workerFetchJson(url, devOrigin), url).rejects.toThrow(
+      "URLs with credentials are not allowed",
+    );
+  }
+  expect(calls).toHaveLength(0);
+});
+
+it("refuses local, internal, single-label, and private or loopback IP hosts", async () => {
+  const calls = serve("{}");
+  for (const url of [
+    "https://localhost/client.json",
+    "https://sub.localhost/client.json",
+    "https://localhost./client.json",
+    "https://router.local/client.json",
+    "https://router.local../client.json",
+    "https://api.internal/client.json",
+    "https://box.localdomain/client.json",
+    "https://nas.home.arpa/client.json",
+    "https://intranet/client.json",
+    "https://intranet./client.json",
+    "https://127.0.0.1/client.json",
+    "https://10.0.0.1/client.json",
+    "https://172.16.0.1/client.json",
+    "https://192.168.1.1/client.json",
+    "https://169.254.169.254/client.json",
+    "https://100.64.0.1/client.json",
+    "https://0.0.0.0/client.json",
+    "https://[::1]/client.json",
+    "https://[::ffff:127.0.0.1]/client.json",
+    "https://[fe80::1]/client.json",
+  ]) {
+    await expect(workerFetchJson(url), url).rejects.toThrow(
+      "Private, loopback, and link-local destinations are blocked",
+    );
+  }
+  expect(calls).toHaveLength(0);
+  // Public unicast IPv4 literals are still allowed.
+  expect(await workerFetchJson("https://1.1.1.1/client.json")).toEqual({});
+  expect(calls).toHaveLength(1);
+});
+
+it("refuses non-443 HTTPS ports while allowing explicit 443 and devOrigin", async () => {
+  const calls = serve("{}");
+  for (const url of [
+    "https://agent.test:8443/client.json",
+    "https://agent.test:80/client.json",
+  ]) {
+    await expect(workerFetchJson(url), url).rejects.toThrow(
+      "Default HTTPS port required",
+    );
+  }
+  expect(calls).toHaveLength(0);
+  expect(await workerFetchJson("https://agent.test:443/client.json")).toEqual(
+    {},
+  );
+  expect(
+    await workerFetchJson(
+      "http://localhost:3000/agent/client.json",
+      "http://localhost:3000",
+    ),
+  ).toEqual({});
+  expect(calls).toHaveLength(2);
+});
+
 it("refuses a redirect or an error", async () => {
   serve(null, { status: 302, headers: { Location: "https://elsewhere.test" } });
   await expect(workerFetchJson("https://agent.test/a")).rejects.toThrow(

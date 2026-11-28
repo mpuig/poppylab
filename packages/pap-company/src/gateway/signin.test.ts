@@ -83,16 +83,15 @@ it("makes one consent page when a pushed request is opened twice at once", async
   vi.useFakeTimers({ toFake: ["Date"] });
   const x = await pushed();
   // The client's metadata is cached for 60 seconds. After that both requests
-  // wait for it to be fetched again: neither goes on until both are waiting.
+  // wait for the coalesced metadata fetch: neither goes on until it resolves.
   vi.setSystemTime(Date.now() + 61000);
-  let waiting = 0,
-    release!: () => void;
+  let release!: () => void;
   const fetched = new Promise<void>((done) => (release = done));
-  x.metadata.wait = () => {
-    if (++waiting === 2) release();
-    return fetched;
-  };
-  const pages = await Promise.all([x.open(), x.open()]);
+  x.metadata.wait = () => fetched;
+  const both = Promise.all([x.open(), x.open()]);
+  await new Promise((done) => setTimeout(done, 0));
+  release();
+  const pages = await both;
   const shown = pages.filter((r) => r.status === 200);
   const refused = pages.filter((r) => r.status === 400);
   expect(shown).toHaveLength(1);

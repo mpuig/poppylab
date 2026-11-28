@@ -209,6 +209,9 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
 
   // ---- Client metadata (CIMD) --------------------------------------------
   const clients = new Map<string, ClientInfo>();
+  const inflight = new Map<string, Promise<ClientInfo>>();
+  const failed = new Map<string, number>();
+  const FAILED_TTL_MS = 15000;
   /** A URL from client metadata, unless it doesn't parse or has credentials. */
   const urlOf = (value: string) => {
     try {
@@ -243,51 +246,72 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
     // Every Session, token, grant and sign-in keeps it, so its length is
     // bounded for the protocol state to fit its rows (`split-store.ts`).
     if (id.length > MAX_CLIENT_ID) throw new Error("invalid_client");
-    let url: URL;
-    try {
-      url = new URL(id);
-    } catch {
-      throw new Error("invalid_client");
-    }
-    if (url.protocol !== "https:" && !(deploy.httpClients ?? []).includes(id))
-      throw new Error("invalid_client");
-    const metadata = (await deploy.fetchJson(id)) as {
-      client_id?: unknown;
-      client_name?: unknown;
-      jwks_uri?: unknown;
-      redirect_uris?: unknown;
-    };
+    const url = urlOf(id);
     if (
-      metadata?.client_id !== id ||
-      typeof metadata.jwks_uri !== "string" ||
-      urlOf(metadata.jwks_uri)?.origin !== url.origin ||
-      !Array.isArray(metadata.redirect_uris)
+      !url ||
+      (url.protocol !== "https:" && !(deploy.httpClients ?? []).includes(id))
     )
       throw new Error("invalid_client");
-    const jwks = (await deploy.fetchJson(metadata.jwks_uri)) as {
-      keys?: JWK[];
-    };
-    if (!Array.isArray(jwks?.keys) || jwks.keys.some((k) => "d" in k))
-      throw new Error("invalid_client");
-    const info: ClientInfo = {
-      keys: jwks.keys.slice(0, 8),
-      // An entry §4.1 doesn't allow is dropped, not the client: a sign-in
-      // to it fails, and signed-out Sessions, which need only the keys, go on.
-      redirects: metadata.redirect_uris
-        .filter(
-          (r): r is string => typeof r === "string" && redirectAllowed(r, url),
+    const retryAt = failed.get(id);
+    if (retryAt !== undefined) {
+      if (retryAt > Date.now()) throw new Error("invalid_client");
+      failed.delete(id);
+    }
+    const pending = inflight.get(id);
+    if (pending) return pending;
+    const load = async (): Promise<ClientInfo> => {
+      try {
+        const metadata = (await deploy.fetchJson(id)) as {
+          client_id?: unknown;
+          client_name?: unknown;
+          jwks_uri?: unknown;
+          redirect_uris?: unknown;
+        };
+        if (
+          metadata?.client_id !== id ||
+          typeof metadata.jwks_uri !== "string" ||
+          urlOf(metadata.jwks_uri)?.origin !== url.origin ||
+          !Array.isArray(metadata.redirect_uris)
         )
-        .slice(0, 8),
-      name:
-        typeof metadata.client_name === "string"
-          ? metadata.client_name.slice(0, 80)
-          : url.host,
-      until: Date.now() + 60000,
+          throw new Error("invalid_client");
+        const jwks = (await deploy.fetchJson(metadata.jwks_uri)) as {
+          keys?: JWK[];
+        };
+        if (!Array.isArray(jwks?.keys) || jwks.keys.some((k) => "d" in k))
+          throw new Error("invalid_client");
+        const info: ClientInfo = {
+          keys: jwks.keys.slice(0, 8),
+          // An entry §4.1 doesn't allow is dropped, not the client: a sign-in
+          // to it fails, and signed-out Sessions, which need only the keys, go on.
+          redirects: metadata.redirect_uris
+            .filter(
+              (r): r is string =>
+                typeof r === "string" && redirectAllowed(r, url),
+            )
+            .slice(0, 8),
+          name:
+            typeof metadata.client_name === "string"
+              ? metadata.client_name.slice(0, 80)
+              : url.host,
+          until: Date.now() + 60000,
+        };
+        // Least recently inserted goes first (Map order); never the whole cache.
+        clients.delete(id);
+        if (clients.size >= 200) clients.delete(clients.keys().next().value!);
+        clients.set(id, info);
+        return info;
+      } catch (e) {
+        failed.delete(id);
+        if (failed.size >= 200) failed.delete(failed.keys().next().value!);
+        failed.set(id, Date.now() + FAILED_TTL_MS);
+        throw e;
+      }
     };
-    // Least recently inserted goes first (Map order); never the whole cache.
-    if (clients.size >= 200) clients.delete(clients.keys().next().value!);
-    clients.set(id, info);
-    return info;
+    const lookup = load().finally(() => {
+      inflight.delete(id);
+    });
+    inflight.set(id, lookup);
+    return lookup;
   }
 
   // ---- DPoP --------------------------------------------------------------

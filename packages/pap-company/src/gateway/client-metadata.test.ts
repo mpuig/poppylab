@@ -4,8 +4,10 @@
  * §7.3), and a `jwks_uri` on that origin with no credentials in it.
  */
 import { createHash } from "node:crypto";
-import { expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { setup } from "./test-company.ts";
+
+afterEach(() => vi.useRealTimers());
 
 /** A Company whose client at `id` publishes these redirect URIs. */
 async function agent(
@@ -135,4 +137,121 @@ it("refuses a client whose jwks_uri isn't a URL or carries credentials", async (
       "invalid_client",
     );
   }
+});
+
+it("refuses a client_id carrying credentials without fetching it", async () => {
+  const fetchJson = vi.fn(async () => ({}));
+  const x = await setup({ fetchJson });
+  for (const id of [
+    "https://user:pass@agent.test/client.json",
+    "https://user@agent.test/client.json",
+  ]) {
+    const r = await x.app.request(
+      `/oauth/authorize?${new URLSearchParams({
+        client_id: id,
+        redirect_uri: "https://agent.test/callback",
+        response_type: "code",
+        scope: "things:read",
+        state: "s".repeat(32),
+        code_challenge: createHash("sha256")
+          .update("v".repeat(64))
+          .digest("base64url"),
+        code_challenge_method: "S256",
+      })}`,
+    );
+    expect(r.status, id).toBe(400);
+    expect(((await r.json()) as { error?: string }).error, id).toBe(
+      "invalid_client",
+    );
+  }
+  expect(fetchJson).not.toHaveBeenCalled();
+});
+
+it("coalesces concurrent lookups for the same client_id into one fetch", async () => {
+  const id = "https://agent.test/client.json";
+  const jwks = "https://agent.test/jwks.json";
+  const redirect = "https://agent.test/callback";
+  let release!: () => void;
+  const hold = new Promise<void>((done) => (release = done));
+  const fetched: string[] = [];
+  const x = await setup({
+    fetchJson: async (url) => {
+      fetched.push(url);
+      if (url === id) {
+        await hold;
+        return { client_id: id, jwks_uri: jwks, redirect_uris: [redirect] };
+      }
+      return { keys: [] };
+    },
+  });
+  const open = () =>
+    x.app.request(
+      `/oauth/authorize?${new URLSearchParams({
+        client_id: id,
+        redirect_uri: redirect,
+        response_type: "code",
+        scope: "things:read",
+        state: "s".repeat(32),
+        code_challenge: createHash("sha256")
+          .update("v".repeat(64))
+          .digest("base64url"),
+        code_challenge_method: "S256",
+      })}`,
+    );
+  const all = Promise.all([open(), open(), open()]);
+  await new Promise((done) => setTimeout(done, 0));
+  release();
+  const statuses = (await all).map((r) => r.status);
+  expect(statuses).toEqual([200, 200, 200]);
+  expect(fetched).toEqual([id, jwks]);
+});
+
+it("negatively caches failed client lookups for the TTL and retries after expiry", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  const id = "https://agent.test/client.json";
+  const jwks = "https://agent.test/jwks.json";
+  const redirect = "https://agent.test/callback";
+  let fail = true;
+  const fetched: string[] = [];
+  const x = await setup({
+    fetchJson: async (url) => {
+      fetched.push(url);
+      if (fail) throw new Error("HTTP 500");
+      return url === id
+        ? { client_id: id, jwks_uri: jwks, redirect_uris: [redirect] }
+        : { keys: [] };
+    },
+  });
+  const open = async () => {
+    const r = await x.app.request(
+      `/oauth/authorize?${new URLSearchParams({
+        client_id: id,
+        redirect_uri: redirect,
+        response_type: "code",
+        scope: "things:read",
+        state: "s".repeat(32),
+        code_challenge: createHash("sha256")
+          .update("v".repeat(64))
+          .digest("base64url"),
+        code_challenge_method: "S256",
+      })}`,
+    );
+    return r.status === 200
+      ? 200
+      : ((await r.json()) as { error?: string }).error;
+  };
+  const start = Date.now();
+  // First failure hits fetchJson once and is cached negatively.
+  expect(await open()).toBe("invalid_client");
+  expect(fetched).toEqual([id]);
+  // Subsequent lookups before TTL expiry short-circuit without calling fetchJson.
+  fail = false;
+  expect(await open()).toBe("invalid_client");
+  vi.setSystemTime(start + 14000);
+  expect(await open()).toBe("invalid_client");
+  expect(fetched).toEqual([id]);
+  // After the 15s negative cache TTL expires, the lookup retries and succeeds.
+  vi.setSystemTime(start + 15001);
+  expect(await open()).toBe(200);
+  expect(fetched).toEqual([id, id, jwks]);
 });
