@@ -152,6 +152,10 @@ export function signingAlgorithm(jwk: JWK) {
   return undefined;
 }
 
+const CLOCK_TOLERANCE_SECONDS = 5;
+const REPLAY_MARGIN_SECONDS = 5;
+const PROOF_MAX_AGE_SECONDS = 65;
+
 export async function verifyAssertion(
   jwt: string,
   jwk: JWK,
@@ -169,7 +173,7 @@ export async function verifyAssertion(
     algorithms: [alg],
     issuer,
     audience,
-    clockTolerance: 5,
+    clockTolerance: CLOCK_TOLERANCE_SECONDS,
   });
   if (
     payload.aud !== audience ||
@@ -179,10 +183,14 @@ export async function verifyAssertion(
     !payload.exp ||
     !payload.iat ||
     payload.exp - payload.iat > 300 ||
-    payload.iat > Date.now() / 1000 + 5
+    payload.iat > Date.now() / 1000 + CLOCK_TOLERANCE_SECONDS
   )
     throw new Error("Invalid assertion");
-  replay.accept(`${issuer}:${payload.jti}`, payload.exp, issuer);
+  replay.accept(
+    `${issuer}:${payload.jti}`,
+    payload.exp + CLOCK_TOLERANCE_SECONDS + REPLAY_MARGIN_SECONDS,
+    issuer,
+  );
   return payload;
 }
 
@@ -206,7 +214,11 @@ export async function verifyProof(
   const { payload } = await jwtVerify(
     jwt,
     await importJWK(header.jwk, "ES256"),
-    { algorithms: ["ES256"], maxTokenAge: "65s", clockTolerance: 5 },
+    {
+      algorithms: ["ES256"],
+      maxTokenAge: `${PROOF_MAX_AGE_SECONDS}s`,
+      clockTolerance: CLOCK_TOLERANCE_SECONDS,
+    },
   );
   const target = new URL(url);
   target.search = "";
@@ -221,9 +233,14 @@ export async function verifyProof(
   )
     throw new Error("Invalid proof binding");
   validateNonce?.(payload.nonce, thumbprint);
+  const now = Math.floor(Date.now() / 1000);
+  const iat = typeof payload.iat === "number" ? payload.iat : now;
   replay.accept(
     `proof:${thumbprint}:${payload.jti}`,
-    Math.floor(Date.now() / 1000) + 70,
+    Math.max(now, iat) +
+      PROOF_MAX_AGE_SECONDS +
+      CLOCK_TOLERANCE_SECONDS +
+      REPLAY_MARGIN_SECONDS,
   );
   return thumbprint;
 }

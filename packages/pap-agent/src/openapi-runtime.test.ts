@@ -208,6 +208,37 @@ it("writes no request line for a request Iris stops before asking, signed out or
   }
 });
 
+it("resolves relative OpenAPI servers[].url in apiBase and tool requests", async () => {
+  const r = example("shop", false);
+  rediscover.mockResolvedValueOnce(r.company!);
+  transport.mockResolvedValueOnce({
+    servers: [{ url: "/api/v1" }],
+    paths: {
+      "/products": { get: { operationId: "list_products" } },
+    },
+  });
+  const tools = await connect(r, []);
+  expect(r.apiBase).toBe("https://shop.papsandbox.com/api/v1");
+  transport.mockClear();
+  await tools.list_products!.execute({});
+  expect(transport.mock.calls[0]?.[0]).toBe(
+    "https://shop.papsandbox.com/api/v1/products",
+  );
+
+  // An unsafe protocol-relative server is rejected without mutating apiBase.
+  const bad = example("shop", false);
+  bad.apiBase = "https://shop.papsandbox.com/existing";
+  rediscover.mockResolvedValueOnce(bad.company!);
+  transport.mockResolvedValueOnce({
+    servers: [{ url: "//evil.example/api" }],
+    paths: {
+      "/products": { get: { operationId: "list_products" } },
+    },
+  });
+  await expect(connect(bad, [])).rejects.toThrow("Unsafe OpenAPI server");
+  expect(bad.apiBase).toBe("https://shop.papsandbox.com/existing");
+});
+
 it("logs a request the Company refused with its status and error code, never its words", async () => {
   const r = example("shop", false);
   vi.stubEnv("PAP_ACCOUNT_ORIGINS", "https://shop.papsandbox.com");

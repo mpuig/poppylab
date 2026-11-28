@@ -253,14 +253,14 @@ export function openApiTools(
   },
 ): Record<string, ApiTool> {
   if (!obj(spec) || !obj(spec.paths)) throw Error("Invalid OpenAPI");
+  const specOrigin = new URL(specUrl).origin;
   const server = Array.isArray(spec.servers) ? spec.servers[0] : undefined;
-  const base = new URL(
+  const base =
     obj(server) && typeof server.url === "string"
-      ? server.url
-      : new URL(specUrl).origin,
-  );
+      ? new URL(server.url, specUrl)
+      : new URL(specOrigin);
   if (
-    base.origin !== new URL(specUrl).origin ||
+    base.origin !== specOrigin ||
     base.username ||
     base.password ||
     base.search ||

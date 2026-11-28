@@ -6,7 +6,7 @@
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { decodeJwt, decodeProtectedHeader } from "jose";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import type { DiscoveredCompany } from "@poppy-lab/pap-core";
 import {
   createIdentity,
@@ -276,6 +276,49 @@ it("waits between polls until the User answers", async () => {
   );
   expect(result).toEqual({ status: "declined" });
   expect(x.seen).toHaveLength(4);
+});
+
+it("aborts immediately before sleeping and removes abort listeners when timers win", async () => {
+  const x = await company([
+    started(),
+    oauthError("authorization_pending"),
+    oauthError("authorization_pending"),
+    oauthError("access_denied"),
+  ]);
+  const { pending } = await startDeviceSignIn(
+    x.discovered,
+    "poppy:read",
+    x.client,
+  );
+
+  // Already-aborted signal rejects before waiting for a long nextPollAt.
+  const already = new AbortController();
+  already.abort(new Error("cancelled"));
+  const before = Date.now();
+  await expect(
+    waitForDeviceSignIn(
+      { ...pending, nextPollAt: Date.now() + 60_000 },
+      x.client,
+      { signal: already.signal },
+    ),
+  ).rejects.toThrow("cancelled");
+  expect(Date.now() - before).toBeLessThan(1000);
+  expect(x.seen).toHaveLength(1);
+
+  // When timers complete across polls, every abort listener is cleaned up.
+  const active = new AbortController();
+  const addSpy = vi.spyOn(active.signal, "addEventListener");
+  const removeSpy = vi.spyOn(active.signal, "removeEventListener");
+  const result = await waitForDeviceSignIn(
+    { ...pending, interval: 0.02, nextPollAt: Date.now() + 20 },
+    x.client,
+    { signal: active.signal },
+  );
+  expect(result).toEqual({ status: "declined" });
+  expect(addSpy).toHaveBeenCalledTimes(3);
+  expect(removeSpy).toHaveBeenCalledTimes(3);
+  for (let i = 0; i < 3; i++)
+    expect(removeSpy.mock.calls[i]![1]).toBe(addSpy.mock.calls[i]![1]);
 });
 
 it("doesn't start where the Company offers no Device Sign-In", async () => {

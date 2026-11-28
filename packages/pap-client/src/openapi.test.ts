@@ -176,6 +176,68 @@ it("cannot hide control endpoints in an OpenAPI server base path", () => {
       ),
     ).toEqual([]);
 });
+it("resolves relative servers[].url against specUrl while keeping safety checks", async () => {
+  const o = options();
+  const rootRelative = openApiTools(
+    {
+      servers: [{ url: "/api/v1" }],
+      paths: { "/orders": { get: { operationId: "orders" } } },
+    },
+    base + "/openapi.json",
+    o,
+  );
+  await rootRelative.orders!.execute();
+  expect(o.request).toHaveBeenCalledWith(
+    base + "/api/v1/orders",
+    "GET",
+    undefined,
+    [],
+  );
+
+  const o2 = options();
+  const pathRelative = openApiTools(
+    {
+      servers: [{ url: "v2" }],
+      paths: { "/orders": { get: { operationId: "orders" } } },
+    },
+    base + "/docs/openapi.json",
+    o2,
+  );
+  await pathRelative.orders!.execute();
+  expect(o2.request).toHaveBeenCalledWith(
+    base + "/docs/v2/orders",
+    "GET",
+    undefined,
+    [],
+  );
+
+  for (const url of [
+    "//evil.example/api",
+    "//user:pass@company.example/api",
+    "/api?x=1",
+    "/api#frag",
+    "/api/%2f",
+  ])
+    expect(() =>
+      openApiTools(
+        { servers: [{ url }], paths: {} },
+        base + "/openapi.json",
+        options(),
+      ),
+    ).toThrow();
+
+  for (const url of ["/oauth", "/api/../oauth"])
+    expect(
+      Object.keys(
+        openApiTools(
+          { servers: [{ url }], paths: { "/x/confirm": { post: proposal } } },
+          base + "/openapi.json",
+          options(true),
+        ),
+      ),
+    ).toEqual([]);
+});
+
 it("rejects cross-origin servers and credentials", () => {
   for (const url of [
     "https://evil.example",

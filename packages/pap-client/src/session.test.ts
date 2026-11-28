@@ -9,6 +9,8 @@ import {
 } from "./session";
 
 describe("Session cryptography", () => {
+  afterEach(() => vi.useRealTimers());
+
   it("verifies assertions and rejects their replay", async () => {
     const key = await createIdentity();
     const cache = new ReplayCache();
@@ -38,6 +40,52 @@ describe("Session cryptography", () => {
         cache,
       ),
     ).rejects.toThrow();
+  });
+
+  it("rejects assertion replay during the post-expiry clockTolerance window", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
+    const key = await createIdentity();
+    const cache = new ReplayCache();
+    const jwt = await assertion(
+      key.privateKey,
+      "https://agent.example/client.json",
+      "usr_random",
+      "https://company.example",
+    );
+    await expect(
+      verifyAssertion(
+        jwt,
+        key.publicKey,
+        "https://agent.example/client.json",
+        "usr_random",
+        "https://company.example",
+        cache,
+      ),
+    ).resolves.toMatchObject({ sub: "usr_random" });
+
+    // Three seconds past exp (60s): still accepted by jwtVerify's 5s clockTolerance.
+    vi.advanceTimersByTime(63_000);
+    await expect(
+      verifyAssertion(
+        jwt,
+        key.publicKey,
+        "https://agent.example/client.json",
+        "usr_random",
+        "https://company.example",
+        new ReplayCache(),
+      ),
+    ).resolves.toMatchObject({ sub: "usr_random" });
+    await expect(
+      verifyAssertion(
+        jwt,
+        key.publicKey,
+        "https://agent.example/client.json",
+        "usr_random",
+        "https://company.example",
+        cache,
+      ),
+    ).rejects.toThrow("Replayed JWT");
   });
   it("accepts PS384 and any lifetime up to 5 minutes, and refuses longer (§4.1)", async () => {
     const { generateKeyPair, exportJWK, SignJWT, importJWK } =
@@ -155,6 +203,40 @@ describe("Session cryptography", () => {
         "wrong-binding",
       ),
     ).rejects.toThrow();
+  });
+
+  it("rejects DPoP proof replay for future-skewed iat within clockTolerance", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
+    const { SignJWT, importJWK } = await import("jose");
+    const key = await createIdentity();
+    const url = "https://company.example/token";
+    const cache = new ReplayCache();
+    const now = Math.floor(Date.now() / 1000);
+    // Four seconds ahead of server time: accepted within jose's 5s clockTolerance,
+    // and remains valid under maxTokenAge (65s) + clockTolerance (5s) until t+74s.
+    const jwt = await new SignJWT({ htm: "POST", htu: url })
+      .setProtectedHeader({
+        alg: "ES256",
+        typ: "dpop+jwt",
+        jwk: key.publicKey,
+      })
+      .setIssuedAt(now + 4)
+      .setJti("skewed-proof-jti")
+      .sign(await importJWK(key.privateKey, "ES256"));
+
+    await expect(verifyProof(jwt, url, "POST", cache)).resolves.toBeTypeOf(
+      "string",
+    );
+
+    // 72 seconds later: past now+70, still accepted by jwtVerify (72 - 4 = 68 <= 70).
+    vi.advanceTimersByTime(72_000);
+    await expect(
+      verifyProof(jwt, url, "POST", new ReplayCache()),
+    ).resolves.toBeTypeOf("string");
+    await expect(verifyProof(jwt, url, "POST", cache)).rejects.toThrow(
+      "Replayed JWT",
+    );
   });
 });
 

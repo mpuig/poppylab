@@ -32,6 +32,7 @@ import {
   setFdx,
   type Connection,
 } from "./runtime";
+import { fdxShaped } from "./fdx-runtime";
 import { UserFacingError } from "./user-error";
 import {
   askedHere,
@@ -238,6 +239,74 @@ it("never gives the FDX-shaped description to the generic adapter, wherever it i
   await connected(run);
   expect(transport.mock.calls.map(([u]) => u)).not.toContain(
     `${origin}/fdx/v6/openapi.json`,
+  );
+});
+
+it("recognizes FDX-shaped OpenAPI specs with relative servers[].url while preserving origin checks", async () => {
+  expect(
+    fdxShaped(
+      { servers: [{ url: "/fdx/v6" }], paths: { "/accounts": {} } },
+      `${origin}/openapi/fdx.json`,
+      fdxEntry,
+    ),
+  ).toBe(true);
+  expect(
+    fdxShaped(
+      { servers: [{ url: "v6" }], paths: { "/accounts": {} } },
+      `${origin}/fdx/openapi.json`,
+      fdxEntry,
+    ),
+  ).toBe(true);
+  expect(
+    fdxShaped(
+      { servers: [{ url: "/" }], paths: { "/fdx/v6/accounts": {} } },
+      `${origin}/openapi/fdx.json`,
+      fdxEntry,
+    ),
+  ).toBe(true);
+  expect(
+    fdxShaped(
+      { servers: [{ url: "/api/v1" }], paths: { "/accounts": {} } },
+      `${origin}/openapi.json`,
+      fdxEntry,
+    ),
+  ).toBe(false);
+  expect(
+    fdxShaped(
+      {
+        servers: [{ url: "//evil.example/fdx/v6" }],
+        paths: { "/accounts": {} },
+      },
+      `${origin}/openapi/fdx.json`,
+      fdxEntry,
+    ),
+  ).toBe(false);
+
+  // End-to-end through connect(): an FDX description using a relative server
+  // URL is skipped rather than loaded as generic API tools.
+  const run = bank({ fdx: false });
+  run.company!.document.apis!.reverse();
+  transport.mockImplementation(async (url: string) => {
+    if (url === `${origin}/openapi.json`) return ownSpec;
+    if (url === `${origin}/openapi/fdx.json`)
+      return {
+        servers: [{ url: "/fdx/v6" }],
+        paths: {
+          "/accounts": {
+            get: { operationId: "listAccounts", responses: { "200": {} } },
+          },
+        },
+      };
+    if (url.includes("/.well-known/oauth-protected-resource"))
+      throw new ProtocolError(404, undefined);
+    return { ok: true };
+  });
+  const trace: string[] = [];
+  const tools = await connected(run, trace);
+  expect(Object.keys(tools)).toContain("accounts");
+  expect(Object.keys(tools)).not.toContain("listAccounts");
+  expect(trace).toContain(
+    "Not loading /openapi/fdx.json as API tools · FDX-shaped (poppylab.dev/fdx), native adapter only",
   );
 });
 
