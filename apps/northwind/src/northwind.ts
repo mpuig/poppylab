@@ -573,7 +573,7 @@ export const northwindPaths = {
   "/api/account/bookings/{booking_reference}/preferences": post(
     "set_travel_preferences",
     "Set a meal and a supported non-medical assistance preference.",
-    ["profile:read", "preferences:write"],
+    ["bookings:read", "profile:read", "preferences:write"],
     {
       type: "object",
       properties: {
@@ -1386,7 +1386,7 @@ export const northwind: CompanyDefinition = {
         : ["bookings:read"];
     if (path.endsWith("/seat")) return ["bookings:read", "preferences:write"];
     if (path.endsWith("/preferences"))
-      return ["profile:read", "preferences:write"];
+      return ["bookings:read", "profile:read", "preferences:write"];
     return ["bookings:read", "bookings:change"];
   },
   consent: consentPage,

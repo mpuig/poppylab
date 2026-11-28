@@ -434,8 +434,6 @@ export const lantern: CompanyDefinition = {
   name: "Lantern Noodle Bar",
   readScope: "orders:read",
   writeScope: "orders:write",
-  requiredScopes: ({ method }) =>
-    method === "POST" ? ["orders:read", "orders:write"] : ["orders:read"],
   consent: consentPage,
   consentExpired: consentExpiredPage,
   persona: noodlePersona,

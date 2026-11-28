@@ -150,6 +150,11 @@ it("requires matching read and write scopes on every account proposal route", as
     true,
     "profile:read preferences:write",
   );
+  const bookingsProfileReadPrefsWrite = await x.sign(
+    "elena",
+    true,
+    "bookings:read profile:read preferences:write",
+  );
   const robinChangeOnly = await x.sign("robin", true, "bookings:change");
   const robinReadChange = await x.sign(
     "robin",
@@ -231,10 +236,12 @@ it("requires matching read and write scopes on every account proposal route", as
       expect(denied.body).not.toContain(leaked);
   }
 
-  // /preferences returns saved passenger preferences: needs profile:read + preferences:write.
+  // /preferences looks up the booking (status + passenger name) and returns
+  // saved passenger preferences: needs bookings:read + profile:read + preferences:write.
   for (const access of [
     prefsWriteOnly.access_token,
     bookingsReadPrefsWrite.access_token,
+    profileReadPrefsWrite.access_token,
   ]) {
     const denied = await x.call(
       access,
@@ -245,7 +252,7 @@ it("requires matching read and write scopes on every account proposal route", as
     expect(denied.statusCode).toBe(403);
     expect(denied.json()).toEqual({ error: "insufficient_scope" });
     expect(denied.headers["www-authenticate"]).toBe(
-      'DPoP error="insufficient_scope", scope="profile:read preferences:write"',
+      'DPoP error="insufficient_scope", scope="bookings:read profile:read preferences:write"',
     );
     for (const leaked of leakedPreferenceDetails)
       expect(denied.body).not.toContain(leaked);
@@ -266,7 +273,7 @@ it("requires matching read and write scopes on every account proposal route", as
   });
 
   const prefProposal = await x.call(
-    profileReadPrefsWrite.access_token,
+    bookingsProfileReadPrefsWrite.access_token,
     "POST",
     "/api/account/bookings/NW7K2P/preferences",
     { meal: "vegan", assistance: "visual_guidance" },
@@ -951,7 +958,7 @@ it("serves a detailed OpenAPI contract suitable for Iris", async () => {
     ],
     [
       "/api/account/bookings/{booking_reference}/preferences",
-      ["profile:read", "preferences:write"],
+      ["bookings:read", "profile:read", "preferences:write"],
     ],
     [
       "/api/account/bookings/{booking_reference}/baggage",

@@ -142,8 +142,6 @@ export function juniperCompany(options: {
     name: "Juniper Market",
     readScope: "poppy:read",
     writeScope: "poppy:write",
-    requiredScopes: ({ method }) =>
-      method === "POST" ? ["poppy:read", "poppy:write"] : ["poppy:read"],
     consent: ({
       nonce,
       passwordRequired,
