@@ -25,7 +25,6 @@ import { appendFileSync } from "node:fs";
 import { isDeepStrictEqual } from "node:util";
 import { labSites } from "../../packages/pap-core/src/index.ts";
 import { discoverCompany } from "../../packages/pap-client/src/index.ts";
-import { labCompanies } from "../../apps/playground/app/playground/companies.ts";
 import {
   DEMO_SUGGESTIONS,
   demoGuidedReply,
@@ -36,6 +35,8 @@ const FAIL_MS = 20_000;
 const WARN_MS = 8_000;
 /** Each hourly run checks one share of the Learn media, so a run stays well under 200 requests. */
 const MEDIA_SHARES = 3;
+/** Safety cap for the Learn crawl; hitting it fails so new pages aren't silently skipped. */
+const MAX_LEARN_PAGES = 80;
 /** The Company pages a visitor reads before connecting an agent. */
 const COMPANY_PAGES = ["/", "/for-agents", "/how-it-works", "/site/login"];
 
@@ -55,15 +56,15 @@ const lab = flag("lab") ?? sites[0]!.url;
 const companies = sites.flatMap((site) => {
   if (site.id === "home" || site.id === "playground") return [];
   const url = flag(site.id) ?? site.url;
-  const shown = labCompanies.find((c) => c.name === site.label);
+  const shown = DEMO_SUGGESTIONS[site.id];
   return [
     {
       key: site.id,
       name: site.label,
       url,
       origin: new URL(url).origin,
-      open: shown?.open ?? [],
-      account: shown?.account ?? [],
+      open: shown.open,
+      account: shown.account,
     },
   ];
 });
@@ -90,17 +91,23 @@ class Timer {
   slowest = 0;
   slowestUrl = "";
 
-  fetch = async (input: string | URL, init: RequestInit = {}) => {
+  fetch = async (
+    input: string | URL,
+    init: RequestInit & { retry?: boolean } = {},
+  ) => {
+    const { retry = true, ...requestInit } = init;
     const url = shown(String(input));
-    const method = (init.method ?? "GET").toUpperCase();
+    const method = (requestInit.method ?? "GET").toUpperCase();
     for (let attempt = 0; ; attempt += 1) {
       requests += 1;
       const started = performance.now();
       const limit = AbortSignal.timeout(FAIL_MS);
       try {
         const response = await fetch(input, {
-          ...init,
-          signal: init.signal ? AbortSignal.any([init.signal, limit]) : limit,
+          ...requestInit,
+          signal: requestInit.signal
+            ? AbortSignal.any([requestInit.signal, limit])
+            : limit,
         });
         this.note(url, started);
         return response;
@@ -110,8 +117,10 @@ class Timer {
           throw new Error(`No answer within ${FAIL_MS / 1000} s: ${url}`, {
             cause: error,
           });
-        // A dropped connection on a read is tried once more; a POST never is.
-        if (attempt === 0 && (method === "GET" || method === "HEAD")) continue;
+        // A dropped connection on a read is tried once more; a POST or a
+        // one-use GET never is.
+        if (retry && attempt === 0 && (method === "GET" || method === "HEAD"))
+          continue;
         throw new Error(`${url} could not be reached`, { cause: error });
       }
     }
@@ -222,6 +231,7 @@ async function checkSite() {
   const pages = new Set(["/learn"]);
   const media = new Set<string>();
   const failures: string[] = [];
+  const skipped = new Set<string>();
   const row = results.length;
   await check("Learn pages", async (t) => {
     const queue = ["/learn"];
@@ -238,9 +248,13 @@ async function checkSite() {
         for (const [, link] of html.matchAll(
           /href="(\/learn(?:\/[a-z0-9-]+)*)(?:#[^"]*)?"/g,
         ))
-          if (link && !pages.has(link) && pages.size < 80) {
-            pages.add(link);
-            queue.push(link);
+          if (link && !pages.has(link)) {
+            if (pages.size < MAX_LEARN_PAGES) {
+              pages.add(link);
+              queue.push(link);
+            } else {
+              skipped.add(link);
+            }
           }
         for (const [, file] of html.matchAll(
           /(?:src|href|poster|srcset)="(\/learn-media\/[^"\s?#]+)/g,
@@ -248,6 +262,10 @@ async function checkSite() {
           if (file) media.add(file);
       });
     }
+    if (skipped.size)
+      failures.push(
+        `Learn crawl hit the ${MAX_LEARN_PAGES}-page cap and skipped ${skipped.size} more page${skipped.size === 1 ? "" : "s"}`,
+      );
     if (failures.length) throw new Error(listed(failures));
   });
   // How many there are is known once they have been read.
@@ -377,10 +395,11 @@ class Visitor {
   }
 
   /** A GET as the browser makes it, its redirect not followed. */
-  async get(t: Timer, url: string) {
+  async get(t: Timer, url: string, options: { retry?: boolean } = {}) {
     const response = await t.fetch(url, {
       headers: this.jar.header(),
       redirect: "manual",
+      ...options,
     });
     this.jar.keep(response);
     return response;
@@ -412,10 +431,10 @@ function demoAnswerFrom(answer: Answer, company: Company) {
 }
 
 async function checkPlayground() {
-  // Each Company in a conversation of its own, as a visitor picks one.
-  const visitor = new Visitor();
+  // Each Company in a conversation of its own, as a fresh visitor so adding
+  // demo examples stays within the chat's 8-a-minute per-visitor budget.
   for (const company of companies) {
-    visitor.conversation = null;
+    const visitor = new Visitor();
     const connected = await check(
       `${company.name}: connect in the playground`,
       async (t) => {
@@ -447,10 +466,18 @@ async function checkPlayground() {
       });
   }
 
-  // One conversation with two Companies, from a second visitor so the
-  // chat's per-visitor budget (8 a minute) holds.
-  const harborline = companies.find((c) => c.name === "Harborline Bank")!;
-  const lantern = companies.find((c) => c.name === "Lantern Noodle Bar")!;
+  // One conversation with two Companies, as its own visitor.
+  const harborline = companies.find((c) => c.key === "harborline");
+  const lantern = companies.find((c) => c.key === "lantern");
+  if (!harborline || !lantern) {
+    results.push({
+      name: "Two Companies",
+      status: "fail",
+      ms: 0,
+      reason: "The lab's site list is missing harborline or lantern",
+    });
+    return;
+  }
   const two = new Visitor();
   const connected = await check(
     "Two Companies: “connect with Harborline and Lantern”",
@@ -565,10 +592,11 @@ class CompanyBrowser {
   jar = new Jar();
   constructor(readonly company: Company) {}
 
-  async get(t: Timer, url: string) {
+  async get(t: Timer, url: string, options: { retry?: boolean } = {}) {
     const response = await t.fetch(new URL(url, this.company.url), {
       headers: { accept: "text/html", ...this.jar.header() },
       redirect: "manual",
+      ...options,
     });
     this.jar.keep(response);
     return response;
@@ -621,6 +649,7 @@ async function signIn(
   visitor: Visitor,
   browser: CompanyBrowser,
   access: "read" | "write",
+  onAllowed?: (customer: { id: string; name: string }) => void,
 ) {
   const { company } = browser;
   const started = await visitor.post(t, "/api/account", {
@@ -635,7 +664,7 @@ async function signIn(
   const authorize = new URL(started.body.url);
   if (authorize.origin !== company.origin)
     throw new Error(`The sign-in opens ${authorize.origin}, not the Company`);
-  const page = await browser.get(t, authorize.href);
+  const page = await browser.get(t, authorize.href, { retry: false });
   if (page.status !== 200)
     throw new Error(`The consent page answered ${page.status}`);
   const form = formFields(await page.text(), "/oauth/authorize");
@@ -655,7 +684,11 @@ async function signIn(
   })?.[2];
   if (!chosen || !name)
     throw new Error("The consent page offers no test customer");
+  const customer = { id: chosen, name: decoded(name) };
   form.fields.set("decision", "approve");
+  // Once Allow is submitted, remember the customer so cleanup still revokes
+  // the grant if the callback or post-sign-in checks fail.
+  onAllowed?.(customer);
   const allowed = await browser.submit(t, "/oauth/authorize", form.fields);
   const location = allowed.headers.get("location");
   if (allowed.status !== 302 || !location)
@@ -672,14 +705,14 @@ async function signIn(
     throw new Error(
       `The Company answered Allow with ${back.searchParams.get("error")?.slice(0, 40)}`,
     );
-  const landed = await visitor.get(t, back.href);
+  const landed = await visitor.get(t, back.href, { retry: false });
   await landed.body?.cancel();
   const end = landed.headers.get("location") ?? "";
   if (landed.status !== 303 || !end.endsWith("/playground/sign-in/done"))
     throw new Error(
       `The callback answered ${landed.status}${end ? `, to ${shown(new URL(end, lab).href)}` : ""}`,
     );
-  return { id: chosen, name: decoded(name) };
+  return customer;
 }
 
 /** The conversation's connection to `company`, as a reload reads it. */
@@ -745,7 +778,7 @@ async function checkSignedIn() {
     });
     return;
   }
-  const demo = DEMO_SUGGESTIONS[company.key as keyof typeof DEMO_SUGGESTIONS];
+  const demo = DEMO_SUGGESTIONS[company.key];
   const at = `${company.name}, signed in`;
   const visitor = new Visitor();
   const browser = new CompanyBrowser(company);
@@ -758,7 +791,9 @@ async function checkSignedIn() {
       throw new Error(`Connecting answered ${found.status}`);
     profile = found.body.profile;
     if (!profile?.scopeHints) throw new Error("Discovery has no scope hints");
-    customer = await signIn(t, visitor, browser, "read");
+    customer = await signIn(t, visitor, browser, "read", (allowed) => {
+      customer = allowed;
+    });
     const own = await reloaded(t, visitor, company);
     if (!own.signedIn) throw new Error("The conversation isn't signed in");
     if (canChange(profile, own.scopes))
