@@ -222,3 +222,27 @@ it("ends the shop front and the account pages with the same footer", async () =>
     await app.close();
   }
 });
+
+it("serves store policies without the stale read-only demo note", async () => {
+  const { app, header } = await setup();
+  try {
+    const response = await app.inject({
+      url: "/api/policies",
+      headers: {
+        "poppy-session": await header(newSessionId(), "usr_a", "/api/policies"),
+      },
+    });
+    expect(response.statusCode).toBe(200);
+    const body = response.json() as {
+      hours: string;
+      returns: string;
+      note: string;
+    };
+    expect(body.hours).toBeTruthy();
+    expect(body.returns).toBeTruthy();
+    expect(body.note).toContain("Fictional demo");
+    expect(body.note.toLowerCase()).not.toContain("read-only");
+  } finally {
+    await app.close();
+  }
+});

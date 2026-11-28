@@ -833,6 +833,14 @@ it("keeps the customer's record of an applied request and of who approved it aft
     expect(later[0]!.result).toBe(
       `It waits for your approval in your agent until ${later[0]!.when}. If you decline it there or let it run out, nothing changes. Your agent does not tell us when you decline, so it shows as awaiting until then.`,
     );
+    // Once it runs out, the portal explains that it expired without changing anything.
+    vi.setSystemTime(Date.now() + 11 * 60000);
+    const expired = await activity();
+    expect(expired[0]).toMatchObject({
+      state: "expired",
+      summary: next.summary,
+      result: "The proposal expired. Nothing changed.",
+    });
   } finally {
     vi.useRealTimers();
   }

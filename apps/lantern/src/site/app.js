@@ -172,64 +172,66 @@ function orderEditor(order) {
 }
 
 let flash = "";
-function render(data) {
+function render(data, keepOrders = false) {
   snapshot = data;
   $("current-account").textContent =
     "Signed in as " + data.customer + ", a test customer";
-  const list = $("order-list");
-  list.replaceChildren();
-  if (!data.orders.length)
-    list.append(node("p", "No scheduled orders.", "notice"));
-  for (const o of data.orders) {
-    const article = node("article", undefined, "order");
-    const head = node("div", undefined, "order-head");
-    head.append(node("h3", o.id), node("span", o.slot.label, "mono"));
-    article.append(head);
-    const lines = node("div", undefined, "lines");
-    for (const i of o.items) {
-      const row = node("div", undefined, "line");
-      row.append(
-        node("span", i.quantity + " × " + i.name),
-        node("span", money(i.line_total_cents), "mono"),
+  if (!keepOrders) {
+    const list = $("order-list");
+    list.replaceChildren();
+    if (!data.orders.length)
+      list.append(node("p", "No scheduled orders.", "notice"));
+    for (const o of data.orders) {
+      const article = node("article", undefined, "order");
+      const head = node("div", undefined, "order-head");
+      head.append(node("h3", o.id), node("span", o.slot.label, "mono"));
+      article.append(head);
+      const lines = node("div", undefined, "lines");
+      for (const i of o.items) {
+        const row = node("div", undefined, "line");
+        row.append(
+          node("span", i.quantity + " × " + i.name),
+          node("span", money(i.line_total_cents), "mono"),
+        );
+        lines.append(row);
+      }
+      article.append(lines);
+      const totals = node("div", undefined, "totals");
+      for (const [label, value] of [
+        ["Dishes", o.subtotal_cents],
+        ["Delivery", o.delivery_cents],
+        ["Total", o.total_cents],
+      ]) {
+        const row = node("div", undefined, label === "Total" ? "total" : "");
+        row.append(node("span", label), node("span", money(value), "mono"));
+        totals.append(row);
+      }
+      article.append(totals);
+      article.append(
+        node(
+          "p",
+          "Recipient: " +
+            o.recipient +
+            " · " +
+            o.address +
+            " · Simulated order, nothing charged or delivered.",
+          "notice",
+        ),
       );
-      lines.append(row);
+      if (editing.has(o.id)) article.append(orderEditor(o));
+      // No editor for an agent's browser: its changes go through the agent.
+      else if (!data.browser) {
+        const edit = node("button", "Edit order", "secondary");
+        edit.type = "button";
+        edit.addEventListener("click", () => {
+          editing.set(o.id, true);
+          render(snapshot);
+          document.getElementById(o.id + "-slot")?.focus();
+        });
+        article.append(edit);
+      }
+      list.append(article);
     }
-    article.append(lines);
-    const totals = node("div", undefined, "totals");
-    for (const [label, value] of [
-      ["Dishes", o.subtotal_cents],
-      ["Delivery", o.delivery_cents],
-      ["Total", o.total_cents],
-    ]) {
-      const row = node("div", undefined, label === "Total" ? "total" : "");
-      row.append(node("span", label), node("span", money(value), "mono"));
-      totals.append(row);
-    }
-    article.append(totals);
-    article.append(
-      node(
-        "p",
-        "Recipient: " +
-          o.recipient +
-          " · " +
-          o.address +
-          " · Simulated order, nothing charged or delivered.",
-        "notice",
-      ),
-    );
-    if (editing.has(o.id)) article.append(orderEditor(o));
-    // No editor for an agent's browser: its changes go through the agent.
-    else if (!data.browser) {
-      const edit = node("button", "Edit order", "secondary");
-      edit.type = "button";
-      edit.addEventListener("click", () => {
-        editing.set(o.id, true);
-        render(snapshot);
-        article.querySelector("select")?.focus();
-      });
-      article.append(edit);
-    }
-    list.append(article);
   }
   const delivered = $("delivered-order");
   delivered.replaceChildren();
@@ -312,13 +314,7 @@ async function refresh(force) {
     }
     if (signature !== last || force) {
       // Keep an open editor's draft; redraw everything else.
-      if (!editing.size || force) render(data);
-      else {
-        snapshot = data;
-        $("current-account").textContent =
-          "Signed in as " + data.customer + ", a test customer";
-        connected(data.agents);
-      }
+      render(data, editing.size > 0);
       last = signature;
     }
     $("content").setAttribute("aria-busy", "false");

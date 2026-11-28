@@ -23,6 +23,7 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseEnv } from "node:util";
 import process from "node:process";
 import console from "node:console";
 
@@ -79,19 +80,26 @@ const privateParts = (value) => {
 for (const file of readdirSync(root).filter(
   (f) => f.startsWith(".env") || f.startsWith(".dev.vars"),
 )) {
-  for (const line of readFileSync(path.join(root, file), "utf8").split("\n")) {
-    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
-    if (!m) continue;
-    const value = m[2].replace(/^["']|["']$/g, "");
+  const fullPath = path.join(root, file);
+  if (!statSync(fullPath).isFile()) continue;
+  for (const [key, value] of Object.entries(
+    parseEnv(readFileSync(fullPath, "utf8")),
+  )) {
+    if (typeof value !== "string") continue;
     // Secrets by name; model names and default URLs are ordinary code literals.
     if (
       value.length >= 8 &&
-      /KEY|SECRET|TOKEN|PASSWORD|HASH|PRIVATE|IDENTITY|CREDENTIAL/.test(m[1])
+      /KEY|SECRET|TOKEN|PASSWORD|HASH|PRIVATE|IDENTITY|CREDENTIAL/i.test(key)
     ) {
-      secrets.set(`${file}:${m[1]}`, value);
+      secrets.set(`${file}:${key}`, value);
+      if (value.includes("\n"))
+        secrets.set(
+          `${file}:${key} escaped`,
+          JSON.stringify(value).slice(1, -1),
+        );
       // A reformatted key pair would still carry its private scalar.
       for (const [index, part] of privateParts(value).entries())
-        secrets.set(`${file}:${m[1]} private part ${index + 1}`, part);
+        secrets.set(`${file}:${key} private part ${index + 1}`, part);
     }
   }
 }

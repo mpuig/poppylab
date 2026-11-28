@@ -302,7 +302,7 @@ export function juniperCompany(options: {
       app.get("/api/policies", (c) =>
         c.json({
           ...policies,
-          note: "Read-only demo: purchases and account changes are not available.",
+          note: "Fictional demo; no real purchases or refunds.",
         }),
       );
       ctx.converse(juniperAgent(commerce, { ...policies, delivery }));

@@ -3,6 +3,7 @@ import { randomId } from "@poppy-lab/pap-client";
 import type { Session } from "@poppy-lab/pap-company";
 import { profiles, profileState, type ProfileCustomer } from "./profiles.js";
 import { body } from "./request.js";
+import { CASE_MESSAGE_MAX_LENGTH } from "./service-openapi.js";
 export const faqs = [
   {
     topic: "delivery",
@@ -79,7 +80,7 @@ function input(value: unknown) {
     value.subject.length > 120 ||
     typeof value.message !== "string" ||
     !value.message.trim() ||
-    value.message.length > 2000 ||
+    value.message.length > CASE_MESSAGE_MAX_LENGTH ||
     !["delivery", "billing", "profile", "other"].includes(
       String(value.topic),
     ) ||
@@ -243,7 +244,7 @@ export function customerServices(
         !c ||
         typeof message !== "string" ||
         !message.trim() ||
-        message.length > 2000 ||
+        message.length > CASE_MESSAGE_MAX_LENGTH ||
         c.messages.length + 2 > 20
       )
         throw Error("invalid_message");

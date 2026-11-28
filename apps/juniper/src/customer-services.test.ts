@@ -1,6 +1,7 @@
 import { it, expect } from "vitest";
 import { testApp, websiteContext } from "./test-app.js";
 import { operations, type Commerce } from "./operations.js";
+import { CASE_MESSAGE_MAX_LENGTH } from "./service-openapi.js";
 import { website } from "./website.js";
 import { approvalOf } from "./test-v2.js";
 const origin = "http://juniper.localhost:4100";
@@ -174,7 +175,7 @@ it("rejects invalid subjects, extra authority fields and unrelated orders", asyn
       { ...body, subject: "" },
       { ...body, approved_by: "user" },
       { ...body, order_id: "other-order" },
-      { ...body, message: "x".repeat(2001) },
+      { ...body, message: "x".repeat(CASE_MESSAGE_MAX_LENGTH + 1) },
     ])
       expect(
         (
@@ -185,6 +186,15 @@ it("rejects invalid subjects, extra authority fields and unrelated orders", asyn
           })
         ).statusCode,
       ).toBe(400);
+    expect(
+      (
+        await app.inject({
+          method: "POST",
+          url: "/api/account/case-proposal",
+          payload: { ...body, message: "x".repeat(CASE_MESSAGE_MAX_LENGTH) },
+        })
+      ).statusCode,
+    ).toBe(403);
     expect((await app.inject("/help")).body).toContain(
       "Is anything actually charged?",
     );
