@@ -22,10 +22,16 @@ import type { CompanyState } from "./company-state";
 /** A sign-in the page opens: at a Company, for read or change access. */
 export type SignIn = { company: string; access: "read" | "write" };
 
-/** Iris's question, while it is the last thing said: its buttons. */
+/**
+ * Iris's question, while it is the last thing said: its buttons. It is
+ * Iris's own line when the chat's answer brings it, and an answer of
+ * Iris's when it comes from the server's history (after a sign-in
+ * completes, or a reload); both are the same question.
+ */
 export function openQuestion(messages: readonly Message[] | undefined) {
   const last = messages?.at(-1);
-  return last?.role === "Own" && last.choices?.length
+  return (last?.role === "Own" || last?.role === "Agent") &&
+    last.choices?.length
     ? last.choices
     : undefined;
 }

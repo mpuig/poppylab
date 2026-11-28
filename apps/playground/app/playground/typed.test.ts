@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
+import { pendingItems } from "@poppy-lab/pap-agent/pending";
 import { turnMessages } from "./answers";
-import { harborlineUrl, labCompanies, lanternUrl } from "./companies";
+import { askOfChoices } from "./conversation";
+import {
+  harborlineUrl,
+  historyToMessages,
+  labCompanies,
+  lanternUrl,
+} from "./companies";
 import type { Message } from "./companies";
 import { companyFromView, type Operation } from "./company-state";
 import {
@@ -146,5 +153,43 @@ describe("the buttons under a question about a proposal", () => {
     expect(liveChoices(question.choices!, [company([op("r2")])])).toEqual([]);
     // Other buttons stay.
     expect(liveChoices(signInQuestion.choices!, [])).toHaveLength(1);
+  });
+});
+
+describe("Iris's open question, however it reached the page", () => {
+  const goOn = {
+    label: "Sí, sigue",
+    answer: { resume: lantern },
+  };
+  const text = "Ya has iniciado sesión en Lantern Noodle Bar. ¿Sigo con «x»?";
+  const waiting = (messages: Message[]) =>
+    pendingItems(
+      "run_1",
+      [
+        {
+          company: { origin: lantern, name: "Lantern Noodle Bar" },
+          operations: [],
+        },
+      ],
+      askOfChoices(openQuestion(messages)),
+    ).map((item) => item.kind);
+
+  it("counts it live, from the chat's answer", () => {
+    expect(waiting([{ role: "Own", text, choices: [goOn] }])).toEqual([
+      "question",
+    ]);
+  });
+
+  it("counts it from the server's history: after a sign-in completes, or a reload", () => {
+    const messages = historyToMessages([
+      { role: "user", content: "x" },
+      { role: "assistant", content: text, choices: [goOn] },
+    ]);
+    expect(openQuestion(messages)).toEqual([goOn]);
+    expect(waiting(messages)).toEqual(["question"]);
+    // Not once something follows it.
+    expect(
+      waiting([...messages, { role: "You", text: "show the menu" }]),
+    ).toEqual([]);
   });
 });
