@@ -1,11 +1,247 @@
 /**
  * The OpenAPI 3.1 description of `/api/v1` (`api-http.ts`), for a client
- * app built on the agent's API. It is written next to the types it
- * describes (`api.ts`, `api-events.ts`) and served at
- * `/api/v1/openapi.json`; the playground's test holds every route and
- * every answer of a real conversation to it.
+ * app built on the agent's API. Request bodies and path parameters are
+ * derived from the Zod contracts in `api-contract/` using `z.toJSONSchema`;
+ * response shapes sit beside the types they describe (`api.ts`,
+ * `api-events.ts`). The committed `openapi.json` is served directly by
+ * `api-http.ts`, and the tests hold every route and real answer to it.
  */
+import { z, type ZodType } from "zod";
+import {
+  accountOperations,
+  answerInputSchema,
+  authenticationCredentialSchema,
+  conversationOperations,
+  modelChoiceSchema,
+  opaqueIdSchema,
+  proposalRefInputSchema,
+  registrationCredentialSchema,
+} from "./api-contract/index.ts";
+
 type Schema = Record<string, unknown>;
+type DescriptionOverlay = {
+  description?: string;
+  properties?: Record<string, string | DescriptionOverlay>;
+  oneOfByKey?: Record<string, string | DescriptionOverlay>;
+};
+
+const COMPONENT_REFS = new Map<unknown, string>([
+  [modelChoiceSchema, "ModelChoice"],
+  [answerInputSchema, "Answer"],
+  [proposalRefInputSchema, "ProposalRef"],
+  [registrationCredentialSchema, "RegistrationCredential"],
+  [authenticationCredentialSchema, "AuthenticationCredential"],
+]);
+
+const isRecord = (value: unknown): value is Schema =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const isNullSchema = (value: unknown): boolean =>
+  isRecord(value) && value.type === "null" && Object.keys(value).length === 1;
+
+/**
+ * Normalizes a Zod 4 JSON Schema into the OpenAPI 3.1 subset used across this
+ * document and its reference renderer (`type: [T, "null"]`, `enum` instead of
+ * single-value `const`, explicit `required` arrays on objects).
+ */
+function normalizeSchema(raw: Schema, unionAsOneOf = false): Schema {
+  const node: Schema = { ...raw };
+  delete node.$schema;
+
+  if (Array.isArray(node.anyOf)) {
+    const branches = node.anyOf;
+    if (branches.length === 2 && branches.some(isNullSchema)) {
+      const other = branches.find((branch) => !isNullSchema(branch));
+      if (isRecord(other) && typeof other.type === "string") {
+        const normalized = normalizeSchema(other);
+        delete node.anyOf;
+        return {
+          ...normalized,
+          ...node,
+          type: [other.type, "null"],
+          ...(Array.isArray(normalized.enum)
+            ? { enum: [...normalized.enum, null] }
+            : {}),
+        };
+      }
+    }
+    const normalized = branches.map((branch) =>
+      isRecord(branch) ? normalizeSchema(branch) : branch,
+    );
+    if (unionAsOneOf) {
+      delete node.anyOf;
+      node.oneOf = normalized;
+    } else {
+      node.anyOf = normalized;
+    }
+  }
+
+  if ("const" in node) {
+    node.enum = [node.const];
+    delete node.const;
+  }
+
+  if (
+    node.type === "integer" &&
+    node.minimum === Number.MIN_SAFE_INTEGER &&
+    node.maximum === Number.MAX_SAFE_INTEGER
+  ) {
+    delete node.minimum;
+    delete node.maximum;
+  }
+
+  if (node.type === "object") {
+    if (
+      isRecord(node.propertyNames) &&
+      node.propertyNames.type === "string" &&
+      Object.keys(node.propertyNames).length === 1 &&
+      isRecord(node.additionalProperties) &&
+      Object.keys(node.additionalProperties).length === 0
+    ) {
+      delete node.propertyNames;
+      node.additionalProperties = true;
+    }
+    if (isRecord(node.properties)) {
+      const properties: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(node.properties))
+        properties[key] = isRecord(value) ? normalizeSchema(value) : value;
+      node.properties = properties;
+      if (node.required === undefined) node.required = [];
+    }
+  }
+
+  if (isRecord(node.items)) node.items = normalizeSchema(node.items);
+  if (Array.isArray(node.oneOf))
+    node.oneOf = node.oneOf.map((branch) =>
+      isRecord(branch) ? normalizeSchema(branch) : branch,
+    );
+
+  return node;
+}
+
+/** Overlays OpenAPI descriptions onto a Zod-derived schema, failing on drift. */
+function applyDescriptions(
+  schema: Schema,
+  overlay: string | DescriptionOverlay,
+): Schema {
+  if (typeof overlay === "string") return { ...schema, description: overlay };
+  const next: Schema = {
+    ...schema,
+    ...(overlay.description ? { description: overlay.description } : {}),
+  };
+  if (overlay.properties) {
+    if (!isRecord(next.properties))
+      throw new Error("Description overlay targets properties on non-object.");
+    const properties: Record<string, Schema> = {
+      ...(next.properties as Record<string, Schema>),
+    };
+    for (const [name, child] of Object.entries(overlay.properties)) {
+      const existing = properties[name];
+      if (!existing)
+        throw new Error(`Description overlay names unknown property: ${name}`);
+      properties[name] = applyDescriptions(existing, child);
+    }
+    next.properties = properties;
+  }
+  if (overlay.oneOfByKey) {
+    if (!Array.isArray(next.oneOf))
+      throw new Error("Description overlay targets oneOf on non-union.");
+    const matched = new Set<string>();
+    next.oneOf = next.oneOf.map((branch) => {
+      if (!isRecord(branch) || !isRecord(branch.properties)) return branch;
+      const keys = Object.keys(branch.properties);
+      if (keys.length !== 1) return branch;
+      const key = keys[0]!;
+      const child = overlay.oneOfByKey![key];
+      if (!child) return branch;
+      matched.add(key);
+      return applyDescriptions(branch, { properties: { [key]: child } });
+    });
+    for (const key of Object.keys(overlay.oneOfByKey))
+      if (!matched.has(key))
+        throw new Error(`Description overlay names unknown union key: ${key}`);
+  }
+  return next;
+}
+
+/** Converts a Zod contract schema to an OpenAPI 3.1 schema via `z.toJSONSchema`. */
+function fromZod(
+  schema: ZodType,
+  overlay?: string | DescriptionOverlay,
+  options: { unionAsOneOf?: boolean } = {},
+): Schema {
+  const raw = z.toJSONSchema(schema, {
+    io: "input",
+    unrepresentable: "any",
+    override(ctx) {
+      if ((ctx.zodSchema as unknown) === schema) return;
+      const component = COMPONENT_REFS.get(ctx.zodSchema);
+      if (!component) return;
+      for (const key of Object.keys(ctx.jsonSchema)) delete ctx.jsonSchema[key];
+      ctx.jsonSchema.$ref = `#/components/schemas/${component}`;
+    },
+  }) as Schema;
+  const normalized = normalizeSchema(raw, options.unionAsOneOf ?? false);
+  return overlay ? applyDescriptions(normalized, overlay) : normalized;
+}
+
+/** Derives OpenAPI path parameters from an operation's Zod path schema. */
+function pathParameters(schema: ZodType, descriptions: Record<string, string>) {
+  const objectSchema = fromZod(schema);
+  const properties = objectSchema.properties as
+    Record<string, Schema> | undefined;
+  const required = new Set(
+    (objectSchema.required as string[] | undefined) ?? [],
+  );
+  if (!properties) throw new Error("Path parameter schema must be an object.");
+  for (const name of Object.keys(descriptions))
+    if (!(name in properties))
+      throw new Error(`Unknown path parameter description: ${name}`);
+  return Object.entries(properties).map(([name, paramSchema]) => ({
+    name,
+    in: "path",
+    required: required.has(name),
+    schema: paramSchema,
+    ...(descriptions[name] ? { description: descriptions[name] } : {}),
+  }));
+}
+
+/**
+ * Derives `PasskeyAnswer` from the registration and sign-in request contracts,
+ * verifying their shared envelope stays identical across all three routes.
+ */
+function passkeyAnswerSchema(overlay: DescriptionOverlay): Schema {
+  const registration = fromZod(accountOperations.createAccount.body);
+  const authentication = fromZod(accountOperations.signIn.body);
+  const addPasskey = fromZod(accountOperations.addPasskey.body);
+  if (JSON.stringify(registration) !== JSON.stringify(addPasskey))
+    throw new Error("addPasskey body diverged from createAccount body.");
+  const withoutCredential = (schema: Schema) => {
+    const props = { ...(schema.properties as Record<string, Schema>) };
+    delete props.credential;
+    return { ...schema, properties: props };
+  };
+  if (
+    JSON.stringify(withoutCredential(registration)) !==
+    JSON.stringify(withoutCredential(authentication))
+  )
+    throw new Error("signIn body diverged from createAccount body.");
+  const regProps = registration.properties as Record<string, Schema>;
+  const authProps = authentication.properties as Record<string, Schema>;
+  return applyDescriptions(
+    {
+      ...registration,
+      properties: {
+        ...regProps,
+        credential: {
+          oneOf: [regProps.credential!, authProps.credential!],
+        },
+      },
+    },
+    overlay,
+  );
+}
+
 const ref = (name: string, description?: string): Schema => ({
   $ref: `#/components/schemas/${name}`,
   ...(description ? { description } : {}),
@@ -23,14 +259,8 @@ const int = (description?: string): Schema => ({
   ...(description ? { description } : {}),
 });
 const string: Schema = { type: "string" };
-const operationIdString = (description?: string): Schema => ({
-  ...str(description),
-  pattern: "^[A-Za-z0-9_-]{1,256}$",
-});
-const opaqueIdString = (description?: string): Schema => ({
-  ...str(description),
-  pattern: "^[A-Za-z0-9_-]{22}$",
-});
+const opaqueIdString = (description?: string): Schema =>
+  fromZod(opaqueIdSchema, description);
 const array = (items: Schema, description?: string): Schema => ({
   type: "array",
   items,
@@ -47,707 +277,622 @@ const object = (
   ...(description ? { description } : {}),
 });
 
-const schemas: Record<string, Schema> = {
-  CompanyRef: object(
-    {
-      origin: str(
-        "Company origin URL, such as `https://food-demo.poppylab.dev`.",
-      ),
-      name: str("Human-readable company name for display."),
-    },
-    ["origin", "name"],
-    "Identifies a Company by its origin and display name.",
-  ),
-  ProposalRef: object(
-    {
-      company: str("Origin URL of the Company holding the proposal."),
-      proposal: operationIdString("Unique proposal ID issued by the Company."),
-      revision: operationIdString(
-        "Exact revision token shown to the user for approval.",
-      ),
-    },
-    ["company", "proposal", "revision"],
-    "References a specific proposal at an exact revision. Approvals bind strictly to `revision`.",
-  ),
-  Answer: {
-    description:
-      "Structured payload carried by a quick-reply `Choice`. Must contain exactly one member; Companies are referenced by origin and values are never parsed as free text. `approve` and `decline` decide a proposal at its exact revision; `signin` tells the client to call `POST /api/v1/conversations/{id}/sign-ins`; `signout` signs out of that Company; `resume` retries the request that waited for sign-in; `invitation` accepts or declines a Direct Conversation.",
-    oneOf: [
-      object({
-        company: str("Selects an already-connected Company by origin."),
-      }),
-      object({
-        connect: str("Connects a new Company by origin URL."),
-      }),
-      object({
-        remove: array(string, "Disconnects the listed Company origins."),
-      }),
-      object({
-        keep: array(
-          string,
-          "Keeps only the listed Company origins when replacing a full conversation.",
+function buildSchemas(): Record<string, Schema> {
+  return {
+    CompanyRef: object(
+      {
+        origin: str(
+          "Company origin URL, such as `https://food-demo.poppylab.dev`.",
         ),
-      }),
-      object({
-        message: str("Sends a scripted prompt text as the user's turn."),
-      }),
-      object({
-        approve: ref("ProposalRef", "Approves the referenced proposal."),
-      }),
-      object({
-        decline: ref("ProposalRef", "Declines the referenced proposal."),
-      }),
-      object({
-        signin: object(
-          {
-            company: str("Origin URL of the Company to sign in to."),
-            access: {
-              type: "string",
-              enum: ["read", "write"],
-              description: "Permission level to request (`read` or `write`).",
+        name: str("Human-readable company name for display."),
+      },
+      ["origin", "name"],
+      "Identifies a Company by its origin and display name.",
+    ),
+    ProposalRef: fromZod(proposalRefInputSchema, {
+      description:
+        "References a specific proposal at an exact revision. Approvals bind strictly to `revision`.",
+      properties: {
+        company: "Origin URL of the Company holding the proposal.",
+        proposal: "Unique proposal ID issued by the Company.",
+        revision: "Exact revision token shown to the user for approval.",
+      },
+    }),
+    Answer: fromZod(
+      answerInputSchema,
+      {
+        description:
+          "Structured payload carried by a quick-reply `Choice`. Must contain exactly one member; Companies are referenced by origin and values are never parsed as free text. `approve` and `decline` decide a proposal at its exact revision; `signin` tells the client to call `POST /api/v1/conversations/{id}/sign-ins`; `signout` signs out of that Company; `resume` retries the request that waited for sign-in; `invitation` accepts or declines a Direct Conversation.",
+        oneOfByKey: {
+          company: "Selects an already-connected Company by origin.",
+          connect: "Connects a new Company by origin URL.",
+          remove: "Disconnects the listed Company origins.",
+          keep: "Keeps only the listed Company origins when replacing a full conversation.",
+          message: "Sends a scripted prompt text as the user's turn.",
+          approve: "Approves the referenced proposal.",
+          decline: "Declines the referenced proposal.",
+          signin: {
+            description: "Prompts the client to start a Company sign-in flow.",
+            properties: {
+              company: "Origin URL of the Company to sign in to.",
+              access: "Permission level to request (`read` or `write`).",
             },
           },
-          ["company", "access"],
-          "Prompts the client to start a Company sign-in flow.",
-        ),
-      }),
-      object({
-        signout: str("Origin URL of the Company to sign out from."),
-      }),
-      object({
-        resume: str(
-          "Origin URL of the Company whose pending request should resume after sign-in.",
-        ),
-      }),
-      object({
-        invitation: object(
-          {
-            company: str("Origin URL of the Company that sent the invitation."),
-            accept: bool(
-              "`true` to open a Direct Conversation; `false` to decline.",
-            ),
-          },
-          ["company", "accept"],
-          "Responds to a Company's invitation to speak directly with the user.",
-        ),
-      }),
-    ],
-  },
-  Choice: object(
-    {
-      label: str("Short button label to display to the user."),
-      answer: ref(
-        "Answer",
-        "Structured payload to submit to `POST /api/v1/conversations/{id}/answers` when chosen.",
-      ),
-    },
-    ["label", "answer"],
-    'A quick-reply button attached to an agent message. Render `label` and submit `answer` verbatim. The user may also answer the question in words with `sendMessage` ("yes", "no", "approve the Lantern one"): the agent\'s code, never a model, reads a short answer to the question just asked, and any other message drops the question.',
-  ),
-  AgentStep: object(
-    {
-      text: str("Plain-language summary of what the agent did."),
-      how: {
-        type: "string",
-        enum: ["API", "Company's agent", "sign-in", "setup"],
-        description: "Channel or phase used for this step.",
-      },
-      access: {
-        type: ["string", "null"],
-        enum: ["view", "view and change", null],
-        description:
-          "Access level used for this step, or `null` for signed-out calls.",
-      },
-      state: {
-        type: "string",
-        enum: ["done", "failed", "waiting"],
-        description: "Outcome of this step.",
-      },
-      company: str("Origin URL of the Company involved, when applicable."),
-      args: str("Sanitized JSON summary of arguments sent to the Company."),
-    },
-    ["text", "how", "access", "state"],
-    "One protocol action taken during a turn, shown in the activity trace.",
-  ),
-  AgentMessage: object(
-    {
-      id: str(
-        "Only in a turn streamed with `Accept: text/event-stream`, on each of the agent's messages: the ID its `message.delta` events named. Match it to the sentences shown, and drop shown sentences whose ID no message carries.",
-      ),
-      from: {
-        type: "string",
-        enum: ["user", "agent", "company"],
-        description:
-          "Speaker role. `agent` without `company` is the agent's own system voice; `company` is untrusted Company content.",
-      },
-      text: str("Message body in plain text or light Markdown."),
-      spoken: str(
-        "Voice-ready version of `text` (one or two short sentences, no Markdown or IDs, spoken currency). Generated deterministically, never by a model. Only on the agent's messages: a Company's words are never rewritten.",
-      ),
-      company: ref("CompanyRef", "Company this message is from or about."),
-      using: array(
-        ref("CompanyRef"),
-        "Companies consulted while producing this reply.",
-      ),
-      author: str("Company-provided author label, such as a support agent."),
-      direct: bool("`true` when sent inside a Direct Conversation (§8.10)."),
-      choices: array(ref("Choice"), "Quick-reply actions for the user."),
-      links: array(string, "Safe HTTPS links surfaced by the turn."),
-      steps: array(
-        ref("AgentStep"),
-        "Protocol steps executed during this turn.",
-      ),
-      data: str("Pretty-printed structured payload attached to a message."),
-      proposals: array(
-        ref("ProposalRef"),
-        "Proposals that arrived with this message, at the revision they came with. A client that shows proposals as cards shows each one after this message, found in `ConversationState.proposals` by `company` and `proposal`, and keeps it there once it is decided.",
-      ),
-    },
-    ["from", "text"],
-    "A single message in the conversation transcript.",
-  ),
-  PendingItem: object(
-    {
-      conversation: str("ID of the conversation it waits in."),
-      kind: {
-        type: "string",
-        enum: ["proposal", "signin", "question"],
-        description:
-          "`proposal`: a Company holds a change for the user's approval. `signin`: a Company sign-in to finish or to do again. `question`: the agent asked, and the user's next message or a quick reply answers.",
-      },
-      company: ref("CompanyRef", "Company it is at, when it is at one."),
-      text: str(
-        "What it is, in the agent's own words (never a Company's summary), such as `Approve or decline the $88.00 change`.",
-      ),
-      expiresAt: str(
-        "ISO 8601 timestamp after which it no longer waits, when it runs out on its own.",
-      ),
-      proposal: object(
-        {
-          id: str("Proposal (operation) ID."),
-          revision: str("Exact revision a decision binds to."),
-        },
-        ["id", "revision"],
-        "For a `proposal`: which one, to decide with `decideProposal`.",
-      ),
-    },
-    ["conversation", "kind", "text"],
-    "One thing that waits for the user. Decided, answered and expired items are not listed.",
-  ),
-  CompanyState: object(
-    {
-      origin: str("Company origin URL."),
-      name: str("Company display name."),
-      url: str("Company homepage URL."),
-      signedIn: bool("`true` when the user has an active OAuth grant."),
-      scopes: str("Space-separated OAuth scopes currently granted."),
-      signingIn: bool("`true` while a sign-in flow is in progress."),
-      consentVersion: int(
-        "Monotonic counter incremented each time consent is granted or upgraded.",
-      ),
-      accessLost: bool(
-        "`true` when the Company revoked or rejected the stored grant.",
-      ),
-      direct: object(
-        {
-          open: bool("`true` while a Direct Conversation is active."),
+          signout: "Origin URL of the Company to sign out from.",
+          resume:
+            "Origin URL of the Company whose pending request should resume after sign-in.",
           invitation: {
-            type: ["string", "null"],
             description:
-              "Reason text for a pending Direct Conversation invitation, or `null`.",
+              "Responds to a Company's invitation to speak directly with the user.",
+            properties: {
+              company: "Origin URL of the Company that sent the invitation.",
+              accept:
+                "`true` to open a Direct Conversation; `false` to decline.",
+            },
           },
         },
-        ["open", "invitation"],
-        "Direct Conversation status for this Company.",
-      ),
-    },
-    [
-      "origin",
-      "name",
-      "url",
-      "signedIn",
-      "signingIn",
-      "consentVersion",
-      "accessLost",
-      "direct",
-    ],
-    "Connection, authentication, and Direct Conversation state for one Company.",
-  ),
-  Proposal: object(
-    {
-      id: str("Operation ID issued by the Company."),
-      company: ref("CompanyRef", "Company holding the pending change."),
-      revision: str(
-        "Exact revision token required when approving. Changes if terms shift.",
-      ),
-      summary: str("Company-authored plain-text summary of the change."),
-      terms: {
-        type: "object",
-        description:
-          "Authoritative structured terms computed by the Company (amounts, dates, balances).",
       },
-      state: {
-        type: "string",
-        enum: [
-          "proposed",
-          "succeeded",
-          "declined",
-          "refused",
-          "expired",
-          "superseded",
-          "uncertain",
-        ],
-        description: "Current lifecycle state of the operation.",
-      },
-      expiresAt: str(
-        "ISO 8601 timestamp after which the proposal cannot be approved.",
-      ),
-      result: str("Outcome message or refusal reason once resolved."),
-      spoken: str(
-        "Agent-generated spoken description derived from `terms` (never the Company's summary).",
-      ),
-    },
-    ["id", "company", "revision", "terms", "state", "expiresAt", "spoken"],
-    "A state-changing operation held by a Company for explicit user approval (Operations v3). Nothing executes until approved.",
-  ),
-  ConversationState: object(
-    {
-      id: str("Unique conversation identifier."),
-      active: bool("`true` while open; `false` once ended and read-only."),
-      keptUntil: int(
-        "Unix timestamp (ms) when an ended conversation is purged from storage.",
-      ),
-      companies: array(
-        ref("CompanyState"),
-        "Currently connected Companies (up to 3).",
-      ),
-      removed: array(
-        ref("CompanyRef"),
-        "Companies previously disconnected from this conversation.",
-      ),
-      messages: array(ref("AgentMessage"), "Ordered conversation transcript."),
-      proposals: array(
-        ref("Proposal"),
-        "All proposals raised in this conversation.",
-      ),
-    },
-    ["id", "active", "companies", "removed", "messages", "proposals"],
-    "Complete snapshot of a conversation, its connected Companies, transcript, and proposals.",
-  ),
-  TurnResult: object(
-    {
-      conversation: str("Conversation ID."),
-      messages: array(
-        ref("AgentMessage"),
-        "Messages added during this turn (or the full list when `replaced` is `true`).",
-      ),
-      replaced: bool(
-        "`true` when earlier messages were withdrawn (for example after losing access or disconnecting a Company).",
-      ),
-      state: ref("ConversationState", "Full updated conversation state."),
-    },
-    ["conversation", "messages", "replaced", "state"],
-    "Result of a completed message or quick-reply turn.",
-  ),
-  MessageDelta: object(
-    {
-      type: {
-        type: "string",
-        enum: ["message.delta"],
-        description: "Always `message.delta`; also the SSE event name.",
-      },
-      message: str(
-        "ID of the agent message this sentence belongs to; the `turn` event's message with this `id` holds the whole text.",
-      ),
-      index: int("Position of the sentence within its message, from 0."),
-      text: str(
-        "The sentence as written, with the whitespace around it, so the texts of one message joined are its text. Ends at a stop, a line's end, or a clause or space before about 220 characters; never inside a word.",
-      ),
-      spoken: str(
-        "The sentence to read aloud, made by the same fixed rules as a message's `spoken`. Empty when it holds nothing to say, such as a table row or a bare address.",
-      ),
-    },
-    ["type", "message", "index", "text", "spoken"],
-    "One sentence of one of the agent's messages, sent as soon as it is written. A voice client speaks `spoken` as each one arrives.",
-  ),
-  TurnEvent: {
-    type: "object",
-    description:
-      "One Server-Sent Event of a turn streamed with `Accept: text/event-stream`; `type` matches the SSE `event:` field. `message.delta` events come first, one per sentence, then exactly one `turn` or `error`. Only the agent's words come as sentences: Company content comes whole in the result as its own message (§10.1). Demo-mode answers and the agent's own lines, which are ready at once, come as sentences too, all together just before `turn`.",
-    oneOf: [
-      ref("MessageDelta"),
-      object(
-        {
-          type: {
-            type: "string",
-            enum: ["turn"],
-            description: "Always `turn`; the last event of a turn that ended.",
-          },
-          result: ref(
-            "TurnResult",
-            "The same result as the JSON answer; each agent message carries the `id` its sentences named.",
-          ),
-        },
-        ["type", "result"],
-        "The turn ended: show `result` in place of the sentences shown.",
-      ),
-      object(
-        {
-          type: {
-            type: "string",
-            enum: ["error"],
-            description:
-              "Always `error`; the last event of a turn that failed after it began.",
-          },
-          status: int("The HTTP status the JSON answer would have had."),
-          code: str("Machine-readable error code, when there is one."),
-          error: str("User-facing explanation that can be shown as is."),
-        },
-        ["type", "status", "error"],
-        "The turn failed after its first sentence: drop the sentences shown and show `error`.",
-      ),
-    ],
-  },
-  ModelChoice: object(
-    {
-      provider: {
-        type: "string",
-        enum: ["demo", "free", "openai-compatible", "anthropic"],
-        description:
-          "Model backend: `demo` (scripted examples, no LLM), `free` (deployment's Workers AI model), or bring-your-own-key (`openai-compatible`, `anthropic`).",
-      },
-      apiKey: {
-        ...str(
-          "Provider API key for `openai-compatible` or `anthropic`. Sent per request and never stored.",
+      { unionAsOneOf: true },
+    ),
+    Choice: object(
+      {
+        label: str("Short button label to display to the user."),
+        answer: ref(
+          "Answer",
+          "Structured payload to submit to `POST /api/v1/conversations/{id}/answers` when chosen.",
         ),
-        maxLength: 2048,
       },
-      model: {
-        ...str("Optional model identifier for bring-your-own-key providers."),
-        maxLength: 256,
+      ["label", "answer"],
+      'A quick-reply button attached to an agent message. Render `label` and submit `answer` verbatim. The user may also answer the question in words with `sendMessage` ("yes", "no", "approve the Lantern one"): the agent\'s code, never a model, reads a short answer to the question just asked, and any other message drops the question.',
+    ),
+    AgentStep: object(
+      {
+        text: str("Plain-language summary of what the agent did."),
+        how: {
+          type: "string",
+          enum: ["API", "Company's agent", "sign-in", "setup"],
+          description: "Channel or phase used for this step.",
+        },
+        access: {
+          type: ["string", "null"],
+          enum: ["view", "view and change", null],
+          description:
+            "Access level used for this step, or `null` for signed-out calls.",
+        },
+        state: {
+          type: "string",
+          enum: ["done", "failed", "waiting"],
+          description: "Outcome of this step.",
+        },
+        company: str("Origin URL of the Company involved, when applicable."),
+        args: str("Sanitized JSON summary of arguments sent to the Company."),
       },
-      turnstile: {
-        ...str(
-          "Single-use Cloudflare Turnstile token required for `free` turns, made by the deployment's widget on its own host for the action `chat`. Missing, invalid, or over-quota turns fall back to `demo` with an explanatory note.",
+      ["text", "how", "access", "state"],
+      "One protocol action taken during a turn, shown in the activity trace.",
+    ),
+    AgentMessage: object(
+      {
+        id: str(
+          "Only in a turn streamed with `Accept: text/event-stream`, on each of the agent's messages: the ID its `message.delta` events named. Match it to the sentences shown, and drop shown sentences whose ID no message carries.",
         ),
-        maxLength: 2048,
+        from: {
+          type: "string",
+          enum: ["user", "agent", "company"],
+          description:
+            "Speaker role. `agent` without `company` is the agent's own system voice; `company` is untrusted Company content.",
+        },
+        text: str("Message body in plain text or light Markdown."),
+        spoken: str(
+          "Voice-ready version of `text` (one or two short sentences, no Markdown or IDs, spoken currency). Generated deterministically, never by a model. Only on the agent's messages: a Company's words are never rewritten.",
+        ),
+        company: ref("CompanyRef", "Company this message is from or about."),
+        using: array(
+          ref("CompanyRef"),
+          "Companies consulted while producing this reply.",
+        ),
+        author: str("Company-provided author label, such as a support agent."),
+        direct: bool("`true` when sent inside a Direct Conversation (§8.10)."),
+        choices: array(ref("Choice"), "Quick-reply actions for the user."),
+        links: array(string, "Safe HTTPS links surfaced by the turn."),
+        steps: array(
+          ref("AgentStep"),
+          "Protocol steps executed during this turn.",
+        ),
+        data: str("Pretty-printed structured payload attached to a message."),
+        proposals: array(
+          ref("ProposalRef"),
+          "Proposals that arrived with this message, at the revision they came with. A client that shows proposals as cards shows each one after this message, found in `ConversationState.proposals` by `company` and `proposal`, and keeps it there once it is decided.",
+        ),
       },
-    },
-    ["provider"],
-    "Selects which model handles a turn. Defaults to `demo` when omitted.",
-  ),
-  Decision: object(
-    {
-      proposal: ref(
-        "Proposal",
-        "Updated proposal after applying the decision.",
-      ),
-      state: ref("ConversationState", "Full updated conversation state."),
-    },
-    ["proposal", "state"],
-    "Outcome of approving or declining a proposal.",
-  ),
-  SignIn: object(
-    {
-      url: str(
-        "URL to open for consent. For browsers: the Company's consent page. For apps: a single-use agent link to open in `ASWebAuthenticationSession` (or equivalent).",
-      ),
-      expiresAt: int(
-        "Unix timestamp (ms) when an app sign-in link expires (3 minutes).",
-      ),
-      endUrl: str(
-        "Fixed callback completion URL an app watches for (`?result=done` or `?result=failed`).",
-      ),
-    },
-    ["url"],
-    "Details for launching a Company OAuth sign-in flow. The agent never sees the user's password; final status arrives on the SSE event stream.",
-  ),
-  AgentEvent: {
-    type: "object",
-    description:
-      "One Server-Sent Event payload. `type` matches the SSE `event:` field; the initial event is always `state`.",
-    properties: {
-      type: {
-        type: "string",
-        enum: [
-          "state",
-          "message",
-          "messages.replaced",
-          "signin.completed",
-          "signin.failed",
-          "access.lost",
-          "signout",
-          "proposal.created",
-          "proposal.expired",
-          "proposal.replaced",
-          "proposal.updated",
-          "company.added",
-          "company.removed",
-          "conversation.ended",
-          "session.ended",
-        ],
-        description: "Event type and SSE event name.",
+      ["from", "text"],
+      "A single message in the conversation transcript.",
+    ),
+    PendingItem: object(
+      {
+        conversation: str("ID of the conversation it waits in."),
+        kind: {
+          type: "string",
+          enum: ["proposal", "signin", "question"],
+          description:
+            "`proposal`: a Company holds a change for the user's approval. `signin`: a Company sign-in to finish or to do again. `question`: the agent asked, and the user's next message or a quick reply answers.",
+        },
+        company: ref("CompanyRef", "Company it is at, when it is at one."),
+        text: str(
+          "What it is, in the agent's own words (never a Company's summary), such as `Approve or decline the $88.00 change`.",
+        ),
+        expiresAt: str(
+          "ISO 8601 timestamp after which it no longer waits, when it runs out on its own.",
+        ),
+        proposal: object(
+          {
+            id: str("Proposal (operation) ID."),
+            revision: str("Exact revision a decision binds to."),
+          },
+          ["id", "revision"],
+          "For a `proposal`: which one, to decide with `decideProposal`.",
+        ),
       },
-      state: ref(
-        "ConversationState",
-        "Present on `state` and `messages.replaced`.",
-      ),
-      message: ref("AgentMessage", "Present on `message`."),
-      company: ref(
-        "CompanyRef",
-        "Present on `signin.*`, `access.lost`, `signout`, and `company.*`.",
-      ),
-      proposal: ref("Proposal", "Present on `proposal.*`."),
-      keptUntil: int(
-        "Unix timestamp (ms) until an ended conversation is purged. Present on `conversation.ended`.",
-      ),
-      code: {
-        type: "string",
-        enum: ["invalid_token", "session_revoked"],
-        description:
-          "Present on `session.ended`: `invalid_token` means refresh the access token and reconnect; `session_revoked` means sign in again.",
+      ["conversation", "kind", "text"],
+      "One thing that waits for the user. Decided, answered and expired items are not listed.",
+    ),
+    CompanyState: object(
+      {
+        origin: str("Company origin URL."),
+        name: str("Company display name."),
+        url: str("Company homepage URL."),
+        signedIn: bool("`true` when the user has an active OAuth grant."),
+        scopes: str("Space-separated OAuth scopes currently granted."),
+        signingIn: bool("`true` while a sign-in flow is in progress."),
+        consentVersion: int(
+          "Monotonic counter incremented each time consent is granted or upgraded.",
+        ),
+        accessLost: bool(
+          "`true` when the Company revoked or rejected the stored grant.",
+        ),
+        direct: object(
+          {
+            open: bool("`true` while a Direct Conversation is active."),
+            invitation: {
+              type: ["string", "null"],
+              description:
+                "Reason text for a pending Direct Conversation invitation, or `null`.",
+            },
+          },
+          ["open", "invitation"],
+          "Direct Conversation status for this Company.",
+        ),
       },
-    },
-    required: ["type"],
-  },
-  Error: object(
-    {
-      code: str(
-        "Stable machine-readable error code for programmatic handling.",
-      ),
-      error: str("Plain-language error message safe to show to the user."),
-    },
-    ["error"],
-    "Standard error envelope returned on 4xx and 5xx responses.",
-  ),
-  Passkey: object(
-    {
-      id: str("Unique passkey identifier within the account."),
-      name: str("Device description captured when the passkey was registered."),
-      created: int("Unix timestamp (ms) when the passkey was added."),
-      lastUsed: int(
-        "Unix timestamp (ms) when the passkey was last used to sign in.",
-      ),
-      synced: bool(
-        "`true` when the authenticator reports multi-device passkey backup.",
-      ),
-    },
-    ["id", "name", "created", "synced"],
-    "Metadata for a WebAuthn passkey registered on an account. Public keys are never returned.",
-  ),
-  Account: object(
-    {
-      id: str("Opaque account identifier."),
-      label: str("Optional user-chosen label for the account."),
-      created: int("Unix timestamp (ms) when the account was created."),
-      passkeys: array(ref("Passkey"), "Passkeys registered on this account."),
-      channels: array(
+      [
+        "origin",
+        "name",
+        "url",
+        "signedIn",
+        "signingIn",
+        "consentVersion",
+        "accessLost",
+        "direct",
+      ],
+      "Connection, authentication, and Direct Conversation state for one Company.",
+    ),
+    Proposal: object(
+      {
+        id: str("Operation ID issued by the Company."),
+        company: ref("CompanyRef", "Company holding the pending change."),
+        revision: str(
+          "Exact revision token required when approving. Changes if terms shift.",
+        ),
+        summary: str("Company-authored plain-text summary of the change."),
+        terms: {
+          type: "object",
+          description:
+            "Authoritative structured terms computed by the Company (amounts, dates, balances).",
+        },
+        state: {
+          type: "string",
+          enum: [
+            "proposed",
+            "succeeded",
+            "declined",
+            "refused",
+            "expired",
+            "superseded",
+            "uncertain",
+          ],
+          description: "Current lifecycle state of the operation.",
+        },
+        expiresAt: str(
+          "ISO 8601 timestamp after which the proposal cannot be approved.",
+        ),
+        result: str("Outcome message or refusal reason once resolved."),
+        spoken: str(
+          "Agent-generated spoken description derived from `terms` (never the Company's summary).",
+        ),
+      },
+      ["id", "company", "revision", "terms", "state", "expiresAt", "spoken"],
+      "A state-changing operation held by a Company for explicit user approval (Operations v3). Nothing executes until approved.",
+    ),
+    ConversationState: object(
+      {
+        id: str("Unique conversation identifier."),
+        active: bool("`true` while open; `false` once ended and read-only."),
+        keptUntil: int(
+          "Unix timestamp (ms) when an ended conversation is purged from storage.",
+        ),
+        companies: array(
+          ref("CompanyState"),
+          "Currently connected Companies (up to 3).",
+        ),
+        removed: array(
+          ref("CompanyRef"),
+          "Companies previously disconnected from this conversation.",
+        ),
+        messages: array(
+          ref("AgentMessage"),
+          "Ordered conversation transcript.",
+        ),
+        proposals: array(
+          ref("Proposal"),
+          "All proposals raised in this conversation.",
+        ),
+      },
+      ["id", "active", "companies", "removed", "messages", "proposals"],
+      "Complete snapshot of a conversation, its connected Companies, transcript, and proposals.",
+    ),
+    TurnResult: object(
+      {
+        conversation: str("Conversation ID."),
+        messages: array(
+          ref("AgentMessage"),
+          "Messages added during this turn (or the full list when `replaced` is `true`).",
+        ),
+        replaced: bool(
+          "`true` when earlier messages were withdrawn (for example after losing access or disconnecting a Company).",
+        ),
+        state: ref("ConversationState", "Full updated conversation state."),
+      },
+      ["conversation", "messages", "replaced", "state"],
+      "Result of a completed message or quick-reply turn.",
+    ),
+    MessageDelta: object(
+      {
+        type: {
+          type: "string",
+          enum: ["message.delta"],
+          description: "Always `message.delta`; also the SSE event name.",
+        },
+        message: str(
+          "ID of the agent message this sentence belongs to; the `turn` event's message with this `id` holds the whole text.",
+        ),
+        index: int("Position of the sentence within its message, from 0."),
+        text: str(
+          "The sentence as written, with the whitespace around it, so the texts of one message joined are its text. Ends at a stop, a line's end, or a clause or space before about 220 characters; never inside a word.",
+        ),
+        spoken: str(
+          "The sentence to read aloud, made by the same fixed rules as a message's `spoken`. Empty when it holds nothing to say, such as a table row or a bare address.",
+        ),
+      },
+      ["type", "message", "index", "text", "spoken"],
+      "One sentence of one of the agent's messages, sent as soon as it is written. A voice client speaks `spoken` as each one arrives.",
+    ),
+    TurnEvent: {
+      type: "object",
+      description:
+        "One Server-Sent Event of a turn streamed with `Accept: text/event-stream`; `type` matches the SSE `event:` field. `message.delta` events come first, one per sentence, then exactly one `turn` or `error`. Only the agent's words come as sentences: Company content comes whole in the result as its own message (§10.1). Demo-mode answers and the agent's own lines, which are ready at once, come as sentences too, all together just before `turn`.",
+      oneOf: [
+        ref("MessageDelta"),
         object(
           {
-            channel: str("Linked external channel name."),
-            linked: int("Unix timestamp (ms) when the channel was linked."),
+            type: {
+              type: "string",
+              enum: ["turn"],
+              description:
+                "Always `turn`; the last event of a turn that ended.",
+            },
+            result: ref(
+              "TurnResult",
+              "The same result as the JSON answer; each agent message carries the `id` its sentences named.",
+            ),
           },
-          ["channel", "linked"],
+          ["type", "result"],
+          "The turn ended: show `result` in place of the sentences shown.",
         ),
-        "External channels linked via one-time link codes.",
-      ),
-      session: str("Session ID authenticating the current request."),
-      unclaimed: int(
-        "Browser-only count of anonymous pre-sign-in conversations available to claim.",
-      ),
-    },
-    ["id", "created", "passkeys", "channels", "session"],
-    "An anonymous passkey-backed agent account. Holds no email or password.",
-  ),
-  SessionTokens: object(
-    {
-      session: str("Device session identifier."),
-      accessToken: str(
-        "Short-lived bearer token (~15 min). Send in `Authorization: Bearer <token>`.",
-      ),
-      accessTokenExpiresAt: int(
-        "Unix timestamp (ms) when `accessToken` expires.",
-      ),
-      refreshToken: str(
-        "Single-use rotating refresh token. Reusing a spent token revokes the entire session.",
-      ),
-      refreshTokenExpiresAt: int(
-        "Unix timestamp (ms) when `refreshToken` expires.",
-      ),
-    },
-    undefined,
-    "Bearer and rotating refresh tokens issued to native client apps. Store in the OS keychain; never log or place in URLs.",
-  ),
-  SignedIn: object(
-    {
-      account: ref("Account", "The authenticated account."),
-      tokens: ref(
-        "SessionTokens",
-        "Returned only to native apps (requests without an `Origin` header); browsers receive an `HttpOnly` cookie.",
-      ),
-    },
-    ["account"],
-    "Returned after creating an account or signing in with a passkey.",
-  ),
-  CreationOptions: object(
-    {
-      ceremony: opaqueIdString(
-        "Opaque single-use ceremony ID to echo back within 5 minutes.",
-      ),
-      options: {
-        type: "object",
-        description:
-          "WebAuthn `PublicKeyCredentialCreationOptionsJSON` for `navigator.credentials.create`.",
-      },
-    },
-    undefined,
-    "Challenge and WebAuthn creation options for registering a new passkey.",
-  ),
-  RequestOptions: object(
-    {
-      ceremony: opaqueIdString(
-        "Opaque single-use ceremony ID to echo back within 5 minutes.",
-      ),
-      options: {
-        type: "object",
-        description:
-          "Discoverable WebAuthn `PublicKeyCredentialRequestOptionsJSON` for `navigator.credentials.get`.",
-      },
-    },
-    undefined,
-    "Challenge and WebAuthn request options for usernameless passkey sign-in.",
-  ),
-  RegistrationCredential: object(
-    {
-      id: { ...str("Credential ID in base64url."), maxLength: 2048 },
-      rawId: { ...str("Credential raw ID in base64url."), maxLength: 2048 },
-      type: { type: "string", enum: ["public-key"] },
-      authenticatorAttachment: {
-        type: ["string", "null"],
-        enum: ["cross-platform", "platform", null],
-        description: "Authenticator attachment, when the platform reports it.",
-      },
-      clientExtensionResults: {
-        type: "object",
-        additionalProperties: true,
-        description:
-          "WebAuthn client extension results. Optional; omitted means an empty object.",
-      },
-      response: object(
-        {
-          clientDataJSON: {
-            ...str("Base64url client data JSON."),
-            maxLength: 16000,
+        object(
+          {
+            type: {
+              type: "string",
+              enum: ["error"],
+              description:
+                "Always `error`; the last event of a turn that failed after it began.",
+            },
+            status: int("The HTTP status the JSON answer would have had."),
+            code: str("Machine-readable error code, when there is one."),
+            error: str("User-facing explanation that can be shown as is."),
           },
-          attestationObject: {
-            ...str("Base64url attestation object."),
-            maxLength: 16000,
-          },
-          transports: {
-            type: "array",
-            items: { type: "string", maxLength: 32 },
-            maxItems: 16,
-            description: "Authenticator transports reported by the platform.",
-          },
-          publicKey: {
-            ...str("Base64url credential public key, when supplied."),
-            maxLength: 16000,
-          },
-          publicKeyAlgorithm: int(
-            "COSE algorithm identifier, when supplied by the platform.",
+          ["type", "status", "error"],
+          "The turn failed after its first sentence: drop the sentences shown and show `error`.",
+        ),
+      ],
+    },
+    ModelChoice: fromZod(modelChoiceSchema, {
+      description:
+        "Selects which model handles a turn. Defaults to `demo` when omitted.",
+      properties: {
+        provider:
+          "Model backend: `demo` (scripted examples, no LLM), `free` (deployment's Workers AI model), or bring-your-own-key (`openai-compatible`, `anthropic`).",
+        apiKey:
+          "Provider API key for `openai-compatible` or `anthropic`. Sent per request and never stored.",
+        model: "Optional model identifier for bring-your-own-key providers.",
+        turnstile:
+          "Single-use Cloudflare Turnstile token required for `free` turns, made by the deployment's widget on its own host for the action `chat`. Missing, invalid, or over-quota turns fall back to `demo` with an explanatory note.",
+      },
+    }),
+    Decision: object(
+      {
+        proposal: ref(
+          "Proposal",
+          "Updated proposal after applying the decision.",
+        ),
+        state: ref("ConversationState", "Full updated conversation state."),
+      },
+      ["proposal", "state"],
+      "Outcome of approving or declining a proposal.",
+    ),
+    SignIn: object(
+      {
+        url: str(
+          "URL to open for consent. For browsers: the Company's consent page. For apps: a single-use agent link to open in `ASWebAuthenticationSession` (or equivalent).",
+        ),
+        expiresAt: int(
+          "Unix timestamp (ms) when an app sign-in link expires (3 minutes).",
+        ),
+        endUrl: str(
+          "Fixed callback completion URL an app watches for (`?result=done` or `?result=failed`).",
+        ),
+      },
+      ["url"],
+      "Details for launching a Company OAuth sign-in flow. The agent never sees the user's password; final status arrives on the SSE event stream.",
+    ),
+    AgentEvent: {
+      type: "object",
+      description:
+        "One Server-Sent Event payload. `type` matches the SSE `event:` field; the initial event is always `state`.",
+      properties: {
+        type: {
+          type: "string",
+          enum: [
+            "state",
+            "message",
+            "messages.replaced",
+            "signin.completed",
+            "signin.failed",
+            "access.lost",
+            "signout",
+            "proposal.created",
+            "proposal.expired",
+            "proposal.replaced",
+            "proposal.updated",
+            "company.added",
+            "company.removed",
+            "conversation.ended",
+            "session.ended",
+          ],
+          description: "Event type and SSE event name.",
+        },
+        state: ref(
+          "ConversationState",
+          "Present on `state` and `messages.replaced`.",
+        ),
+        message: ref("AgentMessage", "Present on `message`."),
+        company: ref(
+          "CompanyRef",
+          "Present on `signin.*`, `access.lost`, `signout`, and `company.*`.",
+        ),
+        proposal: ref("Proposal", "Present on `proposal.*`."),
+        keptUntil: int(
+          "Unix timestamp (ms) until an ended conversation is purged. Present on `conversation.ended`.",
+        ),
+        code: {
+          type: "string",
+          enum: ["invalid_token", "session_revoked"],
+          description:
+            "Present on `session.ended`: `invalid_token` means refresh the access token and reconnect; `session_revoked` means sign in again.",
+        },
+      },
+      required: ["type"],
+    },
+    Error: object(
+      {
+        code: str(
+          "Stable machine-readable error code for programmatic handling.",
+        ),
+        error: str("Plain-language error message safe to show to the user."),
+      },
+      ["error"],
+      "Standard error envelope returned on 4xx and 5xx responses.",
+    ),
+    Passkey: object(
+      {
+        id: str("Unique passkey identifier within the account."),
+        name: str(
+          "Device description captured when the passkey was registered.",
+        ),
+        created: int("Unix timestamp (ms) when the passkey was added."),
+        lastUsed: int(
+          "Unix timestamp (ms) when the passkey was last used to sign in.",
+        ),
+        synced: bool(
+          "`true` when the authenticator reports multi-device passkey backup.",
+        ),
+      },
+      ["id", "name", "created", "synced"],
+      "Metadata for a WebAuthn passkey registered on an account. Public keys are never returned.",
+    ),
+    Account: object(
+      {
+        id: str("Opaque account identifier."),
+        label: str("Optional user-chosen label for the account."),
+        created: int("Unix timestamp (ms) when the account was created."),
+        passkeys: array(ref("Passkey"), "Passkeys registered on this account."),
+        channels: array(
+          object(
+            {
+              channel: str("Linked external channel name."),
+              linked: int("Unix timestamp (ms) when the channel was linked."),
+            },
+            ["channel", "linked"],
           ),
-        },
-        ["clientDataJSON", "attestationObject"],
-      ),
-    },
-    ["id", "rawId", "type", "response"],
-    "WebAuthn registration response returned after creating a passkey.",
-  ),
-  AuthenticationCredential: object(
-    {
-      id: { ...str("Credential ID in base64url."), maxLength: 2048 },
-      rawId: { ...str("Credential raw ID in base64url."), maxLength: 2048 },
-      type: { type: "string", enum: ["public-key"] },
-      authenticatorAttachment: {
-        type: ["string", "null"],
-        enum: ["cross-platform", "platform", null],
-        description: "Authenticator attachment, when the platform reports it.",
+          "External channels linked via one-time link codes.",
+        ),
+        session: str("Session ID authenticating the current request."),
+        unclaimed: int(
+          "Browser-only count of anonymous pre-sign-in conversations available to claim.",
+        ),
       },
-      clientExtensionResults: {
-        type: "object",
-        additionalProperties: true,
-        description:
+      ["id", "created", "passkeys", "channels", "session"],
+      "An anonymous passkey-backed agent account. Holds no email or password.",
+    ),
+    SessionTokens: object(
+      {
+        session: str("Device session identifier."),
+        accessToken: str(
+          "Short-lived bearer token (~15 min). Send in `Authorization: Bearer <token>`.",
+        ),
+        accessTokenExpiresAt: int(
+          "Unix timestamp (ms) when `accessToken` expires.",
+        ),
+        refreshToken: str(
+          "Single-use rotating refresh token. Reusing a spent token revokes the entire session.",
+        ),
+        refreshTokenExpiresAt: int(
+          "Unix timestamp (ms) when `refreshToken` expires.",
+        ),
+      },
+      undefined,
+      "Bearer and rotating refresh tokens issued to native client apps. Store in the OS keychain; never log or place in URLs.",
+    ),
+    SignedIn: object(
+      {
+        account: ref("Account", "The authenticated account."),
+        tokens: ref(
+          "SessionTokens",
+          "Returned only to native apps (requests without an `Origin` header); browsers receive an `HttpOnly` cookie.",
+        ),
+      },
+      ["account"],
+      "Returned after creating an account or signing in with a passkey.",
+    ),
+    CreationOptions: object(
+      {
+        ceremony: opaqueIdString(
+          "Opaque single-use ceremony ID to echo back within 5 minutes.",
+        ),
+        options: {
+          type: "object",
+          description:
+            "WebAuthn `PublicKeyCredentialCreationOptionsJSON` for `navigator.credentials.create`.",
+        },
+      },
+      undefined,
+      "Challenge and WebAuthn creation options for registering a new passkey.",
+    ),
+    RequestOptions: object(
+      {
+        ceremony: opaqueIdString(
+          "Opaque single-use ceremony ID to echo back within 5 minutes.",
+        ),
+        options: {
+          type: "object",
+          description:
+            "Discoverable WebAuthn `PublicKeyCredentialRequestOptionsJSON` for `navigator.credentials.get`.",
+        },
+      },
+      undefined,
+      "Challenge and WebAuthn request options for usernameless passkey sign-in.",
+    ),
+    RegistrationCredential: fromZod(registrationCredentialSchema, {
+      description:
+        "WebAuthn registration response returned after creating a passkey.",
+      properties: {
+        id: "Credential ID in base64url.",
+        rawId: "Credential raw ID in base64url.",
+        authenticatorAttachment:
+          "Authenticator attachment, when the platform reports it.",
+        clientExtensionResults:
           "WebAuthn client extension results. Optional; omitted means an empty object.",
-      },
-      response: object(
-        {
-          clientDataJSON: {
-            ...str("Base64url client data JSON."),
-            maxLength: 16000,
-          },
-          authenticatorData: {
-            ...str("Base64url authenticator data."),
-            maxLength: 16000,
-          },
-          signature: {
-            ...str("Base64url authenticator signature."),
-            maxLength: 16000,
-          },
-          userHandle: {
-            type: ["string", "null"],
-            maxLength: 2048,
-            description: "Discoverable credential user handle, when supplied.",
+        response: {
+          properties: {
+            clientDataJSON: "Base64url client data JSON.",
+            attestationObject: "Base64url attestation object.",
+            transports: "Authenticator transports reported by the platform.",
+            publicKey: "Base64url credential public key, when supplied.",
+            publicKeyAlgorithm:
+              "COSE algorithm identifier, when supplied by the platform.",
           },
         },
-        ["clientDataJSON", "authenticatorData", "signature"],
-      ),
-    },
-    ["id", "rawId", "type", "response"],
-    "WebAuthn authentication response returned after proving a passkey.",
-  ),
-  PasskeyAnswer: object(
-    {
-      ceremony: opaqueIdString(
-        "Ceremony ID received from the corresponding `/options` call.",
-      ),
-      credential: {
-        oneOf: [ref("RegistrationCredential"), ref("AuthenticationCredential")],
-        description:
+      },
+    }),
+    AuthenticationCredential: fromZod(authenticationCredentialSchema, {
+      description:
+        "WebAuthn authentication response returned after proving a passkey.",
+      properties: {
+        id: "Credential ID in base64url.",
+        rawId: "Credential raw ID in base64url.",
+        authenticatorAttachment:
+          "Authenticator attachment, when the platform reports it.",
+        clientExtensionResults:
+          "WebAuthn client extension results. Optional; omitted means an empty object.",
+        response: {
+          properties: {
+            clientDataJSON: "Base64url client data JSON.",
+            authenticatorData: "Base64url authenticator data.",
+            signature: "Base64url authenticator signature.",
+            userHandle: "Discoverable credential user handle, when supplied.",
+          },
+        },
+      },
+    }),
+    PasskeyAnswer: passkeyAnswerSchema({
+      description: "Completes a passkey registration or sign-in ceremony.",
+      properties: {
+        ceremony:
+          "Ceremony ID received from the corresponding `/options` call.",
+        credential:
           "Authenticator response (`RegistrationResponseJSON` or `AuthenticationResponseJSON`).",
+        device:
+          'Optional device label shown in the sessions list (e.g. "iPhone" or "Chrome on macOS").',
       },
-      device: str(
-        'Optional device label shown in the sessions list (e.g. "iPhone" or "Chrome on macOS").',
-      ),
-    },
-    ["ceremony", "credential"],
-    "Completes a passkey registration or sign-in ceremony.",
-  ),
-  Session: object(
-    {
-      id: str("Unique device session identifier."),
-      kind: {
-        type: "string",
-        enum: ["browser", "app"],
-        description: "`browser` (cookie-backed) or `app` (token-backed).",
+    }),
+    Session: object(
+      {
+        id: str("Unique device session identifier."),
+        kind: {
+          type: "string",
+          enum: ["browser", "app"],
+          description: "`browser` (cookie-backed) or `app` (token-backed).",
+        },
+        device: str("Device description recorded at sign-in."),
+        created: int("Unix timestamp (ms) when the session started."),
+        lastUsed: int("Unix timestamp (ms) of the last authenticated request."),
+        expires: int("Unix timestamp (ms) when the session expires."),
+        current: bool("`true` for the session authenticating this request."),
       },
-      device: str("Device description recorded at sign-in."),
-      created: int("Unix timestamp (ms) when the session started."),
-      lastUsed: int("Unix timestamp (ms) of the last authenticated request."),
-      expires: int("Unix timestamp (ms) when the session expires."),
-      current: bool("`true` for the session authenticating this request."),
-    },
-    undefined,
-    "An active device session signed in to an account.",
-  ),
-  LinkCode: object(
-    {
-      code: str("Formatted 8-character one-time code to enter in the channel."),
-      expiresAt: int("Unix timestamp (ms) when the code expires (5 minutes)."),
-    },
-    undefined,
-    "Single-use code linking an external messaging channel to an account.",
-  ),
-};
+      undefined,
+      "An active device session signed in to an account.",
+    ),
+    LinkCode: object(
+      {
+        code: str(
+          "Formatted 8-character one-time code to enter in the channel.",
+        ),
+        expiresAt: int(
+          "Unix timestamp (ms) when the code expires (5 minutes).",
+        ),
+      },
+      undefined,
+      "Single-use code linking an external messaging channel to an account.",
+    ),
+  };
+}
 
 const json = (schema: Schema) => ({
   content: { "application/json": { schema } },
@@ -801,22 +946,6 @@ const ok = (description: string, schema: Schema, status = "200") => ({
 const counted = object({ revoked: int("Number of sessions revoked.") }, [
   "revoked",
 ]);
-const conversationId: Schema = {
-  type: "string",
-  pattern: "^[A-Za-z0-9_-]{16,64}$",
-};
-const operationId = operationIdString();
-const signInTicket: Schema = {
-  type: "string",
-  pattern: "^[A-Za-z0-9_-]{43}$",
-};
-const id = {
-  name: "id",
-  in: "path",
-  required: true,
-  schema: conversationId,
-  description: "Conversation ID.",
-};
 const body = (schema: Schema) => ({ required: true, ...json(schema) });
 /**
  * A turn's answers: the result, or with `Accept: text/event-stream` the
@@ -900,14 +1029,12 @@ export function openApiDocument() {
           description:
             "Creates an empty conversation, or connects an initial Company signed out when `company` is provided.",
           requestBody: body(
-            object(
-              {
-                company: str(
+            fromZod(conversationOperations.startConversation.body, {
+              properties: {
+                company:
                   "Optional Company origin URL to discover and connect immediately.",
-                ),
               },
-              [],
-            ),
+            }),
           ),
           responses: {
             "201": {
@@ -952,7 +1079,10 @@ export function openApiDocument() {
           summary: "Retrieve a conversation",
           description:
             "Returns the current `ConversationState`, including connected Companies, transcript messages, and all proposals.",
-          parameters: [id],
+          parameters: pathParameters(
+            conversationOperations.getConversation.parameters,
+            { id: "Conversation ID." },
+          ),
           responses: {
             "200": {
               description: "Current conversation state.",
@@ -969,24 +1099,19 @@ export function openApiDocument() {
           summary: "Send a message",
           description:
             "Submits a user message and runs one agent turn. If `company` is omitted in a multi-company conversation, the agent routes automatically or replies with disambiguation `choices`.",
-          parameters: [id],
+          parameters: pathParameters(
+            conversationOperations.sendMessage.parameters,
+            { id: "Conversation ID." },
+          ),
           requestBody: body(
-            object(
-              {
-                text: {
-                  ...str("User message text."),
-                  maxLength: 2000,
-                },
-                company: str(
+            fromZod(conversationOperations.sendMessage.body, {
+              properties: {
+                text: "User message text.",
+                company:
                   "Optional target Company origin URL to scope this turn.",
-                ),
-                model: ref(
-                  "ModelChoice",
-                  "Model configuration for this turn. Defaults to `demo`.",
-                ),
+                model: "Model configuration for this turn. Defaults to `demo`.",
               },
-              ["text"],
-            ),
+            }),
           ),
           responses: turnResponses("Turn completed."),
         },
@@ -998,18 +1123,17 @@ export function openApiDocument() {
           summary: "Submit a quick-reply answer",
           description:
             "Submits the structured `answer` payload from a previous message's `Choice` without free-text parsing.",
-          parameters: [id],
+          parameters: pathParameters(
+            conversationOperations.answerChoice.parameters,
+            { id: "Conversation ID." },
+          ),
           requestBody: body(
-            object(
-              {
-                answer: ref("Answer", "Exact `answer` object from a `Choice`."),
-                model: ref(
-                  "ModelChoice",
-                  "Model configuration if the choice triggers a turn.",
-                ),
+            fromZod(conversationOperations.answerChoice.body, {
+              properties: {
+                answer: "Exact `answer` object from a `Choice`.",
+                model: "Model configuration if the choice triggers a turn.",
               },
-              ["answer"],
-            ),
+            }),
           ),
           responses: turnResponses("Answer applied."),
         },
@@ -1021,26 +1145,20 @@ export function openApiDocument() {
           summary: "Approve or decline a proposal",
           description:
             "Approves or declines a pending Operations v3 proposal. Approvals bind strictly to `revision` and execute at most once. A decline is kept by the agent; nothing is sent to the Company. If the Company answers the approval with other terms, nothing is performed: the answer is 409 `terms_changed`, and the proposal waits again at a new `revision` (or, when the Company gave the new terms another ID, this one becomes `superseded` and a new proposal waits).",
-          parameters: [
-            id,
+          parameters: pathParameters(
+            conversationOperations.decideProposal.parameters,
             {
-              name: "proposal",
-              in: "path",
-              required: true,
-              schema: operationId,
-              description: "Proposal (operation) ID.",
+              id: "Conversation ID.",
+              proposal: "Proposal (operation) ID.",
             },
-          ],
+          ),
           requestBody: body(
-            object({
-              company: str("Origin URL of the Company holding the proposal."),
-              revision: operationIdString(
-                "Exact `revision` token from the proposal shown to the user.",
-              ),
-              decision: {
-                type: "string",
-                enum: ["approve", "decline"],
-                description: "User decision (`approve` or `decline`).",
+            fromZod(conversationOperations.decideProposal.body, {
+              properties: {
+                company: "Origin URL of the Company holding the proposal.",
+                revision:
+                  "Exact `revision` token from the proposal shown to the user.",
+                decision: "User decision (`approve` or `decline`).",
               },
             }),
           ),
@@ -1070,20 +1188,18 @@ export function openApiDocument() {
           summary: "Start a Company sign-in",
           description:
             "Initiates Direct Sign-In (§4.2) at a connected Company. Browser callers receive the Company's consent URL; bearer-authenticated apps receive a single-use agent link (`SignIn.url`) to open in an in-app browser session. Completion emits `signin.completed` or `signin.failed` on the event stream.",
-          parameters: [id],
+          parameters: pathParameters(
+            conversationOperations.startSignIn.parameters,
+            { id: "Conversation ID." },
+          ),
           requestBody: body(
-            object(
-              {
-                company: str("Origin URL of the connected Company."),
-                access: {
-                  type: "string",
-                  enum: ["read", "write"],
-                  description:
-                    "Permission tier to request (`read` default, or `write` to propose changes).",
-                },
+            fromZod(conversationOperations.startSignIn.body, {
+              properties: {
+                company: "Origin URL of the connected Company.",
+                access:
+                  "Permission tier to request (`read` default, or `write` to propose changes).",
               },
-              ["company"],
-            ),
+            }),
           ),
           responses: {
             "200": {
@@ -1103,15 +1219,10 @@ export function openApiDocument() {
           summary: "Open an app sign-in link",
           description:
             "Opened by a native app's browser (`SignIn.url`). Consumes the one-time 3-minute ticket, binds the OAuth state to that browser via cookie, and redirects to the Company's consent page. Expired, reused, revoked-session, or mismatched-account tickets redirect to `endUrl?result=failed`.",
-          parameters: [
-            {
-              name: "ticket",
-              in: "path",
-              required: true,
-              schema: signInTicket,
-              description: "One-time ticket from `SignIn.url`.",
-            },
-          ],
+          parameters: pathParameters(
+            conversationOperations.openSignInLink.parameters,
+            { ticket: "One-time ticket from `SignIn.url`." },
+          ),
           responses: {
             "303": {
               description:
@@ -1133,7 +1244,10 @@ export function openApiDocument() {
           summary: "Stream conversation events",
           description:
             "Opens a Server-Sent Events stream starting with `state`, followed by incremental changes polled every 2 seconds. Closes automatically after 5 minutes or when the conversation ends; reconnect and resync from `state`. Signed-in streams emit `session.ended` if the session or access token becomes invalid. Concurrency is capped at 10 open streams per account (4 per anonymous visitor, `too_many_streams`).",
-          parameters: [id],
+          parameters: pathParameters(
+            conversationOperations.conversationEvents.parameters,
+            { id: "Conversation ID." },
+          ),
           responses: {
             "200": {
               description:
@@ -1162,7 +1276,7 @@ export function openApiDocument() {
       },
     },
     components: {
-      schemas,
+      schemas: buildSchemas(),
       securitySchemes: {
         apiSession: {
           type: "http",
@@ -1177,20 +1291,6 @@ export function openApiDocument() {
 
 const answerBody = body(ref("PasskeyAnswer"));
 const bearer = [{ apiSession: [] }];
-const passkeyId = {
-  name: "passkey",
-  in: "path",
-  required: true,
-  schema: opaqueIdString(),
-  description: "Passkey ID from `Account.passkeys`.",
-};
-const sessionId = {
-  name: "session",
-  in: "path",
-  required: true,
-  schema: opaqueIdString(),
-  description: "Device session ID from `GET /api/v1/account/sessions`.",
-};
 
 /** The agent account's routes (`agent-account-http.ts`). */
 function accountPaths() {
@@ -1203,12 +1303,11 @@ function accountPaths() {
         description:
           "Starts passkey account creation. Returns WebAuthn options (discoverable, user verification required, no attestation) and a single-use ceremony ID valid for 5 minutes.",
         requestBody: body(
-          object(
-            {
-              label: str("Optional user-chosen display label for the account."),
+          fromZod(accountOperations.accountOptions.body, {
+            properties: {
+              label: "Optional user-chosen display label for the account.",
             },
-            [],
-          ),
+          }),
         ),
         responses: {
           ...ok(
@@ -1254,7 +1353,7 @@ function accountPaths() {
         summary: "Claim browser conversations",
         description:
           "Browser-only. Moves anonymous pre-sign-in conversations from the visitor cookie into the signed-in account so they sync across devices. Busy conversations stay behind and are counted in `skipped`.",
-        requestBody: body(object({}, [])),
+        requestBody: body(fromZod(accountOperations.claimConversations.body)),
         responses: {
           ...ok(
             "Migration counts and updated account.",
@@ -1275,7 +1374,7 @@ function accountPaths() {
         summary: "Create sign-in options",
         description:
           "Starts usernameless passkey sign-in. Returns WebAuthn request options and a single-use ceremony ID valid for 5 minutes.",
-        requestBody: body(object({}, [])),
+        requestBody: body(fromZod(accountOperations.signInOptions.body)),
         responses: {
           ...ok(
             "WebAuthn request options and ceremony ID.",
@@ -1307,12 +1406,9 @@ function accountPaths() {
         description:
           "Exchanges a native app's refresh token for a fresh access and refresh token pair. Each refresh token is single-use; replaying a spent token revokes the entire session (`session_revoked`).",
         requestBody: body(
-          object({
-            refreshToken: {
-              ...str("Current refresh token from `SessionTokens`."),
-              maxLength: 200,
-              pattern:
-                "^poppy_rt\\.[A-Za-z0-9_-]{22}\\.[A-Za-z0-9_-]{22}\\.[A-Za-z0-9_-]{43}$",
+          fromZod(accountOperations.refreshSession.body, {
+            properties: {
+              refreshToken: "Current refresh token from `SessionTokens`.",
             },
           }),
         ),
@@ -1330,7 +1426,7 @@ function accountPaths() {
         description:
           "Starts adding a new passkey to the authenticated account. Accounts hold up to 10 passkeys.",
         security: bearer,
-        requestBody: body(object({}, [])),
+        requestBody: body(fromZod(accountOperations.passkeyOptions.body)),
         responses: {
           ...ok(
             "WebAuthn creation options and ceremony ID.",
@@ -1379,7 +1475,9 @@ function accountPaths() {
         description:
           "Deletes a passkey and immediately revokes every session started with it (including the current one). Fails with `409 last_passkey` if it is the account's only remaining passkey.",
         security: bearer,
-        parameters: [passkeyId],
+        parameters: pathParameters(accountOperations.removePasskey.parameters, {
+          passkey: "Passkey ID from `Account.passkeys`.",
+        }),
         responses: {
           ...ok("Passkey removed.", ref("Account")),
           "404": {
@@ -1433,7 +1531,9 @@ function accountPaths() {
         description:
           "Signs out a single device session without affecting other signed-in devices.",
         security: bearer,
-        parameters: [sessionId],
+        parameters: pathParameters(accountOperations.revokeSession.parameters, {
+          session: "Device session ID from `GET /api/v1/account/sessions`.",
+        }),
         responses: {
           ...ok("Session revoked.", counted),
           "404": {
@@ -1452,7 +1552,7 @@ function accountPaths() {
         description:
           "Revokes the calling device's session (and clears the browser cookie) while leaving other devices signed in.",
         security: bearer,
-        requestBody: body(object({}, [])),
+        requestBody: body(fromZod(accountOperations.signOut.body)),
         responses: {
           ...ok("Current device signed out.", counted),
           ...accountErrors,
@@ -1467,7 +1567,7 @@ function accountPaths() {
         description:
           "Issues an 8-character single-use code valid for 5 minutes. Entering it in a supported channel links that channel user to this account.",
         security: bearer,
-        requestBody: body(object({}, [])),
+        requestBody: body(fromZod(accountOperations.createLinkCode.body)),
         responses: {
           ...ok("Link code created.", ref("LinkCode"), "201"),
           ...accountErrors,
@@ -1482,19 +1582,11 @@ function accountPaths() {
         description:
           "Called by a configured external channel backend (using its channel authentication) to redeem a user's one-time code and link the channel user ID to the account.",
         requestBody: body(
-          object({
-            channel: {
-              ...str("Configured external channel identifier."),
-              maxLength: 32,
-            },
-            user: {
-              ...str("User identifier within that channel."),
-              minLength: 1,
-              maxLength: 256,
-            },
-            code: {
-              ...str("8-character one-time link code provided by the user."),
-              maxLength: 32,
+          fromZod(accountOperations.redeemLinkCode.body, {
+            properties: {
+              channel: "Configured external channel identifier.",
+              user: "User identifier within that channel.",
+              code: "8-character one-time link code provided by the user.",
             },
           }),
         ),

@@ -1,6 +1,6 @@
 /**
- * The agent's API as /developers/api shows it, read from its OpenAPI
- * document (`openApiDocument` in pap-agent, the same document
+ * The agent's API as /developers/api shows it, read from its committed
+ * OpenAPI document (`@poppy-lab/pap-agent/openapi.json`, the same document
  * `/api/v1/openapi.json` serves and `packages/pap-agent/openapi.json`
  * holds). Nothing about an operation or a type is written here: the page
  * lists what the document has, so a route added to the document is on the
@@ -12,7 +12,7 @@
  * core's own source by `api-reference.test.ts`.
  */
 import type { AgentEventType } from "@poppy-lab/pap-agent/api-events";
-import { openApiDocument } from "@poppy-lab/pap-agent/openapi";
+import openApiDocumentJson from "@poppy-lab/pap-agent/openapi.json" with { type: "json" };
 
 export type Schema = {
   $ref?: string;
@@ -529,7 +529,7 @@ export const ERROR_CODES = [
 
 /** The API as the page shows it. */
 export function apiReference(
-  document: ApiDocument = openApiDocument() as ApiDocument,
+  document: ApiDocument = openApiDocumentJson as ApiDocument,
 ) {
   return {
     document,
