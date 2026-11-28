@@ -145,21 +145,24 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
         scopes: string;
       /** What a consent page approved, for a new grant. */
       let approved: Approved | undefined;
+      let consume: (() => void) | undefined;
       if (body.grant_type === "authorization_code") {
-        const code = codes.get(tokenHash(body.code ?? ""));
-        codes.delete(tokenHash(body.code ?? ""));
+        const key = tokenHash(body.code ?? "");
+        const code = codes.get(key);
+        if (!code || code.client !== id) throw new Error("invalid_grant");
         if (
-          !code ||
           code.expires < now ||
-          code.client !== id ||
           code.redirect !== body.redirect_uri ||
           !/^[A-Za-z0-9_-]{43,128}$/.test(body.code_verifier ?? "") ||
           hash(body.code_verifier ?? "") !== code.challenge ||
           // RFC 9449 §10: a code pushed with a DPoP proof needs that key.
           (code.dpop !== undefined && code.dpop !== binding)
-        )
+        ) {
+          codes.delete(key);
           throw new Error("invalid_grant");
+        }
         approved = code;
+        consume = () => codes.delete(key);
       } else if (body.grant_type === DEVICE_GRANT) {
         // §4.3, RFC 8628 §3.5: each poll says where the request stands.
         const key = tokenHash(body.device_code ?? "");
@@ -180,9 +183,8 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
           device.interval += 5;
           return polled("slow_down");
         }
-        // Its tokens are issued once.
-        devices.delete(key);
         approved = device.approved;
+        consume = () => devices.delete(key);
       }
       if (approved) {
         if (ctx.overShare(Object.values(state.grants), id, 1000))
@@ -193,6 +195,8 @@ export function mountTokens(app: Hono, ctx: Ctx, codes: ObjectMap<Code>) {
           : GRANT_MS;
         if (!Number.isFinite(lifetime) || lifetime <= 0)
           throw new Error("invalid_grant");
+        // Its tokens are issued once: consume only after grant checks pass.
+        consume?.();
         refreshToken = randomId();
         grantKey = tokenHash(refreshToken);
         grant = {

@@ -411,8 +411,7 @@ export function mountConversations(app: Hono, ctx: Ctx, tenancy: Tenancy) {
           const out = next();
           if (out === null) {
             end();
-            controller.close();
-            return;
+            break;
           }
           const t = Date.now();
           if (out || t - quiet >= STREAM_BEAT_MS) {
@@ -438,6 +437,11 @@ export function mountConversations(app: Hono, ctx: Ctx, tenancy: Tenancy) {
             };
           });
           wake = undefined;
+        }
+        try {
+          controller.close();
+        } catch {
+          // Already closed or cancelled.
         }
       },
       cancel: end,
@@ -711,6 +715,7 @@ export function mountConversations(app: Hono, ctx: Ctx, tenancy: Tenancy) {
           const earlier = parent.accepted?.[eventId];
           if (earlier && conversations[earlier]) {
             const direct = owned(c, earlier);
+            if (q.waiting) after(direct, q.cursor);
             remember(direct, 201);
             return answer(c, direct, 201, q);
           }
@@ -725,6 +730,8 @@ export function mountConversations(app: Hono, ctx: Ctx, tenancy: Tenancy) {
         body.message === undefined && invitation
           ? undefined
           : parseMessage(body.message);
+      if (q.waiting && q.cursor !== undefined)
+        throw new Refusal(400, "invalid_cursor");
       // Bounded per User and per tenant: closed, then least recently used.
       const evict = (list: Conversation[], max: number) =>
         [...list]
@@ -792,6 +799,7 @@ export function mountConversations(app: Hono, ctx: Ctx, tenancy: Tenancy) {
       const message = parseMessage(body.message);
       if (conv.closed) throw new Refusal(409, "conversation_closed");
       refuseWhileDirect(c, conv);
+      if (q.waiting) after(conv, q.cursor);
       if (conv.messages >= MESSAGES) {
         say(
           conv,
@@ -834,6 +842,7 @@ export function mountConversations(app: Hono, ctx: Ctx, tenancy: Tenancy) {
       if (seen) return answer(c, conv, 202, q);
       if (conv.closed) throw new Refusal(409, "conversation_closed");
       refuseWhileDirect(c, conv);
+      if (q.waiting) after(conv, q.cursor);
       if (conv.handoff === "none") {
         conv.handoff = "pending";
         state(conv);
@@ -859,6 +868,7 @@ export function mountConversations(app: Hono, ctx: Ctx, tenancy: Tenancy) {
       if (seen) return answer(c, conv, 202, q);
       if (conv.closed) throw new Refusal(409, "conversation_closed");
       refuseWhileDirect(c, conv);
+      if (q.waiting) after(conv, q.cursor);
       if (conv.handoff === "pending") {
         conv.handoff = "none";
         state(conv);
@@ -875,6 +885,7 @@ export function mountConversations(app: Hono, ctx: Ctx, tenancy: Tenancy) {
       const q = query(c);
       const conv = owned(c, idOf(c));
       const { seen, remember } = await post(c, `${BASE}/${conv.id}/close`);
+      if (!seen && q.waiting) after(conv, q.cursor);
       if (!seen) close(c, conv);
       if (!seen) remember(conv, 202);
       return answer(c, conv, 202, q);

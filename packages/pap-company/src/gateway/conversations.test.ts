@@ -195,3 +195,103 @@ it("keeps the 20 newest context fields", async () => {
   expect(x.context()).toMatchObject({ field_19: 19, one_more: 1 });
   expect(x.context()).not.toHaveProperty("0");
 });
+
+it("validates cursor before accepting a POST message with wait", async () => {
+  const seenTexts: string[] = [];
+  const x = await setup(
+    {},
+    {
+      mount: (_app, ctx) =>
+        ctx.converse((turn) => {
+          if (turn.message.text) seenTexts.push(turn.message.text);
+          return { replies: [{ text: "ok" }] };
+        }),
+    },
+  );
+  const started = await x.post(BASE, {
+    id: fresh(),
+    message: { author: { type: "agent" }, text: "start" },
+  });
+  expect(started.status).toBe(201);
+  const { conversation_id: id } = (await started.json()) as {
+    conversation_id: string;
+  };
+  const conv = () => x.store.value.tenants.shared!.conversations![id]!;
+  expect(seenTexts).toEqual(["start"]);
+  const firstEventId = conv().events[0]!.id;
+  const lastEventId = conv().events.at(-1)!.id;
+  const seqBefore = conv().seq;
+  const messagesBefore = conv().messages;
+
+  // Invalid cursor with wait=0: rejected before executing the agent or storing the request ID.
+  const reqId = fresh();
+  const invalid = await x.post(
+    `${BASE}/${id}/messages?wait=0&cursor=evt_999_bogus`,
+    {
+      id: reqId,
+      message: { author: { type: "agent" }, text: "should-not-run" },
+    },
+  );
+  expect(invalid.status).toBe(400);
+  expect(await invalid.json()).toEqual({ error: "invalid_cursor" });
+  expect(seenTexts).toEqual(["start"]);
+  expect(conv().seq).toBe(seqBefore);
+  expect(conv().messages).toBe(messagesBefore);
+
+  // Retrying the same request ID with a valid cursor succeeds and executes once.
+  const valid = await x.post(
+    `${BASE}/${id}/messages?wait=0&cursor=${lastEventId}`,
+    {
+      id: reqId,
+      message: { author: { type: "agent" }, text: "runs-now" },
+    },
+  );
+  expect(valid.status).toBe(202);
+  expect(seenTexts).toEqual(["start", "runs-now"]);
+
+  // Expired cursor with wait=0: push enough large messages to evict the first event.
+  for (let i = 0; i < 20; i++) {
+    const r = await x.post(`${BASE}/${id}/messages`, {
+      id: fresh(),
+      message: { author: { type: "agent" }, text: "x".repeat(4000) },
+    });
+    expect(r.status).toBe(202);
+  }
+  const countBeforeExpired = seenTexts.length;
+  const seqBeforeExpired = conv().seq;
+  const expired = await x.post(
+    `${BASE}/${id}/messages?wait=0&cursor=${firstEventId}`,
+    {
+      id: fresh(),
+      message: { author: { type: "agent" }, text: "expired-should-not-run" },
+    },
+  );
+  expect(expired.status).toBe(410);
+  expect(await expired.json()).toEqual({ error: "cursor_expired" });
+  expect(seenTexts).toHaveLength(countBeforeExpired);
+  expect(conv().seq).toBe(seqBeforeExpired);
+
+  // Close with wait=0 and invalid cursor does not close the conversation.
+  const badClose = await x.post(
+    `${BASE}/${id}/close?wait=0&cursor=evt_999_bogus`,
+    { id: fresh() },
+  );
+  expect(badClose.status).toBe(400);
+  expect(await badClose.json()).toEqual({ error: "invalid_cursor" });
+  expect(conv().closed).toBe(false);
+
+  // Starting a brand-new conversation with wait=0 and a cursor does not create it or run the agent.
+  const convCountBefore = Object.keys(
+    x.store.value.tenants.shared!.conversations!,
+  ).length;
+  const badStart = await x.post(`${BASE}?wait=0&cursor=evt_1_bogus`, {
+    id: fresh(),
+    message: { author: { type: "agent" }, text: "new-should-not-run" },
+  });
+  expect(badStart.status).toBe(400);
+  expect(await badStart.json()).toEqual({ error: "invalid_cursor" });
+  expect(seenTexts).toHaveLength(countBeforeExpired);
+  expect(
+    Object.keys(x.store.value.tenants.shared!.conversations!),
+  ).toHaveLength(convCountBefore);
+});

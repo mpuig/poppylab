@@ -303,3 +303,145 @@ it("caps concurrent in-flight lookups for distinct clients", async () => {
   gates[20]!();
   expect(await after).toBe(200);
 });
+
+it("serves stale cached metadata for a known client when in-flight lookups are saturated", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  const knownId = "https://known.example/client.json";
+  const knownJwks = "https://known.example/jwks.json";
+  const initialRedirect = "https://known.example/cb";
+  const updatedRedirect = "https://known.example/cb2";
+  let redirects = [initialRedirect];
+  const gates: Array<() => void> = [];
+  const fetched: string[] = [];
+
+  const x = await setup({
+    fetchJson: async (url) => {
+      fetched.push(url);
+      if (url === knownId)
+        return {
+          client_id: knownId,
+          jwks_uri: knownJwks,
+          redirect_uris: redirects,
+        };
+      if (url === knownJwks) return { keys: [] };
+      if (url.endsWith("/client.json")) {
+        await new Promise<void>((resolve) => {
+          gates.push(resolve);
+        });
+        return {
+          client_id: url,
+          jwks_uri: url.replace("/client.json", "/jwks.json"),
+          redirect_uris: [url.replace("/client.json", "/cb")],
+        };
+      }
+      return { keys: [] };
+    },
+  });
+
+  const open = async (clientId: string, redirectUri: string) =>
+    (
+      await x.app.request(
+        `/oauth/authorize?${new URLSearchParams({
+          response_type: "code",
+          client_id: clientId,
+          redirect_uri: redirectUri,
+          scope: "things:read",
+          state: "state_value_1234567890",
+          code_challenge: "a".repeat(43),
+          code_challenge_method: "S256",
+        })}`,
+      )
+    ).status;
+
+  // Warm the cache for the known client, then let its TTL expire.
+  const start = Date.now();
+  expect(await open(knownId, initialRedirect)).toBe(200);
+  expect(fetched).toEqual([knownId, knownJwks]);
+  vi.setSystemTime(start + 61000);
+  redirects = [initialRedirect, updatedRedirect];
+
+  // Saturate all 20 in-flight slots with distinct unknown clients.
+  const inflight = Array.from({ length: 20 }, (_, i) =>
+    open(
+      `https://slow-${i}.example/client.json`,
+      `https://slow-${i}.example/cb`,
+    ),
+  );
+  await Promise.resolve();
+  expect(gates).toHaveLength(20);
+
+  // Unknown 21st client gets 503, while the known client stays up from stale cache.
+  expect(
+    await open(
+      "https://unknown.example/client.json",
+      "https://unknown.example/cb",
+    ),
+  ).toBe(503);
+  expect(await open(knownId, initialRedirect)).toBe(200);
+  expect(fetched.filter((u) => u === knownId)).toHaveLength(1);
+
+  for (const release of gates) release();
+  expect(await Promise.all(inflight)).toEqual(Array(20).fill(200));
+
+  // Once saturation clears, the stale entry refreshes and picks up the new redirect URI.
+  expect(await open(knownId, updatedRedirect)).toBe(200);
+  expect(fetched.filter((u) => u === knownId)).toHaveLength(2);
+});
+
+it("serves stale cached metadata when refresh fails and refreshes after backoff", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  const id = "https://known.example/client.json";
+  const jwks = "https://known.example/jwks.json";
+  const initialRedirect = "https://known.example/cb";
+  const updatedRedirect = "https://known.example/cb2";
+  let fail = false;
+  let redirects = [initialRedirect];
+  const fetched: string[] = [];
+
+  const x = await setup({
+    fetchJson: async (url) => {
+      fetched.push(url);
+      if (fail) throw new Error("HTTP 503");
+      return url === id
+        ? { client_id: id, jwks_uri: jwks, redirect_uris: redirects }
+        : { keys: [] };
+    },
+  });
+
+  const open = async (redirectUri: string) =>
+    (
+      await x.app.request(
+        `/oauth/authorize?${new URLSearchParams({
+          response_type: "code",
+          client_id: id,
+          redirect_uri: redirectUri,
+          scope: "things:read",
+          state: "state_value_1234567890",
+          code_challenge: "a".repeat(43),
+          code_challenge_method: "S256",
+        })}`,
+      )
+    ).status;
+
+  const start = Date.now();
+  expect(await open(initialRedirect)).toBe(200);
+  expect(fetched).toEqual([id, jwks]);
+
+  // Cache expires while the client's metadata endpoint is failing: serve stale.
+  vi.setSystemTime(start + 61000);
+  fail = true;
+  expect(await open(initialRedirect)).toBe(200);
+  expect(fetched).toEqual([id, jwks, id]);
+
+  // Within the 15s failure backoff, keep serving stale without hammering fetchJson.
+  fail = false;
+  redirects = [initialRedirect, updatedRedirect];
+  vi.setSystemTime(start + 70000);
+  expect(await open(initialRedirect)).toBe(200);
+  expect(fetched).toEqual([id, jwks, id]);
+
+  // After the 15s backoff expires, refresh succeeds with the updated metadata.
+  vi.setSystemTime(start + 76001);
+  expect(await open(updatedRedirect)).toBe(200);
+  expect(fetched).toEqual([id, jwks, id, id, jwks]);
+});

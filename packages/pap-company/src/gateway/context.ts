@@ -299,12 +299,18 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
       throw new Error("invalid_client");
     const retryAt = failed.get(id);
     if (retryAt !== undefined) {
-      if (retryAt > Date.now()) throw new Error("invalid_client");
+      if (retryAt > Date.now()) {
+        if (cached) return cached;
+        throw new Error("invalid_client");
+      }
       failed.delete(id);
     }
     const pending = inflight.get(id);
     if (pending) return pending;
-    if (inflight.size >= MAX_INFLIGHT) throw new ClientLookupBusy();
+    if (inflight.size >= MAX_INFLIGHT) {
+      if (cached) return cached;
+      throw new ClientLookupBusy();
+    }
     const load = async (): Promise<ClientInfo> => {
       try {
         const metadata = (await deploy.fetchJson(id)) as {
@@ -350,6 +356,7 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
         failed.delete(id);
         if (failed.size >= 200) failed.delete(failed.keys().next().value!);
         failed.set(id, Date.now() + FAILED_TTL_MS);
+        if (cached) return cached;
         throw e;
       }
     };
@@ -432,6 +439,7 @@ export function createContext(def: CompanyDefinition, deploy: Deployment) {
     link,
     holderOf,
     sourceOf,
+    shareOf,
     overShare,
     client,
     proofOf,

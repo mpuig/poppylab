@@ -36,6 +36,8 @@ import {
 const REQUEST_URI = "urn:ietf:params:oauth:request_uri:";
 /** Resources one consent may grant (`selectResources`). */
 const MAX_RESOURCES = 100;
+/** Unanswered consent pages kept across all clients. */
+const MAX_PENDING = 500;
 
 /**
  * §4.2: a requested redirect URI is a registered one exactly, except for
@@ -323,12 +325,29 @@ export function mountSignIn(app: Hono, ctx: Ctx) {
 
   /**
    * A new consent page for this browser: its nonce, and the cookies that
-   * tie it to the browser. `undefined` when the client has too many open.
+   * tie it to the browser. When a client reaches its share, its oldest
+   * unanswered page is evicted so flooding a public `client_id` cannot lock
+   * new sign-ins out; returns `undefined` only when the global cap is full.
    */
   function open(c: Context, consent: Consent) {
-    for (const [id, p] of pending)
-      if (p.expires < Date.now()) pending.delete(id);
-    if (ctx.overShare(pending.values(), consent.client, 500)) return undefined;
+    const now = Date.now();
+    const own: string[] = [];
+    for (const [id, p] of pending) {
+      if (p.expires < now) pending.delete(id);
+      else if (p.client === consent.client) own.push(id);
+    }
+    const share = Math.ceil(MAX_PENDING * ctx.shareOf(consent.client));
+    if (own.length >= share) {
+      for (const id of own.slice(0, own.length - share + 1)) {
+        const evicted = pending.get(id);
+        pending.delete(id);
+        if (evicted?.device) {
+          const d = devices.get(evicted.device);
+          if (d?.consent === id) delete d.consent;
+        }
+      }
+    }
+    if (pending.size >= MAX_PENDING) return undefined;
     ctx.markDirty(c.req.raw);
     const nonce = randomId();
     pending.set(nonce, consent);

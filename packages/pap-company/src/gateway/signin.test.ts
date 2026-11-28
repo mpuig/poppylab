@@ -403,3 +403,115 @@ it("opens a second consent on the customer this browser allowed this agent befor
   ).toBe(200);
   expect(await open(browser)).toContain("opens on undefined");
 });
+
+it("evicts a client's oldest unanswered consent page when it hits its share instead of locking out sign-ins", async () => {
+  const x = await setup();
+  const open = async () => {
+    const r = await x.app.request(
+      `/oauth/authorize?${new URLSearchParams({ ...request, client_id: client })}`,
+    );
+    const cookie = r.headers.getSetCookie()[0]?.split(";")[0];
+    return { status: r.status, cookie };
+  };
+  const approve = (cookie: string) =>
+    x.form(
+      "/oauth/authorize",
+      { nonce: cookie.split("=")[1]!, decision: "approve", account: "elena" },
+      { cookie, origin },
+    );
+
+  // Fill the client's default share (20% of 500 = 100 pending consent pages).
+  const pages: string[] = [];
+  for (let i = 0; i < 100; i++) {
+    const page = await open();
+    expect(page.status).toBe(200);
+    pages.push(page.cookie!);
+  }
+  expect(Object.keys(x.store.value.consents!)).toHaveLength(100);
+
+  // The 101st request succeeds and evicts only the oldest unanswered page.
+  const newest = await open();
+  expect(newest.status).toBe(200);
+  expect(Object.keys(x.store.value.consents!)).toHaveLength(100);
+
+  // The evicted first page can no longer be approved; the second and newest still work.
+  expect((await approve(pages[0]!)).status).toBe(400);
+  expect((await approve(pages[1]!)).status).toBe(302);
+  expect((await approve(newest.cookie!)).status).toBe(302);
+});
+
+it("keeps other clients' consent pages intact during per-client eviction and enforces the global 500 cap", async () => {
+  const seed = (clientId: string, count: number, prefix: string) =>
+    Object.fromEntries(
+      Array.from({ length: count }, (_, i) => [
+        `${prefix}_${i}`,
+        {
+          client: clientId,
+          redirect,
+          state: request.state,
+          scopes: request.scope,
+          challenge: request.code_challenge,
+          expires: Date.now() + 300000,
+        },
+      ]),
+    );
+
+  // 4 other clients hold 400 pages and `client` holds its 100-page share (500 total).
+  const full = await setup();
+  Object.assign(full.store.value.consents!, {
+    ...seed("https://other-1.test/client.json", 100, "o1"),
+    ...seed("https://other-2.test/client.json", 100, "o2"),
+    ...seed("https://other-3.test/client.json", 100, "o3"),
+    ...seed("https://other-4.test/client.json", 100, "o4"),
+    ...seed(client, 100, "mine"),
+  });
+  const opened = await full.app.request(
+    `/oauth/authorize?${new URLSearchParams({ ...request, client_id: client })}`,
+  );
+  expect(opened.status).toBe(200);
+  expect(Object.keys(full.store.value.consents!)).toHaveLength(500);
+  expect(full.store.value.consents).not.toHaveProperty("mine_0");
+  expect(full.store.value.consents).toHaveProperty("mine_1");
+  expect(full.store.value.consents).toHaveProperty("o1_0");
+  expect(
+    Object.values(full.store.value.consents!).filter(
+      (p) => p.client !== client,
+    ),
+  ).toHaveLength(400);
+
+  // When 5 other clients fill all 500 slots, a 6th client gets 429 without evicting others.
+  const saturated = await setup();
+  Object.assign(saturated.store.value.consents!, {
+    ...seed("https://other-1.test/client.json", 100, "o1"),
+    ...seed("https://other-2.test/client.json", 100, "o2"),
+    ...seed("https://other-3.test/client.json", 100, "o3"),
+    ...seed("https://other-4.test/client.json", 100, "o4"),
+    ...seed("https://other-5.test/client.json", 100, "o5"),
+  });
+  const refused = await saturated.app.request(
+    `/oauth/authorize?${new URLSearchParams({ ...request, client_id: client })}`,
+  );
+  expect(refused.status).toBe(429);
+  expect(await error(refused)).toBe("rate_limited");
+  expect(Object.keys(saturated.store.value.consents!)).toHaveLength(500);
+});
+
+it("respects clientShares when evicting a client's oldest pending consent page", async () => {
+  const x = await setup({ clientShares: { [client]: 0.02 } }); // 10 of 500
+  const open = async () => {
+    const r = await x.app.request(
+      `/oauth/authorize?${new URLSearchParams({ ...request, client_id: client })}`,
+    );
+    expect(r.status).toBe(200);
+    return r.headers.getSetCookie()[0]!.split(";")[0]!.split("=")[1]!;
+  };
+  const nonces: string[] = [];
+  for (let i = 0; i < 10; i++) nonces.push(await open());
+  expect(Object.keys(x.store.value.consents!)).toHaveLength(10);
+
+  const eleventh = await open();
+  expect(Object.keys(x.store.value.consents!)).toHaveLength(10);
+  expect(x.store.value.consents).not.toHaveProperty(nonces[0]!);
+  expect(x.store.value.consents).toHaveProperty(nonces[1]!);
+  expect(x.store.value.consents).toHaveProperty(eleventh);
+});
